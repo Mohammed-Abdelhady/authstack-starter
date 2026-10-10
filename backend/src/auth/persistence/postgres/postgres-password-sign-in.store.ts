@@ -8,7 +8,7 @@ import {
   ACCOUNT_COLUMNS,
   accountStatement,
   linkedAccountsOf,
-  secondFactorEnabled,
+  secondFactorEnabled, // feature:totp
   storedId,
   toStoredAccount,
 } from '../../../user/persistence/postgres/postgres-account-rows';
@@ -40,7 +40,7 @@ export class PostgresPasswordSignInStore extends PasswordSignInStore {
         account: toStoredAccount(
           row,
           await linkedAccountsOf(this.database, row.id),
-          await secondFactorEnabled(this.database, row.id),
+          await secondFactorEnabled(this.database, row.id), // feature:totp
         ),
         passwordHash: row.password_hash ?? undefined,
       };
@@ -59,7 +59,7 @@ export class PostgresPasswordSignInStore extends PasswordSignInStore {
         ? toStoredAccount(
             row,
             await linkedAccountsOf(this.database, row.id),
-            await secondFactorEnabled(this.database, row.id),
+            await secondFactorEnabled(this.database, row.id), // feature:totp
           )
         : null;
     });

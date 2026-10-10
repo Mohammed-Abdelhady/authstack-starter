@@ -67,16 +67,18 @@ async function waysInOf(
     .where('user_id', '=', account.id)
     .orderBy('id')
     .execute();
+  // feature:passkeys:start
   const passkeys = await work
     .selectFrom('passkeys')
     .select((select) => select.fn.countAll<string>().as('rows'))
     .where('user_id', '=', account.id)
     .executeTakeFirstOrThrow();
+  // feature:passkeys:end
 
   return {
     emailSignIn: (account.auth_provider ?? EMAIL_PROVIDER) === EMAIL_PROVIDER,
     hasPassword: Boolean(account.password_hash),
     linkedProviders: links.map((link) => link.provider),
-    passkeys: Number.parseInt(passkeys.rows, 10),
+    passkeys: Number.parseInt(passkeys.rows, 10), // feature:passkeys
   };
 }

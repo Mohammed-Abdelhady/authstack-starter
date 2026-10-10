@@ -7,7 +7,7 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
   PostgresTestServer,
   startPostgresTestServer,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import {
   POSTGRES_HEALTH_POOL,
   POSTGRES_HEALTH_PROVIDERS,
@@ -177,7 +177,10 @@ describe('the PostgreSQL connection of the application', () => {
 
   it('refuses to build a pool without an address, and says which setting', () => {
     expect(() => postgresPoolConfig(new ConfigService({}))).toThrow(
-      'POSTGRES_URL is required when DATABASE_TYPE is postgres',
+      [
+        'POSTGRES_URL is required',
+        'when DATABASE_TYPE is postgres', // feature:database-choice
+      ].join(' '),
     );
   });
 

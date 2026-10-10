@@ -115,7 +115,7 @@ export const POSTGRES_SESSION_PROVIDERS: Provider[] = [
       new PostgresNativeSecurityEvents(recorder),
     inject: [SecurityEventRecorder],
   },
-  // MongoDB removes expired rows with TTL indexes. Here a job does.
+  // PostgreSQL has no index that expires rows. A job removes them.
   {
     provide: PostgresRetentionJob,
     useFactory: (database: PostgresDatabase, clock: Clock) =>

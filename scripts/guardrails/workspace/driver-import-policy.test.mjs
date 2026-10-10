@@ -22,7 +22,7 @@ const MONGO_ADAPTER_SPEC = 'src/user/persistence/mongo/services/account-linking.
 const MONGO_SCHEMA = 'src/user/persistence/mongo/schemas/user.schema.ts';
 const POSTGRES_ADAPTER = 'src/session/persistence/postgres/postgres-browser-issuance.store.ts';
 const TEST_SUPPORT = 'test/utils/session-authority-harness.ts';
-const PROTOTYPE = 'test/postgres-prototype/postgres-connection.ts';
+const POSTGRES_TEST_SUPPORT = 'test/postgres/postgres-connection.ts';
 
 let ESLint;
 let tseslint;
@@ -140,14 +140,14 @@ test('a PostgreSQL adapter folder under src imports its own drivers and no Mongo
   }
 });
 
-test('test support may hold MongoDB, and PostgreSQL only inside the prototype folder', async () => {
+test('test support may hold MongoDB, and PostgreSQL only inside its test folder', async () => {
   for (const driver of MONGO_DRIVERS) {
     assert.deepEqual(await reportedLines(TEST_SUPPORT, valueImport(driver)), [], driver);
-    assert.deepEqual(await reportedLines(PROTOTYPE, valueImport(driver)), [], driver);
+    assert.deepEqual(await reportedLines(POSTGRES_TEST_SUPPORT, valueImport(driver)), [], driver);
   }
   for (const driver of POSTGRES_DRIVERS) {
     assert.deepEqual(await reportedLines(TEST_SUPPORT, valueImport(driver)), [1], driver);
-    assert.deepEqual(await reportedLines(PROTOTYPE, valueImport(driver)), [], driver);
+    assert.deepEqual(await reportedLines(POSTGRES_TEST_SUPPORT, valueImport(driver)), [], driver);
   }
 });
 

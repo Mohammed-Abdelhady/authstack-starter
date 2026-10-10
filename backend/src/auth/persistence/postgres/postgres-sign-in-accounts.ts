@@ -1,8 +1,4 @@
 import { EMAIL_PROVIDER } from '../../../common/constants/oauth-providers';
-import {
-  AccountReader,
-  secondFactorEnabled,
-} from '../../../user/persistence/postgres/postgres-account-rows';
 import { SignInAccount } from '../../utils/authenticated-user.util';
 
 /** What the last step of a sign-in needs of an account row. */
@@ -26,9 +22,10 @@ export interface SignInRow {
   is_verified: boolean;
 }
 
+/** The account a sign-in finishes with, as its row was read. */
 export function toSignInAccount(
   row: SignInRow,
-  twoFactorEnabled: boolean,
+  twoFactorEnabled = false, // feature:totp
 ): SignInAccount {
   return {
     id: row.id,
@@ -38,16 +35,8 @@ export function toSignInAccount(
     permissions: [...row.permissions],
     authProvider: row.auth_provider ?? EMAIL_PROVIDER,
     isVerified: row.is_verified,
-    twoFactorEnabled,
+    twoFactorEnabled, // feature:totp
   };
-}
-
-/** The row with the state of its second factor, read by the same reader. */
-export async function signInAccountOfRow(
-  reader: AccountReader,
-  row: SignInRow,
-): Promise<SignInAccount> {
-  return toSignInAccount(row, await secondFactorEnabled(reader, row.id));
 }
 
 /**

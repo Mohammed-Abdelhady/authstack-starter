@@ -18,6 +18,7 @@ import {
   readString,
   readStringArray,
 } from './read.js';
+import { readEnvExamples, readJsonKeys, readRenames, readRewrites } from './read-database.js';
 
 export interface Dimensions {
   targets: Record<string, Target>;
@@ -94,27 +95,48 @@ function readDatabase(id: string, value: unknown, problems: string[]): Database 
     problems.push(`databases.${id} must be an object`);
     return emptyDatabase();
   }
+  const where = `databases.${id}`;
   return {
-    label: readString(value.label, `databases.${id}.label`, problems),
-    default: readBoolean(value.default, `databases.${id}.default`, problems),
-    files: readPathArray(value.files ?? [], `databases.${id}.files`, problems),
-    envVars: readStringArray(value.envVars ?? [], `databases.${id}.envVars`, problems),
+    label: readString(value.label, `${where}.label`, problems),
+    default: readBoolean(value.default, `${where}.default`, problems),
+    files: readPathArray(value.files ?? [], `${where}.files`, problems),
+    docs: readPathArray(value.docs ?? [], `${where}.docs`, problems),
+    envVars: readStringArray(value.envVars ?? [], `${where}.envVars`, problems),
     composeServices: readStringArray(
       value.composeServices ?? [],
-      `databases.${id}.composeServices`,
+      `${where}.composeServices`,
       problems,
     ),
-    status: readStatus(value.status, `databases.${id}.status`, problems),
+    packages: readStringArray(value.packages ?? [], `${where}.packages`, problems),
+    scripts: readStringArray(value.scripts ?? [], `${where}.scripts`, problems),
+    jsonKeys: readJsonKeys(value.jsonKeys, `${where}.jsonKeys`, problems),
+    buildApprovals: readStringArray(
+      value.buildApprovals ?? [],
+      `${where}.buildApprovals`,
+      problems,
+    ),
+    renames: readRenames(value.renames, `${where}.renames`, problems),
+    rewrites: readRewrites(value.rewrites, `${where}.rewrites`, problems),
+    envExamples: readEnvExamples(value.envExamples, `${where}.envExamples`, problems),
+    status: readStatus(value.status, `${where}.status`, problems),
   };
 }
 
-function emptyDatabase(): Database {
+export function emptyDatabase(): Database {
   return {
     label: '',
     default: false,
     files: [],
+    docs: [],
     envVars: [],
     composeServices: [],
+    packages: [],
+    scripts: [],
+    jsonKeys: {},
+    buildApprovals: [],
+    renames: {},
+    rewrites: [],
+    envExamples: [],
     status: 'planned',
   };
 }
@@ -230,13 +252,7 @@ export function legacyDimensions(): Dimensions {
     },
     shared: {},
     databases: {
-      mongodb: {
-        label: 'MongoDB',
-        default: true,
-        files: [],
-        envVars: [],
-        composeServices: [],
-      },
+      mongodb: { ...emptyDatabase(), label: 'MongoDB', default: true, status: undefined },
     },
     options: {},
     presets: {},

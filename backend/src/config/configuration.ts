@@ -16,9 +16,11 @@ export interface Configuration {
     nodeEnv: string;
     apiUrl: string;
   };
+  // feature:mongodb:start
   database: {
     uri: string;
   };
+  // feature:mongodb:end
   cors: {
     clientUrl: string;
   };
@@ -115,9 +117,11 @@ const configuration = (): Configuration => {
       nodeEnv: process.env.NODE_ENV || 'development',
       apiUrl,
     },
+    // feature:mongodb:start
     database: {
       uri: process.env.MONGO_URI || 'mongodb://localhost:27017/authboiler',
     },
+    // feature:mongodb:end
     cors: {
       clientUrl,
     },

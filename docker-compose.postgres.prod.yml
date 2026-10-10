@@ -1,0 +1,199 @@
+services:
+  postgres:
+    # The server needs PostgreSQL 18 or newer: new ids come from uuidv7().
+    image: postgres:18
+    container_name: authboiler-postgres-prod
+    restart: unless-stopped
+    expose:
+      - '5432'
+    volumes:
+      # The image of version 18 keeps its data under this folder.
+      - postgres-data-prod:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-authboiler}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Applies the pending migrations once and exits. The server only checks them
+  # when it starts and never applies one, so it waits for this to succeed.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: production
+    container_name: authboiler-migrate-prod
+    restart: 'no'
+    command: ['node', 'dist/common/persistence/postgres/postgres-migrate.cli', 'up']
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      DATABASE_TYPE: postgres # feature:database-choice
+      POSTGRES_URL: postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-authboiler}
+      CLIENT_URL: ${CLIENT_URL:-https://yourdomain.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network-prod
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: production
+    container_name: authboiler-backend-prod
+    restart: unless-stopped
+    expose:
+      - '5000'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_TYPE: postgres # feature:database-choice
+      POSTGRES_URL: postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-authboiler}
+      CLIENT_URL: ${CLIENT_URL:-https://yourdomain.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:5000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://yourdomain.com}
+    container_name: authboiler-frontend-prod
+    restart: unless-stopped
+    expose:
+      - '3000'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:3000/en/auth/login',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+  nginx:
+    build:
+      context: ./nginx
+    container_name: authboiler-nginx-prod
+    restart: unless-stopped
+    ports:
+      - '80:8080'
+      - '443:8443'
+    volumes:
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-webroot:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    environment:
+      NGINX_HOST: ${NGINX_HOST:-yourdomain.com}
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8080/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - app-network-prod
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: authboiler-certbot-prod
+    restart: unless-stopped
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - app-network-prod
+
+volumes:
+  postgres-data-prod:
+    driver: local
+  certbot-webroot:
+    driver: local
+  certbot-conf:
+    driver: local
+
+networks:
+  app-network-prod:
+    driver: bridge

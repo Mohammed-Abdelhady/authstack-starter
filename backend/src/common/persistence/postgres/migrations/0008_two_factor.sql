@@ -1,7 +1,7 @@
 -- The second factor of an account and the sign-ins waiting for one.
--- MongoDB keeps the state inside the user document. Here it is one row per
--- account and one row per recovery code, both gone with the account. Builds on
--- the users table of 0001 and touches no column of it.
+-- The state is one row per account and one row per recovery code, both gone
+-- with the account. Builds on the users table of 0001 and touches no column
+-- of it.
 
 CREATE TABLE user_two_factor (
   user_id uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,

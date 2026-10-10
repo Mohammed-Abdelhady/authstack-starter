@@ -31,8 +31,11 @@ Rules:
 - A client id or a shared id is a marker name too: `// feature:native-expo` marks
   a line only the Expo app needs, `// feature:native-core` one any mobile app needs.
 - A database id is a marker name as well: `// feature:postgres` marks a line only
-  the PostgreSQL adapter needs. A database that is not offered yet is never
-  chosen, so its lines are always removed.
+  the PostgreSQL adapter needs, `// feature:mongodb` one only the MongoDB adapter
+  needs. The lines of the database that was not chosen are removed.
+- `// feature:database-choice` marks a line that only chooses between the two
+  databases, such as the `DATABASE_TYPE` setting and its validation. A generated
+  project carries one database, so these lines are removed from every project.
 - Every id has to exist in the manifest, and a marker that names something else
   fails the run with the file and line. That is on purpose: a typo would
   otherwise delete the line from every project.
@@ -40,6 +43,15 @@ Rules:
   JSON is left alone; markdown uses `<!-- feature:id:start -->` and
   `<!-- feature:id:end -->` blocks with the same rules, and `<!-- feature:id -->`
   at the end of a line.
+- Files whose comments start with `#` take `# feature:id` with the same rules:
+  `.yml`, `.yaml`, `.sh`, `Dockerfile`, `.dockerignore` and `.gitignore`. In a
+  Dockerfile and in an ignore file a `#` starts a comment only at the beginning
+  of a line, so use the block form there. These files are not reformatted after
+  their markers are taken out.
+- A file that a marker edit touches is formatted with the project's prettier
+  configuration afterwards. Mark a line in a file that is not formatted that
+  way and every project gets the reformatted file, so use a database `rewrites`
+  entry for such a file instead.
 - A markdown table row carries its marker as one extra last cell that holds
   nothing else. Prettier keeps that shape, and GitHub does not render a cell the
   header has no column for. The cell goes with the marker, so the row that stays

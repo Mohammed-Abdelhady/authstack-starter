@@ -1,7 +1,6 @@
 -- WebAuthn credentials and the challenges handed out for them.
--- MongoDB keeps passkeys in a collection of their own with a plain reference
--- to the account, so the account column here is a plain reference too: a
--- passkey outlives its account on both databases, and sign-in refuses it.
+-- The account column is a plain reference, not a foreign key: a passkey
+-- outlives its account, and sign-in refuses it.
 
 CREATE TABLE passkeys (
   id uuid PRIMARY KEY DEFAULT uuidv7(),

@@ -9,7 +9,10 @@ import {
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { Kysely } from 'kysely';
 import { Pool, PoolConfig } from 'pg';
-import { POSTGRES_POOL_MAX_DEFAULT } from '../../../config/env.storage.schema';
+import {
+  POSTGRES_POOL_MAX_DEFAULT,
+  POSTGRES_URL_REQUIRED,
+} from '../../../config/env.storage.schema';
 import { NODE_TIMERS, ScheduleTimers, withinDelay } from './owned-schedule';
 import { openPostgresDatabase, PostgresTables } from './postgres-database';
 
@@ -54,7 +57,7 @@ export const POOL_END_WAIT_MS = 5_000;
 function addressOf(config: ConfigService): string {
   const connectionString = config.get<string>('POSTGRES_URL');
   if (!connectionString) {
-    throw new Error('POSTGRES_URL is required when DATABASE_TYPE is postgres');
+    throw new Error(POSTGRES_URL_REQUIRED);
   }
   return connectionString;
 }

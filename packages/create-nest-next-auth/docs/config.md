@@ -18,6 +18,10 @@
 `rules` takes `strict` or `standard`, spelled exactly as the flag takes them.
 Any other value stops the run with exit code 2.
 
+`database` takes `mongodb` or `postgres`. A file without the key gives a MongoDB
+project, as it did before there was a choice. An unknown name, or more than one
+name, stops the run with exit code 2.
+
 A flag overrides the config file, the config file overrides the preset, and the
 preset overrides the manifest defaults. A UTF-8 byte order mark is accepted and
 stripped.

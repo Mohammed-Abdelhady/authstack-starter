@@ -140,7 +140,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
         .returning(SIGN_IN_COLUMNS)
         .executeTakeFirstOrThrow();
       // A row stored a moment ago in this unit of work has no second factor.
-      return new PostgresActivatedAccount(toSignInAccount(row, false));
+      return new PostgresActivatedAccount(toSignInAccount(row));
     } catch (error) {
       throw accountFailure(error);
     }

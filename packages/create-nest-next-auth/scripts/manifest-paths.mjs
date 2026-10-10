@@ -12,6 +12,10 @@ function ownerProblems(where, owner, tracked) {
     if (!tracked.some((path) => matchesGlob(path, file)))
       problems.push(`${where}.envFiles names "${file}", which matches no tracked file`);
   }
+  for (const source of Object.keys(owner.renames ?? {})) {
+    if (!tracked.includes(source))
+      problems.push(`${where}.renames names "${source}", which is not a tracked file`);
+  }
   for (const workspace of owner.workspaces ?? []) {
     if (!tracked.includes(`${workspace}/${WORKSPACE_MANIFEST}`))
       problems.push(

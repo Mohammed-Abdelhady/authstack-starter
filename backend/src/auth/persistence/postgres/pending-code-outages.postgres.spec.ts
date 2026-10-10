@@ -12,8 +12,9 @@ import {
   pendingCodeStatements,
   raisedBy,
 } from '../../../../test/utils/auth/store-outage-cases';
-import { closedPort } from '../../../../test/postgres-prototype/closed-port';
+import { closedPort } from '../../../../test/postgres/closed-port';
 
+// feature:mongodb:start
 jest.mock('mongoose', () => {
   throw new Error('mongoose was loaded on the PostgreSQL path');
 });
@@ -23,6 +24,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 const A_UUID = '018f3c5e-7b1a-7c3e-9d2f-0a1b2c3d4e5f';
 
@@ -46,8 +48,8 @@ describe('PostgreSQL statements that commit by themselves', () => {
       passwordResets: new PostgresPasswordResetCodeStore(database),
     };
 
-    // Records from before purposes exist only on MongoDB, so this adapter
-    // answers that one without a statement.
+    // No record without a purpose can exist, so this adapter answers that one
+    // without a statement.
     expect(await raisedBy(pendingCodeStatements(stores, A_UUID))).toEqual({
       ...PENDING_CODE_OUTAGES,
       'registration.clearLegacyBlocker': 'resolved',

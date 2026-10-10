@@ -106,6 +106,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
     });
   }
 
+  // feature:passkeys:start
   countPasskeys(userId: string): Promise<number> {
     return accountStatement(async () => {
       const row = await this.database
@@ -116,6 +117,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
       return Number.parseInt(row.rows, 10);
     });
   }
+  // feature:passkeys:end
 
   readAccount(
     unitOfWork: UnitOfWork,

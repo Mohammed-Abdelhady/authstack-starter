@@ -1,5 +1,5 @@
-import type { Model } from 'mongoose';
-import type { MailCounter } from '../../src/auth/persistence/mongo/schemas/mail-counter.schema';
+import type { Model } from 'mongoose'; // feature:mongodb
+import type { MailCounter } from '../../src/auth/persistence/mongo/schemas/mail-counter.schema'; // feature:mongodb
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
   MailCounterPurpose,
@@ -32,6 +32,7 @@ export function mailCounterRecord(seed: MailCounterSeed) {
   };
 }
 
+// feature:mongodb:start
 /**
  * Seeds a counter the way the service writes one: the expiry is the window
  * start plus the window derived from the code lifetime.
@@ -42,3 +43,4 @@ export async function seedMailCounter(
 ): Promise<void> {
   await counters.create(mailCounterRecord(seed));
 }
+// feature:mongodb:end

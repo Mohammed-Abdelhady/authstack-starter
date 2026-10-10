@@ -1,11 +1,11 @@
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../test/postgres/server/postgres-test-server';
 import {
   StartedFixtureRun,
   startFixtureSuites,
-} from '../../../test/postgres-prototype/teardown-fixtures/run-fixture-suites';
+} from '../../../test/postgres/teardown-fixtures/run-fixture-suites';
 
 const ABANDONING_SUITE = 'a suite whose cases abandon open work';
 const NEXT_SUITE = 'the suite that runs next';

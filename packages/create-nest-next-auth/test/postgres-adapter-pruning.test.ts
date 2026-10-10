@@ -68,7 +68,7 @@ it('leaves nothing of PostgreSQL in a neutral persistence file once its lines ar
       source,
       file,
       new Set(['mongodb']),
-      new Set(['mongodb', 'postgres']),
+      new Set(['mongodb', 'postgres', 'database-choice']),
     );
     const lines = content.split('\n');
     lines.forEach((line, index) => {

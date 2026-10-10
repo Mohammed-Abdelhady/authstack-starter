@@ -1,5 +1,5 @@
 import type { FeatureStatus } from '../types.js';
-import { PACKAGE_MANIFEST } from '../constants/index.js';
+import { DATABASE_CHOICE_MARKER_ID, PACKAGE_MANIFEST } from '../constants/index.js';
 import { matchesAnyGlob } from '../utils/glob.js';
 import { isAvailable } from './select.js';
 import type { Dimensions } from './validate-dimensions.js';
@@ -72,7 +72,8 @@ function checkUniqueIds(dimensions: Dimensions, featureIds: string[], problems: 
     ['options', Object.keys(dimensions.options)],
     ['features', featureIds],
   ];
-  const seen = new Map<string, string>();
+  // The marker for lines that only choose between databases is no one's id.
+  const seen = new Map<string, string>([[DATABASE_CHOICE_MARKER_ID, 'the database choice marker']]);
   for (const [dimension, ids] of groups) {
     for (const id of ids) {
       const first = seen.get(id);
@@ -148,7 +149,19 @@ function checkPlannedFiles(dimensions: Dimensions, problems: string[]): void {
       'databases',
       id,
       database.status,
-      [database.files, database.envVars, database.composeServices],
+      [
+        database.files,
+        database.docs,
+        database.envVars,
+        database.composeServices,
+        database.packages,
+        database.scripts,
+        database.buildApprovals,
+        Object.keys(database.jsonKeys),
+        Object.keys(database.renames),
+        database.rewrites.map((rewrite) => rewrite.from),
+        database.envExamples.map((example) => example.path),
+      ],
       problems,
     );
   }

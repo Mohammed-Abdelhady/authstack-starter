@@ -1,14 +1,14 @@
 import { Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
-  openPrototypeConnection,
-  PrototypeConnection,
-} from '../../../../test/postgres-prototype/postgres-connection';
+  openTestConnection,
+  TestConnection,
+} from '../../../../test/postgres/postgres-connection';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import { FrozenClock } from '../../../../test/utils/frozen-clock';
 import { HandTimers } from './hand-timers.harness-spec';
 import { PostgresRetentionJob, removeExpiredRows } from './postgres-retention';
@@ -18,10 +18,10 @@ const ONE_HOUR_MS = 3_600_000;
 const at = (offsetMs: number): Date => new Date(NOW.getTime() + offsetMs);
 
 describe('PostgreSQL retention', () => {
-  let connection: PrototypeConnection;
+  let connection: TestConnection;
 
   beforeAll(async () => {
-    connection = await openPrototypeConnection();
+    connection = await openTestConnection();
   }, POSTGRES_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -65,6 +65,7 @@ describe('PostgreSQL retention', () => {
     }).toEqual({ removed: 2, left: ['expires-in-a-moment'] });
   });
 
+  // feature:magic-link:start
   it('keeps a magic link for an hour after it stopped working, for the hourly count', async () => {
     const link = (name: string, expiresAt: Date) => ({
       email: `${name}@example.test`,
@@ -100,6 +101,7 @@ describe('PostgreSQL retention', () => {
       ],
     });
   });
+  // feature:magic-link:end
 
   it('removes an event when its retention ends, whenever it happened', async () => {
     const event = (name: string, purgeAfter: Date) => ({
@@ -153,16 +155,16 @@ describe('PostgreSQL retention', () => {
     }).toEqual({ first: 4, afterFirst: 2, second: 1, left: ['live'] });
   });
 
-  it('reads every table MongoDB expires rows from, and finds nothing in an empty database', async () => {
+  it('reads every table whose rows expire, and finds nothing in an empty database', async () => {
     expect((await removeExpiredRows(connection.database, NOW)).removed).toEqual(
       {
         mail_counters: 0,
         pending_registrations: 0,
         pending_password_resets: 0,
-        pending_magic_links: 0,
+        pending_magic_links: 0, // feature:magic-link
         browser_proofs: 0,
-        two_factor_challenges: 0,
-        passkey_challenges: 0,
+        two_factor_challenges: 0, // feature:totp
+        passkey_challenges: 0, // feature:passkeys
         authorization_transactions: 0,
         native_credentials: 0,
         native_dpop_proof_ids: 0,

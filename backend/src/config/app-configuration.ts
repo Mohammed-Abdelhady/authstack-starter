@@ -1,5 +1,5 @@
 import { ConfigModule } from '@nestjs/config';
-import { confirmStorageChoice } from '../common/persistence/storage-choice';
+import { confirmStorageChoice } from '../common/persistence/storage-choice'; // feature:database-choice
 import configuration from './configuration';
 import { validateEnvironment } from './env.validation';
 
@@ -18,7 +18,7 @@ export const APP_CONFIGURATION = ConfigModule.forRoot({
   },
   validate: (environment: Record<string, unknown>) => {
     const validated = validateEnvironment(environment);
-    confirmStorageChoice(validated.DATABASE_TYPE);
+    confirmStorageChoice(validated.DATABASE_TYPE); // feature:database-choice
     return validated;
   },
 });

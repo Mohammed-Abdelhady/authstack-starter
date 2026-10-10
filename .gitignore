@@ -35,11 +35,13 @@ test-results/
 playwright-report/
 blob-report/
 .auth/
+# feature:mongodb:start
 .mongodb-binaries/
 mongodb-memory-server/
 
 # Local MongoDB replica set data (created by the local start steps)
 mongodb-data/
+# feature:mongodb:end
 
 # Logs
 *.log

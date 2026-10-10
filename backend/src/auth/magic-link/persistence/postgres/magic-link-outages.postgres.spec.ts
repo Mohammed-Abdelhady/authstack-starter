@@ -9,12 +9,13 @@ import {
   PostgresMagicLinkStore,
 } from './postgres-magic-link.store';
 import { raisedBy } from '../../../../../test/utils/auth/store-outage-cases';
-import { closedPort } from '../../../../../test/postgres-prototype/closed-port';
+import { closedPort } from '../../../../../test/postgres/closed-port';
 import {
   MAGIC_LINK_OUTAGES,
   magicLinkStatements,
 } from '../../contract/magic-link-outage-cases.harness-spec';
 
+// feature:mongodb:start
 jest.mock('mongoose', () => {
   throw new Error('mongoose was loaded on the PostgreSQL path');
 });
@@ -24,6 +25,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 describe('PostgreSQL magic link statements that commit by themselves', () => {
   let database: Kysely<PostgresTables>;

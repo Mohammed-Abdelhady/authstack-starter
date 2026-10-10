@@ -8,11 +8,15 @@ import tseslint from 'typescript-eslint';
  * A database driver is the adapter's business. Everything else reaches the
  * store through a port, so the server can run on either database.
  */
+// feature:mongodb:start
 const MONGO_ADAPTER = 'src/**/persistence/mongo/**';
-const POSTGRES_ADAPTER = 'src/**/persistence/postgres/**';
-const POSTGRES_PROTOTYPE = 'test/postgres-prototype/**';
 const MONGO_DRIVERS = ['mongoose', 'mongodb', '@nestjs/mongoose'];
+// feature:mongodb:end
+// feature:postgres:start
+const POSTGRES_ADAPTER = 'src/**/persistence/postgres/**';
+const POSTGRES_TEST_SUPPORT = 'test/postgres/**';
 const POSTGRES_DRIVERS = ['kysely', 'pg'];
+// feature:postgres:end
 
 /** Bans the packages and everything under them, type-only imports included. */
 function driverBan(drivers, adapter) {
@@ -80,12 +84,19 @@ export default tseslint.config(
   },
   {
     files: ['src/**/*.ts'],
-    ignores: [MONGO_ADAPTER, POSTGRES_ADAPTER],
+    ignores: [
+      MONGO_ADAPTER, // feature:mongodb
+      POSTGRES_ADAPTER, // feature:postgres
+    ],
     rules: driverBan(
-      [...MONGO_DRIVERS, ...POSTGRES_DRIVERS],
+      [
+        ...MONGO_DRIVERS, // feature:mongodb
+        ...POSTGRES_DRIVERS, // feature:postgres
+      ],
       'a persistence adapter folder',
     ),
   },
+  // feature:database-choice:start
   {
     files: [MONGO_ADAPTER],
     rules: driverBan(POSTGRES_DRIVERS, 'the PostgreSQL adapter'),
@@ -94,11 +105,16 @@ export default tseslint.config(
     files: [POSTGRES_ADAPTER],
     rules: driverBan(MONGO_DRIVERS, 'the MongoDB adapter'),
   },
+  // feature:database-choice:end
+  // feature:postgres:start
   {
+    // feature:database-choice:start
     // Test support may hold a MongoDB connection of its own. PostgreSQL has one
-    // home there, the prototype folder.
+    // home there, the PostgreSQL test folder.
+    // feature:database-choice:end
     files: ['test/**/*.ts'],
-    ignores: [POSTGRES_PROTOTYPE],
+    ignores: [POSTGRES_TEST_SUPPORT],
     rules: driverBan(POSTGRES_DRIVERS, 'the PostgreSQL adapter'),
   },
+  // feature:postgres:end
 );

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { format, getFileInfo, resolveConfig } from 'prettier';
 import { describe, expect, it } from 'vitest';
+import { databaseMarkerIds } from '../../src/manifest/dimensions.js';
 import { loadManifest } from '../../src/manifest/load.js';
 import { stripDocMarkers } from '../../src/prune/doc-markers.js';
 import { REPO_ROOT } from '../support/combination-helpers.js';
@@ -18,6 +19,7 @@ const known = new Set([
   ...Object.keys(manifest.options),
   ...Object.keys(manifest.targets),
   ...Object.keys(manifest.shared),
+  ...databaseMarkerIds(manifest),
 ]);
 
 // The installer package is not part of a generated project, so nothing strips it.

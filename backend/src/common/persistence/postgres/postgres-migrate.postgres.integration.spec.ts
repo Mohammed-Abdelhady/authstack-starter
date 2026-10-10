@@ -5,7 +5,7 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
   PostgresTestServer,
   startPostgresTestServer,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import {
   MIGRATE_COMMAND,
   migrateCommandOf,
@@ -24,12 +24,15 @@ const EVERY_MIGRATION = [
   '0005_accounts.sql',
   '0006_session_authority_revocation.sql',
   '0007_applications_grants.sql',
-  '0008_two_factor.sql',
-  '0009_passkeys.sql',
+  '0008_two_factor.sql', // feature:totp
+  '0009_passkeys.sql', // feature:passkeys
   '0010_native_sign_in.sql',
   '0011_session_listing.sql',
   '0012_retention_indexes.sql',
+  '0013_magic_links.sql', // feature:magic-link
 ];
+/** What is left to apply once the first four files are in. */
+const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
 
 describe('the PostgreSQL migration command', () => {
   let server: PostgresTestServer;
@@ -45,6 +48,7 @@ describe('the PostgreSQL migration command', () => {
     // A pool reports its connections as closed before their sockets are, so
     // the server stopping below can still end one. That is not a failure.
     for (const pool of pools) pool.on('error', () => undefined);
+    admin?.on('error', () => undefined);
     await Promise.all(pools.map((pool) => pool.end()));
     await admin?.end();
     await server?.stop();
@@ -148,7 +152,7 @@ describe('the PostgreSQL migration command', () => {
         status: {
           exit: 0,
           said: [
-            'Applied: 12',
+            `Applied: ${EVERY_MIGRATION.length}`,
             'Pending: none',
             'Not carried by this build: none',
           ],
@@ -203,7 +207,7 @@ describe('the PostgreSQL migration command', () => {
         status: {
           exit: 1,
           said: [
-            'Applied: 12',
+            `Applied: ${EVERY_MIGRATION.length}`,
             'Pending: none',
             'Not carried by this build: 9999_from_a_newer_build.sql',
           ],
@@ -275,7 +279,7 @@ describe('the PostgreSQL migration command', () => {
           exit: 1,
           said: [
             'Applied: 4',
-            'Pending: 0005_accounts.sql, 0006_session_authority_revocation.sql, 0007_applications_grants.sql, 0008_two_factor.sql, 0009_passkeys.sql, 0010_native_sign_in.sql, 0011_session_listing.sql, 0012_retention_indexes.sql',
+            `Pending: ${AFTER_THE_FOURTH.join(', ')}`,
             'Not carried by this build: none',
           ],
         },
@@ -288,9 +292,7 @@ describe('the PostgreSQL migration command', () => {
         refused: 'StorageNotReadyError',
         again: {
           exit: 0,
-          said: [
-            'Applied: 0005_accounts.sql, 0006_session_authority_revocation.sql, 0007_applications_grants.sql, 0008_two_factor.sql, 0009_passkeys.sql, 0010_native_sign_in.sql, 0011_session_listing.sql, 0012_retention_indexes.sql',
-          ],
+          said: [`Applied: ${AFTER_THE_FOURTH.join(', ')}`],
         },
         recorded: EVERY_MIGRATION,
         after: 'serves',

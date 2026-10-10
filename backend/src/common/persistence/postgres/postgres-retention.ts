@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { sql } from 'kysely';
 import { describeDriverError } from '../../utils/describe-error.util';
-import { MAGIC_LINK_RETENTION_SECONDS } from '../../../auth/magic-link/constants/magic-link.constants';
+import { MAGIC_LINK_RETENTION_SECONDS } from '../../../auth/magic-link/constants/magic-link.constants'; // feature:magic-link
 import { NODE_TIMERS, OwnedSchedule, ScheduleTimers } from './owned-schedule';
 import { PostgresDatabase } from './postgres-connection';
 import { PostgresTables } from './postgres-database';
@@ -23,7 +23,7 @@ export interface RetentionRule {
 }
 
 /**
- * Every table MongoDB empties with a TTL index, with the same delay. How long
+ * Every table whose rows expire, with how long each is kept. How long
  * a row is kept is a separate matter from when it stops being valid: no check
  * of a code, a proof, a token or a session reads this list or waits for this
  * job. Each compares the expiry itself, so a row this job has not reached yet
@@ -33,15 +33,17 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'mail_counters', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_registrations', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_password_resets', column: 'expires_at', keepForMs: 0 },
+  // feature:magic-link:start
   {
     // Kept an hour longer, for the hourly count of requested links.
     table: 'pending_magic_links',
     column: 'expires_at',
     keepForMs: MAGIC_LINK_RETENTION_SECONDS * MS_PER_SECOND,
   },
+  // feature:magic-link:end
   { table: 'browser_proofs', column: 'expires_at', keepForMs: 0 },
-  { table: 'two_factor_challenges', column: 'expires_at', keepForMs: 0 },
-  { table: 'passkey_challenges', column: 'expires_at', keepForMs: 0 },
+  { table: 'two_factor_challenges', column: 'expires_at', keepForMs: 0 }, // feature:totp
+  { table: 'passkey_challenges', column: 'expires_at', keepForMs: 0 }, // feature:passkeys
   { table: 'authorization_transactions', column: 'expires_at', keepForMs: 0 },
   { table: 'native_credentials', column: 'expires_at', keepForMs: 0 },
   { table: 'native_dpop_proof_ids', column: 'expires_at', keepForMs: 0 },

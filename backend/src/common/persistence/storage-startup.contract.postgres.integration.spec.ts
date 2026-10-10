@@ -1,14 +1,15 @@
 import {
   bootPostgresStartupHarness,
   prepareOnEmptyDatabase,
-} from '../../../test/postgres-prototype/postgres-startup-harness';
+} from '../../../test/postgres/postgres-startup-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../test/postgres/server/postgres-test-server';
 import { describeStorageStartupContract } from '../../../test/utils/startup/storage-startup-contract';
 
+// feature:mongodb:start
 // The start-up port must run here without the other database's driver.
 jest.mock('mongoose', () => {
   throw new Error('mongoose was loaded on the PostgreSQL path');
@@ -19,6 +20,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 describeStorageStartupContract('PostgreSQL', bootPostgresStartupHarness, {
   bootMs: POSTGRES_BOOT_TIMEOUT_MS,

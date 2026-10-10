@@ -106,6 +106,7 @@ export async function linkedAccountsOf(
   }));
 }
 
+// feature:totp:start
 /** Whether the account's second factor is confirmed and on. */
 export async function secondFactorEnabled(
   reader: AccountReader,
@@ -118,11 +119,12 @@ export async function secondFactorEnabled(
     .executeTakeFirst();
   return row?.enabled === true;
 }
+// feature:totp:end
 
 export function toStoredAccount(
   row: AccountRow,
   linkedAccounts: LinkedAccountRecord[],
-  twoFactorEnabled = false,
+  twoFactorEnabled = false, // feature:totp
 ): StoredAccount {
   const authProvider = row.auth_provider ?? EMAIL_PROVIDER;
   return {
@@ -143,7 +145,7 @@ export function toStoredAccount(
     primaryProvider: row.primary_provider ?? undefined,
     profileSyncedAt: row.profile_synced_at ?? undefined,
     lastSyncedProvider: row.last_synced_provider ?? undefined,
-    twoFactorEnabled,
+    twoFactorEnabled, // feature:totp
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -169,7 +171,7 @@ export async function readAccount(
     ? toStoredAccount(
         row,
         await linkedAccountsOf(reader, row.id),
-        await secondFactorEnabled(reader, row.id),
+        await secondFactorEnabled(reader, row.id), // feature:totp
       )
     : null;
 }

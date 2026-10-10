@@ -21,8 +21,9 @@ import {
   rememberSignInAccount,
   SIGN_IN_COLUMNS,
   signInAccountOf,
-  signInAccountOfRow,
+  toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
+import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
@@ -130,7 +131,7 @@ export class PostgresPasskeyStore extends PasskeyStore {
           transports: passkey.transports,
           device_type: passkey.deviceType ?? null,
           backed_up: passkey.backedUp,
-          // The MongoDB schema trims the name it stores.
+          // The name is stored trimmed.
           name: passkey.name.trim(),
           last_used_at: null,
           created_at: at,
@@ -256,7 +257,10 @@ export class PostgresPasskeyAccounts extends PasskeyAccounts {
         .where('id', '=', toUuid(userId))
         .executeTakeFirst();
       if (!row) return null;
-      const signIn = await signInAccountOfRow(this.database, row);
+      const signIn = toSignInAccount(
+        row,
+        await secondFactorEnabled(this.database, row.id), // feature:totp
+      );
       return rememberSignInAccount(
         {
           id: signIn.id,

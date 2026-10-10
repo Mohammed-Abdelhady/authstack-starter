@@ -98,9 +98,9 @@ describe('usage errors exit 2', () => {
   });
 
   it('reports a flag error before any prompt', async () => {
-    const { code, output } = await run(['app', '--database', 'postgres']);
+    const { code, output } = await run(['app', '--database', 'mysql']);
     expect(code).toBe(2);
-    expect(output).toContain('postgres');
+    expect(output).toContain('mysql');
     expect(output).not.toContain('No terminal to prompt in');
   });
 
@@ -126,15 +126,15 @@ describe('usage errors exit 2', () => {
     expect(output).not.toContain('Choose exactly one database');
   });
 
-  it('does not add an empty-database error on top of a planned one', async () => {
+  it('does not add an empty-database error on top of an unknown one', async () => {
     const { code, output } = await run([
       ...(await target()).flags,
       '--dry-run',
       '--database',
-      'postgres',
+      'mysql',
     ]);
     expect(code).toBe(2);
-    expect(output).toContain('postgres');
+    expect(output).toContain('"mysql" is not a known choice.');
     expect(output).not.toContain('Select a database.');
   });
 

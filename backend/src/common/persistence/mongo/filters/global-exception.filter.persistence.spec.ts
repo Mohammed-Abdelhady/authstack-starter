@@ -39,6 +39,7 @@ function duplicateKey(index: string, key: string, value: string): unknown {
   return error;
 }
 
+// feature:postgres:start
 /** What `pg` raises, as far as the adapter and the filter read it. */
 function postgresFailure(
   code: string,
@@ -51,6 +52,7 @@ function postgresFailure(
     constraint,
   });
 }
+// feature:postgres:end
 
 /**
  * The answer for each of the six shared persistence errors, next to the answer
@@ -154,6 +156,7 @@ describe('GlobalExceptionFilter shared persistence errors', () => {
       }).toEqual({ driver: conflict, shared: conflict });
     });
 
+    // feature:postgres:start
     it('answers by the rule name when PostgreSQL refused the write', () => {
       const address = postgresFailure(
         '23505',
@@ -171,6 +174,7 @@ describe('GlobalExceptionFilter shared persistence errors', () => {
         slug: answerTo(new UniqueConflictError('role.slug', slug)),
       }).toEqual({ address: emailTaken, slug: conflict });
     });
+    // feature:postgres:end
 
     it('answers by the rule name when the adapter gave no cause', () => {
       expect({
@@ -216,15 +220,20 @@ describe('GlobalExceptionFilter shared persistence errors', () => {
     });
 
     it('answers without the text of another database or of no cause', () => {
+      // feature:postgres:start
       const refusedUuid = postgresFailure(
         '22P02',
         `invalid input syntax for type uuid: "${BAD_ID}"`,
       );
 
+      // feature:postgres:end
       expect({
-        postgres: answerTo(new MalformedIdError(refusedUuid)),
+        postgres: answerTo(new MalformedIdError(refusedUuid)), // feature:postgres
         bare: answerTo(new MalformedIdError()),
-      }).toEqual({ postgres: invalid, bare: invalid });
+      }).toEqual({
+        postgres: invalid, // feature:postgres
+        bare: invalid,
+      });
     });
 
     it('logs the kind of failure, never the id that was sent', () => {

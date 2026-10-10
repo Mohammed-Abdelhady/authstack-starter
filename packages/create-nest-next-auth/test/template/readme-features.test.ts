@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { databaseMarkerIds } from '../../src/manifest/dimensions.js';
 import { loadManifest } from '../../src/manifest/load.js';
 import { stripDocMarkers } from '../../src/prune/doc-markers.js';
 import { REPO_ROOT } from '../support/combination-helpers.js';
@@ -15,6 +16,7 @@ const known = new Set([
   ...Object.keys(manifest.options),
   ...Object.keys(manifest.targets),
   ...Object.keys(manifest.shared),
+  ...databaseMarkerIds(manifest),
 ]);
 
 function generated(kept: Set<string>): string {

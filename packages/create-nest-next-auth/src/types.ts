@@ -48,12 +48,41 @@ export interface SharedModule {
   workspaces: string[];
 }
 
+/** A literal replacement made in the files of the chosen database. */
+export interface DatabaseRewrite {
+  files: string[];
+  from: string;
+  to: string;
+}
+
+/** Lines the chosen database adds to one environment example file. */
+export interface DatabaseEnvExample {
+  path: string;
+  lines: string[];
+}
+
 export interface Database {
   label: string;
   default: boolean;
+  /** Removed with the docs when another database is chosen. */
   files: string[];
+  docs: string[];
   envVars: string[];
   composeServices: string[];
+  /** Dependencies only this database needs, dropped from every package manifest. */
+  packages: string[];
+  /** Backend commands that only work with this database. */
+  scripts: string[];
+  /** Keys of JSON files, by path and then by key path, that only this database needs. */
+  jsonKeys: Record<string, string[][]>;
+  /** pnpm build approvals that exist for this database's tooling. */
+  buildApprovals: string[];
+  /** When chosen: files that take the plain name the other database left free. */
+  renames: Record<string, string>;
+  /** When chosen: text that named the database apart and no longer has to. */
+  rewrites: DatabaseRewrite[];
+  /** When chosen: settings written into the environment examples. */
+  envExamples: DatabaseEnvExample[];
   status?: FeatureStatus;
 }
 

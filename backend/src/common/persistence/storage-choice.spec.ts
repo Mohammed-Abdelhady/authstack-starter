@@ -87,6 +87,12 @@ describe('the database choice', () => {
     );
   });
 
+  it('refuses the default database without naming a setting when none was given', () => {
+    expect(() => forStorage({ postgres: () => 'postgres wiring' })).toThrow(
+      'This build carries no adapter for "mongodb"',
+    );
+  });
+
   it('accepts the validated setting when nothing was wired, or wired the same', () => {
     confirmStorageChoice('postgres');
     forStorage({ mongodb: () => 1, postgres: () => 2 });

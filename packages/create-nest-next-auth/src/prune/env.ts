@@ -41,11 +41,21 @@ function collapseBlankRuns(lines: string[]): string[] {
   return output;
 }
 
+function isPlainComment(line: string | undefined): line is string {
+  return line !== undefined && COMMENT.test(line) && readKey(line) === undefined;
+}
+
 /**
  * Drops every line assigning one of the removed vars, commented out or not,
  * along with the comment directly above it when that comment names the feature.
+ * For a var in `wholeComment` every comment line of the block above it that
+ * names the feature goes, not only the nearest one.
  */
-export function stripEnvVars(content: string, removals: EnvRemovals): EnvStripResult {
+export function stripEnvVars(
+  content: string,
+  removals: EnvRemovals,
+  wholeComment: ReadonlySet<string> = new Set(),
+): EnvStripResult {
   const stripped: string[] = [];
   const kept: string[] = [];
 
@@ -58,9 +68,11 @@ export function stripEnvVars(content: string, removals: EnvRemovals): EnvStripRe
     }
 
     stripped.push(key);
-    const previous = kept[kept.length - 1];
-    if (previous !== undefined && COMMENT.test(previous) && readKey(previous) === undefined) {
-      if (namesFeature(previous, words)) kept.pop();
+    let previous = kept[kept.length - 1];
+    while (isPlainComment(previous) && namesFeature(previous, words)) {
+      kept.pop();
+      if (!wholeComment.has(key)) break;
+      previous = kept[kept.length - 1];
     }
   }
 
@@ -68,14 +80,18 @@ export function stripEnvVars(content: string, removals: EnvRemovals): EnvStripRe
 }
 
 /** Applies stripEnvVars to the generated env examples that exist. */
-export async function stripEnvFiles(root: string, removals: EnvRemovals): Promise<string[]> {
+export async function stripEnvFiles(
+  root: string,
+  removals: EnvRemovals,
+  wholeComment: ReadonlySet<string> = new Set(),
+): Promise<string[]> {
   const stripped = new Set<string>();
 
   for (const relative of ENV_EXAMPLE_FILES) {
     const path = join(root, relative);
     const content = await readFileIfExists(path);
     if (content === undefined) continue;
-    const result = stripEnvVars(content, removals);
+    const result = stripEnvVars(content, removals, wholeComment);
     if (result.stripped.length === 0) continue;
     await writeFile(path, result.content, 'utf8');
     for (const key of result.stripped) stripped.add(key);
