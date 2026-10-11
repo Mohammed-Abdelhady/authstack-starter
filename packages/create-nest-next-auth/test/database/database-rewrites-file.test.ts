@@ -95,7 +95,16 @@ describe('the rewrites file beside the manifest', () => {
     const root = await rootWith('{ not json');
 
     await expect(loadManifest(root)).rejects.toThrow(
-      `Could not parse ${join(root, REWRITES_FILE)}`,
+      `${join(root, REWRITES_FILE)} is not valid JSON`,
+    );
+  });
+
+  it('names the manifest when the manifest is not JSON', async () => {
+    const root = await rootWith();
+    await writeFile(join(root, MANIFEST_FILE), '{ not json');
+
+    await expect(loadManifest(root)).rejects.toThrow(
+      `${join(root, MANIFEST_FILE)} is not valid JSON`,
     );
   });
 

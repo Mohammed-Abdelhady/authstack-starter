@@ -6,6 +6,8 @@ import { parseJson } from '../utils/parse-json.js';
 import { isRecord } from './read.js';
 import { ManifestError, validateManifest } from './validate.js';
 
+const notJson = (path: string, reason: string): string => `${path} is not valid JSON: ${reason}`;
+
 async function readOptional(path: string): Promise<string | undefined> {
   try {
     return await readFile(path, 'utf8');
@@ -49,10 +51,12 @@ export function mergeRewrites(manifest: unknown, rewrites: unknown): unknown {
  */
 export async function loadManifest(root: string): Promise<Manifest> {
   const path = join(root, MANIFEST_FILE);
-  const parsed = parseJson(await readFile(path, 'utf8'), path);
+  const parsed = parseJson(await readFile(path, 'utf8'), path, notJson);
   const rewritesPath = join(root, REWRITES_FILE);
   const rewrites = await readOptional(rewritesPath);
   return validateManifest(
-    rewrites === undefined ? parsed : mergeRewrites(parsed, parseJson(rewrites, rewritesPath)),
+    rewrites === undefined
+      ? parsed
+      : mergeRewrites(parsed, parseJson(rewrites, rewritesPath, notJson)),
   );
 }
