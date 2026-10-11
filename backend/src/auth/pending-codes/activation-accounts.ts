@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
-import { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
+import { SignInOutcome } from '../interfaces/authenticated-user.interface';
 
 /** Shared names of the unique rules an activation can run into. */
 export const ACTIVATION_CONSTRAINT = {
@@ -80,9 +80,7 @@ export abstract class ActivationAccounts {
   ): Promise<void>;
 }
 
-export type ActivationSignInOutcome =
-  | { requiresTwoFactor: true }
-  | { requiresTwoFactor: false; user: AuthenticatedUserSummary };
+export type ActivationSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account just activated. */
 export abstract class ActivationSignIn {
