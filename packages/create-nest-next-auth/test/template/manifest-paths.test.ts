@@ -33,7 +33,6 @@ function manifest(overrides: Record<string, unknown> = {}): Manifest {
         default: true,
         files: ['backend/migrations/**'],
         envVars: [],
-        composeServices: [],
       },
     },
     options: {

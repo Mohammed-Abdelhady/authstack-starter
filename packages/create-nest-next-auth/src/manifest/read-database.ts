@@ -1,9 +1,5 @@
 import type { DatabaseEnvExample, DatabaseRewrite } from '../types.js';
-import { isRecord, readPathArray, readString, readStringArray } from './read.js';
-
-function isRelativePath(path: string): boolean {
-  return !(path.startsWith('/') || path.includes('..') || path.includes('\\'));
-}
+import { isRecord, isRelativePath, readPathArray, readString, readStringArray } from './read.js';
 
 /** `{ "backend/package.json": [["jest", "globalSetup"]] }`: a file and the key paths in it. */
 export function readJsonKeys(
@@ -54,6 +50,24 @@ export function readRenames(
       continue;
     }
     renames[from] = target;
+  }
+  return renames;
+}
+
+/** `{ "long:name": "name" }`: a backend command and the name it takes. */
+export function readScriptRenames(
+  value: unknown,
+  where: string,
+  problems: string[],
+): Record<string, string> {
+  if (value === undefined) return {};
+  if (!isRecord(value)) {
+    problems.push(`${where} must be an object of script names`);
+    return {};
+  }
+  const renames: Record<string, string> = {};
+  for (const [from, to] of Object.entries(value)) {
+    renames[from] = readString(to, `${where}.${from}`, problems);
   }
   return renames;
 }

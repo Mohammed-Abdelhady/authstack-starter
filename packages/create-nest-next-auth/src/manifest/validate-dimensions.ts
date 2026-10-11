@@ -18,7 +18,13 @@ import {
   readString,
   readStringArray,
 } from './read.js';
-import { readEnvExamples, readJsonKeys, readRenames, readRewrites } from './read-database.js';
+import {
+  readEnvExamples,
+  readJsonKeys,
+  readRenames,
+  readRewrites,
+  readScriptRenames,
+} from './read-database.js';
 
 export interface Dimensions {
   targets: Record<string, Target>;
@@ -102,11 +108,6 @@ function readDatabase(id: string, value: unknown, problems: string[]): Database 
     files: readPathArray(value.files ?? [], `${where}.files`, problems),
     docs: readPathArray(value.docs ?? [], `${where}.docs`, problems),
     envVars: readStringArray(value.envVars ?? [], `${where}.envVars`, problems),
-    composeServices: readStringArray(
-      value.composeServices ?? [],
-      `${where}.composeServices`,
-      problems,
-    ),
     packages: readStringArray(value.packages ?? [], `${where}.packages`, problems),
     scripts: readStringArray(value.scripts ?? [], `${where}.scripts`, problems),
     jsonKeys: readJsonKeys(value.jsonKeys, `${where}.jsonKeys`, problems),
@@ -116,6 +117,7 @@ function readDatabase(id: string, value: unknown, problems: string[]): Database 
       problems,
     ),
     renames: readRenames(value.renames, `${where}.renames`, problems),
+    scriptRenames: readScriptRenames(value.scriptRenames, `${where}.scriptRenames`, problems),
     rewrites: readRewrites(value.rewrites, `${where}.rewrites`, problems),
     envExamples: readEnvExamples(value.envExamples, `${where}.envExamples`, problems),
     status: readStatus(value.status, `${where}.status`, problems),
@@ -129,12 +131,12 @@ export function emptyDatabase(): Database {
     files: [],
     docs: [],
     envVars: [],
-    composeServices: [],
     packages: [],
     scripts: [],
     jsonKeys: {},
     buildApprovals: [],
     renames: {},
+    scriptRenames: {},
     rewrites: [],
     envExamples: [],
     status: 'planned',

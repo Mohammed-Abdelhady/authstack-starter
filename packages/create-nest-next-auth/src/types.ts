@@ -68,7 +68,6 @@ export interface Database {
   files: string[];
   docs: string[];
   envVars: string[];
-  composeServices: string[];
   /** Dependencies only this database needs, dropped from every package manifest. */
   packages: string[];
   /** Backend commands that only work with this database. */
@@ -79,6 +78,8 @@ export interface Database {
   buildApprovals: string[];
   /** When chosen: files that take the plain name the other database left free. */
   renames: Record<string, string>;
+  /** When chosen: backend commands that take the plain name the other database left free. */
+  scriptRenames: Record<string, string>;
   /** When chosen: text that named the database apart and no longer has to. */
   rewrites: DatabaseRewrite[];
   /** When chosen: settings written into the environment examples. */
@@ -203,4 +204,10 @@ export interface PruneResult {
   /** Changed files the pruner reformatted with the project's prettier config. */
   formattedFiles: string[];
   dangling: DanglingReference[];
+  /**
+   * Rules of a database that found nothing to change. Expected when an option
+   * or a client that was left out took the text or the file with it, and empty
+   * for a project with everything on.
+   */
+  unmatchedDatabaseRules: string[];
 }

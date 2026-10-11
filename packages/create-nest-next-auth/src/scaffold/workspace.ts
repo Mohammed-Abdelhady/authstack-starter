@@ -3,7 +3,7 @@ import { join, posix } from 'node:path';
 import { parseDocument } from 'yaml';
 import { PACKAGE_MANIFEST, PNPM_WORKSPACE_FILE } from '../constants/index.js';
 import { isRecord } from '../manifest/read.js';
-import { isErrnoException, listFiles } from '../utils/fs.js';
+import { isErrnoException, isPackageManifest, listFiles } from '../utils/fs.js';
 import { matchesAnyGlob } from '../utils/glob.js';
 
 interface WorkspaceDocument {
@@ -64,9 +64,7 @@ export async function renderWorkspace(
 ): Promise<boolean> {
   const workspace = await readWorkspace(root);
   if (workspace === undefined) return false;
-  const manifests = (await listFiles(root)).filter(
-    (file) => file === PACKAGE_MANIFEST || file.endsWith(`/${PACKAGE_MANIFEST}`),
-  );
+  const manifests = (await listFiles(root)).filter(isPackageManifest);
   const packages = workspace.packages.filter((pattern) =>
     manifests.some((file) => matchesAnyGlob(file, [`${pattern}/${PACKAGE_MANIFEST}`])),
   );

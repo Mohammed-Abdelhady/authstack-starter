@@ -1,6 +1,6 @@
 import { readdir, readFile, rm, rmdir } from 'node:fs/promises';
 import { dirname, join, posix, relative, sep } from 'node:path';
-import { SKIPPED_DIRS } from '../constants/index.js';
+import { PACKAGE_MANIFEST, SKIPPED_DIRS } from '../constants/index.js';
 
 /** Lists every file under `root` as a posix path relative to `root`. */
 export async function listFiles(root: string): Promise<string[]> {
@@ -21,6 +21,11 @@ export async function listFiles(root: string): Promise<string[]> {
 
   await walk(root);
   return found.sort();
+}
+
+/** A package manifest at the root or in any workspace. */
+export function isPackageManifest(file: string): boolean {
+  return file === PACKAGE_MANIFEST || file.endsWith(`/${PACKAGE_MANIFEST}`);
 }
 
 export function toPosix(path: string): string {

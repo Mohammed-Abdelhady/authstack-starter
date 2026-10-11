@@ -27,6 +27,8 @@ const REPOSITORY_TEST_PATHS = TEMPLATE_TEST_POLICY.EXCLUDED_PATH_PATTERNS.map(
 const REPO_ROOT = dirname(dirname(PACKAGE_DIR));
 const TEMPLATE_DIR = join(PACKAGE_DIR, 'template');
 const MANIFEST_NAME = 'template.manifest.json';
+// Each database's rewrites, read with the manifest. Mirrors REWRITES_FILE in src/constants.
+const REWRITES_NAME = 'template.rewrites.json';
 // Mirrors TEMPLATE_IDENTITY_FILE in src/constants: the template's content
 // hash, shipped next to template/ and recorded in generated projects.
 const TEMPLATE_IDENTITY_FILE = 'template.identity.json';
@@ -68,6 +70,7 @@ const EXCLUDED_PATHS = new Set([
   'packages',
   ...INSTRUCTION_FILES,
   MANIFEST_NAME,
+  REWRITES_NAME,
   join('.husky', '_'),
 ]);
 
@@ -288,6 +291,17 @@ async function main() {
     throw new Error(`template.manifest.json is invalid:\n  ${problems.join('\n  ')}`);
   }
   await writeFile(join(PACKAGE_DIR, MANIFEST_NAME), manifest, 'utf8');
+
+  // The rewrites decide what the files become as much as the manifest does,
+  // so they ship beside it and count toward the identity.
+  await rm(join(PACKAGE_DIR, REWRITES_NAME), { force: true });
+  const rewritesPath = join(REPO_ROOT, REWRITES_NAME);
+  if (trackedPaths.includes(REWRITES_NAME)) {
+    const rewritesBytes = await readFile(rewritesPath);
+    JSON.parse(rewritesBytes.toString('utf8'));
+    await writeFile(join(PACKAGE_DIR, REWRITES_NAME), rewritesBytes);
+    hashes.push(entryLine(REWRITES_NAME, (await stat(rewritesPath)).mode, rewritesBytes));
+  }
 
   // One identity for what ships: every template file's shipped path,
   // executable bit and content digest, plus the manifest that decides what

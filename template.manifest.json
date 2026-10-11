@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "$comment": "Feature map read by packages/create-nest-next-auth. Entries with \"status\": \"planned\" are not offered by the CLI. Entries with \"kind\": \"hidden\" come in through another feature's \"requires\" instead of being picked directly. Files and env vars listed here are deleted from a generated project when the feature is not selected. A path may sit under a directory another feature claims, as the provider strategies do under oauth-core; what a path may not do is belong to a feature that is still needed once this one is gone. Lines shared code needs only for one feature carry a `// feature:<id>` marker instead; see the CLI README. A target or shared module owns its files and workspaces: they are deleted when it is not part of the plan, and a planned target is never part of one. The Expo app has been built and run on an iOS simulator against the real server; Android has not been built or run. The bare React Native app only bundles, so it stays planned. A target id or shared id is also a marker name: feature:native-core marks lines that any mobile app needs. A database id is one too: feature:postgres marks lines only the PostgreSQL adapter needs and feature:mongodb lines only the MongoDB adapter needs, and the lines of the database that was not chosen are removed. feature:database-choice marks lines that only choose between the two, and no generated project keeps them. A database owns files, docs, env vars, packages, backend scripts, JSON keys and build approvals, all removed when another database is chosen. Its renames, rewrites and envExamples apply when it is the chosen one: a rewrite replaces a literal text in the files it names, and is the way to change a file that is not formatted with prettier.",
+  "$comment": "Feature map read by packages/create-nest-next-auth. Entries with \"status\": \"planned\" are not offered by the CLI. Entries with \"kind\": \"hidden\" come in through another feature's \"requires\" instead of being picked directly. Files and env vars listed here are deleted from a generated project when the feature is not selected. A path may sit under a directory another feature claims, as the provider strategies do under oauth-core; what a path may not do is belong to a feature that is still needed once this one is gone. Lines shared code needs only for one feature carry a `// feature:<id>` marker instead; see the CLI README. A target or shared module owns its files and workspaces: they are deleted when it is not part of the plan, and a planned target is never part of one. The Expo app has been built and run on an iOS simulator against the real server; Android has not been built or run. The bare React Native app only bundles, so it stays planned. A target id or shared id is also a marker name: feature:native-core marks lines that any mobile app needs. A database id is one too: feature:postgres marks lines only the PostgreSQL adapter needs and feature:mongodb lines only the MongoDB adapter needs, and the lines of the database that was not chosen are removed. feature:database-choice marks lines that only choose between the two, and no generated project keeps them. A database owns files, docs, env vars, packages, backend scripts, JSON keys and build approvals, all removed when another database is chosen. Its renames, rewrites and envExamples apply when it is the chosen one: a rewrite replaces a literal text in the files it names, and is the way to change a file that is not formatted with prettier. The rewrites are in template.rewrites.json beside this file, keyed by database id.",
   "targets": {
     "web": {
       "label": "Web app (Next.js)",
@@ -64,6 +64,9 @@
         "backend/src/**/persistence/mongo/**",
         "backend/src/**/*.mongo.integration.spec.ts",
         "backend/test/**/*.mongo.e2e-spec.ts",
+        "backend/test/utils/rejection.ts",
+        "backend/test/utils/session/session-issuance-race.ts",
+        "backend/test/utils/user/recorded-account-sessions.ts",
         "backend/test/jest-e2e.json",
         "backend/test/utils/mongo/**",
         "backend/test/utils/e2e-mongo-*.ts",
@@ -137,7 +140,6 @@
         "backend/src/admin/utils/user-filter.util.ts"
       ],
       "envVars": ["MONGO_URI", "MONGO_USERNAME", "MONGO_PASSWORD", "MONGO_DATABASE"],
-      "composeServices": ["mongodb"],
       "packages": [
         "@nestjs/mongoose",
         "mongoose",
@@ -214,546 +216,18 @@
         "docker-compose.postgres.yml": "docker-compose.yml",
         "docker-compose.postgres.prod.yml": "docker-compose.prod.yml"
       },
-      "rewrites": [
-        {
-          "files": ["backend/package.json", "**/*.md"],
-          "from": "test:e2e:postgres",
-          "to": "test:e2e"
-        },
-        {
-          "files": ["backend/package.json"],
-          "from": "jest-e2e-postgres.json",
-          "to": "jest-e2e.json"
-        },
-        {
-          "files": [
-            "backend/package.json",
-            "docker-compose.yml",
-            "docker-compose.prod.yml",
-            "**/*.md"
-          ],
-          "from": "migration:postgres:",
-          "to": "migration:"
-        },
-        {
-          "files": ["backend/package.json", "backend/test/jest-e2e.json"],
-          "from": "|@nestjs/mongoose",
-          "to": ""
-        },
-        {
-          "files": ["scripts/lib/init-prompts.js"],
-          "from": "const mongoUri = await ask(rl, 'MongoDB URI', `mongodb://localhost:27017/${dbName}`);",
-          "to": "const postgresUrl = await ask(rl, 'PostgreSQL address', `postgres://postgres:postgres@localhost:5432/${dbName}`);"
-        },
-        {
-          "files": ["scripts/lib/init-prompts.js"],
-          "from": "mongoUri: mongoUri || `mongodb://localhost:27017/${dbName}`,",
-          "to": "postgresUrl: postgresUrl || `postgres://postgres:postgres@localhost:5432/${dbName}`,"
-        },
-        {
-          "files": ["scripts/lib/init-environment.js"],
-          "from": "# MongoDB Connection URI\nMONGO_URI=${env.mongoUri}",
-          "to": "# PostgreSQL address. The server needs PostgreSQL 18 or newer.\nPOSTGRES_URL=${env.postgresUrl}"
-        },
-        {
-          "files": ["scripts/init.js"],
-          "from": "content = content.replaceAll('authboiler-mongodb', `${config.appSlug}-mongodb`);",
-          "to": "content = content.replaceAll('authboiler-postgres', `${config.appSlug}-postgres`);\n    content = content.replaceAll('authboiler-migrate', `${config.appSlug}-migrate`);"
-        },
-        {
-          "files": ["scripts/init.js"],
-          "from": "content = content.replaceAll('MONGO_DATABASE:-authboiler', `MONGO_DATABASE:-${config.dbName}`);",
-          "to": "content = content.replaceAll('POSTGRES_DB:-authboiler', `POSTGRES_DB:-${config.dbName}`);\n    content = content.replaceAll('POSTGRES_DB=authboiler', `POSTGRES_DB=${config.dbName}`);"
-        },
-        {
-          "files": ["scripts/init.js"],
-          "from": "    content = content.replaceAll(\n      'MONGO_INITDB_DATABASE: authboiler',\n      `MONGO_INITDB_DATABASE: ${config.dbName}`,\n    );\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/init.js"],
-          "from": "'MongoDB URI': config.env.mongoUri,",
-          "to": "'PostgreSQL address': config.env.postgresUrl,"
-        },
-        {
-          "files": ["scripts/lib/init-next-steps.js"],
-          "from": "    `     ${colors.cyan}# Start a single-node replica set first (sign-in uses transactions):${colors.reset}`,\n    '     mkdir -p ./mongodb-data',\n    '     mongod --replSet rs0 --dbpath ./mongodb-data',\n    `     ${colors.cyan}# leave mongod running, then in a second terminal:${colors.reset}`,\n    '     mongosh --eval \"rs.initiate()\"',\n",
-          "to": "    `     ${colors.cyan}# Start PostgreSQL 18 or newer and create the database first, then apply the migrations:${colors.reset}`,\n    '     pnpm --filter backend run migration:up',\n"
-        },
-        {
-          "files": ["scripts/lib/cli-utils.js"],
-          "from": "export function validateMongoUri(uri) {\n  return uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://');\n}\n\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/config-transforms-tests/config-transforms.cli.test.mjs"],
-          "from": "mongoUri: 'mongodb://localhost/test'",
-          "to": "postgresUrl: 'postgres://localhost/test'"
-        },
-        {
-          "files": [
-            "scripts/lib/production-files.js",
-            "scripts/lib/production-prompts.js",
-            "scripts/lib/production-summary.js"
-          ],
-          "from": "MongoDB Configuration",
-          "to": "PostgreSQL Configuration"
-        },
-        {
-          "files": ["scripts/lib/production-files.js"],
-          "from": "MONGO_DATABASE=${config.database.dbName}\nMONGO_USERNAME=${config.database.username}\nMONGO_PASSWORD=${config.database.password}\nMONGO_URI=mongodb://${config.database.username}:${config.database.password}@mongodb:27017/${config.database.dbName}?authSource=admin",
-          "to": "POSTGRES_DB=${config.database.dbName}\nPOSTGRES_USER=${config.database.username}\nPOSTGRES_PASSWORD=${config.database.password}\nPOSTGRES_URL=postgres://${config.database.username}:${config.database.password}@postgres:5432/${config.database.dbName}"
-        },
-        {
-          "files": ["scripts/lib/production-files.js"],
-          "from": "content = content.replaceAll('authboiler-mongodb', `${appSlug}-mongodb`);",
-          "to": "content = content.replaceAll('authboiler-postgres', `${appSlug}-postgres`);\n  content = content.replaceAll('authboiler-migrate', `${appSlug}-migrate`);"
-        },
-        {
-          "files": ["scripts/lib/production-files.js"],
-          "from": "  content = content.replaceAll(\n    'MONGO_DATABASE:-authboiler',\n    `MONGO_DATABASE:-${config.database.dbName}`,\n  );",
-          "to": "  content = content.replaceAll('POSTGRES_DB:-authboiler', `POSTGRES_DB:-${config.database.dbName}`);"
-        },
-        {
-          "files": ["scripts/lib/production-files.js"],
-          "from": "  content = content.replaceAll(\n    'MONGO_INITDB_DATABASE: authboiler',\n    `MONGO_INITDB_DATABASE: ${config.database.dbName}`,\n  );\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/lib/production-prompts.js"],
-          "from": "'MongoDB username', 'admin'",
-          "to": "'PostgreSQL user', 'app'"
-        },
-        {
-          "files": ["scripts/lib/production-prompts.js"],
-          "from": "'MongoDB password (leave empty to generate)'",
-          "to": "'PostgreSQL password (leave empty to generate)'"
-        },
-        {
-          "files": [
-            "scripts/lib/docker-smoke-model.mjs",
-            "scripts/config-transforms-tests/config-transforms.test.mjs"
-          ],
-          "from": "['mongodb', 'backend', 'frontend', 'nginx']",
-          "to": "['postgres', 'backend', 'frontend', 'nginx']"
-        },
-        {
-          "files": ["scripts/lib/docker-smoke-model.mjs"],
-          "from": "image: name === 'mongodb' ? originalService.image : IMAGE_TAGS[name],",
-          "to": "image: name === 'postgres' ? originalService.image : IMAGE_TAGS[name],"
-        },
-        {
-          "files": ["scripts/lib/docker-smoke-model.mjs"],
-          "from": "  services.mongodb.environment = { MONGO_INITDB_DATABASE: 'smoke' };\n  services.mongodb.volumes = ['smoke-data:/data/db'];",
-          "to": "  services.postgres.environment = {\n    POSTGRES_DB: 'smoke',\n    POSTGRES_USER: 'smoke',\n    POSTGRES_PASSWORD: 'synthetic-smoke',\n  };\n  services.postgres.volumes = ['smoke-data:/var/lib/postgresql'];"
-        },
-        {
-          "files": ["scripts/lib/docker-smoke-model.mjs"],
-          "from": "MONGO_URI: 'mongodb://mongodb:27017/smoke',",
-          "to": "POSTGRES_URL: 'postgres://smoke:synthetic-smoke@postgres:5432/smoke',"
-        },
-        {
-          "files": ["scripts/lib/docker-smoke-model.mjs"],
-          "from": "  const frontendPort = String(original.services.frontend.environment?.PORT);",
-          "to": "  // The migrations run once, on the backend image, before the backend starts.\n  services.migrate = {\n    image: IMAGE_TAGS.backend,\n    restart: 'no',\n    networks: ['smoke'],\n    command: original.services.migrate?.command,\n    environment: services.backend.environment,\n    depends_on: { postgres: { condition: 'service_healthy' } },\n  };\n  const frontendPort = String(original.services.frontend.environment?.PORT);"
-        },
-        {
-          "files": ["scripts/verify-docker.mjs"],
-          "from": "'MONGO_USERNAME=smoke\\nMONGO_PASSWORD=synthetic-smoke\\nMONGO_DATABASE=smoke\\n'",
-          "to": "'POSTGRES_USER=smoke\\nPOSTGRES_PASSWORD=synthetic-smoke\\nPOSTGRES_DB=smoke\\n'"
-        },
-        {
-          "files": ["nginx/README.md", "nginx/ssl-setup.sh"],
-          "from": "up -d mongodb backend frontend",
-          "to": "up -d postgres backend frontend"
-        },
-        {
-          "files": ["nginx/README.md"],
-          "from": "# MongoDB configuration\nMONGO_USERNAME=admin\nMONGO_PASSWORD=your-secure-password",
-          "to": "# PostgreSQL configuration\nPOSTGRES_USER=app\nPOSTGRES_PASSWORD=your-secure-password"
-        },
-        {
-          "files": [".github/workflows/ci.yml"],
-          "from": "      - name: Resolve Mongo binary cache\n        id: mongo\n        run: node scripts/ci.mjs --cache\n      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3\n        with:\n          path: ${{ steps.mongo.outputs.path }}\n          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/ci.mjs"],
-          "from": "import { appendFileSync, readFileSync, realpathSync } from 'node:fs';",
-          "to": "import { readFileSync, realpathSync } from 'node:fs';"
-        },
-        {
-          "files": ["scripts/ci.mjs"],
-          "from": "    if (argv[0] === '--cache') {\n      const metadata = cacheMetadata(CONFIG, ROOT);\n      const output = `path=${metadata.path}\\nkey=${metadata.key}\\n`;\n      if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, output);\n      else console.log(output.trim());\n      return EXIT_CODES.OK;\n    }\n",
-          "to": ""
-        },
-        {
-          "files": ["README.md"],
-          "from": "Start MongoDB, then in one terminal",
-          "to": "Start PostgreSQL, then in one terminal"
-        },
-        {
-          "files": ["backend/README.md"],
-          "from": "NestJS 11 API with MongoDB,",
-          "to": "NestJS 11 API with PostgreSQL,"
-        },
-        {
-          "files": ["backend/README.md"],
-          "from": "├── database/           # Mongoose schemas, migrations, seeds",
-          "to": "├── database/           # Seeds"
-        },
-        {
-          "files": ["backend/README.md"],
-          "from": "MONGO_URI=mongodb://localhost:27017/authboiler?replicaSet=rs0",
-          "to": "POSTGRES_URL=postgres://APP_USER:APP_PASSWORD@localhost:5432/authboiler"
-        },
-        {
-          "files": ["backend/README.md"],
-          "from": "pnpm run migration:create <name>  # Create migration script\n",
-          "to": ""
-        },
-        {
-          "files": ["backend/README.md"],
-          "from": "pnpm run migration:down           # Revert last migration batch\n",
-          "to": ""
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "│ Mongoose 8 Driver",
-          "to": "│ Kysely on pg"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "MongoDB 7 Container",
-          "to": "PostgreSQL 18 Container"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "backend, frontend and MongoDB containers",
-          "to": "backend, frontend and PostgreSQL containers"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "verifies the session in MongoDB. Injects the authenticated user document and session",
-          "to": "verifies the session in PostgreSQL. Injects the authenticated user and session"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "writes a new session document to MongoDB storing",
-          "to": "writes a new session row to PostgreSQL storing"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "looks up the document in MongoDB by `tokenHash`",
-          "to": "looks up the row in PostgreSQL by `tokenHash`"
-        },
-        {
-          "files": ["docs/reference/ARCHITECTURE.md"],
-          "from": "- MongoDB removes expired session records automatically using a TTL index on `expiresAt`.",
-          "to": "- A retention job removes expired session rows every five minutes. A session is refused from the moment it expires, whether or not the job has reached it."
-        },
-        {
-          "files": ["docs/reference/code-quality.md"],
-          "from": "Package-manager commands and MongoDB environment/cache settings live in `scripts/ci/gates.json`. Installation sets `MONGOMS_DISABLE_POSTINSTALL=1`, deferring the binary download until a test actually needs it. The quality job caches `.mongodb-binaries`; the cache key includes the locked `mongodb-memory-server` package version from `pnpm-lock.yaml`, the configured mongod binary version, runner OS and architecture. `MONGOMS_VERSION` in that data file pins the binary used by the tests. Gate subprocesses receive the absolute download directory.",
-          "to": "Package-manager commands live in `scripts/ci/gates.json`. The tests need no database service: the `embedded-postgres` development dependency carries the PostgreSQL server they start."
-        },
-        {
-          "files": ["docs/reference/code-quality.md"],
-          "from": "CI runs them outside the local hooks, using mongodb-memory-server in replica set mode without an external database.",
-          "to": "CI runs them outside the local hooks, on a PostgreSQL server the suite starts from the `embedded-postgres` development dependency, without an external database."
-        },
-        {
-          "files": ["backend/docs/authentication-flow.md"],
-          "from": "Store in `pending_registrations` collection with the",
-          "to": "Store in the `pending_registrations` table with the"
-        },
-        {
-          "files": ["backend/docs/authentication-flow.md"],
-          "from": "Sessions are stored in MongoDB with:",
-          "to": "Sessions are stored in PostgreSQL with:"
-        },
-        {
-          "files": ["backend/docs/authentication-flow.md"],
-          "from": "- Expiry time (TTL index for auto-cleanup)",
-          "to": "- Expiry time (checked on every request; a retention job removes expired rows)"
-        },
-        {
-          "files": ["docs/setup/setup-two-factor.md"],
-          "from": "The `twofactorchallenges` collection holds one record per half-finished sign-in:",
-          "to": "The `two_factor_challenges` table holds one row per half-finished sign-in:"
-        },
-        {
-          "files": ["docs/setup/setup-two-factor.md"],
-          "from": "| `expiresAt` | Five minutes after the sign-in, with a TTL index |",
-          "to": "| `expiresAt` | Five minutes after the sign-in                   |"
-        },
-        {
-          "files": ["backend/docs/registration-limits.md"],
-          "from": "Each per-address counter lives in its own `mailcounters` document, keyed by",
-          "to": "Each per-address counter lives in its own `mail_counters` row, keyed by"
-        },
-        {
-          "files": ["backend/docs/registration-limits.md"],
-          "from": "resend, or the TTL index on the record — cannot reset the count.",
-          "to": "resend, or the retention job — cannot reset the count."
-        },
-        {
-          "files": ["backend/docs/oauth-authentication.md"],
-          "from": "├─► Link or create user in MongoDB                  │",
-          "to": "├─► Link or create user in PostgreSQL               │"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "- Start MongoDB on port 27017",
-          "to": "- Start PostgreSQL on port 5432 and apply the migrations"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "- MongoDB: mongodb://localhost:27017",
-          "to": "- PostgreSQL: postgres://localhost:5432"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "docker compose logs -f mongodb",
-          "to": "docker compose logs -f postgres"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "MongoDB data persists in a named volume (`mongo-data`):",
-          "to": "PostgreSQL data persists in a named volume (`postgres-data`):"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "_mongo-data",
-          "to": "_postgres-data"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "/backup/mongo-backup.tar.gz",
-          "to": "/backup/postgres-backup.tar.gz"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "MONGO_URI=mongodb://admin:your_secure_password@mongodb:27017/authboiler?authSource=admin\nMONGO_USERNAME=admin\nMONGO_PASSWORD=your_secure_password",
-          "to": "POSTGRES_URL=postgres://app:your_secure_password@postgres:5432/authboiler\nPOSTGRES_USER=app\nPOSTGRES_PASSWORD=your_secure_password"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "1. **Use strong passwords** for MongoDB authentication",
-          "to": "1. **Use strong passwords** for PostgreSQL authentication"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "5. **Regular backups** of MongoDB volume",
-          "to": "5. **Regular backups** of the PostgreSQL database"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": "- **MongoDB**: 1GB memory, 1 CPU",
-          "to": "- **PostgreSQL**: 1GB memory, 1 CPU"
-        },
-        {
-          "files": ["docs/operations/deployment.md"],
-          "from": " The test-only MongoDB binary download is disabled inside image builds.",
-          "to": ""
-        },
-        {
-          "files": ["docs/operations/deployment-custom-domain.md"],
-          "from": "#### MongoDB Connection Issues",
-          "to": "#### PostgreSQL Connection Issues"
-        },
-        {
-          "files": ["docs/operations/deployment-custom-domain.md"],
-          "from": "# Check MongoDB logs\ndocker compose logs mongodb\n\n# Verify MongoDB is healthy\ndocker compose exec mongodb mongosh --eval \"db.adminCommand('ping')\"\n\n# Reset MongoDB volume (WARNING: deletes data)",
-          "to": "# Check PostgreSQL logs\ndocker compose logs postgres\n\n# Verify PostgreSQL is healthy\ndocker compose exec postgres pg_isready\n\n# See whether the migrations were applied\ndocker compose logs migrate\n\n# Reset PostgreSQL volume (WARNING: deletes data)"
-        },
-        {
-          "files": ["docs/operations/deployment-custom-domain.md"],
-          "from": "| `MongoNetworkError` | MongoDB not ready, check health status                     |",
-          "to": "| `ECONNREFUSED`      | PostgreSQL not ready, check health status                  |"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "4. MongoDB credentials",
-          "to": "4. PostgreSQL credentials"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "# MongoDB Configuration\nMONGO_USERNAME=admin\nMONGO_PASSWORD=your-secure-password\nMONGO_URI=mongodb://admin:your-secure-password@mongodb:27017/authboiler?authSource=admin",
-          "to": "# PostgreSQL Configuration\nPOSTGRES_USER=app\nPOSTGRES_PASSWORD=your-secure-password\nPOSTGRES_URL=postgres://app:your-secure-password@postgres:5432/authboiler"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "up -d mongodb backend frontend",
-          "to": "up -d postgres backend frontend"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "# Check MongoDB status\ndocker-compose -f docker-compose.prod.yml logs mongodb\n\n# Test MongoDB connection\ndocker-compose -f docker-compose.prod.yml exec mongodb mongosh \\\n  --username admin \\\n  --password your-password \\\n  --authenticationDatabase admin \\\n  --eval \"db.adminCommand('ping')\"",
-          "to": "# Check PostgreSQL status\ndocker-compose -f docker-compose.prod.yml logs postgres\n\n# Test PostgreSQL connection\ndocker-compose -f docker-compose.prod.yml exec postgres pg_isready\n\n# See whether the migrations were applied\ndocker-compose -f docker-compose.prod.yml logs migrate"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "1. **Use Strong Passwords**: Generate secure passwords for MongoDB",
-          "to": "1. **Use Strong Passwords**: Generate secure passwords for PostgreSQL"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "5. **Backup Data**: Regularly backup MongoDB data and SSL certificates",
-          "to": "5. **Backup Data**: Regularly backup PostgreSQL data and SSL certificates"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "### Backup MongoDB Data\n\n```bash\n# Create backup\ndocker-compose -f docker-compose.prod.yml exec mongodb mongodump \\\n  --username admin \\\n  --password your-password \\\n  --authenticationDatabase admin \\\n  --out /backup\n\n# Copy backup from container\ndocker cp authboiler-mongodb-prod:/backup ./mongodb-backup-$(date +%Y%m%d)\n```",
-          "to": "### Backup PostgreSQL Data\n\n```bash\n# Create backup\ndocker-compose -f docker-compose.prod.yml exec -T postgres \\\n  pg_dump --username app --format custom authboiler > ./postgres-backup-$(date +%Y%m%d).dump\n```"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "### Restore MongoDB Data\n\n```bash\n# Copy backup to container\ndocker cp ./mongodb-backup-20240101 authboiler-mongodb-prod:/restore\n\n# Restore from backup\ndocker-compose -f docker-compose.prod.yml exec mongodb mongorestore \\\n  --username admin \\\n  --password your-password \\\n  --authenticationDatabase admin \\\n  /restore\n```",
-          "to": "### Restore PostgreSQL Data\n\n```bash\n# Restore from backup, with the backend stopped\ndocker-compose -f docker-compose.prod.yml exec -T postgres \\\n  pg_restore --username app --dbname authboiler --clean --if-exists < ./postgres-backup-20240101.dump\n```"
-        },
-        {
-          "files": ["docs/operations/PRODUCTION-SETUP.md"],
-          "from": "- [MongoDB Documentation](https://docs.mongodb.com/)",
-          "to": "- [PostgreSQL Documentation](https://www.postgresql.org/docs/)"
-        },
-        {
-          "files": ["scripts/ci.mjs"],
-          "from": "import { cacheMetadata, gateEnvironment } from './ci/cache.mjs';\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/ci.mjs"],
-          "from": "env: gateEnvironment(CONFIG, ROOT, gitEnvironment(env)),",
-          "to": "env: { ...gitEnvironment(env), ...CONFIG.environment },"
-        },
-        {
-          "files": ["scripts/check-workspace-dependencies.mjs"],
-          "from": "  '.mongodb-binaries',\n  'mongodb-data',\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/lib/docker-source-export.mjs"],
-          "from": "  '.mongodb-binaries',\n  'mongodb-memory-server',\n",
-          "to": ""
-        },
-        {
-          "files": ["scripts/config-transforms-tests/config-transforms.docker.test.mjs"],
-          "from": "    assert.equal(lines.includes('ENV MONGOMS_DISABLE_POSTINSTALL=1'), true);\n",
-          "to": ""
-        },
-        {
-          "files": ["backend/test/utils/e2e-storage.ts"],
-          "from": "import {\n  startMongoE2eStorage,\n  watchMongoFixtureConnections,\n} from './e2e-mongo-storage';",
-          "to": "import { startPostgresE2eStorage } from '../postgres/e2e/e2e-postgres-storage';\nimport { watchPostgresFixtureConnections } from '../postgres/e2e/postgres-fixture-connections';"
-        },
-        {
-          "files": ["backend/test/utils/e2e-storage.ts"],
-          "from": "  start: startMongoE2eStorage,\n  watchConnections: watchMongoFixtureConnections,",
-          "to": "  start: startPostgresE2eStorage,\n  watchConnections: watchPostgresFixtureConnections,"
-        },
-        {
-          "files": ["backend/test/utils/e2e-storage.ts"],
-          "from": " * Names the storage every fixture of this run boots on. A run on another\n * database calls it from its Jest setup file, before any suite is loaded. A\n * run that names none is on MongoDB.",
-          "to": " * Names the storage every fixture of this run boots on. The Jest setup file\n * of the run calls it before any suite is loaded."
-        },
-        {
-          "files": ["backend/test/jest-e2e.json"],
-          "from": "    \"<rootDir>/postgres/e2e/postgres-run-setting.ts\",\n",
-          "to": ""
-        },
-        {
-          "files": ["backend/test/utils/route-id-answers.ts"],
-          "from": "  if (process.env.DATABASE_TYPE === 'postgres') return POSTGRES_IDS;\n  return MONGODB_IDS;\n",
-          "to": "  return POSTGRES_IDS;\n"
-        },
-        {
-          "files": ["backend/src/role/role.controller.ts"],
-          "from": "'Role ID (MongoDB ObjectId) or slug'",
-          "to": "'Role ID or slug'"
-        },
-        {
-          "files": ["backend/test/run-jest.mjs"],
-          "from": "const INSTANCE_COUNT_ENV = 'BACKEND_TEST_MONGO_INSTANCE_COUNT';\n",
-          "to": ""
-        },
-        {
-          "files": ["backend/test/run-jest.mjs"],
-          "from": "  const environment = {\n    ...process.env,\n    [INSTANCE_COUNT_ENV]: String(workerCount),\n  };\n",
-          "to": "  const environment = process.env;\n"
-        },
-        {
-          "files": ["backend/test/run-jest.mjs"],
-          "from": "`[jest-mongo-run] activeRuns=${activeRuns} maxWorkers=${workerCount} instances=${workerCount}`",
-          "to": "`[jest-run] activeRuns=${activeRuns} maxWorkers=${workerCount}`"
-        },
-        {
-          "files": ["backend/test/run-jest.mjs"],
-          "from": "Overlapping runs use one worker and\n// one database instance.",
-          "to": "Overlapping runs use one worker."
-        },
-        {
-          "files": ["backend/test/run-jest-support.test.mjs"],
-          "from": "backend-jest-mongo-",
-          "to": "backend-jest-data-"
-        },
-        {
-          "files": ["backend/test/postgres/server/postgres-orphans.test.mjs"],
-          "from": "backend-jest-mongo-4001-abc",
-          "to": "backend-jest-other-4001-abc"
-        },
-        {
-          "files": ["backend/test/postgres/server/postgres-orphans.test.mjs"],
-          "from": "mongoLeft",
-          "to": "otherLeft"
-        },
-        {
-          "files": ["backend/test/app/app.boot.e2e-spec.ts"],
-          "from": "fixture owns a disposable Mongo database and a nondelivering mail sink.",
-          "to": "fixture owns a disposable database and a nondelivering mail sink."
-        },
-        {
-          "files": ["backend/test/utils/race-gate.ts"],
-          "from": "Neither class imports or reaches into Mongoose; the pause is placed at",
-          "to": "Neither class imports or reaches into a database driver; the pause is placed at"
-        },
-        {
-          "files": ["backend/test/utils/frozen-clock.ts"],
-          "from": "// Keep session expirations ahead of MongoDB's real-time TTL monitor.",
-          "to": "// Keep session expirations ahead of real time."
-        },
-        {
-          "files": ["backend/test/browser/browser-proof.e2e-spec.ts"],
-          "from": "'starts E2E records ahead of MongoDB real-time TTL'",
-          "to": "'starts E2E records ahead of real time'"
-        },
-        {
-          "files": ["backend/src/common/testing/test-doubles.harness-spec.ts"],
-          "from": " * A mongoose model double: callable and newable the way the module injects\n * the real model.",
-          "to": " * A model double: callable and newable the way a module injects a class."
-        },
-        {
-          "files": ["backend/src/common/testing/test-doubles.harness-spec.ts"],
-          "from": " * The chainable calls a Mongoose query answers before `exec()` resolves it.",
-          "to": " * The chainable calls a query answers before `exec()` resolves it."
-        },
-        {
-          "files": ["backend/src/common/testing/test-doubles.harness-spec.ts"],
-          "from": "/** A Mongoose query double: every chainable call returns itself, `exec` resolves. */",
-          "to": "/** A query double: every chainable call returns itself, `exec` resolves. */"
-        },
-        {
-          "files": ["docs/setup/facebook-oauth-permissions.md"],
-          "from": "10. **Backend creates user** in MongoDB with Facebook profile data",
-          "to": "10. **Backend creates user** in PostgreSQL with Facebook profile data"
-        }
-      ],
+      "scriptRenames": {
+        "test:e2e:postgres": "test:e2e",
+        "migration:postgres:up": "migration:up",
+        "migration:postgres:status": "migration:status"
+      },
       "envExamples": [
         {
           "path": "backend/.env.example",
           "lines": [
-            "# PostgreSQL 18 or newer. The address the server connects to.",
-            "POSTGRES_URL=postgres://APP_USER:APP_PASSWORD@localhost:5432/authboiler",
+            "# PostgreSQL 18 or newer. The address the server connects to. The user and",
+            "# password here are the ones .env.docker.example gives the local database.",
+            "POSTGRES_URL=postgres://authboiler:change-me@localhost:5432/authboiler",
             "# Connections the server may hold open at once, from 1 to 200.",
             "POSTGRES_POOL_MAX=10"
           ]
@@ -905,6 +379,19 @@
       "kind": "credential",
       "default": true,
       "files": [
+        "backend/test/auth/activation-contract.e2e-spec.ts",
+        "backend/test/auth/activation-races.e2e-spec.ts",
+        "backend/test/auth/anonymous-mail-off-path.e2e-spec.ts",
+        "backend/test/auth/code-step-answer-activation.e2e-spec.ts",
+        "backend/test/auth/code-step-answer-reset.e2e-spec.ts",
+        "backend/test/auth/email-enumeration.e2e-spec.ts",
+        "backend/test/auth/pending-registration-windows.e2e-spec.ts",
+        "backend/test/auth/registration-limits.e2e-spec.ts",
+        "backend/test/auth/registration-limits-legacy.mongo.e2e-spec.ts",
+        "backend/test/auth/registration-takeover.e2e-spec.ts",
+        "backend/test/auth/sign-in-cookie-order.e2e-spec.ts",
+        "backend/test/auth/user-password.e2e-spec.ts",
+        "backend/test/utils/stable-answer.ts",
         "frontend/src/modules/auth/methods/password/**",
         "frontend/src/app/[locale]/(auth)/auth/register/**",
         "frontend/src/app/[locale]/(auth)/auth/forgot-password/**",
@@ -1245,6 +732,7 @@
       "backend/docs/persistence-notes.md",
       "frontend/README.maintainer.md",
       "template.manifest.json",
+      "template.rewrites.json",
       "scripts/ci/*.test.mjs",
       ".hyperflow/**",
       "openspec/**"

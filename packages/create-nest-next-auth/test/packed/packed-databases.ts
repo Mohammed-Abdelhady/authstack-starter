@@ -5,32 +5,18 @@ import { ANSWERS_FILE_NAME } from '../../src/constants/index.js';
 import { isRecord } from '../../src/manifest/read.js';
 import {
   findForbiddenContent,
+  findForbiddenLines,
   SKIPPED_SCAN_DIRS,
   SKIPPED_SCAN_FILES,
 } from '../support/reference-content.js';
 import { type Packed, scaffold } from './packed-cli.js';
+import { MONGO_SURVIVING_LINES, MONGO_WORDS } from './packed-database-survivors.js';
 
 const EVERY_FEATURE =
   'email-password,magic-link,totp,passkeys,google,github,facebook,microsoft,apple,discord,linkedin,gitlab,x,slack,twitch,oidc';
 
 /** Words a MongoDB project has no use for, whatever else was picked. */
 const POSTGRES_WORDS = [/postgres/i, /kysely/i, /\bpg\b/, /uuidv7/i, /DATABASE_TYPE/, /sqlstate/i];
-/** Words a PostgreSQL project has no use for. */
-const MONGO_WORDS = [/mongo/i, /replica set/i, /replset/i, /objectid/i];
-/**
- * The files of a PostgreSQL project that still name MongoDB, each with its
- * reason. The global filter reads two failure shapes without loading a driver,
- * and its specs build those shapes by hand. Both branches are unreachable on
- * PostgreSQL and were left in, because taking them out changes how a wrapped
- * unique conflict is told to be the address rule.
- */
-const MONGO_SURVIVORS = [
-  'backend/src/common/constants/mongo-errors.ts',
-  'backend/src/common/filters/global-exception.filter.driver-logs.spec.ts',
-  'backend/src/common/filters/global-exception.filter.sql.spec.ts',
-  'backend/src/common/filters/global-exception.filter.ts',
-  'backend/src/common/utils/driver-error-shape.util.ts',
-];
 // `// feature:x`, `{/* feature:x */}`, `<!-- feature:x -->` or `# feature:x`.
 const ANY_MARKER = /(?:\/\/|\{\/\*|<!--|#)\s*feature:[a-z0-9-]/;
 
@@ -148,14 +134,14 @@ export function databaseCases(getPacked: () => Packed): void {
 
     expect({
       paths: everyFile(project).filter((file) => /mongo(?!-errors\.ts$)/i.test(file)),
-      words: findForbiddenContent(project, MONGO_WORDS),
+      words: findForbiddenLines(project, MONGO_WORDS),
       packages: declaredPackages(project).filter((name) => MONGO_PACKAGES.includes(name)),
       choiceWords: findForbiddenContent(project, [/DATABASE_TYPE/, /prototype\b.*postgres/i]),
       markers: markedFiles(project),
       database: json(project, ANSWERS_FILE_NAME).answers,
     }).toEqual({
       paths: [],
-      words: MONGO_SURVIVORS,
+      words: MONGO_SURVIVING_LINES,
       packages: [],
       choiceWords: [],
       markers: [],
@@ -215,7 +201,12 @@ export function databaseCases(getPacked: () => Packed): void {
   });
 
   it('carries every migration, in order, when a PostgreSQL project picks every method', () => {
-    const project = join(getPacked().workspace, 'database-postgres');
+    const project = generate(
+      getPacked(),
+      'database-postgres-migrations',
+      ['--database', 'postgres'],
+      EVERY_FEATURE,
+    );
 
     expect(readdirSync(join(project, MIGRATIONS)).sort()).toEqual([
       ...CORE_MIGRATIONS.slice(0, 7),

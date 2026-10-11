@@ -8,7 +8,8 @@ import {
 } from '../constants/index.js';
 import { readFileIfExists } from '../utils/fs.js';
 
-const ASSIGNMENT = new RegExp('^\\s*#?\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=');
+/** An assignment line of an env file, commented out or not. The group is the name. */
+export const ASSIGNMENT = new RegExp('^\\s*#?\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=');
 const COMMENT = new RegExp('^\\s*#');
 
 /** Env var name mapped to the words that identify its feature in a comment. */

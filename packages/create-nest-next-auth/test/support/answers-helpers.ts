@@ -12,7 +12,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { vi } from 'vitest';
 import { main } from '../../src/cli.js';
-import { TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
+import { MANIFEST_FILE, REWRITES_FILE, TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
 import type { AnswersRecord, Manifest } from '../../src/types.js';
 import { writePnpmBoundary } from './pnpm-boundary.js';
 
@@ -86,7 +86,9 @@ export async function run(
 export function manifestRootWith(roots: string[], identity?: string): string {
   const root = mkdtempSync(join(tmpdir(), 'cna-answers-'));
   roots.push(root);
-  copyFileSync(join(REPO_ROOT, 'template.manifest.json'), join(root, 'template.manifest.json'));
+  for (const name of [MANIFEST_FILE, REWRITES_FILE]) {
+    copyFileSync(join(REPO_ROOT, name), join(root, name));
+  }
   if (identity !== undefined) {
     writeFileSync(join(root, TEMPLATE_IDENTITY_FILE), identity, 'utf8');
   }

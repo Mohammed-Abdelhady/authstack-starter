@@ -9,6 +9,7 @@ import { isRecord } from '../manifest/read.js';
 import { formatChangedFiles } from '../prune/format.js';
 import type { MobileIdentity } from '../types/mobile.js';
 import { readFileIfExists } from '../utils/fs.js';
+import { parseJson } from '../utils/parse-json.js';
 import { callbackAddress } from './identity.js';
 
 function section(parent: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -74,13 +75,7 @@ async function writeAppConfig(root: string, file: string, identity: MobileIdenti
   const path = join(root, file);
   const raw = await readFileIfExists(path);
   if (raw === undefined) throw new Error(`${file} is missing, so the mobile app cannot be named.`);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Could not parse ${file}: ${reason}`);
-  }
+  const parsed = parseJson(raw, file);
   if (!isRecord(parsed)) throw new Error(`${file} must hold a JSON object.`);
   await writeFile(
     path,

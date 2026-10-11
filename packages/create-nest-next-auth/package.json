@@ -21,6 +21,7 @@
     "docs",
     "template",
     "template.manifest.json",
+    "template.rewrites.json",
     "template.identity.json",
     "README.md"
   ],

@@ -23,7 +23,6 @@ export const OPTION_MANIFEST: Manifest = validateManifest({
       default: true,
       files: [],
       envVars: [],
-      composeServices: [],
     },
   },
   options: {

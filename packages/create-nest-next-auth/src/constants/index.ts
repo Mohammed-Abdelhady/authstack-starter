@@ -8,6 +8,8 @@ type PromptedKind = Exclude<FeatureKind, 'hidden'>;
 export const CLI_NAME = 'create-nest-next-auth';
 
 export const MANIFEST_FILE = 'template.manifest.json';
+/** Each database's rewrites, beside the manifest and read with it. */
+export const REWRITES_FILE = 'template.rewrites.json';
 
 export const TEMPLATE_DIR_NAME = 'template';
 
