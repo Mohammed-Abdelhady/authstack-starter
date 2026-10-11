@@ -135,7 +135,8 @@ export function UserRoleSelector({
         busy={isUpdating}
       >
         <SelectTrigger
-          className="w-full sm:w-[200px]"
+          // As wide as its column allows, so it never runs under the actions button.
+          className="w-full sm:max-w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}
           aria-busy={isUpdating}
           data-testid={`user-role-selector-${userId}`}
