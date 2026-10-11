@@ -149,11 +149,14 @@ export function UserPermissionsDialog({
 
                 {/* Inherited Permissions (Read-only) - Tree View */}
                 <div className="space-y-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Shield className="h-4 w-4 shrink-0 text-info" />
-                    <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
-                      {t('inheritedFromRole', { role: data?.role || '' })}
-                    </Heading>
+                  {/* The badge moves to a line of its own before it is cut. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Shield className="h-4 w-4 shrink-0 text-info" />
+                      <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
+                        {t('inheritedFromRole', { role: data?.role || '' })}
+                      </Heading>
+                    </div>
                     {data?.role && (
                       <Badge
                         dir="ltr"
