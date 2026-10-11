@@ -952,6 +952,7 @@
     },
     "userRole": {
       "protected": "Protected",
+      "selectorLabel": "Role: ⁨{role}⁩",
       "changeTitle": "Change User Role?",
       "thisUser": "this user",
       "changeDescription": "You are about to change <strong>{name}</strong>'s role from <strong>{from}</strong> to <strong>{to}</strong>.",

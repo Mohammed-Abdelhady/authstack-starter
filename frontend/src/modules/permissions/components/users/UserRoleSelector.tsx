@@ -26,6 +26,7 @@ import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
+import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
   readonly userId: string;
@@ -105,6 +106,7 @@ export function UserRoleSelector({
   };
 
   const currentRoleData = roles.find((r) => r.slug === currentRole);
+  const currentRoleName = currentRoleData?.name || currentRole;
   const pendingRoleData = pendingRole ? roles.find((r) => r.slug === pendingRole) : null;
 
   return (
@@ -117,19 +119,21 @@ export function UserRoleSelector({
         <SelectTrigger
           ref={triggerRef}
           className="w-full sm:w-[200px]"
+          aria-label={t('selectorLabel', { role: currentRoleName })}
           data-testid={`user-role-selector-${userId}`}
         >
           {isLoadingRoles ? (
             <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <SelectValue>
-              <div className="flex items-center gap-2">
-                {currentRoleData?.isSystemRole && <Shield className="h-3 w-3 text-info" />}
+              {/* One line, cut at the end of the name. The list below shows it whole. */}
+              <span className="flex min-w-0 items-center gap-2">
+                {currentRoleData?.isSystemRole && <Shield className="h-3 w-3 shrink-0 text-info" />}
                 {currentRoleData?.isProtected && (
-                  <ShieldAlert className="h-3 w-3 text-status-warning" />
+                  <ShieldAlert className="h-3 w-3 shrink-0 text-status-warning" />
                 )}
-                <span dir="auto">{currentRoleData?.name || currentRole}</span>
-              </div>
+                <TruncatedText value={currentRoleName} dir="auto" />
+              </span>
             </SelectValue>
           )}
         </SelectTrigger>
@@ -167,7 +171,7 @@ export function UserRoleSelector({
             <AlertDialogDescription>
               {t.rich('changeDescription', {
                 name: userName?.trim() || t('thisUser'),
-                from: currentRoleData?.name || currentRole,
+                from: currentRoleName,
                 to: pendingRoleData?.name || pendingRole || '',
                 strong: (chunks) => (
                   <strong>

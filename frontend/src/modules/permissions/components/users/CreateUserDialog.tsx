@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
+import { TruncatedText } from '../shared/TruncatedText';
 import {
   fieldElementId,
   useLocalFieldTarget,
@@ -78,6 +79,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
 
   const roles = rolesData?.roles || [];
   const availableRoles = roles.filter((r) => !r.isProtected);
+  const selectedRole = availableRoles.find((r) => r.slug === role);
 
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
@@ -254,7 +256,14 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 {isLoadingRoles ? (
                   <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
                 ) : (
-                  <SelectValue placeholder={t('selectRole')} />
+                  <SelectValue placeholder={t('selectRole')}>
+                    {/* One line, cut at the end of the name. The list shows it whole. */}
+                    {selectedRole ? (
+                      <span className="flex min-w-0">
+                        <TruncatedText value={selectedRole.name} dir="auto" />
+                      </span>
+                    ) : undefined}
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>
