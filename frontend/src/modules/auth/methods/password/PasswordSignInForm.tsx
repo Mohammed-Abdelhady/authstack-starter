@@ -11,6 +11,7 @@ import { FormInput, FormPassword, FormRootError, SubmitButton } from '@/componen
 import { zodEmail } from '@app/core';
 import { Link } from '@/i18n/navigation';
 import { useCompleteSignIn } from '@/modules/auth/hooks/useCompleteSignIn';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useLoginMutation } from '@/modules/auth/store/authApi';
 import { translateAuthError } from '@/modules/auth/utils/authHelpers';
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
@@ -47,8 +48,10 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '', password: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
+  const onPasswordBlur = useValidateFilledOnBlur(form, 'password');
 
   const {
     handleSubmit,
@@ -101,6 +104,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           autoComplete="email"
           disabled={isLoading}
           autoFocus
+          onBlur={onEmailBlur}
           data-testid="login-email-input"
         />
 
@@ -111,6 +115,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           autoComplete="current-password"
           disabled={isLoading}
           showToggle={false}
+          onBlur={onPasswordBlur}
           className={FORM_STYLES.authField}
           data-testid="login-password-input"
         />

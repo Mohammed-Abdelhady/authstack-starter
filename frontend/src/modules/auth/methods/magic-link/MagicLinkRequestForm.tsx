@@ -11,6 +11,7 @@ import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { Button } from '@/components/ui/button';
 import { zodEmail, parseApiError } from '@app/core';
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
 import { isNativeAuthorizeContinuation } from '@/modules/auth/constants/nativeAuthorize';
 import { getRedirectPath } from '@/modules/auth/utils';
@@ -50,8 +51,9 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
 
   const {
     handleSubmit,
@@ -144,6 +146,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           autoComplete="email"
           disabled={isLoading}
           autoFocus={isOnlyMethod}
+          onBlur={onEmailBlur}
           data-testid="magic-link-email-input"
         />
 
