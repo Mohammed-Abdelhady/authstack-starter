@@ -20,9 +20,10 @@ export function useValidateFilledOnBlur<TFieldValues extends FieldValues>(
   const { getValues, trigger, clearErrors, control } = form;
 
   return useCallback(() => {
-    // A submit moves the focus to the first invalid field before the form
-    // renders as submitted, so the rendered `formState` is a step behind here
-    // and the state is read where the library keeps it.
+    // The public `formState` is only as fresh as the last render, and a submit
+    // moves the focus before the form renders as submitted. The control holds
+    // the live flags, so this does not depend on a render landing in between.
+    // `__tests__/useValidateFilledOnBlur.test.tsx` fails if the library moves them.
     const { isSubmitting, isSubmitted } = control._formState;
     if (isSubmitting || isSubmitted) return;
     if (getValues(name) === '') {
