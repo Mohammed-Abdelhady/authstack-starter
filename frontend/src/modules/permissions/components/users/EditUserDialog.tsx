@@ -142,11 +142,11 @@ function EditUserForm({
           disabled={isLoading}
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? errorId('name') : undefined}
-          className={errors.name ? 'border-red-500' : ''}
+          className={errors.name ? 'border-destructive' : ''}
           data-testid="edit-user-name-input"
         />
         {errors.name && (
-          <p id={errorId('name')} className="text-xs text-red-500" data-testid="name-error">
+          <p id={errorId('name')} className="text-xs text-destructive" data-testid="name-error">
             {errors.name}
           </p>
         )}
@@ -173,11 +173,11 @@ function EditUserForm({
           disabled={isLoading}
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? errorId('email') : undefined}
-          className={errors.email ? 'border-red-500' : ''}
+          className={errors.email ? 'border-destructive' : ''}
           data-testid="edit-user-email-input"
         />
         {errors.email && (
-          <p id={errorId('email')} className="text-xs text-red-500" data-testid="email-error">
+          <p id={errorId('email')} className="text-xs text-destructive" data-testid="email-error">
             {errors.email}
           </p>
         )}

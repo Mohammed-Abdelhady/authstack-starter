@@ -83,7 +83,7 @@ export const UserCard = memo(
           'bg-card border border-border',
           'transition-all duration-200 ease-out',
           'hover:border-input hover:shadow-sm',
-          user.isDeleted && 'opacity-60',
+          user.isDeleted && 'border-dashed',
           className,
         )}
       >

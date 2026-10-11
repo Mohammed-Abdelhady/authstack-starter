@@ -106,11 +106,9 @@ export function UserRoleSelector({
           ) : (
             <SelectValue>
               <div className="flex items-center gap-2">
-                {currentRoleData?.isSystemRole && (
-                  <Shield className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                )}
+                {currentRoleData?.isSystemRole && <Shield className="h-3 w-3 text-info" />}
                 {currentRoleData?.isProtected && (
-                  <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                  <ShieldAlert className="h-3 w-3 text-status-warning" />
                 )}
                 <span dir="auto">{currentRoleData?.name || currentRole}</span>
               </div>
@@ -126,12 +124,8 @@ export function UserRoleSelector({
               data-testid={`role-option-${role.slug}`}
             >
               <div className="flex items-center gap-2">
-                {role.isSystemRole && (
-                  <Shield className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                )}
-                {role.isProtected && (
-                  <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                )}
+                {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
+                {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
                 <span dir="auto">{role.name}</span>
                 {role.isProtected && role.slug !== currentRole && (
                   <Badge variant="secondary" className="ms-2 text-xs">

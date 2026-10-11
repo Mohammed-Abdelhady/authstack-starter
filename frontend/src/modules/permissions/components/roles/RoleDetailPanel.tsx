@@ -4,6 +4,7 @@ import { Description, Heading } from '@/components/design-system';
 import { memo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PermissionTreeView } from '../permission-tree/PermissionTreeView';
 import { Pencil, Trash2, Shield, Lock } from 'lucide-react';
@@ -182,20 +183,20 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Base Role Notice */}
       {isBaseRole && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 dark:bg-blue-950/50 dark:border-blue-900">
-          <p className="text-xs text-blue-900 dark:text-blue-100">
+        <Alert variant="info" role="note" className="p-3">
+          <AlertDescription className="text-xs">
             <strong>{t('baseRoleNoticeTitle')}</strong> {t('baseRoleNotice')}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Protected Notice */}
       {role.isProtected && !isBaseRole && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 dark:bg-amber-950/50 dark:border-amber-900">
-          <p className="text-xs text-amber-900 dark:text-amber-100">
+        <Alert variant="warning" role="note" className="p-3">
+          <AlertDescription className="text-xs">
             <strong>{t('protectedRoleNoticeTitle')}</strong> {t('protectedRoleNotice')}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
     </article>
   );

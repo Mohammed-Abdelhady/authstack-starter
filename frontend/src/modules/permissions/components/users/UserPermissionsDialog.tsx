@@ -125,7 +125,7 @@ export function UserPermissionsDialog({
             {isLoading || isLoadingRole ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2
-                  className="h-8 w-8 motion-safe:animate-spin text-gray-400"
+                  className="h-8 w-8 motion-safe:animate-spin text-muted-foreground"
                   aria-hidden="true"
                 />
               </div>
@@ -143,7 +143,7 @@ export function UserPermissionsDialog({
                 {/* Inherited Permissions (Read-only) - Tree View */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <Shield className="h-4 w-4 text-info" />
                     <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
                       {t('inheritedFromRole', { role: data?.role || '' })}
                     </Heading>
@@ -176,7 +176,7 @@ export function UserPermissionsDialog({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <User className="h-4 w-4 text-status-success" />
                       <Heading level={3} variant="subsectionTitle">
                         {t('directPermissions', { count: directPermissions.length })}
                       </Heading>
