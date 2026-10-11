@@ -78,8 +78,9 @@ export class AdminPermissionsController {
     summary: 'Add permission to user',
     description:
       'Adds a direct permission in the format resource:action[:scope]. ' +
-      'The wildcard cannot be granted here. Cannot target the actor itself ' +
-      "or a user at or above the actor's role level.",
+      'The wildcard cannot be granted here, and the actor must hold the ' +
+      'permission itself. Cannot target the actor itself or a user at or ' +
+      "above the actor's role level.",
   })
   @ApiParam({
     name: 'id',

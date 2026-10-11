@@ -1,5 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import {
+  PERMISSION_PERMISSIONS,
+  USER_PERMISSIONS,
+} from '../../../../src/common/constants/permissions';
 import { AdminPermissionsService } from '../../../../src/admin/services/roles/admin-permissions.service';
 import { AdminEmailChangeService } from '../../../../src/admin/services/users/admin-email-change.service';
 import { AdminUserAccessService } from '../../../../src/admin/services/users/admin-user-access.service';
@@ -109,7 +113,12 @@ export function servicesOn(
       harness.clock,
     ),
     permissions,
-    adminPermissions: new AdminPermissionsService(access, permissions),
+    adminPermissions: new AdminPermissionsService(
+      access,
+      permissions,
+      runner,
+      harness.roleChanges,
+    ),
     adminUsers: new AdminUsersService(
       harness.admin,
       harness.sessions,
@@ -183,7 +192,13 @@ export async function seedAccountsFixture(
     name: 'Manager',
     slug: MANAGER_SLUG,
     level: 3,
-    permissions: [READ_USERS],
+    // What the admin services ask of an acting manager, and what it hands out.
+    permissions: [
+      READ_USERS,
+      READ_POSTS,
+      USER_PERMISSIONS.UPDATE_ALL,
+      PERMISSION_PERMISSIONS.GRANT_ALL,
+    ],
   });
   await harness.seedRole({
     name: 'Support',

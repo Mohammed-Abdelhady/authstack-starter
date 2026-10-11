@@ -10,6 +10,8 @@ import { UserRole } from '../../../../../user/enums/user-role.enum';
 import { ErrorCode } from '../../../../../common/enums/error-code.enum';
 import { Role } from '../../../../../role/persistence/mongo/schemas/role.schema';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../mongo-admin-stores';
+import { UnitOfWorkRunner } from '../../../../../common/persistence/unit-of-work';
+import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
 
 const LEVELS: Record<string, number> = {
   user: 1,
@@ -38,6 +40,19 @@ describe('AdminPermissionsService (S-03)', () => {
     removePermission: jest.fn().mockResolvedValue({ success: true }),
   };
 
+  /** The acting account as the unit of work reads it, apart from its role. */
+  const mockRoleChanges = {
+    readActor: jest.fn().mockResolvedValue({
+      isDeleted: false,
+      roleSlug: UserRole.MANAGER,
+      permissions: ['permissions:grant:all', 'users:read:all'],
+    }),
+    readRoleBySlug: jest.fn().mockResolvedValue(null),
+  };
+  const runInPlace = {
+    run: <Result>(work: (unitOfWork: object) => Promise<Result>) => work({}),
+  };
+
   function stubTarget(role: string): void {
     mockUserModel.findById.mockReturnValue({
       exec: jest.fn().mockResolvedValue({
@@ -63,6 +78,8 @@ describe('AdminPermissionsService (S-03)', () => {
           provide: UserPermissionsService,
           useValue: mockUserPermissionsService,
         },
+        { provide: UnitOfWorkRunner, useValue: runInPlace },
+        { provide: RoleChangeStore, useValue: mockRoleChanges },
       ],
     }).compile();
 
@@ -125,6 +142,20 @@ describe('AdminPermissionsService (S-03)', () => {
       targetId.toString(),
       'users:read:all',
     );
+  });
+
+  it('should refuse to grant a permission the actor does not hold', async () => {
+    stubTarget(UserRole.SUPPORT);
+
+    await expect(
+      service.addPermission(
+        targetId.toString(),
+        'users:delete:all',
+        actorId,
+        UserRole.MANAGER,
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.FORBIDDEN, status: 403 });
+    expect(mockUserPermissionsService.addPermission).not.toHaveBeenCalled();
   });
 
   it('should let a peer be read', async () => {
