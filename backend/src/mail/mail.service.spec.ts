@@ -54,11 +54,15 @@ describe('MailService', () => {
 
   async function buildService(
     codeExpiresIn: number,
-    smtp: { from?: string } = { from: 'noreply@example.com' },
+    smtp: { from?: string; secure?: boolean; nodeEnv?: string } = {
+      from: 'noreply@example.com',
+    },
   ): Promise<MailService> {
     const configService = {
       get: jest.fn((key: string, defaultValue?: unknown) => {
         if (key === 'smtp.from') return smtp.from;
+        if (key === 'smtp.secure') return smtp.secure ?? defaultValue;
+        if (key === 'NODE_ENV') return smtp.nodeEnv ?? defaultValue;
         if (key === 'smtp.host') return 'smtp.example.com';
         if (key === 'smtp.port') return 587;
         if (key === 'cors.clientUrl') return CLIENT_URL;
@@ -99,6 +103,50 @@ describe('MailService', () => {
           greetingTimeout: MAIL_GREETING_TIMEOUT_MS,
           socketTimeout: MAIL_SOCKET_TIMEOUT_MS,
         }),
+      );
+    });
+  });
+
+  describe('transport encryption', () => {
+    it.each([
+      [
+        'production without implicit TLS refuses a relay that offers no STARTTLS',
+        { nodeEnv: 'production', secure: false },
+        { secure: false, requireTLS: true },
+      ],
+      [
+        'production with implicit TLS is encrypted from the first byte',
+        { nodeEnv: 'production', secure: true },
+        { secure: true, requireTLS: false },
+      ],
+      [
+        'production with the secure setting left out is treated as off',
+        { nodeEnv: 'production' },
+        { secure: false, requireTLS: true },
+      ],
+      [
+        'development keeps a plain local mail catcher working',
+        { nodeEnv: 'development', secure: false },
+        { secure: false, requireTLS: false },
+      ],
+      [
+        'test keeps a plain local mail catcher working',
+        { nodeEnv: 'test', secure: false },
+        { secure: false, requireTLS: false },
+      ],
+      [
+        'an unset environment is not production',
+        { secure: false },
+        { secure: false, requireTLS: false },
+      ],
+    ])('%s', async (_label, settings, expected) => {
+      createTransport.mockClear();
+
+      await buildService(CODE_LIFETIME_MS, settings);
+
+      expect(createTransport).toHaveBeenCalledTimes(1);
+      expect(createTransport).toHaveBeenCalledWith(
+        expect.objectContaining(expected),
       );
     });
   });

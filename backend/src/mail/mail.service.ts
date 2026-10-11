@@ -34,10 +34,16 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly configService: ConfigService) {
+    const secure = this.configService.get<boolean>('smtp.secure', false);
+    const production =
+      this.configService.get<string>('NODE_ENV') === 'production';
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('smtp.host'),
       port: this.configService.get<number>('smtp.port'),
-      secure: this.configService.get<boolean>('smtp.secure', false),
+      secure,
+      // Without implicit TLS a relay that offers no STARTTLS would be sent
+      // codes and links in clear text. In production the send fails instead.
+      requireTLS: production && !secure,
       auth: {
         user: this.configService.get<string>('smtp.user'),
         pass: this.configService.get<string>('smtp.pass'),
