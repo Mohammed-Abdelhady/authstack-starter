@@ -30,6 +30,12 @@ describeStorageStartupContract('PostgreSQL', bootPostgresStartupHarness, {
     'The database holds migrations this build does not carry: 0002_roles.sql. Start the build that carries them, or restore the database.',
 });
 
+/**
+ * The case starts a server of its own while other suites start theirs.
+ * Slowest measured: 33 seconds.
+ */
+const OWN_SERVER_CASE_MS = 70_000;
+
 describe('PostgreSQL storage start-up on a database nothing was applied to', () => {
   it(
     'refuses with every migration this build carries, in order, and creates no record',
@@ -42,6 +48,6 @@ describe('PostgreSQL storage start-up on a database nothing was applied to', () 
         record: null,
       });
     },
-    POSTGRES_BOOT_TIMEOUT_MS,
+    OWN_SERVER_CASE_MS,
   );
 });

@@ -167,6 +167,9 @@ const EXPECTED_INDEXES = {
   ],
 };
 
+/** Each runs the migration command in a child process. Slowest: 3.6 s. */
+const MIGRATED_INDEXES_CASE_MS = 7_000;
+
 describe('session authority migration indexes', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
   let harness: SessionAuthorityHarness;
@@ -229,7 +232,7 @@ describe('session authority migration indexes', () => {
         await connection.dropDatabase();
       }
     },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+    MIGRATED_INDEXES_CASE_MS,
   );
 
   it(
@@ -245,7 +248,7 @@ describe('session authority migration indexes', () => {
         await connection.dropDatabase();
       }
     },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+    MIGRATED_INDEXES_CASE_MS,
   );
 
   it('keeps application and session records when rollback sees missing indexes', async () => {

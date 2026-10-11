@@ -51,92 +51,84 @@ describe('security event insert failure atomicity', () => {
     await events.deleteMany({});
   });
 
-  it(
-    'rolls back a native code exchange when its security event cannot be stored',
-    async () => {
-      const user = await createTestUser(
-        ctx.harness.users,
-        'event-issuance@example.test',
-      );
-      const approved = await approveNativeCode(ctx, user);
-      const allowEvents = await refuseSecurityEvents(events, TEST_NOW);
+  it('rolls back a native code exchange when its security event cannot be stored', async () => {
+    const user = await createTestUser(
+      ctx.harness.users,
+      'event-issuance@example.test',
+    );
+    const approved = await approveNativeCode(ctx, user);
+    const allowEvents = await refuseSecurityEvents(events, TEST_NOW);
 
-      try {
-        await expect(
-          ctx.tokens.grant(
-            {
-              grant_type: 'authorization_code',
-              code: approved.code,
-              redirect_uri: NATIVE_REDIRECT,
-              client_id: NATIVE_CLIENT_ID,
-              code_verifier: approved.verifier,
-            },
-            NATIVE_META,
-          ),
-        ).rejects.toMatchObject({ code: ErrorCode.AUTHORITY_UNAVAILABLE });
-      } finally {
-        allowEvents();
-      }
+    try {
+      await expect(
+        ctx.tokens.grant(
+          {
+            grant_type: 'authorization_code',
+            code: approved.code,
+            redirect_uri: NATIVE_REDIRECT,
+            client_id: NATIVE_CLIENT_ID,
+            code_verifier: approved.verifier,
+          },
+          NATIVE_META,
+        ),
+      ).rejects.toMatchObject({ code: ErrorCode.AUTHORITY_UNAVAILABLE });
+    } finally {
+      allowEvents();
+    }
 
-      expect({
-        sessions: await ctx.harness.sessions.countDocuments(),
-        credentials: await ctx.credentials.countDocuments(),
-        events: await events.countDocuments({
-          action: { $ne: REFUSED_EVENT_SEED_ACTION },
-        }),
-        consumed: (
-          await ctx.transactions.findOne({
-            transactionId: approved.transactionId,
-          })
-        )?.consumed,
-      }).toEqual({ sessions: 0, credentials: 0, events: 0, consumed: false });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    expect({
+      sessions: await ctx.harness.sessions.countDocuments(),
+      credentials: await ctx.credentials.countDocuments(),
+      events: await events.countDocuments({
+        action: { $ne: REFUSED_EVENT_SEED_ACTION },
+      }),
+      consumed: (
+        await ctx.transactions.findOne({
+          transactionId: approved.transactionId,
+        })
+      )?.consumed,
+    }).toEqual({ sessions: 0, credentials: 0, events: 0, consumed: false });
+  });
 
-  it(
-    'rolls back the replay family revocation when its security event cannot be stored',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      const successor = await rotate(ctx, granted.refreshToken);
-      if (!successor.ok) {
-        throw new Error('setup rotation failed');
-      }
-      const allowEvents = await refuseSecurityEvents(events, TEST_NOW);
+  it('rolls back the replay family revocation when its security event cannot be stored', async () => {
+    const granted = await issueNativeGrant(ctx);
+    const successor = await rotate(ctx, granted.refreshToken);
+    if (!successor.ok) {
+      throw new Error('setup rotation failed');
+    }
+    const allowEvents = await refuseSecurityEvents(events, TEST_NOW);
 
-      try {
-        await expect(rotate(ctx, granted.refreshToken)).rejects.toMatchObject({
-          code: ErrorCode.AUTHORITY_UNAVAILABLE,
-        });
-      } finally {
-        allowEvents();
-      }
-
-      const session = await ctx.harness.sessions.findOne({
-        clientId: NATIVE_CLIENT_ID,
+    try {
+      await expect(rotate(ctx, granted.refreshToken)).rejects.toMatchObject({
+        code: ErrorCode.AUTHORITY_UNAVAILABLE,
       });
-      if (!session) {
-        throw new Error('expected a native session');
-      }
-      expect({
-        sessionValid: session.isValid,
-        revoked: session.revokedAt instanceof Date,
-        successorSpent: (
-          await ctx.credentials.findOne({
-            tokenHash: hashToken(successor.refreshToken),
-          })
-        )?.spent,
-      }).toEqual({
-        sessionValid: true,
-        revoked: false,
-        successorSpent: false,
-      });
+    } finally {
+      allowEvents();
+    }
 
-      const usable = await rotate(ctx, successor.refreshToken);
-      expect(usable.ok).toBe(true);
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    const session = await ctx.harness.sessions.findOne({
+      clientId: NATIVE_CLIENT_ID,
+    });
+    if (!session) {
+      throw new Error('expected a native session');
+    }
+    expect({
+      sessionValid: session.isValid,
+      revoked: session.revokedAt instanceof Date,
+      successorSpent: (
+        await ctx.credentials.findOne({
+          tokenHash: hashToken(successor.refreshToken),
+        })
+      )?.spent,
+    }).toEqual({
+      sessionValid: true,
+      revoked: false,
+      successorSpent: false,
+    });
+
+    const usable = await rotate(ctx, successor.refreshToken);
+    expect(usable.ok).toBe(true);
+  });
 });
 
 function rotate(

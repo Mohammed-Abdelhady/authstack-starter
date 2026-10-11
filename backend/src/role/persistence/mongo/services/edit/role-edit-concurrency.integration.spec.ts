@@ -25,6 +25,12 @@ const THIRD_SLUG = 'content-chief';
 const REVOKED_ACTION = 'sessions_revoked_all';
 const CANDIDATE_SLUGS = [ROLE_SLUG, RENAMED_SLUG, THIRD_SLUG];
 
+/**
+ * Fifteen rounds of two renames racing unheld, each round its own
+ * transactions and reruns. Slowest measured: 4.6 seconds.
+ */
+const FIFTEEN_RACES_CASE_MS = 10_000;
+
 describe('role edit concurrency', () => {
   let actorId: string;
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
@@ -249,7 +255,7 @@ describe('role edit concurrency', () => {
         expect(existing[0].slug).toBe(stored?.role);
       }
     },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+    FIFTEEN_RACES_CASE_MS,
   );
 
   it('treats a duplicate permission entry as a change and signs holders out', async () => {

@@ -117,103 +117,95 @@ describe('two refreshes of one token at once', () => {
     return answer.refreshToken;
   }
 
-  it(
-    'stores one successor and ends the family on the second, without a device key',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      const refresh = () => rotate(ctx, granted.refreshToken);
+  it('stores one successor and ends the family on the second, without a device key', async () => {
+    const granted = await issueNativeGrant(ctx);
+    const refresh = () => rotate(ctx, granted.refreshToken);
 
-      const { winner, loser, held } = await raceToTheClaim(
-        refresh,
-        refresh,
-        (answer) => credentialState(successorOf(answer)),
+    const { winner, loser, held } = await raceToTheClaim(
+      refresh,
+      refresh,
+      (answer) => credentialState(successorOf(answer)),
+    );
+
+    const session = await nativeSession();
+    const credentials = await ctx.credentials
+      .find({ sessionId: session._id })
+      .lean()
+      .exec();
+    expect({
+      winnerOk: winner.ok,
+      successorWhileLoserHeld: held,
+      loser,
+      sessionValid: session.isValid,
+      revokedReason: session.revokedReason,
+      credentialCount: credentials.length,
+      unspentCount: credentials.filter((row) => !row.spent).length,
+      unrevokedCount: credentials.filter(
+        (row) => !(row.revokedAt instanceof Date),
+      ).length,
+      successorAfterwards: await rotate(ctx, successorOf(winner)),
+    }).toEqual({
+      winnerOk: true,
+      successorWhileLoserHeld: { stored: true, spent: false, revoked: false },
+      loser: expect.objectContaining({
+        ok: false,
+        error: OAUTH_ERROR.INVALID_GRANT,
+      }),
+      sessionValid: false,
+      revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+      credentialCount: 4,
+      unspentCount: 0,
+      unrevokedCount: 0,
+      successorAfterwards: expect.objectContaining({
+        ok: false,
+        error: OAUTH_ERROR.INVALID_GRANT,
+      }),
+    });
+  });
+
+  it('replaces the first pair with the second when the same device key signs both', async () => {
+    const granted = await issueBoundNativeGrant(ctx);
+    const refreshWith = (jti: string) => () =>
+      rotate(
+        ctx,
+        granted.refreshToken,
+        signNativeDpopProof({
+          token: granted.refreshToken,
+          claims: { jti },
+        }),
       );
 
-      const session = await nativeSession();
-      const credentials = await ctx.credentials
-        .find({ sessionId: session._id })
-        .lean()
-        .exec();
-      expect({
-        winnerOk: winner.ok,
-        successorWhileLoserHeld: held,
-        loser,
-        sessionValid: session.isValid,
-        revokedReason: session.revokedReason,
-        credentialCount: credentials.length,
-        unspentCount: credentials.filter((row) => !row.spent).length,
-        unrevokedCount: credentials.filter(
-          (row) => !(row.revokedAt instanceof Date),
-        ).length,
-        successorAfterwards: await rotate(ctx, successorOf(winner)),
-      }).toEqual({
-        winnerOk: true,
-        successorWhileLoserHeld: { stored: true, spent: false, revoked: false },
-        loser: expect.objectContaining({
-          ok: false,
-          error: OAUTH_ERROR.INVALID_GRANT,
-        }),
-        sessionValid: false,
-        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-        credentialCount: 4,
-        unspentCount: 0,
-        unrevokedCount: 0,
-        successorAfterwards: expect.objectContaining({
-          ok: false,
-          error: OAUTH_ERROR.INVALID_GRANT,
-        }),
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    const { winner, loser } = await raceToTheClaim(
+      refreshWith('double-rotation-a'),
+      refreshWith('double-rotation-b'),
+      () => Promise.resolve(undefined),
+    );
 
-  it(
-    'replaces the first pair with the second when the same device key signs both',
-    async () => {
-      const granted = await issueBoundNativeGrant(ctx);
-      const refreshWith = (jti: string) => () =>
-        rotate(
-          ctx,
-          granted.refreshToken,
-          signNativeDpopProof({
-            token: granted.refreshToken,
-            claims: { jti },
-          }),
-        );
-
-      const { winner, loser } = await raceToTheClaim(
-        refreshWith('double-rotation-a'),
-        refreshWith('double-rotation-b'),
-        () => Promise.resolve(undefined),
-      );
-
-      const session = await nativeSession();
-      expect({
-        firstPair: await credentialState(successorOf(winner)),
-        replacementPair: await credentialState(successorOf(loser)),
-        liveCredentials: await ctx.credentials.countDocuments({
-          sessionId: session._id,
-          spent: false,
-          revokedAt: { $exists: false },
-        }),
-        sessionValid: session.isValid,
-        retryEvents: await ctx.securityEvents.countDocuments({
-          action: SECURITY_EVENT_ACTION.NATIVE_DPOP_BOUND_RETRY,
-        }),
-        replayEvents: await ctx.securityEvents.countDocuments({
-          action: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-        }),
-      }).toEqual({
-        firstPair: { stored: true, spent: true, revoked: true },
-        replacementPair: { stored: true, spent: false, revoked: false },
-        liveCredentials: 2,
-        sessionValid: true,
-        retryEvents: 1,
-        replayEvents: 0,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    const session = await nativeSession();
+    expect({
+      firstPair: await credentialState(successorOf(winner)),
+      replacementPair: await credentialState(successorOf(loser)),
+      liveCredentials: await ctx.credentials.countDocuments({
+        sessionId: session._id,
+        spent: false,
+        revokedAt: { $exists: false },
+      }),
+      sessionValid: session.isValid,
+      retryEvents: await ctx.securityEvents.countDocuments({
+        action: SECURITY_EVENT_ACTION.NATIVE_DPOP_BOUND_RETRY,
+      }),
+      replayEvents: await ctx.securityEvents.countDocuments({
+        action: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+      }),
+    }).toEqual({
+      firstPair: { stored: true, spent: true, revoked: true },
+      replacementPair: { stored: true, spent: false, revoked: false },
+      liveCredentials: 2,
+      sessionValid: true,
+      retryEvents: 1,
+      replayEvents: 0,
+    });
+  });
 });
 
 function rotate(

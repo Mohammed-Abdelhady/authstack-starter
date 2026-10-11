@@ -80,6 +80,12 @@ interface RawPasskey extends Document {
   lastUsedAt: Date | null;
 }
 
+/**
+ * The case connects twice, builds the indexes of three collections and runs
+ * the migration command in a child process. Slowest measured: 4.9 seconds.
+ */
+const MIGRATED_ROUND_TRIP_CASE_MS = 10_000;
+
 describe('passkey ObjectId round trip', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
 
@@ -245,7 +251,7 @@ describe('passkey ObjectId round trip', () => {
         await rawClient.close();
       }
     },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+    MIGRATED_ROUND_TRIP_CASE_MS,
   );
 });
 

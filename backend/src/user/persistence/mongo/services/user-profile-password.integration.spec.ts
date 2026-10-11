@@ -30,10 +30,14 @@ import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
 import { MongoUnitOfWorkRunner } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ACCOUNT_STORES } from '../mongo-account-stores';
 
-jest.setTimeout(60000);
-
 const OLD_PASSWORD = 'OldPassword123!';
 const NEW_PASSWORD = 'NewPassword123!';
+
+/**
+ * The service hashes the new password at the product's cost of 12 and the
+ * case compares two passwords against that hash. Slowest measured: 2.9 seconds.
+ */
+const PRODUCT_COST_HASH_CASE_MS = 6_000;
 
 describe('password change keeps the calling session (plan S1)', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
@@ -121,48 +125,54 @@ describe('password change keeps the calling session (plan S1)', () => {
     return user._id;
   }
 
-  it('changes the password and keeps only the calling session', async () => {
-    const { userId } = await seedUserWithPassword('password@example.test');
-    const objectId = await userObjectId(userId);
-    const current = await harness.sessionService.createSession(
-      objectId,
-      'current',
-      '127.0.0.1',
-    );
-    const other = await harness.sessionService.createSession(
-      objectId,
-      'other',
-      '127.0.0.1',
-    );
+  it(
+    'changes the password and keeps only the calling session',
+    async () => {
+      const { userId } = await seedUserWithPassword('password@example.test');
+      const objectId = await userObjectId(userId);
+      const current = await harness.sessionService.createSession(
+        objectId,
+        'current',
+        '127.0.0.1',
+      );
+      const other = await harness.sessionService.createSession(
+        objectId,
+        'other',
+        '127.0.0.1',
+      );
 
-    const result = await service.changePassword(
-      userId,
-      { currentPassword: OLD_PASSWORD, newPassword: NEW_PASSWORD },
-      await sessionIdFor(current.sessionToken),
-    );
+      const result = await service.changePassword(
+        userId,
+        { currentPassword: OLD_PASSWORD, newPassword: NEW_PASSWORD },
+        await sessionIdFor(current.sessionToken),
+      );
 
-    expect(result).toEqual({
-      success: true,
-      data: {
-        message:
-          'Password changed successfully. Other sessions have been logged out.',
-      },
-    });
-    const user = await harness.users
-      .findById(userId)
-      .select('+password')
-      .exec();
-    expect(await bcrypt.compare(NEW_PASSWORD, user?.password ?? '')).toBe(true);
-    expect(await bcrypt.compare(OLD_PASSWORD, user?.password ?? '')).toBe(
-      false,
-    );
-    expect(
-      await harness.sessionService.validateSession(current.sessionToken),
-    ).not.toBeNull();
-    expect(
-      await harness.sessionService.validateSession(other.sessionToken),
-    ).toBeNull();
-  });
+      expect(result).toEqual({
+        success: true,
+        data: {
+          message:
+            'Password changed successfully. Other sessions have been logged out.',
+        },
+      });
+      const user = await harness.users
+        .findById(userId)
+        .select('+password')
+        .exec();
+      expect(await bcrypt.compare(NEW_PASSWORD, user?.password ?? '')).toBe(
+        true,
+      );
+      expect(await bcrypt.compare(OLD_PASSWORD, user?.password ?? '')).toBe(
+        false,
+      );
+      expect(
+        await harness.sessionService.validateSession(current.sessionToken),
+      ).not.toBeNull();
+      expect(
+        await harness.sessionService.validateSession(other.sessionToken),
+      ).toBeNull();
+    },
+    PRODUCT_COST_HASH_CASE_MS,
+  );
 
   it('leaves the old password in place when the revocation fails', async () => {
     const { userId } = await seedUserWithPassword('atomic@example.test');

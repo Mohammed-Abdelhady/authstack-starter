@@ -24,8 +24,6 @@ import {
 } from '../../../../../../test/utils/session-authority-harness';
 import { TEST_NOW } from '../../../../../../test/utils/frozen-clock';
 
-jest.setTimeout(60000);
-
 describe('native token lifetimes (first use and revoked families)', () => {
   let ctx: NativeOauthHarness;
 

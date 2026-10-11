@@ -10,7 +10,11 @@ import {
 import { runMigrateCommand } from './postgres-migrate';
 import { PostgresStorageStartup } from './postgres-storage-startup';
 
-/** Budget for a case that applies every migration to a database of its own. */
+/**
+ * Budget for a case that runs the migration command against a database of its
+ * own: it creates the database and applies every migration while other
+ * suites start servers. Slowest measured: 27 seconds.
+ */
 export const MIGRATE_CASE_TIMEOUT_MS = 60_000;
 
 export const EVERY_MIGRATION = [
