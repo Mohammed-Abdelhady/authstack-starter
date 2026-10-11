@@ -15,6 +15,7 @@ import { TwoFactorLoginService } from './two-factor-login.service';
 import { SetupTwoFactorDto } from './dto/setup-two-factor.dto';
 import { TwoFactorCodeDto } from './dto/two-factor-code.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { RegenerateRecoveryCodesDto } from './dto/regenerate-recovery-codes.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { Public } from '../decorators/public.decorator';
 import { CurrentUser } from '../decorators/current-user.decorator';
@@ -117,12 +118,14 @@ export class TwoFactorController {
   @ApiOperation({
     summary: 'Replace the recovery codes',
     description:
-      'Issues ten new recovery codes and drops the old batch, used or not.',
+      'Issues ten new recovery codes and drops the old batch, used or not. ' +
+      'Needs a code, plus the password when the account has one and password ' +
+      'sign-in is on.',
   })
-  @ApiBody({ type: TwoFactorCodeDto })
+  @ApiBody({ type: RegenerateRecoveryCodesDto })
   async regenerateRecoveryCodes(
     @CurrentUser('id') userId: string,
-    @Body() dto: TwoFactorCodeDto,
+    @Body() dto: RegenerateRecoveryCodesDto,
   ) {
     return this.twoFactorService.regenerateRecoveryCodes(userId, dto);
   }

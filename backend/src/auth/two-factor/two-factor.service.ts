@@ -9,6 +9,7 @@ import { ErrorCode } from '../../common/enums/error-code.enum';
 import { SetupTwoFactorDto } from './dto/setup-two-factor.dto';
 import { TwoFactorCodeDto } from './dto/two-factor-code.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { RegenerateRecoveryCodesDto } from './dto/regenerate-recovery-codes.dto';
 import { TwoFactorSetupResponseDto } from './dto/two-factor-setup-response.dto';
 import { RecoveryCodesResponseDto } from './dto/recovery-codes-response.dto';
 import { TotpSecretCryptoService } from './services/totp-secret-crypto.service';
@@ -128,14 +129,16 @@ export class TwoFactorService {
 
   /**
    * Replace the recovery codes with a fresh batch. Every code from the old
-   * batch stops working, used or not.
+   * batch stops working, used or not. Needs a code, and the password as well
+   * when the account has one and password sign-in is on.
    */
   async regenerateRecoveryCodes(
     userId: string,
-    dto: TwoFactorCodeDto,
+    dto: RegenerateRecoveryCodesDto,
   ): Promise<ApiResponse<RecoveryCodesResponseDto>> {
-    const user = await this.loadUser(userId);
+    const user = await this.loadUser(userId, true);
     this.assertEnabled(user);
+    await this.reauthService.assertPasswordIfSet(user, dto.password);
     await this.verificationService.verifyTotpCode(user, dto.code);
 
     const codes = generateRecoveryCodes();
