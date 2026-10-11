@@ -41,10 +41,13 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
   const { t, colors } = useUi();
   const sessions = useSessions();
   const { view, current, others, problem, refreshing, refresh, revoke, revokeOthers } = sessions;
+  const { writingRow, writingOthers } = sessions;
 
   const renderRow = useCallback(
-    ({ item }: { item: SessionRow }) => <SessionCard row={item} onRevoke={revoke} />,
-    [revoke],
+    ({ item }: { item: SessionRow }) => (
+      <SessionCard row={item} onRevoke={revoke} busy={item.id === writingRow} />
+    ),
+    [revoke, writingRow],
   );
 
   const head = (
@@ -76,7 +79,7 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
       {current === undefined ? null : (
         <View style={styles.group}>
           <Heading level="section">{t('sessions.thisDevice')}</Heading>
-          <SessionCard row={current} onRevoke={revoke} />
+          <SessionCard row={current} onRevoke={revoke} busy={current.id === writingRow} />
         </View>
       )}
       {view === LIST_VIEW.EMPTY ? (
@@ -94,6 +97,7 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
         testID={TEST_ID.SESSIONS_REVOKE_OTHERS}
         stretch
         label={t('sessions.revokeOthers')}
+        busy={writingOthers}
         onPress={revokeOthers}
       />
     ) : null;
@@ -105,6 +109,7 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
         data={others}
         keyExtractor={keyOf}
         renderItem={renderRow}
+        extraData={writingRow}
         ListHeaderComponent={head}
         ListFooterComponent={foot}
         contentContainerStyle={styles.list}

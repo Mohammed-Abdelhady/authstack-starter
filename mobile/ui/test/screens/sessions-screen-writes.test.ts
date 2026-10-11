@@ -3,7 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TEST_ID } from '../../src/constants';
 import { PHONE, TABLET } from '../support/devices';
 import { noResponse, ok, refusal, ROUTE, sessionList } from '../support/fake-server';
-import { cleanup, isShown, press, pullToRefresh, refreshControl } from '../support/render';
+import {
+  byTestId,
+  cleanup,
+  isShown,
+  press,
+  pullToRefresh,
+  refreshControl,
+} from '../support/render';
 import { alerts, listed, problem, REVOKE, rows, writes } from '../support/sessions-screen';
 
 vi.mock('react-native', () => import('../support/react-native'));
@@ -156,6 +163,47 @@ describe('signing devices out from the devices screen', () => {
     expect({ refreshing: refreshControl(app.root).props.refreshing, rows: rows(app) }).toEqual({
       refreshing: false,
       rows: ['phone', 'laptop', 'tablet'],
+    });
+  });
+
+  it('holds the pressed sign-out button busy for the length of its write, and ignores a second tap', async () => {
+    const app = await listed();
+    const signOut = app.fake.holdSignOut();
+    const state = () => ({
+      state: byTestId(app.root, REVOKE('phone')).props.accessibilityState,
+      disabled: byTestId(app.root, REVOKE('phone')).props.disabled,
+    });
+
+    await press(app.root, REVOKE('phone'));
+    expect(state()).toEqual({ state: { disabled: false, busy: false }, disabled: false });
+    await app.confirm.answer(true);
+    expect(state()).toEqual({ state: { disabled: true, busy: true }, disabled: true });
+
+    await press(app.root, REVOKE('phone'));
+    expect({ asked: app.confirm.asked.length, signOuts: app.fake.signOuts }).toEqual({
+      asked: 1,
+      signOuts: 1,
+    });
+
+    await app.step(() => signOut.reject(new Error('port crashed')));
+    expect(state()).toEqual({ state: { disabled: false, busy: false }, disabled: false });
+  });
+
+  it('leaves the other buttons usable during a write, and a returned row ready to press again', async () => {
+    const app = await listed();
+    await press(app.root, REVOKE('laptop'));
+    await app.confirm.answer(true);
+    expect(byTestId(app.root, REVOKE('tablet')).props.accessibilityState).toEqual({
+      disabled: false,
+      busy: false,
+    });
+
+    await app.step(() =>
+      app.server.answer(ROUTE.revoke('laptop'), refusal(503, ErrorCode.AUTHORITY_UNAVAILABLE)),
+    );
+    expect(byTestId(app.root, REVOKE('laptop')).props.accessibilityState).toEqual({
+      disabled: false,
+      busy: false,
     });
   });
 });

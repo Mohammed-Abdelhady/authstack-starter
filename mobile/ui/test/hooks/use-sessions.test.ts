@@ -198,4 +198,41 @@ describe('the devices hook', () => {
       description: translate('en', 'sessions.revokeOthersFailed.description'),
     });
   });
+
+  it('names the row whose write is out, through a second tap elsewhere, until that write ends', async () => {
+    const subject = await loaded();
+    act(() => subject.current().revoke(row(subject, 'laptop')));
+    await flush();
+    expect(subject.current().writingRow).toBeUndefined();
+
+    await subject.confirm.answer(true);
+    expect(subject.current().writingRow).toBe('laptop');
+
+    const tablet = row(subject, 'tablet');
+    act(() => subject.current().revoke(tablet));
+    await flush();
+    await subject.confirm.answer(true);
+    expect(subject.current().writingRow).toBe('laptop');
+
+    subject.server.answer(ROUTE.revoke('laptop'), ok({ message: 'done' }));
+    await flush();
+    expect(subject.current().writingRow).toBeUndefined();
+  });
+
+  it('reports the sign-out of every other device as under way only from the yes to the answer', async () => {
+    const subject = await loaded();
+    act(() => subject.current().revokeOthers());
+    await flush();
+    await subject.confirm.answer(false);
+    expect(subject.current().writingOthers).toBe(false);
+
+    act(() => subject.current().revokeOthers());
+    await flush();
+    await subject.confirm.answer(true);
+    expect(subject.current().writingOthers).toBe(true);
+
+    subject.server.answer(ROUTE.REVOKE_OTHERS, refusal(401, ErrorCode.SESSION_INVALID));
+    await flush();
+    expect(subject.current().writingOthers).toBe(false);
+  });
 });
