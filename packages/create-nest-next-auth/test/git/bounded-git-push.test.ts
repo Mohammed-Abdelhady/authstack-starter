@@ -13,16 +13,29 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
-import { GIT_PUSH_KILL_SIGNAL } from '../../src/constants/index.js';
-import { git, isolatedGit } from '../support/answers-helpers.js';
+import { GIT_PUSH_KILL_SIGNAL, GIT_PUSH_TIMEOUT_MS } from '../../src/constants/index.js';
+import { git, isolatedGit, REPO_ROOT } from '../support/answers-helpers.js';
 import { boundedGitPush } from '../support/bounded-git-push.js';
+import { isRunning } from '../support/process-tree.js';
 
 const FIXTURE_TIMEOUT_MS = 1000;
 // Both codes mean the hook's reader has already gone, so there is nothing left to release.
 const HOOK_READER_GONE_CODES = ['ENXIO', 'EPIPE'];
+// Long enough for the hook to start Node and record its child before the bound fires.
+const OWN_GROUP_TIMEOUT_MS = 3000;
+const OWN_GROUP_HOOK =
+  "import { spawn } from 'node:child_process';\n" +
+  "import { writeFileSync } from 'node:fs';\n" +
+  "const idle = ['-e', 'setInterval(() => {}, 1000)'];\n" +
+  "const child = spawn(process.execPath, idle, { detached: true, stdio: 'ignore' });\n" +
+  "writeFileSync('.git/own-group-pid', String(child.pid));\n" +
+  'setInterval(() => {}, 1000);\n';
 const roots: string[] = [];
+const strays: number[] = [];
 afterEach(() => {
+  for (const pid of strays.splice(0)) if (isRunning(pid)) process.kill(pid, GIT_PUSH_KILL_SIGNAL);
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -52,6 +65,40 @@ it('reports a real blocked push as a timeout', () => {
   } finally {
     releaseHook(root);
   }
+});
+
+it('stops a hook child that left the push process group before reporting the timeout', () => {
+  const { root, env } = pushFixture();
+  writeFileSync(join(root, '.git/own-group.mjs'), OWN_GROUP_HOOK);
+  const hook = join(root, '.git/hooks/pre-push');
+  writeFileSync(hook, `#!/bin/sh\nexec "${process.execPath}" .git/own-group.mjs\n`);
+  chmodSync(hook, 0o755);
+  const marker = join(root, '.git/own-group-pid');
+  try {
+    expect(() => boundedGitPush(['origin', 'main'], root, env, OWN_GROUP_TIMEOUT_MS)).toThrow(
+      'Git push fixture timed out after 3000 ms.',
+    );
+  } finally {
+    // Recorded even when the push fails another way, so the child never outlives the test.
+    if (existsSync(marker)) strays.push(Number(readFileSync(marker, 'utf8')));
+  }
+  const child = Number(readFileSync(marker, 'utf8'));
+  expect({ recorded: Number.isSafeInteger(child) && child > 0, running: isRunning(child) }).toEqual(
+    {
+      recorded: true,
+      running: false,
+    },
+  );
+});
+
+it('keeps the same push budget as the repository guardrail fixtures', async () => {
+  const policy: unknown = await import(
+    pathToFileURL(join(REPO_ROOT, 'scripts/guardrails/policy.mjs')).href
+  );
+  expect({ installer: GIT_PUSH_TIMEOUT_MS, repository: policy }).toMatchObject({
+    installer: 30_000,
+    repository: { GIT_PUSH_TIMEOUT_MS: 30_000 },
+  });
 });
 
 it('preserves a real rejected push status', () => {

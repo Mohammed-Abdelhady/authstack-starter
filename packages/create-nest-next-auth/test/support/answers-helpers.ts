@@ -99,13 +99,28 @@ export function fixtureRoot(roots: string[] = []): string {
   return manifestRootWith(roots, identity);
 }
 
+/** No background Git work: it would outlive the command and write into a folder being removed. */
+const FIXTURE_GIT_CONFIG = [
+  '[gc]',
+  '\tauto = 0',
+  '\tautoDetach = false',
+  '[maintenance]',
+  '\tauto = false',
+  '\tautoDetach = false',
+  '[core]',
+  '\tfsmonitor = false',
+  '[fetch]',
+  '\twriteCommitGraph = false',
+  '',
+].join('\n');
+
 /** A git environment blind to the developer's identity, plus its overrides. */
 export function isolatedGit(root: string): {
   env: NodeJS.ProcessEnv;
   overrides: Record<string, string | undefined>;
 } {
-  const emptyConfig = join(root, 'gitconfig-empty');
-  if (!existsSync(emptyConfig)) writeFileSync(emptyConfig, '', 'utf8');
+  const fixtureConfig = join(root, 'gitconfig-fixture');
+  if (!existsSync(fixtureConfig)) writeFileSync(fixtureConfig, FIXTURE_GIT_CONFIG, 'utf8');
   const inheritedGitKeys = Object.keys(process.env).filter((key) => key.startsWith('GIT_'));
   const overrides: Record<string, string | undefined> = {
     ...Object.fromEntries(inheritedGitKeys.map((key) => [key, undefined])),
@@ -113,7 +128,7 @@ export function isolatedGit(root: string): {
     XDG_CONFIG_HOME: root,
     GIT_AUTHOR_DATE: '2000-01-01T00:00:00Z',
     GIT_COMMITTER_DATE: '2000-01-01T00:00:00Z',
-    GIT_CONFIG_GLOBAL: emptyConfig,
+    GIT_CONFIG_GLOBAL: fixtureConfig,
     GIT_CONFIG_NOSYSTEM: '1',
     // Deleted, not set: with every identity source gone, only the installer's
     // own fallback identity can sign the commit.

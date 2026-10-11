@@ -5,7 +5,9 @@ import { expect } from 'vitest';
 import { git } from '../support/answers-helpers.js';
 import { boundedGitPush } from '../support/bounded-git-push.js';
 
-const PROBE_PATH = 'backend/src/hook probe.ts';
+// The recursive lint reaches shared/core first and stops there. A probe in the
+// backend made every refused push wait for the whole backend lint as well.
+const PROBE_PATH = 'shared/core/src/hook probe.ts';
 const INVALID_SOURCE = 'const unusedHookProbe = 1;\nexport {};\n';
 const UNSTAGED_SOURCE = 'export const unstagedHookProbe = 2;\n';
 const CLEAN_SOURCE = 'export const hookProbe = 1;\n';
