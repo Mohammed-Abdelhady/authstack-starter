@@ -1,29 +1,54 @@
 import { fireEvent } from '@testing-library/react';
 
 const CHAR_CODES = { Enter: 13, ' ': 32 } as const;
+type Key = keyof typeof CHAR_CODES;
+
+const focused = () => document.activeElement ?? document.body;
 
 /**
- * One keystroke as a browser delivers it: keydown to the focused element, then
- * keypress and keyup to whatever holds focus by then. jsdom has no activation
- * behaviour, so the click a button receives from an Enter keypress is fired
- * here. Space only presses the button that also saw its keydown, so a button
- * focused midway gets no click from it.
+ * One keystroke, a part at a time, so a test can let focus move between the
+ * parts. Each part goes to whatever holds focus when it is sent, as in a
+ * browser. jsdom has no activation behaviour, so the clicks a browser gives a
+ * button are fired here: on an Enter keypress, and on a Space keyup when that
+ * same button also saw the Space keydown. A cancelled part gives no click, and
+ * a cancelled keydown gives no keypress.
  */
-export function pressKey(key: keyof typeof CHAR_CODES): void {
-  const focused = () => document.activeElement ?? document.body;
-  const keydownTarget = focused();
+export function keystroke(key: Key) {
+  let typing = false;
+  let armed: Element | null = null;
 
-  if (fireEvent.keyDown(keydownTarget, { key })) {
-    const receiver = focused();
-    const typed = fireEvent.keyPress(receiver, { key, charCode: CHAR_CODES[key] });
-    if (typed && key === 'Enter' && receiver instanceof HTMLButtonElement) {
-      fireEvent.click(receiver);
-    }
-  }
+  const down = (repeat: boolean) => {
+    const target = focused();
+    typing = fireEvent.keyDown(target, { key, repeat });
+    if (typing && key === ' ' && target instanceof HTMLButtonElement) armed = target;
+  };
+  const press = (repeat: boolean) => {
+    if (!typing) return;
+    const target = focused();
+    const typed = fireEvent.keyPress(target, { key, charCode: CHAR_CODES[key], repeat });
+    if (typed && key === 'Enter' && target instanceof HTMLButtonElement) fireEvent.click(target);
+  };
 
-  const keyupTarget = focused();
-  fireEvent.keyUp(keyupTarget, { key });
-  if (key === ' ' && keyupTarget === keydownTarget && keyupTarget instanceof HTMLButtonElement) {
-    fireEvent.click(keyupTarget);
-  }
+  return {
+    down: () => down(false),
+    press: () => press(false),
+    /** What a held key adds before it comes up: another keydown and keypress. */
+    repeat: () => {
+      down(true);
+      press(true);
+    },
+    up: () => {
+      const target = focused();
+      const released = fireEvent.keyUp(target, { key });
+      if (released && key === ' ' && target === armed) fireEvent.click(target);
+    },
+  };
+}
+
+/** A whole keystroke with nothing in between its parts. */
+export function pressKey(key: Key): void {
+  const stroke = keystroke(key);
+  stroke.down();
+  stroke.press();
+  stroke.up();
 }
