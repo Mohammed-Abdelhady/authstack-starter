@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { FormProvider } from 'react-hook-form';
@@ -17,6 +17,7 @@ import { translateAuthError } from '@/modules/auth/utils/authHelpers';
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
 import type { AuthMethodFormProps } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Sign-in schema. The minimum length is only there to catch an empty box; the
@@ -59,14 +60,8 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
     setError,
   } = form;
 
-  const inFlight = useRef(false);
-
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: PasswordSignInData) => {
-      // The button is only disabled after a render, which a second submission
-      // in the same tick does not wait for.
-      if (inFlight.current) return;
-      inFlight.current = true;
       try {
         const response = await login({ email: data.email, password: data.password }).unwrap();
         await completeSignIn(response, redirect);
@@ -76,12 +71,11 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           type: 'manual',
           message: code ? tCodes(code) : translateAuthError(err, t),
         });
-      } finally {
-        inFlight.current = false;
       }
     },
     [completeSignIn, login, redirect, setError, t, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <FormProvider {...form}>

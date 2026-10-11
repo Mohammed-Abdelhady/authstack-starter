@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useCompleteSignIn } from '@/modules/auth/hooks/useCompleteSignIn';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
@@ -12,6 +12,7 @@ import {
   webAuthnMessageKey,
   type AuthenticationResponseJSON,
 } from '../utils/webauthn';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /** The call that turns a signed challenge into a session, or a second one. */
 export type PasskeyVerify = (response: AuthenticationResponseJSON) => Promise<LoginResponse>;
@@ -45,12 +46,7 @@ export function usePasskeySignIn(
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const inFlight = useRef(false);
-
-  const run = useCallback(async () => {
-    // `isBusy` disables the button only after a render.
-    if (inFlight.current) return;
-    inFlight.current = true;
+  const runCeremony = useCallback(async () => {
     setError(null);
     setIsBusy(true);
 
@@ -71,10 +67,15 @@ export function usePasskeySignIn(
       }
       setError(tCodes(translatableErrorCode(err)));
     } finally {
-      inFlight.current = false;
       setIsBusy(false);
     }
   }, [completeSignIn, createLoginOptions, handleFeatureDisabled, redirect, t, tCodes, verify]);
+
+  // Held through the browser prompt, so a second click cannot open another.
+  const guarded = useSingleFlight(runCeremony);
+  const run = useCallback(async () => {
+    await guarded();
+  }, [guarded]);
 
   return { run, isBusy, error };
 }
