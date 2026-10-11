@@ -59,6 +59,7 @@ describe('CI workflow contract', () => {
     expect(Object.keys(jobs)).toEqual([
       'range-scan',
       'quality',
+      'api',
       'installer',
       'installer-postgres',
       'installer-mongodb',
@@ -71,7 +72,7 @@ describe('CI workflow contract', () => {
         if (step.uses === PNPM_SETUP_ACTION) expect(step.with).toEqual(PNPM_SETUP_WITH);
         if (typeof step.run !== 'string') continue;
         expect(step.run).toMatch(
-          /^node scripts\/ci\.mjs --(range|cache|install|quality|installer|installer-postgres|installer-mongodb)$/,
+          /^node scripts\/ci\.mjs --(range|cache|install|quality|api|installer|installer-postgres|installer-mongodb)$/,
         );
       }
     }
@@ -108,6 +109,11 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --installer',
     ]);
+    expect(runsOf(jobs.api)).toEqual([
+      'node scripts/ci.mjs --cache',
+      'node scripts/ci.mjs --install',
+      'node scripts/ci.mjs --api',
+    ]);
     // The PostgreSQL projects start the server their own dependency carries.
     expect(runsOf(jobs['installer-postgres'])).toEqual([
       'node scripts/ci.mjs --install',
@@ -118,7 +124,7 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --installer-mongodb',
     ]);
-    for (const id of ['installer', 'installer-postgres', 'installer-mongodb']) {
+    for (const id of ['api', 'installer', 'installer-postgres', 'installer-mongodb']) {
       const job = jobs[id];
       expect(job).toMatchObject({ if: 'github.event.deleted != true' });
       expect(isRecord(job) && job.needs).toBeUndefined();
@@ -189,7 +195,8 @@ it('bounds jobs and caches runtime Mongo binaries in the jobs that need them', (
   const jobs = jobsOf(readWorkflow(WORKFLOW));
   for (const [id, timeout] of [
     ['range-scan', 10],
-    ['quality', 30],
+    ['quality', 45],
+    ['api', 35],
     ['installer', 55],
     ['installer-postgres', 50],
     ['installer-mongodb', 80],
@@ -200,7 +207,7 @@ it('bounds jobs and caches runtime Mongo binaries in the jobs that need them', (
     'runs-on': 'ubuntu-24.04',
     'timeout-minutes': 10,
   });
-  for (const id of ['quality', 'installer', 'installer-mongodb']) {
+  for (const id of ['quality', 'api', 'installer', 'installer-mongodb']) {
     const steps = stepsOf(jobs[id]);
     expect(steps[3]).toMatchObject({ id: 'mongo', run: 'node scripts/ci.mjs --cache' });
     expect(steps[4]).toEqual({

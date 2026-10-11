@@ -36,6 +36,7 @@ test('every job has a time limit and runs the gate group written here', () => {
     [
       ['range-scan', []],
       ['quality', ['--quality']],
+      ['api', ['--api']],
       ['installer', ['--installer']],
       ['installer-postgres', ['--installer-postgres']],
       ['installer-mongodb', ['--installer-mongodb']],

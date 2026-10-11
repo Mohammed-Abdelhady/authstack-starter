@@ -41,13 +41,20 @@ function sourceEnforcementBytes(path: string): Buffer {
     }
     // Only maintainer gates are excluded from generated projects. Preserve the
     // order and every field of the shipped gates, using the template JSON format.
-    config.gates = config.gates.flatMap((gate: unknown) => {
+    const shipped: unknown[] = config.gates.flatMap((gate: unknown) => {
       if (!isRecord(gate)) throw new Error(`${path}: source gate must be an object`);
       if (gate.repositoryOnly === true) return [];
-      const shipped = { ...gate };
-      delete shipped.repositoryOnly;
-      return [shipped];
+      const kept = { ...gate };
+      delete kept.repositoryOnly;
+      return [kept];
     });
+    // A group left with no gate is not a group of a generated project.
+    config.gates = shipped;
+    if (Array.isArray(config.groups)) {
+      config.groups = config.groups.filter((group: unknown) =>
+        shipped.some((gate) => isRecord(gate) && gate.group === group),
+      );
+    }
     return Buffer.from(`${JSON.stringify(config, null, 2)}\n`);
   }
   if (!path.startsWith(`${WORKFLOW_DIRECTORY}/`)) return bytes;

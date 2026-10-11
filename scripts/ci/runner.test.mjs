@@ -124,10 +124,18 @@ test('the repository gate list has separate quality, install and installer selec
     selectGates(config, '--install').map((g) => [g.command, g.args]),
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
-  assert.equal(selectGates(config, '--quality').length, 10);
+  assert.equal(selectGates(config, '--quality').length, 8);
+  assert.deepEqual(
+    selectGates(config, '--api').map((g) => g.args),
+    [
+      ['--filter', 'backend', 'run', 'test:e2e'],
+      ['--filter', 'backend', 'run', 'test:e2e:postgres'],
+    ],
+  );
   // Every gate sits in a listed group, and no listed group is empty.
   assert.deepEqual(config.groups, [
     'quality',
+    'api',
     'installer',
     'installer-postgres',
     'installer-mongodb',

@@ -31,7 +31,7 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
   expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
   const workflow = readWorkflow(join(project, '.github/workflows/ci.yml'));
   const jobs = jobsOf(workflow);
-  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality']);
+  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api']);
   expect(workflow.on).toEqual({
     pull_request: {
       branches: ['staging', 'master', 'main'],
@@ -45,6 +45,16 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
     uses: PNPM_SETUP_ACTION,
     with: PNPM_SETUP_WITH,
   });
+  // The API job is the project's own: it installs and runs the suite of its database.
+  expect(
+    stepsOf(jobs.api)
+      .filter((step) => typeof step.run === 'string')
+      .map((step) => step.run)
+      .slice(-2),
+  ).toEqual(['node scripts/ci.mjs --install', 'node scripts/ci.mjs --api']);
+  expect(readFileSync(join(project, '.github/workflows/ci.yml'), 'utf8')).not.toMatch(
+    /repository-only|No runner has timed/,
+  );
   const trusted = readWorkflow(join(project, '.github/workflows/trusted-scan.yml'));
   expectSupportedActionInputs([
     { name: `${preset} generated CI workflow`, workflow },
@@ -143,13 +153,13 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
     [
       '--input-type=module',
       '--eval',
-      "import { selectGates } from './scripts/ci/runner.mjs'; import { readFileSync } from 'node:fs'; const config = JSON.parse(readFileSync('scripts/ci/gates.json')); console.log([selectGates(config, '--quality').length, config.groups.join()].join(' '));",
+      "import { selectGates } from './scripts/ci/runner.mjs'; import { readFileSync } from 'node:fs'; const config = JSON.parse(readFileSync('scripts/ci/gates.json')); console.log([selectGates(config, '--quality').length, selectGates(config, '--api').length, config.groups.join()].join(' '));",
     ],
     { cwd: project, encoding: 'utf8' },
   );
   expect({ status: output.status, output: output.stdout.trim() }).toEqual({
     status: 0,
-    output: '8 quality',
+    output: '7 1 quality,api',
   });
   const missingGroup = spawnSync(process.execPath, ['scripts/ci.mjs', '--installer'], {
     cwd: project,
