@@ -23,6 +23,8 @@ export const EN = {
   'signIn.failed.denied': 'The sign-in was refused.',
   'signIn.failed.disabled': 'Sign-in from this app is turned off on the server.',
   'signIn.failed.throttled': 'Too many attempts. Wait a moment, then try again.',
+  'signIn.failed.sessionLimit':
+    'Your account has reached its limit of signed-in devices. Sign out on another device, then try again.',
   'signIn.failed.deviceKey': 'This device could not confirm its identity. Try again.',
   'signIn.failed.browser': 'The browser could not open.',
   'signIn.failed.storage': 'The app could not read or save the sign-in on this device.',

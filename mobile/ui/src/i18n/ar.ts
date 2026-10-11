@@ -25,6 +25,8 @@ export const AR: Record<MessageKey, string> = {
   'signIn.failed.denied': 'رُفض تسجيل الدخول.',
   'signIn.failed.disabled': 'تسجيل الدخول من هذا التطبيق معطل على الخادم.',
   'signIn.failed.throttled': 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.',
+  'signIn.failed.sessionLimit':
+    'بلغ حسابك الحد الأقصى لعدد الأجهزة المسجَّل دخولها. سجّل الخروج من جهاز آخر ثم أعد المحاولة.',
   'signIn.failed.deviceKey': 'تعذر على هذا الجهاز إثبات هويته. أعد المحاولة.',
   'signIn.failed.browser': 'تعذر فتح المتصفح.',
   'signIn.failed.storage': 'تعذَّر على التطبيق قراءة تسجيل الدخول أو حفظه على هذا الجهاز.',

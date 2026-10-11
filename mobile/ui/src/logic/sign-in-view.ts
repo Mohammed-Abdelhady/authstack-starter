@@ -1,4 +1,5 @@
 import { CredentialStoreError, type AuthReason, type SignInOutcome } from '@app/native-auth';
+import { OAUTH_ERROR } from '@app/sdk';
 import {
   ROOT_VIEW,
   SIGN_IN_ACTION,
@@ -62,9 +63,15 @@ function storeIsLocked(outcome: SignInOutcome): boolean {
   );
 }
 
+/** The token route answers `access_denied` only when the account holds its limit of sessions. */
+function sessionLimitReached(outcome: SignInOutcome): boolean {
+  return outcome.kind === 'oauthFailure' && outcome.error.error === OAUTH_ERROR.ACCESS_DENIED;
+}
+
 function outcomeView(outcome: SignInOutcome | undefined): Shown | undefined {
   if (outcome === undefined) return undefined;
   if (storeIsLocked(outcome)) return { state: SIGN_IN_STATE.STORAGE_LOCKED };
+  if (sessionLimitReached(outcome)) return failed(SIGN_IN_FAILURE.SESSION_LIMIT);
   return OUTCOME_VIEW[outcome.kind];
 }
 

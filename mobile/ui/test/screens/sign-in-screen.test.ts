@@ -137,8 +137,16 @@ describe.each(LOCALES)('the sign-in screen in %s', (locale) => {
       'common.tryAgain',
     ],
     [
-      'the token request is refused',
+      'the account holds its limit of signed-in devices',
       { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'access_denied' }) },
+      'alert',
+      'signIn.failed.title',
+      'signIn.failed.sessionLimit',
+      'common.tryAgain',
+    ],
+    [
+      'the token request is refused for another reason',
+      { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'invalid_grant' }) },
       'alert',
       'signIn.failed.title',
       'signIn.failed.generic',

@@ -7,6 +7,7 @@ const FAILURE_TEXT: Record<SignInFailure, MessageKey> = {
   denied: 'signIn.failed.denied',
   disabled: 'signIn.failed.disabled',
   throttled: 'signIn.failed.throttled',
+  sessionLimit: 'signIn.failed.sessionLimit',
   deviceKey: 'signIn.failed.deviceKey',
   browser: 'signIn.failed.browser',
   storage: 'signIn.failed.storage',

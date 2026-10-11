@@ -125,6 +125,10 @@ describe('the sign-in screen state', () => {
       { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'invalid_grant' }) },
       'generic',
     ],
+    [
+      { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'access_denied' }) },
+      'sessionLimit',
+    ],
   ] as const satisfies readonly (readonly [SignInOutcome, string])[])(
     'a failed attempt says why: %o',
     (outcome, failure) => {

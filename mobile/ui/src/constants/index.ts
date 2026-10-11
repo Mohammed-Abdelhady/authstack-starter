@@ -18,6 +18,7 @@ export const SIGN_IN_FAILURE = {
   DENIED: 'denied',
   DISABLED: 'disabled',
   THROTTLED: 'throttled',
+  SESSION_LIMIT: 'sessionLimit',
   DEVICE_KEY: 'deviceKey',
   BROWSER: 'browser',
   STORAGE: 'storage',
