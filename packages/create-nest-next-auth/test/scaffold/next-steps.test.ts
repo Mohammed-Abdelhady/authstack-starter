@@ -28,7 +28,13 @@ afterEach(async () => {
 describe('buildNextSteps', () => {
   it('prints only what the Docker path needs when docker is on', () => {
     expect(
-      buildNextSteps({ directoryLabel: 'app', installed: true, docker: true, scripts: SCRIPTS }),
+      buildNextSteps({
+        directoryLabel: 'app',
+        installed: true,
+        docker: true,
+        database: 'mongodb',
+        scripts: SCRIPTS,
+      }),
     ).toEqual([
       'cd app',
       'cp .env.docker.example .env.docker',
@@ -44,6 +50,7 @@ describe('buildNextSteps', () => {
         directoryLabel: 'app',
         installed: true,
         docker: false,
+        database: 'mongodb',
         scripts: SCRIPTS,
         mobile,
       }).slice(-2),
@@ -59,6 +66,7 @@ describe('buildNextSteps', () => {
         directoryLabel: 'app',
         installed: true,
         docker: true,
+        database: 'mongodb',
         scripts: SCRIPTS,
         mobile: 'pnpm --filter @app/mobile-expo run ios',
       }).slice(-2),
@@ -81,7 +89,13 @@ describe('buildNextSteps', () => {
 
   it('prints the local replica-set path when docker is off', () => {
     expect(
-      buildNextSteps({ directoryLabel: 'app', installed: false, docker: false, scripts: SCRIPTS }),
+      buildNextSteps({
+        directoryLabel: 'app',
+        installed: false,
+        docker: false,
+        database: 'mongodb',
+        scripts: SCRIPTS,
+      }),
     ).toEqual([
       'cd app',
       'pnpm install',
@@ -95,6 +109,45 @@ describe('buildNextSteps', () => {
       '# set MONGO_URI with replicaSet=rs0 in backend/.env, then:',
       'pnpm --filter backend run start:dev',
       'pnpm --filter frontend run dev',
+    ]);
+  });
+
+  it('prints the PostgreSQL path, with the migrations, for a PostgreSQL project when docker is off', () => {
+    expect(
+      buildNextSteps({
+        directoryLabel: 'app',
+        installed: true,
+        docker: false,
+        database: 'postgres',
+        scripts: SCRIPTS,
+      }),
+    ).toEqual([
+      'cd app',
+      'cp backend/.env.example backend/.env',
+      'cp frontend/.env.example frontend/.env.local',
+      '# Create a role and a database on PostgreSQL 18 or newer:',
+      'createuser --pwprompt authboiler',
+      'createdb --owner authboiler authboiler',
+      '# set POSTGRES_URL in backend/.env to that role, password and database, then:',
+      'pnpm --filter backend run migration:up',
+      'pnpm --filter backend run start:dev',
+      'pnpm --filter frontend run dev',
+    ]);
+  });
+
+  it('prints the same Docker path for a PostgreSQL project, where Compose applies the migrations', () => {
+    expect(
+      buildNextSteps({
+        directoryLabel: 'app',
+        installed: true,
+        docker: true,
+        database: 'postgres',
+        scripts: SCRIPTS,
+      }),
+    ).toEqual([
+      'cd app',
+      'cp .env.docker.example .env.docker',
+      'docker compose --env-file .env.docker up -d',
     ]);
   });
 });
