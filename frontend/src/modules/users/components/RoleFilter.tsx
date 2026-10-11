@@ -93,7 +93,9 @@ export function RoleFilter({
           onChange={(event) => changeSearch(event.target.value)}
           onClear={() => changeSearch('')}
           showClear={search.length > 0}
-          placeholder={rolesText('searchPlaceholder')}
+          // A browser cuts the placeholder of a focused field without an ellipsis,
+          // and this field opens focused: one word fits, the label says the rest.
+          placeholder={common('search')}
           aria-label={rolesText('searchPlaceholder')}
           data-testid="role-filter-search"
         />

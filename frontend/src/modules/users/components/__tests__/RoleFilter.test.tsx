@@ -69,6 +69,18 @@ describe.each([
     expect(screen.getByTestId('role-filter').textContent).toBe(message('users.allRoles'));
   });
 
+  it('names its search field in full and shows one word as its placeholder', async () => {
+    stubNetwork(() => success(roles('Support')));
+    const { message } = await renderForm(locale, <Host initial="all" />);
+
+    fireEvent.click(screen.getByTestId('role-filter'));
+    const search = await screen.findByRole('textbox', {
+      name: message('roles.searchPlaceholder'),
+    });
+
+    expect(search.getAttribute('placeholder')).toBe(message('common.search'));
+  });
+
   it.each([SLUG, 'support-team'])(
     'shows the slug %s it has no name for as it is, left to right',
     async (slug) => {
