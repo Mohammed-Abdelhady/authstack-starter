@@ -640,7 +640,7 @@
     },
     "shell": {
       "brand": "Auth App",
-      "brandHome": "Auth App, go to dashboard",
+      "brandHome": "{name}, go to dashboard",
       "openMenu": "Open navigation menu",
       "closeMenu": "Close navigation menu",
       "navigationTitle": "Navigation",

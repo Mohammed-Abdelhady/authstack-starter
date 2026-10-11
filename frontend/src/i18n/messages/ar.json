@@ -639,8 +639,8 @@
       "sessions": "الجلسات"
     },
     "shell": {
-      "brand": "Auth App",
-      "brandHome": "Auth App، الانتقال إلى لوحة التحكم",
+      "brand": "تطبيق المصادقة",
+      "brandHome": "{name}، الانتقال إلى لوحة التحكم",
       "openMenu": "فتح قائمة التنقل",
       "closeMenu": "إغلاق قائمة التنقل",
       "navigationTitle": "التنقل",
