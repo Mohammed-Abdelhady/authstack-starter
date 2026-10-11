@@ -4,6 +4,7 @@ export const AR: Record<MessageKey, string> = {
   'common.tryAgain': 'إعادة المحاولة',
   'common.cancel': 'إلغاء',
   'common.offline': 'تحقق من اتصالك بالإنترنت ثم أعد المحاولة.',
+  'common.starting': 'جارٍ بدء التشغيل',
   'common.serverError': 'لم يستجب الخادم بالشكل المتوقع. أعد المحاولة.',
 
   'signIn.title': 'تسجيل الدخول إلى \u2068{appName}\u2069',

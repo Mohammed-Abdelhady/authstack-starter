@@ -2,6 +2,7 @@ export const EN = {
   'common.tryAgain': 'Try again',
   'common.cancel': 'Cancel',
   'common.offline': 'Check your internet connection, then try again.',
+  'common.starting': 'Starting',
   'common.serverError': 'The server did not answer as expected. Try again.',
 
   'signIn.title': 'Sign in to \u2068{appName}\u2069',

@@ -4,6 +4,7 @@ export {
   deviceLocale,
   hostProps,
   logicalInsets,
+  startingNotice,
   type HostAuth,
   type HostProps,
 } from './logic/host';
