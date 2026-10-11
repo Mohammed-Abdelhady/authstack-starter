@@ -1,5 +1,6 @@
 import { Selectable } from 'kysely';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { deviceLabelOf } from '../../../issuance/browser-issuance.store';
 import {
   CREDENTIAL_PURPOSE,
   CredentialPurpose,
@@ -133,7 +134,7 @@ export class PostgresNativeCredentialStore extends NativeCredentialStore {
         token_hash: Buffer.from(session.tokenHash, 'hex'),
         csrf_token: null,
         user_agent: session.userAgent,
-        device: JSON.stringify(session.device),
+        device: JSON.stringify(deviceLabelOf(session.device)),
         device_name: session.deviceName ?? null,
         ip: session.ip,
         is_valid: true,

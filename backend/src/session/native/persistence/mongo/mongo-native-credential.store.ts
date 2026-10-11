@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { deviceLabelOf } from '../../../issuance/browser-issuance.store';
 import { CREDENTIAL_PURPOSE } from '../../../constants/credential-purpose';
 import { toObjectId } from '../../../persistence/mongo/mongo-issuance-mappers';
 import { isStorableId } from '../../../persistence/mongo/mongo-session-records';
@@ -128,6 +129,7 @@ export class MongoNativeCredentialStore extends NativeCredentialStore {
       [
         {
           ...fields,
+          device: deviceLabelOf(fields.device),
           user: toObjectId(userId),
           isValid: true,
           ...(proofKeyThumbprint ? { proofKeyThumbprint } : {}),

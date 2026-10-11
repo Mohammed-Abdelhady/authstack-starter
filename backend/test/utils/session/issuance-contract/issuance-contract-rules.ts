@@ -64,6 +64,12 @@ export function issuanceRuleCases(harness: HarnessSource): void {
           clientVersion: 0,
           grantVersion: 0,
           deviceName: 'Chrome 120 on Windows 10/11',
+          device: {
+            type: 'desktop',
+            browser: 'Chrome 120',
+            os: 'Windows 10/11',
+            name: 'Chrome 120 on Windows 10/11',
+          },
           authenticatedAt: new Date('2099-01-01T12:00:00.000Z'),
           expiresAt: new Date('2099-01-01T14:00:00.000Z'),
           idleExpiresAt: new Date('2099-01-01T12:10:00.000Z'),

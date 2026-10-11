@@ -55,6 +55,7 @@ export function exchangeCases(harness: NativeHarnessSource): void {
           tokenType: result.tokenType,
         },
         session: await harness().session(session.id),
+        device: session.device,
         tokens: tokens.map((token) => ({
           hashIsThe:
             token.tokenHash === sha256Hex(result.accessToken)
@@ -88,6 +89,12 @@ export function exchangeCases(harness: NativeHarnessSource): void {
           authenticationMethods: ['password'],
           expiresAt: ABSOLUTE,
           idleExpiresAt: FIVE_PAST,
+        },
+        device: {
+          type: 'desktop',
+          browser: 'Unknown Browser',
+          os: 'Unknown OS',
+          name: 'Unknown device',
         },
         tokens: [
           {

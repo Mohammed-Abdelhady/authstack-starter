@@ -152,6 +152,7 @@ export async function bootMongoIssuance(
         clientVersion: session.clientVersion,
         grantVersion: session.grantVersion,
         deviceName: session.deviceName ?? null,
+        device: session.device ?? null,
         authenticatedAt: session.authenticatedAt,
         expiresAt: session.expiresAt,
         idleExpiresAt: session.idleExpiresAt,
