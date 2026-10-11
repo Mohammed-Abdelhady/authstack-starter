@@ -15,17 +15,22 @@ import {
   expectExpoWorkspace,
   EXPO_FOLDERS,
 } from '../support/mobile-workspace-assertions.js';
+import { ARABIC_FORBIDDEN, findForbiddenContent } from '../support/reference-content.js';
 
 /**
  * Generated projects that carry the Expo app. Each one is installed from the
  * lockfile the installer wrote, then linted, typechecked, tested and bundled
  * for iOS. Two projects cover the two ways the app is chosen and the two ends
  * of the sign-in method list: the defaults, and one method with no provider.
+ * The second is English only, so both language choices are built too.
  */
 interface MobileCase {
   name: string;
   targets: string;
   features: string[] | undefined;
+  flags: string[];
+  /** Whether any file under `mobile/` may hold Arabic. */
+  arabic: boolean;
   identity: { name: string; slug: string; appId: string; scheme: string };
 }
 
@@ -34,6 +39,8 @@ const CASES: MobileCase[] = [
     name: 'web and the Expo app',
     targets: 'web,native-expo',
     features: undefined,
+    flags: [],
+    arabic: true,
     identity: {
       name: 'Trail Log',
       slug: 'trail-log',
@@ -42,9 +49,11 @@ const CASES: MobileCase[] = [
     },
   },
   {
-    name: 'the Expo app alone',
+    name: 'the Expo app alone, in English only',
     targets: 'native-expo',
     features: ['email-password'],
+    flags: ['--locales', 'en'],
+    arabic: false,
     identity: {
       name: 'Field Notes',
       slug: 'field-notes',
@@ -70,7 +79,8 @@ afterAll(() => {
   if (workspace !== '') rmSync(workspace, { recursive: true, force: true });
 });
 
-describe.each(CASES)('a generated project with $name', ({ name, targets, features, identity }) => {
+describe.each(CASES)('a generated project with $name', (mobileCase) => {
+  const { name, targets, features, flags, arabic, identity } = mobileCase;
   let project = '';
   let generated: CommandResult = { ok: false, output: '' };
   let installed: CommandResult = { ok: false, output: '' };
@@ -88,6 +98,7 @@ describe.each(CASES)('a generated project with $name', ({ name, targets, feature
       identity.appId,
       '--mobile-scheme',
       identity.scheme,
+      ...flags,
     ]);
     if (generated.ok) installed = await installFrozen(project, inject('pnpmStore'));
   });
@@ -96,6 +107,12 @@ describe.each(CASES)('a generated project with $name', ({ name, targets, feature
     expect(built.ok, built.output).toBe(true);
     expect(generated.ok, generated.output).toBe(true);
     expectExpoWorkspace(project);
+  });
+
+  it('holds Arabic in its mobile workspaces only when the project has that language', () => {
+    const files = findForbiddenContent(join(project, 'mobile'), ARABIC_FORBIDDEN);
+
+    expect(files.length > 0, files.join('\n')).toBe(arabic);
   });
 
   it('installs from the lockfile the installer wrote, with nothing resolved again', () => {

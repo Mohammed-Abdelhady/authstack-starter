@@ -15,6 +15,7 @@ import {
   MOBILE_WORKSPACE_REFERENCES,
   SIGN_IN_SITE_PATHS,
 } from '../support/mobile-workspace-assertions.js';
+import { ARABIC_FORBIDDEN, findForbiddenContent } from '../support/reference-content.js';
 import { type Packed, scaffold, sourceFilesWithMarkers } from './packed-cli.js';
 
 const IDENTITY = {
@@ -36,6 +37,11 @@ const IDENTITY_FLAGS = [
 const REGISTRATION = `AUTH_NATIVE_APPLICATIONS=${nativeRegistration(IDENTITY)}`;
 /** The identity this repository ships, which a generated app must not keep. */
 const TEMPLATE_IDENTITY = /com\.example\.mobile|Mobile Expo|"mobile-expo"|Example Mobile/;
+
+const ARABIC_CATALOGUES = ['mobile/ui/src/i18n/ar.ts', 'mobile/expo/src/i18n/ar.ts'];
+interface AppLanguages {
+  expo: { ios: { infoPlist: { CFBundleLocalizations?: string[] } } };
+}
 
 function read(project: string, path: string): string {
   return readFileSync(join(project, path), 'utf8');
@@ -235,6 +241,28 @@ export function mobileTargetCases(getPacked: () => Packed): void {
         'mobile/expo/src/logic/resolve-config.ts',
       ].filter((file) => read(project, file).includes(IDENTITY.scheme));
       expect(copies).toEqual([]);
+    });
+
+    it('takes Arabic out of the Expo app when the project is English only', () => {
+      const flags = ['--targets', 'web,native-expo', ...IDENTITY_FLAGS];
+      const english = generate(getPacked(), 'clients-english', [...flags, '--locales', 'en']);
+      const both = generate(getPacked(), 'clients-two-languages', flags);
+      const languages = (project: string): unknown =>
+        (JSON.parse(read(project, 'mobile/expo/app.json')) as AppLanguages).expo.ios.infoPlist
+          .CFBundleLocalizations;
+
+      expect({
+        arabicFiles: findForbiddenContent(join(english, 'mobile'), ARABIC_FORBIDDEN),
+        markers: sourceFilesWithMarkers(english),
+        languages: languages(english),
+      }).toEqual({ arabicFiles: [], markers: [], languages: undefined });
+      expect({
+        catalogues: ARABIC_CATALOGUES.filter((file) => existsSync(join(both, file))),
+        languages: languages(both),
+      }).toEqual({
+        catalogues: ['mobile/ui/src/i18n/ar.ts', 'mobile/expo/src/i18n/ar.ts'],
+        languages: ['en', 'ar'],
+      });
     });
 
     it('refuses the bare app and writes nothing', () => {

@@ -301,13 +301,19 @@
         "frontend/src/components/LanguageSwitcher.tsx",
         "frontend/src/components/LanguageSwitcher.test.tsx",
         "frontend/src/i18n/messages/ar.json",
-        "frontend/src/i18n/messages/*.ar.json"
+        "frontend/src/i18n/messages/*.ar.json",
+        "mobile/ui/src/i18n/ar.ts",
+        "mobile/expo/src/i18n/ar.ts"
       ],
       "docs": [],
       "catalogueKeys": [
         {
           "path": "frontend/src/i18n/messages/en.json",
           "keys": ["common.switchToArabic"]
+        },
+        {
+          "path": "mobile/expo/app.json",
+          "keys": ["expo.ios.infoPlist.CFBundleLocalizations"]
         }
       ]
     }

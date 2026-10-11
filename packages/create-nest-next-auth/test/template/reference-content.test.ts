@@ -109,9 +109,10 @@ describe('findForbiddenContent', () => {
 
 const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
 const FRONTEND_SOURCE = 'frontend/src';
+const MOBILE_SOURCE = 'mobile';
 const ARABIC_NAME = '\u0644\u064a\u0644\u0649';
 
-describe('frontend code a project without Arabic keeps', () => {
+describe('website and mobile code a project without Arabic keeps', () => {
   it('reports Arabic content on lines that are not marked for the Arabic option', () => {
     const left = arabicLeftBehind(
       new Map([
@@ -156,19 +157,24 @@ describe('frontend code a project without Arabic keeps', () => {
     expect(left).toEqual([]);
   });
 
-  it('finds none in this repository', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    const files = new Map<string, string>();
-    for (const file of await listFiles(join(REPO_ROOT, FRONTEND_SOURCE))) {
-      const path = `${FRONTEND_SOURCE}/${file}`;
-      files.set(path, await readFile(join(REPO_ROOT, path), 'utf8'));
-    }
+  it.each([FRONTEND_SOURCE, MOBILE_SOURCE])(
+    'finds none in %s of this repository',
+    async (source) => {
+      const manifest = await loadManifest(REPO_ROOT);
+      const files = new Map<string, string>();
+      for (const file of await listFiles(join(REPO_ROOT, source))) {
+        const path = `${source}/${file}`;
+        files.set(path, await readFile(join(REPO_ROOT, path), 'utf8'));
+      }
+      // An empty folder would pass without reading anything.
+      expect(files.size).toBeGreaterThan(100);
 
-    expect(
-      arabicLeftBehind(files, [
-        ...manifest.core.alwaysRemoveFiles,
-        ...manifest.options[LOCALE_AR_OPTION_ID].files,
-      ]),
-    ).toEqual([]);
-  });
+      expect(
+        arabicLeftBehind(files, [
+          ...manifest.core.alwaysRemoveFiles,
+          ...manifest.options[LOCALE_AR_OPTION_ID].files,
+        ]),
+      ).toEqual([]);
+    },
+  );
 });
