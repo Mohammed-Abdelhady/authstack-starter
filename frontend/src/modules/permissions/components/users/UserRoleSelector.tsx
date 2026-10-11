@@ -109,7 +109,7 @@ export function UserRoleSelector({
                 {currentRoleData?.isProtected && (
                   <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 )}
-                <span>{currentRoleData?.name || currentRole}</span>
+                <span dir="auto">{currentRoleData?.name || currentRole}</span>
               </div>
             </SelectValue>
           )}
@@ -129,7 +129,7 @@ export function UserRoleSelector({
                 {role.isProtected && (
                   <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 )}
-                <span>{role.name}</span>
+                <span dir="auto">{role.name}</span>
                 {role.isProtected && role.slug !== currentRole && (
                   <Badge variant="secondary" className="ms-2 text-xs">
                     {t('protected')}
@@ -151,7 +151,11 @@ export function UserRoleSelector({
                 name: 'this user',
                 from: currentRoleData?.name || currentRole,
                 to: pendingRoleData?.name || pendingRole || '',
-                strong: (chunks) => <strong>{chunks}</strong>,
+                strong: (chunks) => (
+                  <strong>
+                    <span dir="auto">{chunks}</span>
+                  </strong>
+                ),
               })}
               <br />
               <br />

@@ -786,9 +786,9 @@
       "deleteConfirm": "حذف",
       "cancel": "إلغاء",
       "roleUpdateSuccess": "تم تحديث الدور بنجاح",
-      "activateSuccess": "تم تفعيل {name} بنجاح",
-      "deactivateSuccess": "تم إلغاء تفعيل {name} بنجاح",
-      "deleteSuccess": "تم إلغاء تفعيل {name} وسيظل في القائمة بحالة «غير نشط»"
+      "activateSuccess": "تم تفعيل ⁨{name}⁩ بنجاح",
+      "deactivateSuccess": "تم إلغاء تفعيل ⁨{name}⁩ بنجاح",
+      "deleteSuccess": "تم إلغاء تفعيل ⁨{name}⁩ وسيظل في القائمة بحالة «غير نشط»"
     },
     "card": {
       "role": "الدور:",
@@ -813,7 +813,7 @@
     "noRolesYetHint": "ابدأ بإنشاء أول دور مخصص لك.",
     "form": {
       "createTitle": "إنشاء دور جديد",
-      "editTitle": "تعديل الدور: {name}",
+      "editTitle": "تعديل الدور: ⁨{name}⁩",
       "createDescription": "إنشاء دور جديد بصلاحيات محددة. يمكنك تعيين هذا الدور للمستخدمين للتحكم في وصولهم.",
       "editDescription": "تحديث تفاصيل الدور والصلاحيات. ستُطبق التغييرات على جميع المستخدمين الذين لديهم هذا الدور.",
       "nameLabel": "اسم الدور",
@@ -830,8 +830,8 @@
       "updating": "جارٍ التحديث...",
       "create": "إنشاء دور",
       "update": "تحديث الدور",
-      "createSuccess": "تم إنشاء الدور \"{name}\" بنجاح",
-      "updateSuccess": "تم تحديث الدور \"{name}\" بنجاح",
+      "createSuccess": "تم إنشاء الدور \"⁨{name}⁩\" بنجاح",
+      "updateSuccess": "تم تحديث الدور \"⁨{name}⁩\" بنجاح",
       "error": "حدث خطأ",
       "baseRoleAlertTitle": "دور أساسي:",
       "baseRoleAlert": "دور المستخدم والمسؤول هما أساس النظام. لا يمكن تعديل الاسم والوصف، ولكن يمكنك تحديث الصلاحيات.",
@@ -933,7 +933,7 @@
     },
     "dialog": {
       "title": "إدارة صلاحيات المستخدم",
-      "descriptionWithUser": "إدارة صلاحيات {name}",
+      "descriptionWithUser": "إدارة صلاحيات ⁨{name}⁩",
       "descriptionGeneric": "إضافة أو إزالة صلاحيات لهذا المستخدم",
       "noRole": "لا يوجد",
       "currentRole": "الدور الحالي:",
@@ -962,7 +962,7 @@
       "changing": "جارٍ التغيير...",
       "changeRole": "تغيير الدور",
       "cannotAssignProtected": "لا يمكن تعيين أدوار المشرف المحمية",
-      "changeSuccess": "تم تغيير دور المستخدم إلى {role}",
+      "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩",
       "changeError": "فشل في تغيير دور المستخدم"
     },
     "selector": {

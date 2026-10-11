@@ -84,7 +84,11 @@ export function UserActionConfirmDialog({
             {copy
               ? t.rich(copy.descriptionKey, {
                   name: userName,
-                  strong: (chunks) => <strong>{chunks}</strong>,
+                  strong: (chunks) => (
+                    <strong>
+                      <span dir="auto">{chunks}</span>
+                    </strong>
+                  ),
                 })
               : null}
           </AlertDialogDescription>

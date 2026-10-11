@@ -98,9 +98,11 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       {/* Header */}
       <header className="pb-4 border-b border-border">
         <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <Heading level={2} variant="sectionTitle">
-              {role.name}
+          <div className="min-w-0 flex-1">
+            <Heading level={2} variant="sectionTitle" className="break-words">
+              <span dir="auto" data-testid="role-detail-name">
+                {role.name}
+              </span>
             </Heading>
             <Description className="mt-1">
               <span dir="ltr" data-testid="role-detail-slug">
@@ -108,7 +110,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
               </span>
             </Description>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {role.isSystemRole && (
               <Badge variant="outline" className="text-xs">
                 <Shield className="h-3 w-3 me-1" aria-hidden="true" />
@@ -128,7 +130,11 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       {/* Description */}
       {role.description && (
         <section>
-          <Description>{role.description}</Description>
+          <Description>
+            <span dir="auto" data-testid="role-detail-description">
+              {role.description}
+            </span>
+          </Description>
         </section>
       )}
 

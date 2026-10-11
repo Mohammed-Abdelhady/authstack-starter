@@ -786,9 +786,9 @@
       "deleteConfirm": "Delete",
       "cancel": "Cancel",
       "roleUpdateSuccess": "Role updated successfully",
-      "activateSuccess": "{name} activated successfully",
-      "deactivateSuccess": "{name} deactivated successfully",
-      "deleteSuccess": "{name} was deactivated and stays in the list as inactive"
+      "activateSuccess": "⁨{name}⁩ activated successfully",
+      "deactivateSuccess": "⁨{name}⁩ deactivated successfully",
+      "deleteSuccess": "⁨{name}⁩ was deactivated and stays in the list as inactive"
     },
     "card": {
       "role": "Role:",
@@ -813,7 +813,7 @@
     "noRolesYetHint": "Get started by creating your first custom role.",
     "form": {
       "createTitle": "Create New Role",
-      "editTitle": "Edit Role: {name}",
+      "editTitle": "Edit Role: ⁨{name}⁩",
       "createDescription": "Create a new role with specific permissions. You can assign this role to users to control their access.",
       "editDescription": "Update role details and permissions. Changes will apply to all users with this role.",
       "nameLabel": "Role Name",
@@ -830,8 +830,8 @@
       "updating": "Updating...",
       "create": "Create Role",
       "update": "Update Role",
-      "createSuccess": "Role \"{name}\" created successfully",
-      "updateSuccess": "Role \"{name}\" updated successfully",
+      "createSuccess": "Role \"⁨{name}⁩\" created successfully",
+      "updateSuccess": "Role \"⁨{name}⁩\" updated successfully",
       "error": "An error occurred",
       "baseRoleAlertTitle": "Base Role:",
       "baseRoleAlert": "User and Admin roles are fundamental to the system. Name and description cannot be modified, but you can update permissions.",
@@ -933,7 +933,7 @@
     },
     "dialog": {
       "title": "Manage User Permissions",
-      "descriptionWithUser": "Manage permissions for {name}",
+      "descriptionWithUser": "Manage permissions for ⁨{name}⁩",
       "descriptionGeneric": "Add or remove permissions for this user",
       "noRole": "None",
       "currentRole": "Current Role:",
@@ -962,7 +962,7 @@
       "changing": "Changing...",
       "changeRole": "Change Role",
       "cannotAssignProtected": "Cannot assign protected admin roles",
-      "changeSuccess": "User role changed to {role}",
+      "changeSuccess": "User role changed to ⁨{role}⁩",
       "changeError": "Failed to change user role"
     },
     "selector": {
