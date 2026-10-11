@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Heading, StatusBadge } from '@/components/design-system';
 import { UserRoleSelector } from './UserRoleSelector';
 import { UserActionsMenu } from './UserActionsMenu';
+import { UserRoleLabel } from './UserRoleLabel';
 import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 import { HOVER_REVEAL_CLASSES } from '@/constants/focusStyles';
@@ -132,7 +133,7 @@ export const UserCard = memo(
             <PermissionGuard
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
-                <div className="text-xs text-tertiary capitalize">
+                <div className="text-xs text-tertiary">
                   {t('role')}{' '}
                   <span dir="ltr" className="font-medium" data-testid="user-card-role">
                     {user.role}
@@ -141,11 +142,8 @@ export const UserCard = memo(
               }
             >
               {isProtectedRole || user.isDeleted ? (
-                <div className="text-xs text-tertiary capitalize">
-                  {t('role')}{' '}
-                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
-                    {user.role}
-                  </span>
+                <div className="text-xs text-tertiary">
+                  {t('role')} <UserRoleLabel slug={user.role} />
                 </div>
               ) : (
                 <UserRoleSelector
