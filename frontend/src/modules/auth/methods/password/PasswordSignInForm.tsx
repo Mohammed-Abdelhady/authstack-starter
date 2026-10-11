@@ -95,7 +95,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           type="email"
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
-          autoComplete="email"
+          autoComplete="username"
           disabled={isLoading}
           autoFocus
           onBlur={onEmailBlur}

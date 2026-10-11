@@ -11,6 +11,8 @@ import {
   success,
 } from '@/tests/serverRejectionHarness';
 import { ChangePasswordCard } from '../ChangePasswordCard';
+import { PasswordSignInForm } from '../PasswordSignInForm';
+import { RegisterForm } from '../RegisterForm';
 import { ResetPasswordForm } from '../ResetPasswordForm';
 
 registerFormTestLifecycle();
@@ -68,6 +70,31 @@ describe('fields a password manager reads', () => {
     await renderForm('en', <ChangePasswordCard />);
 
     expect(screen.queryByTestId('account-username')).toBeNull();
+  });
+
+  it('pairs the sign-in address with the current password', async () => {
+    stubNetwork(() => success({}));
+    const { message } = await renderForm('en', <PasswordSignInForm redirect={null} isOnlyMethod />);
+
+    expect(
+      screen
+        .getByRole('textbox', { name: message('auth.login.email') })
+        .getAttribute('autocomplete'),
+    ).toBe('username');
+    expect(screen.getByLabelText(message('auth.login.password')).getAttribute('autocomplete')).toBe(
+      'current-password',
+    );
+  });
+
+  it('keeps the address on the register form an email, which no password follows', async () => {
+    stubNetwork(() => success({ methods: { password: true, oauth: [] } }));
+    const { message } = await renderForm('en', <RegisterForm />);
+
+    expect(
+      screen
+        .getByRole('textbox', { name: message('auth.register.email') })
+        .getAttribute('autocomplete'),
+    ).toBe('email');
   });
 
   it('marks the address on the reset form as the username of the new password', async () => {
