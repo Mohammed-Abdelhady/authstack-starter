@@ -16,6 +16,7 @@ import { PermissionGroupGrid } from '../selector/PermissionGroupGrid';
 import { CreateUserDialog } from '../users/CreateUserDialog';
 import { EditUserDialog } from '../users/EditUserDialog';
 import { UserCard } from '../users/UserCard';
+import { UserPermissionsDialog } from '../users/UserPermissionsDialog';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
@@ -87,6 +88,21 @@ describe.each([
     );
 
     expect(valueAndLine(screen.getByText(PERMISSION))).toEqual({
+      text: PERMISSION,
+      value: 'ltr',
+      line: 'rtl',
+    });
+  });
+
+  it('keeps a direct permission key left to right in the user dialog', async () => {
+    stubNetwork(() => success({ userId: USER._id, role: '', permissions: [PERMISSION] }));
+    await renderForm(
+      locale,
+      <UserPermissionsDialog open onOpenChange={vi.fn()} userId={USER._id} />,
+    );
+
+    const row = await screen.findByTestId(`direct-permission-${PERMISSION}`);
+    expect(valueAndLine(within(row).getByText(PERMISSION))).toEqual({
       text: PERMISSION,
       value: 'ltr',
       line: 'rtl',

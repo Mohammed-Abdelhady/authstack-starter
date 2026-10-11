@@ -23,10 +23,10 @@ export function UserPermissionsSummary({
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">{t('currentRole')}</span>{' '}
               <Badge variant="secondary">{role || t('noRole')}</Badge>
-            </p>
+            </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
               {t('totalPermissions', { count: totalCount })} (
               {t('inheritedAndDirect', {
