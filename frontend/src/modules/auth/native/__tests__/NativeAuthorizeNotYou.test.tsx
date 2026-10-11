@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, HELD } from '@/tests/busyControls';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import type { AbstractIntlMessages } from 'next-intl';
@@ -76,7 +77,7 @@ describe('NativeAuthorizePanel "Not you?"', () => {
     expect(replaceMock).toHaveBeenCalledWith(`/auth/login?redirect=${continuation}`);
   });
 
-  it('disables every control while the logout is pending', async () => {
+  it('holds every control while the logout is pending', async () => {
     let resolveLogout: ((response: Response) => void) | undefined;
     const pending = new Promise<Response>((resolve) => {
       resolveLogout = resolve;
@@ -86,9 +87,9 @@ describe('NativeAuthorizePanel "Not you?"', () => {
 
     fireEvent.click(screen.getByTestId('native-authorize-not-you'));
 
-    expect(screen.getByTestId('native-authorize-not-you').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('native-authorize-approve').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('native-authorize-deny').hasAttribute('disabled')).toBe(true);
+    expect(availability(screen.getByTestId('native-authorize-not-you'))).toEqual(HELD);
+    expect(availability(screen.getByTestId('native-authorize-approve'))).toEqual(HELD);
+    expect(availability(screen.getByTestId('native-authorize-deny'))).toEqual(HELD);
     expect(screen.getByTestId('native-authorize-status').textContent).toBe(
       translator('en', messages)('signingOut'),
     );

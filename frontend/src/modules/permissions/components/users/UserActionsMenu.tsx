@@ -35,6 +35,8 @@ export interface UserActionsMenuProps {
   onManagePermissions?: (opener: HTMLElement | null) => void;
   /** Whether actions are disabled */
   disabled?: boolean;
+  /** Another request for this user is running: the button keeps focus and does not open */
+  busy?: boolean;
   /** Additional className */
   className?: string;
 }
@@ -61,16 +63,25 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   user,
   onManagePermissions,
   disabled = false,
+  busy = false,
   className,
 }: UserActionsMenuProps) {
   const t = useTranslations('users.actions');
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { handleStatusChange, handleResendEmailChange, isLoading } = useUserActions();
   // The dialogs open from menu entries, which are gone by the time they close.
   const [menuButtonRef, returnFocusToMenuButton] = useReturnFocus<HTMLButtonElement>();
 
   const isNormalUser = user.role === 'user';
+  const isBusy = busy || isLoading;
+  const changeMenuOpen = useCallback(
+    (next: boolean) => {
+      if (!(isBusy && next)) setMenuOpen(next);
+    },
+    [isBusy],
+  );
 
   // Handle confirmation action
   const handleConfirm = useCallback(async () => {
@@ -94,7 +105,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={changeMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             ref={menuButtonRef}
@@ -106,7 +117,8 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               'transition-all duration-200',
               className,
             )}
-            disabled={disabled || isLoading}
+            disabled={disabled}
+            busy={isBusy}
             aria-busy={isLoading}
             data-testid={`user-actions-menu-${user._id}`}
           >

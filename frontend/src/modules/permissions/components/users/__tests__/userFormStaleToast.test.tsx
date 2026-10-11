@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
@@ -32,7 +33,7 @@ describe('the toast of a refused user form is gone before the corrected save is 
     // An accepted create empties the form, so it is filled in each time.
     await sendRefusedThenAgain(
       fillAndSend,
-      () => !screen.getByTestId('create-user-email-input').hasAttribute('disabled'),
+      () => !isHeld(screen.getByTestId('create-user-email-input')),
     );
 
     await waitFor(() => expect(toastOrder()).toEqual(['error', 'dismiss', 'success']));
@@ -54,7 +55,7 @@ describe('the toast of a refused user form is gone before the corrected save is 
 
     await sendRefusedThenAgain(
       () => fireEvent.click(screen.getByTestId('submit-edit-user-button')),
-      () => !screen.getByTestId('edit-user-email-input').hasAttribute('disabled'),
+      () => !isHeld(screen.getByTestId('edit-user-email-input')),
     );
 
     await waitFor(() => expect(toastOrder()).toEqual(['error', 'dismiss', 'success']));

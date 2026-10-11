@@ -109,7 +109,8 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
               setName(e.target.value);
               if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
             }}
-            disabled={isLoading || isProtected || isBaseRole}
+            disabled={isProtected || isBaseRole}
+            busy={isLoading}
             required
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? nameErrorId : undefined}
@@ -136,7 +137,8 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             }}
             placeholder={t('descriptionPlaceholder')}
             rows={3}
-            disabled={isLoading || isBaseRole}
+            disabled={isBaseRole}
+            busy={isLoading}
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? descriptionErrorId : undefined}
             className={FREE_TEXT_FIELD_CLASSES}
@@ -169,7 +171,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
                 setPermissions(next);
                 if (errors.permissions) setErrors((prev) => ({ ...prev, permissions: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
             />
           </div>
           <FieldError
@@ -185,7 +187,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
           type="button"
           variant="outline"
           onClick={onCancel}
-          disabled={isLoading}
+          busy={isLoading}
           data-testid="cancel-button"
         >
           {t('cancel')}

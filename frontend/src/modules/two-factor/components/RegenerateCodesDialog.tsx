@@ -119,7 +119,7 @@ export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDia
               <CodeField<RegenerateFormData>
                 name="code"
                 label={tAnswer('code')}
-                disabled={isLoading}
+                busy={isLoading}
                 autoFocus
                 testId="two-factor-regenerate-code"
               />

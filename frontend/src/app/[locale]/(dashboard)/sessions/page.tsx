@@ -60,7 +60,7 @@ export default function SessionsPage() {
               variant="outline"
               size="sm"
               onClick={() => refetch()}
-              disabled={isLoading}
+              busy={isLoading}
               aria-busy={isLoading}
               data-testid="refresh-sessions-button"
             >

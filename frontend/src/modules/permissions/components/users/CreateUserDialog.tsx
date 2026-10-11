@@ -162,7 +162,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 setEmail(e.target.value);
                 if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
               aria-invalid={Boolean(errors.email)}
               aria-describedby={errors.email ? errorId('email') : undefined}
               className={errors.email ? 'border-destructive' : ''}
@@ -188,7 +188,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 setName(e.target.value);
                 if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? errorId('name') : undefined}
               className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
@@ -215,7 +215,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                   setPassword(e.target.value);
                   if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                 }}
-                disabled={isLoading}
+                busy={isLoading}
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? errorId('password') : undefined}
                 className={errors.password ? 'border-destructive pe-10' : 'pe-10'}
@@ -248,7 +248,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 setRole(value);
                 if (errors.role) setErrors((prev) => ({ ...prev, role: '' }));
               }}
-              disabled={isLoading || isLoadingRoles}
+              disabled={isLoadingRoles}
+              busy={isLoading}
             >
               <SelectTrigger
                 id={fieldId('role')}
@@ -291,7 +292,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
               type="button"
               variant="ghost"
               onClick={handleClose}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="cancel-create-user-button"
             >
               {tCommon('cancel')}

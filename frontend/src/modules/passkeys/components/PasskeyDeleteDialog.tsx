@@ -90,7 +90,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDia
               event.preventDefault();
               void onConfirm();
             }}
-            disabled={isLoading}
+            busy={isLoading}
             aria-busy={isLoading}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             data-testid="passkey-delete-confirm"

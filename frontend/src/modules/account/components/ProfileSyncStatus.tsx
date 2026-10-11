@@ -111,7 +111,9 @@ export function ProfileSyncStatus() {
 
         <Button
           onClick={handleManualSync}
-          disabled={!canSync || isSyncInitiating || isSyncing}
+          disabled={!canSync}
+          busy={isSyncInitiating || isSyncing}
+          aria-busy={isSyncInitiating || isSyncing}
           className="w-full whitespace-normal"
           data-testid="manual-sync-button"
         >

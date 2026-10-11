@@ -146,7 +146,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                   if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
                 }}
                 placeholder={t('namePlaceholder')}
-                disabled={isLoading}
+                busy={isLoading}
                 required
                 aria-invalid={Boolean(errors.name)}
                 aria-describedby={errors.name ? nameErrorId : undefined}
@@ -168,7 +168,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 }}
                 placeholder={t('descriptionPlaceholder')}
                 rows={3}
-                disabled={isLoading}
+                busy={isLoading}
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? descriptionErrorId : undefined}
                 className={FREE_TEXT_FIELD_CLASSES}
@@ -200,7 +200,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                       setErrors((prev) => ({ ...prev, permissions: '' }));
                     }
                   }}
-                  disabled={isLoading}
+                  busy={isLoading}
                 />
               </div>
               <FieldError
@@ -216,7 +216,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
               type="button"
               variant="outline"
               onClick={handleCancel}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="cancel-button"
             >
               {t('cancel')}

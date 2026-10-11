@@ -85,7 +85,7 @@ describe.each([
       });
       expect(descriptions(name)).toEqual([fieldMessage]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
-      // The fields stay disabled until the store reports the end of the request.
+      // The field is focused once the store reports the end of the request.
       await waitFor(() => {
         expect(document.activeElement).toBe(name);
       });

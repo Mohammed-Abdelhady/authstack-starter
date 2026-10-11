@@ -89,12 +89,12 @@ export function UserActionConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading} data-testid="cancel-user-action-button">
+          <AlertDialogCancel busy={isLoading} data-testid="cancel-user-action-button">
             {t('cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            disabled={isLoading}
+            busy={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-user-action-button"
           >

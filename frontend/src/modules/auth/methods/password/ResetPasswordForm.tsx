@@ -211,7 +211,7 @@ export function ResetPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="username"
-              disabled={isLoading}
+              busy={isLoading}
               readOnly
               className="bg-muted"
             />
@@ -226,7 +226,7 @@ export function ResetPasswordForm() {
               label={t('code')}
               placeholder={tCommon('codePlaceholder')}
               autoComplete="one-time-code"
-              disabled={isLoading}
+              busy={isLoading}
               maxLength={6}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus
@@ -240,7 +240,7 @@ export function ResetPasswordForm() {
               label={t('password')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 
@@ -253,7 +253,7 @@ export function ResetPasswordForm() {
               label={t('confirmPassword')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 

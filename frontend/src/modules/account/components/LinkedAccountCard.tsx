@@ -150,7 +150,8 @@ export function LinkedAccountCard({
                     variant="outline"
                     size="sm"
                     onClick={handleSetPrimary}
-                    disabled={isSettingPrimary || isUnlinking}
+                    busy={isSettingPrimary || isUnlinking}
+                    aria-busy={isSettingPrimary}
                     className="w-full whitespace-nowrap lg:w-auto"
                     data-testid={`set-primary-${providerId}`}
                   >
@@ -173,9 +174,10 @@ export function LinkedAccountCard({
                     variant="destructive"
                     size="sm"
                     onClick={openUnlinkDialog}
-                    disabled={isUnlinking || isSettingPrimary}
                     // Focusable while blocked, so the reason is read out with it.
                     aria-disabled={isUnlinkBlocked || undefined}
+                    busy={isUnlinking || isSettingPrimary}
+                    aria-busy={isUnlinking}
                     aria-describedby={isUnlinkBlocked ? unlinkBlockedId : undefined}
                     className="w-full whitespace-nowrap lg:w-auto"
                     data-testid={`unlink-${providerId}`}

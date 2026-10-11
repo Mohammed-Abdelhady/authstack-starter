@@ -230,7 +230,8 @@ export function UserPermissionsDialog({
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleRemovePermission(permission)}
-                                disabled={isRemoving}
+                                busy={isRemoving}
+                                aria-busy={isRemoving}
                                 className="h-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 data-testid={`remove-permission-${permission}`}
                               >

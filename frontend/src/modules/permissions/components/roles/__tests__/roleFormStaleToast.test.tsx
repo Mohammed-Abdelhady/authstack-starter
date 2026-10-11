@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { toast as sonnerToast } from 'sonner';
@@ -121,7 +122,7 @@ describe.each([
       });
       expect(dismissalsAndSuccesses()).toEqual([]);
       await waitFor(() => {
-        expect(screen.getByTestId(formCase.nameField).hasAttribute('disabled')).toBe(false);
+        expect(isHeld(screen.getByTestId(formCase.nameField))).toBe(false);
       });
       submitName(ACCEPTED_NAME);
 

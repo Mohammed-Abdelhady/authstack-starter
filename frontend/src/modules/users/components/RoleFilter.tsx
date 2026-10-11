@@ -108,7 +108,8 @@ export function RoleFilter({
               <p>{t('roleFilterError')}</p>
               <Button
                 onClick={() => refetch()}
-                disabled={isFetching}
+                busy={isFetching}
+                aria-busy={isFetching}
                 data-testid="role-filter-retry"
               >
                 {common('retry')}
@@ -121,7 +122,7 @@ export function RoleFilter({
                   key={role.id}
                   variant={value === role.slug ? 'secondary' : 'ghost'}
                   className="h-auto min-h-10 justify-start whitespace-normal text-start [overflow-wrap:anywhere]"
-                  disabled={isFetching}
+                  busy={isFetching}
                   aria-pressed={value === role.slug}
                   onClick={() => choose(role)}
                   data-testid={`role-filter-option-${role.slug}`}

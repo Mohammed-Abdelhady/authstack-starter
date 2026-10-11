@@ -151,7 +151,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
+            busy={isLoading}
             data-testid="cancel-button"
           >
             {t('cancel')}
@@ -161,7 +161,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isLoading}
+              busy={isLoading}
               aria-busy={isLoading}
               data-testid="delete-role-button"
             >

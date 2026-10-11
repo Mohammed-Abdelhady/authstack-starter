@@ -64,7 +64,7 @@ export function LogoutButton() {
         variant="ghost"
         size="sm"
         onClick={handleLogout}
-        disabled={isLoggingOut}
+        busy={isLoggingOut}
         className="flex items-center gap-2"
         data-testid="logout-button"
         aria-label={t('logout')}

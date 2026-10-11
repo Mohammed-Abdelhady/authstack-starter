@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, HELD, IDLE } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode, USER_PERMISSIONS } from '@app/core';
@@ -107,7 +108,7 @@ describe.each([
     expect(card.successToasts()).toEqual([]);
   });
 
-  it('disables actions while a resend is pending and enables them after settlement', async () => {
+  it('holds the actions button while a resend is pending and frees it after settlement', async () => {
     let release: (answer: Response) => void = () => undefined;
     stubCardNetwork(
       () =>
@@ -119,8 +120,8 @@ describe.each([
     card.openMenu();
     fireEvent.click(card.resendItem());
     const trigger = screen.getByRole('button', { name: card.message('users.actions.menuLabel') });
-    await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(true));
+    await waitFor(() => expect(availability(trigger)).toEqual(HELD));
     await act(async () => release(success({ message: 'sent' })));
-    await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
+    await waitFor(() => expect(availability(trigger)).toEqual(IDLE));
   });
 });

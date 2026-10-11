@@ -37,7 +37,7 @@ export function TwoFactorAnswerFields({
           label={t('recoveryCode')}
           placeholder={tCommon('recoveryCodePlaceholder')}
           autoComplete="one-time-code"
-          disabled={isBusy}
+          busy={isBusy}
           autoFocus={autoFocus}
           className={cn('text-center uppercase tracking-widest', RECOVERY_CODE_FONT_SIZE)}
           data-testid="two-factor-recovery-code-input"
@@ -46,7 +46,7 @@ export function TwoFactorAnswerFields({
         <CodeField<AnswerFormData>
           name="code"
           label={t('code')}
-          disabled={isBusy}
+          busy={isBusy}
           autoFocus={autoFocus}
           testId="two-factor-code-input"
         />

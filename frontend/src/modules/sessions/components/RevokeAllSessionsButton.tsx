@@ -78,7 +78,8 @@ export function RevokeAllSessionsButton({
         <Button
           variant="destructive"
           size="sm"
-          disabled={isLoading}
+          busy={isLoading}
+          aria-busy={isLoading}
           className={className}
           data-testid="logout-all-sessions-button"
         >
@@ -97,7 +98,7 @@ export function RevokeAllSessionsButton({
           <AlertDialogCancel data-testid="cancel-logout-all">{tCommon('cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleRevoke}
-            disabled={isLoading}
+            busy={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-logout-all"
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

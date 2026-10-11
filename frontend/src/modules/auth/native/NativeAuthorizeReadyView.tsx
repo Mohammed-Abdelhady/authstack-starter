@@ -65,7 +65,7 @@ export function NativeAuthorizeReadyView({
           type="button"
           variant="link"
           onClick={onNotYou}
-          disabled={busy}
+          busy={busy}
           className="h-11 shrink-0 px-2"
           data-testid="native-authorize-not-you"
         >
@@ -86,7 +86,7 @@ export function NativeAuthorizeReadyView({
           size="lg"
           className="w-full"
           onClick={onApprove}
-          disabled={busy}
+          busy={busy}
           aria-busy={action === 'approve'}
           data-testid="native-authorize-approve"
         >
@@ -103,7 +103,7 @@ export function NativeAuthorizeReadyView({
           size="lg"
           className="w-full"
           onClick={onDeny}
-          disabled={busy}
+          busy={busy}
           aria-busy={action === 'deny'}
           data-testid="native-authorize-deny"
         >

@@ -132,7 +132,7 @@ export const SessionCardTimeline = memo(
                 variant="ghost"
                 size="sm"
                 onClick={handleShowConfirm}
-                disabled={isLoading}
+                busy={isLoading}
                 aria-busy={isLoading}
                 aria-label={t('logoutThisDevice')}
                 className="text-destructive hover:text-destructive hover:bg-destructive/10 ms-2"
@@ -186,7 +186,7 @@ export const SessionCardTimeline = memo(
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleLogout}
-                disabled={isLoading}
+                busy={isLoading}
                 aria-busy={isLoading}
                 data-testid="confirm-logout-button"
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

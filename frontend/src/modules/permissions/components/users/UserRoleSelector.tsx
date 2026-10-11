@@ -112,11 +112,13 @@ export function UserRoleSelector({
       <Select
         value={currentRole}
         onValueChange={handleRoleSelect}
-        disabled={disabled || isLoadingRoles || isUpdating}
+        disabled={disabled || isLoadingRoles}
+        busy={isUpdating}
       >
         <SelectTrigger
           className="w-full sm:w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}
+          aria-busy={isUpdating}
           data-testid={`user-role-selector-${userId}`}
         >
           {isLoadingRoles ? (
@@ -179,12 +181,12 @@ export function UserRoleSelector({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdating} data-testid="cancel-role-change-button">
+            <AlertDialogCancel busy={isUpdating} data-testid="cancel-role-change-button">
               {tCommon('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRoleChange}
-              disabled={isUpdating}
+              busy={isUpdating}
               aria-busy={isUpdating}
               data-testid="confirm-role-change-button"
             >
