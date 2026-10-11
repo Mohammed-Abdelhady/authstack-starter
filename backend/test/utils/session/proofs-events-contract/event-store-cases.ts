@@ -5,8 +5,6 @@ import {
   HarnessSource,
   inUnitOfWork,
   NOW,
-  ONE_MS_AFTER,
-  ONE_MS_BEFORE,
   rejectionOf,
 } from './proofs-events-contract-support';
 
@@ -200,30 +198,6 @@ export function eventStoreCases(harness: HarnessSource): void {
         firstTwo: ['newest', 'middle-second'],
         none: [],
         stranger: [],
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'removes only the events whose retention has ended',
-    async () => {
-      const seed = (eventId: string, purgeAfter: Date) =>
-        harness().seedEvent({
-          eventId,
-          action: 'contract.kept',
-          occurredAt: EARLIER,
-          purgeAfter,
-        });
-      await seed('ended-before', ONE_MS_BEFORE);
-      await seed('ends-now', NOW);
-      await seed('ends-later', ONE_MS_AFTER);
-
-      const removed = await harness().events.deleteExpired(NOW);
-
-      expect({ removed, stored: await harness().storedEventIds() }).toEqual({
-        removed: 2,
-        stored: ['ends-later'],
       });
     },
     CASE_TIMEOUT_MS,

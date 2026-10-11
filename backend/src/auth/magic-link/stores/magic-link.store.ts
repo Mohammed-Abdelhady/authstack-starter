@@ -45,7 +45,4 @@ export abstract class MagicLinkStore {
     tokenHash: string,
     now: Date,
   ): Promise<ClaimedMagicLink | null>;
-
-  /** Removes links that expired at or before `cutoff`. */
-  abstract deleteExpiredBefore(cutoff: Date): Promise<number>;
 }

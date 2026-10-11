@@ -67,7 +67,4 @@ export abstract class PasswordResetCodeStore {
 
   /** Removes the address's record when it has expired. */
   abstract dropExpiredRecord(email: string, now: Date): Promise<void>;
-
-  /** Removes records that expired at or before `cutoff`. */
-  abstract deleteExpiredBefore(cutoff: Date): Promise<number>;
 }

@@ -61,11 +61,4 @@ export class MongoPasskeyChallengeStore extends PasskeyChallengeStore {
     );
     return deleted ? CHALLENGE_USE.CONSUMED : CHALLENGE_USE.REFUSED;
   }
-
-  async deleteExpired(now: Date): Promise<number> {
-    const removed = await singleStatement(() =>
-      this.challengeModel.deleteMany({ expiresAt: { $lte: now } }),
-    );
-    return removed.deletedCount;
-  }
 }

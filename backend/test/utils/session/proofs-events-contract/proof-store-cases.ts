@@ -173,28 +173,4 @@ export function proofStoreCases(harness: HarnessSource): void {
     },
     CASE_TIMEOUT_MS,
   );
-
-  it(
-    'removes only the proofs that have expired',
-    async () => {
-      await seed(HASH_A, ONE_MS_BEFORE);
-      await seed(HASH_B, NOW, true);
-      await seed(HASH_C, ONE_MS_AFTER);
-
-      const removed = await harness().proofs.deleteExpiredBrowserProofs(NOW);
-
-      expect({
-        removed,
-        early: await harness().storedProof(HASH_A),
-        atTheInstant: await harness().storedProof(HASH_B),
-        later: (await harness().storedProof(HASH_C))?.expiresAt,
-      }).toEqual({
-        removed: 2,
-        early: null,
-        atTheInstant: null,
-        later: ONE_MS_AFTER,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
 }

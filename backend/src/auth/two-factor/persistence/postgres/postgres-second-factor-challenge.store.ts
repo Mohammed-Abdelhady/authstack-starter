@@ -10,10 +10,7 @@ import {
 } from '../../stores/second-factor-challenge.store';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
-import {
-  autocommit,
-  removedRows,
-} from '../../../persistence/postgres/postgres-pending-codes-database';
+import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 
 /** Constraint names of the table to the rules' shared names. */
 const CHALLENGE_CONSTRAINTS: Readonly<Record<string, string>> = {
@@ -123,16 +120,5 @@ export class PostgresSecondFactorChallengeStore extends SecondFactorChallengeSto
         .where('id', '=', toUuid(challengeId))
         .execute();
     });
-  }
-
-  deleteExpired(now: Date): Promise<number> {
-    return autocommit(CHALLENGE_CONSTRAINTS, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('two_factor_challenges')
-          .where('expires_at', '<=', now)
-          .executeTakeFirst(),
-      ),
-    );
   }
 }

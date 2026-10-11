@@ -9,10 +9,7 @@ import {
   PostgresTables,
   SecurityEventsTable,
 } from '../../../common/persistence/postgres/postgres-database';
-import {
-  autocommit,
-  removedRows,
-} from '../../../auth/persistence/postgres/postgres-pending-codes-database';
+import { autocommit } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
 
 /** The constraint's shared name comes from the central table of the adapter. */
@@ -164,15 +161,5 @@ export class PostgresSecurityEventStore extends SecurityEventStore {
         .execute(),
     );
     return rows.map(toStoredEvent);
-  }
-
-  async deleteExpired(now: Date): Promise<number> {
-    const removed = await autocommit(NO_LOCAL_CONSTRAINTS, () =>
-      this.database
-        .deleteFrom('security_events')
-        .where('purge_after', '<=', now)
-        .executeTakeFirst(),
-    );
-    return removedRows(removed);
   }
 }

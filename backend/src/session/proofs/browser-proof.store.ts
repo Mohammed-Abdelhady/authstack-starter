@@ -48,7 +48,4 @@ export abstract class BrowserProofStore {
     proofIdHash: string,
     now: Date,
   ): Promise<BrowserProofClaim>;
-
-  /** Removes proofs that expired at or before `now`. Returns how many. */
-  abstract deleteExpiredBrowserProofs(now: Date): Promise<number>;
 }

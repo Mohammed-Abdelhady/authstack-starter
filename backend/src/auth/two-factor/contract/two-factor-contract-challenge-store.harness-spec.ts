@@ -111,23 +111,4 @@ export function challengeStoreCases(
       ]);
     },
   );
-
-  twoFactorCase(
-    'delete-expired removes what lapsed and nothing else',
-    async () => {
-      const { ownerId } = fixture();
-      const seed = (nonceHash: string, expiresAt: Date): Promise<string> =>
-        harness().seedChallenge({ userId: ownerId, nonceHash, expiresAt });
-      await seed('1'.repeat(64), at(-1));
-      await seed('2'.repeat(64), at(0));
-      const liveId = await seed('3'.repeat(64), at(1));
-
-      expect(await harness().challenges.deleteExpired(at(0))).toBe(2);
-
-      expect(await harness().storedChallenges()).toMatchObject([
-        { id: liveId, nonceHash: '3'.repeat(64), expiresAt: at(1) },
-      ]);
-      expect(await harness().challenges.deleteExpired(at(0))).toBe(0);
-    },
-  );
 }

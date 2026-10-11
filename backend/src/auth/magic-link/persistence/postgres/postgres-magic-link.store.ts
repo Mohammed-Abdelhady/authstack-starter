@@ -17,7 +17,6 @@ import {
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import {
   autocommit,
-  removedRows,
   storedAddress,
 } from '../../../persistence/postgres/postgres-pending-codes-database';
 
@@ -93,17 +92,6 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
         ...(row.redirect ? { redirect: row.redirect } : {}),
       };
     });
-  }
-
-  deleteExpiredBefore(cutoff: Date): Promise<number> {
-    return autocommit(NONE, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('pending_magic_links')
-          .where('expires_at', '<=', cutoff)
-          .executeTakeFirstOrThrow(),
-      ),
-    );
   }
 }
 
