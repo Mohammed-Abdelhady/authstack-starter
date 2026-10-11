@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 /** The tab title carries the product name the page itself shows, in its locale. */
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
-  const t = await getTranslations({ locale, namespace: 'dashboard.shell' });
-  const name = t('brand');
+  const t = await getTranslations({ locale, namespace: 'common' });
+  const name = t('appName');
 
   return {
     title: {

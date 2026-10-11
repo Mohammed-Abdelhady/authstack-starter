@@ -16,6 +16,7 @@
       "warning": "Warning",
       "danger": "Danger"
     },
+    "appName": "Auth App",
     "welcome": "Welcome",
     "language": "Language",
     "loading": "Loading...",
@@ -639,7 +640,6 @@
       "sessions": "Sessions"
     },
     "shell": {
-      "brand": "Auth App",
       "brandHome": "{name}, go to dashboard",
       "openMenu": "Open navigation menu",
       "closeMenu": "Close navigation menu",

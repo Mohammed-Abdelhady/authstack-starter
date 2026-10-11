@@ -17,12 +17,14 @@ export interface SidebarBrandProps {
  */
 export function SidebarBrand({ onNavigate, className }: SidebarBrandProps): React.JSX.Element {
   const t = useTranslations('dashboard.shell');
+  const tCommon = useTranslations('common');
+  const name = tCommon('appName');
 
   return (
     <Link
       href="/dashboard"
       onClick={onNavigate}
-      aria-label={t('brandHome', { name: t('brand') })}
+      aria-label={t('brandHome', { name })}
       className={cn(
         'rounded-md text-xl font-bold text-foreground transition-colors hover:text-primary',
         FOCUS_RING_CLASSES,
@@ -30,7 +32,7 @@ export function SidebarBrand({ onNavigate, className }: SidebarBrandProps): Reac
       )}
       data-testid="sidebar-brand-link"
     >
-      {t('brand')}
+      {name}
     </Link>
   );
 }
