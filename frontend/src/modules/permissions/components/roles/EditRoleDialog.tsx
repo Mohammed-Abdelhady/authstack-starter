@@ -44,7 +44,10 @@ export function EditRoleDialog({ open, onOpenChange, role, onSuccess }: EditRole
   const t = useTranslations('roles.form');
   const [updateRole, { isLoading }] = useUpdateRoleMutation();
 
-  const handleSubmit = async (data: EditRoleFormValues) => {
+  const handleSubmit = async (
+    data: EditRoleFormValues,
+    markRefusedFields: (error: unknown) => boolean,
+  ) => {
     if (!role) return;
 
     const isBaseRole = role.slug === 'user' || role.slug === 'admin';
@@ -68,6 +71,7 @@ export function EditRoleDialog({ open, onOpenChange, role, onSuccess }: EditRole
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
+      markRefusedFields(error);
       reportUnlessHandled(error);
     }
   };
