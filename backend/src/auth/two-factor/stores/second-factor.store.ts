@@ -49,6 +49,14 @@ export abstract class SecondFactorStore {
     account: SecondFactorAccount,
     recoveryCodeHashes: string[],
   ): Promise<void>;
+  /**
+   * Stores `secret` in place of the one this record was read with, only while
+   * that one is still stored. A secret that changed since the read is kept.
+   */
+  abstract replaceSecret(
+    account: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<void>;
   /** Turns the factor off and removes the secret and every recovery code. */
   abstract clear(account: SecondFactorAccount): Promise<void>;
 

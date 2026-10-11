@@ -80,6 +80,7 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
 
   TWO_FACTOR_ENABLED?: boolean;
   TOTP_ENCRYPTION_KEY?: string;
+  TOTP_ENCRYPTION_KEY_PREVIOUS?: string;
 
   PASSKEYS_ENABLED?: boolean;
   WEBAUTHN_RP_ID?: string;
@@ -90,6 +91,9 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
   PROFILE_SYNC_ENABLED?: boolean;
   PROFILE_SYNC_FIELDS?: string;
 }
+
+/** 32 bytes in base64: 43 characters and one of padding. */
+const TOTP_KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/;
 
 export class EnvironmentVariables extends NativeEnvironmentVariables {
   @IsEnum(['development', 'production', 'test'])
@@ -248,11 +252,29 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   @Transform(transformOptionalString)
   @IsString()
   @IsOptional()
-  @Matches(/^[A-Za-z0-9+/]{43}=$/, {
+  @Matches(TOTP_KEY_PATTERN, {
     message:
       'TOTP_ENCRYPTION_KEY must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
   })
   TOTP_ENCRYPTION_KEY?: string;
+
+  /**
+   * The key before TOTP_ENCRYPTION_KEY, set only while that key is being
+   * replaced. To rotate: move the current key here, put a new key in
+   * TOTP_ENCRYPTION_KEY and restart. A secret still stored under the old key
+   * is read with it and written again under the new one the next time its
+   * account answers a code. Remove this setting once no stored secret names
+   * the old key: a secret left under it stops working then. Sign-ins waiting
+   * for a code when the key changes start again.
+   */
+  @Transform(transformOptionalString)
+  @IsString()
+  @IsOptional()
+  @Matches(TOTP_KEY_PATTERN, {
+    message:
+      'TOTP_ENCRYPTION_KEY_PREVIOUS must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
+  })
+  TOTP_ENCRYPTION_KEY_PREVIOUS?: string;
 
   @Transform(transformBoolean(true))
   @IsBoolean()

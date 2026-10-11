@@ -141,6 +141,22 @@ export class MongoSecondFactorStore extends SecondFactorStore {
     await singleStatement(() => user.save());
   }
 
+  async replaceSecret(
+    account: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<void> {
+    const readWith = account.twoFactor.secret;
+    if (!readWith) return;
+    const user = secondFactorDocumentOf(account);
+    // Written around the document, so a later save of it leaves this alone.
+    await singleStatement(() =>
+      this.userModel.updateOne(
+        { _id: user._id, 'twoFactor.secret.ciphertext': readWith.ciphertext },
+        { $set: { 'twoFactor.secret': secret } },
+      ),
+    );
+  }
+
   async clear(account: SecondFactorAccount): Promise<void> {
     const user = secondFactorDocumentOf(account);
     user.twoFactor = {

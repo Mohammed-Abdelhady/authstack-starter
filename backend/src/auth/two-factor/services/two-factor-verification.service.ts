@@ -68,7 +68,7 @@ export class TwoFactorVerificationService {
       throw this.invalidCode('account has no secret to check against');
     }
 
-    const step = this.resolveStep(secret, code);
+    const step = await this.resolveStep(user, secret, code);
     const lastUsedStep = user.twoFactor.lastUsedStep;
 
     if (typeof lastUsedStep === 'number' && step <= lastUsedStep) {
@@ -111,9 +111,25 @@ export class TwoFactorVerificationService {
   /**
    * The absolute TOTP step the code belongs to, counted from the epoch. Steps
    * only ever move forward, which is what makes a spent one detectable.
+   *
+   * A secret the previous key still reads is written again under the current
+   * key here, so the previous key can be dropped once every account has
+   * answered a code.
    */
-  private resolveStep(secret: StoredTotpSecret, code: string): number {
-    const delta = checkTotpDelta(code, this.cryptoService.decrypt(secret));
+  private async resolveStep(
+    user: SecondFactorAccount,
+    secret: StoredTotpSecret,
+    code: string,
+  ): Promise<number> {
+    const opened = this.cryptoService.open(secret);
+    if (opened.underPreviousKey) {
+      await this.accounts.replaceSecret(
+        user,
+        this.cryptoService.encrypt(opened.plaintext),
+      );
+    }
+
+    const delta = checkTotpDelta(code, opened.plaintext);
 
     if (delta === null || delta === undefined) {
       throw this.invalidCode('code does not match the secret');

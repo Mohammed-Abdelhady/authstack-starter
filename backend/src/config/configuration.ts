@@ -68,6 +68,7 @@ export interface Configuration {
   twoFactor: {
     enabled: boolean;
     encryptionKey?: string;
+    previousEncryptionKey?: string;
   };
   passkeys: {
     enabled: boolean;
@@ -204,6 +205,7 @@ const configuration = (): Configuration => {
     twoFactor: {
       enabled: process.env.TWO_FACTOR_ENABLED !== 'false',
       encryptionKey: process.env.TOTP_ENCRYPTION_KEY,
+      previousEncryptionKey: process.env.TOTP_ENCRYPTION_KEY_PREVIOUS,
     },
     passkeys: {
       enabled: process.env.PASSKEYS_ENABLED !== 'false',

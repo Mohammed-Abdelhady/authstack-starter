@@ -114,6 +114,27 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     );
   }
 
+  replaceSecret(
+    account: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<void> {
+    const id = toUuid(account.id);
+    const readWith = account.twoFactor.secret;
+    if (!readWith) return Promise.resolve();
+    return autocommit(NO_CONSTRAINTS, async () => {
+      await this.database
+        .updateTable('user_two_factor')
+        .set({
+          secret_ciphertext: secret.ciphertext,
+          secret_iv: secret.iv,
+          secret_tag: secret.tag,
+        })
+        .where('user_id', '=', id)
+        .where('secret_ciphertext', '=', readWith.ciphertext)
+        .execute();
+    });
+  }
+
   clear(account: SecondFactorAccount): Promise<void> {
     const id = toUuid(account.id);
     return this.change(async (work) => {
