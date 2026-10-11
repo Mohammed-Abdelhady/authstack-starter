@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./host": "./src/host.ts",
     "./theme": "./src/theme/index.ts",
+    "./testing": "./test/support/painted.ts",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
