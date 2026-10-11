@@ -14,6 +14,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { submitTwiceInOneTick } from '@/modules/auth/__tests__/submitTwice';
 import { UpdateProfileCard } from '../UpdateProfileCard';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -152,6 +153,26 @@ describe.each([
     expect(name.getAttribute('value')).toBe(TYPED_NAME);
     expect(errorToasts()).toEqual([generalMessage]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
+  });
+
+  it('saves once when the form is submitted twice in one tick', async () => {
+    let reads = 0;
+    const requests = stubNetwork((request) => {
+      if (request.method !== 'GET') return success(user(TYPED_NAME));
+      reads += 1;
+      return success(user(reads === 1 ? STORED_NAME : TYPED_NAME));
+    });
+    const { message, successToasts } = await renderForm(locale, <UpdateProfileCard />);
+    const name = await screen.findByRole('textbox', { name: message('settings.profile.name') });
+    await waitFor(() => expect(name.getAttribute('value')).toBe(STORED_NAME));
+    fireEvent.change(name, { target: { value: TYPED_NAME } });
+
+    submitTwiceInOneTick(screen.getByTestId('update-profile-form'));
+
+    await waitFor(() => expect(successToasts()).toEqual([message('settings.profile.success')]));
+    expect(requests.filter((request) => request.startsWith('PATCH'))).toEqual([
+      'PATCH /api/user/profile',
+    ]);
   });
 
   it('refetches once after a successful update and keeps the form on the page', async () => {

@@ -2,7 +2,7 @@
 import { change, fillActivation, navigation, SIGNED_IN_USER } from './registrationHarness';
 import * as React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import {
   refusalWith,
@@ -17,6 +17,7 @@ import {
   writesOf,
 } from '@/modules/auth/__tests__/submitTwice';
 import { ActivationForm } from '@/modules/auth/components/ActivationForm';
+import { ChangePasswordCard } from '../ChangePasswordCard';
 import { ForgotPasswordForm } from '../ForgotPasswordForm';
 import { PasswordSignInForm } from '../PasswordSignInForm';
 import { RegisterForm } from '../RegisterForm';
@@ -107,6 +108,26 @@ describe('two submissions in one tick send one request', () => {
 
     await screen.findByTestId('reset-password-error');
     expect(requests).toEqual(['POST /api/auth/reset-password']);
+  });
+
+  it('changes the password once', async () => {
+    const requests = stubNetwork((request) =>
+      request.method === 'POST'
+        ? success({ message: 'changed' })
+        : success({ methods: { password: true } }),
+    );
+    const { message, successToasts } = await renderForm('en', <ChangePasswordCard />);
+    const label = (key: string) => message(`settings.password.${key}`);
+    const type = (key: string, value: string) =>
+      fireEvent.change(screen.getByLabelText(label(key)), { target: { value } });
+    type('currentPassword', 'OldPassw0rdLayla');
+    type('newPassword', PASSWORD);
+    type('confirmPassword', PASSWORD);
+
+    submitTwiceInOneTick(screen.getByTestId('change-password-form'));
+
+    await waitFor(() => expect(successToasts()).toEqual([label('success')]));
+    expect(writesOf(requests)).toEqual(['POST /api/user/password']);
   });
 
   it('activates once', async () => {

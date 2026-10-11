@@ -10,9 +10,12 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { clickTwiceInOneTick } from '@/modules/auth/__tests__/submitTwice';
 import { LinkedAccounts } from '../LinkedAccounts';
+import { ProfileSyncStatus } from '../ProfileSyncStatus';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('@/i18n/navigation', () => ({ usePathname: () => '/settings' }));
 
 const LINKED_PATH = '/api/user/linked-providers';
 const UNLINK_GOOGLE = 'DELETE /api/user/unlink-provider/google';
@@ -191,6 +194,53 @@ describe.each([
     expect(screen.queryByTestId('set-primary-google')).toBeNull();
     expect(screen.queryByTestId('set-primary-email')).toBeNull();
     expect(requests).not.toContain(SET_PRIMARY);
+  });
+
+  it('chooses a primary once when the button is activated twice in one tick', async () => {
+    const requests = server({ hints: [undefined] });
+    const { successToasts, format } = await renderAccounts(locale);
+
+    clickTwiceInOneTick(screen.getByTestId('set-primary-google'));
+
+    await waitFor(() =>
+      expect(successToasts()).toEqual([
+        format('settings.accounts.setPrimarySuccess', { provider: 'Google' }),
+      ]),
+    );
+    expect(requests.filter((request) => request === SET_PRIMARY)).toEqual([SET_PRIMARY]);
+  });
+
+  it('unlinks once when the confirmation is activated twice in one tick', async () => {
+    const requests = server({ hints: [{ email: 'not_removable', google: 'allowed' }] });
+    const { successToasts, format, unlink } = await renderAccounts(locale);
+    fireEvent.click(unlink() ?? document.body);
+
+    clickTwiceInOneTick(await screen.findByTestId('unlink-confirm-google'));
+
+    await waitFor(() =>
+      expect(successToasts()).toEqual([
+        format('settings.accounts.unlinkSuccess', { provider: 'Google' }),
+      ]),
+    );
+    expect(requests.filter((request) => request === UNLINK_GOOGLE)).toEqual([UNLINK_GOOGLE]);
+  });
+
+  it('asks for one profile sync when the button is activated twice in one tick', async () => {
+    const requests = stubNetwork((request) =>
+      request.method === 'POST'
+        ? success({ requiresOAuth: false, provider: 'google', message: 'nothing to sync' })
+        : success({ canSync: true, primaryProvider: 'google' }),
+    );
+    const { message, errorToasts } = await renderForm(locale, <ProfileSyncStatus />);
+
+    clickTwiceInOneTick(
+      await screen.findByRole('button', { name: message('settings.profileSync.syncNow') }),
+    );
+
+    await waitFor(() => expect(errorToasts()).toEqual([message('settings.profileSync.syncError')]));
+    expect(requests.filter((request) => request.startsWith('POST'))).toEqual([
+      'POST /api/user/sync-profile',
+    ]);
   });
 
   it('names email sign-in in the page language and a provider as the server names it', async () => {
