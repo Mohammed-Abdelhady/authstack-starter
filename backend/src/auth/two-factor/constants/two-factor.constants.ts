@@ -1,3 +1,5 @@
+import { SENSITIVE_ACTION_WINDOW_MS } from '../../../session/constants/session-policy';
+
 /** Name shown next to the account in an authenticator app. */
 export const TWO_FACTOR_ISSUER = 'Auth Boilerplate';
 
@@ -33,9 +35,10 @@ export const TWO_FACTOR_LOCK_MAX_MS = 3600000;
 
 /**
  * How fresh a session has to be for a passwordless account to start setup.
- * Password accounts re-enter their password instead.
+ * Password accounts re-enter their password instead. The same window every
+ * change to how an account signs in is held to.
  */
-export const TWO_FACTOR_FRESH_SESSION_MS = 300000;
+export const TWO_FACTOR_FRESH_SESSION_MS = SENSITIVE_ACTION_WINDOW_MS;
 
 /** Recovery codes handed out by confirm and by regenerate. */
 export const RECOVERY_CODE_COUNT = 10;
