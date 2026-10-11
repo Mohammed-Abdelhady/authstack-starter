@@ -13,7 +13,7 @@ const ISOLATED_QUERY = `\u2066${QUERY}\u2069`;
 
 registerFormTestLifecycle();
 
-async function renderTabs(locale: 'en' | 'ar', activeTab: string) {
+async function renderTabs(locale: 'en' | 'ar', activeTab: string, searchQuery = QUERY) {
   return renderForm(
     locale,
     <SearchPermissionTabs
@@ -23,7 +23,7 @@ async function renderTabs(locale: 'en' | 'ar', activeTab: string) {
       selectedPermissions={[]}
       onSelectAll={vi.fn()}
       onTogglePermission={vi.fn()}
-      searchQuery={QUERY}
+      searchQuery={searchQuery}
     />,
   );
 }
@@ -44,7 +44,8 @@ describe.each([
   it('isolates the typed query inside the sentence for one category', async () => {
     const { message, format } = await renderTabs(locale, 'users');
 
-    const category = message('permissions.selector.groups.users').toLocaleLowerCase();
+    // The category is named as the tab names it, so the sentence needs no inflection.
+    const category = message('permissions.selector.groups.users');
     const sentence = format('permissions.searchDialog.noCategoryPermissionsMatch', {
       category,
       query: QUERY,
@@ -52,5 +53,15 @@ describe.each([
     const panel = screen.getByRole('tabpanel').textContent;
     expect(panel).toBe(sentence);
     expect(panel).toContain(ISOLATED_QUERY);
+  });
+
+  it('names the category as its tab does when nothing is left to assign', async () => {
+    const { message, format } = await renderTabs(locale, 'users', '');
+
+    expect(screen.getByRole('tabpanel').textContent).toBe(
+      format('permissions.searchDialog.categoryAllAssigned', {
+        category: message('permissions.selector.groups.users'),
+      }),
+    );
   });
 });
