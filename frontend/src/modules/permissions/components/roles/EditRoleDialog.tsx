@@ -44,7 +44,7 @@ export interface EditRoleDialogProps {
 export function EditRoleDialog({ open, onOpenChange, role, onSuccess }: EditRoleDialogProps) {
   const t = useTranslations('roles.form');
   const [updateRole, { isLoading }] = useUpdateRoleMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
 
   const handleSubmit = async (
     data: EditRoleFormValues,

@@ -50,7 +50,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
   const t = useTranslations('settings.passkeys');
   const tCodes = useTranslations('errors.codes');
   const [renamePasskey, { isLoading }] = useRenamePasskeyMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const handleFeatureDisabled = useFeatureDisabledHandler();
 
   const schema = useMemo(() => createNameSchema(t), [t]);

@@ -56,7 +56,7 @@ export function TwoFactorDisableDialog({
   const tAnswer = useTranslations('auth.twoFactor');
   const [disableTwoFactor, { isLoading }] = useDisableTwoFactorMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const { noteRemoved, focusLanding } = useRemovalFocus(landing);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   // The dialog focuses its first field, the password, unless the answer claims it.

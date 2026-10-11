@@ -73,7 +73,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createRole, { isLoading }] = useCreateRoleMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
     isLoading,

@@ -69,7 +69,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createUser, { isLoading }] = useCreateUserMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const allRoles = useAllRoles();
 
   const applyServerFieldErrors = useServerFieldErrors(

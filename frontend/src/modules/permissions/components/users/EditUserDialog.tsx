@@ -249,7 +249,7 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
 
   const handleSubmit = async (
     data: EditUserFormValues,
