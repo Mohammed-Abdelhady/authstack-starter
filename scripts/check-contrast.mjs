@@ -1,41 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { contrastRatio, hslToRgb } from './contrast-math.mjs';
+
+export { contrastRatio, hslToRgb };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-export function hslToRgb(h, s, l) {
-  const sat = s / 100;
-  const lum = l / 100;
-  const k = (n) => (n + h / 30) % 12;
-  const a = sat * Math.min(lum, 1 - lum);
-  const f = (n) => lum - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return [f(0) * 255, f(8) * 255, f(4) * 255];
-}
-
-function sRgbToLinear(c) {
-  const channel = c / 255;
-  return channel <= 0.04045
-    ? channel / 12.92
-    : Math.pow((channel + 0.055) / 1.055, 2.4);
-}
-
-function relativeLuminance([r, g, b]) {
-  return (
-    0.2126 * sRgbToLinear(r) +
-    0.7152 * sRgbToLinear(g) +
-    0.0722 * sRgbToLinear(b)
-  );
-}
-
-export function contrastRatio(rgb1, rgb2) {
-  const l1 = relativeLuminance(rgb1);
-  const l2 = relativeLuminance(rgb2);
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
-}
 
 const THEME_SELECTORS = { light: ':root', dark: '.dark' };
 const CSS_COMMENT = /\/\*[\s\S]*?\*\//g;
@@ -107,7 +78,23 @@ export const CONTRAST_PAIRS = [
   { token: 'input', background: 'background', target: 3.0 },
   { token: 'input', background: 'card', target: 3.0 },
   { token: 'ring', background: 'background', target: 3.0 },
+  // Admin screens: text on the muted panels, error text in a dialog, status icons.
+  { token: 'muted-foreground', background: 'muted', target: 4.5 },
+  { token: 'foreground', background: 'muted', target: 4.5 },
+  { token: 'destructive', background: 'background', target: 4.5 },
+  { token: 'info', background: 'background', target: 3.0 },
+  { token: 'info', background: 'popover', target: 3.0 },
+  { token: 'status-warning', background: 'popover', target: 3.0 },
+  { token: 'status-success', background: 'popover', target: 3.0 },
 ];
+
+// The result boxes of the permissions demo page: `bg-<token>/10 dark:bg-<token>/20` on a card.
+const boxTint = (token) => ({ light: { token, alpha: 0.1 }, dark: { token, alpha: 0.2 } });
+export const TINTED_BOX_PAIRS = [
+  ...['success', 'destructive', 'info'].map((token) => ({ token: 'foreground', tint: boxTint(token) })),
+  { token: 'status-success', tint: boxTint('success'), target: 3.0 },
+  { token: 'status-danger', tint: boxTint('destructive'), target: 3.0 },
+].map((pair) => ({ background: 'card', target: 4.5, ...pair }));
 
 // A control on a status surface is read from source: the primitive's classes,
 // then the caller's `className`, where the later colour wins as in tailwind-merge.
@@ -283,7 +270,12 @@ function run() {
   const css = loadCss();
   const { light, dark } = parseTokens(css);
   const known = Object.keys(light);
-  const pairs = [...CONTRAST_PAIRS, ...loadControlPairs(known), ...loadTintedPairs(known)];
+  const pairs = [
+    ...CONTRAST_PAIRS,
+    ...TINTED_BOX_PAIRS,
+    ...loadControlPairs(known),
+    ...loadTintedPairs(known),
+  ];
 
   let failedCount = 0;
   let totalCount = 0;
