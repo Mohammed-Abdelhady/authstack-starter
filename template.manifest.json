@@ -514,6 +514,7 @@
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
         "backend/src/common/persistence/postgres/migrations/0014_two_factor_lockout.sql",
+        "backend/test/auth/two-factor-route-limits.e2e-spec.ts",
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
         "frontend/src/app/[locale]/(auth)/auth/2fa/**"
