@@ -2,20 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { MANIFEST_FILE, REWRITES_FILE } from '../constants/index.js';
 import type { Manifest } from '../types.js';
+import { readFileIfExists } from '../utils/fs.js';
 import { parseJson } from '../utils/parse-json.js';
 import { isRecord } from './read.js';
 import { ManifestError, validateManifest } from './validate.js';
 
 const notJson = (path: string, reason: string): string => `${path} is not valid JSON: ${reason}`;
-
-async function readOptional(path: string): Promise<string | undefined> {
-  try {
-    return await readFile(path, 'utf8');
-  } catch (error) {
-    if (isRecord(error) && error.code === 'ENOENT') return undefined;
-    throw error;
-  }
-}
 
 /**
  * Puts each database's rewrites from the sibling file after the ones the
@@ -53,7 +45,7 @@ export async function loadManifest(root: string): Promise<Manifest> {
   const path = join(root, MANIFEST_FILE);
   const parsed = parseJson(await readFile(path, 'utf8'), path, notJson);
   const rewritesPath = join(root, REWRITES_FILE);
-  const rewrites = await readOptional(rewritesPath);
+  const rewrites = await readFileIfExists(rewritesPath);
   return validateManifest(
     rewrites === undefined
       ? parsed
