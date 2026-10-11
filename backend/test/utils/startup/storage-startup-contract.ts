@@ -45,7 +45,6 @@ export function describeStorageStartupContract(
   expected: {
     bootMs: number;
     teardownMs: number;
-    caseMs: number;
     /** What a database behind this build is told, null where it is not checked. */
     behind: string | null;
     /** What a database ahead of this build is told, null where it is not checked. */
@@ -69,79 +68,61 @@ export function describeStorageStartupContract(
       await harness?.close();
     }, expected.teardownMs);
 
-    it(
-      'prepares a store that is at this build, twice over, with its unique rules in force',
-      async () => {
-        const before = await current().migrationRecord();
+    it('prepares a store that is at this build, twice over, with its unique rules in force', async () => {
+      const before = await current().migrationRecord();
 
-        expect({
-          first: await refusalOf(current().startup.prepare()),
-          second: await refusalOf(current().startup.prepare()),
-          duplicateRefused: await current().refusesDuplicateCredential(),
-          recordUnchanged:
-            JSON.stringify(await current().migrationRecord()) ===
-            JSON.stringify(before),
-        }).toEqual({
-          first: 'prepared',
-          second: 'prepared',
-          duplicateRefused: true,
-          recordUnchanged: true,
-        });
-      },
-      expected.caseMs,
-    );
+      expect({
+        first: await refusalOf(current().startup.prepare()),
+        second: await refusalOf(current().startup.prepare()),
+        duplicateRefused: await current().refusesDuplicateCredential(),
+        recordUnchanged:
+          JSON.stringify(await current().migrationRecord()) ===
+          JSON.stringify(before),
+      }).toEqual({
+        first: 'prepared',
+        second: 'prepared',
+        duplicateRefused: true,
+        recordUnchanged: true,
+      });
+    });
 
-    it(
-      "puts a lost unique rule back where the rules are the adapter's own",
-      async () => {
-        if (!(await current().loseCredentialRule())) {
-          // This adapter checks and never changes the store: a migration owns
-          // the rule, and the page of known differences says so.
-          expect(expected.behind).not.toBeNull();
-          return;
-        }
+    it("puts a lost unique rule back where the rules are the adapter's own", async () => {
+      if (!(await current().loseCredentialRule())) {
+        // This adapter checks and never changes the store: a migration owns
+        // the rule, and the page of known differences says so.
+        expect(expected.behind).not.toBeNull();
+        return;
+      }
 
-        await current().startup.prepare();
+      await current().startup.prepare();
 
-        expect(await current().refusesDuplicateCredential()).toBe(true);
-      },
-      expected.caseMs,
-    );
+      expect(await current().refusesDuplicateCredential()).toBe(true);
+    });
 
-    it(
-      'refuses a store that is behind this build, names what to apply, and applies nothing',
-      async () => {
-        const behind = current().behindThisBuild();
-        const before = await current().migrationRecord();
+    it('refuses a store that is behind this build, names what to apply, and applies nothing', async () => {
+      const behind = current().behindThisBuild();
+      const before = await current().migrationRecord();
 
-        expect({
-          answer: behind === null ? null : await refusalOf(behind.prepare()),
-          after: await current().migrationRecord(),
-        }).toEqual({
-          answer:
-            expected.behind === null
-              ? null
-              : { name: 'StorageNotReadyError', message: expected.behind },
-          after: before,
-        });
-      },
-      expected.caseMs,
-    );
-
-    it(
-      'refuses a store that is ahead of this build and names what it does not carry',
-      async () => {
-        const ahead = current().aheadOfThisBuild();
-
-        expect(
-          ahead === null ? null : await refusalOf(ahead.prepare()),
-        ).toEqual(
-          expected.ahead === null
+      expect({
+        answer: behind === null ? null : await refusalOf(behind.prepare()),
+        after: await current().migrationRecord(),
+      }).toEqual({
+        answer:
+          expected.behind === null
             ? null
-            : { name: 'StorageNotReadyError', message: expected.ahead },
-        );
-      },
-      expected.caseMs,
-    );
+            : { name: 'StorageNotReadyError', message: expected.behind },
+        after: before,
+      });
+    });
+
+    it('refuses a store that is ahead of this build and names what it does not carry', async () => {
+      const ahead = current().aheadOfThisBuild();
+
+      expect(ahead === null ? null : await refusalOf(ahead.prepare())).toEqual(
+        expected.ahead === null
+          ? null
+          : { name: 'StorageNotReadyError', message: expected.ahead },
+      );
+    });
   });
 }
