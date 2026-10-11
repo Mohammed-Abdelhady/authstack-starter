@@ -83,10 +83,14 @@ export abstract class PasskeyStore {
 
   /** The account's passkeys, newest first. */
   abstract listForAccount(userId: string): Promise<StoredPasskey[]>;
-  /** The passkey with this id, only when it is on this account. */
+  /**
+   * The passkey with this id, only when it is on this account. Inside a unit
+   * of work the read takes it, so it runs on the work's own connection.
+   */
   abstract findOwned(
     userId: string,
     passkeyId: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null>;
   abstract rename(passkey: StoredPasskey, name: string): Promise<StoredPasskey>;
   /** Removes a passkey of an account whose ways in the unit of work holds. */
