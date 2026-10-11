@@ -72,12 +72,14 @@ async function askTargets(
   return answer;
 }
 
+export const DATABASE_QUESTION = 'Which database?';
+
 async function askDatabase(
   manifest: Manifest,
   initial: string,
 ): Promise<string | typeof CANCELLED> {
   const answer = await select({
-    message: 'Which database?',
+    message: DATABASE_QUESTION,
     options: availableDatabaseIds(manifest).map((id) => ({
       value: id,
       label: manifest.databases[id].label,

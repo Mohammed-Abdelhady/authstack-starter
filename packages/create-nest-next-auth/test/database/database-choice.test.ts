@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { select } from '@clack/prompts';
@@ -9,7 +9,8 @@ import { availableDatabaseIds, defaultDatabaseIds } from '../../src/manifest/dim
 import { loadManifest } from '../../src/manifest/load.js';
 import { resolvePlan } from '../../src/manifest/plan.js';
 import { CANCELLED } from '../../src/prompts/index.js';
-import { askPlan, planPromptNeeds } from '../../src/prompts/plan.js';
+import type { PlanError } from '../../src/manifest/plan-types.js';
+import { askPlan, DATABASE_QUESTION, planPromptNeeds } from '../../src/prompts/plan.js';
 import { buildSummary, describePlanErrors } from '../../src/report/summary.js';
 import { fixtureRoot, REPO_ROOT, run } from '../support/answers-helpers.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
@@ -40,6 +41,18 @@ const ALL_BUT_DATABASE = [
 ];
 
 const manifestRoot = fixtureRoot();
+
+/** The database a printed summary names, as the id whose label the line carries. */
+function databaseShown(output: string | string[]): string | undefined {
+  const text = typeof output === 'string' ? output : output.join('\n');
+  const label = /^.*\bDatabase\s+(\S.*?)\s*$/m.exec(text)?.[1];
+  return Object.entries(PLAN_MANIFEST.databases).find(([, entry]) => entry.label === label)?.[0];
+}
+
+/** The line the CLI prints for one plan error, read from where it is written. */
+function sentenceFor(error: PlanError): string {
+  return describePlanErrors(PLAN_MANIFEST, [error])[0];
+}
 const roots: string[] = [];
 const ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
 
@@ -98,21 +111,39 @@ describe('the database flag', () => {
   });
 
   it.each([
-    ['an unknown name', 'mysql', '"mysql" is not a known choice.'],
-    ['two names', 'mongodb,postgres', 'Choose exactly one database; got: mongodb,postgres.'],
-  ])('refuses %s with the message other choices get', (_, value, message) => {
+    ['an unknown name', 'mysql', '', { id: 'mysql', reason: 'unknown' }],
+    // The first name stays in the plan, and the error stops the run before it is used.
+    [
+      'two names',
+      'mongodb,postgres',
+      'mongodb',
+      { id: 'mongodb,postgres', reason: 'database-conflict' },
+    ],
+  ])('refuses %s and names what was asked for', (_, value, database, error) => {
     const plan = resolvePlan(PLAN_MANIFEST, toPlanRequest(parseCliOptions(['--database', value])));
 
-    expect(describePlanErrors(PLAN_MANIFEST, plan.errors)).toEqual([message]);
+    expect({ database: plan.database, errors: plan.errors }).toEqual({ database, errors: [error] });
   });
 
-  it.each([
-    ['postgres', 'Database   PostgreSQL'],
-    ['mongodb', 'Database   MongoDB'],
-  ])('shows %s in the summary', (database, line) => {
+  it('says each refusal in a line of its own that names what was asked for', () => {
     expect(
-      buildSummary(PLAN_MANIFEST, resolvePlan(PLAN_MANIFEST, { databases: [database] })),
-    ).toContain(line);
+      describePlanErrors(PLAN_MANIFEST, [
+        { id: 'mysql', reason: 'unknown' },
+        { id: 'mongodb,postgres', reason: 'database-conflict' },
+      ]),
+    ).toEqual([
+      '"mysql" is not a known choice.',
+      'Choose exactly one database; got: mongodb,postgres.',
+    ]);
+  });
+
+  it.each(['postgres', 'mongodb'])('shows %s in the summary, by its label', (database) => {
+    const summary = buildSummary(
+      PLAN_MANIFEST,
+      resolvePlan(PLAN_MANIFEST, { databases: [database] }),
+    );
+
+    expect(databaseShown(summary)).toBe(database);
   });
 });
 
@@ -132,7 +163,7 @@ describe('the database question', () => {
     expect(await askPlan(PLAN_MANIFEST, {}, ONLY_DATABASE)).toEqual({ databases: ['postgres'] });
     expect(select).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledWith({
-      message: 'Which database?',
+      message: DATABASE_QUESTION,
       initialValue: 'mongodb',
       options: [
         { value: 'mongodb', label: 'MongoDB' },
@@ -156,10 +187,7 @@ describe('a command line with the real manifest', () => {
       'postgres',
     ]);
 
-    expect({ code, postgres: output.includes('Database   PostgreSQL') }).toEqual({
-      code: 0,
-      postgres: true,
-    });
+    expect({ code, database: databaseShown(output) }).toEqual({ code: 0, database: 'postgres' });
   });
 
   it('takes PostgreSQL from the config file, and the flag over the file', async () => {
@@ -175,9 +203,9 @@ describe('a command line with the real manifest', () => {
     ]);
 
     expect({
-      fromFile: [fromFile.code, fromFile.output.includes('Database   PostgreSQL')],
-      flagWins: [flagWins.code, flagWins.output.includes('Database   MongoDB')],
-    }).toEqual({ fromFile: [0, true], flagWins: [0, true] });
+      fromFile: [fromFile.code, databaseShown(fromFile.output)],
+      flagWins: [flagWins.code, databaseShown(flagWins.output)],
+    }).toEqual({ fromFile: [0, 'postgres'], flagWins: [0, 'mongodb'] });
   });
 
   it('gives a command line written before the choice MongoDB, without a terminal and with --yes', async () => {
@@ -186,13 +214,10 @@ describe('a command line with the real manifest', () => {
     const accepted = await run(manifestRoot, [...ALL_BUT_DATABASE, '--yes']);
 
     expect({
-      withoutTerminal: [
-        withoutTerminal.code,
-        withoutTerminal.output.includes('Database   MongoDB'),
-      ],
-      accepted: [accepted.code, accepted.output.includes('Database   MongoDB')],
+      withoutTerminal: [withoutTerminal.code, databaseShown(withoutTerminal.output)],
+      accepted: [accepted.code, databaseShown(accepted.output)],
       asked: vi.mocked(select).mock.calls.length,
-    }).toEqual({ withoutTerminal: [0, true], accepted: [0, true], asked: 0 });
+    }).toEqual({ withoutTerminal: [0, 'mongodb'], accepted: [0, 'mongodb'], asked: 0 });
   });
 
   it('asks in a terminal and builds what was answered', async () => {
@@ -203,18 +228,32 @@ describe('a command line with the real manifest', () => {
 
     expect({
       code,
-      postgres: output.includes('Database   PostgreSQL'),
+      database: databaseShown(output),
       asked: vi.mocked(select).mock.calls.map(([question]) => question.message),
-    }).toEqual({ code: 0, postgres: true, asked: ['Which database?'] });
+    }).toEqual({ code: 0, database: 'postgres', asked: [DATABASE_QUESTION] });
   });
 
   it('refuses an unknown database with exit 2 and writes nothing', async () => {
-    const { code, output } = await run(manifestRoot, [...ALL_BUT_DATABASE, '--database', 'mysql']);
+    const root = mkdtempSync(join(tmpdir(), 'cna-database-target-'));
+    roots.push(root);
+    const target = join(root, 'my-app');
+
+    // No --dry-run: a run that got past the refusal would write the project.
+    const { code, output } = await run(manifestRoot, [
+      target,
+      ...ALL_BUT_DATABASE.filter((flag) => flag !== '--dry-run'),
+      '--yes',
+      '--no-install',
+      '--no-git',
+      '--database',
+      'mysql',
+    ]);
 
     expect({
       code,
-      named: output.includes('"mysql" is not a known choice.'),
-      wrote: output.includes('Nothing was written.'),
-    }).toEqual({ code: 2, named: true, wrote: true });
+      named: output.includes(sentenceFor({ id: 'mysql', reason: 'unknown' })),
+      written: existsSync(target),
+      left: readdirSync(root),
+    }).toEqual({ code: 2, named: true, written: false, left: [] });
   });
 });

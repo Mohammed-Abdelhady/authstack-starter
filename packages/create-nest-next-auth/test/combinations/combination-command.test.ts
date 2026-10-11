@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
 import { runTool } from '../support/combination-helpers.js';
 
 describe('asynchronous combination tools', () => {
@@ -40,6 +43,43 @@ describe('asynchronous combination tools', () => {
       timeout: 50,
     });
     expect(result.ok).toBe(false);
+  });
+  it('ends everything a timed out command started, before it answers', async () => {
+    // The command starts a child that would run for an hour, and says its id.
+    const grandchild = 'setInterval(() => {}, 3600000)';
+    const script = `const { spawn } = require('node:child_process'); const child = spawn(process.execPath, ['-e', ${JSON.stringify(grandchild)}], { stdio: 'inherit' }); console.log(child.pid); setInterval(() => {}, 3600000);`;
+
+    const result = await runTool(process.execPath, ['-e', script], { timeout: 2000 });
+    const pid = Number.parseInt(/^(\d+)$/m.exec(result.output)?.[1] ?? '', 10);
+    const alive = (): boolean => {
+      try {
+        process.kill(pid, 0);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    expect({ ok: result.ok, started: Number.isInteger(pid) }).toEqual({ ok: false, started: true });
+    // The group was ended before the answer. The system may take a moment more
+    // to take the ended process out of its table, so this waits for that only.
+    await vi.waitFor(() => expect(alive()).toBe(false), { timeout: 10_000, interval: 20 });
+    expect(result.output).toContain('Timed out after 2000 ms');
+  }, 20_000);
+  it('does not start a command whose signal was aborted already', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cna-run-tool-'));
+    const marker = join(root, 'ran');
+    try {
+      const result = await runTool(
+        process.execPath,
+        ['-e', `require('node:fs').writeFileSync(${JSON.stringify(marker)}, '')`],
+        { signal: AbortSignal.abort() },
+      );
+
+      expect({ ok: result.ok, ran: existsSync(marker) }).toEqual({ ok: false, ran: false });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
   it('terminates a cancelled child', async () => {
     const result = await runTool(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {

@@ -80,6 +80,23 @@ describe('resolvePlan rules', () => {
     expect(plan.errors).toEqual([]);
   });
 
+  it('rule 5: a planned database is an error that names it, and nothing is added on top', () => {
+    const manifest = {
+      ...PLAN_MANIFEST,
+      databases: {
+        ...PLAN_MANIFEST.databases,
+        postgres: { ...PLAN_MANIFEST.databases.postgres, status: 'planned' as const },
+      },
+    };
+
+    const plan = resolvePlan(manifest, { databases: ['postgres'] });
+
+    expect({ database: plan.database, errors: plan.errors }).toEqual({
+      database: '',
+      errors: [{ id: 'postgres', reason: 'planned' }],
+    });
+  });
+
   it('rule 5: an empty database list is an error', () => {
     const plan = resolvePlan(PLAN_MANIFEST, { databases: [] });
     expect(plan.errors).toEqual([{ id: 'database', reason: 'empty' }]);

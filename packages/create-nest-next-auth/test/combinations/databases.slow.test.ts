@@ -5,6 +5,7 @@ import { loadManifest } from '../../src/manifest/load.js';
 import { availableFeatures } from '../../src/manifest/select.js';
 import type { Manifest } from '../../src/types.js';
 import { buildCli, REPO_ROOT, runTool, scaffold } from '../support/combination-helpers.js';
+import { locksPackage } from '../support/lockfile-lines.js';
 import { expectConfigTests, expectInstallsLintsBuilds } from './combination-scenarios.js';
 import { verifyFeatureAvailability } from './feature-runtime.js';
 
@@ -19,12 +20,24 @@ import { verifyFeatureAvailability } from './feature-runtime.js';
  * folder of their own that they remove. The MongoDB project starts
  * `mongodb-memory-server` the same way.
  *
- * Each case names its own time budget. A PostgreSQL case is an install, two
- * builds and suites that take under a minute. The MongoDB case runs the whole
- * unit suite on one replica set per worker and then the API suite in band,
- * which is most of its budget.
+ * Each case names its own time budget, below the 15 minutes this suite gives
+ * a case by default. Alone on a machine a PostgreSQL case takes 80 to 110
+ * seconds: an install from the shared store, two builds, and a unit and an
+ * API suite that each end inside a minute. With other suites loading the same
+ * machine the slowest one measured took about 330 seconds, 185 of them in its
+ * unit suite. So a PostgreSQL case gets 12 minutes and each of its suites 6,
+ * about twice the slowest measurement of each. A MongoDB case runs the whole
+ * unit suite on one replica set per worker and then the API suite in band:
+ * 515 to 528 seconds. Its budget is 30 minutes, the one case kind above the
+ * default, because a cold machine also downloads the server binary, and each
+ * suite gets 14.
  */
 const MINUTE_MS = 60 * 1000;
+const POSTGRES_BUDGET = { budgetMs: 12 * MINUTE_MS, suiteMs: 6 * MINUTE_MS };
+const MONGODB_BUDGET = { budgetMs: 30 * MINUTE_MS, suiteMs: 14 * MINUTE_MS };
+
+/** What `--yes` picks. Written by hand, and compared with the manifest below. */
+const DEFAULT_SELECTION = ['email-password', 'google', 'github', 'facebook'];
 
 interface DatabaseCase {
   name: string;
@@ -41,41 +54,49 @@ const CASES: DatabaseCase[] = [
     name: 'PostgreSQL with every sign-in method',
     database: 'postgres',
     features: undefined,
-    budgetMs: 12 * MINUTE_MS,
-    suiteMs: 4 * MINUTE_MS,
+    ...POSTGRES_BUDGET,
+  },
+  {
+    name: 'PostgreSQL with the default selection',
+    database: 'postgres',
+    features: DEFAULT_SELECTION,
+    ...POSTGRES_BUDGET,
   },
   {
     name: 'PostgreSQL with every optional method left out',
     database: 'postgres',
     features: ['email-password'],
-    budgetMs: 10 * MINUTE_MS,
-    suiteMs: 4 * MINUTE_MS,
+    ...POSTGRES_BUDGET,
   },
   {
-    name: 'PostgreSQL with magic link, passkeys and one provider',
+    name: 'PostgreSQL with two-factor, passkeys and one provider, without magic link',
     database: 'postgres',
-    features: ['email-password', 'magic-link', 'passkeys', 'github'],
-    budgetMs: 10 * MINUTE_MS,
-    suiteMs: 4 * MINUTE_MS,
+    features: ['email-password', 'totp', 'passkeys', 'github'],
+    ...POSTGRES_BUDGET,
+  },
+  {
+    name: 'PostgreSQL without email and password',
+    database: 'postgres',
+    features: ['magic-link', 'passkeys', 'google'],
+    ...POSTGRES_BUDGET,
+  },
+  {
+    name: 'MongoDB with the default selection',
+    database: 'mongodb',
+    features: DEFAULT_SELECTION,
+    ...MONGODB_BUDGET,
   },
   {
     name: 'MongoDB with every sign-in method',
     database: 'mongodb',
     features: undefined,
-    budgetMs: 30 * MINUTE_MS,
-    suiteMs: 14 * MINUTE_MS,
+    ...MONGODB_BUDGET,
   },
 ];
 
 let workspace = '';
 let manifest: Manifest;
 let built = { ok: false, output: '' };
-
-/** True for a lockfile line that resolves `name`: `  name@1.0.0:` or `      name:`. */
-function locks(line: string, name: string): boolean {
-  const entry = line.trim().replace(/^'/, '');
-  return entry.startsWith(`${name}@`) || entry === `${name}:` || entry === `'${name}':`;
-}
 
 function everything(): string[] {
   return availableFeatures(manifest)
@@ -98,10 +119,18 @@ describe('generated projects by database', () => {
     expect(built.ok, built.output).toBe(true);
   });
 
+  it('names the default selection as the manifest has it', () => {
+    const defaults = availableFeatures(manifest)
+      .filter(({ feature }) => feature.default && feature.kind !== 'hidden')
+      .map(({ id }) => id);
+
+    expect(defaults).toEqual(DEFAULT_SELECTION);
+  });
+
   for (const testCase of CASES) {
     it(
       `installs, builds and passes its own suites: ${testCase.name}`,
-      async () => {
+      async ({ signal }) => {
         const features = testCase.features ?? everything();
         const project = join(workspace, testCase.name.replace(/\W+/g, '-'));
         const scaffolded = await scaffold(project, features, ['--database', testCase.database]);
@@ -114,7 +143,7 @@ describe('generated projects by database', () => {
           .filter(([id]) => id !== testCase.database)
           .flatMap(([, entry]) => entry.packages);
         expect(
-          foreign.filter((name) => lockfile.split('\n').some((line) => locks(line, name))),
+          foreign.filter((name) => lockfile.split('\n').some((line) => locksPackage(line, name))),
         ).toEqual([]);
         const availability = verifyFeatureAvailability(project, features);
         expect(availability.ok, availability.output).toBe(true);
@@ -124,14 +153,18 @@ describe('generated projects by database', () => {
         await expectConfigTests(project);
 
         // The commands a person reads in the project's own README.
+        // The signal ends the suite and everything it started when the case
+        // runs out of its budget, so nothing is left running under the next one.
         const unit = await runTool('pnpm', ['--filter', 'backend', 'run', 'test'], {
           cwd: project,
           timeout: testCase.suiteMs,
+          signal,
         });
         expect(unit.ok, unit.output.slice(-6000)).toBe(true);
         const api = await runTool('pnpm', ['--filter', 'backend', 'run', 'test:e2e'], {
           cwd: project,
           timeout: testCase.suiteMs,
+          signal,
         });
         expect(api.ok, api.output.slice(-6000)).toBe(true);
       },
