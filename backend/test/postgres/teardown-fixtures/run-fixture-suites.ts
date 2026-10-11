@@ -9,16 +9,23 @@ const JEST_CLI = join(
   'jest.js',
 );
 
-const CONFIG = {
+const configFor = (folder: string) => ({
   rootDir: BACKEND,
-  roots: [FIXTURES],
+  roots: [folder],
   testRegex: '\\.fixture-spec\\.ts$',
   moduleFileExtensions: ['js', 'json', 'ts'],
   transform: {
     '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: { allowJs: true } }],
   },
   testEnvironment: 'node',
-};
+});
+
+export interface FixtureSelection {
+  /** The folder whose fixture suites run. This one when left out. */
+  folder?: string;
+  /** Runs the cases whose full name matches and reports the others as pending. */
+  onlyCase?: string;
+}
 
 export interface FixtureCase {
   suite: string;
@@ -66,10 +73,19 @@ function readReport(output: string): Omit<FixtureRun, 'exitCode'> {
  * Runs the fixture suites in one process of their own, one after the other. Nothing here ends that process: `finished`
  * resolves only when it exits by itself.
  */
-export function startFixtureSuites(): StartedFixtureRun {
+export function startFixtureSuites(
+  selection: FixtureSelection = {},
+): StartedFixtureRun {
   const child = spawn(
     process.execPath,
-    [JEST_CLI, '--config', JSON.stringify(CONFIG), '--runInBand', '--json'],
+    [
+      JEST_CLI,
+      '--config',
+      JSON.stringify(configFor(selection.folder ?? FIXTURES)),
+      '--runInBand',
+      '--json',
+      ...(selection.onlyCase ? ['--testNamePattern', selection.onlyCase] : []),
+    ],
     { cwd: BACKEND, stdio: ['ignore', 'pipe', 'pipe'] },
   );
   let output = '';
