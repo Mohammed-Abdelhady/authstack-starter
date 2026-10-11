@@ -25,4 +25,12 @@ export function assertValidId(
   }
 }
 
+/**
+ * Whether two ids name the same record. Both databases read an id whatever
+ * the case of its letters, so the comparison does too.
+ */
+export function isSameId(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
 export { assertActiveUser } from './account-lookup.util';

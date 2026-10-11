@@ -60,9 +60,6 @@ export type RevokeResult = (typeof REVOKE_RESULT)[keyof typeof REVOKE_RESULT];
 export const SESSION_KIND = { BROWSER: 'browser', NATIVE_APP: 'nativeApp' } as const;
 export type SessionKind = (typeof SESSION_KIND)[keyof typeof SESSION_KIND];
 
-/** What the server stores, in English, for a user agent it cannot read. Compared in lower case. */
-export const SERVER_UNKNOWN_DEVICE = 'unknown device';
-
 export const ACTIVITY = { NOW: 'now', TODAY: 'today', EARLIER: 'earlier' } as const;
 export type Activity = (typeof ACTIVITY)[keyof typeof ACTIVITY];
 

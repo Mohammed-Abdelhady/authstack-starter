@@ -103,7 +103,11 @@ describe('TwoFactorService and TwoFactorLoginService logging with real repositor
     const { request, response } = loggingResponse();
     await fixture.module
       .get(TwoFactorChallengeService)
-      .issue((await fixture.users.findById(LOGGING_USER_ID))!._id, response);
+      .issue(
+        (await fixture.users.findById(LOGGING_USER_ID))!._id,
+        response,
+        'password',
+      );
     const log = captureLogs();
     await fixture.module
       .get(TwoFactorLoginService)

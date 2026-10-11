@@ -11,6 +11,7 @@ import {
   insertOrConflict,
   singleStatement,
 } from '../../../../common/persistence/mongo/mongo-unique-conflict';
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
   MAGIC_LINK_ACCOUNT_CONSTRAINT,
@@ -97,6 +98,10 @@ export class MongoMagicLinkSignIn extends MagicLinkSignIn {
     account: MagicLinkAccount,
     response: Response,
   ): Promise<MagicLinkSignInOutcome> {
-    return this.signInService.completeSignIn(documentOf(account), response);
+    return this.signInService.completeSignIn(
+      documentOf(account),
+      response,
+      FIRST_FACTOR.MAGIC_LINK, // feature:totp
+    );
   }
 }

@@ -43,6 +43,13 @@ export const PALETTE: Record<ColorScheme, Palette> = {
   },
 };
 
+/** The system bar's clock and icons, drawn in the shade that reads on the scheme's background. */
+export const STATUS_BAR_STYLE = {
+  light: 'dark-content',
+  dark: 'light-content',
+} as const satisfies Record<ColorScheme, string>;
+export type StatusBarStyle = (typeof STATUS_BAR_STYLE)[ColorScheme];
+
 /** For a border that takes its place in the layout before it has a colour to show. */
 export const TRANSPARENT = 'transparent';
 

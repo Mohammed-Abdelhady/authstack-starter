@@ -26,6 +26,7 @@ import {
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../../utils/authenticated-user.util';
 
@@ -200,6 +201,7 @@ export class PostgresMagicLinkSignIn extends MagicLinkSignIn {
     return this.completion.completeSignIn(
       readByThisStore(account).signIn,
       response,
+      FIRST_FACTOR.MAGIC_LINK, // feature:totp
     );
   }
 }

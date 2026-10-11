@@ -35,7 +35,11 @@ export abstract class PasskeySignIn {
     account: PasskeyAccount,
     response: Response,
   ): Promise<AuthenticatedUserSummary>;
-  /** The sign-in every other route runs, second factor included. */
+  /**
+   * The sign-in every other route runs, second factor included, for a passkey
+   * that did not verify its user. A sign-in it holds is told a passkey opened
+   * it.
+   */
   abstract completeSignIn(
     account: PasskeyAccount,
     response: Response,

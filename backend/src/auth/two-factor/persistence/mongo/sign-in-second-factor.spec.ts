@@ -104,12 +104,14 @@ describe('SignInService with a second factor', () => {
     const outcome = await harness.service.completeSignIn(
       userWith(true),
       MOCK_RESPONSE,
+      'magic_link',
     );
 
     expect(outcome).toEqual({ requiresTwoFactor: true });
     expect(harness.challengeService.issue).toHaveBeenCalledWith(
       USER_ID,
       MOCK_RESPONSE,
+      'magic_link',
     );
     expect(harness.sessionService.createSession).not.toHaveBeenCalled();
     expect(harness.sessionCookieService.set).not.toHaveBeenCalled();
@@ -121,6 +123,7 @@ describe('SignInService with a second factor', () => {
     const outcome = await harness.service.completeSignIn(
       userWith(true),
       MOCK_RESPONSE,
+      'magic_link',
     );
 
     expect(outcome.requiresTwoFactor).toBe(false);

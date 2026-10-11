@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { commandEnvironment } from '../../src/utils/exec.js';
+import { stopProcessTree } from './process-tree.js';
 
 export const BUILD_TIMEOUT = 10 * 60 * 1000;
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
@@ -16,27 +17,17 @@ export interface ToolOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-/** The process groups of the commands still running, ended if this process exits first. */
+/** The leaders of the commands still running, stopped if this process exits first. */
 const running = new Set<number>();
 
-function endGroup(pid: number): void {
-  try {
-    // A negative id names the group: the command and everything it started.
-    process.kill(-pid, 'SIGKILL');
-  } catch {
-    // The group is gone already.
-  }
-}
-
 process.once('exit', () => {
-  for (const pid of running) endGroup(pid);
+  for (const pid of running) stopProcessTree(pid);
 });
 
 /**
- * Runs a command in a process group of its own and answers when it and every
- * process that shares its output have ended. A timeout or an aborted signal
- * ends the whole group, so a timed-out package manager leaves no test runner
- * behind it.
+ * Runs a command as the leader of a process group of its own. A timeout or an
+ * aborted signal stops everything it started, so a timed-out package manager
+ * leaves no test runner behind it.
  */
 export function runTool(
   executable: string,
@@ -62,7 +53,7 @@ export function runTool(
     let ended: string | undefined;
     const end = (reason: string): void => {
       ended ??= reason;
-      if (child.pid !== undefined) endGroup(child.pid);
+      if (child.pid !== undefined) stopProcessTree(child.pid);
     };
     if (child.pid !== undefined) running.add(child.pid);
     const timeoutMs = options.timeout ?? BUILD_TIMEOUT;

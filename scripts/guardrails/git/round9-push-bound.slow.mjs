@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, closeSync, constants, existsSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { fixture, push, remote, received } from './round8-hook-fixture.mjs';
+import { fixture, isRunning, push, remote, received } from './round8-hook-fixture.mjs';
 
 test('a hanging real push hook fails clearly and stops its owned descendants', (t) => {
   const repo = fixture(t);
@@ -12,7 +12,11 @@ test('a hanging real push hook fails clearly and stops its owned descendants', (
   execFileSync('mkfifo', [fifo], { cwd: repo.root, env: repo.env });
   repo.write(
     'scripts/block.mjs',
-    "import { readFileSync, writeFileSync } from 'node:fs';\n" +
+    "import { spawn } from 'node:child_process';\n" +
+      "import { readFileSync, writeFileSync } from 'node:fs';\n" +
+      "const idle = ['-e', 'setInterval(() => {}, 1000)'];\n" +
+      "const child = spawn(process.execPath, idle, { detached: true, stdio: 'ignore' });\n" +
+      "writeFileSync('.git/own-group-pid', String(child.pid));\n" +
       "writeFileSync('.git/hanging-pid', String(process.pid));\n" +
       "readFileSync('push-block');\n",
   );
@@ -24,6 +28,8 @@ test('a hanging real push hook fails clearly and stops its owned descendants', (
       /Git push fixture timed out after 30000 ms/,
     );
     assert.equal(received(target, 'blocked'), null);
+    // pnpm starts scripts the same way: outside the process group Git leads.
+    assert.equal(isRunning(readFileSync(join(repo.root, '.git/own-group-pid'), 'utf8')), false);
     let writer;
     try {
       assert.throws(
@@ -36,8 +42,9 @@ test('a hanging real push hook fails clearly and stops its owned descendants', (
       if (writer !== undefined) closeSync(writer);
     }
   } finally {
-    const marker = join(repo.root, '.git/hanging-pid');
-    if (existsSync(marker)) {
+    for (const name of ['hanging-pid', 'own-group-pid']) {
+      const marker = join(repo.root, '.git', name);
+      if (!existsSync(marker)) continue;
       try {
         process.kill(Number(readFileSync(marker, 'utf8')), 'SIGKILL');
       } catch (error) {

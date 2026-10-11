@@ -8,7 +8,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { IdFormat } from '../../common/persistence/id-format';
-import { assertValidId } from '../utils/user-lookup.util';
+import { assertValidId, isSameId } from '../utils/user-lookup.util';
 
 /**
  * Self-service session management: listing a user's own sessions and
@@ -72,7 +72,7 @@ export class UserSessionsService {
     assertValidId(this.ids, sessionId, 'Invalid session ID format');
 
     // Check if trying to revoke current session
-    if (currentSessionId !== null && currentSessionId === sessionId) {
+    if (currentSessionId !== null && isSameId(currentSessionId, sessionId)) {
       throw new AppException(
         ErrorCode.CANNOT_REVOKE_CURRENT_SESSION,
         'Cannot revoke current session. Use logout instead.',

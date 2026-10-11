@@ -2,10 +2,7 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import {
-  UnitOfWork,
-  UnitOfWorkRunner,
-} from '../../../common/persistence/unit-of-work';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import {
   SignInMethodRule,
   WAY_IN_OUTCOME,
@@ -89,7 +86,15 @@ export class PasskeyManagementService {
     // The count and the removal commit or abort together, so two removals at
     // once cannot each count the other's passkey as the one that stays.
     await this.runner.run(async (unitOfWork) => {
-      await this.assertNotTheLastWayIn(unitOfWork, userId);
+      const wayIn = await this.signInMethods.holdForRemoval(
+        unitOfWork,
+        userId,
+        waysLeftWithoutOnePasskey,
+      );
+      // A removal of the same passkey may have finished while this one waited
+      // for the hold. It is gone then, and the count no longer includes it.
+      await this.findOwned(userId, passkeyId);
+      this.assertNotTheLastWayIn(wayIn);
       await this.passkeys.remove(unitOfWork, passkey);
     });
 
@@ -120,16 +125,7 @@ export class PasskeyManagementService {
    * magic link. Any one of those, and the passkey goes. So does the passkey
    * of an account that is gone: nobody can be locked out of it.
    */
-  private async assertNotTheLastWayIn(
-    unitOfWork: UnitOfWork,
-    userId: string,
-  ): Promise<void> {
-    const wayIn = await this.signInMethods.holdForRemoval(
-      unitOfWork,
-      userId,
-      waysLeftWithoutOnePasskey,
-    );
-
+  private assertNotTheLastWayIn(wayIn: WayInOutcome): void {
     if (!refusesRemoval(wayIn)) {
       return;
     }

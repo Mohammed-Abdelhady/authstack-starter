@@ -24,6 +24,7 @@ import {
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
@@ -314,6 +315,10 @@ export class PostgresPasskeySignIn extends PasskeySignIn {
     account: PasskeyAccount,
     response: Response,
   ): Promise<PasskeySignInOutcome> {
-    return this.completion.completeSignIn(signInAccountOf(account), response);
+    return this.completion.completeSignIn(
+      signInAccountOf(account),
+      response,
+      FIRST_FACTOR.PASSKEY, // feature:totp
+    );
   }
 }

@@ -1,8 +1,9 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { runTool } from '../support/combination-helpers.js';
+import { isRunning } from '../support/process-tree.js';
 
 describe('asynchronous combination tools', () => {
   it('keeps worker timers responsive while a child runs', async () => {
@@ -51,19 +52,12 @@ describe('asynchronous combination tools', () => {
 
     const result = await runTool(process.execPath, ['-e', script], { timeout: 2000 });
     const pid = Number.parseInt(/^(\d+)$/m.exec(result.output)?.[1] ?? '', 10);
-    const alive = (): boolean => {
-      try {
-        process.kill(pid, 0);
-        return true;
-      } catch {
-        return false;
-      }
-    };
 
-    expect({ ok: result.ok, started: Number.isInteger(pid) }).toEqual({ ok: false, started: true });
-    // The group was ended before the answer. The system may take a moment more
-    // to take the ended process out of its table, so this waits for that only.
-    await vi.waitFor(() => expect(alive()).toBe(false), { timeout: 10_000, interval: 20 });
+    expect({ ok: result.ok, started: Number.isInteger(pid), running: isRunning(pid) }).toEqual({
+      ok: false,
+      started: true,
+      running: false,
+    });
     expect(result.output).toContain('Timed out after 2000 ms');
   }, 20_000);
   it('does not start a command whose signal was aborted already', async () => {

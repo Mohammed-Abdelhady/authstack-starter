@@ -1,4 +1,5 @@
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '@app/native-ui/theme';
+import { Button, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { StartedShellAuth } from '../shell';
 import { DIRECTION, translate, type Locale, type MessageKey } from '../i18n/messages';
 import { OPERATION_KEY, REASON_KEY, STATUS_KEY, STORAGE_WARNING_KEY } from '../logic/outcome-keys';
@@ -44,11 +45,12 @@ export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
     loadProfile,
     signOut,
   } = useAuthDebug(auth);
+  const { colors, statusBarStyle } = useTheme();
   const direction = DIRECTION[locale];
   const text = (key: MessageKey, value?: string): string => translate(locale, key, value);
   const none = text('none');
   const keyState = describeDeviceKey(locale, auth.deviceKey);
-  const line = { writingDirection: direction } as const;
+  const line = { writingDirection: direction, color: colors.text } as const;
   const reason = snapshot.reason === undefined ? none : text(REASON_KEY[snapshot.reason]);
   const warning =
     snapshot.warning === undefined || storageWarning === undefined
@@ -57,7 +59,11 @@ export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
   const outcome = lastOutcome === undefined ? none : render(locale, lastOutcome);
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { direction }]}>
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={[styles.content, { direction }]}
+    >
+      <StatusBar barStyle={statusBarStyle} />
       <Text accessibilityRole="header" style={line}>
         {text('title')}
       </Text>

@@ -4,6 +4,7 @@ import {
   credential,
   CREDENTIAL_ID,
   NOW,
+  OTHER_CREDENTIAL_ID,
   outcomeOf,
   passkeyCase,
   PasskeysFixture,
@@ -20,6 +21,10 @@ const VERIFICATION_FAILED = {
   status: 401,
 };
 const FEATURE_DISABLED = { code: 'FEATURE_DISABLED', status: 404 };
+/** A held sign-in whose first step was not a passkey. */
+const AFTER_PASSWORD = { firstFactor: 'password' } as const;
+/** One whose first step was a passkey that did not verify its user. */
+const AFTER_PASSKEY = { firstFactor: 'passkey' } as const;
 
 function at(offsetMs: number): Date {
   return new Date(NOW.getTime() + offsetMs);
@@ -144,6 +149,7 @@ export function signInRuleCases(
         { id: ownerId },
         own.request,
         own.response,
+        AFTER_PASSWORD,
       );
 
       services.authenticator.assertion = { newCounter: 6, userVerified: false };
@@ -155,6 +161,7 @@ export function signInRuleCases(
             { id: otherId },
             foreign.request,
             foreign.response,
+            AFTER_PASSWORD,
           ),
         ),
       ).toEqual(VERIFICATION_FAILED);
@@ -169,11 +176,62 @@ export function signInRuleCases(
             { id: ownerId },
             closed.request,
             closed.response,
+            AFTER_PASSWORD,
           ),
         ),
       ).toEqual(FEATURE_DISABLED);
       expect(off.storeCalls).toEqual([]);
       // The verifier issues no session of its own.
+      expect(services.signIn).toMatchObject({ issued: [], completed: [] });
+    },
+  );
+
+  passkeyCase(
+    'refuses any passkey that did not verify its user as the second step after one, and takes one that did',
+    async () => {
+      const { ownerId } = fixture();
+      const services = passkeyServices(harness());
+      for (const credentialId of [CREDENTIAL_ID, OTHER_CREDENTIAL_ID]) {
+        await harness().seedPasskey({
+          userId: ownerId,
+          credentialId,
+          counter: 4,
+          createdAt: NOW,
+        });
+      }
+      const answerWith = async (
+        credentialId: string,
+        signIn: typeof AFTER_PASSWORD | typeof AFTER_PASSKEY,
+      ): Promise<void> => {
+        const from = await signInBrowser(services);
+        await services.verifier.verify(
+          { passkeyResponse: credential(credentialId) },
+          { id: ownerId },
+          from.request,
+          from.response,
+          signIn,
+        );
+      };
+
+      // The key that was the first step, touched again.
+      services.authenticator.assertion = { newCounter: 5, userVerified: false };
+      expect(await refusalOf(answerWith(CREDENTIAL_ID, AFTER_PASSKEY))).toEqual(
+        VERIFICATION_FAILED,
+      );
+      // A second key of the account is one more thing held, not a second factor.
+      expect(
+        await refusalOf(answerWith(OTHER_CREDENTIAL_ID, AFTER_PASSKEY)),
+      ).toEqual(VERIFICATION_FAILED);
+      // A credential nobody registered is refused with the same answer.
+      expect(
+        await refusalOf(answerWith('bm90LXJlZ2lzdGVyZWQ', AFTER_PASSKEY)),
+      ).toEqual(VERIFICATION_FAILED);
+
+      services.authenticator.assertion = { newCounter: 6, userVerified: true };
+      await answerWith(CREDENTIAL_ID, AFTER_PASSKEY);
+
+      services.authenticator.assertion = { newCounter: 7, userVerified: false };
+      await answerWith(CREDENTIAL_ID, AFTER_PASSWORD);
       expect(services.signIn).toMatchObject({ issued: [], completed: [] });
     },
   );

@@ -39,7 +39,11 @@ export function ScanStep({ setup, onContinue }: ScanStepProps) {
         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('secretLabel')}</p>
         <div className="flex items-center gap-2">
           <code
-            className="flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-sm"
+            dir="ltr"
+            role="group"
+            aria-label={t('secretLabel')}
+            tabIndex={0}
+            className="flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             data-testid="two-factor-secret"
           >
             {setup.secret}
