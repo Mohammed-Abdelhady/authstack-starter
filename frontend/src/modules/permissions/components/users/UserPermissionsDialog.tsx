@@ -208,7 +208,7 @@ export function UserPermissionsDialog({
                               className="flex items-center justify-between rounded-md border border-border p-2 bg-muted"
                               data-testid={`direct-permission-${permission}`}
                             >
-                              <code className="text-xs font-mono text-foreground">
+                              <code dir="ltr" className="text-xs font-mono text-foreground">
                                 {permission}
                               </code>
                               <Button

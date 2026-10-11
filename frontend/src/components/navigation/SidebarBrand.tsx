@@ -22,7 +22,7 @@ export function SidebarBrand({ onNavigate, className }: SidebarBrandProps): Reac
     <Link
       href="/dashboard"
       onClick={onNavigate}
-      aria-label={t('brandHome')}
+      aria-label={t('brandHome', { name: t('brand') })}
       className={cn(
         'rounded-md text-xl font-bold text-foreground transition-colors hover:text-primary',
         FOCUS_RING_CLASSES,

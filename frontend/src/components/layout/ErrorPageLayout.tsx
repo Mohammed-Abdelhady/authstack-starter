@@ -65,7 +65,10 @@ export function ErrorPageLayout({
             {/* Error Digest (if available, for debugging) */}
             {errorDigest && (
               <p className="text-sm text-muted-foreground mb-8 font-mono bg-muted px-3 py-2 rounded max-w-md">
-                {errorIdLabel}: {errorDigest}
+                {errorIdLabel}:{' '}
+                <span dir="ltr" data-testid="error-digest">
+                  {errorDigest}
+                </span>
               </p>
             )}
 

@@ -55,7 +55,11 @@ export function NativeAuthorizeReadyView({
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-foreground">{accountName}</p>
-          <p className="truncate text-sm text-muted-foreground">{accountEmail}</p>
+          <p className="truncate text-sm text-muted-foreground">
+            <span dir="ltr" data-testid="native-authorize-account-email">
+              {accountEmail}
+            </span>
+          </p>
         </div>
         <Button
           type="button"

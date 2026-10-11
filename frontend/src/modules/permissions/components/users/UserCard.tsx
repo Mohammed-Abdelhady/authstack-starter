@@ -98,7 +98,11 @@ export const UserCard = memo(
             <Heading level={3} variant="subsectionTitle" className="truncate">
               {user.name}
             </Heading>
-            <p className="text-xs text-tertiary tracking-wide truncate">{user.email}</p>
+            <p className="text-xs text-tertiary tracking-wide truncate">
+              <span dir="ltr" data-testid="user-card-email">
+                {user.email}
+              </span>
+            </p>
           </div>
 
           <div className="flex items-center gap-2">

@@ -103,6 +103,7 @@ export function UpdateProfileCard() {
               </Label>
               <Input
                 id="profile-email"
+                dir="ltr"
                 value={user?.email || ''}
                 disabled
                 className="bg-muted"

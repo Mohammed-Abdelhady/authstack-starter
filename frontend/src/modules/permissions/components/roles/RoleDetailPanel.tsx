@@ -102,7 +102,11 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
             <Heading level={2} variant="sectionTitle">
               {role.name}
             </Heading>
-            <Description className="mt-1">{role.slug}</Description>
+            <Description className="mt-1">
+              <span dir="ltr" data-testid="role-detail-slug">
+                {role.slug}
+              </span>
+            </Description>
           </div>
           <div className="flex gap-2">
             {role.isSystemRole && (

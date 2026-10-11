@@ -11,7 +11,9 @@ import {
   CSRF_ENDPOINT,
   LOGOUT_ENDPOINT,
 } from '@/constants/api';
+import { HTTP_STATUS } from '@/constants/httpStatus';
 import { ErrorCode, getErrorCode } from '@app/core';
+import { API_PATHS } from '@app/sdk';
 import {
   CSRF_HEADER,
   clearBrowserProof,
@@ -172,6 +174,11 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 
   let result = await rawBaseQuery(proof ? withBrowserProof(args, proof) : args, api, extra);
   rememberIssuedProof(result.meta?.response, result.data, url);
+
+  // A refused session read already says there is no session proof to look up.
+  if (url === API_PATHS.user.profile && result.error?.status === HTTP_STATUS.UNAUTHORIZED) {
+    rememberNoSession();
+  }
 
   // A spent or stale proof must be replaced and the request retried exactly
   // once. The retry reuses `rawBaseQuery`, so it can never itself retry.
