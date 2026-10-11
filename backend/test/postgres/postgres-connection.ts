@@ -96,7 +96,6 @@ export interface TestConnection<
   readonly close: () => Promise<void>;
 }
 
-/** A harness on the adapter's own dialect. */
 /** A server that is stopping ends each of its sessions with this state. */
 const SESSION_ENDED_BY_THE_SERVER = '57P01';
 
@@ -115,6 +114,7 @@ export function ignoreSessionEnd(error: unknown): void {
   throw error instanceof Error ? error : new Error(String(error));
 }
 
+/** A harness on the adapter's own dialect. */
 export function openTestConnection(): Promise<TestConnection> {
   return openTestConnectionOn(
     (pool) => new PostgresDialect({ pool: commitCheckedPool(pool) }),
