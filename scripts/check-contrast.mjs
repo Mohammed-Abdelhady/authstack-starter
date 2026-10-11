@@ -86,6 +86,8 @@ export const CONTRAST_PAIRS = [
   { token: 'info', background: 'popover', target: 3.0 },
   { token: 'status-warning', background: 'popover', target: 3.0 },
   { token: 'status-success', background: 'popover', target: 3.0 },
+  // Password rules: the met rule on the change password card.
+  { token: 'status-success', background: 'card', target: 4.5 },
 ];
 
 // The result boxes of the permissions demo page: `bg-<token>/10 dark:bg-<token>/20` on a card.

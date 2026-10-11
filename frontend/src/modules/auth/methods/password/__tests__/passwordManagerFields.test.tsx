@@ -86,6 +86,23 @@ describe('fields a password manager reads', () => {
     );
   });
 
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('hints at the empty password in %s with words, not a row of dots', async (locale) => {
+    stubNetwork(() => success({}));
+    const { message } = await renderForm(
+      locale,
+      <PasswordSignInForm redirect={null} isOnlyMethod />,
+    );
+
+    const password = screen.getByLabelText(message('auth.login.password'));
+    // Dots in an empty password field read as a password that is already there.
+    expect(password.getAttribute('placeholder')).toMatch(/\p{L}/u);
+    expect(password.getAttribute('placeholder')).not.toMatch(/[•●∙·*]/u);
+    expect(password).toHaveProperty('value', '');
+  });
+
   it('keeps the address on the register form an email, which no password follows', async () => {
     stubNetwork(() => success({ methods: { password: true, oauth: [] } }));
     const { message } = await renderForm('en', <RegisterForm />);

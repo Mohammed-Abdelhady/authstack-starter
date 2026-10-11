@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import type { AppLocale } from '@/i18n/load-messages';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
 import { SearchPermissionTabs } from '../search/SearchPermissionTabs';
 
@@ -13,7 +14,7 @@ const ISOLATED_QUERY = `\u2066${QUERY}\u2069`;
 
 registerFormTestLifecycle();
 
-async function renderTabs(locale: 'en' | 'ar', activeTab: string, searchQuery = QUERY) {
+async function renderTabs(locale: AppLocale, activeTab: string, searchQuery = QUERY) {
   return renderForm(
     locale,
     <SearchPermissionTabs

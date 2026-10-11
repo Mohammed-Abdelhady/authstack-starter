@@ -1,9 +1,14 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { LOCALE_AR_OPTION_ID } from '../../src/constants/index.js';
+import { loadManifest } from '../../src/manifest/load.js';
+import { listFiles } from '../../src/utils/fs.js';
 import {
   ARABIC_FORBIDDEN,
+  arabicLeftBehind,
   DOCKER_FORBIDDEN,
   findForbiddenContent,
   LEGACY_PACKAGE_MANAGER_COMMANDS,
@@ -99,5 +104,71 @@ describe('findForbiddenContent', () => {
       'npm.md',
       'yarn.md',
     ]);
+  });
+});
+
+const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
+const FRONTEND_SOURCE = 'frontend/src';
+const ARABIC_NAME = '\u0644\u064a\u0644\u0649';
+
+describe('frontend code a project without Arabic keeps', () => {
+  it('reports Arabic content on lines that are not marked for the Arabic option', () => {
+    const left = arabicLeftBehind(
+      new Map([
+        ['frontend/src/a.test.tsx', "describe.each(['en', 'ar'] as const)('in %s', run);\n"],
+        ['frontend/src/b.test.tsx', "async function open(locale: 'en' | 'ar') {}\n"],
+        ['frontend/src/c.test.tsx', `const NAMES = ['Layla', '${ARABIC_NAME}'];\n`],
+        ['frontend/src/d.ts', '/** Holds Latin or Arabic text. */\nexport const D = 1;\n'],
+        ['frontend/src/e.test.tsx', "const locale = 'ar'; // feature:passkeys\n"],
+        ['frontend/src/f.test.tsx', "import ar from '@/i18n/messages/ar.json';\n"],
+      ]),
+      [],
+    );
+
+    expect(left).toEqual([
+      'frontend/src/a.test.tsx',
+      'frontend/src/b.test.tsx',
+      'frontend/src/c.test.tsx',
+      'frontend/src/d.ts',
+      'frontend/src/e.test.tsx',
+      'frontend/src/f.test.tsx',
+    ]);
+  });
+
+  it('accepts marked lines, marked blocks and files the project loses', () => {
+    const left = arabicLeftBehind(
+      new Map([
+        [
+          'frontend/src/line.test.tsx',
+          "describe.each([\n  'en',\n  'ar', // feature:locale-ar\n] as const)('in %s', run);\n",
+        ],
+        [
+          'frontend/src/block.test.tsx',
+          `// feature:locale-ar:start\nconst NAME = '${ARABIC_NAME}';\n// feature:locale-ar:end\nconst dir = 'rtl';\n`,
+        ],
+        ['frontend/src/components/LanguageSwitcher.tsx', "const next = 'ar';\n"],
+        ['frontend/e2e/locale.spec.ts', "test.use({ appLocale: 'ar' });\n"],
+        ['frontend/src/i18n/messages/en.json', '{ "switchToArabic": "Switch to Arabic" }\n'],
+      ]),
+      ['frontend/src/components/LanguageSwitcher.tsx', 'frontend/e2e/**'],
+    );
+
+    expect(left).toEqual([]);
+  });
+
+  it('finds none in this repository', async () => {
+    const manifest = await loadManifest(REPO_ROOT);
+    const files = new Map<string, string>();
+    for (const file of await listFiles(join(REPO_ROOT, FRONTEND_SOURCE))) {
+      const path = `${FRONTEND_SOURCE}/${file}`;
+      files.set(path, await readFile(join(REPO_ROOT, path), 'utf8'));
+    }
+
+    expect(
+      arabicLeftBehind(files, [
+        ...manifest.core.alwaysRemoveFiles,
+        ...manifest.options[LOCALE_AR_OPTION_ID].files,
+      ]),
+    ).toEqual([]);
   });
 });

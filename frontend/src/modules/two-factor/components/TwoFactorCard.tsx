@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
 import { useGetCurrentUserQuery } from '@/modules/auth/store/authApi';
 import { RegenerateCodesDialog } from './RegenerateCodesDialog';
@@ -20,16 +21,34 @@ const EMAIL_PROVIDER = 'email';
  * Second factor settings.
  *
  * The card disappears where the deployment turned two-factor off, which is
- * also where every route behind it answers FEATURE_DISABLED.
+ * also where every route behind it answers FEATURE_DISABLED. Not knowing
+ * whether it is off is a failure with a retry, not a card that is gone.
  */
 export function TwoFactorCard() {
   const t = useTranslations('settings.twoFactor');
   const { data: user, isLoading: isLoadingUser } = useGetCurrentUserQuery();
-  const { methods, isLoading: isLoadingMethods } = useAuthMethods();
+  const {
+    methods,
+    isLoading: isLoadingMethods,
+    isError: methodsFailed,
+    retry,
+    hasRetried,
+  } = useAuthMethods();
   const [dialog, setDialog] = useState<'setup' | 'disable' | 'regenerate' | null>(null);
 
   if (isLoadingUser || isLoadingMethods) {
     return <Skeleton className="h-48 w-full" data-testid="two-factor-card-loading" />;
+  }
+
+  if (methodsFailed) {
+    return (
+      <AuthMethodsLoadErrorCard
+        title={t('title')}
+        onRetry={retry}
+        takeFocus={hasRetried}
+        testId="two-factor-card-error"
+      />
+    );
   }
 
   if (methods?.twoFactor !== true) {

@@ -69,7 +69,7 @@ describe.each([
     await moveFocus(email, other);
 
     await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.magicLink.errors.emailInvalid')]),
+      expect(descriptions(email)).toEqual([message('auth.login.errors.emailInvalid')]),
     );
     expect(email.getAttribute('aria-invalid')).toBe('true');
   });
@@ -79,7 +79,7 @@ describe.each([
     type(email, 'layla@');
     await moveFocus(email, other);
     await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.magicLink.errors.emailInvalid')]),
+      expect(descriptions(email)).toEqual([message('auth.login.errors.emailInvalid')]),
     );
 
     type(email, '');
@@ -96,7 +96,7 @@ describe.each([
     fireEvent.submit(screen.getByTestId('magic-link-form'));
 
     await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.magicLink.errors.emailRequired')]),
+      expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]),
     );
     expect(email.getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(email);
@@ -107,11 +107,11 @@ describe.each([
     const { email, other, message } = await renderBesideAnotherControl(locale);
     fireEvent.submit(screen.getByTestId('magic-link-form'));
     await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.magicLink.errors.emailRequired')]),
+      expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]),
     );
 
     await moveFocus(email, other);
 
-    expect(descriptions(email)).toEqual([message('auth.magicLink.errors.emailRequired')]);
+    expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]);
   });
 });

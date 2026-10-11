@@ -4,7 +4,7 @@
     "selectOption": "اختر خيارًا",
     "copyright": "© {year} {name}",
     "emailPlaceholder": "name@example.com",
-    "passwordPlaceholder": "••••••••",
+    "passwordPlaceholder": "أدخل كلمة المرور",
     "codePlaceholder": "123456",
     "recoveryCodePlaceholder": "K3M7QRTVWX",
     "status": {
@@ -207,7 +207,14 @@
       }
     },
     "methods": {
-      "noneEnabled": "لا تتوفر أي وسيلة لتسجيل الدخول. اطلب من المسؤول تفعيل إحداها."
+      "noneEnabled": "لا تتوفر أي وسيلة لتسجيل الدخول. اطلب من المسؤول تفعيل إحداها.",
+      "loadFailed": "تعذر تحميل خيارات تسجيل الدخول. أعد المحاولة."
+    },
+    "signOut": {
+      "notConfirmedTitle": "لم يتم تأكيد تسجيل الخروج",
+      "notConfirmedBody": "لم يؤكد الخادم تسجيل الخروج، لذا قد تكون ما زلت مسجلًا للدخول. أعد المحاولة قبل مغادرة هذا الحاسوب.",
+      "retry": "إعادة المحاولة",
+      "staySignedIn": "البقاء مسجلًا للدخول"
     },
     "magicLink": {
       "title": "أرسل لي رابط تسجيل دخول",
@@ -219,10 +226,6 @@
       "sentBody": "إذا كان ⁦{email}⁩ مرتبطًا بحساب، فإن رابط تسجيل الدخول في طريقه إليك. يعمل الرابط مرة واحدة وتنتهي صلاحيته بعد وقت قصير.",
       "resend": "إرسال رابط آخر",
       "resendCooldown": "إرسال رابط آخر ({seconds} ث)",
-      "errors": {
-        "emailRequired": "البريد الإلكتروني مطلوب",
-        "emailInvalid": "أدخل بريدًا إلكترونيًا صحيحًا"
-      },
       "verify": {
         "title": "جارٍ تسجيل دخولك",
         "pending": "نتحقق من الرابط.",
@@ -338,8 +341,7 @@
       "slowConnection": "تم اكتشاف اتصال بطيء",
       "sessionExpiring": "جلستك على وشك الانتهاء",
       "quotaLimit": "اقتراب من حد الحصة",
-      "deprecatedFeature": "هذه الميزة مهملة",
-      "logoutError": "فشل تسجيل الخروج، لكن تم مسح الجلسة محلياً"
+      "deprecatedFeature": "هذه الميزة مهملة"
     },
     "info": {
       "loading": "جارٍ التحميل...",

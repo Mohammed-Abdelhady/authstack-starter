@@ -58,7 +58,7 @@ describe.each([
 
   it.each([
     ['a Latin name starting with digits', '3M Support Lead'],
-    ['an Arabic name', 'ليلى حداد'],
+    ['an Arabic name', 'ليلى حداد'], // feature:locale-ar
   ])('lets the account name take its own direction: %s', async (_kind, name) => {
     stubNetwork(() => success({ ...ACCOUNT, name }));
     await renderForm(

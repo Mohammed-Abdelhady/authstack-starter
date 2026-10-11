@@ -22,12 +22,12 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 
 /**
  * A name is text in a language nobody knows ahead: one starts with digits, which
- * a right-to-left line moves to the far end, and one is Arabic, which must not
- * be forced left to right.
+ * a right-to-left line moves to the far end, and one is in a right-to-left
+ * script, which must not be forced left to right.
  */
 const NAMES = [
   ['a Latin name starting with digits', '24-7 Support', '24-7 team on call'],
-  ['an Arabic name', 'دعم العملاء', 'فريق الدعم على مدار الساعة'],
+  ['an Arabic name', 'دعم العملاء', 'فريق الدعم على مدار الساعة'], // feature:locale-ar
 ] as const;
 
 function role(name: string, description: string): Role {

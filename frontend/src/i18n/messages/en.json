@@ -4,7 +4,7 @@
     "selectOption": "Select an option",
     "copyright": "© {year} {name}",
     "emailPlaceholder": "name@example.com",
-    "passwordPlaceholder": "••••••••",
+    "passwordPlaceholder": "Enter your password",
     "codePlaceholder": "123456",
     "recoveryCodePlaceholder": "K3M7QRTVWX",
     "status": {
@@ -207,7 +207,14 @@
       }
     },
     "methods": {
-      "noneEnabled": "No sign-in method is available. Ask an administrator to turn one on."
+      "noneEnabled": "No sign-in method is available. Ask an administrator to turn one on.",
+      "loadFailed": "We could not load the sign-in options. Try again."
+    },
+    "signOut": {
+      "notConfirmedTitle": "Sign-out was not confirmed",
+      "notConfirmedBody": "The server did not confirm the sign-out, so you may still be signed in. Try again before you leave this computer.",
+      "retry": "Try again",
+      "staySignedIn": "Stay signed in"
     },
     "magicLink": {
       "title": "Email me a sign-in link",
@@ -219,10 +226,6 @@
       "sentBody": "If ⁦{email}⁩ has an account, a sign-in link is on its way. The link works once and expires shortly.",
       "resend": "Send another link",
       "resendCooldown": "Send another link ({seconds}s)",
-      "errors": {
-        "emailRequired": "Email is required",
-        "emailInvalid": "Please enter a valid email address"
-      },
       "verify": {
         "title": "Signing you in",
         "pending": "Checking your link.",
@@ -338,8 +341,7 @@
       "slowConnection": "Slow connection detected",
       "sessionExpiring": "Your session is about to expire",
       "quotaLimit": "Approaching quota limit",
-      "deprecatedFeature": "This feature is deprecated",
-      "logoutError": "Logout failed, but session cleared locally"
+      "deprecatedFeature": "This feature is deprecated"
     },
     "info": {
       "loading": "Loading...",
