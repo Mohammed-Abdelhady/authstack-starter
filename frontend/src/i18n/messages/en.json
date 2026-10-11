@@ -286,12 +286,6 @@
       }
     }
   },
-  "welcome": {
-    "title": "Welcome aboard, {name}!",
-    "subtitle": "Your account is now active",
-    "message": "Thank you for joining us. We're excited to have you on board!",
-    "cta": "Get Started"
-  },
   "toast": {
     "success": {
       "loginSuccess": "Welcome back!",
