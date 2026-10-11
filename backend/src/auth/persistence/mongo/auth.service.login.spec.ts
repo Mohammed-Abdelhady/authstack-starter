@@ -168,6 +168,11 @@ describe('AuthService sign-in and password reset (real database)', () => {
 
     expect(result.success).toBe(true);
     expect(signInService.completeSignIn).toHaveBeenCalledTimes(1);
+    // feature:totp:start
+    const [, , firstFactor]: unknown[] =
+      signInService.completeSignIn.mock.calls[0];
+    expect(firstFactor).toBe('password');
+    // feature:totp:end
   });
 
   it('holds the sign-in when the account owes a second factor', async () => {
