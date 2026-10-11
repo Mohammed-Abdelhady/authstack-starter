@@ -197,8 +197,16 @@ test('a database user or password that would break the address is refused, one c
     interpolated.filter((value) => fitsInAddress(value)),
     [],
   );
+  // The env file line loses the quotes around a value and the address line keeps them.
+  const quoted = ['"secret"', "'secret'", '"secret\'', '""', "'", '"'];
   assert.deepEqual(
-    ['admin', 'safe-Password_1.~!&*+,;=', ''].map((value) => fitsInAddress(value)),
-    [true, true, true],
+    quoted.filter((value) => fitsInAddress(value)),
+    [],
+  );
+  assert.deepEqual(
+    ['admin', 'safe-Password_1.~!&*+,;=', '', "it's", 'say"so', 'end"', "'start"].map((value) =>
+      fitsInAddress(value),
+    ),
+    [true, true, true, true, true, true, true],
   );
 });
