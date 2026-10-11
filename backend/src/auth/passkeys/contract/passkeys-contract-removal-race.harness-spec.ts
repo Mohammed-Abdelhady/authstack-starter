@@ -3,6 +3,7 @@ import { holdReruns } from '../../../../test/utils/session/issuance-contract/iss
 import { AppException } from '../../../common/exceptions/app.exception';
 import {
   CREDENTIAL_ID,
+  FeatureSwitches,
   NOW,
   OTHER_CREDENTIAL_ID,
   passkeyCase,
@@ -11,6 +12,7 @@ import {
 } from './passkeys-contract.harness-spec';
 
 const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
+const NOT_FOUND = { code: 'PASSKEY_NOT_FOUND', status: 404 };
 
 function outcomeOf(result: PromiseSettledResult<unknown>): unknown {
   if (result.status === 'fulfilled') return 'removed';
@@ -115,4 +117,67 @@ export function removalRaceCases(harness: PasskeysHarnessSource): void {
       expect(await harness().storedPasskeys()).toHaveLength(1);
     },
   );
+
+  passkeyCase(
+    'answers the second of two removals of one passkey as not found, when the password is what stays',
+    async () => {
+      expect(await removeTwiceAtOnce(harness, {})).toEqual([
+        NOT_FOUND,
+        'removed',
+      ]);
+      expect(await harness().storedPasskeys()).toEqual([]);
+    },
+  );
+
+  passkeyCase(
+    'answers the second of two removals of one passkey as not found, when two other ways in stay',
+    async () => {
+      expect(await removeTwiceAtOnce(harness, { magicLink: true })).toEqual([
+        NOT_FOUND,
+        'removed',
+      ]);
+      expect(await harness().storedPasskeys()).toEqual([]);
+    },
+  );
+}
+
+/**
+ * Two removals of the one passkey of an account with a password, both past
+ * the read that found it. Answers how each ended, refusals first.
+ */
+async function removeTwiceAtOnce(
+  harness: PasskeysHarnessSource,
+  features: FeatureSwitches,
+): Promise<unknown[]> {
+  const userId = await harness().seedAccount({
+    email: 'repeat@example.test',
+    passwordHash: 'a-stored-password-hash',
+  });
+  const passkeyId = await harness().seedPasskey({
+    userId,
+    credentialId: CREDENTIAL_ID,
+    createdAt: NOW,
+  });
+  const reruns = holdReruns();
+  const { management } = passkeyServices(harness(), features, reruns.pause);
+  const atRemoval = new RaceGate();
+  const restore = holdBefore(harness().passkeys, 'remove', () => atRemoval);
+  const first = management.remove(userId, passkeyId);
+  const second = management.remove(userId, passkeyId);
+  const both = Promise.allSettled([first, second]);
+  try {
+    // One is about to remove the passkey. The other is there too, or waits
+    // for the hold, or was refused it.
+    await atRemoval.reached(1);
+    atRemoval.release();
+    await Promise.race([first, second]).catch(() => undefined);
+  } finally {
+    atRemoval.release();
+    reruns.refused.release();
+    restore();
+  }
+
+  return (await both)
+    .map(outcomeOf)
+    .sort((left) => (left === 'removed' ? 1 : -1));
 }
