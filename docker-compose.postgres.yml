@@ -14,7 +14,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB"']
+      # Over TCP: while the image sets up a new data folder its server listens on the socket only.
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready --host 127.0.0.1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
