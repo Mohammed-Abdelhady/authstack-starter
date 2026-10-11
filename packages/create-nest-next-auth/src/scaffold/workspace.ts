@@ -1,13 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join, posix } from 'node:path';
 import { parseDocument } from 'yaml';
-import {
-  PACKAGE_MANIFEST,
-  PNPM_WORKSPACE_FILE,
-  POSTGRES_PROTOTYPE_BUILD_APPROVALS,
-} from '../constants/index.js';
+import { PACKAGE_MANIFEST, PNPM_WORKSPACE_FILE } from '../constants/index.js';
 import { isRecord } from '../manifest/read.js';
-import { isErrnoException, listFiles } from '../utils/fs.js';
+import { isErrnoException, isPackageManifest, listFiles } from '../utils/fs.js';
 import { matchesAnyGlob } from '../utils/glob.js';
 
 interface WorkspaceDocument {
@@ -51,27 +47,28 @@ export async function workspaceDirectories(root: string): Promise<string[]> {
   ].sort();
 }
 
-/** Build approvals the workspace file carries for tooling that never ships. */
-function repositoryOnlyApprovals(config: unknown): string[] {
+/** The named build approvals the workspace file carries. */
+function presentApprovals(config: unknown, names: readonly string[]): string[] {
   if (!isRecord(config) || !isRecord(config.allowBuilds)) return [];
   const approvals = config.allowBuilds;
-  return POSTGRES_PROTOTYPE_BUILD_APPROVALS.filter((name) => name in approvals);
+  return names.filter((name) => name in approvals);
 }
 
 /**
  * Keeps security settings, lists only workspaces left in the scaffold, and
- * drops build approvals for repository-only tooling.
+ * drops the build approvals of tooling the project does not install.
  */
-export async function renderWorkspace(root: string): Promise<boolean> {
+export async function renderWorkspace(
+  root: string,
+  unusedApprovals: readonly string[] = [],
+): Promise<boolean> {
   const workspace = await readWorkspace(root);
   if (workspace === undefined) return false;
-  const manifests = (await listFiles(root)).filter(
-    (file) => file === PACKAGE_MANIFEST || file.endsWith(`/${PACKAGE_MANIFEST}`),
-  );
+  const manifests = (await listFiles(root)).filter(isPackageManifest);
   const packages = workspace.packages.filter((pattern) =>
     manifests.some((file) => matchesAnyGlob(file, [`${pattern}/${PACKAGE_MANIFEST}`])),
   );
-  const approvals = repositoryOnlyApprovals(workspace.document.toJS());
+  const approvals = presentApprovals(workspace.document.toJS(), unusedApprovals);
   const packagesChanged = packages.length !== workspace.packages.length;
   if (!packagesChanged && approvals.length === 0) return false;
 

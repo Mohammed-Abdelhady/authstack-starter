@@ -136,3 +136,21 @@ export const LEGACY_PACKAGE_MANAGER_COMMANDS = [
   new RegExp(`\\b${LEGACY_BUNX}\\b`),
   new RegExp(`\\b${LEGACY_BUN} (?:install|run)\\b`),
 ];
+
+/**
+ * Every line under `root` that matches one of `patterns`, by file, trimmed and
+ * in the order the file holds them.
+ */
+export function findForbiddenLines(
+  root: string,
+  patterns: readonly RegExp[],
+): Record<string, string[]> {
+  const lines: Record<string, string[]> = {};
+  for (const path of findForbiddenContent(root, patterns)) {
+    lines[path] = readFileSync(join(root, path), 'utf8')
+      .split('\n')
+      .filter((line) => patterns.some((pattern) => pattern.test(line)))
+      .map((line) => line.trim());
+  }
+  return lines;
+}

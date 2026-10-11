@@ -2,7 +2,7 @@ import { UserRole } from '../../user/enums/user-role.enum';
 
 /**
  * Levels of the four system roles. Higher levels manage lower ones.
- * This map seeds the roles collection and backs documents written before roles
+ * This map seeds the stored roles and backs roles written before roles
  * carried a level. Live checks read the level from the database, so custom
  * roles take part in the hierarchy as well.
  */
@@ -20,7 +20,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
 export const CUSTOM_ROLE_LEVEL = 1;
 
 /**
- * Level given to a role slug that no longer exists in the roles collection.
+ * Level given to a role slug that is no longer a stored role.
  * Only admins may touch users stranded on such a slug.
  */
 export const UNKNOWN_ROLE_LEVEL = 0;

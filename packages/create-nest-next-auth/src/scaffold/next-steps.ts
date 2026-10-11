@@ -9,6 +9,8 @@ export interface NextStepsInput {
   directoryLabel: string;
   installed: boolean;
   docker: boolean;
+  /** The database id the project was generated for. */
+  database: string;
   scripts: WorkspaceStartScripts;
   /** The command that runs the mobile app, when the project has one. */
   mobile?: string;
@@ -53,6 +55,25 @@ function mobileSteps(command: string | undefined, docker: boolean): string[] {
   ];
 }
 
+/** What a person runs to get a local database, by database id. */
+const LOCAL_DATABASE_STEPS: Record<string, string[]> = {
+  mongodb: [
+    '# Start a single-node replica set (sign-in uses transactions):',
+    'mkdir -p ./mongodb-data',
+    'mongod --replSet rs0 --dbpath ./mongodb-data',
+    '# leave mongod running, then in a second terminal:',
+    'mongosh --eval "rs.initiate()"',
+    '# set MONGO_URI with replicaSet=rs0 in backend/.env, then:',
+  ],
+  postgres: [
+    '# Create a role and a database on PostgreSQL 18 or newer:',
+    'createuser --pwprompt authboiler',
+    'createdb --owner authboiler authboiler',
+    '# set POSTGRES_URL in backend/.env to that role, password and database, then:',
+    'pnpm --filter backend run migration:up',
+  ],
+};
+
 /** The commands printed after a successful scaffold. */
 export function buildNextSteps(input: NextStepsInput): string[] {
   const steps = [`cd ${input.directoryLabel}`];
@@ -64,12 +85,7 @@ export function buildNextSteps(input: NextStepsInput): string[] {
   steps.push(
     'cp backend/.env.example backend/.env',
     'cp frontend/.env.example frontend/.env.local',
-    '# Start a single-node replica set (sign-in uses transactions):',
-    'mkdir -p ./mongodb-data',
-    'mongod --replSet rs0 --dbpath ./mongodb-data',
-    '# leave mongod running, then in a second terminal:',
-    'mongosh --eval "rs.initiate()"',
-    '# set MONGO_URI with replicaSet=rs0 in backend/.env, then:',
+    ...(LOCAL_DATABASE_STEPS[input.database] ?? []),
     input.scripts.backend,
     input.scripts.frontend,
   );

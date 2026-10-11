@@ -4,7 +4,12 @@ import { mkdtemp, writeFile, rm, stat, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { execFile, resolveOptionalDomain, writeFile as writeOwnedFile } from '../lib/cli-utils.js';
+import {
+  execFile,
+  fitsInAddress,
+  resolveOptionalDomain,
+  writeFile as writeOwnedFile,
+} from '../lib/cli-utils.js';
 import { createSetupSecrets, generateBackendEnv } from '../lib/init-environment.js';
 
 test('execFile does not interpret shell metacharacters in arguments', async () => {
@@ -177,4 +182,17 @@ test('init creates a private backend environment without an example or existing 
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('a database user or password that would break the address is refused, one character at a time', () => {
+  const refused = ['p@ss', 'p/ss', 'p#ss', 'p%ss', 'p:ss', 'p?ss', 'p ss', 'p\tss'];
+
+  assert.deepEqual(
+    refused.filter((value) => fitsInAddress(value)),
+    [],
+  );
+  assert.deepEqual(
+    ['admin', 'safe-Password_1.~!$&*+,;=', ''].map((value) => fitsInAddress(value)),
+    [true, true, true],
+  );
 });

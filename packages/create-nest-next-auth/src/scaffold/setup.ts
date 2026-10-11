@@ -118,6 +118,7 @@ export async function finishSetup(
       directoryLabel,
       installed: install.status === SETUP_STATUS.INSTALLED,
       docker: plan.options.includes(DOCKER_OPTION_ID),
+      database: plan.database,
       scripts: await readWorkspaceStartScripts(target),
       ...(plan.mobile === undefined ? {} : { mobile: MOBILE_RUN_COMMAND }),
     }),

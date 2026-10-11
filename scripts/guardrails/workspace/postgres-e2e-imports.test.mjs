@@ -27,7 +27,7 @@ const RESOLVED_ENDINGS = ['', '.ts', '.mts', '.js', '.mjs', '.json', '/index.ts'
  */
 const ALLOWED = [
   {
-    file: 'test/postgres-prototype/e2e/storage-choice.e2e-spec.ts',
+    file: 'test/postgres/e2e/storage-choice.e2e-spec.ts',
     imports: ['mongoose', '@nestjs/mongoose'],
     why: 'the case proves a server on PostgreSQL opens no MongoDB connection, by watching the driver',
   },
@@ -228,7 +228,7 @@ test('the PostgreSQL configuration leaves out the MongoDB-only suites by their n
 
   assert.equal(named.length, 4);
   assert.ok(names.includes('auth/activation-contract.e2e-spec.ts'));
-  assert.ok(names.includes('postgres-prototype/e2e/storage-choice.e2e-spec.ts'));
+  assert.ok(names.includes('postgres/e2e/storage-choice.e2e-spec.ts'));
   assert.deepEqual(names.filter((file) => /\.mongo\.e2e-spec\.ts$/.test(file)), []);
   assert.deepEqual(
     filesUnder(TEST_ROOT)
@@ -259,5 +259,5 @@ test('no file of the PostgreSQL API run loads MongoDB test code', () => {
   );
   assert.deepEqual(unused, [], 'an allowed import nothing needs any more');
   assert.ok(walked.includes('test/utils/e2e-app.ts'), 'the walk reached the shared fixture');
-  assert.ok(walked.includes('test/postgres-prototype/e2e/e2e-postgres-storage.ts'));
+  assert.ok(walked.includes('test/postgres/e2e/e2e-postgres-storage.ts'));
 });

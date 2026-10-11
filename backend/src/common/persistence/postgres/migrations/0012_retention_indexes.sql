@@ -1,6 +1,6 @@
 -- PostgreSQL has no TTL index. The retention job removes rows past their
 -- expiry in small batches and finds them through these indexes. The tables of
--- 0003, 0004, 0008 and 0009 already carry theirs.
+-- 0003, 0004, 0008, 0009 and 0013 carry theirs.
 --
 -- These are plain CREATE INDEX statements inside this file's transaction.
 -- Each one blocks writes to its table until the file commits, so sign-in and

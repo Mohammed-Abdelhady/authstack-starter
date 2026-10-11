@@ -222,11 +222,13 @@ describe('PasskeyManagementService', () => {
       expect(harness.passkeyModel.deleteOne).not.toHaveBeenCalled();
     });
 
+    // feature:email-password:start
     it('should remove the last passkey when the account has a password', async () => {
       const harness = createHarness({ passkeyCount: 1, password: 'hashed' });
 
       await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
     });
+    // feature:email-password:end
 
     it('should keep the last passkey when password sign-in is off', async () => {
       const harness = createHarness({
@@ -250,6 +252,7 @@ describe('PasskeyManagementService', () => {
       await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
     });
 
+    // feature:magic-link:start
     it('should remove the last passkey when magic links are on', async () => {
       const harness = createHarness({
         passkeyCount: 1,
@@ -259,5 +262,6 @@ describe('PasskeyManagementService', () => {
 
       await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
     });
+    // feature:magic-link:end
   });
 });

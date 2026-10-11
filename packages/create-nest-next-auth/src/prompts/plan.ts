@@ -25,6 +25,9 @@ export interface PlanPromptNeeds {
  * A dimension is prompted only when a flag or file did not fix it and the
  * manifest offers more than one available choice. A preset carries targets,
  * features and options but never a database, so it does not suppress that prompt.
+ * The rules level and the database came after the first command lines were
+ * written, so without a terminal each falls back to its default instead of
+ * refusing to run.
  */
 export function planPromptNeeds(
   manifest: Manifest,
@@ -39,7 +42,10 @@ export function planPromptNeeds(
     rules: terminal && request.rules === undefined,
     targets:
       !presetGiven && request.targets === undefined && availableTargetIds(manifest).length > 1,
-    database: request.databases === undefined && availableDatabaseIds(manifest).length > 1,
+    // Without a terminal the database is not asked for either: a command line
+    // written before there was a choice still gets the default.
+    database:
+      terminal && request.databases === undefined && availableDatabaseIds(manifest).length > 1,
     features: !presetGiven && request.features === undefined,
     options:
       !presetGiven && request.options === undefined && availableOptionIds(manifest).length > 1,
@@ -66,12 +72,14 @@ async function askTargets(
   return answer;
 }
 
+export const DATABASE_QUESTION = 'Which database?';
+
 async function askDatabase(
   manifest: Manifest,
   initial: string,
 ): Promise<string | typeof CANCELLED> {
   const answer = await select({
-    message: 'Which database?',
+    message: DATABASE_QUESTION,
     options: availableDatabaseIds(manifest).map((id) => ({
       value: id,
       label: manifest.databases[id].label,

@@ -3,7 +3,7 @@ import { holdReruns } from '../../../../test/utils/session/issuance-contract/iss
 import { AppException } from '../../../common/exceptions/app.exception';
 import {
   CREDENTIAL_ID,
-  FeatureSwitches,
+  FeatureSwitches, // feature:email-password,magic-link
   NOW,
   OTHER_CREDENTIAL_ID,
   passkeyCase,
@@ -12,7 +12,7 @@ import {
 } from './passkeys-contract.harness-spec';
 
 const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
-const NOT_FOUND = { code: 'PASSKEY_NOT_FOUND', status: 404 };
+const NOT_FOUND = { code: 'PASSKEY_NOT_FOUND', status: 404 }; // feature:email-password,magic-link
 
 function outcomeOf(result: PromiseSettledResult<unknown>): unknown {
   if (result.status === 'fulfilled') return 'removed';
@@ -118,6 +118,7 @@ export function removalRaceCases(harness: PasskeysHarnessSource): void {
     },
   );
 
+  // feature:email-password:start
   passkeyCase(
     'answers the second of two removals of one passkey as not found, when the password is what stays',
     async () => {
@@ -129,6 +130,9 @@ export function removalRaceCases(harness: PasskeysHarnessSource): void {
     },
   );
 
+  // feature:email-password:end
+
+  // feature:magic-link:start
   passkeyCase(
     'answers the second of two removals of one passkey as not found, when two other ways in stay',
     async () => {
@@ -139,8 +143,10 @@ export function removalRaceCases(harness: PasskeysHarnessSource): void {
       expect(await harness().storedPasskeys()).toEqual([]);
     },
   );
+  // feature:magic-link:end
 }
 
+// feature:email-password,magic-link:start
 /**
  * Two removals of the one passkey of an account with a password, both past
  * the read that found it. Answers how each ended, refusals first.
@@ -181,3 +187,4 @@ async function removeTwiceAtOnce(
     .map(outcomeOf)
     .sort((left) => (left === 'removed' ? 1 : -1));
 }
+// feature:email-password,magic-link:end

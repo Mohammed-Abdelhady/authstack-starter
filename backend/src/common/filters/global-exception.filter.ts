@@ -18,7 +18,7 @@ import {
   MalformedIdError,
   UniqueConflictError,
 } from '../persistence/persistence-errors';
-import { sharedErrorOfSqlFailure } from '../persistence/sql-failure';
+import { sharedErrorOfSqlFailure } from '../persistence/sql-failure'; // feature:postgres
 import { describeDriverError, errorToken } from '../utils/describe-error.util';
 import {
   isCastError,
@@ -131,8 +131,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(raised: unknown, host: ArgumentsHost): void {
-    // A SQL failure left as raised is answered as the shared error it is.
-    const exception = sharedErrorOfSqlFailure(raised) ?? raised;
+    const exception =
+      // feature:postgres:start
+      // A SQL failure left as raised is answered as the shared error it is.
+      sharedErrorOfSqlFailure(raised) ??
+      // feature:postgres:end
+      raised;
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const requestId = ctx.getRequest<RequestWithId>().requestId;

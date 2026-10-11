@@ -40,6 +40,7 @@ describe('AccountLinkingService queries', () => {
   });
 
   describe('canUnlinkProvider', () => {
+    // feature:email-password:start
     it('should allow a linked provider while another method remains', async () => {
       resolveUser(buildUser({ linkedAccounts: [linkedAccount('google')] }));
 
@@ -47,6 +48,7 @@ describe('AccountLinkingService queries', () => {
         true,
       );
     });
+    // feature:email-password:end
 
     it('should never allow unlinking email sign-in', async () => {
       resolveUser(buildUser());

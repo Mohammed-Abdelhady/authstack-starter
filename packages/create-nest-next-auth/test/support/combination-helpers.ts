@@ -1,6 +1,4 @@
-import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
-import { promisify } from 'node:util';
 import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,14 +8,15 @@ import { parse, stringify } from 'yaml';
 import { isRecord } from '../../src/manifest/read.js';
 import { listFiles } from '../../src/utils/fs.js';
 import { matchesAnyGlob } from '../../src/utils/glob.js';
-import { commandEnvironment } from '../../src/utils/exec.js';
 import { stripFeatureMarkers } from '../../src/prune/markers.js';
+import { type CommandResult, runTool } from './run-tool.js';
 import { assertWorkspaceEdgesResolve } from './workspace-assertions.js';
+
+export { BUILD_TIMEOUT, type CommandResult, runTool } from './run-tool.js';
 
 export const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url));
 export const REPO_ROOT = dirname(dirname(PACKAGE_DIR));
 export const CLI = join(PACKAGE_DIR, 'dist', 'index.js');
-export const BUILD_TIMEOUT = 10 * 60 * 1000;
 
 const ROOT_MODULES = 'node_modules';
 const SHARED_SCOPE = '@app';
@@ -30,46 +29,6 @@ const LINKED_MODULES = [
   'shared/core/node_modules',
   'shared/sdk/node_modules',
 ];
-
-export interface CommandResult {
-  ok: boolean;
-  output: string;
-}
-
-const execute = promisify(execFile);
-
-export async function runTool(
-  executable: string,
-  args: string[],
-  options: { cwd?: string; timeout?: number; signal?: AbortSignal; env?: NodeJS.ProcessEnv } = {},
-): Promise<CommandResult> {
-  try {
-    const { stdout, stderr } = await execute(executable, args, {
-      cwd: options.cwd,
-      timeout: options.timeout ?? BUILD_TIMEOUT,
-      signal: options.signal,
-      maxBuffer: 8 * 1024 * 1024,
-      encoding: 'utf8',
-      env: { ...commandEnvironment(), ...options.env, npm_config_update_notifier: 'false' },
-    });
-    return { ok: true, output: `${stdout}${stderr}` };
-  } catch (error) {
-    if (!(error instanceof Error)) return { ok: false, output: String(error) };
-    const { stdout = '', stderr = '' } = error as Error & { stdout?: string; stderr?: string };
-    // execFile already appends stderr to its message; retain each captured stream once.
-    const reason =
-      stderr && error.message.endsWith(stderr)
-        ? error.message.slice(0, -stderr.length)
-        : error.message;
-    return {
-      ok: false,
-      output: [reason, stdout, stderr]
-        .map((part) => part.trimEnd())
-        .filter(Boolean)
-        .join('\n'),
-    };
-  }
-}
 
 /** Yield while child tools run so Vitest can process worker messages. */
 export function buildCli(): Promise<CommandResult> {
@@ -95,7 +54,11 @@ async function scaffoldAndCheck(target: string, args: string[]): Promise<Command
 }
 
 /** Updates the pruned graph, then verifies it with lifecycle scripts enabled. */
-export async function installProject(project: string, store: string): Promise<CommandResult> {
+export async function installProject(
+  project: string,
+  store: string,
+  signal?: AbortSignal,
+): Promise<CommandResult> {
   const workspaceFile = join(project, 'pnpm-workspace.yaml');
   const workspace: unknown = parse(await readFile(workspaceFile, 'utf8'));
   if (!isRecord(workspace)) throw new Error('Invalid generated pnpm workspace configuration.');
@@ -104,6 +67,7 @@ export async function installProject(project: string, store: string): Promise<Co
   const options = {
     cwd: project,
     env: { MONGOMS_DOWNLOAD_DIR: join(dirname(store), 'mongo-binaries') },
+    signal,
   };
   const update = await runTool(
     'pnpm',
@@ -193,11 +157,18 @@ export function linkDependencies(project: string): void {
   }
 }
 
-export function typecheck(project: string, workspace: string): Promise<CommandResult> {
+export function typecheck(
+  project: string,
+  workspace: string,
+  signal?: AbortSignal,
+): Promise<CommandResult> {
   const binary = createRequire(join(project, workspace, 'package.json')).resolve(
     'typescript/bin/tsc',
   );
-  return runTool(process.execPath, [binary, '--noEmit', '-p', workspace], { cwd: project });
+  return runTool(process.execPath, [binary, '--noEmit', '-p', workspace], {
+    cwd: project,
+    signal,
+  });
 }
 
 /**

@@ -15,10 +15,16 @@ pnpm run start:prod       # Production server
 
 ## Testing
 
+<!-- feature:mongodb:start -->
+
 A unit run starts one MongoDB replica set per Jest worker. Each suite uses its
 own database on that worker's server, then drops it during suite cleanup. A
 solo run uses all but one available CPU by default. If another backend test
 command is active, a new command uses one worker and one database instance.
+
+<!-- feature:mongodb:end -->
+
+The PostgreSQL suites start a server of their own and need no database installed. See [Tests on PostgreSQL](docs/database-postgres.md#tests). <!-- feature:postgres -->
 
 Set the unit worker count with `pnpm test -- --maxWorkers=4`. The separate
 `--maxWorkers 4`, `-w 4`, and percentage forms are also accepted.
@@ -27,7 +33,8 @@ Set the unit worker count with `pnpm test -- --maxWorkers=4`. The separate
 
 - **NestJS 11** on Express
 - **TypeScript 5.x** with strict mode
-- **MongoDB 7** with **Mongoose 8**
+- **MongoDB 7** with **Mongoose 8** <!-- feature:mongodb -->
+- **PostgreSQL 18** with **Kysely** on the `pg` driver <!-- feature:postgres -->
 - **bcrypt** for password hashing
 - **Nodemailer** with SMTP transport
 - **@simplewebauthn/server** for WebAuthn passkeys
@@ -85,6 +92,8 @@ OAUTH_GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/oauth/google/callback
 SWAGGER_ENABLED=true
 ```
 
+<!-- feature:mongodb:start -->
+
 Sign-in runs in a transaction, so run a single-node replica set locally:
 
 ```bash
@@ -98,9 +107,17 @@ mongod --replSet rs0 --dbpath ./mongodb-data
 mongosh --eval "rs.initiate()"
 ```
 
+<!-- feature:mongodb:end -->
+
+On PostgreSQL the server needs version 18 or newer, its address in `POSTGRES_URL`, and the migrations applied before the first start. See [PostgreSQL](docs/database-postgres.md). <!-- feature:postgres -->
+
+Set `DATABASE_TYPE=postgres` too. Without it the server runs on MongoDB. <!-- feature:database-choice -->
+
 <!-- feature:docker:start -->
 
-With Docker Compose the backend runs in a container; from the host use `MONGO_URI=mongodb://USER:PASS@localhost:27017/authboiler?authSource=admin&directConnection=true`. The replica set advertises `mongodb:27017`, which only containers on the Compose network can resolve.
+With Docker Compose the backend runs in a container; from the host use `MONGO_URI=mongodb://USER:PASS@localhost:27017/authboiler?authSource=admin&directConnection=true`. The replica set advertises `mongodb:27017`, which only containers on the Compose network can resolve. <!-- feature:mongodb -->
+
+With Docker Compose the backend runs in a container; from the host use `POSTGRES_URL=postgres://USER:PASS@localhost:5432/authboiler`. <!-- feature:postgres -->
 
 The backend image runs `pnpm --filter backend deploy --prod --frozen-lockfile /out/backend`.
 pnpm reads registry metadata for the generated lockfile check; package files come
@@ -308,7 +325,7 @@ pnpm run seed                     # Seed roles and development accounts
 pnpm run seed:reset               # Wipe database and reseed
 ```
 
-Run this release's ObjectId reference migration before deploying the code that uses the typed schemas, or deploy them together. Existing passkeys with string user IDs are not found by passkey management until the migration converts them.
+Run this release's ObjectId reference migration before deploying the code that uses the typed schemas, or deploy them together. Existing passkeys with string user IDs are not found by passkey management until the migration converts them. <!-- feature:mongodb -->
 
 ### Seed accounts
 
@@ -325,5 +342,6 @@ The seed script creates two test users in development environments:
 - [OAuth authentication](docs/oauth-authentication.md)
 - [User roles and permissions](docs/user-roles-permissions.md)
 - [Database management](docs/database-management.md)
+- [PostgreSQL](docs/database-postgres.md) <!-- feature:postgres -->
 - [API responses](docs/api-responses.md)
 - [Postman collection](docs/postman/README.md)

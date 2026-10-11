@@ -51,6 +51,7 @@ export interface UserLinkedAccountsTable {
   linked_at: Timestamp;
 }
 
+// feature:totp:start
 export interface UserTwoFactorTable {
   user_id: string;
   enabled: Generated<boolean>;
@@ -76,7 +77,9 @@ export interface TwoFactorChallengesTable {
   claimed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   expires_at: Timestamp;
 }
+// feature:totp:end
 
+// feature:passkeys:start
 export interface PasskeysTable {
   id: Generated<string>;
   user_id: string;
@@ -100,6 +103,7 @@ export interface PasskeyChallengesTable {
   user_id: string | null;
   expires_at: Timestamp;
 }
+// feature:passkeys:end
 
 export interface RolesTable {
   id: Generated<string>;
@@ -250,6 +254,7 @@ export interface PendingPasswordResetsTable {
   expires_at: Timestamp;
 }
 
+// feature:magic-link:start
 export interface PendingMagicLinksTable {
   id: Generated<string>;
   email: string;
@@ -261,6 +266,7 @@ export interface PendingMagicLinksTable {
   redirect: string | null;
   created_at: ColumnType<Date, Date | undefined, never>;
 }
+// feature:magic-link:end
 
 export interface PostgresTables {
   users: UsersTable;
@@ -273,14 +279,14 @@ export interface PostgresTables {
   mail_counters: MailCountersTable;
   pending_registrations: PendingRegistrationsTable;
   pending_password_resets: PendingPasswordResetsTable;
-  pending_magic_links: PendingMagicLinksTable;
+  pending_magic_links: PendingMagicLinksTable; // feature:magic-link
   browser_proofs: BrowserProofsTable;
   user_linked_accounts: UserLinkedAccountsTable;
-  user_two_factor: UserTwoFactorTable;
-  user_recovery_codes: UserRecoveryCodesTable;
-  two_factor_challenges: TwoFactorChallengesTable;
-  passkeys: PasskeysTable;
-  passkey_challenges: PasskeyChallengesTable;
+  user_two_factor: UserTwoFactorTable; // feature:totp
+  user_recovery_codes: UserRecoveryCodesTable; // feature:totp
+  two_factor_challenges: TwoFactorChallengesTable; // feature:totp
+  passkeys: PasskeysTable; // feature:passkeys
+  passkey_challenges: PasskeyChallengesTable; // feature:passkeys
   authorization_transactions: AuthorizationTransactionsTable;
   native_credentials: NativeCredentialsTable;
   native_dpop_proof_ids: NativeDpopProofIdsTable;

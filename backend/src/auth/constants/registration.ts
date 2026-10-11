@@ -16,7 +16,7 @@ export const PENDING_PURPOSES: PendingPurpose[] =
 
 /**
  * Every kind of mail one address may receive that carries a per-address cap.
- * The counter lives in its own collection keyed by address and purpose, so
+ * The counter is stored apart from the code record, by address and purpose, so
  * deleting an expired code record cannot reset the count.
  */
 export const MAIL_COUNTER_PURPOSE = {

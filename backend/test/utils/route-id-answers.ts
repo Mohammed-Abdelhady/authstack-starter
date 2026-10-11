@@ -63,6 +63,7 @@ interface RouteIds {
   malformed: ReadonlyArray<readonly [string, string]>;
 }
 
+// feature:mongodb:start
 const MONGODB_IDS: RouteIds = {
   form: /^[0-9a-f]{24}$/,
   absent: '507f1f77bcf86cd799439011',
@@ -76,6 +77,7 @@ const MONGODB_IDS: RouteIds = {
     ['three hundred characters', 'a'.repeat(300)],
   ],
 };
+// feature:mongodb:end
 
 // feature:postgres:start
 const POSTGRES_IDS: RouteIds = {

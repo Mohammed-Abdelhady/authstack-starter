@@ -6,6 +6,7 @@ import {
   resolveOptionalDomain,
   validateEmail,
   validatePort,
+  fitsInAddress,
   ask,
   askRequired,
   askChoice,
@@ -74,11 +75,20 @@ export async function configureSSL(rl) {
 // ═══════════════════════════════════════════════════════════════
 // Database Configuration
 // ═══════════════════════════════════════════════════════════════
+/** Asks until the answer can go into the database address as typed. */
+async function askForAddress(rl, question, fallback) {
+  while (true) {
+    const answer = await ask(rl, question, fallback);
+    if (fitsInAddress(answer)) return answer;
+    log.error('Use none of @ / # % : ? and no space. The value goes into the database address as typed.');
+  }
+}
+
 export async function configureDatabase(rl, appSlug) {
   log.step('MongoDB Configuration');
 
-  const username = await ask(rl, 'MongoDB username', 'admin');
-  const passwordInput = await ask(rl, 'MongoDB password (leave empty to generate)', '');
+  const username = await askForAddress(rl, 'MongoDB username', 'admin');
+  const passwordInput = await askForAddress(rl, 'MongoDB password (leave empty to generate)', '');
   const password = passwordInput || crypto.randomBytes(32).toString('base64url');
   const dbName = await ask(rl, 'Database name', toSnakeCase(appSlug));
 

@@ -92,7 +92,7 @@ describe('ownership rules at load', () => {
   const base = {
     version: 2,
     databases: {
-      mongodb: { label: 'MongoDB', default: true, files: [], envVars: [], composeServices: [] },
+      mongodb: { label: 'MongoDB', default: true, files: [], envVars: [] },
     },
     features: {},
     core: { alwaysRemoveFiles: [] },

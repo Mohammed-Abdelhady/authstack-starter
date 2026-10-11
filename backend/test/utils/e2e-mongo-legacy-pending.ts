@@ -29,7 +29,7 @@ export interface MongoLegacyPendingRegistrations {
   pendingRegistrationsFor(email: string): Promise<{ purpose: string }[]>;
 }
 
-/** What only a MongoDB install ever held: PostgreSQL requires a purpose. */
+/** Records from before a pending registration carried a purpose. */
 export function mongoLegacyPendingRegistrations(
   app: INestApplication,
 ): MongoLegacyPendingRegistrations {

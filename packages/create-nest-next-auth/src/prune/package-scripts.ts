@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { PACKAGE_DEPENDENCY_GROUPS, ROOT_PACKAGE_JSON } from '../constants/index.js';
 import TEMPLATE_TEST_POLICY from '../constants/template-tests.json' with { type: 'json' };
 import { isRecord } from '../manifest/read.js';
-import { listFiles, readFileIfExists } from '../utils/fs.js';
+import { isPackageManifest, listFiles, readFileIfExists } from '../utils/fs.js';
+import { parseJson } from '../utils/parse-json.js';
 import { workspaceDirectories } from '../scaffold/workspace.js';
 
 const REPOSITORY_TEST_PATHS = TEMPLATE_TEST_POLICY.EXCLUDED_PATH_PATTERNS.map(
@@ -116,7 +117,7 @@ export async function pruneRootPackage(
   const raw = await readFileIfExists(path);
   if (raw === undefined) return false;
 
-  const parsed = parsePackageJson(raw, ROOT_PACKAGE_JSON);
+  const parsed = parseJson(raw, ROOT_PACKAGE_JSON);
   if (!isRecord(parsed)) return false;
 
   const existingFiles = await listFiles(root);
@@ -136,7 +137,7 @@ export async function pruneRootPackage(
     const nestedPath = join(root, file);
     const nestedRaw = await readFileIfExists(nestedPath);
     if (nestedRaw === undefined) continue;
-    const nested = parsePackageJson(nestedRaw, file);
+    const nested = parseJson(nestedRaw, file);
     if (!isRecord(nested)) continue;
     const pruned = prunePackageDependencies(nested, unavailableWorkspaceNames);
     if (pruned === nested) continue;
@@ -155,12 +156,10 @@ async function findUnavailableWorkspaceNames(
   const available = new Set<string>();
   const referenced = new Set<string>();
 
-  for (const file of files.filter(
-    (entry) => entry === ROOT_PACKAGE_JSON || entry.endsWith('/package.json'),
-  )) {
+  for (const file of files.filter(isPackageManifest)) {
     const raw = await readFileIfExists(join(root, file));
     if (raw === undefined) continue;
-    const value = parsePackageJson(raw, file);
+    const value = parseJson(raw, file);
     if (!isRecord(value)) continue;
 
     if (workspaceManifests.has(file)) {
@@ -176,13 +175,4 @@ async function findUnavailableWorkspaceNames(
   }
 
   return new Set([...referenced].filter((name) => !available.has(name)));
-}
-
-function parsePackageJson(raw: string, file: string): unknown {
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Could not parse ${file}: ${reason}`);
-  }
 }

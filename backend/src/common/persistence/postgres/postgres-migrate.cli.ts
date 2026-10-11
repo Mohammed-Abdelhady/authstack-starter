@@ -2,7 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 import { APP_CONFIGURATION } from '../../../config/app-configuration';
-import { chosenStorage, STORAGE_KIND } from '../storage-choice';
+import { chosenStorage, STORAGE_KIND } from '../storage-choice'; // feature:database-choice
 import {
   openPostgresPool,
   postgresMigrationPoolConfig,
@@ -36,12 +36,14 @@ async function main(): Promise<number> {
     logger: ['error', 'warn'],
   });
   try {
+    // feature:database-choice:start
     if (chosenStorage() !== STORAGE_KIND.POSTGRES) {
       console.error(
         'DATABASE_TYPE is not postgres. MongoDB migrations run with migration:up.',
       );
       return MIGRATE_EXIT.USAGE;
     }
+    // feature:database-choice:end
     const pool = openPostgresPool(
       postgresMigrationPoolConfig(context.get(ConfigService)),
     );

@@ -4,11 +4,11 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "testPathIgnorePatterns": ["/node_modules/", "\\.mongo\\.e2e-spec\\.ts$"],
-  "globalSetup": "<rootDir>/postgres-prototype/e2e/postgres-global-setup.ts",
-  "globalTeardown": "<rootDir>/postgres-prototype/e2e/postgres-global-teardown.ts",
+  "globalSetup": "<rootDir>/postgres/e2e/postgres-global-setup.ts",
+  "globalTeardown": "<rootDir>/postgres/e2e/postgres-global-teardown.ts",
   "setupFiles": [
-    "<rootDir>/postgres-prototype/e2e/postgres-run-setting.ts",
-    "<rootDir>/postgres-prototype/e2e/select-postgres.ts"
+    "<rootDir>/postgres/e2e/postgres-run-setting.ts",
+    "<rootDir>/postgres/e2e/select-postgres.ts"
   ],
   "transform": {
     "^.+\\.(t|j)s$": [

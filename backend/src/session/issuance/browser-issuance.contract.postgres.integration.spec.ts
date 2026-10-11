@@ -1,11 +1,12 @@
-import { bootPostgresIssuanceHarness } from '../../../test/postgres-prototype/postgres-issuance-harness';
+import { bootPostgresIssuanceHarness } from '../../../test/postgres/postgres-issuance-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../test/postgres/server/postgres-test-server';
 import { describeBrowserIssuanceContract } from '../../../test/utils/session/issuance-contract/issuance-contract';
 
+// feature:mongodb:start
 // The sign-in service and its ports must run here without the other database's
 // driver. Loading any of these modules fails the suite.
 jest.mock('mongoose', () => {
@@ -17,6 +18,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 describeBrowserIssuanceContract('PostgreSQL', bootPostgresIssuanceHarness, {
   bootMs: POSTGRES_BOOT_TIMEOUT_MS,

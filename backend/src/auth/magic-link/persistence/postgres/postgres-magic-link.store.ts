@@ -23,9 +23,9 @@ import {
 
 import {
   SIGN_IN_COLUMNS,
-  signInAccountOfRow,
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
+import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
 import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../../utils/authenticated-user.util';
@@ -145,7 +145,10 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
         .executeTakeFirst();
       return row
         ? new PostgresMagicLinkAccount(
-            await signInAccountOfRow(this.database, row),
+            toSignInAccount(
+              row,
+              await secondFactorEnabled(this.database, row.id), // feature:totp
+            ),
             row.is_deleted,
           )
         : null;
@@ -180,7 +183,7 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
         })
         .returning(SIGN_IN_COLUMNS)
         .executeTakeFirstOrThrow();
-      return new PostgresMagicLinkAccount(toSignInAccount(row, false), false);
+      return new PostgresMagicLinkAccount(toSignInAccount(row), false);
     });
   }
 }

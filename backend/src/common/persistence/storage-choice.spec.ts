@@ -87,6 +87,22 @@ describe('the database choice', () => {
     );
   });
 
+  it('refuses the default database without naming a setting when none was given', () => {
+    const refusal = (): string => {
+      try {
+        forStorage({ postgres: () => 'postgres wiring' });
+      } catch (error) {
+        return error instanceof Error ? error.message : 'not an error';
+      }
+      return 'wired';
+    };
+
+    expect({
+      namesTheDatabase: refusal().includes('"mongodb"'),
+      namesTheSetting: refusal().includes('DATABASE_TYPE'),
+    }).toEqual({ namesTheDatabase: true, namesTheSetting: false });
+  });
+
   it('accepts the validated setting when nothing was wired, or wired the same', () => {
     confirmStorageChoice('postgres');
     forStorage({ mongodb: () => 1, postgres: () => 2 });

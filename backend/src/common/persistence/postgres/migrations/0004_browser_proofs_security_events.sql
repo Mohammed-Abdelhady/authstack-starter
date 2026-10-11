@@ -13,7 +13,7 @@ CREATE TABLE browser_proofs (
 -- PostgreSQL has no TTL index. The store's delete-expired statement reads this.
 CREATE INDEX browser_proof_expiry ON browser_proofs (expires_at);
 
--- Retention is the database's own setting, as it is in the MongoDB schema.
+-- Retention is the database's own setting.
 ALTER TABLE security_events
   ADD COLUMN request_id text,
   ADD COLUMN purge_after timestamptz NOT NULL

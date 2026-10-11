@@ -122,6 +122,11 @@ export function validatePort(port) {
   return !Number.isNaN(portNum) && portNum >= 1 && portNum <= 65535;
 }
 
+/** True for a user name or password that can be pasted into a database address as typed. */
+export function fitsInAddress(value) {
+  return !/[@/#%:?\s]/.test(value);
+}
+
 export function validateMongoUri(uri) {
   return uri.startsWith('mongodb://') || uri.startsWith('mongodb+srv://');
 }

@@ -25,13 +25,13 @@ describe('newPostgresId', () => {
     });
   });
 
-  it('is an id the PostgreSQL adapter reads, and one MongoDB could not have issued', () => {
+  it('is an id the PostgreSQL adapter reads, and not twenty-four hexadecimal digits', () => {
     const id = newPostgresId(AT);
 
     expect({
       postgres: new PostgresIdFormat().isId(id),
-      objectIdShaped: /^[0-9a-f]{24}$/.test(id),
-    }).toEqual({ postgres: true, objectIdShaped: false });
+      twentyFourHexDigits: /^[0-9a-f]{24}$/.test(id),
+    }).toEqual({ postgres: true, twentyFourHexDigits: false });
   });
 
   it('gives a new account an id of that form, at the application clock', async () => {

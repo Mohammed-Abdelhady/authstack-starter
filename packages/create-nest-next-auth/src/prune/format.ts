@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { isRecord } from '../manifest/read.js';
 import { readFileIfExists } from '../utils/fs.js';
+import { parseJson } from '../utils/parse-json.js';
 import * as babel from 'prettier/plugins/babel';
 import * as estree from 'prettier/plugins/estree';
 import * as markdown from 'prettier/plugins/markdown';
@@ -45,13 +46,7 @@ async function resolvePrettierConfig(
       const path = join(directory, name);
       const raw = await readFileIfExists(path);
       if (raw === undefined) continue;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`Could not parse ${path}: ${reason}`);
-      }
+      const parsed = parseJson(raw, path);
       if (isRecord(parsed)) return parsed;
     }
     if (directory === boundary) return {};

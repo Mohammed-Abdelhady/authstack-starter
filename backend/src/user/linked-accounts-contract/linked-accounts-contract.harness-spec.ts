@@ -72,6 +72,14 @@ export interface SignInSwitchesOf {
   magicLink?: boolean;
 }
 
+/** A case that names no switch runs on the first of these the project has. */
+const EMAIL_WAYS_IN: Required<SignInSwitchesOf>[] = [
+  { password: true, magicLink: false }, // feature:email-password
+  { password: false, magicLink: true }, // feature:magic-link
+  { password: false, magicLink: false },
+];
+const UNSET = EMAIL_WAYS_IN[0];
+
 /** The real services on this database's adapter. */
 export function linkedServicesOn(
   harness: LinkedAccountsContractHarness,
@@ -80,8 +88,8 @@ export function linkedServicesOn(
 ): LinkedServices {
   const features = new AuthFeaturesService(
     new ConfigService({
-      auth: { passwordEnabled: switches.password ?? true },
-      magicLink: { enabled: switches.magicLink ?? false },
+      auth: { passwordEnabled: switches.password ?? UNSET.password },
+      magicLink: { enabled: switches.magicLink ?? UNSET.magicLink },
     }),
   );
   return {

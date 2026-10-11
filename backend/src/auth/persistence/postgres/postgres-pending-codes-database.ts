@@ -5,8 +5,7 @@ import {
 import { mapPostgresError } from '../../../common/persistence/postgres/postgres-persistence-errors';
 
 /**
- * How an address is stored and looked up: trimmed and in lower case, which is
- * what the MongoDB schemas do to the same field.
+ * How an address is stored and looked up: trimmed and in lower case.
  */
 export function storedAddress(email: string): string {
   return email.trim().toLowerCase();

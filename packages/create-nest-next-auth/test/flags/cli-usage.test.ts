@@ -1,8 +1,14 @@
+import { copyFileSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { MANIFEST_FILE, TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
+import type { PlanError } from '../../src/manifest/plan-types.js';
+import { isRecord } from '../../src/manifest/read.js';
+import { describePlanErrors } from '../../src/report/summary.js';
 import { fixtureRoot, type RunResult, run as runCli } from '../support/answers-helpers.js';
+import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
 const roots: string[] = [];
 const manifestRoot = fixtureRoot();
@@ -24,6 +30,25 @@ async function tempRoot(): Promise<string> {
 /** Runs the CLI against this file's manifest root. */
 function run(argv: string[]): Promise<RunResult> {
   return runCli(manifestRoot, argv);
+}
+
+/** The line the CLI prints for one plan error, read from where it is written. */
+function sentenceFor(error: PlanError): string {
+  return describePlanErrors(PLAN_MANIFEST, [error])[0];
+}
+
+/** A manifest root whose manifest offers PostgreSQL as planned, not available. */
+function plannedDatabaseRoot(): string {
+  const root = mkdtempSync(join(tmpdir(), 'cna-usage-planned-'));
+  roots.push(root);
+  const manifest: unknown = JSON.parse(readFileSync(join(manifestRoot, MANIFEST_FILE), 'utf8'));
+  if (!isRecord(manifest) || !isRecord(manifest.databases)) {
+    throw new Error('the manifest has no databases');
+  }
+  manifest.databases.postgres = { label: 'PostgreSQL', default: false, status: 'planned' };
+  writeFileSync(join(root, MANIFEST_FILE), JSON.stringify(manifest));
+  copyFileSync(join(manifestRoot, TEMPLATE_IDENTITY_FILE), join(root, TEMPLATE_IDENTITY_FILE));
+  return root;
 }
 
 /** A fresh target directory plus the common no-write flags. */
@@ -98,7 +123,14 @@ describe('usage errors exit 2', () => {
   });
 
   it('reports a flag error before any prompt', async () => {
-    const { code, output } = await run(['app', '--database', 'postgres']);
+    const { code, output } = await run(['app', '--database', 'mysql']);
+    expect(code).toBe(2);
+    expect(output).toContain('mysql');
+    expect(output).not.toContain('No terminal to prompt in');
+  });
+
+  it('reports a planned database before any prompt', async () => {
+    const { code, output } = await runCli(plannedDatabaseRoot(), ['app', '--database', 'postgres']);
     expect(code).toBe(2);
     expect(output).toContain('postgres');
     expect(output).not.toContain('No terminal to prompt in');
@@ -126,16 +158,28 @@ describe('usage errors exit 2', () => {
     expect(output).not.toContain('Choose exactly one database');
   });
 
-  it('does not add an empty-database error on top of a planned one', async () => {
+  it('does not add an empty-database error on top of an unknown one', async () => {
     const { code, output } = await run([
+      ...(await target()).flags,
+      '--dry-run',
+      '--database',
+      'mysql',
+    ]);
+    expect(code).toBe(2);
+    expect(output).toContain(sentenceFor({ id: 'mysql', reason: 'unknown' }));
+    expect(output).not.toContain(sentenceFor({ id: 'database', reason: 'empty' }));
+  });
+
+  it('does not add an empty-database error on top of a planned one', async () => {
+    const { code, output } = await runCli(plannedDatabaseRoot(), [
       ...(await target()).flags,
       '--dry-run',
       '--database',
       'postgres',
     ]);
     expect(code).toBe(2);
-    expect(output).toContain('postgres');
-    expect(output).not.toContain('Select a database.');
+    expect(output).toContain(sentenceFor({ id: 'postgres', reason: 'planned' }));
+    expect(output).not.toContain(sentenceFor({ id: 'database', reason: 'empty' }));
   });
 
   it('accepts a preset in any case', async () => {

@@ -1,5 +1,6 @@
 import type { FeatureStatus, Manifest, PresetValue } from '../types.js';
 import type { PlanChange } from './plan-types.js';
+import { DATABASE_CHOICE_MARKER_ID } from '../constants/index.js';
 import { isAvailable } from './select.js';
 
 /** Removes duplicates while keeping the first occurrence. */
@@ -35,10 +36,12 @@ export function defaultDatabaseIds(manifest: Manifest): string[] {
 
 /**
  * Every database id, planned ones included. Each is a marker name: a line
- * marked for a database that was not chosen is removed with it.
+ * marked for a database that was not chosen is removed with it. The choice
+ * between databases is one more name, and it is never kept: a project carries
+ * one database, so what only chooses between two has nothing left to do.
  */
 export function databaseMarkerIds(manifest: Manifest): string[] {
-  return Object.keys(manifest.databases);
+  return [...Object.keys(manifest.databases), DATABASE_CHOICE_MARKER_ID];
 }
 
 export function availableOptionIds(manifest: Manifest): string[] {

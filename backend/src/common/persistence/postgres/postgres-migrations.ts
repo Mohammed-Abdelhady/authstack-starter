@@ -118,10 +118,14 @@ async function takeMigrationLock(
  * A database that is ahead of this build is refused with `DatabaseAheadError`
  * before anything is applied: two builds that each carry a different next
  * file must not both apply theirs.
+ *
+ * A file lower in number than ones already recorded is applied too. That is
+ * how a project that gains a feature later gets that feature's file.
  */
 export async function applyPostgresMigrations(
   pool: Pool,
   lockWaitMs: number = MIGRATION_LOCK_WAIT_MS,
+  files: string[] = listPostgresMigrations(),
 ): Promise<string[]> {
   const client = await pool.connect();
   const applied: string[] = [];
@@ -139,7 +143,6 @@ export async function applyPostgresMigrations(
       'SELECT name FROM schema_migrations',
     );
     const done = new Set(known.rows.map(({ name }) => name));
-    const files = listPostgresMigrations();
     const carried = new Set(files);
     const unknown = [...done].filter((name) => !carried.has(name)).sort();
     if (unknown.length > 0) {

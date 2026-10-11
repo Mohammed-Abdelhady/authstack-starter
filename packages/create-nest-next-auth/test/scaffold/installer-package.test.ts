@@ -2,7 +2,16 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
+import { emptyDatabase } from '../../src/manifest/validate-dimensions.js';
+import { removeDatabaseJson } from '../../src/prune/database.js';
 import { setProjectName } from '../../src/scaffold/package-json.js';
+import type { Database } from '../../src/types.js';
+
+/** A database left out of the project, with what it owns in the backend manifest. */
+function leftOut(owned: Partial<Database>): Database[] {
+  return [{ ...emptyDatabase(), label: 'PostgreSQL', ...owned }];
+}
+const POSTGRES_PACKAGES = ['embedded-postgres', 'kysely', 'pg', '@types/pg'];
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -48,7 +57,7 @@ it('accepts a frontend without optional dependency or script groups', async () =
   });
 });
 
-it('removes the PostgreSQL prototype tooling from the backend and keeps the rest in order', async () => {
+it('removes the tooling of a database that was left out and keeps the rest in order', async () => {
   const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
   roots.push(root);
   await mkdir(join(root, 'frontend'));
@@ -72,7 +81,7 @@ it('removes the PostgreSQL prototype tooling from the backend and keeps the rest
     }),
   );
 
-  await setProjectName(root, 'my-app');
+  await removeDatabaseJson(root, leftOut({ packages: POSTGRES_PACKAGES }));
 
   expect(JSON.parse(await readFile(join(root, 'backend/package.json'), 'utf8'))).toEqual({
     name: 'backend',
@@ -85,7 +94,7 @@ it('removes the PostgreSQL prototype tooling from the backend and keeps the rest
   });
 });
 
-it('leaves a backend manifest without the prototype tooling byte-identical', async () => {
+it('leaves a backend manifest without that tooling byte-identical', async () => {
   const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
   roots.push(root);
   await mkdir(join(root, 'frontend'));
@@ -96,11 +105,12 @@ it('leaves a backend manifest without the prototype tooling byte-identical', asy
   await writeFile(join(root, 'backend/package.json'), backend);
 
   await setProjectName(root, 'my-app');
+  await removeDatabaseJson(root, leftOut({ packages: POSTGRES_PACKAGES }));
 
   expect(await readFile(join(root, 'backend/package.json'), 'utf8')).toBe(backend);
 });
 
-it('keeps a production dependency of the same name: only development tooling is removed', async () => {
+it('removes the packages of a database that was left out from production and development alike', async () => {
   const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
   roots.push(root);
   await mkdir(join(root, 'frontend'));
@@ -112,15 +122,15 @@ it('keeps a production dependency of the same name: only development tooling is 
     JSON.stringify({ dependencies: { pg: '8.23.1' }, devDependencies: { kysely: '0.28.17' } }),
   );
 
-  await setProjectName(root, 'my-app');
+  await removeDatabaseJson(root, leftOut({ packages: POSTGRES_PACKAGES }));
 
   expect(JSON.parse(await readFile(join(root, 'backend/package.json'), 'utf8'))).toEqual({
-    dependencies: { pg: '8.23.1' },
+    dependencies: {},
     devDependencies: {},
   });
 });
 
-it('removes the backend commands that run the PostgreSQL adapter and keeps every other one', async () => {
+it('removes the backend commands of a database that was left out and keeps every other one', async () => {
   const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
   roots.push(root);
   await mkdir(join(root, 'frontend'));
@@ -146,7 +156,12 @@ it('removes the backend commands that run the PostgreSQL adapter and keeps every
     }),
   );
 
-  await setProjectName(root, 'my-app');
+  await removeDatabaseJson(
+    root,
+    leftOut({
+      scripts: ['test:e2e:postgres', 'migration:postgres:up', 'migration:postgres:status'],
+    }),
+  );
 
   expect(JSON.parse(await readFile(join(root, 'backend/package.json'), 'utf8'))).toEqual({
     name: 'backend',

@@ -1,9 +1,9 @@
-import { bootPostgresTwoFactorHarness } from '../../../../test/postgres-prototype/postgres-two-factor-harness';
+import { bootPostgresTwoFactorHarness } from '../../../../test/postgres/postgres-two-factor-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { SecondFactorAccount } from '../stores/second-factor-account';
 import {
@@ -17,8 +17,8 @@ import {
 } from './two-factor-contract.harness-spec';
 
 /**
- * PostgreSQL only. A change to the second factor is several statements here
- * and one document write on MongoDB, so only here can it be caught half done.
+ * A change to the second factor is several statements, so it can be caught
+ * half done.
  * A batch with the same hash twice breaks the table's unique rule on its
  * second row, after the statements before it have run.
  */

@@ -10,6 +10,11 @@ import {
   installProject,
   runBackendBoot,
 } from '../support/combination-helpers.js';
+import {
+  expectConfigTests,
+  expectInstallsLintsBuilds,
+  expectLints,
+} from '../combinations/combination-scenarios.js';
 import { parse } from 'yaml';
 import { PACKAGE_MANAGER_VERSION } from '../../src/constants/index.js';
 
@@ -52,6 +57,28 @@ describe('pnpm installation boundary', () => {
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
       'install --offline --frozen-lockfile --store-dir /private/tmp/cna-test-store\n',
     );
+  });
+  it('starts no command of a combination step once the case was aborted', async () => {
+    const root = await fakePnpm();
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages: [backend]\n');
+    const aborted = AbortSignal.abort();
+
+    const installed = await installProject(root, '/private/tmp/cna-test-store', aborted);
+    const steps = await Promise.allSettled([
+      expectInstallsLintsBuilds(root, '/private/tmp/cna-test-store', aborted),
+      expectConfigTests(root, aborted),
+      expectLints(root, aborted),
+    ]);
+
+    expect({
+      installed: installed.ok,
+      steps: steps.map((step) => step.status),
+      called: existsSync(join(root, 'calls')),
+    }).toEqual({
+      installed: false,
+      steps: ['rejected', 'rejected', 'rejected'],
+      called: false,
+    });
   });
   it('keeps combination gates on the same explicit temporary store', async () => {
     const root = await fakePnpm();

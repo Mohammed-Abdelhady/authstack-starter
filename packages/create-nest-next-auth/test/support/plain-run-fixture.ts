@@ -58,6 +58,7 @@ export const DEFAULT_SELECTION_MUST_NOT_EXIST = [
   'backend/test/utils/browser/browser-server.ts',
   'backend/test/utils/oauth/local-oauth.ts',
   'template.manifest.json',
+  'template.rewrites.json',
   'openspec',
   '.hyperflow',
 ];

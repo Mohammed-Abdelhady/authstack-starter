@@ -1,4 +1,5 @@
 export const MONGO_DUPLICATE_KEY_CODE = 11000;
+// feature:mongodb:start
 export const MONGO_TRANSIENT_TRANSACTION_LABEL = 'TransientTransactionError';
 
 export const MONGO_UNAVAILABLE_CODES: ReadonlySet<number> = new Set([
@@ -22,3 +23,4 @@ export const MONGO_UNAVAILABLE_CODES: ReadonlySet<number> = new Set([
   13436, // NotPrimaryOrSecondary
   189, // PrimarySteppedDown
 ]);
+// feature:mongodb:end

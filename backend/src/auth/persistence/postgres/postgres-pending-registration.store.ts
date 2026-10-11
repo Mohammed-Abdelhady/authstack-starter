@@ -137,9 +137,9 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
   }
 
   /**
-   * Records from before purposes existed live only in MongoDB installs. Here
-   * the purpose column is never null, so nothing can block an insert but a
-   * record of the same purpose, and the caller's next pass refreshes that one.
+   * No record without a purpose can exist: the purpose column is never null.
+   * So nothing can block an insert but a record of the same purpose, and the
+   * caller's next pass refreshes that one.
    */
   clearLegacyBlocker(): Promise<LegacyBlocker> {
     return Promise.resolve(LEGACY_BLOCKER.CLEARED);

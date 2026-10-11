@@ -53,14 +53,20 @@ it('lists surviving workspaces and retains overrides and build approvals', async
   expect(rendered).toContain("diff: '>=8.0.3'");
 });
 
-it('drops the build approvals of the PostgreSQL prototype server and keeps every other one', async () => {
+it('drops the build approvals it is given and keeps every other one', async () => {
   await fixture(
     "# workspace settings\npackages: [backend]\nallowBuilds:\n  '@embedded-postgres/darwin-arm64': true\n  '@embedded-postgres/darwin-x64': true\n  '@embedded-postgres/linux-arm64': true\n  '@embedded-postgres/linux-x64': true\n  '@scarf/scarf': false\n  bcrypt: true\nminimumReleaseAgeStrict: true\n",
   );
   await mkdir(join(root, 'backend'), { recursive: true });
   await writeFile(join(root, 'backend', 'package.json'), '{}');
 
-  const changed = await renderWorkspace(root);
+  const changed = await renderWorkspace(root, [
+    '@embedded-postgres/darwin-arm64',
+    '@embedded-postgres/darwin-x64',
+    '@embedded-postgres/linux-arm64',
+    '@embedded-postgres/linux-x64',
+    '@embedded-postgres/windows-x64',
+  ]);
 
   const rendered = await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8');
   expect({

@@ -1,5 +1,6 @@
 // The services below sit above the storage seam. Loading any of them must not
 // load a database driver, directly or through what they import.
+// feature:mongodb:start
 jest.mock('mongoose', () => {
   throw new Error('mongoose was loaded by a service above the seam');
 });
@@ -9,12 +10,15 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded by a service above the seam');
 });
+// feature:mongodb:end
+// feature:postgres:start
 jest.mock('kysely', () => {
   throw new Error('kysely was loaded by a service above the seam');
 });
 jest.mock('pg', () => {
   throw new Error('pg was loaded by a service above the seam');
 });
+// feature:postgres:end
 
 const SERVICES: Array<[string, () => Promise<Record<string, unknown>>]> = [
   ['AuthService', () => import('./auth.service')],

@@ -102,7 +102,7 @@ export class SeedService {
 
     await this.store.clearApplicationData();
 
-    this.logger.warn('All application collections cleared');
+    this.logger.warn('All application data cleared');
 
     await this.seedAll();
 

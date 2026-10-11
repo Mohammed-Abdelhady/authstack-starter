@@ -8,6 +8,8 @@ type PromptedKind = Exclude<FeatureKind, 'hidden'>;
 export const CLI_NAME = 'create-nest-next-auth';
 
 export const MANIFEST_FILE = 'template.manifest.json';
+/** Each database's rewrites, beside the manifest and read with it. */
+export const REWRITES_FILE = 'template.rewrites.json';
 
 export const TEMPLATE_DIR_NAME = 'template';
 
@@ -93,40 +95,22 @@ export const BROWSER_STACK_PACKAGES = [
 export const BACKEND_PACKAGE_JSON = 'backend/package.json';
 
 /**
- * Tooling for the PostgreSQL prototype. Its files are in the manifest's
- * alwaysRemoveFiles, so a generated project must not install it either.
- */
-export const POSTGRES_PROTOTYPE_PACKAGES = [
-  'embedded-postgres',
-  'kysely',
-  'pg',
-  '@types/pg',
-] as const;
-
-/**
- * Backend commands that run PostgreSQL adapter files. Those files are in the
- * manifest's alwaysRemoveFiles while PostgreSQL is not offered, so the commands
- * would point at nothing.
- */
-export const POSTGRES_ADAPTER_SCRIPT_NAMES = [
-  'test:e2e:postgres',
-  'migration:postgres:up',
-  'migration:postgres:status',
-] as const;
-
-/**
  * The mobile engine, which the backend needs only for the suites that drive it
  * against the real server. Those suites are in alwaysRemoveFiles too.
  */
 export const ENGINE_SUITE_PACKAGES = ['@app/native-auth'] as const;
 
-/** Build approvals that exist only for the prototype's bundled test server. */
-export const POSTGRES_PROTOTYPE_BUILD_APPROVALS = [
-  '@embedded-postgres/darwin-arm64',
-  '@embedded-postgres/darwin-x64',
-  '@embedded-postgres/linux-arm64',
-  '@embedded-postgres/linux-x64',
-] as const;
+/**
+ * Marks lines that only choose between databases. A generated project carries
+ * one database, so these lines are removed from every one.
+ */
+export const DATABASE_CHOICE_MARKER_ID = 'database-choice';
+
+/** The setting that chooses between databases, gone with those lines. */
+export const DATABASE_CHOICE_ENV_VARS = ['DATABASE_TYPE'] as const;
+
+/** Words that name that setting in the comment above it. */
+export const DATABASE_CHOICE_WORDS = ['database'];
 
 export const PACKAGE_DEPENDENCY_GROUPS = [
   'dependencies',
@@ -184,6 +168,12 @@ export const SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] 
  * and markdown is pruned by its own doc rules.
  */
 export const MARKER_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] as const;
+
+/** Extensions whose comments start with `#` and may carry `# feature:` markers. */
+export const HASH_MARKER_EXTENSIONS = ['.yml', '.yaml', '.sh'] as const;
+
+/** Files without such an extension that take `# feature:` markers too. */
+export const HASH_MARKER_FILENAMES = ['Dockerfile', '.dockerignore', '.gitignore'] as const;
 
 /** The `@/` alias in the generated frontend, and what it points at. */
 export const FRONTEND_ALIAS = '@/';

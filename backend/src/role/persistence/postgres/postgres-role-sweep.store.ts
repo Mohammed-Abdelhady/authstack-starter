@@ -61,8 +61,7 @@ async function holdOwner(work: Work, ownerRoleId: string): Promise<boolean> {
 /**
  * Fences a destination with the row lock an edit of that role takes, refused at
  * once when the role is already taken. Changes to the list of owed repairs
- * outside a unit of work wait for the owner's row instead, the way a plain
- * MongoDB write waits behind an open transaction.
+ * outside a unit of work wait for the owner's row instead.
  */
 export class PostgresRoleSweepStore extends RoleSweepStore {
   constructor(

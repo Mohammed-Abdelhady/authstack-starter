@@ -50,14 +50,12 @@ export const PLAN_MANIFEST: Manifest = validateManifest({
       default: true,
       files: [],
       envVars: [],
-      composeServices: ['mongodb'],
     },
     postgres: {
       label: 'PostgreSQL',
       default: false,
       files: [],
       envVars: [],
-      composeServices: ['postgres'],
     },
   },
   options: {

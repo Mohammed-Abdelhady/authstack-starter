@@ -8,6 +8,7 @@ import {
   configureFrontendPort,
   configureNginxDomains,
 } from '../lib/config-transforms.js';
+import { configureDatabase } from '../lib/production-prompts.js';
 import { smokeModel } from '../verify-docker.mjs';
 
 const domains = {
@@ -165,4 +166,22 @@ test('internal smoke network has no incompatible host publications', () => {
     assert.deepEqual(service.networks, ['smoke']);
     assert.equal(service.ports, undefined);
   }
+});
+
+test('the production prompt asks again until the database user and password fit the address', async () => {
+  const answers = ['ad:min', 'app', 'p@ss/word', 'p%w', 'safe-Password_1', ''];
+  const asked = [];
+  const rl = {
+    question: (prompt) => {
+      asked.push(prompt);
+      return Promise.resolve(answers.shift());
+    },
+  };
+
+  const database = await configureDatabase(rl, 'my-app');
+
+  assert.deepEqual(database, { username: 'app', password: 'safe-Password_1', dbName: 'my_app' });
+  // Two questions for the user, three for the password, one for the name.
+  assert.equal(asked.length, 6);
+  assert.deepEqual(answers, []);
 });

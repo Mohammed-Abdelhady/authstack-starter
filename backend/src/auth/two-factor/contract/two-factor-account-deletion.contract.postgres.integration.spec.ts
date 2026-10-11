@@ -1,12 +1,13 @@
 import { PostgresSecondFactorStore } from '../persistence/postgres/postgres-second-factor.store';
-import { bootPostgresAccountsHarness } from '../../../../test/postgres-prototype/postgres-accounts-harness';
+import { bootPostgresAccountsHarness } from '../../../../test/postgres/postgres-accounts-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
   POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import { describeSecondFactorAfterDeletion } from './two-factor-account-deletion.harness-spec';
 
+// feature:mongodb:start
 // The account services and the second factor store must run here without the
 // other database's driver. Loading any of these modules fails the suite.
 jest.mock('mongoose', () => {
@@ -18,6 +19,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 describeSecondFactorAfterDeletion(
   'PostgreSQL',

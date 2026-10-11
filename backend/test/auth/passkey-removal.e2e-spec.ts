@@ -41,6 +41,7 @@ describe('removing a passkey (e2e)', () => {
     });
   }
 
+  // feature:email-password:start
   it('removes the passkey of an account that still has its password', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const passkeyId = await storePasskey();
@@ -53,6 +54,7 @@ describe('removing a passkey (e2e)', () => {
     expect((listed.body as PasskeyList).data.passkeys).toEqual([]);
     expect(await e2e.state.auth.countPasskeys()).toBe(0);
   });
+  // feature:email-password:end
 
   it('refuses to remove the passkey that is the only way in', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);

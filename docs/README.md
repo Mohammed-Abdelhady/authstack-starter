@@ -60,6 +60,7 @@ See [backend/docs/](../backend/docs/):
 - [OAuth authentication](../backend/docs/oauth-authentication.md): OAuth provider registry and provider addition steps.
 - [User roles and permissions](../backend/docs/user-roles-permissions.md): RBAC model, role levels, and permission checks.
 - [Database management](../backend/docs/database-management.md): MongoDB connection, migrations, and seed commands.
+- [PostgreSQL](../backend/docs/database-postgres.md): Version, settings, migrations, retention, and how the tests run. <!-- feature:postgres -->
 - [API responses](../backend/docs/api-responses.md): Response envelope formats and error codes.
 - [Postman collection](../backend/docs/postman/README.md): Postman collection, environments, and test scripts.
 

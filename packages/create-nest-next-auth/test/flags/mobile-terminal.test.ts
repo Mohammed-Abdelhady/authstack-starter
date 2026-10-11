@@ -19,6 +19,8 @@ const FLAGS = [
   '--no-production',
   '--rules',
   'strict',
+  '--database',
+  'mongodb',
   '--mobile-name',
   'Trail Log',
 ];

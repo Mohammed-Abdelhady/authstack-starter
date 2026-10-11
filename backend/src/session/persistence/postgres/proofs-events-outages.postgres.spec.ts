@@ -6,13 +6,14 @@ import {
   PostgresTables,
 } from '../../../common/persistence/postgres/postgres-database';
 import { PostgresSecurityEventStore } from './postgres-security-event.store';
-import { closedPort } from '../../../../test/postgres-prototype/closed-port';
+import { closedPort } from '../../../../test/postgres/closed-port';
 import { raisedBy } from '../../../../test/utils/auth/store-outage-cases';
 import {
   PROOFS_EVENTS_OUTAGES,
   proofsEventsStatements,
 } from '../../../../test/utils/session/proofs-events-contract/proofs-events-outage-cases';
 
+// feature:mongodb:start
 jest.mock('mongoose', () => {
   throw new Error('mongoose was loaded on the PostgreSQL path');
 });
@@ -22,6 +23,7 @@ jest.mock('mongodb', () => {
 jest.mock('@nestjs/mongoose', () => {
   throw new Error('@nestjs/mongoose was loaded on the PostgreSQL path');
 });
+// feature:mongodb:end
 
 describe('PostgreSQL proof and event statements that commit by themselves', () => {
   let database: Kysely<PostgresTables>;

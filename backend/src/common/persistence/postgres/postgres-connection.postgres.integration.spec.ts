@@ -7,7 +7,7 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
   PostgresTestServer,
   startPostgresTestServer,
-} from '../../../../test/postgres-prototype/server/postgres-test-server';
+} from '../../../../test/postgres/server/postgres-test-server';
 import {
   POSTGRES_HEALTH_POOL,
   POSTGRES_HEALTH_PROVIDERS,

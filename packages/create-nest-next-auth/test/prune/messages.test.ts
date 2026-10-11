@@ -14,7 +14,7 @@ const MANIFEST = validateManifest({
   },
   shared: {},
   databases: {
-    mongodb: { label: 'MongoDB', default: true, files: [], envVars: [], composeServices: [] },
+    mongodb: { label: 'MongoDB', default: true, files: [], envVars: [] },
   },
   options: {
     'locale-ar': {

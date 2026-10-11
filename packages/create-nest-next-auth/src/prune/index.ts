@@ -1,5 +1,7 @@
 import type { Manifest, PruneResult, RulesPolicy } from '../types.js';
 import {
+  DATABASE_CHOICE_ENV_VARS,
+  DATABASE_CHOICE_WORDS,
   ENV_EXAMPLE_FILES,
   FRONTEND_PACKAGE_JSON,
   PNPM_WORKSPACE_FILE,
@@ -7,11 +9,19 @@ import {
   DEFAULT_RULES_POLICY,
 } from '../constants/index.js';
 import { databaseMarkerIds, defaultDatabaseIds } from '../manifest/dimensions.js';
+import {
+  removeDatabaseJson,
+  renameDatabaseFiles,
+  rewriteDatabaseText,
+  splitDatabases,
+  writeDatabaseEnvExamples,
+} from './database.js';
 import { defaultOwnership, type Ownership } from '../manifest/ownership.js';
 import { pruneIgnoreFile } from './ignore-file.js';
 import { pruneLintStaged } from './lint-staged.js';
 import { pruneRules } from './rules.js';
 import { removeDocMarkers } from './doc-markers.js';
+import { removeHashMarkers } from './hash-markers.js';
 import { removeDocLinks } from './docs.js';
 import { DEPENDABOT_FILE, pruneDependabot } from './dependabot.js';
 import { type EnvRemovals, stripEnvFiles, writeFeatureFlag } from './env.js';
@@ -23,8 +33,16 @@ import { pruneRootPackage } from './package-scripts.js';
 import { renderWorkspace } from '../scaffold/workspace.js';
 import { findDanglingReferences } from './references.js';
 
-/** Env vars only the removed features use, mapped to the words naming them. */
-function removedEnvVars(manifest: Manifest, selected: Set<string>): EnvRemovals {
+/**
+ * Env vars only the removed features and databases use, mapped to the words
+ * naming them. The setting that chooses between databases goes from every
+ * project: a project carries one.
+ */
+function removedEnvVars(
+  manifest: Manifest,
+  selected: Set<string>,
+  chosenDatabases: readonly string[],
+): { removals: EnvRemovals; ofDatabases: Set<string> } {
   const keptVars = new Set<string>();
   for (const id of selected) {
     for (const name of manifest.features[id]?.envVars ?? []) keptVars.add(name);
@@ -38,7 +56,21 @@ function removedEnvVars(manifest: Manifest, selected: Set<string>): EnvRemovals 
       removals.set(name, [feature.label, id]);
     }
   }
-  return removals;
+  // A database's settings take their whole comment with them: it describes
+  // addresses of a database the project does not have.
+  const ofDatabases = new Set<string>();
+  for (const [id, database] of Object.entries(manifest.databases)) {
+    if (chosenDatabases.includes(id)) continue;
+    for (const name of database.envVars) {
+      removals.set(name, [database.label, id]);
+      ofDatabases.add(name);
+    }
+  }
+  for (const name of DATABASE_CHOICE_ENV_VARS) {
+    removals.set(name, DATABASE_CHOICE_WORDS);
+    ofDatabases.add(name);
+  }
+  return { removals, ofDatabases };
 }
 
 /**
@@ -76,6 +108,12 @@ export async function prune(
 
   doomedFiles.push(...ownership.removedFiles);
 
+  const { kept: keptDatabases, removed: removedDatabases } = splitDatabases(manifest, databases);
+  for (const database of removedDatabases) {
+    doomedFiles.push(...database.files);
+    doomedDocs.push(...database.docs);
+  }
+
   const deletedFiles = await deleteMatchingFiles(root, [
     ...manifest.core.alwaysRemoveFiles,
     ...doomedFiles,
@@ -95,13 +133,32 @@ export async function prune(
   const keptIds = [...selectedFeatures, ...selectedOptions, ...ownership.keptIds, ...databases];
   const markers = await removeFeatureLines(root, keptIds, markerIds);
   const docMarkers = await removeDocMarkers(root, keptIds, markerIds);
+  const hashMarkers = await removeHashMarkers(root, keptIds, markerIds);
 
   const removedMarkdown = deletedFiles.filter((path) => path.endsWith('.md'));
   const docs = await removeDocLinks(root, [...doomedDocs, ...removedMarkdown]);
-  const strippedEnvVars = await stripEnvFiles(root, removedEnvVars(manifest, selected));
+  const envVars = removedEnvVars(manifest, selected, databases);
+  const strippedEnvVars = await stripEnvFiles(root, envVars.removals, envVars.ofDatabases);
   await writeFeatureFlag(root, selectedFeatures);
-  const workspaceChanged = await renderWorkspace(root);
+  const unmatchedDatabaseRules: string[] = [];
+  const unmatched = (rule: string): void => {
+    unmatchedDatabaseRules.push(rule);
+  };
+  await writeDatabaseEnvExamples(root, keptDatabases, unmatched);
+  const workspaceChanged = await renderWorkspace(
+    root,
+    removedDatabases.flatMap((database) => database.buildApprovals),
+  );
+  const databaseJson = await removeDatabaseJson(root, removedDatabases, keptDatabases, unmatched);
+  const renamed = await renameDatabaseFiles(root, keptDatabases, unmatched);
+  // A file one database gave up and the chosen one took the name of is there
+  // again, so nothing that reads the deleted files may count it as gone.
+  for (const name of renamed) {
+    const at = deletedFiles.indexOf(name);
+    if (at !== -1) deletedFiles.splice(at, 1);
+  }
   await pruneRootPackage(root, deletedFiles);
+  const rewritten = await rewriteDatabaseText(root, keptDatabases, unmatched);
   await pruneLintStaged(root);
   await pruneIgnoreFile(root, ownership.removedFiles);
   await pruneDependabot(root, deletedFiles);
@@ -117,6 +174,9 @@ export async function prune(
     ...editedCatalogues,
     ROOT_PACKAGE_JSON,
     FRONTEND_PACKAGE_JSON,
+    ...databaseJson,
+    ...renamed,
+    ...rewritten,
     ...(workspaceChanged ? [PNPM_WORKSPACE_FILE] : []),
     DEPENDABOT_FILE,
   ]);
@@ -130,9 +190,10 @@ export async function prune(
     deletedFiles,
     strippedEnvVars,
     removedDocLines: docs.removedLines,
-    markedFiles: [...markers.editedFiles, ...docMarkers.editedFiles],
-    removedMarkedLines: markers.removedLines + docMarkers.removedLines,
+    markedFiles: [...markers.editedFiles, ...docMarkers.editedFiles, ...hashMarkers.editedFiles],
+    removedMarkedLines: markers.removedLines + docMarkers.removedLines + hashMarkers.removedLines,
     formattedFiles,
     dangling,
+    unmatchedDatabaseRules,
   };
 }

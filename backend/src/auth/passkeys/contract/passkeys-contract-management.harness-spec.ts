@@ -155,7 +155,7 @@ export function managementCases(
         }
       > = {
         'nothing else': { account: {}, features: {}, kept: true },
-        'a password': { account: { passwordHash }, features: {}, kept: false },
+        'a password': { account: { passwordHash }, features: {}, kept: false }, // feature:email-password
         'a password that cannot be used': {
           account: { passwordHash },
           features: { password: false },
@@ -166,11 +166,13 @@ export function managementCases(
           features: { password: false },
           kept: false,
         },
+        // feature:magic-link:start
         'magic links': {
           account: {},
           features: { password: false, magicLink: true },
           kept: false,
         },
+        // feature:magic-link:end
       };
 
       const kept: Record<string, boolean> = {};
@@ -211,10 +213,10 @@ export function managementCases(
 
       expect(kept).toEqual({
         'nothing else': true,
-        'a password': false,
+        'a password': false, // feature:email-password
         'a password that cannot be used': true,
         'a linked provider': false,
-        'magic links': false,
+        'magic links': false, // feature:magic-link
       });
     },
   );

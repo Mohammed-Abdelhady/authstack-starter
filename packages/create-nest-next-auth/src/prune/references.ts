@@ -14,6 +14,7 @@ import { isRecord } from '../manifest/read.js';
 import type { DanglingReference } from '../types.js';
 import { docReferences } from './docs.js';
 import { isErrnoException, listFiles } from '../utils/fs.js';
+import { parseJson } from '../utils/parse-json.js';
 
 // from '...' | import('...') | require('...')
 const SPECIFIER = new RegExp(
@@ -160,13 +161,7 @@ export async function findDanglingReferences(
   }
 
   for (const file of files.filter((path) => path.endsWith('package.json'))) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await readFile(join(root, file), 'utf8'));
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new Error(`Could not parse ${file}: ${reason}`);
-    }
+    const parsed = parseJson(await readFile(join(root, file), 'utf8'), file);
     if (!isRecord(parsed) || !isRecord(parsed.scripts)) continue;
     for (const [name, command] of Object.entries(parsed.scripts)) {
       if (typeof command !== 'string') continue;

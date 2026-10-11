@@ -121,6 +121,7 @@ export class AuthController {
    * POST /api/auth/activate
    */
   @Public()
+  @RequiresFeature(AuthFeature.PASSWORD)
   @Throttle(THROTTLE_ACTIVATE)
   @Post('activate')
   @HttpCode(HttpStatus.OK)
@@ -162,6 +163,7 @@ export class AuthController {
    * POST /api/auth/resend-activation
    */
   @Public()
+  @RequiresFeature(AuthFeature.PASSWORD)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @Post('resend-activation')
   @HttpCode(HttpStatus.OK)

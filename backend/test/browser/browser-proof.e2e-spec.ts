@@ -43,6 +43,7 @@ describe('browser proof (e2e)', () => {
     await e2e?.close();
   }, SESSION_AUTHORITY_TIMEOUTS.SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
+  // feature:email-password:start
   it('rejects login without a proof and rejects a spent proof without a session cookie', async () => {
     const missing = await request(e2e.httpServer)
       .post('/api/auth/login')
@@ -72,7 +73,9 @@ describe('browser proof (e2e)', () => {
     expect(replay.status).toBe(403);
     expect((replay.body as ErrorBody).error.code).toBe(ErrorCode.CSRF_INVALID);
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('accepts a fresh pre-session proof with a stale session cookie on login', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -88,7 +91,9 @@ describe('browser proof (e2e)', () => {
 
     expect(login.status).toBe(200);
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('rejects a pre-session proof on a protected route with a valid session', async () => {
     const agent = request.agent(e2e.httpServer);
     const sessionProof = await agent.get('/api/auth/browser-proof').expect(200);
@@ -112,7 +117,9 @@ describe('browser proof (e2e)', () => {
       ErrorCode.CSRF_INVALID,
     );
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('accepts either valid proof on public routes with a valid session cookie', async () => {
     const agent = request.agent(e2e.httpServer);
     const preSession = await agent.get('/api/auth/browser-proof').expect(200);
@@ -148,6 +155,7 @@ describe('browser proof (e2e)', () => {
       .send({ email: SEED_USER.email });
     expect(acceptedPreSession.status).toBe(200);
   });
+  // feature:email-password:end
 
   it('clears the session cookie when a protected request has an invalid session', async () => {
     const response = await request(e2e.httpServer)
@@ -249,6 +257,7 @@ describe('browser proof (e2e)', () => {
     }
   });
 
+  // feature:email-password:start
   it('rejects a public browser-session route carrying both a cookie and a bearer', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -271,7 +280,9 @@ describe('browser proof (e2e)', () => {
       ErrorCode.MIXED_CREDENTIALS,
     );
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('rejects a foreign origin and an invalid bearer sent with a cookie', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -308,6 +319,7 @@ describe('browser proof (e2e)', () => {
       ErrorCode.NATIVE_AUTH_DISABLED,
     );
   });
+  // feature:email-password:end
 });
 
 function cookiePair(response: SupertestResponse, name: string): string {

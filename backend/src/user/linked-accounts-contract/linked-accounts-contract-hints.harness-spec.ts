@@ -9,7 +9,7 @@ import {
 
 const UNLINKED = 'unlinked';
 const LAST_PROVIDER = 'CANNOT_UNLINK_LAST_PROVIDER 400';
-const NOT_A_LINK = 'VALIDATION_ERROR 400';
+const NOT_A_LINK = 'VALIDATION_ERROR 400'; // feature:email-password,magic-link
 const NOTHING_BY_EMAIL: SignInSwitchesOf = {
   password: false,
   magicLink: false,
@@ -57,6 +57,7 @@ const ACCOUNTS: Record<string, HintedAccount & { expected: Observed }> = {
       stored: ['google'],
     },
   },
+  // feature:email-password:start
   'password reset by email': {
     providers: ['google'],
     switches: { password: true, magicLink: false },
@@ -68,6 +69,8 @@ const ACCOUNTS: Record<string, HintedAccount & { expected: Observed }> = {
       stored: [],
     },
   },
+  // feature:email-password:end
+  // feature:magic-link:start
   'magic links': {
     providers: ['google'],
     switches: { password: false, magicLink: true },
@@ -79,6 +82,7 @@ const ACCOUNTS: Record<string, HintedAccount & { expected: Observed }> = {
       stored: [],
     },
   },
+  // feature:magic-link:end
   'a second provider': {
     providers: ['google', 'github'],
     switches: NOTHING_BY_EMAIL,
@@ -115,6 +119,7 @@ const ACCOUNTS: Record<string, HintedAccount & { expected: Observed }> = {
       stored: ['github'],
     },
   },
+  // feature:email-password,magic-link:start
   'email sign-in itself': {
     providers: ['google'],
     switches: { password: true, magicLink: true },
@@ -126,6 +131,7 @@ const ACCOUNTS: Record<string, HintedAccount & { expected: Observed }> = {
       stored: ['google'],
     },
   },
+  // feature:email-password,magic-link:end
 };
 
 async function answerOf(unlink: Promise<unknown>): Promise<string> {

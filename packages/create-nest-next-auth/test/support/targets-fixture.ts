@@ -50,7 +50,7 @@ export const TARGETS_MANIFEST: Manifest = validateManifest({
     'native-core': { files: ['mobile/auth/**'], workspaces: ['mobile/auth'] },
   },
   databases: {
-    mongodb: { label: 'MongoDB', default: true, files: [], envVars: [], composeServices: [] },
+    mongodb: { label: 'MongoDB', default: true, files: [], envVars: [] },
   },
   options: {},
   presets: {

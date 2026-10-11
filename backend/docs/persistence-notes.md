@@ -2,7 +2,60 @@
 
 The server runs on MongoDB or on PostgreSQL. One setting chooses, and it is read once when the server starts. MongoDB is the default, so an installation that sets nothing runs exactly as it did before PostgreSQL existed.
 
-PostgreSQL is not offered by the installer yet. Its adapter, migrations and tests are removed from generated projects, and so is this page.
+This page is about this repository, which carries both databases. A generated project carries one, and this page is not part of it. A PostgreSQL project gets [PostgreSQL](database-postgres.md) instead.
+
+## What the installer makes of the choice
+
+The installer asks which database a project runs on. MongoDB is the default. It takes the answer from a prompt in a terminal, from `--database`, or from `database` in a config file. Without a terminal and without either, the project runs on MongoDB, so a command line written before there was a choice builds what it always built.
+
+| Choice     | The project keeps                                                                                                                                                                  | The project loses                                                                                                                                                                                              |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| MongoDB    | The Mongoose adapter, `migrate-mongo` and its migrations, the replica set service in the compose files, the Mongoose-based specs                                                   | The PostgreSQL adapter and its migrations, `pg`, `kysely`, `embedded-postgres`, `@types/pg`, the PostgreSQL settings and their validation, the SQL failure mapping in the filter                               |
+| PostgreSQL | The Kysely adapter, its SQL migrations as `migration:up` and `migration:status`, a PostgreSQL 18 service in the compose files, its contract suites and the API suite as `test:e2e` | The MongoDB adapter, schemas and model modules, `migrate-mongo` and its migrations, `mongoose`, `mongodb`, `@nestjs/mongoose`, `mongodb-memory-server`, `MONGO_URI`, the specs written against Mongoose models |
+
+Neither project has the `DATABASE_TYPE` setting. A project carries one adapter, each `*-persistence.ts` file names that one, and `forStorage` hands it over without reading the environment. The setting, its validation and the check that modules were wired for the validated value exist only here, where two adapters are carried.
+
+How the installer does it, in `template.manifest.json`:
+
+- A line only one database needs carries `// feature:mongodb` or `// feature:postgres`. A line that only chooses between the two carries `// feature:database-choice` and is removed from every generated project.
+- Each database lists the files, docs, packages, backend commands, JSON keys and build approvals it owns. They go when the other database is chosen.
+- The chosen database also lists renames and literal rewrites. PostgreSQL uses them to take the plain names: `jest-e2e-postgres.json` becomes `jest-e2e.json`, `test:e2e:postgres` becomes `test:e2e`, and the setup scripts ask for a PostgreSQL address.
+
+A PostgreSQL project needs PostgreSQL 18 or newer, because new ids come from the `uuidv7()` function of the server. Its tests need no database installed: `embedded-postgres` is a development dependency of the project, and each suite starts the server that package carries with a data folder of its own and removes it.
+
+### Optional sign-in methods on PostgreSQL
+
+The tables of an optional method are created by a migration file of their own, and that file belongs to the method in the manifest.
+
+| Method     | Tables                                                            | Migration              |
+| ---------- | ----------------------------------------------------------------- | ---------------------- |
+| Two-factor | `user_two_factor`, `user_recovery_codes`, `two_factor_challenges` | `0008_two_factor.sql`  |
+| Passkeys   | `passkeys`, `passkey_challenges`                                  | `0009_passkeys.sql`    |
+| Magic link | `pending_magic_links`                                             | `0013_magic_links.sql` |
+
+A project without the method does not carry the file, the table map entries, the retention rule or the queries that read the tables. The migration list is read from the folder and applied in name order, so a list with gaps is still in order, and the start-up check and `migration:status` compare the same list. `user_linked_accounts` stays in every project, as the linked accounts of a user document do on MongoDB.
+
+`0013_magic_links.sql` holds what `0003_pending_codes.sql` used to create for magic links. The full set of files produces the same schema as before the split. A database that an earlier build of this repository migrated with the old `0003` already has the table and no record of `0013`. The statements in `0013` create only what is missing, so `migration:up` records the file on that database and changes nothing in it. No released project had PostgreSQL before this change.
+
+A feature file can be applied after files that are higher in number, when a project gains the feature later. For that reason `0008`, `0009` and `0013` may depend only on files every project carries that are lower in number, and no file that every project carries may depend on them.
+
+### What a generated project was run through
+
+The installer's combination suite scaffolds a project, installs it from its own pruned lockfile into an empty folder, typechecks, lints and builds it, and runs its unit suite and its API suite.
+
+| Database   | Sign-in methods                                                     |
+| ---------- | ------------------------------------------------------------------- |
+| PostgreSQL | Every method                                                        |
+| PostgreSQL | The default selection: email and password, Google, GitHub, Facebook |
+| PostgreSQL | Email and password only                                             |
+| PostgreSQL | Email and password, two-factor, passkeys, GitHub                    |
+| PostgreSQL | Magic link, passkeys, Google, without email and password            |
+| MongoDB    | The default selection                                               |
+| MongoDB    | Every method                                                        |
+
+The other MongoDB combinations are typechecked and linted as before. Not run anywhere: Docker Compose against a real PostgreSQL or MongoDB service, a hosted database, a failover, and an upgrade of a project that was generated earlier.
+
+A project carries only the cases its methods can pass. The shared contract cases of linked accounts and passkeys mark each scenario that needs magic link or a password, so a project without that method does not carry it. A project without email and password does not carry the API specs of registration, activation, password reset and password change, and its other API specs get a signed-in session from the session service, with no sign-in route in between. `test/session/issued-session.e2e-spec.ts` is the spec of that session.
 
 ## Choosing the database
 
@@ -92,6 +145,8 @@ Every store has a contract suite that runs the same cases on both databases. The
 pnpm --filter backend run test:e2e
 pnpm --filter backend run test:e2e:postgres
 ```
+
+In a generated PostgreSQL project the second command is the only one, under the plain name `test:e2e`.
 
 The PostgreSQL run starts one embedded server with a data folder of its own, gives each booted application a database copied from a migrated template, and removes all of it when the run ends.
 

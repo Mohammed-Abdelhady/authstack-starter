@@ -18,7 +18,8 @@ Production boilerplate with a NestJS 11 backend and a Next.js 16 frontend. Uses 
 
 | Layer    | Technology                                        |
 | -------- | ------------------------------------------------- |
-| Backend  | NestJS 11, TypeScript, MongoDB, Mongoose 8        |
+| Backend  | NestJS 11, TypeScript, MongoDB, Mongoose 8        | <!-- feature:mongodb -->  |
+| Backend  | NestJS 11, TypeScript, PostgreSQL 18, Kysely      | <!-- feature:postgres --> |
 | Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
 | State    | Redux Toolkit (RTK Query)                         |
 | UI       | shadcn/ui, Radix UI, Lucide Icons                 |
@@ -104,7 +105,23 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 ```
 
+<!-- feature:postgres:start -->
+
+### Prepare PostgreSQL
+
+The backend needs PostgreSQL 18 or newer, because new ids come from the `uuidv7()` function of the server. Create a database, put its address in `POSTGRES_URL` in `backend/.env`, and apply the migrations once. The server checks them when it starts and never applies one itself.
+
+Set `DATABASE_TYPE=postgres` in `backend/.env` as well. Without it the server runs on MongoDB. <!-- feature:database-choice -->
+
+```bash
+pnpm --filter backend run migration:postgres:up
+```
+
+<!-- feature:postgres:end -->
+
 ### Start manually
+
+<!-- feature:mongodb:start -->
 
 The backend needs MongoDB running as a replica set, because sign-in uses transactions. `MONGO_URI` in `backend/.env` expects one named `rs0` on port 27017:
 
@@ -115,6 +132,8 @@ mongod --replSet rs0 --dbpath ./mongodb-data
 # Leave mongod running. In another terminal, once:
 mongosh --eval "rs.initiate()"
 ```
+
+<!-- feature:mongodb:end -->
 
 ```bash
 # In one terminal, start the backend:
@@ -139,13 +158,25 @@ Endpoints:
 | ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
 | `PORT`                          | API server port. Example file sets `5001`.                             | `3000` when unset                                     |
 | `NODE_ENV`                      | Environment name                                                       | `development`                                         |
-| `MONGO_URI`                     | MongoDB URI                                                            | `mongodb://localhost:27017/authboiler?replicaSet=rs0` |
+| `MONGO_URI`                     | MongoDB URI                                                            | `mongodb://localhost:27017/authboiler?replicaSet=rs0` | <!-- feature:mongodb -->             |
 | `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                             | `http://localhost:3000`                               |
 | `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies                                | Required in production                                | <!-- feature:oauth-core,passkeys --> |
 | `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`  | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
 | `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in          | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
 | `AUTH_NATIVE_DPOP_REQUIRED`     | Reject native exchanges without DPoP and refreshes of unbound families | `false`                                               | <!-- feature:native-core -->         |
 | `TOTP_ENCRYPTION_KEY`           | 32-byte hex key to encrypt TOTP secrets                                | Required for 2FA                                      | <!-- feature:totp -->                |
+
+<!-- feature:postgres:start -->
+
+### PostgreSQL variables (`backend/.env`)
+
+| Variable            | Description                                              | Default        |
+| ------------------- | -------------------------------------------------------- | -------------- |
+| `DATABASE_TYPE`     | The database the server runs on: `mongodb` or `postgres` | `mongodb`      | <!-- feature:database-choice --> |
+| `POSTGRES_URL`      | PostgreSQL address, version 18 or newer                  | None, required |
+| `POSTGRES_POOL_MAX` | Connections the server may hold open, from 1 to 200      | `10`           |
+
+<!-- feature:postgres:end -->
 
 ### Optional authentication settings
 
@@ -181,7 +212,16 @@ Endpoints:
 
 See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings.
 
+<!-- feature:mongodb:start -->
+
 For a host-run backend with MongoDB in Docker Compose, use `MONGO_URI=mongodb://USER:PASS@localhost:27017/authboiler?authSource=admin&directConnection=true`. The replica set advertises `mongodb:27017`, which only containers on the Compose network can resolve. <!-- feature:docker -->
+
+<!-- feature:mongodb:end -->
+<!-- feature:postgres:start -->
+
+For a host-run backend with PostgreSQL in Docker Compose, use `POSTGRES_URL=postgres://USER:PASS@localhost:5432/authboiler`. Compose publishes the database on port 5432. <!-- feature:docker -->
+
+<!-- feature:postgres:end -->
 
 <!-- feature:native-expo:start -->
 
@@ -280,6 +320,7 @@ pnpm --filter backend run seed:reset
 | ------------------------------------------------------- | ---------------------------------------------------------------------- |
 | [Architecture](docs/reference/ARCHITECTURE.md)          | Request lifecycle, session storage, OAuth registry, and security model |
 | [Database schema](docs/reference/DATABASE_SCHEMA.md)    | MongoDB collections, indexes, and migrations                           |
+| [PostgreSQL](backend/docs/database-postgres.md)         | Version, settings, migrations, retention, and how the tests run        | <!-- feature:postgres -->   |
 | [RBAC system](docs/access-control/RBAC-SYSTEM.md)       | Role levels, permission inheritance, and enforcement guards            |
 | [Migration guide](docs/operations/MIGRATION-GUIDE.md)   | Database migration scripts and versioning                              |
 | [Production setup](docs/operations/PRODUCTION-SETUP.md) | Domain configuration, SSL termination, and Nginx reverse proxy         | <!-- feature:production --> |

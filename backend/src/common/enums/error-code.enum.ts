@@ -227,7 +227,7 @@ export enum ErrorCode {
   INVALID_PERMISSION_FORMAT = 'INVALID_PERMISSION_FORMAT',
 
   // Role errors
-  /** Role slug does not exist in the roles collection */
+  /** Role slug is not a stored role */
   ROLE_NOT_FOUND = 'ROLE_NOT_FOUND',
   /** Another role already has this name */
   ROLE_NAME_TAKEN = 'ROLE_NAME_TAKEN',

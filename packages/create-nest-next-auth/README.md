@@ -22,22 +22,22 @@ directory and the `name` in the generated root `package.json`. The directory
 must not exist, or must be empty. With `--yes` and no directory the CLI uses
 `my-app`.
 
-| Option             | What it does                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `-y, --yes`        | Take the defaults and skip the prompts                                             |
-| `--features a,b,c` | Use these feature ids and skip the feature prompt                                  |
-| `--targets a,b,c`  | Client ids: `web`, `native-expo`. See [Mobile app](docs/config.md#mobile-app)      |
-| `--database <id>`  | Database id; only `mongodb` is available today                                     |
-| `--preset <id>`    | Apply a preset: `minimal`, `standard`, `everything`                                |
-| `--config <file>`  | JSON file with the same selection keys                                             |
-| `--rules <level>`  | Rules level: `strict` (the default) or `standard`                                  |
-| `--locales <list>` | Locale ids; `en` is required, `en,ar` adds Arabic                                  |
-| `--no-docker`      | Leave out the Docker files and the commands that run them                          |
-| `--no-production`  | Leave out nginx, the production compose file and the production docs               |
-| `--dry-run`        | Print the resolved plan and write nothing                                          |
-| `--no-install`     | Skip dependency installation; the lockfile is still updated when pnpm is available |
-| `--no-git`         | Skip `git init` and the first commit                                               |
-| `-v, --version`    | Print the CLI version                                                              |
+| Option             | What it does                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `-y, --yes`        | Take the defaults and skip the prompts                                               |
+| `--features a,b,c` | Use these feature ids and skip the feature prompt                                    |
+| `--targets a,b,c`  | Client ids: `web`, `native-expo`. See [Mobile app](docs/config.md#mobile-app)        |
+| `--database <id>`  | Database id: `mongodb` (the default) or `postgres`. See [Database](docs/database.md) |
+| `--preset <id>`    | Apply a preset: `minimal`, `standard`, `everything`                                  |
+| `--config <file>`  | JSON file with the same selection keys                                               |
+| `--rules <level>`  | Rules level: `strict` (the default) or `standard`                                    |
+| `--locales <list>` | Locale ids; `en` is required, `en,ar` adds Arabic                                    |
+| `--no-docker`      | Leave out the Docker files and the commands that run them                            |
+| `--no-production`  | Leave out nginx, the production compose file and the production docs                 |
+| `--dry-run`        | Print the resolved plan and write nothing                                            |
+| `--no-install`     | Skip dependency installation; the lockfile is still updated when pnpm is available   |
+| `--no-git`         | Skip `git init` and the first commit                                                 |
+| `-v, --version`    | Print the CLI version                                                                |
 
 Without `--yes`, `--features`, `--targets`, `--database`, `--preset` or `--config`
 the CLI asks for a directory and shows the methods grouped by kind. It needs a
@@ -80,8 +80,9 @@ See [Config file](docs/config.md) for selection keys, precedence and rules valid
 - `standard` (the default): `web`, the default features, every option.
 - `everything`: every available client, feature and option.
 
-A preset never makes an unavailable id available. Planned targets, databases and
-options stay as the manifest defines them.
+A preset never makes an unavailable id available. Planned targets and options
+stay as the manifest defines them. A preset carries no database. The database
+is chosen apart from it, see [Database](docs/database.md).
 
 ### Dry run
 
@@ -171,7 +172,7 @@ with `web`, `mongodb` and no options.
   },
   "databases": {
     "mongodb": { "label": "MongoDB", "default": true, "files": [], "envVars": ["MONGO_URI"] },
-    "postgres": { "label": "PostgreSQL", "default": false, "status": "planned" }
+    "postgres": { "label": "PostgreSQL", "default": false, "envVars": ["POSTGRES_URL"] }
   },
   "options": {
     "docker": {
@@ -252,9 +253,9 @@ bundles. Every workspace an owner lists has to sit under its `files`.
 
 `targets`, `databases` and `options` share `label`, `default` and `status`. A
 target also has `files`, `workspaces`, `envFiles`, `requires` (with `shared` and
-`targets` lists) and `needsSignInSite`. A database has `files`, `envVars` and
-`composeServices`. An option has `files`, `requires`, `docs` and
-`catalogueKeys`.
+`targets` lists) and `needsSignInSite`. An option has `files`, `requires`,
+`docs` and `catalogueKeys`. What a database owns and changes is in
+[Database](docs/database.md#what-a-database-owns-in-the-manifest).
 
 A preset says which ids to start from. Each field is a list of ids, `"available"`
 for every available id, or `"defaults"` for the manifest defaults.

@@ -11,7 +11,7 @@ describe('validateManifest version 2', () => {
       },
       shared: {},
       databases: {
-        mongodb: { label: 'MongoDB', default: true, files: [], envVars: [], composeServices: [] },
+        mongodb: { label: 'MongoDB', default: true, files: [], envVars: [] },
       },
       options: {},
       presets: {},
@@ -86,8 +86,8 @@ describe('validateManifest version 2', () => {
       validateManifest(
         manifest({
           databases: {
-            a: { label: 'A', default: true, files: [], envVars: [], composeServices: [] },
-            b: { label: 'B', default: true, files: [], envVars: [], composeServices: [] },
+            a: { label: 'A', default: true, files: [], envVars: [] },
+            b: { label: 'B', default: true, files: [], envVars: [] },
           },
         }),
       ),
@@ -99,14 +99,13 @@ describe('validateManifest version 2', () => {
       validateManifest(
         manifest({
           databases: {
-            a: { label: 'A', default: false, files: [], envVars: [], composeServices: [] },
+            a: { label: 'A', default: false, files: [], envVars: [] },
             b: {
               label: 'B',
               default: true,
               status: 'planned',
               files: [],
               envVars: [],
-              composeServices: [],
             },
           },
         }),
@@ -166,7 +165,6 @@ describe('validateManifest version 2', () => {
               default: true,
               files: [],
               envVars: [],
-              composeServices: [],
             },
             later: { label: 'Later', default: false, status: 'planned', files: ['later/**'] },
           },

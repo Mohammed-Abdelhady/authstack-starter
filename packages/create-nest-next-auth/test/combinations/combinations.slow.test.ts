@@ -136,9 +136,15 @@ describe('generated projects', () => {
       ...ownership.keptIds,
       ...defaultDatabaseIds(manifest),
     ];
+    // No database was named, so the project runs on the default one and what
+    // the other databases own is gone.
+    const otherDatabases = Object.entries(manifest.databases).filter(
+      ([id]) => !defaultDatabaseIds(manifest).includes(id),
+    );
     const differences = await compareWithRepository(project, kept, markerIds, [
       ...manifest.core.alwaysRemoveFiles,
       ...ownership.removedFiles,
+      ...otherDatabases.flatMap(([, database]) => [...database.files, ...database.docs]),
     ]);
     expect(differences, JSON.stringify(differences, null, 2)).toEqual([]);
   });
