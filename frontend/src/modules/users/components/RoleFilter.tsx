@@ -16,6 +16,8 @@ import { SearchBar } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
 import { useDebounce } from '@/hooks/useDebounce';
+import { TruncatedText } from '@/modules/permissions/components/shared/TruncatedText';
+import type { Role } from '@/modules/roles/types';
 
 export function RoleFilter({
   value,
@@ -30,6 +32,8 @@ export function RoleFilter({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // The filter value is a slug. The name is only known for a role picked from the list.
+  const [picked, setPicked] = useState<Pick<Role, 'slug' | 'name'> | null>(null);
   const query = useDebounce(search, 300);
   const { currentData, isFetching, isError, refetch } = useListRolesQuery(
     { page, limit: 20, search: query.trim() || undefined },
@@ -38,10 +42,13 @@ export function RoleFilter({
   const lastPage = Math.max(1, currentData?.totalPages ?? page);
   if (!isFetching && !isError && page > lastPage) setPage(lastPage);
 
-  function choose(role: string) {
-    onChange(role);
+  function choose(role: Pick<Role, 'slug' | 'name'> | null) {
+    setPicked(role);
+    onChange(role?.slug ?? 'all');
     setOpen(false);
   }
+
+  const pickedName = picked?.slug === value ? picked.name : null;
 
   function changeSearch(next: string) {
     setSearch(next);
@@ -56,9 +63,17 @@ export function RoleFilter({
           className="w-full sm:w-50 justify-between"
           data-testid="role-filter"
         >
-          <span className="truncate">
-            {value === 'all' ? t('allRoles') : value.charAt(0).toUpperCase() + value.slice(1)}
-          </span>
+          {value === 'all' ? (
+            <span className="truncate">{t('allRoles')}</span>
+          ) : (
+            <span className="flex min-w-0 flex-1">
+              <TruncatedText
+                value={pickedName ?? value}
+                dir={pickedName === null ? 'ltr' : 'auto'}
+                testId="role-filter-value"
+              />
+            </span>
+          )}
           <ChevronDown className="ms-2 h-4 w-4 shrink-0" aria-hidden="true" />
         </Button>
       </DialogTrigger>
@@ -78,7 +93,7 @@ export function RoleFilter({
         />
         <Button
           variant={value === 'all' ? 'secondary' : 'ghost'}
-          onClick={() => choose('all')}
+          onClick={() => choose(null)}
           aria-pressed={value === 'all'}
           data-testid="role-filter-all"
         >
@@ -106,10 +121,10 @@ export function RoleFilter({
                   className="justify-start"
                   disabled={isFetching}
                   aria-pressed={value === role.slug}
-                  onClick={() => choose(role.slug)}
+                  onClick={() => choose(role)}
                   data-testid={`role-filter-option-${role.slug}`}
                 >
-                  {role.name}
+                  <span dir="auto">{role.name}</span>
                 </Button>
               ))}
               {!isFetching && currentData?.roles.length === 0 && (
