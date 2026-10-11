@@ -207,7 +207,8 @@
       }
     },
     "methods": {
-      "noneEnabled": "No sign-in method is available. Ask an administrator to turn one on."
+      "noneEnabled": "No sign-in method is available. Ask an administrator to turn one on.",
+      "loadFailed": "We could not load the sign-in options. Try again."
     },
     "magicLink": {
       "title": "Email me a sign-in link",
