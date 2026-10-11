@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, HTTP_METHOD, OAuthError } from '@app/sdk';
+import { AuthSessionError } from '../../src';
 import { createAuthEngine } from '../support/engine';
 import {
   CONFIG,
@@ -8,6 +9,7 @@ import {
   acceptCode,
   establishSession,
   failedApiReply,
+  oauthTokenReply,
   testPorts,
 } from '../support/support';
 import { revokedTokens } from '../support/tracking';
@@ -54,9 +56,8 @@ describe('refusals the server sends that the engine must not mistake for others'
     },
   );
 
-  it('hands a 403 for the kill switch back to the caller, renews nothing and stays signed in', async () => {
+  it('stops using the session when an API request meets the kill switch, and revokes nothing', async () => {
     const { engine, ports, transport } = await signedIn();
-    const stored = ports.credentials.value;
     transport.enqueue(failedApiReply(403, 'NATIVE_AUTH_DISABLED'));
 
     const response = await engine.transport.request(PROFILE);
@@ -65,9 +66,78 @@ describe('refusals the server sends that the engine must not mistake for others'
       status: 403,
       body: { success: false, error: { code: 'NATIVE_AUTH_DISABLED' } },
     });
+    expect(engine.snapshot).toEqual({ status: 'signedOut', operation: 'none', reason: 'disabled' });
+    expect(ports.credentials.value).toBeUndefined();
     expect(tokenRequests(transport)).toHaveLength(1);
+    expect(revokedTokens(transport)).toEqual([]);
+  });
+
+  it('leaves a sign-in that meets the kill switch on its profile read to end as a failed sign-in', async () => {
+    const transport = new ScriptedTransport();
+    transport.enqueue(oauthTokenReply(), failedApiReply(403, 'NATIVE_AUTH_DISABLED'), {
+      status: 200,
+      body: {},
+    });
+    const ports = testPorts(transport);
+    acceptCode(ports.authBrowser);
+    const engine = createAuthEngine(CONFIG, ports);
+    await engine.restore();
+
+    const outcome = await engine.signIn();
+
+    expect(outcome).toMatchObject({ kind: 'apiFailure', error: { status: 403 } });
+    expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'none' });
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+    expect(ports.credentials.value).toBeUndefined();
+  });
+
+  it('sends nothing more once the kill switch has ended the session', async () => {
+    const { engine, transport } = await signedIn();
+    transport.enqueue(failedApiReply(403, 'NATIVE_AUTH_DISABLED'));
+    await engine.transport.request(PROFILE);
+    const sentBefore = transport.sent.length;
+
+    await expect(engine.transport.request(PROFILE)).rejects.toBeInstanceOf(AuthSessionError);
+    await expect(engine.refresh()).resolves.toEqual({ kind: 'notSignedIn' });
+
+    expect(transport.sent).toHaveLength(sentBefore);
+  });
+
+  it('ends the session once when two requests meet the kill switch together', async () => {
+    const { engine, ports, transport } = await signedIn();
+    transport.enqueue(
+      failedApiReply(403, 'NATIVE_AUTH_DISABLED'),
+      failedApiReply(403, 'NATIVE_AUTH_DISABLED'),
+    );
+    const states: string[] = [];
+    engine.subscribe(({ status, reason }) => states.push(`${status}:${reason ?? ''}`));
+
+    const results = await Promise.allSettled([
+      engine.transport.request(PROFILE),
+      engine.transport.request(PROFILE),
+    ]);
+
+    expect(results.map(({ status }) => status).sort()).toEqual(['fulfilled', 'rejected']);
+    expect(states.filter((state) => state === 'signedOut:disabled')).toHaveLength(1);
+    expect(states.at(-1)).toBe('signedOut:disabled');
+    expect(ports.credentials.value).toBeUndefined();
+  });
+
+  it.each([
+    ['a missing permission', failedApiReply(403, 'FORBIDDEN')],
+    ['a 403 with no envelope', { status: 403, body: 'Forbidden' }],
+    ['the kill switch code under another status', failedApiReply(400, 'NATIVE_AUTH_DISABLED')],
+  ] as const)('keeps the session on %s', async (_name, reply) => {
+    const { engine, ports, transport } = await signedIn();
+    const stored = ports.credentials.value;
+    transport.enqueue(reply);
+
+    const response = await engine.transport.request(PROFILE);
+
+    expect(response.status).toBe(reply.status);
     expect(engine.snapshot.status).toBe('signedIn');
     expect(ports.credentials.value).toBe(stored);
+    expect(tokenRequests(transport)).toHaveLength(1);
   });
 
   it.each([

@@ -167,8 +167,7 @@ describe('a signed-in app against a server that refuses or cannot be reached', (
     ]);
   });
 
-  // What the engine does today with the kill switch: the request fails and the app stays signed in.
-  it('hands the kill switch refusal to the caller, renews nothing and stays signed in', async () => {
+  it('stops using the session when the kill switch answers, and sends nothing after it', async () => {
     const { app, server, store } = await signedIn();
     server.failNext(SERVER_PATH.PROFILE, serverRefusal(403, SERVER_CODE.NATIVE_AUTH_DISABLED));
 
@@ -176,10 +175,27 @@ describe('a signed-in app against a server that refuses or cannot be reached', (
       status: 403,
       code: 'NATIVE_AUTH_DISABLED',
     });
+    await expect(app.client.profile.get()).rejects.toMatchObject({ name: 'AuthSessionError' });
 
-    expect(server.refreshes).toBe(0);
+    expect(app.engine.snapshot).toEqual({
+      status: 'signedOut',
+      operation: 'none',
+      reason: 'disabled',
+    });
+    expect(store.items.has(RECORD_KEY)).toBe(false);
+    expect(paths(server).slice(2)).toEqual([SERVER_PATH.PROFILE]);
+    expect(server.revoked).toEqual([]);
+  });
+
+  it('keeps the session when a request is refused for a missing permission', async () => {
+    const { app, server, store } = await signedIn();
+    server.failNext(SERVER_PATH.PROFILE, serverRefusal(403, 'FORBIDDEN'));
+
+    await expect(app.client.profile.get()).rejects.toMatchObject({ status: 403 });
+
     expect(app.engine.snapshot.status).toBe('signedIn');
     expect(store.items.has(RECORD_KEY)).toBe(true);
+    expect(server.refreshes).toBe(0);
   });
 
   it.each([

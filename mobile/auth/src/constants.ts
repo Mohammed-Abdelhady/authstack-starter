@@ -59,6 +59,8 @@ export const SIGN_OUT_REVOKE_TIMEOUT_MS = 5000;
 export const MAX_CALLBACK_LENGTH = 4096;
 export const AUTHORIZE_PATH = '/api/oauth/authorize';
 export const DISABLED_OAUTH_DESCRIPTION = 'NATIVE_AUTH_DISABLED';
+/** The same switch, as an API route spells it in a 403. */
+export const NATIVE_AUTH_DISABLED_CODE = 'NATIVE_AUTH_DISABLED';
 export const AUTHORITY_UNAVAILABLE_CODE = 'AUTHORITY_UNAVAILABLE';
 export const RATE_LIMIT_EXCEEDED_CODE = 'RATE_LIMIT_EXCEEDED';
 export const MAX_QUEUED_CALLBACKS = 16;
