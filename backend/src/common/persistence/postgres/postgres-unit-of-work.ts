@@ -83,29 +83,30 @@ export class PostgresUnitOfWorkRunner extends UnitOfWorkRunner {
     }
   }
 
+  /**
+   * One run of the work on a connection this method holds from before BEGIN
+   * until the transaction has ended or been given up, and hands back whatever
+   * happened. The lost-answer question is asked after that, on another one.
+   */
   private async attempt<Result>(
     work: (unitOfWork: UnitOfWork) => Promise<Result>,
   ): Promise<Result> {
-    const transaction = await this.begin();
-    let result: Result;
-    let transactionId: string;
+    let ended: Ended<Result>;
     try {
-      transactionId = await transactionIdOf(transaction);
-      result = await work(new PostgresUnitOfWork(transaction));
+      ended = await this.database
+        .connection()
+        .execute((connection) => inTransaction(connection, work));
     } catch (error) {
-      await this.release(transaction);
       throw mapPostgresError(error);
     }
-    try {
-      await transaction.commit().execute();
-    } catch (error) {
-      await this.release(transaction);
-      if (sqlStateOf(error) !== undefined) {
-        throw commitFailure(error);
-      }
-      return this.afterLostAnswer(error, transactionId, result);
+    if (ended.lost === undefined) {
+      return ended.result;
     }
-    return result;
+    return this.afterLostAnswer(
+      ended.lost.failure,
+      ended.transactionId,
+      ended.result,
+    );
   }
 
   /**
@@ -137,27 +138,55 @@ export class PostgresUnitOfWorkRunner extends UnitOfWorkRunner {
     }
     throw new UnknownTransactionOutcomeError(lost);
   }
+}
 
-  private async begin(): Promise<ControlledTransaction<PostgresTables>> {
-    try {
-      return await this.database
-        .startTransaction()
-        .setIsolationLevel('read committed')
-        .execute();
-    } catch (error) {
-      throw mapPostgresError(error);
-    }
+/** How one run ended: committed, or its COMMIT went unanswered. */
+interface Ended<Result> {
+  result: Result;
+  transactionId: string;
+  lost?: { failure: unknown };
+}
+
+async function inTransaction<Result>(
+  connection: Kysely<PostgresTables>,
+  work: (unitOfWork: UnitOfWork) => Promise<Result>,
+): Promise<Ended<Result>> {
+  const transaction = await connection
+    .startTransaction()
+    .setIsolationLevel('read committed')
+    .execute();
+  let result: Result;
+  let transactionId: string;
+  try {
+    transactionId = await transactionIdOf(transaction);
+    result = await work(new PostgresUnitOfWork(transaction));
+  } catch (error) {
+    await rollBack(transaction);
+    throw error;
   }
-
-  /** Rolls back and hands the connection back. The first failure is the one reported. */
-  private async release(
-    transaction: ControlledTransaction<PostgresTables>,
-  ): Promise<void> {
-    try {
-      await transaction.rollback().execute();
-    } catch {
-      return;
+  try {
+    await transaction.commit().execute();
+  } catch (error) {
+    await rollBack(transaction);
+    if (sqlStateOf(error) !== undefined) {
+      throw commitFailure(error);
     }
+    return { result, transactionId, lost: { failure: error } };
+  }
+  return { result, transactionId };
+}
+
+/**
+ * Rolls back. The first failure is the one reported, so a failure here is
+ * dropped: the connection is not kept after it (`commitCheckedPool`).
+ */
+async function rollBack(
+  transaction: ControlledTransaction<PostgresTables>,
+): Promise<void> {
+  try {
+    await transaction.rollback().execute();
+  } catch {
+    return;
   }
 }
 

@@ -77,13 +77,26 @@ function mapSqlState(state: string, error: object): unknown {
   if (state === SQLSTATE.QUERY_CANCELED) {
     return new PersistenceTimeoutError(error);
   }
-  if (
-    state.startsWith(CONNECTION_EXCEPTION_CLASS) ||
-    UNAVAILABLE_STATES.has(state)
-  ) {
+  if (isUnavailableState(state)) {
     return new PersistenceUnavailableError(error);
   }
   return error;
+}
+
+function isUnavailableState(state: string): boolean {
+  return (
+    state.startsWith(CONNECTION_EXCEPTION_CLASS) ||
+    UNAVAILABLE_STATES.has(state)
+  );
+}
+
+/**
+ * True when the connection a statement failed on must not serve another: the
+ * server did not answer the statement, or answered that the session is over.
+ */
+export function endsSession(failure: unknown): boolean {
+  const state = sqlStateOf(failure);
+  return state === undefined || isUnavailableState(state);
 }
 
 /**
