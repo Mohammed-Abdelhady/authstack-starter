@@ -148,7 +148,6 @@ NGINX_HOST=yourdomain.com
 
 # Frontend configuration
 NEXT_PUBLIC_API_URL=https://yourdomain.com
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
 
 # Backend configuration
 CLIENT_URL=https://yourdomain.com
