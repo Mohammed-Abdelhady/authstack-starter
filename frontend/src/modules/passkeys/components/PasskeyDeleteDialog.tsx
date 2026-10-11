@@ -17,7 +17,8 @@ import {
 import { FormRootError } from '@/components/forms';
 import { toast } from '@/lib/toast';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useDeletePasskeyMutation } from '../api';
 import type { PasskeySummary } from '../types';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
@@ -41,7 +42,7 @@ interface PasskeyDeleteDialogProps {
 export function PasskeyDeleteDialog({ open, passkey, onClose, landing }: PasskeyDeleteDialogProps) {
   const t = useTranslations('settings.passkeys.delete');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const [deletePasskey, { isLoading }] = useDeletePasskeyMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose, landing }: Passkey
       return;
     }
     try {
-      await deletePasskey(passkey.id).unwrap();
+      await showsOwnRefusal(deletePasskey(passkey.id)).unwrap();
       toast.success(t('success'));
       noteRemoved();
       close();
@@ -70,13 +71,13 @@ export function PasskeyDeleteDialog({ open, passkey, onClose, landing }: Passkey
         close();
         return;
       }
-      setError(tCodes(translatableErrorCode(err)));
+      setError(refusalText(err));
     }
-  }, [close, deletePasskey, handleFeatureDisabled, passkey, noteRemoved, t, tCodes]);
+  }, [close, deletePasskey, handleFeatureDisabled, passkey, noteRemoved, refusalText, t]);
   const onConfirm = useSingleFlight(confirmRemoval);
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && close()}>
+    <AlertDialog open={open} busy={isLoading} onOpenChange={(next) => !next && close()}>
       <AlertDialogContent data-testid="passkey-delete-dialog" onCloseAutoFocus={focusLanding}>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('title')}</AlertDialogTitle>

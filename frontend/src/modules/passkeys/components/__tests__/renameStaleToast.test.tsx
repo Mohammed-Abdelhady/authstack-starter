@@ -3,7 +3,7 @@ import { isHeld } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
-import { refuseFirstWrite, sendRefusedThenAgain, toastOrder } from '@/tests/staleToast';
+import { refuseFirstWrite, sendRefusedInPlaceThenAgain, toastOrder } from '@/tests/staleToast';
 import { PasskeysCard } from '../PasskeysCard';
 
 vi.mock('sonner', () => ({
@@ -28,7 +28,7 @@ const PASSKEY = {
 registerFormTestLifecycle();
 
 describe('the toast of a refused passkey rename', () => {
-  it('is gone when the name is sent again and accepted', async () => {
+  it('is never raised: the dialog says why, and closes once the name is accepted', async () => {
     refuseFirstWrite({ ...PASSKEY, name: 'Work laptop' }, (path) =>
       path === '/api/auth/passkeys'
         ? { passkeys: [PASSKEY], canRemove: true }
@@ -40,12 +40,14 @@ describe('the toast of a refused passkey rename', () => {
     const name = screen.getByTestId('passkey-name-input');
     fireEvent.change(name, { target: { value: 'Work laptop' } });
 
-    await sendRefusedThenAgain(
+    // The dialog says why itself, so the refusal raises no toast to take down.
+    await sendRefusedInPlaceThenAgain(
       () => fireEvent.submit(form),
+      () => screen.queryByRole('alert') !== null,
       () => !isHeld(name),
     );
 
     await waitFor(() => expect(screen.queryByTestId('passkey-name-dialog')).toBeNull());
-    expect(toastOrder()).toEqual(['error', 'dismiss']);
+    expect(toastOrder()).toEqual([]);
   });
 });

@@ -217,8 +217,11 @@ export function LinkedAccountCard({
         </CardContent>
       </Card>
 
-      <AlertDialog open={showUnlinkDialog} onOpenChange={setShowUnlinkDialog}>
-        <AlertDialogContent onCloseAutoFocus={focusLanding}>
+      <AlertDialog open={showUnlinkDialog} busy={isUnlinking} onOpenChange={setShowUnlinkDialog}>
+        <AlertDialogContent
+          data-testid={`unlink-dialog-${providerId}`}
+          onCloseAutoFocus={focusLanding}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('unlinkConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useTranslations } from 'next-intl';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useConfirmTwoFactorMutation, useSetupTwoFactorMutation } from '../api';
 import { SETUP_STEP, type SetupStep, type TwoFactorSetup } from '../types';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
@@ -27,7 +27,7 @@ export interface TwoFactorSetupFlow {
  * scan the secret, confirm a first code, keep the recovery codes.
  */
 export function useTwoFactorSetup(): TwoFactorSetupFlow {
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [startSetup, { isLoading: isStarting }] = useSetupTwoFactorMutation();
   const [confirmSetup, { isLoading: isConfirming }] = useConfirmTwoFactorMutation();
@@ -41,17 +41,17 @@ export function useTwoFactorSetup(): TwoFactorSetupFlow {
     async (password?: string) => {
       setError(null);
       try {
-        setSetup(await startSetup({ password }).unwrap());
+        setSetup(await showsOwnRefusal(startSetup({ password })).unwrap());
         setStep(SETUP_STEP.SCAN);
       } catch (err) {
         // The card unmounts with its dialogs once the refetch lands.
         if (handleFeatureDisabled(err)) {
           return;
         }
-        setError(tCodes(translatableErrorCode(err)));
+        setError(refusalText(err));
       }
     },
-    [handleFeatureDisabled, startSetup, tCodes],
+    [handleFeatureDisabled, refusalText, startSetup],
   );
   const guardedStart = useSingleFlight(startOnce);
   const start = useCallback(
@@ -65,17 +65,17 @@ export function useTwoFactorSetup(): TwoFactorSetupFlow {
     async (code: string) => {
       setError(null);
       try {
-        const result = await confirmSetup({ code }).unwrap();
+        const result = await showsOwnRefusal(confirmSetup({ code })).unwrap();
         setRecoveryCodes(result.recoveryCodes);
         setStep(SETUP_STEP.RECOVERY_CODES);
       } catch (err) {
         if (handleFeatureDisabled(err)) {
           return;
         }
-        setError(tCodes(translatableErrorCode(err)));
+        setError(refusalText(err));
       }
     },
-    [confirmSetup, handleFeatureDisabled, tCodes],
+    [confirmSetup, handleFeatureDisabled, refusalText],
   );
   const guardedConfirm = useSingleFlight(confirmOnce);
   const confirm = useCallback(

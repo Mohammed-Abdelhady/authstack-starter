@@ -16,7 +16,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useRegenerateRecoveryCodesMutation } from '../api';
 import { TOTP_CODE_LENGTH } from '../constants';
 import { CodeField } from './CodeField';
@@ -42,7 +43,7 @@ type RegenerateFormData = z.infer<ReturnType<typeof createSchema>>;
 export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDialogProps) {
   const t = useTranslations('settings.twoFactor.regenerate');
   const tAnswer = useTranslations('auth.twoFactor');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const [regenerate, { isLoading }] = useRegenerateRecoveryCodesMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [codes, setCodes] = useState<string[] | null>(null);
@@ -60,16 +61,16 @@ export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDia
   const submit = useCallback(
     async (data: RegenerateFormData) => {
       try {
-        const result = await regenerate({ code: data.code }).unwrap();
+        const result = await showsOwnRefusal(regenerate({ code: data.code })).unwrap();
         setCodes(result.recoveryCodes);
       } catch (err) {
         if (handleFeatureDisabled(err)) {
           return;
         }
-        setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
+        setError('root', { type: 'manual', message: refusalText(err) });
       }
     },
-    [handleFeatureDisabled, regenerate, setError, tCodes],
+    [handleFeatureDisabled, refusalText, regenerate, setError],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -95,7 +96,7 @@ export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDia
   );
 
   return (
-    <Dialog open={open} onOpenChange={onDialogOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="two-factor-regenerate-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>

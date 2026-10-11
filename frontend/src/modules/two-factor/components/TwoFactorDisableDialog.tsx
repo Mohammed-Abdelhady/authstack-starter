@@ -28,7 +28,8 @@ import {
 } from '../utils/disableSchema';
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 
 interface TwoFactorDisableDialogProps {
@@ -52,11 +53,10 @@ export function TwoFactorDisableDialog({
   const t = useTranslations('settings.twoFactor.disable');
   const tPassword = useTranslations('settings.password');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const tAnswer = useTranslations('auth.twoFactor');
   const [disableTwoFactor, { isLoading }] = useDisableTwoFactorMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
-  const refusalToast = useRefusalToast(open);
   const { noteRemoved, focusLanding } = useRemovalFocus(landing);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   // The dialog focuses its first field, the password, unless the answer claims it.
@@ -115,43 +115,31 @@ export function TwoFactorDisableDialog({
   const submit = useCallback(
     async (data: DisableFormData) => {
       const request = toDisableRequest(data);
-      // A wrong password leaves a toast, and the next answer may be about the code.
-      refusalToast.clearStale();
       try {
-        await disableTwoFactor(request).unwrap();
+        await showsOwnRefusal(disableTwoFactor(request)).unwrap();
         toast.success(t('success'));
         noteRemoved();
         close();
       } catch (err) {
-        refusalToast.noteRefusal();
         if (handleFeatureDisabled(err)) {
           return;
         }
         const errorCode = translatableErrorCode(err);
         const field = refusedField(errorCode, request);
         if (field === null) {
-          setError('root', { type: 'manual', message: tCodes(errorCode) });
+          setError('root', { type: 'manual', message: refusalText(err) });
           return;
         }
-        setError(field, { type: SERVER_FIELD_ERROR_TYPE, message: tCodes(errorCode) });
+        setError(field, { type: SERVER_FIELD_ERROR_TYPE, message: refusalText(err) });
         setRefused({ field });
       }
     },
-    [
-      close,
-      disableTwoFactor,
-      handleFeatureDisabled,
-      refusalToast,
-      noteRemoved,
-      setError,
-      t,
-      tCodes,
-    ],
+    [close, disableTwoFactor, handleFeatureDisabled, refusalText, noteRemoved, setError, t],
   );
   const onSubmit = useSingleFlight(submit);
 
   return (
-    <Dialog open={open} onOpenChange={onDialogOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={onDialogOpenChange}>
       <DialogContent
         className="sm:max-w-md"
         data-testid="two-factor-disable-dialog"

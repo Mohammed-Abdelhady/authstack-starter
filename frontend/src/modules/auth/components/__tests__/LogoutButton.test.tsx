@@ -12,6 +12,8 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { isHeld } from '@/tests/busyControls';
+import { askToClose, isOpen } from '@/tests/dialogBusy';
 import { clickTwiceInOneTick, writesOf } from '../../__tests__/submitTwice';
 import { useGetCurrentUserQuery } from '../../store/authApi';
 import { LogoutButton } from '../LogoutButton';
@@ -166,6 +168,30 @@ describe('a sign-out the server did not confirm', () => {
     expect(page.isSignedIn()).toBe(false);
     expect(page.successToasts()).toEqual([page.message('toast.success.logoutSuccess')]);
     expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]);
+  });
+
+  it('cannot be closed while the retry is in flight, and can once it failed', async () => {
+    const retried = Promise.withResolvers<Response>();
+    const writes = answerSignOut(sessionGone, unreachable, () => retried.promise);
+    const page = await renderSignedIn();
+    fireEvent.click(page.button());
+    await screen.findByTestId('sign-out-not-confirmed-dialog');
+    fireEvent.click(page.retry());
+    await waitFor(() => expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]));
+
+    await askToClose('sign-out-not-confirmed-dialog');
+    fireEvent.click(page.stay());
+    await askToClose('sign-out-not-confirmed-dialog');
+
+    expect(isOpen('sign-out-not-confirmed-dialog')).toBe(true);
+    expect(isHeld(page.stay())).toBe(true);
+
+    retried.reject(new TypeError('Failed to fetch'));
+    await waitFor(() => expect(isHeld(page.stay())).toBe(false));
+    fireEvent.click(page.stay());
+
+    await waitFor(() => expect(screen.queryByTestId('sign-out-not-confirmed-dialog')).toBeNull());
+    expect(page.isSignedIn()).toBe(true);
   });
 
   it('keeps saying so when the retry fails as well', async () => {

@@ -54,7 +54,7 @@ export function TwoFactorSetupDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onDialogOpenChange}>
+    <Dialog open={open} busy={flow.isBusy} onOpenChange={onDialogOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="two-factor-setup-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
