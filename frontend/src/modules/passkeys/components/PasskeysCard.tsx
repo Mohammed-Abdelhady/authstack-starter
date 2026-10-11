@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Plus } from 'lucide-react';
 import { FormRootError } from '@/components/forms';
@@ -53,6 +53,8 @@ export function PasskeysCard() {
   const { register, isBusy, error } = useRegisterPasskey();
   const naming = useDialogTarget<PasskeyNameTarget>();
   const removing = useDialogTarget<PasskeySummary>();
+  // Takes focus once a passkey is removed: its row and buttons are gone.
+  const titleRef = useRef<HTMLParagraphElement>(null);
 
   const openNaming = naming.open;
   const onAdd = useCallback(async () => {
@@ -93,7 +95,9 @@ export function PasskeysCard() {
     <Card data-testid="passkeys-card">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>{t('title')}</CardTitle>
+          <CardTitle ref={titleRef} tabIndex={-1}>
+            {t('title')}
+          </CardTitle>
           <Badge variant={count > 0 ? 'success' : 'secondary'} data-testid="passkeys-count-badge">
             {t('count', { count })}
           </Badge>
@@ -144,6 +148,7 @@ export function PasskeysCard() {
         open={removing.isOpen}
         passkey={removing.target}
         onClose={removing.close}
+        landing={titleRef}
       />
     </Card>
   );

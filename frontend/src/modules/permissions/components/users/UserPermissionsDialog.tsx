@@ -2,7 +2,7 @@
 
 import { HEADING_ROLE_CLASSES } from '@/constants/typography';
 import { Heading } from '@/components/design-system';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -61,6 +61,7 @@ export function UserPermissionsDialog({
 
   const [addPermission, { isLoading: isAdding }] = useAddPermissionMutation();
   const [removePermission, { isLoading: isRemoving }] = useRemovePermissionMutation();
+  const directHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleAddPermissions = async () => {
     if (!userId || availablePermissions.length === 0) return;
@@ -91,6 +92,8 @@ export function UserPermissionsDialog({
       await removePermission({ userId, permission }).unwrap();
 
       toast.success(t('removeSuccess'));
+      // The row and its button leave with the permission.
+      directHeadingRef.current?.focus();
 
       // Refresh data
       refetch();
@@ -187,7 +190,12 @@ export function UserPermissionsDialog({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-status-success" />
-                      <Heading level={3} variant="subsectionTitle">
+                      <Heading
+                        level={3}
+                        variant="subsectionTitle"
+                        ref={directHeadingRef}
+                        tabIndex={-1}
+                      >
                         {t('directPermissions', { count: directPermissions.length })}
                       </Heading>
                     </div>

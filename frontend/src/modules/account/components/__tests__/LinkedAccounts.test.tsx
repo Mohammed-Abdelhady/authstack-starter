@@ -11,6 +11,7 @@ import {
   success,
 } from '@/tests/serverRejectionHarness';
 import { clickTwiceInOneTick } from '@/modules/auth/__tests__/submitTwice';
+import { availability, heldAnswer, HELD } from '@/tests/busyControls';
 import { LinkedAccounts } from '../LinkedAccounts';
 import { ProfileSyncStatus } from '../ProfileSyncStatus';
 
@@ -278,5 +279,66 @@ describe.each([
       email: message('settings.accounts.linkedDescription'),
       google: message('settings.accounts.linkedDescription'),
     });
+  });
+});
+
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('focus after an unlink is confirmed in %s', (locale) => {
+  /** Opens the unlink confirmation from the Google row and presses its confirm button. */
+  async function confirmUnlink(opener: HTMLElement) {
+    opener.focus();
+    fireEvent.click(opener);
+    const confirm = await screen.findByTestId('unlink-confirm-google');
+    await waitFor(() =>
+      expect(screen.getByRole('alertdialog').contains(document.activeElement)).toBe(true),
+    );
+    confirm.focus();
+    fireEvent.click(confirm);
+  }
+
+  it('goes to the heading of the list once the account and its card are gone', async () => {
+    let linked = ['email', 'google'];
+    const held = heldAnswer();
+    stubNetwork((request, path) => {
+      if (request.method === 'DELETE') {
+        linked = ['email'];
+        return held.answer;
+      }
+      return path === LINKED_PATH
+        ? success({ providers: linked, unlinkHints: { email: 'not_removable', google: 'allowed' } })
+        : success({ providers: [{ id: 'google', displayName: 'Google' }] });
+    });
+    const { message, unlink } = await renderAccounts(locale);
+    const heading = screen.getByRole('heading', {
+      name: message('settings.accounts.linkedAccountsLabel'),
+    });
+    const opener = unlink();
+    if (!opener) throw new Error('the unlink control is missing');
+
+    await confirmUnlink(opener);
+    const confirm = screen.getByTestId('unlink-confirm-google');
+    await waitFor(() => expect(availability(confirm)).toEqual(HELD));
+    expect(document.activeElement).toBe(confirm);
+    held.settle(() => success({}));
+
+    await waitFor(() => expect(screen.queryByTestId('linked-account-google')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
+  it('returns to the unlink button when the server refuses, since the card is still there', async () => {
+    server({
+      hints: [{ email: 'not_removable', google: 'allowed' }],
+      unlink: () => refusalWith(400, 'CANNOT_UNLINK_LAST_PROVIDER'),
+    });
+    const { unlink } = await renderAccounts(locale);
+    const opener = unlink();
+    if (!opener) throw new Error('the unlink control is missing');
+
+    await confirmUnlink(opener);
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(unlink()));
   });
 });

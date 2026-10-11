@@ -2,6 +2,7 @@
 
 import { Heading } from '@/components/design-system';
 import { memo, useId, useState, useCallback } from 'react';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, LogOut, MapPin, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,8 @@ import { formatTimeAgo } from '@/lib/formatters';
 
 interface SessionCardTimelineProps {
   readonly session: Session;
+  /** The heading that takes focus once this session is signed out and its card is gone. */
+  readonly landing?: RemovalLanding;
 }
 
 /**
@@ -49,12 +52,13 @@ interface SessionCardTimelineProps {
  * ```
  */
 export const SessionCardTimeline = memo(
-  function SessionCardTimeline({ session }: SessionCardTimelineProps) {
+  function SessionCardTimeline({ session, landing }: SessionCardTimelineProps) {
     const t = useTranslations('sessions');
     const tCommon = useTranslations('common');
     const locale = useLocale();
     const [showConfirm, setShowConfirm] = useState(false);
     const [deleteSession, { isLoading }] = useDeleteSessionMutation();
+    const { noteRemoved, focusLanding } = useRemovalFocus(landing);
 
     const { device, browser, os } = parseUserAgent(session.userAgent);
 
@@ -70,11 +74,12 @@ export const SessionCardTimeline = memo(
       try {
         await deleteSession(session.id).unwrap();
         toast.success(t('logoutSuccess'));
+        noteRemoved();
         setShowConfirm(false);
       } catch (error) {
         reportUnlessHandled(error);
       }
-    }, [deleteSession, session.id, t]);
+    }, [deleteSession, noteRemoved, session.id, t]);
 
     const handleShowConfirm = useCallback(() => setShowConfirm(true), []);
     const handleHideConfirm = useCallback(() => setShowConfirm(false), []);
@@ -170,7 +175,10 @@ export const SessionCardTimeline = memo(
 
         {/* Logout Confirmation Dialog */}
         <AlertDialog open={showConfirm} onOpenChange={handleHideConfirm}>
-          <AlertDialogContent data-testid="logout-session-confirm-dialog">
+          <AlertDialogContent
+            data-testid="logout-session-confirm-dialog"
+            onCloseAutoFocus={focusLanding}
+          >
             <AlertDialogHeader>
               <AlertDialogTitle>{t('logoutConfirmTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
@@ -185,7 +193,11 @@ export const SessionCardTimeline = memo(
                 {tCommon('cancel')}
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleLogout}
+                onClick={(event) => {
+                  // Stays open until the answer arrives, so focus has one place to go.
+                  event.preventDefault();
+                  void handleLogout();
+                }}
                 busy={isLoading}
                 aria-busy={isLoading}
                 data-testid="confirm-logout-button"

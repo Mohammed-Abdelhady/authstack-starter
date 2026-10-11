@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Activity } from 'react';
+import { useState, useEffect, useRef, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { RefreshCw, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,8 @@ export default function SessionsPage() {
     pollingInterval: 30000, // Auto-refresh every 30 seconds
   });
 
+  // Takes focus once a session is signed out: its button leaves with it.
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const otherSessionsCount = sessions?.filter((s) => !s.isCurrent).length || 0;
   const currentSessionIndex = sessions?.findIndex((s) => s.isCurrent) ?? -1;
 
@@ -50,7 +52,7 @@ export default function SessionsPage() {
       <div className="my-8 ">
         <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
           <div>
-            <Heading level={1} variant="pageTitle">
+            <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
               {t('title')}
             </Heading>
             <Description className="mt-1">{t('description')}</Description>
@@ -70,7 +72,7 @@ export default function SessionsPage() {
               />
               {t('refresh')}
             </Button>
-            <RevokeAllSessionsButton otherSessionsCount={otherSessionsCount} />
+            <RevokeAllSessionsButton otherSessionsCount={otherSessionsCount} landing={titleRef} />
           </div>
         </div>
 
@@ -142,7 +144,7 @@ export default function SessionsPage() {
           </h2>
           <TimelineList
             items={sessions || []}
-            renderItem={(session) => <SessionCardTimeline session={session} />}
+            renderItem={(session) => <SessionCardTimeline session={session} landing={titleRef} />}
             highlightIndex={currentSessionIndex}
             stagger={shouldAnimate}
           />

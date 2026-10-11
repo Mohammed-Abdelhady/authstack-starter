@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import {
@@ -26,6 +27,8 @@ interface PasskeyDeleteDialogProps {
   /** The passkey to remove. Held while the dialog fades out. */
   passkey: PasskeySummary | null;
   onClose: () => void;
+  /** The heading that takes focus once the passkey is gone, and its row with it. */
+  landing?: RemovalLanding;
 }
 
 /**
@@ -35,13 +38,14 @@ interface PasskeyDeleteDialogProps {
  * which arrives as PASSKEY_LAST_SIGN_IN_METHOD and is shown here rather than
  * as a toast: the dialog is where the decision is being made.
  */
-export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDialogProps) {
+export function PasskeyDeleteDialog({ open, passkey, onClose, landing }: PasskeyDeleteDialogProps) {
   const t = useTranslations('settings.passkeys.delete');
   const tCommon = useTranslations('common');
   const tCodes = useTranslations('errors.codes');
   const [deletePasskey, { isLoading }] = useDeletePasskeyMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [error, setError] = useState<string | null>(null);
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
 
   // The dialog stays mounted between passkeys, so a refusal is dropped on the
   // way out rather than kept for whichever passkey opens it next.
@@ -59,6 +63,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDia
     try {
       await deletePasskey(passkey.id).unwrap();
       toast.success(t('success'));
+      noteRemoved();
       close();
     } catch (err) {
       if (handleFeatureDisabled(err)) {
@@ -67,12 +72,12 @@ export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDia
       }
       setError(tCodes(translatableErrorCode(err)));
     }
-  }, [close, deletePasskey, handleFeatureDisabled, passkey, t, tCodes]);
+  }, [close, deletePasskey, handleFeatureDisabled, passkey, noteRemoved, t, tCodes]);
   const onConfirm = useSingleFlight(confirmRemoval);
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => !next && close()}>
-      <AlertDialogContent data-testid="passkey-delete-dialog">
+      <AlertDialogContent data-testid="passkey-delete-dialog" onCloseAutoFocus={focusLanding}>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('title')}</AlertDialogTitle>
           <AlertDialogDescription>{t('description', { name })}</AlertDialogDescription>
