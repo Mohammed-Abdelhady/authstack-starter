@@ -16,6 +16,7 @@ import { SearchBar } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
 import { useDebounce } from '@/hooks/useDebounce';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
 import { TruncatedText } from '@/modules/permissions/components/shared/TruncatedText';
 import type { Role } from '@/modules/roles/types';
 
@@ -83,6 +84,7 @@ export function RoleFilter({
           <DialogDescription>{t('roleFilterHint')}</DialogDescription>
         </DialogHeader>
         <SearchBar
+          className={FREE_TEXT_SEARCH_CLASSES}
           value={search}
           onChange={(event) => changeSearch(event.target.value)}
           onClear={() => changeSearch('')}
@@ -113,18 +115,20 @@ export function RoleFilter({
               </Button>
             </div>
           ) : (
-            <div className="grid gap-1" data-testid="role-filter-results">
+            <div className="grid grid-cols-1 gap-1" data-testid="role-filter-results">
               {currentData?.roles.map((role) => (
                 <Button
                   key={role.id}
                   variant={value === role.slug ? 'secondary' : 'ghost'}
-                  className="justify-start"
+                  className="h-auto min-h-10 justify-start whitespace-normal text-start [overflow-wrap:anywhere]"
                   disabled={isFetching}
                   aria-pressed={value === role.slug}
                   onClick={() => choose(role)}
                   data-testid={`role-filter-option-${role.slug}`}
                 >
-                  <span dir="auto">{role.name}</span>
+                  <span className="min-w-0">
+                    <span dir="auto">{role.name}</span>
+                  </span>
                 </Button>
               ))}
               {!isFetching && currentData?.roles.length === 0 && (

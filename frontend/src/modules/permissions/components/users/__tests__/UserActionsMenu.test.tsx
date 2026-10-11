@@ -58,6 +58,24 @@ describe.each([
     ]);
   });
 
+  it('labels the two buttons of the deactivate confirmation so neither reads as the other', async () => {
+    const { message } = await openMenu(locale);
+
+    fireEvent.click(screen.getByTestId('deactivate-user-user-7'));
+    const cancel = (await screen.findByTestId('cancel-user-action-button')).textContent ?? '';
+    const confirm = screen.getByTestId('confirm-user-action-button').textContent ?? '';
+
+    expect({ cancel, confirm }).toEqual({
+      cancel: message('users.actions.cancel'),
+      confirm: message('users.actions.deactivateConfirm'),
+    });
+    // One label inside the other is what made "cancel" and "cancel the activation" a trap.
+    expect({
+      cancelInConfirm: confirm.includes(cancel),
+      confirmInCancel: cancel.includes(confirm),
+    }).toEqual({ cancelInConfirm: false, confirmInCancel: false });
+  });
+
   it('deactivates through the status route after the confirmation', async () => {
     const requests = stubNetwork(() => success({ id: USER._id, isDeleted: true }));
     const { format, successToasts } = await openMenu(locale);

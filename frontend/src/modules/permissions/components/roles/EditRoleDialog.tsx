@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { useUpdateRoleMutation, type Role } from '../../api/rolesApi';
 import { EditRoleForm, type EditRoleFormValues } from './EditRoleForm';
+import { useRefusalToast } from '../../hooks/useRefusalToast';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 
@@ -43,6 +44,7 @@ export interface EditRoleDialogProps {
 export function EditRoleDialog({ open, onOpenChange, role, onSuccess }: EditRoleDialogProps) {
   const t = useTranslations('roles.form');
   const [updateRole, { isLoading }] = useUpdateRoleMutation();
+  const refusalToast = useRefusalToast();
 
   const handleSubmit = async (
     data: EditRoleFormValues,
@@ -67,10 +69,12 @@ export function EditRoleDialog({ open, onOpenChange, role, onSuccess }: EditRole
         data: updateData,
       }).unwrap();
 
+      refusalToast.clearBeforeSuccess();
       toast.success(t('updateSuccess', { name: data.name.trim() || role.name }));
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
+      refusalToast.noteRefusal();
       markRefusedFields(error);
       reportUnlessHandled(error);
     }

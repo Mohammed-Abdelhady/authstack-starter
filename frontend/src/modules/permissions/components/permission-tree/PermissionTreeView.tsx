@@ -2,6 +2,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { PermissionNode } from './PermissionNode';
+import { PERMISSION_GROUPS } from '../search/SearchPermissionTabs';
 import { Shield } from 'lucide-react';
 
 export interface PermissionTreeViewProps {
@@ -70,6 +71,7 @@ export function PermissionTreeView({
   className,
 }: PermissionTreeViewProps) {
   const t = useTranslations('permissions.tree');
+  const tSelector = useTranslations('permissions.selector');
   const groupedPermissions = groupPermissions(permissions);
 
   // Check for wildcard
@@ -97,8 +99,12 @@ export function PermissionTreeView({
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
             {showHeaders && resource !== 'wildcard' && (
-              <Heading level={4} variant="eyebrow">
-                {resource}
+              <Heading level={4} variant="eyebrow" data-testid={`permission-group-${resource}`}>
+                {PERMISSION_GROUPS.some((group) => group.id === resource) ? (
+                  tSelector(`groups.${resource}`)
+                ) : (
+                  <span dir="ltr">{resource}</span>
+                )}
               </Heading>
             )}
 

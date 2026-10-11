@@ -7,7 +7,6 @@ import { Lock, Shield } from 'lucide-react';
 import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
 import { cn } from '@/lib/utils';
 import type { Role } from '../../api/rolesApi';
-import { TruncatedText } from '../shared/TruncatedText';
 
 export interface RoleSidebarNavProps {
   /**
@@ -102,8 +101,8 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                 data-testid={`role-nav-item-${role.slug}`}
               >
                 <Shield className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                <span className="flex min-w-0 flex-1">
-                  <TruncatedText value={role.name} dir="auto" />
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                  <span dir="auto">{role.name}</span>
                 </span>
                 {role.isProtected && (
                   <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
@@ -137,8 +136,8 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                 )}
                 data-testid={`role-nav-item-${role.slug}`}
               >
-                <span className="flex min-w-0 flex-1">
-                  <TruncatedText value={role.name} dir="auto" />
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                  <span dir="auto">{role.name}</span>
                 </span>
                 {role.isProtected && (
                   <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
