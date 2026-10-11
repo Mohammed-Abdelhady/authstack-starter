@@ -72,6 +72,8 @@ describe.each([
 
     expect(trigger.textContent).toBe(LONG_NAME);
     expect(within(trigger).getByText(LONG_NAME).getAttribute('dir')).toBe('auto');
+    // Direction marks belong in text on screen, not in a name that is read out.
+    expect(trigger.getAttribute('aria-label')?.endsWith(`: ${LONG_NAME}`)).toBe(true);
   });
 
   it('is whole in the open list of the card selector', async () => {
