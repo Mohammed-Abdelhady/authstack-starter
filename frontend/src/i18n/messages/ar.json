@@ -956,6 +956,7 @@
     "userRole": {
       "protected": "محمي",
       "changeTitle": "تغيير دور المستخدم؟",
+      "thisUser": "هذا المستخدم",
       "changeDescription": "أنت على وشك تغيير دور <strong>{name}</strong> من <strong>{from}</strong> إلى <strong>{to}</strong>.",
       "changeWarning": "سيؤدي هذا إلى تحديث صلاحياته ومستويات وصوله فوراً.",
       "cancel": "إلغاء",

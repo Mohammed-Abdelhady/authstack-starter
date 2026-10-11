@@ -147,6 +147,7 @@ export const UserCard = memo(
                 <UserRoleSelector
                   userId={user._id}
                   currentRole={user.role}
+                  userName={user.name}
                   onRoleChange={onRoleChange}
                 />
               )}

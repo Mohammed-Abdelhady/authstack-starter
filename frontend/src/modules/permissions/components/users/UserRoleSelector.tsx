@@ -28,6 +28,8 @@ import { reportUnlessHandled } from '@/lib/requestFailure';
 interface UserRoleSelectorProps {
   readonly userId: string;
   readonly currentRole: string;
+  /** Named in the confirmation. A user without a name is called "this user". */
+  readonly userName?: string;
   readonly onRoleChange?: (newRole: string) => Promise<void>;
   readonly disabled?: boolean;
 }
@@ -39,6 +41,7 @@ interface UserRoleSelectorProps {
 export function UserRoleSelector({
   userId,
   currentRole,
+  userName,
   onRoleChange,
   disabled = false,
 }: UserRoleSelectorProps) {
@@ -148,7 +151,7 @@ export function UserRoleSelector({
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t.rich('changeDescription', {
-                name: 'this user',
+                name: userName?.trim() || t('thisUser'),
                 from: currentRoleData?.name || currentRole,
                 to: pendingRoleData?.name || pendingRole || '',
                 strong: (chunks) => (
