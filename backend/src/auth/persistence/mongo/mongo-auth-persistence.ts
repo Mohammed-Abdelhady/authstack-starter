@@ -32,7 +32,6 @@ import {
 import { MONGO_ACTIVATION_STORES } from './mongo-activation-accounts';
 import { MONGO_PASSWORD_SIGN_IN_STORE } from './mongo-password-sign-in.store';
 import { MONGO_PENDING_CODE_STORES } from './mongo-pending-code-stores';
-import { SessionService } from './session.service';
 import { SignInService } from './sign-in.service';
 
 export const MONGO_AUTH_MODELS: DynamicModule = MongooseModule.forFeature([
@@ -46,10 +45,10 @@ export const MONGO_AUTH_MODELS: DynamicModule = MongooseModule.forFeature([
 ]);
 
 /**
- * The MongoDB faces of the session and sign-in services, for the adapters that
- * hold an account as a document and for specs that speak Mongoose.
+ * The MongoDB face of the sign-in service, for the adapters that hold an
+ * account as a document.
  */
-export const MONGO_AUTH_BRIDGES: Type[] = [SessionService, SignInService];
+export const MONGO_AUTH_BRIDGES: Type[] = [SignInService];
 
 export const MONGO_AUTH_PROVIDERS: Provider[] = [
   ...MONGO_PENDING_CODE_STORES,
