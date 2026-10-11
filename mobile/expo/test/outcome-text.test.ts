@@ -41,7 +41,10 @@ const PROFILE = {
 const FAILURE = new Error('failed');
 const OAUTH = new OAuthError({ status: 400, error: 'invalid_grant' });
 const API = new ApiError({ status: 403, code: 'FORBIDDEN', message: 'No access' });
-const LOCALES = ['en', 'ar'] as const;
+const LOCALES = [
+  'en',
+  'ar', // feature:locale-ar
+] as const;
 
 type Samples<T extends { kind: string }> = {
   [K in T['kind']]: { outcome: Extract<T, { kind: K }>; key: MessageKey; outsideData?: true };
@@ -198,12 +201,14 @@ describe('every outcome of every action', () => {
     }
   });
 
+  // feature:locale-ar:start
   it.each(EVERY_OUTCOME.filter(({ outsideData }) => !outsideData))(
     'shows $name in Arabic with no raw identifier or English word',
     ({ line }) => {
       expect(render('ar', line)).not.toMatch(/[A-Za-z]/);
     },
   );
+  // feature:locale-ar:end
 });
 
 describe('the detail of an outcome', () => {
@@ -323,8 +328,8 @@ describe('an error a request rejects with', () => {
     expect(describeError(error)).toEqual(expected);
   });
 
-  it('never prints the English message of an error', () => {
-    const text = render('ar', describeError(new RangeError('too large')));
+  it.each(LOCALES)('never prints the message an error carries, in %s', (locale) => {
+    const text = render(locale, describeError(new RangeError('too large')));
 
     expect(text).not.toContain('too large');
     expect(text).toContain('RangeError');

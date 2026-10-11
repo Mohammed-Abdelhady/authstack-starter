@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
 // Only a persistence adapter folder of the backend may import a database
-// driver. The backend's own lint configuration is read for each path below, so
+// driver, and only the wiring file of a module may import a file of an adapter
+// folder. The backend's own lint configuration is read for each path below, so
 // a rule that is loosened or scoped away from a folder fails here.
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const BACKEND = resolve(ROOT, 'backend');
@@ -23,6 +24,10 @@ const MONGO_SCHEMA = 'src/user/persistence/mongo/schemas/user.schema.ts';
 const POSTGRES_ADAPTER = 'src/session/persistence/postgres/postgres-browser-issuance.store.ts';
 const TEST_SUPPORT = 'test/utils/session-authority-harness.ts';
 const POSTGRES_TEST_SUPPORT = 'test/postgres/postgres-connection.ts';
+const CONTROLLER = 'src/auth/passkeys/passkeys.controller.ts';
+const WIRING = 'src/auth/passkeys/persistence/passkeys-persistence.ts';
+const BESIDE_ADAPTERS = 'src/common/persistence/storage-choice.ts';
+const HARNESS_OUTSIDE = 'src/auth/two-factor/contract/two-factor-contract.harness-spec.ts';
 
 let ESLint;
 let tseslint;
@@ -104,7 +109,6 @@ test('nothing but a driver is reported outside an adapter', async () => {
   const source = [
     "import { Injectable } from '@nestjs/common';",
     "import { UnitOfWork } from '../common/persistence/unit-of-work';",
-    "import { MongoIdFormat } from '../common/persistence/mongo/mongo-id-format';",
     "import format from 'pg-format';",
     "import lean from 'mongoose-lean-virtuals';",
     "import { something } from '@nestjs/mongoose-extras';",
@@ -113,7 +117,85 @@ test('nothing but a driver is reported outside an adapter', async () => {
     "jest.mock('mongoose', () => {",
     "  throw new Error('mongoose was loaded above the seam');",
     '});',
-    'void [Injectable, MongoIdFormat, format, lean, something, tool];',
+    'void [Injectable, format, lean, something, tool];',
+    'export type Kept = UnitOfWork;',
+  ].join('\n');
+
+  assert.deepEqual(await reportedLines(SERVICE, source), []);
+});
+
+test('a service, a module and a controller may not load a file of an adapter folder in any way', async () => {
+  const source = [
+    "import { MongoIdFormat } from '../common/persistence/mongo/mongo-id-format';",
+    "import type { PostgresTables } from '../../common/persistence/postgres/postgres-database';",
+    "import { type Stores } from './persistence/mongo/mongo-passkey-stores';",
+    "import * as adapter from './persistence/postgres';",
+    "import '../persistence/mongo';",
+    "export { toUuid } from '../session/persistence/postgres/postgres-issuance-mappers';",
+    "export * from '../session/persistence/mongo/mongo-unit-of-work';",
+    "import legacy = require('../common/persistence/mongo/mongo-connection');",
+    "const lazy = require('./persistence/postgres/postgres-passkey.store');",
+    "export const later = () => import('../../persistence/mongo/schemas/user.schema');",
+    'void [MongoIdFormat, adapter, legacy, lazy];',
+    'export type Kept = PostgresTables | Stores;',
+  ].join('\n');
+
+  for (const file of [SERVICE, MODULE, CONTROLLER]) {
+    assert.deepEqual(await reportedLines(file, source), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], file);
+  }
+});
+
+test('a file beside the adapter folders may not load them by their short path either', async () => {
+  const source = [
+    "import { MongoIdFormat } from './mongo/mongo-id-format';",
+    "import { PostgresIdFormat } from './postgres/postgres-id-format';",
+    "const lazy = require('./mongo/mongo-connection');",
+    "export const later = () => import('./postgres');",
+    "import { MongoPasskeyStore } from '../../auth/passkeys/persistence/mongo/mongo-passkey.store';",
+    'void [MongoIdFormat, PostgresIdFormat, lazy, MongoPasskeyStore];',
+  ].join('\n');
+
+  assert.deepEqual(await reportedLines(BESIDE_ADAPTERS, source), [1, 2, 3, 4, 5]);
+});
+
+test('the wiring file of a module loads its adapters, and an adapter loads its own files', async () => {
+  const wiring = [
+    "import { MONGO_PASSKEY_STORES } from './mongo/mongo-passkeys-persistence';",
+    "import { POSTGRES_PASSKEY_STORES } from './postgres/postgres-passkeys-persistence';",
+    "import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';",
+    'void [MONGO_PASSKEY_STORES, POSTGRES_PASSKEY_STORES, postgresTransactionOf];',
+  ].join('\n');
+  const adapter = [
+    "import { toStored } from './mongo-browser-issuance-mappers';",
+    "import { mapMongoError } from '../../../session/persistence/mongo/mongo-persistence-errors';",
+    'void [toStored, mapMongoError];',
+  ].join('\n');
+
+  assert.deepEqual(await reportedLines(WIRING, wiring), []);
+  assert.deepEqual(await reportedLines(MONGO_ADAPTER, adapter), []);
+});
+
+test('a spec and its harness outside an adapter may build the adapter they run on', async () => {
+  const source = [
+    "import { MongoPasskeyStore } from '../persistence/mongo/mongo-passkey.store';",
+    "import { PostgresPasskeyStore } from '../persistence/postgres/postgres-passkey.store';",
+    'void [MongoPasskeyStore, PostgresPasskeyStore];',
+  ].join('\n');
+
+  for (const file of [SPEC_OUTSIDE, HARNESS_OUTSIDE]) {
+    assert.deepEqual(await reportedLines(file, source), [], file);
+  }
+});
+
+test('a path that only resembles an adapter folder is not reported', async () => {
+  const source = [
+    "import { UnitOfWork } from '../common/persistence/unit-of-work';",
+    "import { PASSKEYS } from './persistence/passkeys-persistence';",
+    "import { note } from '../common/persistence/mongo-notes';",
+    "import { plan } from '../common/persistence/postgres-plan/steps';",
+    "import { shape } from '../docs/mongo/shape';",
+    "const lazy = require('../common/persistence/mongodb');",
+    'void [PASSKEYS, note, plan, shape, lazy];',
     'export type Kept = UnitOfWork;',
   ].join('\n');
 

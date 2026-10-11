@@ -6,7 +6,10 @@ import {
   writeDatabaseEnvExamples,
 } from '../../src/prune/database.js';
 import { prune } from '../../src/prune/index.js';
-import { FIXTURE_MANIFEST } from '../support/fixture.js';
+import { resolveOwnership, type Ownership } from '../../src/manifest/ownership.js';
+import { resolvePlan } from '../../src/manifest/plan.js';
+import type { RulesPolicy } from '../../src/types.js';
+import { FIXTURE_MANIFEST, TOOLING_MANIFEST } from '../support/fixture.js';
 import { database, project, read, removeProjects } from './database-fixture.js';
 
 afterEach(removeProjects);
@@ -211,6 +214,63 @@ describe('a file one database gives up and the chosen one takes the name of', ()
       compose: 'second\n',
       dangling: [],
       unmatched: [],
+    });
+  });
+});
+
+describe('a rule that found nothing, by what the project left out', () => {
+  const manifest = {
+    ...TOOLING_MANIFEST,
+    databases: {
+      first: database({ label: 'First', default: true }),
+      second: database({ rewrites: [{ files: ['docs/**'], from: 'ghost text', to: 'x' }] }),
+    },
+  };
+  const RULE = 'Second: no file holds the text "ghost text"';
+  const everyFeature = Object.keys(manifest.features).filter((id) => id !== 'gamma');
+  const everyClient = resolveOwnership(
+    manifest,
+    resolvePlan(manifest, { targets: Object.keys(manifest.targets), projectName: 'app' }),
+  );
+
+  async function unexplained(
+    features: string[],
+    rules: RulesPolicy = 'strict',
+    ownership: Ownership = everyClient,
+  ): Promise<{ unmatched: string[]; unexplained: string[] }> {
+    const root = await project({ 'package.json': '{}', 'docs/a.md': 'run it' });
+    const result = await prune(root, manifest, features, [], rules, ownership, ['second']);
+    return {
+      unmatched: result.unmatchedDatabaseRules,
+      unexplained: result.unexplainedDatabaseRules,
+    };
+  }
+
+  it('has no explanation when every method, option and client is kept', async () => {
+    // "gamma" is planned: no project can have it, so leaving it out explains nothing.
+    expect(await unexplained(everyFeature)).toEqual({ unmatched: [RULE], unexplained: [RULE] });
+  });
+
+  it('is explained by a sign-in method that was left out', async () => {
+    expect(await unexplained(['email-password', 'alpha'])).toEqual({
+      unmatched: [RULE],
+      unexplained: [],
+    });
+  });
+
+  it('is explained by the standard rules level, which rewrites files', async () => {
+    expect(await unexplained(everyFeature, 'standard')).toEqual({
+      unmatched: [RULE],
+      unexplained: [],
+    });
+  });
+
+  it('is explained by a client that was left out', async () => {
+    const webOnly: Ownership = { ...everyClient, removedFiles: ['mobile/**'] };
+
+    expect(await unexplained(everyFeature, 'strict', webOnly)).toEqual({
+      unmatched: [RULE],
+      unexplained: [],
     });
   });
 });

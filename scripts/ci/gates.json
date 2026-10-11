@@ -7,6 +7,7 @@
       "MONGOMS_DISABLE_POSTINSTALL": "1"
     }
   },
+  "groups": ["quality", "api", "installer", "installer-postgres", "installer-mongodb"],
   "gates": [
     {
       "name": "Full-tree hard bans",
@@ -59,13 +60,13 @@
     },
     {
       "name": "Backend end-to-end",
-      "group": "quality",
+      "group": "api",
       "command": "pnpm",
       "args": ["--filter", "backend", "run", "test:e2e"]
     },
     {
       "name": "Backend end-to-end on PostgreSQL",
-      "group": "quality",
+      "group": "api",
       "command": "pnpm",
       "args": ["--filter", "backend", "run", "test:e2e:postgres"],
       "repositoryOnly": true
@@ -75,6 +76,20 @@
       "group": "installer",
       "command": "pnpm",
       "args": ["--filter", "create-nest-next-auth", "run", "test:combinations"],
+      "repositoryOnly": true
+    },
+    {
+      "name": "Installer PostgreSQL projects",
+      "group": "installer-postgres",
+      "command": "pnpm",
+      "args": ["--filter", "create-nest-next-auth", "run", "test:combinations:postgres"],
+      "repositoryOnly": true
+    },
+    {
+      "name": "Installer MongoDB projects",
+      "group": "installer-mongodb",
+      "command": "pnpm",
+      "args": ["--filter", "create-nest-next-auth", "run", "test:combinations:mongodb"],
       "repositoryOnly": true
     }
   ],

@@ -3,7 +3,8 @@
     "^scripts/guardrails/.*\\.(?:test|slow)\\.mjs$",
     "^scripts/guardrails/(?:test-repository\\.mjs|workspace/(?:workspace-policy|workspace-tool-fixture)\\.mjs|git/round8-hook-fixture\\.mjs)$",
     "^scripts/eslint-policy\\.test\\.mjs$",
-    "^scripts/ci/.*\\.test\\.mjs$"
+    "^scripts/ci/.*\\.test\\.mjs$",
+    "^scripts/lib/process-tree\\.(?:mjs|d\\.mts)$"
   ],
   "POLICY_PATH": "scripts/guardrails/policy.mjs",
   "DOC_PATH": "docs/reference/code-quality.md",

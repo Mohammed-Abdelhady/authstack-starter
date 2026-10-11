@@ -276,10 +276,10 @@ a markdown `<!-- feature:docker:start -->` block, or a root `package.json`
 script that runs Docker. `production` requires `docker`; asking for
 `--no-docker` while production is still on is a usage error, not a silent drop.
 
-Turning Arabic off removes the `ar` locale, the Arabic catalogues and their
-tests. The `rtl:` utility variants, the direction provider and the `lint:rtl`
-direction-safe check stay, because the English UI still uses them; the option is
-about the language, not about stripping direction support.
+Turning Arabic off removes the `ar` locale, its catalogues and their tests from
+the website and the mobile apps. The `rtl:` utility variants, the direction
+provider and the `lint:rtl` direction-safe check stay, because the English UI
+still uses them; the option is about the language, not direction support.
 
 A `hidden` feature is never shown, never a default and cannot be requested by
 id. It arrives through another feature's `requires`, which is how `oauth-core`
@@ -298,7 +298,7 @@ build.
 ```bash
 pnpm --filter create-nest-next-auth run build   # sync-template.mjs, then tsdown
 pnpm --filter create-nest-next-auth run test
-pnpm --filter create-nest-next-auth run test:combinations   # slow
+pnpm --filter create-nest-next-auth run test:combinations:all   # slow, three jobs in CI
 npm pack -w packages/create-nest-next-auth --dry-run
 npm publish -w packages/create-nest-next-auth --dry-run
 ```

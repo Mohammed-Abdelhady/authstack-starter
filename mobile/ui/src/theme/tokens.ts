@@ -93,7 +93,7 @@ export interface TypeRole {
 }
 
 /**
- * Line heights leave room for Arabic letterforms, which sit taller than Latin ones.
+ * Line heights leave room for letterforms that sit taller than Latin ones.
  * The title is already large, so it stops growing at twice its size: beyond that
  * a single word no longer fits a phone's width and breaks in the middle.
  */

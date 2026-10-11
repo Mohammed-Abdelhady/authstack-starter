@@ -28,7 +28,7 @@ const PLATFORM_IMPORTS = {
 const TOKENS_MESSAGE = 'Take this value from src/theme/tokens.ts.';
 const TYPE_MESSAGE =
   'Text styles come from the type roles. Use Heading, Description, Body or Label from components/Typography.';
-const DIRECTION_MESSAGE = 'Use the start and end form so the layout mirrors in Arabic.';
+const DIRECTION_MESSAGE = 'Use the start and end form so the layout mirrors right to left.';
 
 const LITERAL_VALUES = [
   { selector: 'Literal[value=/^(#[0-9a-fA-F]{3,8}$|rgba?\\(|hsla?\\()/]', message: TOKENS_MESSAGE },
@@ -51,7 +51,10 @@ const PHYSICAL_SIDES = [
       'Property[key.name=/^(left|right|(margin|padding)(Left|Right)|border(Left|Right)(Width|Color)|border(Top|Bottom)(Left|Right)Radius)$/]',
     message: DIRECTION_MESSAGE,
   },
-  { selector: 'Property[key.name="textAlign"] > Literal[value=/^(left|right)$/]', message: DIRECTION_MESSAGE },
+  {
+    selector: 'Property[key.name="textAlign"] > Literal[value=/^(left|right)$/]',
+    message: DIRECTION_MESSAGE,
+  },
 ];
 
 export default tseslint.config(

@@ -17,6 +17,7 @@ import {
 import { SecondFactorVerifier } from '../services/second-factor-verifiers';
 import { TotpSecretCryptoService } from '../services/totp-secret-crypto.service';
 import { TwoFactorChallengeService } from '../services/two-factor-challenge.service';
+import { passwordSwitch } from '../services/password-switch.harness-spec';
 import { TwoFactorReauthService } from '../services/two-factor-reauth.service';
 import { TwoFactorVerificationService } from '../services/two-factor-verification.service';
 import { SecondFactorAccount } from '../stores/second-factor-account';
@@ -145,7 +146,7 @@ export function twoFactorServices(
       accounts,
       crypto,
       verification,
-      new TwoFactorReauthService(new HashService(config)),
+      new TwoFactorReauthService(new HashService(config), passwordSwitch(true)),
     ),
     login: new TwoFactorLoginService(
       accounts,

@@ -21,7 +21,10 @@ const CASES: readonly [DeviceParts, MessageKey, MessageArguments | undefined][] 
   [{ kind: 'unknown' }, 'sessions.unknownDevice', undefined],
 ];
 
-describe.each(['en', 'ar'] as const)('device parts in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('device parts in %s', (locale) => {
   it.each(CASES)('composes %j through the catalogue', (deviceParts, key, values) => {
     const calls: [MessageKey, MessageArguments | undefined][] = [];
     const device = deviceNameOf({ userAgent: '', deviceName: 'Legacy phrase', deviceParts }, false);

@@ -12,7 +12,7 @@ import {
 } from '@app/native-adapters/testing';
 import { createAuthEngine } from '@app/native-auth';
 import { describe, expect, it } from 'vitest';
-import { MESSAGES } from '../src/i18n/messages';
+import { LOCALES, MESSAGES } from '../src/i18n/messages';
 import { createDebugTransport, type DebugTransport } from '../src/logic/debug-transport';
 import { STORAGE_WARNING_KEY, type StorageWarning } from '../src/logic/outcome-keys';
 import { resolveConfig } from '../src/logic/resolve-config';
@@ -180,16 +180,15 @@ describe('a storage warning across later actions', () => {
     expect(storageWarningAfter('deleteFailed', { status: 'signedOut' }, false)).toBeUndefined();
   });
 
-  it('has one sentence per case in both languages', () => {
+  it('has one sentence per case in every language', () => {
     expect(STORAGE_WARNING_KEY).toEqual({
       sessionInMemory: 'warningSessionInMemory',
       deleteFailed: 'warningDeleteFailed',
       refreshNotSent: 'warningRefreshNotSent',
     });
-    const sentences = Object.values(STORAGE_WARNING_KEY).flatMap((key) => [
-      MESSAGES.en[key],
-      MESSAGES.ar[key],
-    ]);
-    expect(new Set(sentences).size).toBe(6);
+    const sentences = LOCALES.flatMap((locale) =>
+      Object.values(STORAGE_WARNING_KEY).map((key) => MESSAGES[locale][key]),
+    );
+    expect(new Set(sentences).size).toBe(3 * LOCALES.length);
   });
 });

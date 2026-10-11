@@ -2,6 +2,8 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { HashService } from '../../../common/services/hash.service';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { AuthFeature } from '../../enums/auth-feature.enum';
+import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import { TWO_FACTOR_FRESH_SESSION_MS } from '../constants/two-factor.constants';
 
 /** Enough of an account for the password check. */
@@ -18,14 +20,22 @@ export interface SessionAge {
 /**
  * Proof that the person changing the second factor is the one who signed in,
  * and not someone who sat down at an open browser.
+ *
+ * A stored password is that proof only while password sign-in is on. With it
+ * off nobody can sign in with the password, change it or reset it, so the
+ * account is treated as one without a password: a recent sign-in starts
+ * setup, and a current code turns the factor off.
  */
 @Injectable()
 export class TwoFactorReauthService {
-  constructor(private readonly hashService: HashService) {}
+  constructor(
+    private readonly hashService: HashService,
+    private readonly features: AuthFeaturesService,
+  ) {}
 
   /**
    * @param user - Account being changed, loaded with its password hash
-   * @param password - Password from the request, for accounts that have one
+   * @param password - Password from the request, for accounts that use one
    * @param session - Session the request arrived on
    * @throws AppException REAUTH_REQUIRED when no proof was offered
    * @throws AppException INVALID_CURRENT_PASSWORD when the password is wrong
@@ -35,8 +45,9 @@ export class TwoFactorReauthService {
     password: string | undefined,
     session: SessionAge | undefined,
   ): Promise<void> {
-    if (user.passwordHash) {
-      await this.assertPassword(user.passwordHash, password);
+    const hash = this.usablePasswordOf(user);
+    if (hash) {
+      await this.assertPassword(hash, password);
       return;
     }
 
@@ -45,17 +56,25 @@ export class TwoFactorReauthService {
 
   /**
    * The password half on its own, for routes that already ask for a code and
-   * need nothing more from a passwordless account.
+   * need nothing more from an account that does not sign in with a password.
    */
   async assertPasswordIfSet(
     user: PasswordHolder,
     password: string | undefined,
   ): Promise<void> {
-    if (!user.passwordHash) {
+    const hash = this.usablePasswordOf(user);
+    if (!hash) {
       return;
     }
 
-    await this.assertPassword(user.passwordHash, password);
+    await this.assertPassword(hash, password);
+  }
+
+  /** The stored password, only while the deployment signs people in with one. */
+  private usablePasswordOf(user: PasswordHolder): string | undefined {
+    return this.features.isEnabled(AuthFeature.PASSWORD)
+      ? user.passwordHash
+      : undefined;
   }
 
   private async assertPassword(

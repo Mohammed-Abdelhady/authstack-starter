@@ -64,16 +64,19 @@ afterEach(() => {
 });
 
 describe('what the Expo shell hands the screens', () => {
-  it('hands over the engine the shell built, not another one', () => {
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('hands over the engine the shell built, not another one, in %s', (locale) => {
     const { auth } = startShell();
     const other = startShell().auth;
     try {
-      const props = hostProps(auth, 'Mobile Expo', 'ar');
+      const props = hostProps(auth, 'Mobile Expo', locale);
 
       expect(props.engine).toBe(auth.engine);
       expect(props.engine).not.toBe(other.engine);
       expect(props.appName).toBe('Mobile Expo');
-      expect(props.locale).toBe('ar');
+      expect(props.locale).toBe(locale);
     } finally {
       auth.engine.dispose();
       other.engine.dispose();
@@ -107,10 +110,10 @@ describe('what the Expo shell hands the screens', () => {
 
 describe('the language the Expo shell starts in', () => {
   it.each([
-    ['ar', 'ar'],
-    ['ar-SA', 'ar'],
-    ['ar_EG', 'ar'],
-    ['AR-eg', 'ar'],
+    ['ar', 'ar'], // feature:locale-ar
+    ['ar-SA', 'ar'], // feature:locale-ar
+    ['ar_EG', 'ar'], // feature:locale-ar
+    ['AR-eg', 'ar'], // feature:locale-ar
     ['en-US', 'en'],
     ['arn-CL', 'en'],
     ['fr', 'en'],
@@ -128,10 +131,10 @@ describe('the language the Expo shell starts in', () => {
     ).toBe('en');
   });
 
-  it('puts the right-hand safe area on the start edge in Arabic only', () => {
+  it('puts the right-hand safe area on the start edge only when reading right to left', () => {
     const physical = { top: 59, bottom: 34, left: 0, right: 21 };
 
-    expect(logicalInsets(physical, 'ar')).toEqual({ top: 59, bottom: 34, start: 21, end: 0 });
+    expect(logicalInsets(physical, 'ar')).toEqual({ top: 59, bottom: 34, start: 21, end: 0 }); // feature:locale-ar
     expect(logicalInsets(physical, 'en')).toEqual({ top: 59, bottom: 34, start: 0, end: 21 });
   });
 });

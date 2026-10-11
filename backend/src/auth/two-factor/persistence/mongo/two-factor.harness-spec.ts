@@ -5,6 +5,7 @@ import { HashService } from '../../../../common/services/hash.service';
 import { TwoFactorService } from '../../two-factor.service';
 import { TotpSecretCryptoService } from '../../services/totp-secret-crypto.service';
 import { TwoFactorVerificationService } from '../../services/two-factor-verification.service';
+import { passwordSwitch } from '../../services/password-switch.harness-spec';
 import { TwoFactorReauthService } from '../../services/two-factor-reauth.service';
 import { hashRecoveryCode } from '../../utils/recovery-code.util';
 import { MongoSecondFactorStore } from './mongo-second-factor.store';
@@ -129,7 +130,10 @@ export function createHarness(user: MockUser | null): TwoFactorHarness {
       accounts,
       crypto,
       new TwoFactorVerificationService(accounts, crypto),
-      new TwoFactorReauthService(partialMock<HashService>(hashService)),
+      new TwoFactorReauthService(
+        partialMock<HashService>(hashService),
+        passwordSwitch(true),
+      ),
     ),
     crypto,
     userModel,

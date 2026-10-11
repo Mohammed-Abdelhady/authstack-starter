@@ -52,7 +52,8 @@ export class TwoFactorController {
     description:
       'Stores an unconfirmed secret and returns the otpauth URL to render as a ' +
       'QR code. Accounts with a password send it in the body; passwordless ' +
-      'accounts need a session younger than five minutes.',
+      'accounts need a session younger than five minutes. With password ' +
+      'sign-in off, every account is treated as passwordless.',
   })
   @ApiBody({ type: SetupTwoFactorDto })
   async setup(
@@ -95,7 +96,8 @@ export class TwoFactorController {
     summary: 'Turn two-factor authentication off',
     description:
       'Needs a code or a recovery code, plus the password when the account has ' +
-      'one. Clears the secret and every recovery code.',
+      'one and password sign-in is on. Clears the secret and every recovery ' +
+      'code.',
   })
   @ApiBody({ type: DisableTwoFactorDto })
   async disable(
@@ -140,7 +142,11 @@ export class TwoFactorController {
       'recovery code or a passkey, then sets the session cookie and returns ' +
       'the account. A passkey answer is fetched from ' +
       'POST /auth/passkeys/login/options first and sent as passkeyResponse; it ' +
-      'has to belong to the challenged account. Five wrong answers end the ' +
+      'has to belong to the challenged account. A passkey that did not ' +
+      'verify its user is refused with PASSKEY_VERIFICATION_FAILED when the ' +
+      'first step was also a passkey that did not verify its user, because ' +
+      'holding one key would then answer both steps. A passkey that verified ' +
+      'its user is accepted after any first step. Five wrong answers end the ' +
       'challenge.',
   })
   @ApiBody({ type: VerifyTwoFactorDto })

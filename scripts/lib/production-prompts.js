@@ -80,7 +80,9 @@ async function askForAddress(rl, question, fallback) {
   while (true) {
     const answer = await ask(rl, question, fallback);
     if (fitsInAddress(answer)) return answer;
-    log.error('Use none of @ / # % : ? and no space. The value goes into the database address as typed.');
+    log.error(
+      'Use none of @ / # % : ? $ and no space, and no quotes around the value. It goes into the database address as typed.',
+    );
   }
 }
 
