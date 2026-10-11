@@ -27,6 +27,8 @@ import { ADMIN_ROLE_CHANGED } from '../../constants/admin-user.constants';
 import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { AdminEmailChangeService } from './admin-email-change.service';
+import { USER_PERMISSIONS } from '../../../common/constants/permissions';
+import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
 /**
  * Mutating user operations for the admin area.
@@ -227,6 +229,13 @@ export class AdminUsersService {
           actorId,
           assignedRole.slug,
           unitOfWork,
+        );
+        await assertActorHoldsRole(
+          this.roleChanges,
+          unitOfWork,
+          actorId,
+          USER_PERMISSIONS.UPDATE_ALL,
+          assignedRole.slug,
         );
         const previousRole = await this.accounts.readRoleBySlug(
           unitOfWork,

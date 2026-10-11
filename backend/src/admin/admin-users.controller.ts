@@ -63,8 +63,9 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Create a new user',
     description:
-      'Creates a new user account. The role must exist and sit below the ' +
-      "actor's own role level. ADMIN cannot be assigned through the API.",
+      'Creates a new user account. The role must exist, sit below the ' +
+      "actor's own role level and carry only permissions the actor holds. " +
+      'ADMIN cannot be assigned through the API.',
   })
   @ApiBody({ type: CreateUserDto })
   async createUser(
@@ -254,8 +255,9 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Update user role',
     description:
-      'Assigns a system or custom role. The role must exist and sit below ' +
-      "the actor's own level. ADMIN cannot be assigned through the API.",
+      'Assigns a system or custom role. The role must exist, sit below ' +
+      "the actor's own level and carry only permissions the actor holds. " +
+      'ADMIN cannot be assigned through the API.',
   })
   @ApiParam({
     name: 'id',
