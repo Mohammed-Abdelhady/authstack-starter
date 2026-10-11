@@ -86,7 +86,8 @@ export const UserCard = memo(
           'bg-card border border-border',
           'transition-all duration-200 ease-out',
           'hover:border-input hover:shadow-sm',
-          user.isDeleted && 'border-dashed',
+          // The dashed line marks an inactive account, so it uses the 3:1 border token.
+          user.isDeleted && 'border-dashed border-input',
           className,
         )}
       >
