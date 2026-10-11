@@ -23,6 +23,8 @@ import {
   useServerFieldErrors,
 } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
+import { cn } from '@/lib/utils';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 
 interface EditUserDialogProps {
   userId: string | null;
@@ -142,7 +144,7 @@ function EditUserForm({
           disabled={isLoading}
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? errorId('name') : undefined}
-          className={errors.name ? 'border-destructive' : ''}
+          className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
           data-testid="edit-user-name-input"
         />
         {errors.name && (

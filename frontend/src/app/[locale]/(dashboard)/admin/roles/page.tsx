@@ -12,6 +12,7 @@ import { RoleSidebarNav } from '@/modules/permissions/components/roles/RoleSideb
 import { RoleDetailPanel } from '@/modules/permissions/components/roles/RoleDetailPanel';
 import { RoleSplitViewSkeleton, RoleDialogs } from '@/modules/roles/components';
 import { RoutePermissionGuard } from '@/modules/permissions';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
 import { ROLE_PERMISSIONS, parseApiError } from '@app/core';
 import { Plus, Shield } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -90,6 +91,7 @@ export default function RolesPage() {
           </div>
 
           <SearchBar
+            className={FREE_TEXT_SEARCH_CLASSES}
             placeholder={t('searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => {

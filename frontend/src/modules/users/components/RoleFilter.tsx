@@ -16,6 +16,7 @@ import { SearchBar } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
 import { useDebounce } from '@/hooks/useDebounce';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
 import { TruncatedText } from '@/modules/permissions/components/shared/TruncatedText';
 import type { Role } from '@/modules/roles/types';
 
@@ -83,6 +84,7 @@ export function RoleFilter({
           <DialogDescription>{t('roleFilterHint')}</DialogDescription>
         </DialogHeader>
         <SearchBar
+          className={FREE_TEXT_SEARCH_CLASSES}
           value={search}
           onChange={(event) => changeSearch(event.target.value)}
           onClear={() => changeSearch('')}
