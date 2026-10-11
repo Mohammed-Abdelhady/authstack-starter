@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { FormRootError } from '@/components/forms';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useTranslations } from 'next-intl';
 import { LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -60,15 +63,24 @@ export function RevokeAllSessionsButton({
   const t = useTranslations('sessions');
   const tCommon = useTranslations('common');
   const { noteRemoved, focusLanding } = useRemovalFocus(landing);
+  const refusalText = useRefusalText();
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const changeOpen = (next: boolean) => {
+    setRefusal(null);
+    setOpen(next);
+  };
 
   const handleRevoke = async () => {
+    setRefusal(null);
     try {
-      const result = await revokeAllOtherSessions().unwrap();
+      const result = await showsOwnRefusal(revokeAllOtherSessions()).unwrap();
       toast.success(t('logoutAllSuccess', { count: result.revokedCount }));
       noteRemoved();
       setOpen(false);
       onSuccess?.(result.revokedCount);
     } catch (error) {
+      setRefusal(refusalText(error));
       reportUnlessHandled(error);
     }
   };
@@ -79,7 +91,7 @@ export function RevokeAllSessionsButton({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog open={open} busy={isLoading} onOpenChange={changeOpen}>
       <AlertDialogTrigger asChild>
         <Button
           variant="destructive"
@@ -100,6 +112,7 @@ export function RevokeAllSessionsButton({
             {t('logoutAllConfirmDescription', { count: otherSessionsCount })}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <FormRootError error={refusal} className="mb-0" testId="revoke-all-error" />
         <AlertDialogFooter>
           <AlertDialogCancel data-testid="cancel-logout-all">{tCommon('cancel')}</AlertDialogCancel>
           <AlertDialogAction

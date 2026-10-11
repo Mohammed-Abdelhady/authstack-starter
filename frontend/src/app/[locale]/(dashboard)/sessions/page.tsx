@@ -5,14 +5,17 @@ import { useTranslations } from 'next-intl';
 import { RefreshCw, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';
+import { useListReadState } from '@/hooks/useListReadState';
 import { Description, Heading, TimelineList } from '@/components/design-system';
 import {
   SessionCardTimeline,
+  SessionSignOutDialog,
   RevokeAllSessionsButton,
+  useSignOutTarget,
   SessionTimelineSkeleton,
 } from '@/modules/sessions';
 import { useGetSessionsQuery } from '@/modules/sessions';
-import { parseApiError } from '@app/core';
 
 /**
  * Sessions management page - Redesigned with timeline view
@@ -21,7 +24,6 @@ import { parseApiError } from '@app/core';
  */
 export default function SessionsPage() {
   const t = useTranslations('sessions');
-  const tCommon = useTranslations('common');
   const [shouldAnimate, setShouldAnimate] = useState(true);
 
   useEffect(() => {
@@ -34,6 +36,7 @@ export default function SessionsPage() {
   const {
     data: sessions,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,
@@ -43,8 +46,18 @@ export default function SessionsPage() {
 
   // Takes focus once a session is signed out: its button leaves with it.
   const titleRef = useRef<HTMLHeadingElement>(null);
+  // A list already on screen stays when a later read of it fails.
+  const { showLoadError, isStale, retry } = useListReadState({
+    isLoading,
+    isError,
+    hasData: sessions !== undefined,
+    refetch,
+    landing: titleRef,
+  });
+
   const otherSessionsCount = sessions?.filter((s) => !s.isCurrent).length || 0;
   const currentSessionIndex = sessions?.findIndex((s) => s.isCurrent) ?? -1;
+  const signOut = useSignOutTarget();
 
   return (
     <div className="container max-w-4xl py-8 px-4" data-testid="sessions-page">
@@ -92,27 +105,31 @@ export default function SessionsPage() {
         <SessionTimelineSkeleton />
       </Activity>
 
-      {/* Error State */}
-      <Activity mode={isError ? 'visible' : 'hidden'}>
-        <Alert variant="destructive" data-testid="error-state">
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              {t('loadError')} {error ? parseApiError(error).message : t('tryAgain')}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              data-testid="retry-sessions-button"
-            >
-              {tCommon('retry')}
-            </Button>
-          </AlertDescription>
-        </Alert>
+      {/* Error State: nothing was ever loaded */}
+      <Activity mode={showLoadError ? 'visible' : 'hidden'}>
+        <ListLoadError
+          error={error}
+          onRetry={retry}
+          isRetrying={isFetching}
+          retryTestId="retry-sessions-button"
+        >
+          {t('loadError')}
+        </ListLoadError>
       </Activity>
 
+      {isStale && (
+        <StaleListNotice
+          error={error}
+          onRetry={retry}
+          isRetrying={isFetching}
+          retryTestId="retry-refresh-sessions-button"
+        />
+      )}
+
       {/* Empty State */}
-      <Activity mode={!isLoading && !isError && sessions?.length === 0 ? 'visible' : 'hidden'}>
+      <Activity
+        mode={!isLoading && !showLoadError && sessions?.length === 0 ? 'visible' : 'hidden'}
+      >
         <div
           className="flex flex-col items-center justify-center py-12 text-center"
           data-testid="empty-state"
@@ -136,7 +153,9 @@ export default function SessionsPage() {
 
       {/* Sessions Timeline */}
       <Activity
-        mode={!isLoading && !isError && sessions && sessions.length > 0 ? 'visible' : 'hidden'}
+        mode={
+          !isLoading && !showLoadError && sessions && sessions.length > 0 ? 'visible' : 'hidden'
+        }
       >
         <section aria-labelledby="sessions-list-heading" data-testid="sessions-list">
           <h2 id="sessions-list-heading" className="sr-only">
@@ -144,12 +163,23 @@ export default function SessionsPage() {
           </h2>
           <TimelineList
             items={sessions || []}
-            renderItem={(session) => <SessionCardTimeline session={session} landing={titleRef} />}
+            itemKey={(session) => session.id}
+            renderItem={(session) => (
+              <SessionCardTimeline session={session} onSignOut={signOut.ask} />
+            )}
             highlightIndex={currentSessionIndex}
             stagger={shouldAnimate}
           />
         </section>
       </Activity>
+
+      <SessionSignOutDialog
+        open={signOut.isOpen}
+        target={signOut.target}
+        sessions={sessions}
+        onClose={signOut.close}
+        landing={titleRef}
+      />
     </div>
   );
 }
