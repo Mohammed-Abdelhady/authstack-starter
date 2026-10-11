@@ -12,6 +12,8 @@ interface TwoFactorAnswerFieldsProps {
   useRecoveryCode: boolean;
   onToggle: () => void;
   isBusy: boolean;
+  /** False where another field above this one should take the focus first. */
+  autoFocus?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function TwoFactorAnswerFields({
   useRecoveryCode,
   onToggle,
   isBusy,
+  autoFocus = true,
 }: TwoFactorAnswerFieldsProps) {
   const t = useTranslations('auth.twoFactor');
   const tCommon = useTranslations('common');
@@ -35,7 +38,7 @@ export function TwoFactorAnswerFields({
           placeholder={tCommon('recoveryCodePlaceholder')}
           autoComplete="one-time-code"
           disabled={isBusy}
-          autoFocus
+          autoFocus={autoFocus}
           className={cn('text-center uppercase tracking-widest', RECOVERY_CODE_FONT_SIZE)}
           data-testid="two-factor-recovery-code-input"
         />
@@ -44,7 +47,7 @@ export function TwoFactorAnswerFields({
           name="code"
           label={t('code')}
           disabled={isBusy}
-          autoFocus
+          autoFocus={autoFocus}
           testId="two-factor-code-input"
         />
       )}
