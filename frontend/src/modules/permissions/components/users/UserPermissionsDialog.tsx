@@ -201,7 +201,7 @@ export function UserPermissionsDialog({
                       {/* Remove Actions Section */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('removePermissions')}</p>
-                        <div className="grid gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           {directPermissions.map((permission) => (
                             <div
                               key={permission}
