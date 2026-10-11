@@ -1,3 +1,5 @@
+import { getSystemErrorMap } from 'node:util';
+
 /** SQLSTATE codes the server gives a meaning to. No driver is loaded to read one. */
 export const SQLSTATE = {
   UNIQUE_VIOLATION: '23505',
@@ -13,7 +15,19 @@ export const SQLSTATE = {
   TOO_MANY_CONNECTIONS: '53300',
 } as const;
 
-const SQLSTATE_PATTERN = /^[0-9A-Z]{5}$/;
+/**
+ * Five digits or capitals, at least one of them a digit, as every state the
+ * server defines has. Capitals alone are no state: `EPIPE` is five of them.
+ */
+const SQLSTATE_PATTERN = /^(?=[A-Z]*[0-9])[0-9A-Z]{5}$/;
+
+/**
+ * The operating system's error names. The driver passes a socket failure
+ * through with its name in `code`, the field the server's state arrives in.
+ */
+const SYSTEM_ERROR_NAMES: ReadonlySet<string> = new Set(
+  [...getSystemErrorMap().values()].map(([name]) => name),
+);
 
 /** A text field of a failure, when it has one. */
 export function failureText(error: object, field: string): string | undefined {
@@ -27,7 +41,10 @@ export function sqlStateOf(error: unknown): string | undefined {
     return undefined;
   }
   const code = failureText(error, 'code');
-  return code !== undefined && SQLSTATE_PATTERN.test(code) ? code : undefined;
+  if (code === undefined || !SQLSTATE_PATTERN.test(code)) {
+    return undefined;
+  }
+  return SYSTEM_ERROR_NAMES.has(code) ? undefined : code;
 }
 
 /** The server routine that reads text as a uuid. Every uuid column is an id. */
