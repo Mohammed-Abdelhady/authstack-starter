@@ -133,7 +133,7 @@ export class AdminPermissionsController {
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.removePermission(
       userId,
-      decodeURIComponent(permission),
+      permission,
       actorId,
       actorRole,
     );
