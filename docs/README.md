@@ -61,6 +61,7 @@ See [backend/docs/](../backend/docs/):
 - [User roles and permissions](../backend/docs/user-roles-permissions.md): RBAC model, role levels, and permission checks.
 - [Database management](../backend/docs/database-management.md): MongoDB connection, migrations, and seed commands.
 - [PostgreSQL](../backend/docs/database-postgres.md): Version, settings, migrations, retention, and how the tests run. <!-- feature:postgres -->
+- [API routes](../backend/docs/api-routes.md): Every route, who may call it and the setting that closes it.
 - [API responses](../backend/docs/api-responses.md): Response envelope formats and error codes.
 - [Postman collection](../backend/docs/postman/README.md): Postman collection, environments, and test scripts.
 

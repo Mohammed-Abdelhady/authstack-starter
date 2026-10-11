@@ -377,7 +377,7 @@ POST /api/auth/register
 POST /api/auth/activate
 POST /api/auth/confirm-email-change
 POST /api/auth/login
-GET  /api/health
+GET  /health
 ```
 
 ### Protected Routes (Auth Required)
@@ -385,16 +385,10 @@ GET  /api/health
 ```
 POST /api/auth/logout
 GET  /api/user/profile
-PUT  /api/user/profile
+PATCH /api/user/profile
 ```
 
-### Verified Routes (Auth + Email Verified)
-
-```
-POST /api/orders
-PUT  /api/settings
-DELETE /api/account
-```
+The full list is in [API routes](api-routes.md).
 
 ### Guard Hierarchy
 

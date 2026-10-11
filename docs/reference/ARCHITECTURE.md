@@ -110,10 +110,10 @@ The `2fa_challenge` cookie expires after 5 minutes and is valid only for the use
 Passkeys use `@simplewebauthn/server` and `@simplewebauthn/browser` implementing the WebAuthn standard.
 
 1. **Registration:**
-   - Client calls `POST /api/user/passkeys/register/options` with an active session.
+   - Client calls `POST /api/auth/passkeys/register/options` with an active session.
    - Server returns registration options including challenge bytes, relying party ID, and user identity.
    - Browser prompts for biometric verification (Touch ID, Face ID, Windows Hello, or hardware key).
-   - Client calls `POST /api/user/passkeys/register/verify` with the authenticator response.
+   - Client calls `POST /api/auth/passkeys/register/verify` with the authenticator response.
    - Server validates the attestation response, checks the signature, and stores the credential ID and public key buffer in the `passkeys` collection.
 
 2. **Authentication:**
