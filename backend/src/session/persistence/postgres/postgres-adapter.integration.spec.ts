@@ -17,7 +17,6 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/postgres/server/postgres-test-server';
 import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from '../../../../test/utils/session/issuance-contract/issuance-contract-harness';
 import {
   contractSession,
   holdReruns,
@@ -57,51 +56,47 @@ describe('PostgreSQL adapter', () => {
     restores = [];
   });
 
-  it(
-    'takes the account before any version is read: a second sign-in is refused at its first read',
-    async () => {
-      const userId = await harness.seedAccount();
-      const reruns = holdReruns();
-      const firstRead = new RaceGate();
-      const secondRead = new RaceGate();
-      gates.push(reruns.refused, firstRead, secondRead);
-      // The application is read straight after the account, before any write.
-      restores.push(
-        holdBefore(harness.applications, 'requireEnabled', (call) =>
-          call === 0 ? firstRead : secondRead,
-        ),
-      );
-      const service = harness.service(reruns.pause);
+  it('takes the account before any version is read: a second sign-in is refused at its first read', async () => {
+    const userId = await harness.seedAccount();
+    const reruns = holdReruns();
+    const firstRead = new RaceGate();
+    const secondRead = new RaceGate();
+    gates.push(reruns.refused, firstRead, secondRead);
+    // The application is read straight after the account, before any write.
+    restores.push(
+      holdBefore(harness.applications, 'requireEnabled', (call) =>
+        call === 0 ? firstRead : secondRead,
+      ),
+    );
+    const service = harness.service(reruns.pause);
 
-      const first = service.createBrowserSession(
-        userId,
-        'first/1',
-        SIGN_IN_ADDRESS,
-      );
-      await firstRead.reached(1);
-      const second = service.createBrowserSession(
-        userId,
-        'second/1',
-        SIGN_IN_ADDRESS,
-      );
-      const secondWas = await Promise.race([
-        reruns.refused.reached(1).then(() => REFUSED_AT_THE_READ),
-        secondRead.reached(1).then(() => READ_BEHIND_THE_FIRST),
-      ]);
-      firstRead.release();
-      secondRead.release();
-      await first;
-      reruns.refused.release();
-      await second;
+    const first = service.createBrowserSession(
+      userId,
+      'first/1',
+      SIGN_IN_ADDRESS,
+    );
+    await firstRead.reached(1);
+    const second = service.createBrowserSession(
+      userId,
+      'second/1',
+      SIGN_IN_ADDRESS,
+    );
+    const secondWas = await Promise.race([
+      reruns.refused.reached(1).then(() => REFUSED_AT_THE_READ),
+      secondRead.reached(1).then(() => READ_BEHIND_THE_FIRST),
+    ]);
+    firstRead.release();
+    secondRead.release();
+    await first;
+    reruns.refused.release();
+    await second;
 
-      expect({
-        secondWas,
-        sessions: (await harness.sessions(userId)).length,
-        fence: (await harness.account(userId))?.issuanceFence,
-      }).toEqual({ secondWas: REFUSED_AT_THE_READ, sessions: 2, fence: 2 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      secondWas,
+      sessions: (await harness.sessions(userId)).length,
+      fence: (await harness.account(userId))?.issuanceFence,
+    }).toEqual({ secondWas: REFUSED_AT_THE_READ, sessions: 2, fence: 2 });
+  });
 
   it('runs a unit of work at read committed', async () => {
     const level = await harness.runner(rerunAtOnce).run(async (unitOfWork) => {

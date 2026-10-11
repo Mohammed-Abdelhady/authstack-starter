@@ -6,7 +6,6 @@ import { rerunAtOnce } from '../issuance-contract/issuance-contract-support';
 import { ProofsEventsContractHarness } from './proofs-events-contract-harness';
 
 export { rejectionOf } from '../issuance-contract/issuance-contract-support';
-export { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS as CASE_TIMEOUT_MS } from '../issuance-contract/issuance-contract-harness';
 
 export type HarnessSource = () => ProofsEventsContractHarness;
 

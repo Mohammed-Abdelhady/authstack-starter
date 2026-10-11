@@ -9,7 +9,6 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/postgres/server/postgres-test-server';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from '../../../../test/utils/session/issuance-contract/issuance-contract-harness';
 import { AdminAccountQuery } from '../../stores/admin-account.store';
 import { PostgresAdminAccountStore } from './postgres-admin-account.store';
 
@@ -70,88 +69,80 @@ describe('PostgreSQL admin account list', () => {
        ORDER BY link.linked_at`.execute(connection.database);
   }, POSTGRES_RESET_TIMEOUT_MS);
 
-  it(
-    'reads a page of 100 accounts and their links in three statements',
-    async () => {
-      const counter = statementCounter();
-      const store = new PostgresAdminAccountStore(
-        connection.database.withPlugin(counter.plugin),
-        new FrozenClock(TEST_NOW),
-      );
+  it('reads a page of 100 accounts and their links in three statements', async () => {
+    const counter = statementCounter();
+    const store = new PostgresAdminAccountStore(
+      connection.database.withPlugin(counter.plugin),
+      new FrozenClock(TEST_NOW),
+    );
 
-      const page = await store.listAccounts(PAGE_OF_100);
+    const page = await store.listAccounts(PAGE_OF_100);
 
-      const linked = page.accounts.filter(
-        (account) => account.linkedAccounts.length > 0,
-      );
-      expect({
-        statements: counter.sent(),
-        total: page.total,
-        listed: page.accounts.length,
-        first: page.accounts[0].email,
-        last: page.accounts[99].email,
-        linked: linked.map((account) => ({
-          email: account.email,
-          linkedAccounts: account.linkedAccounts,
-          linkedProviders: account.linkedProviders,
-        })),
-      }).toEqual({
-        statements: 3,
-        total: 120,
-        listed: 100,
-        first: 'account-001@example.test',
-        last: 'account-100@example.test',
-        linked: [
-          {
-            email: 'account-002@example.test',
-            linkedAccounts: [
-              {
-                provider: 'provider-a',
-                providerId: 'a-2',
-                linkedAt: FIRST_LINK,
-              },
-              {
-                provider: 'provider-b',
-                providerId: 'b-2',
-                linkedAt: SECOND_LINK,
-              },
-            ],
-            linkedProviders: ['email', 'provider-a', 'provider-b'],
-          },
-          {
-            email: 'account-100@example.test',
-            linkedAccounts: [
-              {
-                provider: 'provider-b',
-                providerId: 'b-100',
-                linkedAt: FIRST_LINK,
-              },
-            ],
-            linkedProviders: ['email', 'provider-b'],
-          },
-        ],
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    const linked = page.accounts.filter(
+      (account) => account.linkedAccounts.length > 0,
+    );
+    expect({
+      statements: counter.sent(),
+      total: page.total,
+      listed: page.accounts.length,
+      first: page.accounts[0].email,
+      last: page.accounts[99].email,
+      linked: linked.map((account) => ({
+        email: account.email,
+        linkedAccounts: account.linkedAccounts,
+        linkedProviders: account.linkedProviders,
+      })),
+    }).toEqual({
+      statements: 3,
+      total: 120,
+      listed: 100,
+      first: 'account-001@example.test',
+      last: 'account-100@example.test',
+      linked: [
+        {
+          email: 'account-002@example.test',
+          linkedAccounts: [
+            {
+              provider: 'provider-a',
+              providerId: 'a-2',
+              linkedAt: FIRST_LINK,
+            },
+            {
+              provider: 'provider-b',
+              providerId: 'b-2',
+              linkedAt: SECOND_LINK,
+            },
+          ],
+          linkedProviders: ['email', 'provider-a', 'provider-b'],
+        },
+        {
+          email: 'account-100@example.test',
+          linkedAccounts: [
+            {
+              provider: 'provider-b',
+              providerId: 'b-100',
+              linkedAt: FIRST_LINK,
+            },
+          ],
+          linkedProviders: ['email', 'provider-b'],
+        },
+      ],
+    });
+  });
 
-  it(
-    'sends no statement for links when the page is empty',
-    async () => {
-      const counter = statementCounter();
-      const store = new PostgresAdminAccountStore(
-        connection.database.withPlugin(counter.plugin),
-        new FrozenClock(TEST_NOW),
-      );
+  it('sends no statement for links when the page is empty', async () => {
+    const counter = statementCounter();
+    const store = new PostgresAdminAccountStore(
+      connection.database.withPlugin(counter.plugin),
+      new FrozenClock(TEST_NOW),
+    );
 
-      const page = await store.listAccounts({ ...PAGE_OF_100, page: 3 });
+    const page = await store.listAccounts({ ...PAGE_OF_100, page: 3 });
 
-      expect({
-        statements: counter.sent(),
-        total: page.total,
-        accounts: page.accounts,
-      }).toEqual({ statements: 2, total: 120, accounts: [] });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      statements: counter.sent(),
+      total: page.total,
+      accounts: page.accounts,
+    }).toEqual({ statements: 2, total: 120, accounts: [] });
+  });
 });

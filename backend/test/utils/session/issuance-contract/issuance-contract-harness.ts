@@ -7,12 +7,6 @@ import { IssuanceApplications } from '../../../../src/session/issuance/issuance-
 import { SessionIssuanceService } from '../../../../src/session/services/session-issuance.service';
 import { FrozenClock } from '../../frozen-clock';
 
-/**
- * Jest's own default, for the cases outside this folder that still pass it.
- * No case of this contract carries a budget.
- */
-export const ISSUANCE_CONTRACT_CASE_TIMEOUT_MS = 5000;
-
 export const CONTRACT_ENVIRONMENT = 'test';
 export const CONTRACT_AUTH_EPOCH = 1;
 

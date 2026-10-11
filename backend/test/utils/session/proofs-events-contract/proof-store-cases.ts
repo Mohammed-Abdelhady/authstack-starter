@@ -1,7 +1,6 @@
 import { UniqueConflictError } from '../../../../src/common/persistence/persistence-errors';
 import { RaceGate, holdBefore } from '../../race-gate';
 import {
-  CASE_TIMEOUT_MS,
   HarnessSource,
   HASH_A,
   HASH_B,
@@ -23,84 +22,72 @@ export function proofStoreCases(harness: HarnessSource): void {
       spent,
     });
 
-  it(
-    'stores an issued proof unspent and finds it by its id',
-    async () => {
-      await harness().proofs.issueBrowserProof({
-        proofIdHash: HASH_A,
+  it('stores an issued proof unspent and finds it by its id', async () => {
+    await harness().proofs.issueBrowserProof({
+      proofIdHash: HASH_A,
+      tokenHash: TOKEN_HASH,
+      expiresAt: ONE_MS_AFTER,
+    });
+
+    expect({
+      found: await harness().proofs.findIssuedBrowserProof(HASH_A),
+      unknown: await harness().proofs.findIssuedBrowserProof(HASH_B),
+      stored: await harness().storedProof(HASH_A),
+    }).toEqual({
+      found: { tokenHash: TOKEN_HASH },
+      unknown: null,
+      stored: {
         tokenHash: TOKEN_HASH,
         expiresAt: ONE_MS_AFTER,
-      });
+        spent: false,
+      },
+    });
+  });
 
-      expect({
-        found: await harness().proofs.findIssuedBrowserProof(HASH_A),
-        unknown: await harness().proofs.findIssuedBrowserProof(HASH_B),
-        stored: await harness().storedProof(HASH_A),
-      }).toEqual({
-        found: { tokenHash: TOKEN_HASH },
-        unknown: null,
-        stored: {
-          tokenHash: TOKEN_HASH,
-          expiresAt: ONE_MS_AFTER,
-          spent: false,
-        },
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+  it('refuses a second proof under an id that is already stored', async () => {
+    await seed(HASH_A, ONE_MS_AFTER);
 
-  it(
-    'refuses a second proof under an id that is already stored',
-    async () => {
-      await seed(HASH_A, ONE_MS_AFTER);
+    const failure = await rejectionOf(
+      harness().proofs.issueBrowserProof({
+        proofIdHash: HASH_A,
+        tokenHash: HASH_C,
+        expiresAt: ONE_MS_AFTER,
+      }),
+    );
 
-      const failure = await rejectionOf(
-        harness().proofs.issueBrowserProof({
-          proofIdHash: HASH_A,
-          tokenHash: HASH_C,
-          expiresAt: ONE_MS_AFTER,
-        }),
-      );
+    expect({
+      conflict: failure instanceof UniqueConflictError,
+      constraint:
+        failure instanceof UniqueConflictError ? failure.constraint : null,
+      stored: (await harness().storedProof(HASH_A))?.tokenHash,
+      count: await harness().proofCount(),
+    }).toEqual({
+      conflict: true,
+      constraint: 'browser_proof.proof_id',
+      stored: TOKEN_HASH,
+      count: 1,
+    });
+  });
 
-      expect({
-        conflict: failure instanceof UniqueConflictError,
-        constraint:
-          failure instanceof UniqueConflictError ? failure.constraint : null,
-        stored: (await harness().storedProof(HASH_A))?.tokenHash,
-        count: await harness().proofCount(),
-      }).toEqual({
-        conflict: true,
-        constraint: 'browser_proof.proof_id',
-        stored: TOKEN_HASH,
-        count: 1,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+  it('claims an unspent proof once, and says why every later claim fails', async () => {
+    await seed(HASH_A, ONE_MS_AFTER);
 
-  it(
-    'claims an unspent proof once, and says why every later claim fails',
-    async () => {
-      await seed(HASH_A, ONE_MS_AFTER);
+    const first = await harness().proofs.claimBrowserProof(HASH_A, NOW);
+    const second = await harness().proofs.claimBrowserProof(HASH_A, NOW);
+    const unknown = await harness().proofs.claimBrowserProof(HASH_B, NOW);
 
-      const first = await harness().proofs.claimBrowserProof(HASH_A, NOW);
-      const second = await harness().proofs.claimBrowserProof(HASH_A, NOW);
-      const unknown = await harness().proofs.claimBrowserProof(HASH_B, NOW);
-
-      expect({
-        first,
-        second,
-        unknown,
-        spent: (await harness().storedProof(HASH_A))?.spent,
-      }).toEqual({
-        first: 'claimed',
-        second: 'already_claimed',
-        unknown: 'not_found',
-        spent: true,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      first,
+      second,
+      unknown,
+      spent: (await harness().storedProof(HASH_A))?.spent,
+    }).toEqual({
+      first: 'claimed',
+      second: 'already_claimed',
+      unknown: 'not_found',
+      spent: true,
+    });
+  });
 
   it.each([
     ['one millisecond before it expires', ONE_MS_AFTER, 'claimed', true],
@@ -121,80 +108,67 @@ export function proofStoreCases(harness: HarnessSource): void {
         stored: { tokenHash: TOKEN_HASH, expiresAt, spent },
       });
     },
-    CASE_TIMEOUT_MS,
   );
 
-  it(
-    'answers a spent proof as already claimed even after it expired',
-    async () => {
-      await seed(HASH_A, ONE_MS_BEFORE, true);
+  it('answers a spent proof as already claimed even after it expired', async () => {
+    await seed(HASH_A, ONE_MS_BEFORE, true);
 
-      expect(await harness().proofs.claimBrowserProof(HASH_A, NOW)).toBe(
-        'already_claimed',
-      );
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect(await harness().proofs.claimBrowserProof(HASH_A, NOW)).toBe(
+      'already_claimed',
+    );
+  });
 
-  it(
-    'tells exactly one of two claims held at the same proof that it claimed',
-    async () => {
-      await seed(HASH_A, ONE_MS_AFTER);
-      const gates = [new RaceGate(), new RaceGate()];
-      const restore = holdBefore(
-        harness().proofs,
-        'claimBrowserProof',
-        (call) => gates[call],
-      );
+  it('tells exactly one of two claims held at the same proof that it claimed', async () => {
+    await seed(HASH_A, ONE_MS_AFTER);
+    const gates = [new RaceGate(), new RaceGate()];
+    const restore = holdBefore(
+      harness().proofs,
+      'claimBrowserProof',
+      (call) => gates[call],
+    );
 
-      let outcomes: string[] | undefined;
-      try {
-        const first = harness().proofs.claimBrowserProof(HASH_A, NOW);
-        const second = harness().proofs.claimBrowserProof(HASH_A, NOW);
-        await Promise.all(gates.map((gate) => gate.reached(1)));
-        gates.forEach((gate) => gate.release());
-        outcomes = await Promise.all([first, second]);
-      } finally {
-        gates.forEach((gate) => gate.release());
-        restore();
-      }
+    let outcomes: string[] | undefined;
+    try {
+      const first = harness().proofs.claimBrowserProof(HASH_A, NOW);
+      const second = harness().proofs.claimBrowserProof(HASH_A, NOW);
+      await Promise.all(gates.map((gate) => gate.reached(1)));
+      gates.forEach((gate) => gate.release());
+      outcomes = await Promise.all([first, second]);
+    } finally {
+      gates.forEach((gate) => gate.release());
+      restore();
+    }
 
-      expect({
-        outcomes: [...outcomes].sort(),
-        stored: await harness().storedProof(HASH_A),
-      }).toEqual({
-        outcomes: ['already_claimed', 'claimed'],
-        stored: {
-          tokenHash: TOKEN_HASH,
-          expiresAt: ONE_MS_AFTER,
-          spent: true,
-        },
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      outcomes: [...outcomes].sort(),
+      stored: await harness().storedProof(HASH_A),
+    }).toEqual({
+      outcomes: ['already_claimed', 'claimed'],
+      stored: {
+        tokenHash: TOKEN_HASH,
+        expiresAt: ONE_MS_AFTER,
+        spent: true,
+      },
+    });
+  });
 
-  it(
-    'removes only the proofs that have expired',
-    async () => {
-      await seed(HASH_A, ONE_MS_BEFORE);
-      await seed(HASH_B, NOW, true);
-      await seed(HASH_C, ONE_MS_AFTER);
+  it('removes only the proofs that have expired', async () => {
+    await seed(HASH_A, ONE_MS_BEFORE);
+    await seed(HASH_B, NOW, true);
+    await seed(HASH_C, ONE_MS_AFTER);
 
-      const removed = await harness().proofs.deleteExpiredBrowserProofs(NOW);
+    const removed = await harness().proofs.deleteExpiredBrowserProofs(NOW);
 
-      expect({
-        removed,
-        early: await harness().storedProof(HASH_A),
-        atTheInstant: await harness().storedProof(HASH_B),
-        later: (await harness().storedProof(HASH_C))?.expiresAt,
-      }).toEqual({
-        removed: 2,
-        early: null,
-        atTheInstant: null,
-        later: ONE_MS_AFTER,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      removed,
+      early: await harness().storedProof(HASH_A),
+      atTheInstant: await harness().storedProof(HASH_B),
+      later: (await harness().storedProof(HASH_C))?.expiresAt,
+    }).toEqual({
+      removed: 2,
+      early: null,
+      atTheInstant: null,
+      later: ONE_MS_AFTER,
+    });
+  });
 }

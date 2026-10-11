@@ -2,7 +2,6 @@ import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RaceGate, holdBefore } from '../../race-gate';
 import {
   CapturedCookie,
-  CASE_TIMEOUT_MS,
   codeOf,
   HarnessSource,
   NOW,
@@ -37,30 +36,26 @@ export function proofServiceCases(harness: HarnessSource): void {
   const refusal = async (proofId: string | undefined, token: string) =>
     codeOf(await rejectionOf(consume(proofId, token)));
 
-  it(
-    'issues a proof that expires fifteen minutes later and accepts it once',
-    async () => {
-      const proof = await issue();
-      const count = await harness().proofCount();
+  it('issues a proof that expires fifteen minutes later and accepts it once', async () => {
+    const proof = await issue();
+    const count = await harness().proofCount();
 
-      await consume(proof.proofId, proof.token);
+    await consume(proof.proofId, proof.token);
 
-      expect({
-        count,
-        tokenLooksRandom: SHA_256_HEX.test(proof.token),
-        idDiffersFromToken: proof.proofId !== proof.token,
-        again: await refusal(proof.proofId, proof.token),
-        countAfter: await harness().proofCount(),
-      }).toEqual({
-        count: 1,
-        tokenLooksRandom: true,
-        idDiffersFromToken: true,
-        again: ErrorCode.CSRF_INVALID,
-        countAfter: 1,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      count,
+      tokenLooksRandom: SHA_256_HEX.test(proof.token),
+      idDiffersFromToken: proof.proofId !== proof.token,
+      again: await refusal(proof.proofId, proof.token),
+      countAfter: await harness().proofCount(),
+    }).toEqual({
+      count: 1,
+      tokenLooksRandom: true,
+      idDiffersFromToken: true,
+      again: ErrorCode.CSRF_INVALID,
+      countAfter: 1,
+    });
+  });
 
   it.each([
     ['one millisecond before the lifetime ends', PROOF_LIFETIME_MS - 1, null],
@@ -81,100 +76,81 @@ export function proofServiceCases(harness: HarnessSource): void {
         stored: 1,
       });
     },
-    CASE_TIMEOUT_MS,
   );
 
-  it(
-    'requires the proof cookie and reads nothing without it',
-    async () => {
-      const proof = await issue();
+  it('requires the proof cookie and reads nothing without it', async () => {
+    const proof = await issue();
 
-      expect({
-        missing: await refusal(undefined, proof.token),
-        stillUsable: await consume(proof.proofId, proof.token).then(() => true),
-      }).toEqual({ missing: ErrorCode.CSRF_REQUIRED, stillUsable: true });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      missing: await refusal(undefined, proof.token),
+      stillUsable: await consume(proof.proofId, proof.token).then(() => true),
+    }).toEqual({ missing: ErrorCode.CSRF_REQUIRED, stillUsable: true });
+  });
 
-  it(
-    'refuses an unknown proof and a wrong token, and spends nothing for either',
-    async () => {
-      const proof = await issue();
+  it('refuses an unknown proof and a wrong token, and spends nothing for either', async () => {
+    const proof = await issue();
 
-      expect({
-        unknownProof: await refusal('f'.repeat(64), proof.token),
-        wrongToken: await refusal(proof.proofId, 'e'.repeat(64)),
-        stillUsable: await consume(proof.proofId, proof.token).then(() => true),
-      }).toEqual({
-        unknownProof: ErrorCode.CSRF_INVALID,
-        wrongToken: ErrorCode.CSRF_INVALID,
-        stillUsable: true,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      unknownProof: await refusal('f'.repeat(64), proof.token),
+      wrongToken: await refusal(proof.proofId, 'e'.repeat(64)),
+      stillUsable: await consume(proof.proofId, proof.token).then(() => true),
+    }).toEqual({
+      unknownProof: ErrorCode.CSRF_INVALID,
+      wrongToken: ErrorCode.CSRF_INVALID,
+      stillUsable: true,
+    });
+  });
 
-  it(
-    'refuses a token that was issued with another browser proof',
-    async () => {
-      const mine = await issue();
-      const theirs = await issue();
+  it('refuses a token that was issued with another browser proof', async () => {
+    const mine = await issue();
+    const theirs = await issue();
 
-      expect({
-        crossed: await refusal(mine.proofId, theirs.token),
-        crossedBack: await refusal(theirs.proofId, mine.token),
-        mineStillUsable: await consume(mine.proofId, mine.token).then(
-          () => true,
-        ),
-        theirsStillUsable: await consume(theirs.proofId, theirs.token).then(
-          () => true,
-        ),
-      }).toEqual({
-        crossed: ErrorCode.CSRF_INVALID,
-        crossedBack: ErrorCode.CSRF_INVALID,
-        mineStillUsable: true,
-        theirsStillUsable: true,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      crossed: await refusal(mine.proofId, theirs.token),
+      crossedBack: await refusal(theirs.proofId, mine.token),
+      mineStillUsable: await consume(mine.proofId, mine.token).then(() => true),
+      theirsStillUsable: await consume(theirs.proofId, theirs.token).then(
+        () => true,
+      ),
+    }).toEqual({
+      crossed: ErrorCode.CSRF_INVALID,
+      crossedBack: ErrorCode.CSRF_INVALID,
+      mineStillUsable: true,
+      theirsStillUsable: true,
+    });
+  });
 
-  it(
-    'accepts exactly one of two uses that both read the proof before either claims it',
-    async () => {
-      const proof = await issue();
-      const gates = [new RaceGate(), new RaceGate()];
-      const restore = holdBefore(
-        harness().proofs,
-        'claimBrowserProof',
-        (call) => gates[call],
-      );
+  it('accepts exactly one of two uses that both read the proof before either claims it', async () => {
+    const proof = await issue();
+    const gates = [new RaceGate(), new RaceGate()];
+    const restore = holdBefore(
+      harness().proofs,
+      'claimBrowserProof',
+      (call) => gates[call],
+    );
 
-      let results: PromiseSettledResult<void>[] | undefined;
-      try {
-        const first = consume(proof.proofId, proof.token);
-        const second = consume(proof.proofId, proof.token);
-        await Promise.all(gates.map((gate) => gate.reached(1)));
-        gates.forEach((gate) => gate.release());
-        results = await Promise.allSettled([first, second]);
-      } finally {
-        gates.forEach((gate) => gate.release());
-        restore();
-      }
+    let results: PromiseSettledResult<void>[] | undefined;
+    try {
+      const first = consume(proof.proofId, proof.token);
+      const second = consume(proof.proofId, proof.token);
+      await Promise.all(gates.map((gate) => gate.reached(1)));
+      gates.forEach((gate) => gate.release());
+      results = await Promise.allSettled([first, second]);
+    } finally {
+      gates.forEach((gate) => gate.release());
+      restore();
+    }
 
-      expect({
-        accepted: results.filter(({ status }) => status === 'fulfilled').length,
-        refused: results.flatMap((result) =>
-          result.status === 'rejected' ? [codeOf(result.reason)] : [],
-        ),
-        stored: await harness().proofCount(),
-      }).toEqual({
-        accepted: 1,
-        refused: [ErrorCode.CSRF_INVALID],
-        stored: 1,
-      });
-    },
-    CASE_TIMEOUT_MS,
-  );
+    expect({
+      accepted: results.filter(({ status }) => status === 'fulfilled').length,
+      refused: results.flatMap((result) =>
+        result.status === 'rejected' ? [codeOf(result.reason)] : [],
+      ),
+      stored: await harness().proofCount(),
+    }).toEqual({
+      accepted: 1,
+      refused: [ErrorCode.CSRF_INVALID],
+      stored: 1,
+    });
+  });
 }
