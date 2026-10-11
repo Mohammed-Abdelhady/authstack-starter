@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FormPassword, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
 import type { ChangePasswordFormData } from '@app/core';
 import { createChangePasswordSchema } from './changePasswordSchema';
@@ -76,6 +77,7 @@ export function ChangePasswordCard() {
             className="space-y-4"
             data-testid="change-password-form"
           >
+            <HiddenUsernameField />
             <FormPassword<ChangePasswordFormData>
               name="currentPassword"
               label={t('currentPassword')}

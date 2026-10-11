@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { ShieldOff } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormPassword, FormRootError, SubmitButton } from '@/components/forms';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 import {
   Dialog,
   DialogContent,
@@ -102,6 +103,7 @@ export function TwoFactorDisableDialog({
               testId="two-factor-disable-error"
             />
 
+            {hasPassword && <HiddenUsernameField />}
             {hasPassword && (
               <FormPassword<DisableFormData>
                 name="password"

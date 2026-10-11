@@ -209,7 +209,7 @@ export function ResetPasswordForm() {
               type="email"
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
-              autoComplete="email"
+              autoComplete="username"
               disabled={isLoading}
               readOnly
               className="bg-muted"

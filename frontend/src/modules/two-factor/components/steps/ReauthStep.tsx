@@ -5,6 +5,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ShieldCheck } from 'lucide-react';
 import { FormPassword, SubmitButton } from '@/components/forms';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 
 interface ReauthStepProps {
   /** True when the account signs in with a password and should re-enter it. */
@@ -58,6 +59,7 @@ export function ReauthStep({ hasPassword, isBusy, onContinue }: ReauthStepProps)
         data-testid="two-factor-reauth-form"
         noValidate
       >
+        <HiddenUsernameField />
         <p className="text-sm text-muted-foreground">{t('passwordBody')}</p>
         <FormPassword<ReauthFormData>
           name="password"
