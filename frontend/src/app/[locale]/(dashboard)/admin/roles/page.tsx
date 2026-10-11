@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback, useRef, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Description, Heading, SearchBar, SplitView } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
@@ -13,7 +12,9 @@ import { RoleDetailPanel } from '@/modules/permissions/components/roles/RoleDeta
 import { RoleSplitViewSkeleton, RoleDialogs } from '@/modules/roles/components';
 import { RoutePermissionGuard } from '@/modules/permissions';
 import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
-import { ROLE_PERMISSIONS, parseApiError } from '@app/core';
+import { ROLE_PERMISSIONS } from '@app/core';
+import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';
+import { useListReadState } from '@/hooks/useListReadState';
 import { Plus, Shield } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -36,6 +37,15 @@ export default function RolesPage() {
     page,
     limit: 20,
     search: debouncedSearch.trim() || undefined,
+  });
+
+  // A list already on screen stays when a later read of it fails.
+  const { showLoadError, isStale, retry } = useListReadState({
+    isLoading,
+    isError,
+    hasData: currentData !== undefined,
+    refetch,
+    landing: titleRef,
   });
 
   const roles = useMemo(() => data?.roles || [], [data?.roles]);
@@ -114,27 +124,29 @@ export default function RolesPage() {
           <RoleSplitViewSkeleton />
         </Activity>
 
-        {/* State 2: Error */}
-        <Activity mode={!isLoading && isError ? 'visible' : 'hidden'}>
-          <Alert variant="destructive" data-testid="error-state">
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                {tCommon('loading')} {error ? parseApiError(error).message : tCommon('retry')}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                data-testid="retry-roles-button"
-              >
-                {tCommon('retry')}
-              </Button>
-            </AlertDescription>
-          </Alert>
+        {/* State 2: Error, nothing loaded for this view */}
+        <Activity mode={showLoadError ? 'visible' : 'hidden'}>
+          <ListLoadError
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-roles-button"
+          >
+            {t('loadError')}
+          </ListLoadError>
         </Activity>
 
+        {isStale && (
+          <StaleListNotice
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-refresh-roles-button"
+          />
+        )}
+
         {/* State 3: Empty */}
-        <Activity mode={!isLoading && !isError && roles.length === 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!isLoading && !showLoadError && roles.length === 0 ? 'visible' : 'hidden'}>
           <div
             className="flex flex-col items-center justify-center py-16 text-center"
             data-testid="empty-state"
@@ -171,7 +183,7 @@ export default function RolesPage() {
         </Activity>
 
         {/* State 4: Data */}
-        <Activity mode={!isLoading && !isError && roles.length > 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!isLoading && !showLoadError && roles.length > 0 ? 'visible' : 'hidden'}>
           <div className="space-y-6">
             <SplitView
               sidebar={

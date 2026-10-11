@@ -1,18 +1,19 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { useState, useMemo, useCallback, useEffect, lazy, Suspense, Activity } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingRegion } from '@/components/layout/LoadingRegion';
 import { PaginationControl } from '@/components/pagination';
 import { useGetUsersQuery } from '@/modules/users/api/usersApi';
 import { UserListSkeleton, UserListToolbar, UserGroupedList } from '@/modules/users/components';
 import { CreateUserButton } from '@/modules/permissions/components/users/CreateUserButton';
 import { PermissionGuard, RoutePermissionGuard } from '@/modules/permissions';
-import { USER_PERMISSIONS, parseApiError } from '@app/core';
+import { USER_PERMISSIONS } from '@app/core';
+import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';
+import { useListReadState } from '@/hooks/useListReadState';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useAppDispatch } from '@/store/hooks';
@@ -44,6 +45,7 @@ export default function AdminUsersPage() {
 
   const {
     data: usersData,
+    currentData,
     isLoading,
     isFetching,
     isError,
@@ -54,6 +56,16 @@ export default function AdminUsersPage() {
     limit: 20,
     search: debouncedSearch.trim() || undefined,
     role: roleFilter !== 'all' ? roleFilter : undefined,
+  });
+
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // A list already on screen stays when a later read of it fails.
+  const { showLoadError, isStale, retry } = useListReadState({
+    isLoading,
+    isError,
+    hasData: currentData !== undefined,
+    refetch,
+    landing: titleRef,
   });
 
   const users = useMemo(() => usersData?.users || [], [usersData?.users]);
@@ -109,7 +121,7 @@ export default function AdminUsersPage() {
         <div className="my-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <Heading level={1} variant="pageTitle">
+              <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
                 {t('title')}
               </Heading>
               <Description className="mt-1">{t('count', { count: totalCount })}</Description>
@@ -159,27 +171,29 @@ export default function AdminUsersPage() {
           <UserListSkeleton />
         </Activity>
 
-        {/* State 2: Error */}
-        <Activity mode={!isLoading && isError ? 'visible' : 'hidden'}>
-          <Alert variant="destructive" data-testid="error-state">
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                {t('loadError')} {error ? parseApiError(error).message : t('tryAgain')}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                data-testid="retry-users-button"
-              >
-                {tCommon('retry')}
-              </Button>
-            </AlertDescription>
-          </Alert>
+        {/* State 2: Error, nothing loaded for this view */}
+        <Activity mode={showLoadError ? 'visible' : 'hidden'}>
+          <ListLoadError
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-users-button"
+          >
+            {t('loadError')}
+          </ListLoadError>
         </Activity>
 
+        {isStale && (
+          <StaleListNotice
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-refresh-users-button"
+          />
+        )}
+
         {/* State 3: Empty */}
-        <Activity mode={!isLoading && !isError && users.length === 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!isLoading && !showLoadError && users.length === 0 ? 'visible' : 'hidden'}>
           <div
             className="flex flex-col items-center justify-center py-12 text-center"
             data-testid="empty-state"
@@ -209,7 +223,7 @@ export default function AdminUsersPage() {
         </Activity>
 
         {/* State 4: Data */}
-        <Activity mode={!isLoading && !isError && users.length > 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!isLoading && !showLoadError && users.length > 0 ? 'visible' : 'hidden'}>
           <UserGroupedList
             verifiedUsers={verifiedUsers}
             pendingUsers={pendingUsers}

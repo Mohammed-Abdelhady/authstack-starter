@@ -28,6 +28,7 @@
     "create": "إنشاء",
     "refresh": "تحديث",
     "retry": "إعادة المحاولة",
+    "refreshFailed": "تعذّر تحديث هذه القائمة، والمعروض هو ما حُمِّل من قبل.",
     "search": "بحث",
     "clearSearch": "مسح البحث",
     "required": "*",
@@ -794,6 +795,7 @@
     "roleFilterError": "تعذر تحميل الأدوار. يرجى المحاولة مرة أخرى."
   },
   "roles": {
+    "loadError": "فشل في تحميل الأدوار.",
     "title": "الأدوار",
     "count": "{count, plural, zero {لا توجد أدوار معرّفة} one {دور واحد معرّف} two {دوران معرّفان} few {{count} أدوار معرّفة} many {{count} دوراً معرّفاً} other {{count} دور معرّف}}",
     "createRole": "إنشاء دور",

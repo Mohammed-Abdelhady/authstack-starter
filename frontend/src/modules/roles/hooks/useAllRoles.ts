@@ -39,5 +39,6 @@ export function useAllRoles(): AllRoles {
     void refetch();
   }, [refetch]);
 
-  return { roles, isLoading, isError, retry, refusalFor };
+  // A list read once stays in use when a later read of it fails.
+  return { roles, isLoading, isError: isError && data === undefined, retry, refusalFor };
 }
