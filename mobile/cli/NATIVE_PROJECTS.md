@@ -4,8 +4,11 @@ The bare app keeps no native project in the repository. Generate the React
 Native 0.86.3 projects with the Community CLI 20.1.0, then make the edits
 below. Run every command from the repository root with Node 22 active.
 
-The iOS steps were followed on Xcode 27 with CocoaPods 1.17 and the app ran on
-an iOS 27 simulator. The Android steps have never been built or run.
+The iOS steps were followed on Xcode 27 with CocoaPods 1.17, and the app was
+built and run on an iPhone 17 simulator with iOS 27 against a local server. The
+native project those steps produce is ignored by git and not committed, so the
+installer does not offer this app yet. The Android steps have never been built
+or run.
 
 ```sh
 pnpm --filter @app/mobile-cli exec rnc-cli init MobileCli --template @react-native-community/template@0.86.3 --directory /tmp/mobile-cli-native-0.86.3 --skip-install

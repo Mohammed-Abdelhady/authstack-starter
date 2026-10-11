@@ -144,7 +144,6 @@ MONGO_USERNAME=admin
 MONGO_PASSWORD=your_secure_password
 CLIENT_URL=https://yourdomain.com
 NEXT_PUBLIC_API_URL=https://api.yourdomain.com
-NEXT_PUBLIC_APP_URL=https://yourdomain.com
 ```
 
 3. **Start production stack**
@@ -264,7 +263,6 @@ Go to your project settings in Vercel and add:
 | Variable              | Value                        | Environment |
 | --------------------- | ---------------------------- | ----------- |
 | `NEXT_PUBLIC_API_URL` | `https://api.yourdomain.com` | Production  |
-| `NEXT_PUBLIC_APP_URL` | `https://yourdomain.com`     | Production  |
 
 5. **Deploy to production**
 
