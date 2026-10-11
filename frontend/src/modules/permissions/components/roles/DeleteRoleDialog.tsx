@@ -81,7 +81,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent data-testid="delete-role-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
