@@ -8,10 +8,9 @@ import {
 } from '../persistence/mongo/passkeys.harness-spec';
 
 /**
- * The one spec that runs the real library rather than a mock of it.
- *
- * A credential that would pass the check has to be signed by an authenticator,
- * which cannot be produced here, so what this pins down is the other half: the
+ * Runs the real library rather than a mock of it, with payloads no
+ * authenticator signed; `webauthn.adapter.real-authenticator.spec.ts` covers
+ * the signed ones. What this pins down is the other half: the
  * library reports a bad signature as `verified: false` but throws for a
  * mismatched challenge, origin or RP id and for a payload it cannot parse. Both
  * have to leave the adapter as null, or a malformed request would reach the
