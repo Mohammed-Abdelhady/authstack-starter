@@ -49,6 +49,9 @@ export class AuthService {
     const candidate = await this.accounts.findForPasswordCheck(dto.email);
 
     if (!candidate || !candidate.passwordHash) {
+      // The same one comparison a stored password costs, so the answer does
+      // not arrive sooner for an address with no account or no password.
+      await this.hashService.spendComparison(dto.password);
       throw new AppException(
         ErrorCode.INVALID_CREDENTIALS,
         'Invalid email or password',
