@@ -4,10 +4,12 @@ import configuration from './configuration';
 import { validateEnvironment } from './env.validation';
 
 /**
- * Reads and validates the environment as soon as this file is loaded. The
- * application module imports it before any other module file, because each of
- * those picks its database adapter from the environment when it is loaded.
+ * Reads and validates the environment as soon as this file is loaded.
  */
+// feature:database-choice:start
+// The application module imports it before any other module file, because each
+// of those picks its database adapter from the environment when it is loaded.
+// feature:database-choice:end
 export const APP_CONFIGURATION = ConfigModule.forRoot({
   isGlobal: true,
   envFilePath: '.env',

@@ -177,10 +177,7 @@ describe('the PostgreSQL connection of the application', () => {
 
   it('refuses to build a pool without an address, and says which setting', () => {
     expect(() => postgresPoolConfig(new ConfigService({}))).toThrow(
-      [
-        'POSTGRES_URL is required',
-        'when DATABASE_TYPE is postgres', // feature:database-choice
-      ].join(' '),
+      'POSTGRES_URL is required when DATABASE_TYPE is postgres',
     );
   });
 

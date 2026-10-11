@@ -6,13 +6,13 @@ export const STORAGE_KIND = {
 
 export type StorageKind = (typeof STORAGE_KIND)[keyof typeof STORAGE_KIND];
 
+// feature:database-choice:start
 export const STORAGE_KINDS: readonly StorageKind[] =
   Object.values(STORAGE_KIND);
 
 /** The database when nothing names another: the first one this build carries. */
 export const DEFAULT_STORAGE_KIND: StorageKind = STORAGE_KINDS[0];
 
-// feature:database-choice:start
 /** The environment setting that names the database. */
 export const STORAGE_KIND_VARIABLE = 'DATABASE_TYPE';
 
@@ -46,18 +46,8 @@ export function chosenStorage(): StorageKind {
     return storageKindOf(named);
   }
   // feature:database-choice:end
-  return DEFAULT_STORAGE_KIND;
-}
-
-function missingAdapter(kind: StorageKind): Error {
-  // feature:database-choice:start
-  if (process.env[STORAGE_KIND_VARIABLE]) {
-    return new Error(
-      `${STORAGE_KIND_VARIABLE} is "${kind}", and this build does not carry that adapter`,
-    );
-  }
-  // feature:database-choice:end
-  return new Error(`This build carries no adapter for "${kind}"`);
+  // The first kind this build carries.
+  return Object.values(STORAGE_KIND)[0];
 }
 
 /**
@@ -72,7 +62,14 @@ export function forStorage<Wiring>(
   const kind = chosenStorage();
   const adapter = adapters[kind];
   if (!adapter) {
-    throw missingAdapter(kind);
+    // feature:database-choice:start
+    if (process.env[STORAGE_KIND_VARIABLE]) {
+      throw new Error(
+        `${STORAGE_KIND_VARIABLE} is "${kind}", and this build does not carry that adapter`,
+      );
+    }
+    // feature:database-choice:end
+    throw new Error(`This build carries no adapter for "${kind}"`);
   }
   picked ??= kind; // feature:database-choice
   return adapter();

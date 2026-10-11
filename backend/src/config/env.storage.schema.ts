@@ -25,10 +25,8 @@ import { transformOptionalString } from '../common/utils/environment-transform';
 export const POSTGRES_POOL_MAX_DEFAULT = 10;
 
 /** What a missing address is told. */
-export const POSTGRES_URL_REQUIRED = [
-  'POSTGRES_URL is required',
-  'when DATABASE_TYPE is postgres', // feature:database-choice
-].join(' ');
+export const POSTGRES_URL_REQUIRED =
+  'POSTGRES_URL is required when DATABASE_TYPE is postgres';
 
 /**
  * A number setting left blank in a copied example file is unset, as blank text
