@@ -67,13 +67,11 @@ Configure these in `backend/.env`:
 PORT=5000
 NODE_ENV=development
 MONGO_URI=mongodb://localhost:27017/authboiler?replicaSet=rs0
-FRONTEND_URL=http://localhost:3000
+CLIENT_URL=http://localhost:3000
 
-# Session and state security
-SESSION_SECRET=your-secure-session-secret
-OAUTH_STATE_SECRET=your-secure-oauth-state-secret
-TOTP_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-AUTH_NATIVE_DPOP_NONCE_SECRET=your-secure-native-dpop-nonce-secret
+# Secrets. The table below has the rule for each
+OAUTH_STATE_SECRET=<at least 32 characters>
+AUTH_NATIVE_DPOP_NONCE_SECRET=<at least 32 characters>
 
 # SMTP email service
 SMTP_HOST=smtp.gmail.com
@@ -91,6 +89,16 @@ OAUTH_GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/oauth/google/callback
 # Swagger API docs
 SWAGGER_ENABLED=true
 ```
+
+The server checks these when it starts and does not start while one is wrong. `TOTP_ENCRYPTION_KEY` belongs with the secrets above. <!-- feature:totp -->
+
+| Variable                        | Rule                                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `MONGO_URI`                     | Required. Starts with `mongodb://` or `mongodb+srv://`                                         | <!-- feature:mongodb -->             |
+| `CLIENT_URL`                    | Origin of the web app, used for CORS and for links in mail. `http://localhost:3000` when unset |
+| `OAUTH_STATE_SECRET`            | Required, at least 32 characters. `openssl rand -hex 32` makes one                             | <!-- feature:oauth-core,passkeys --> |
+| `TOTP_ENCRYPTION_KEY`           | 32 bytes in base64, as `openssl rand -base64 32` prints them. A hex key is refused             | <!-- feature:totp -->                |
+| `AUTH_NATIVE_DPOP_NONCE_SECRET` | At least 32 characters, required only with `AUTH_NATIVE_ENABLED=true`                          |
 
 <!-- feature:mongodb:start -->
 

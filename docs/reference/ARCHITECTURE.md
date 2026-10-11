@@ -36,8 +36,8 @@ The development stack runs the backend, frontend and MongoDB containers with Doc
 Every incoming request to the NestJS backend passes through the following layers in order:
 
 1. **Helmet middleware.** Applies standard security headers including Content Security Policy, Frameguard, and DNS Prefetch Control.
-2. **CORS middleware.** Validates request origin against `FRONTEND_URL`. Allows credentials (`Access-Control-Allow-Credentials: true`).
-3. **Cookie parser.** Parses incoming cookies. Uses `SESSION_SECRET` to sign and unsign secure cookies.
+2. **Cookie parser.** Parses incoming cookies. It holds no secret. The session cookie carries a random token and the server stores only its hash.
+3. **CORS middleware.** Validates request origin against `CLIENT_URL`. Allows credentials (`Access-Control-Allow-Credentials: true`).
 4. **Global prefix filter.** Routes all application controllers under `/api`, while keeping `/health` at the server root.
 5. **Validation pipe.** Enforces class-validator constraints on request bodies and query parameters. Strips undeclared fields (`whitelist: true`) and transforms payloads to typed DTO instances (`transform: true`).
 6. **Authentication guard (`SessionAuthGuard`).** Skips routes decorated with `@Public()`. Reads the session cookie, computes its SHA-256 hash, and verifies the session in MongoDB. Injects the authenticated user document and session into `req.user` and `req.session`.
