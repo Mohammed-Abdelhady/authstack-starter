@@ -40,8 +40,8 @@ must not exist, or must be empty. With `--yes` and no directory the CLI uses
 | `-v, --version`    | Print the CLI version                                                                |
 
 Without `--yes`, `--features`, `--targets`, `--database`, `--preset` or `--config`
-the CLI asks for a directory and shows the methods grouped by kind. It needs a
-terminal for that.
+the CLI asks for a directory, the clients, the database and the sign-in methods,
+grouped by kind. It needs a terminal for that.
 
 The rules level is asked for in a terminal. Without a terminal and without
 `--rules` or a `rules` value in the config file, the level is `strict` and
