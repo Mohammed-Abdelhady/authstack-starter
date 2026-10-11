@@ -36,7 +36,10 @@ export abstract class AccountProfileStore {
   ): Promise<StoredAccount>;
   abstract findPassword(userId: string): Promise<AccountPassword | null>;
   abstract findPrimaryProvider(userId: string): Promise<string | undefined>;
-  /** Permissions of the role with this slug, or null when no role carries it. */
+  /**
+   * What `RolePermissions.ofRole` answers for the slug. An adapter asks that
+   * port's adapter and keeps no query of its own.
+   */
   abstract findRolePermissions(slug: string): Promise<string[] | null>;
   abstract countPasskeys(userId: string): Promise<number>; // feature:passkeys
 
