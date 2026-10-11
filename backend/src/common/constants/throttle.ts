@@ -27,6 +27,9 @@ export const THROTTLE_TWO_FACTOR_VERIFY_TTL = THROTTLE_TTL_15_MIN;
 export const THROTTLE_CHANGE_PASSWORD_LIMIT = 10;
 export const THROTTLE_CHANGE_PASSWORD_TTL = THROTTLE_TTL_15_MIN;
 
+export const THROTTLE_PASSKEY_REGISTER_LIMIT = 10;
+export const THROTTLE_PASSKEY_REGISTER_TTL = THROTTLE_TTL_15_MIN;
+
 export const THROTTLE_PASSKEY_LOGIN_LIMIT = 20;
 export const THROTTLE_PASSKEY_LOGIN_TTL = THROTTLE_TTL_15_MIN;
 
@@ -102,5 +105,13 @@ export const THROTTLE_PASSKEY_LOGIN = {
   default: {
     limit: THROTTLE_PASSKEY_LOGIN_LIMIT,
     ttl: THROTTLE_PASSKEY_LOGIN_TTL,
+  },
+} as const;
+
+/** The options route for adding a passkey, which checks a password or a code. */
+export const THROTTLE_PASSKEY_REGISTER = {
+  default: {
+    limit: THROTTLE_PASSKEY_REGISTER_LIMIT,
+    ttl: THROTTLE_PASSKEY_REGISTER_TTL,
   },
 } as const;

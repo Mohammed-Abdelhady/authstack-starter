@@ -11,6 +11,7 @@ import {
 } from '../../stores/passkey.store';
 import {
   PasskeyAccount,
+  PasskeyAccountPassword,
   PasskeyAccounts,
   PasskeySignIn,
   PasskeySignInOutcome,
@@ -282,6 +283,17 @@ export class PostgresPasskeyAccounts extends PasskeyAccounts {
         },
         signIn,
       );
+    });
+  }
+
+  findPassword(userId: string): Promise<PasskeyAccountPassword | null> {
+    return autocommit(PASSKEY_CONSTRAINTS, async () => {
+      const row = await this.database
+        .selectFrom('users')
+        .select('password_hash')
+        .where('id', '=', toUuid(userId))
+        .executeTakeFirst();
+      return row ? { passwordHash: row.password_hash ?? undefined } : null;
     });
   }
 

@@ -26,6 +26,11 @@ export interface PasskeyChallengePayload {
   challenge: string;
   /** Account the challenge was issued to. Registration only; login is open. */
   sub?: string;
+  /**
+   * Session that proved itself before the challenge was issued. Registration
+   * only: the proof is good for this challenge and for no other session.
+   */
+  sid?: string;
   /** Epoch milliseconds after which the cookie is refused. */
   expiresAt: number;
 }
@@ -49,6 +54,7 @@ export class PasskeyChallengeService {
     purpose: PasskeyChallengePurpose,
     challenge: string,
     userId?: string,
+    sessionId?: string,
   ): Promise<void> {
     const signingKey = this.key();
     const expiresAt = Date.now() + PASSKEY_CHALLENGE_TTL_MS;
@@ -56,6 +62,7 @@ export class PasskeyChallengeService {
       purpose,
       challenge,
       sub: userId,
+      sid: sessionId,
       expiresAt,
     };
 
