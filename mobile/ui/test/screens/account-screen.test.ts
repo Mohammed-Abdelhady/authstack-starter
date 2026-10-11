@@ -211,4 +211,14 @@ describe('the account screen', () => {
     expect(screenText(app)).not.toContain('Ada Lovelace');
     expect(app.server.sent()).toEqual([ROUTE.PROFILE, ROUTE.PROFILE]);
   });
+
+  it("drops one person's profile at once when the engine swaps the account without a sign-out", async () => {
+    const app = await renderApp(ADA);
+    await app.step(() => app.server.answer(ROUTE.PROFILE, ok(PROFILE)));
+
+    await app.publish(signedInAs('ben'));
+
+    expect(screenText(app)).not.toContain('Ada Lovelace');
+    expect(app.server.sent()).toEqual([ROUTE.PROFILE, ROUTE.PROFILE]);
+  });
 });

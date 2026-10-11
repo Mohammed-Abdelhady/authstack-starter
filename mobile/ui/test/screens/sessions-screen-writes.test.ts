@@ -1,7 +1,7 @@
 import { ErrorCode } from '@app/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TEST_ID } from '../../src/constants';
-import { LAPTOP, PHONE, TABLET } from '../support/devices';
+import { PHONE, TABLET } from '../support/devices';
 import { noResponse, ok, refusal, ROUTE, sessionList } from '../support/fake-server';
 import { cleanup, isShown, press, pullToRefresh, refreshControl } from '../support/render';
 import { alerts, listed, problem, REVOKE, rows, writes } from '../support/sessions-screen';
@@ -26,9 +26,7 @@ describe('signing devices out from the devices screen', () => {
     });
   });
 
-  // What the screen does today, and it contradicts the notice: the list hook keeps
-  // the rows from before the refusal until a read of the list succeeds.
-  it('leaves a refused device out of the list until the list is read again, while the notice says it is back', async () => {
+  it('shows a refused device again at once, and keeps it and the notice when the next read fails too', async () => {
     const app = await listed();
     await press(app.root, REVOKE('laptop'));
     await app.confirm.answer(true);
@@ -39,22 +37,36 @@ describe('signing devices out from the devices screen', () => {
 
     await app.step(() => app.server.fail(ROUTE.revoke('laptop'), noResponse()));
     expect({ rows: rows(app), problem: problem(app), sent: app.server.sent().slice(2) }).toEqual({
-      rows: ['phone', 'tablet'],
+      rows: ['phone', 'laptop', 'tablet'],
       problem: notice,
       sent: [ROUTE.revoke('laptop'), ROUTE.SESSIONS],
     });
 
     await app.step(() => app.server.fail(ROUTE.SESSIONS, noResponse()));
     expect({ rows: rows(app), problem: problem(app) }).toEqual({
-      rows: ['phone', 'tablet'],
+      rows: ['phone', 'laptop', 'tablet'],
       problem: notice,
     });
+  });
 
-    await pullToRefresh(app.root);
-    await app.step(() => app.server.answer(ROUTE.SESSIONS, sessionList([PHONE, LAPTOP, TABLET])));
+  it('shows every other device again at once when signing them all out is refused', async () => {
+    const app = await listed();
+    await press(app.root, TEST_ID.SESSIONS_REVOKE_OTHERS);
+    await app.confirm.answer(true);
+    expect(rows(app)).toEqual(['phone']);
+
+    await app.step(() =>
+      app.server.answer(ROUTE.REVOKE_OTHERS, refusal(503, ErrorCode.AUTHORITY_UNAVAILABLE)),
+    );
+    expect(rows(app)).toEqual(['phone', 'laptop', 'tablet']);
+
+    await app.step(() => app.server.fail(ROUTE.SESSIONS, noResponse()));
     expect({ rows: rows(app), problem: problem(app) }).toEqual({
       rows: ['phone', 'laptop', 'tablet'],
-      problem: undefined,
+      problem: [
+        app.t('sessions.revokeOthersFailed.title'),
+        app.t('sessions.revokeOthersFailed.description'),
+      ],
     });
   });
 

@@ -15,7 +15,7 @@ interface Problem {
 
 export function useSessions() {
   const { runtime, t, now, confirm } = useUi();
-  const { data, error, refetch } = useListSessionsQuery();
+  const { currentData: data, error, refetch } = useListSessionsQuery();
   const [problem, setProblem] = useState<Problem>();
   // Only a pull shows the refresh indicator. The re-read after a sign-out stays quiet.
   const [pulling, setPulling] = useState(false);
