@@ -122,9 +122,13 @@ export function validatePort(port) {
   return !Number.isNaN(portNum) && portNum >= 1 && portNum <= 65535;
 }
 
-/** True for a user name or password that can be pasted into a database address as typed. */
+/**
+ * True for a user name or password that can be pasted into a database address
+ * as typed. `$` is refused too: the value is written unquoted into an env file,
+ * where `$NAME` and `${NAME}` are read as another setting.
+ */
 export function fitsInAddress(value) {
-  return !/[@/#%:?\s]/.test(value);
+  return !/[@/#%:?$\s]/.test(value);
 }
 
 export function validateMongoUri(uri) {

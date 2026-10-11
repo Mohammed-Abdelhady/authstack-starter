@@ -186,13 +186,19 @@ test('init creates a private backend environment without an example or existing 
 
 test('a database user or password that would break the address is refused, one character at a time', () => {
   const refused = ['p@ss', 'p/ss', 'p#ss', 'p%ss', 'p:ss', 'p?ss', 'p ss', 'p\tss'];
+  // Read as another setting in the unquoted env file line.
+  const interpolated = ['pa$word', 'pa${word}', '$', 'tail$'];
 
   assert.deepEqual(
     refused.filter((value) => fitsInAddress(value)),
     [],
   );
   assert.deepEqual(
-    ['admin', 'safe-Password_1.~!$&*+,;=', ''].map((value) => fitsInAddress(value)),
+    interpolated.filter((value) => fitsInAddress(value)),
+    [],
+  );
+  assert.deepEqual(
+    ['admin', 'safe-Password_1.~!&*+,;=', ''].map((value) => fitsInAddress(value)),
     [true, true, true],
   );
 });
