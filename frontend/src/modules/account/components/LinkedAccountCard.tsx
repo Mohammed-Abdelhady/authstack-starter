@@ -30,6 +30,7 @@ import {
   type PrimaryHint,
   type UnlinkHint,
 } from '../types';
+import { useSharedSingleFlight } from '@/hooks/useSingleFlight';
 
 interface LinkedAccountCardProps {
   providerId: string;
@@ -71,7 +72,10 @@ export function LinkedAccountCard({
   const [unlinkProvider, { isLoading: isUnlinking }] = useUnlinkProviderMutation();
   const [setPrimaryProvider, { isLoading: isSettingPrimary }] = useSetPrimaryProviderMutation();
 
-  const handleUnlink = async () => {
+  // Unlinking and choosing a primary change the same list, so they share one gate.
+  const exclusive = useSharedSingleFlight();
+
+  const unlink = async () => {
     try {
       await unlinkProvider(providerId).unwrap();
       toast.success(t('unlinkSuccess', { provider: displayName }));
@@ -84,6 +88,7 @@ export function LinkedAccountCard({
       reportUnlessHandled(error);
     }
   };
+  const handleUnlink = () => exclusive(unlink);
 
   const openUnlinkDialog = () => {
     if (!isUnlinkBlocked) {
@@ -91,7 +96,7 @@ export function LinkedAccountCard({
     }
   };
 
-  const handleSetPrimary = async () => {
+  const setPrimary = async () => {
     try {
       await setPrimaryProvider({ provider: providerId }).unwrap();
       toast.success(t('setPrimarySuccess', { provider: displayName }));
@@ -100,6 +105,7 @@ export function LinkedAccountCard({
       reportUnlessHandled(error);
     }
   };
+  const handleSetPrimary = () => exclusive(setPrimary);
 
   return (
     <>

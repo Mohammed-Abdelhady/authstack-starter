@@ -9,6 +9,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { logout as logoutAction, selectIsAuthenticated } from '@/modules/auth/store/authSlice';
 import { toast } from '@/lib/toast';
 import { getPathname } from '@/i18n/navigation';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * LogoutButton component for navigation
@@ -23,7 +24,7 @@ export function LogoutButton() {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
 
-  const handleLogout = useCallback(async () => {
+  const signOut = useCallback(async () => {
     const loginPath = getPathname({ href: '/auth/login', locale });
     try {
       await logout().unwrap();
@@ -39,6 +40,7 @@ export function LogoutButton() {
       window.location.href = loginPath;
     }
   }, [logout, dispatch, tToast, locale]);
+  const handleLogout = useSingleFlight(signOut);
 
   // Don't render if not authenticated
   if (!isAuthenticated) {

@@ -6,6 +6,7 @@ import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabl
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { useConfirmTwoFactorMutation, useSetupTwoFactorMutation } from '../api';
 import { SETUP_STEP, type SetupStep, type TwoFactorSetup } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 export interface TwoFactorSetupFlow {
   step: SetupStep;
@@ -36,7 +37,7 @@ export function useTwoFactorSetup(): TwoFactorSetupFlow {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const start = useCallback(
+  const startOnce = useCallback(
     async (password?: string) => {
       setError(null);
       try {
@@ -52,8 +53,15 @@ export function useTwoFactorSetup(): TwoFactorSetupFlow {
     },
     [handleFeatureDisabled, startSetup, tCodes],
   );
+  const guardedStart = useSingleFlight(startOnce);
+  const start = useCallback(
+    async (password?: string) => {
+      await guardedStart(password);
+    },
+    [guardedStart],
+  );
 
-  const confirm = useCallback(
+  const confirmOnce = useCallback(
     async (code: string) => {
       setError(null);
       try {
@@ -68,6 +76,13 @@ export function useTwoFactorSetup(): TwoFactorSetupFlow {
       }
     },
     [confirmSetup, handleFeatureDisabled, tCodes],
+  );
+  const guardedConfirm = useSingleFlight(confirmOnce);
+  const confirm = useCallback(
+    async (code: string) => {
+      await guardedConfirm(code);
+    },
+    [guardedConfirm],
   );
 
   const reset = useCallback(() => {
