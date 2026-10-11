@@ -37,7 +37,7 @@ registerRtlDocument();
 describe.each([
   'en',
   'ar', // feature:locale-ar
-] as const)('the signed-in role in the dashboard header in %s', (locale) => {
+] as const)('the signed-in account in the dashboard header in %s', (locale) => {
   it('keeps the slug left to right inside an rtl header', async () => {
     stubNetwork(() => success(ACCOUNT));
     await renderForm(
@@ -54,5 +54,25 @@ describe.each([
       line: slug.parentElement ? directionOf(slug.parentElement) : null,
       shown: slug.parentElement?.textContent,
     }).toEqual({ text: SLUG, value: 'ltr', line: 'rtl', shown: `(${SLUG})` });
+  });
+
+  it.each([
+    ['a Latin name starting with digits', '3M Support Lead'],
+    ['an Arabic name', 'ليلى حداد'],
+  ])('lets the account name take its own direction: %s', async (_kind, name) => {
+    stubNetwork(() => success({ ...ACCOUNT, name }));
+    await renderForm(
+      locale,
+      <DashboardLayout>
+        <p>page</p>
+      </DashboardLayout>,
+    );
+
+    const shown = await screen.findByTestId('dashboard-user-name');
+    expect({
+      text: shown.textContent,
+      value: shown.getAttribute('dir'),
+      line: shown.parentElement ? directionOf(shown.parentElement) : null,
+    }).toEqual({ text: name, value: 'auto', line: 'rtl' });
   });
 });
