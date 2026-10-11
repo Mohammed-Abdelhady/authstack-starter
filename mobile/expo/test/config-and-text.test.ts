@@ -169,7 +169,7 @@ describe.each(LOCALES)('incoming outcome cases in %s', (locale) => {
     [
       describeSignIn({ kind: 'authorizationDenied', error: 'access_denied' }),
       'signInAuthorizationDenied',
-      'access_denied',
+      '\u2066access_denied\u2069',
     ],
     [
       describeSignOut({ kind: 'signedOut', revocation: 'revoked' }),
@@ -187,7 +187,11 @@ describe.each(LOCALES)('incoming outcome cases in %s', (locale) => {
   it('names the error an outcome carries', () => {
     const oauth = new OAuthError({ status: 400, error: 'invalid_grant' });
     expect(render(locale, describeSignIn({ kind: 'oauthFailure', error: oauth }))).toBe(
-      translate(locale, 'signInOauthFailure', translate(locale, 'errorOAuth', '400 invalid_grant')),
+      translate(
+        locale,
+        'signInOauthFailure',
+        translate(locale, 'errorOAuth', '\u2066400 invalid_grant\u2069'),
+      ),
     );
     expect(
       render(
@@ -220,12 +224,14 @@ describe.each(LOCALES)('incoming outcome cases in %s', (locale) => {
 
   it('describes each error a request can reject with', () => {
     const api = new ApiError({ status: 403, code: 'FORBIDDEN', message: 'No access' });
-    expect(render(locale, describeError(api))).toBe(translate(locale, 'errorApi', '403 FORBIDDEN'));
+    expect(render(locale, describeError(api))).toBe(
+      translate(locale, 'errorApi', '\u2066403 FORBIDDEN\u2069'),
+    );
     expect(render(locale, describeError(new AuthPortError('credentials.read', 'timedOut')))).toBe(
       translate(locale, 'errorPortTimedOut', MESSAGES[locale].portCredentialsRead),
     );
     expect(render(locale, describeError(new RangeError('too large')))).toBe(
-      translate(locale, 'errorUnexpected', 'RangeError'),
+      translate(locale, 'errorUnexpected', '\u2066RangeError\u2069'),
     );
     expect(render(locale, describeError('text'))).toBe(MESSAGES[locale].errorUnknown);
   });

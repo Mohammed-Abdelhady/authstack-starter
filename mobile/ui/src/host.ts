@@ -7,4 +7,5 @@ export {
   type HostAuth,
   type HostProps,
 } from './logic/host';
+export { isolateLtr } from './logic/isolate';
 export type { EdgeInsets, NativeAppProps, PhysicalInsets } from './types';

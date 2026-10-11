@@ -1,3 +1,4 @@
+import { isolateLtr } from '@app/native-ui/host';
 import { useTheme } from '@app/native-ui/theme';
 import { Button, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { StartedShellAuth } from '../shell';
@@ -57,6 +58,7 @@ export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
       ? undefined
       : text(STORAGE_WARNING_KEY[storageWarning]);
   const outcome = lastOutcome === undefined ? none : render(locale, lastOutcome);
+  const account = snapshot.profile === undefined ? none : isolateLtr(snapshot.profile.email);
 
   return (
     <ScrollView
@@ -78,7 +80,7 @@ export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
           {text('operation', text(OPERATION_KEY[snapshot.operation]))}
         </Text>
         <Text style={line}>{text('reason', reason)}</Text>
-        <Text style={line}>{text('account', snapshot.profile?.email ?? none)}</Text>
+        <Text style={line}>{text('account', account)}</Text>
         {warning === undefined ? null : (
           <Text testID={TEST_ID.WARNING} style={line}>
             {text('warning', warning)}
