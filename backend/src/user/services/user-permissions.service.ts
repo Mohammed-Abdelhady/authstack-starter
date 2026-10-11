@@ -37,7 +37,13 @@ export class UserPermissionsService {
 
     const grants = await this.accounts.findGrants(userId);
 
-    assertActiveUser(grants);
+    if (!grants) {
+      throw new AppException(
+        ErrorCode.USER_NOT_FOUND,
+        'User not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     return ApiResponse.success({
       userId: grants.id,
