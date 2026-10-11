@@ -37,6 +37,12 @@ services:
     container_name: authboiler-migrate
     restart: 'no'
     command: ['pnpm', 'run', 'migration:postgres:up']
+    # The same source the server reads, so a migration that was pulled is
+    # applied without rebuilding the image.
+    volumes:
+      - ./backend:/app/backend
+      - /app/node_modules
+      - /app/backend/node_modules
     env_file:
       - path: .env.docker
         required: false
