@@ -11,6 +11,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { FieldError, SubmitButton } from '@/components/forms';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import type { Role } from '../../api/rolesApi';
+import {
+  fieldElementId,
+  useLocalFieldTarget,
+  useServerFieldErrors,
+} from '@/hooks/useServerFieldErrors';
 
 export interface EditRoleFormValues {
   name: string;
@@ -21,13 +26,9 @@ export interface EditRoleFormValues {
 export interface EditRoleFormProps {
   role: Role;
   isLoading: boolean;
-  onSubmit: (data: EditRoleFormValues) => void;
+  /** `markRefusedFields` marks the fields a refused save names and focuses the first. */
+  onSubmit: (data: EditRoleFormValues, markRefusedFields: (error: unknown) => boolean) => void;
   onCancel: () => void;
-}
-
-interface EditRoleFormErrors {
-  name?: string;
-  permissions?: string;
 }
 
 /**
@@ -37,16 +38,21 @@ interface EditRoleFormErrors {
 export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFormProps) {
   const t = useTranslations('roles.form');
   const uid = useId();
-  const nameId = `${uid}-name`;
-  const nameErrorId = `${uid}-name-error`;
-  const descriptionId = `${uid}-description`;
+  const nameId = fieldElementId(uid, 'name');
+  const nameErrorId = `${nameId}-error`;
+  const descriptionId = fieldElementId(uid, 'description');
+  const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
   const permissionsErrorId = `${uid}-permissions-error`;
 
   const [name, setName] = useState(role.name || '');
   const [description, setDescription] = useState(role.description || '');
   const [permissions, setPermissions] = useState<string[]>(role.permissions || []);
-  const [errors, setErrors] = useState<EditRoleFormErrors>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const applyServerFieldErrors = useServerFieldErrors(
+    useLocalFieldTarget(setErrors, uid),
+    isLoading,
+  );
 
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
@@ -54,7 +60,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: EditRoleFormErrors = {};
+    const nextErrors: Record<string, string> = {};
     if (!name.trim()) nextErrors.name = t('nameError');
     if (permissions.length === 0) nextErrors.permissions = t('permissionsError');
 
@@ -63,7 +69,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
       return;
     }
 
-    onSubmit({ name, description, permissions });
+    onSubmit({ name, description, permissions }, applyServerFieldErrors);
   };
 
   return (
@@ -100,7 +106,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             value={name}
             onChange={(e) => {
               setName(e.target.value);
-              if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+              if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
             }}
             disabled={isLoading || isProtected || isBaseRole}
             required
@@ -122,11 +128,21 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
           <Textarea
             id={descriptionId}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              if (errors.description) setErrors((prev) => ({ ...prev, description: '' }));
+            }}
             placeholder={t('descriptionPlaceholder')}
             rows={3}
             disabled={isLoading || isBaseRole}
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={errors.description ? descriptionErrorId : undefined}
             data-testid="edit-role-description-input"
+          />
+          <FieldError
+            id={descriptionErrorId}
+            message={errors.description}
+            testId="edit-role-description-error"
           />
           {isBaseRole && (
             <p className="text-xs text-tertiary">{t('baseRoleDescriptionImmutable')}</p>
@@ -148,7 +164,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
               selectedPermissions={permissions}
               onChange={(next) => {
                 setPermissions(next);
-                if (errors.permissions) setErrors((prev) => ({ ...prev, permissions: undefined }));
+                if (errors.permissions) setErrors((prev) => ({ ...prev, permissions: '' }));
               }}
               disabled={isLoading}
             />

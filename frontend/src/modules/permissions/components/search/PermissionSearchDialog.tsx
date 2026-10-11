@@ -183,6 +183,8 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
         <div className="flex-1 overflow-hidden flex flex-col gap-4">
           {/* Search Bar */}
           <SearchBar
+            dir="auto"
+            className="[&_input]:[text-align:match-parent]"
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

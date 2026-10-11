@@ -12,10 +12,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
-/** The three state changes a user row can confirm. */
-export type UserConfirmAction = 'activate' | 'deactivate' | 'delete';
+/** The two state changes a user row can confirm. */
+export type UserConfirmAction = 'activate' | 'deactivate';
 
 interface ConfirmActionCopy {
   /** Heading key inside the users.actions namespace */
@@ -24,8 +23,6 @@ interface ConfirmActionCopy {
   descriptionKey: string;
   /** Label key for the confirm button */
   confirmKey: string;
-  /** Paints the confirm button red */
-  destructive: boolean;
 }
 
 const CONFIRM_ACTION_COPY: Record<UserConfirmAction, ConfirmActionCopy> = {
@@ -33,19 +30,11 @@ const CONFIRM_ACTION_COPY: Record<UserConfirmAction, ConfirmActionCopy> = {
     titleKey: 'activateTitle',
     descriptionKey: 'activateDescription',
     confirmKey: 'activateConfirm',
-    destructive: false,
   },
   deactivate: {
     titleKey: 'deactivateTitle',
     descriptionKey: 'deactivateDescription',
     confirmKey: 'deactivateConfirm',
-    destructive: false,
-  },
-  delete: {
-    titleKey: 'deleteTitle',
-    descriptionKey: 'deleteDescription',
-    confirmKey: 'deleteConfirm',
-    destructive: true,
   },
 };
 
@@ -63,7 +52,7 @@ export interface UserActionConfirmDialogProps {
 }
 
 /**
- * Confirmation dialog shared by the activate, deactivate and delete user actions.
+ * Confirmation dialog shared by the activate and deactivate user actions.
  */
 export function UserActionConfirmDialog({
   action,
@@ -84,7 +73,11 @@ export function UserActionConfirmDialog({
             {copy
               ? t.rich(copy.descriptionKey, {
                   name: userName,
-                  strong: (chunks) => <strong>{chunks}</strong>,
+                  strong: (chunks) => (
+                    <strong>
+                      <span dir="auto">{chunks}</span>
+                    </strong>
+                  ),
                 })
               : null}
           </AlertDialogDescription>
@@ -98,7 +91,6 @@ export function UserActionConfirmDialog({
             disabled={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-user-action-button"
-            className={cn(copy?.destructive && 'bg-red-600 hover:bg-red-700 focus:ring-red-600')}
           >
             {isLoading && (
               <Loader2 className="me-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />

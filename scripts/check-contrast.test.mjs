@@ -2,14 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   CONTRAST_PAIRS,
+  compositeOver,
   contrastRatio,
   controlPairs,
   extractClassName,
+  extractVariantClasses,
   hslToRgb,
   loadControlPairs,
   loadCss,
+  loadTintedPairs,
+  pairRatio,
   parseTokens,
   resolveControlTokens,
+  resolveTintedSurface,
+  tintedPairs,
 } from './check-contrast.mjs';
 
 const KNOWN_TOKENS = ['primary', 'primary-foreground', 'ring', 'background', 'warning', 'ink'];
@@ -231,5 +237,113 @@ test('every control placed on a status surface keeps 3:1 in both themes', () => 
   }
 
   assert.equal(pairs.length, 5);
+  assert.deepEqual(failures, []);
+});
+
+const TINT_TOKENS = ['info', 'foreground', 'text-tertiary', 'background'];
+const GREYS = { ink: [0, 0, 0], paper: [0, 0, 100] };
+
+test('a tint is mixed with its backdrop by its alpha', () => {
+  assert.deepEqual(compositeOver([255, 255, 255], [0, 0, 0], 0.1), [25.5, 25.5, 25.5]);
+  assert.deepEqual(compositeOver([200, 100, 0], [10, 20, 30], 0), [10, 20, 30]);
+  assert.deepEqual(compositeOver([200, 100, 0], [10, 20, 30], 1), [200, 100, 0]);
+});
+
+test('a variant class string is read on its own line or the next', () => {
+  const source = `
+    inherited: 'bg-info/10 text-foreground',
+    direct:
+      'bg-success/10 text-foreground',
+  `;
+
+  assert.equal(extractVariantClasses(source, 'inherited'), 'bg-info/10 text-foreground');
+  assert.equal(extractVariantClasses(source, 'direct'), 'bg-success/10 text-foreground');
+});
+
+test('a missing or computed variant class string stops the audit', () => {
+  assert.throws(() => extractVariantClasses("direct: 'bg-info/10'", 'inherited'), /inherited/);
+  assert.throws(() => extractVariantClasses('inherited: cn(base, tint)', 'inherited'), /literal/);
+});
+
+test('a tinted surface keeps its own alpha in each theme', () => {
+  assert.deepEqual(
+    resolveTintedSurface(
+      'bg-info/10 border-info/30 text-foreground dark:bg-info/20 dark:border-info/40',
+      TINT_TOKENS,
+    ),
+    {
+      text: 'foreground',
+      tint: { light: { token: 'info', alpha: 0.1 }, dark: { token: 'info', alpha: 0.2 } },
+    },
+  );
+});
+
+test('a tint without a dark class is the same in both themes and a plain fill is solid', () => {
+  assert.deepEqual(resolveTintedSurface('bg-info text-tertiary', TINT_TOKENS), {
+    text: 'text-tertiary',
+    tint: { light: { token: 'info', alpha: 1 }, dark: { token: 'info', alpha: 1 } },
+  });
+});
+
+test('a surface without a known tint or text colour stops the audit', () => {
+  assert.throws(() => resolveTintedSurface('bg-brand/10 text-foreground', TINT_TOKENS), /no tint/);
+  assert.throws(() => resolveTintedSurface('bg-info/10 font-mono', TINT_TOKENS), /text colour/);
+});
+
+test('every text colour is audited on every backdrop at the text minimum', () => {
+  const tint = { light: { token: 'info', alpha: 0.1 }, dark: { token: 'info', alpha: 0.2 } };
+
+  assert.deepEqual(
+    tintedPairs({ text: 'foreground', tint }, ['background', 'card'], ['text-tertiary']),
+    [
+      { token: 'foreground', background: 'background', tint, target: 4.5 },
+      { token: 'text-tertiary', background: 'background', tint, target: 4.5 },
+      { token: 'foreground', background: 'card', tint, target: 4.5 },
+      { token: 'text-tertiary', background: 'card', tint, target: 4.5 },
+    ],
+  );
+});
+
+test('a pair is measured against the tint as painted in that theme', () => {
+  const half = { token: 'paper', alpha: 0.5 };
+  const tint = { light: half, dark: { token: 'paper', alpha: 1 } };
+  const pair = { token: 'ink', background: 'ink', tint };
+
+  // White at 50% over black is rgb 127.5: luminance 0.2140, so (0.2140 + 0.05) / 0.05.
+  assert.equal(pairRatio(pair, GREYS, 'light').toFixed(2), '5.28');
+  assert.equal(pairRatio(pair, GREYS, 'dark').toFixed(2), '21.00');
+  assert.equal(pairRatio({ token: 'ink', background: 'paper' }, GREYS, 'light').toFixed(2), '21.00');
+});
+
+test('a pair naming a missing token has no ratio', () => {
+  const tint = { light: { token: 'mist', alpha: 0.5 }, dark: { token: 'mist', alpha: 0.5 } };
+
+  assert.equal(pairRatio({ token: 'ink', background: 'paper', tint }, GREYS, 'light'), null);
+  assert.equal(pairRatio({ token: 'fog', background: 'paper' }, GREYS, 'light'), null);
+});
+
+test('permission keys on the inherited and direct tints keep 4.5:1 in both themes', () => {
+  const themes = parseTokens(loadCss());
+  const pairs = loadTintedPairs(Object.keys(themes.light));
+  const failures = [];
+
+  for (const [theme, tokens] of Object.entries(themes)) {
+    for (const pair of pairs) {
+      const ratio = pairRatio(pair, tokens, theme);
+      if (ratio === null || ratio < 4.5) failures.push(`${theme}: ${pair.token}`);
+    }
+  }
+
+  assert.deepEqual(
+    pairs.map(({ token, tint }) => `${token} on ${tint.light.token}`),
+    [
+      'foreground on info',
+      'muted-foreground on info',
+      'text-tertiary on info',
+      'foreground on success',
+      'muted-foreground on success',
+      'text-tertiary on success',
+    ],
+  );
   assert.deepEqual(failures, []);
 });

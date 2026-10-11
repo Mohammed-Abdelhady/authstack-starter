@@ -144,11 +144,16 @@ export function UserPermissionsDialog({
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <Heading level={3} variant="subsectionTitle">
+                    <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
                       {t('inheritedFromRole', { role: data?.role || '' })}
                     </Heading>
                     {data?.role && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        dir="ltr"
+                        variant="secondary"
+                        className="text-xs"
+                        data-testid="inherited-role-slug"
+                      >
                         {data.role}
                       </Badge>
                     )}
@@ -201,7 +206,7 @@ export function UserPermissionsDialog({
                       {/* Remove Actions Section */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('removePermissions')}</p>
-                        <div className="grid gap-2">
+                        <div className="grid grid-cols-1 gap-2">
                           {directPermissions.map((permission) => (
                             <div
                               key={permission}

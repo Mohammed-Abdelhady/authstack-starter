@@ -125,7 +125,7 @@ export function SearchPermissionTabs({
         const filtered = filteredGroups.find((g) => g.id === group.id);
         const groupPerms = filtered ? Object.values(filtered.filteredPermissions) : [];
         const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
-        const category = t(`groups.${group.id}`).toLocaleLowerCase();
+        const category = t(`groups.${group.id}`);
 
         return (
           <TabsContent

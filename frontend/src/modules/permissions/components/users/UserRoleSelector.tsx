@@ -28,6 +28,8 @@ import { reportUnlessHandled } from '@/lib/requestFailure';
 interface UserRoleSelectorProps {
   readonly userId: string;
   readonly currentRole: string;
+  /** Named in the confirmation. A user without a name is called "this user". */
+  readonly userName?: string;
   readonly onRoleChange?: (newRole: string) => Promise<void>;
   readonly disabled?: boolean;
 }
@@ -39,6 +41,7 @@ interface UserRoleSelectorProps {
 export function UserRoleSelector({
   userId,
   currentRole,
+  userName,
   onRoleChange,
   disabled = false,
 }: UserRoleSelectorProps) {
@@ -109,7 +112,7 @@ export function UserRoleSelector({
                 {currentRoleData?.isProtected && (
                   <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 )}
-                <span>{currentRoleData?.name || currentRole}</span>
+                <span dir="auto">{currentRoleData?.name || currentRole}</span>
               </div>
             </SelectValue>
           )}
@@ -129,7 +132,7 @@ export function UserRoleSelector({
                 {role.isProtected && (
                   <ShieldAlert className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                 )}
-                <span>{role.name}</span>
+                <span dir="auto">{role.name}</span>
                 {role.isProtected && role.slug !== currentRole && (
                   <Badge variant="secondary" className="ms-2 text-xs">
                     {t('protected')}
@@ -148,10 +151,14 @@ export function UserRoleSelector({
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
               {t.rich('changeDescription', {
-                name: 'this user',
+                name: userName?.trim() || t('thisUser'),
                 from: currentRoleData?.name || currentRole,
                 to: pendingRoleData?.name || pendingRole || '',
-                strong: (chunks) => <strong>{chunks}</strong>,
+                strong: (chunks) => (
+                  <strong>
+                    <span dir="auto">{chunks}</span>
+                  </strong>
+                ),
               })}
               <br />
               <br />

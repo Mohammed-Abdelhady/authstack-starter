@@ -95,7 +95,11 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                 <strong>{t('protectedTitle')}</strong>{' '}
                 {t.rich('protectedNotice', {
                   name: role.name,
-                  strong: (chunks) => <strong>{chunks}</strong>,
+                  strong: (chunks) => (
+                    <strong>
+                      <span dir="auto">{chunks}</span>
+                    </strong>
+                  ),
                 })}
               </p>
             </div>
@@ -107,7 +111,11 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       {t('roleName')}
                     </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{role.name}</dd>
+                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                      <span dir="auto" data-testid="delete-role-name">
+                        {role.name}
+                      </span>
+                    </dd>
                   </div>
                   {role.description && (
                     <div>
@@ -115,7 +123,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                         {t('description')}
                       </dt>
                       <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
-                        {role.description}
+                        <span dir="auto">{role.description}</span>
                       </dd>
                     </div>
                   )}
