@@ -72,13 +72,15 @@ describe('UserPermissionsService', () => {
       ).rejects.toMatchObject({ code: ErrorCode.INVALID_INPUT });
     });
 
-    it('should reject a deleted user', async () => {
-      const user = stubUser([]);
-      user.isDeleted = true;
+    it('should reject a user the store does not find', async () => {
+      mockUserModel.findById.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
 
       await expect(
         service.getUserPermissions(mockUserId),
-      ).rejects.toMatchObject({ code: ErrorCode.USER_NOT_FOUND });
+      ).rejects.toMatchObject({ code: ErrorCode.USER_NOT_FOUND, status: 404 });
     });
   });
 

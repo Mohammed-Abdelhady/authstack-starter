@@ -181,7 +181,7 @@ export class AccountLinkingService {
   async canUnlinkProvider(userId: string, provider: string): Promise<boolean> {
     const user = await this.links.findLinkedProviders(userId);
 
-    if (!user || user.isDeleted) {
+    if (!user) {
       return false;
     }
 

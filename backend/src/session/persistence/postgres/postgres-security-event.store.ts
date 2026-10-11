@@ -14,6 +14,7 @@ import {
   removedRows,
 } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import { rowSlices } from './postgres-bind-parameters';
 
 /** The constraint's shared name comes from the central table of the adapter. */
 const NO_LOCAL_CONSTRAINTS = {};
@@ -131,10 +132,11 @@ export class PostgresSecurityEventStore extends SecurityEventStore {
     if (events.length === 0) {
       return;
     }
-    await postgresTransactionOf(unitOfWork)
-      .insertInto('security_events')
-      .values(events.map(toRow))
-      .execute();
+    const work = postgresTransactionOf(unitOfWork);
+    const rows = events.map(toRow);
+    for (const slice of rowSlices(rows, EVENT_COLUMNS.length)) {
+      await work.insertInto('security_events').values(slice).execute();
+    }
   }
 
   async appendOutsideUnitOfWork(event: NewSecurityEvent): Promise<void> {

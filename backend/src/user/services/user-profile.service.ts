@@ -5,6 +5,7 @@ import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { UserProfileDto } from '../dto/user-profile.dto';
 import { AppException } from '../../common/exceptions/app.exception';
+import { effectivePermissions } from '../../auth/utils/permissions.util';
 import { Clock } from '../../common/services/clock';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { ApiResponse } from '../../common/dto/api-response.dto';
@@ -223,13 +224,11 @@ export class UserProfileService {
    * Map a stored account to the profile DTO.
    */
   private async mapToProfileDto(user: StoredAccount): Promise<UserProfileDto> {
-    // Effective permissions are the role's and the account's own.
-    const rolePermissions = user.role
-      ? ((await this.accounts.findRolePermissions(user.role)) ?? [])
-      : [];
-    const effectivePermissions = [
-      ...new Set([...rolePermissions, ...(user.permissions || [])]),
-    ];
+    // Resolved the way the guard resolves them for a request.
+    const permissions = effectivePermissions(
+      user.role ? await this.accounts.findRolePermissions(user.role) : null,
+      user.permissions,
+    );
     const passkeyCount = await this.accounts.countPasskeys(user.id); // feature:passkeys
 
     return {
@@ -237,7 +236,7 @@ export class UserProfileService {
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: effectivePermissions,
+      permissions,
       authProvider: user.authProvider,
       isVerified: user.isVerified,
       twoFactorEnabled: user.twoFactorEnabled, // feature:totp

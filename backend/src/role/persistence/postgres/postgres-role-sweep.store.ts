@@ -10,6 +10,7 @@ import { RoleSweepStore } from '../../stores/role-sweep.store';
 import { ROLE_DELETION_EVENT_PREFIX } from '../../../session/constants/security-event-action';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
+import { anyText } from '../../../session/persistence/postgres/postgres-bind-parameters';
 import {
   containsPattern,
   isUuidText,
@@ -131,7 +132,7 @@ export class PostgresRoleSweepStore extends RoleSweepStore {
       .selectFrom('security_events')
       .distinctOn('target_user_id')
       .select(['target_user_id', 'assigned_role_id', 'previous_role_id'])
-      .where('target_user_id', 'in', holderIds.map(toUuid))
+      .where('target_user_id', '=', anyText(holderIds.map(toUuid)))
       .where('assigned_role_id', 'is not', null)
       .orderBy('target_user_id')
       .orderBy('assignment_session_version', 'desc')

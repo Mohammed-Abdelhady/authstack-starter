@@ -1,5 +1,7 @@
 import { Kysely } from 'kysely';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { PostgresRolePermissions } from '../../../role/persistence/postgres/postgres-role-permissions';
+import { RolePermissions } from '../../../role/stores/role-permissions';
 import { UserRole } from '../../enums/user-role.enum';
 import {
   AccountPassword,
@@ -27,11 +29,14 @@ const UUID_PATTERN =
  * (`NOWAIT`), which the runner reports as a retryable abort.
  */
 export class PostgresAccountProfileStore extends AccountProfileStore {
+  private readonly roles: RolePermissions;
+
   constructor(
     private readonly database: Kysely<PostgresTables>,
     private readonly clock: { now(): Date },
   ) {
     super();
+    this.roles = new PostgresRolePermissions(database);
   }
 
   isAccountId(id: string): boolean {
@@ -96,14 +101,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
   }
 
   findRolePermissions(slug: string): Promise<string[] | null> {
-    return accountStatement(async () => {
-      const row = await this.database
-        .selectFrom('roles')
-        .select('permissions')
-        .where('slug', '=', slug)
-        .executeTakeFirst();
-      return row?.permissions ?? null;
-    });
+    return accountStatement(() => this.roles.ofRole(slug));
   }
 
   // feature:passkeys:start

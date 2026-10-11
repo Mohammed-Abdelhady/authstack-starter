@@ -8,10 +8,12 @@ import {
 } from '../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
 // feature:passkeys:end
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { MongoRolePermissions } from '../../../role/persistence/mongo/mongo-role-permissions';
 import {
   Role,
   RoleDocument,
 } from '../../../role/persistence/mongo/schemas/role.schema';
+import { RolePermissions } from '../../../role/stores/role-permissions';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { USER_HIDDEN_FIELDS } from '../../constants/user.constants';
@@ -33,6 +35,7 @@ import { MongoAccountDocuments } from './mongo-account-records';
 @Injectable()
 export class MongoAccountProfileStore extends AccountProfileStore {
   private readonly read = new MongoAccountDocuments();
+  private readonly roles: RolePermissions;
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -43,6 +46,7 @@ export class MongoAccountProfileStore extends AccountProfileStore {
     // feature:passkeys:end
   ) {
     super();
+    this.roles = new MongoRolePermissions(roleModel);
   }
 
   isAccountId(id: string): boolean {
@@ -95,9 +99,8 @@ export class MongoAccountProfileStore extends AccountProfileStore {
     return user?.primaryProvider;
   }
 
-  async findRolePermissions(slug: string): Promise<string[] | null> {
-    const role = await this.roleModel.findOne({ slug }).exec();
-    return role?.permissions ?? null;
+  findRolePermissions(slug: string): Promise<string[] | null> {
+    return this.roles.ofRole(slug);
   }
 
   // feature:passkeys:start

@@ -39,6 +39,8 @@ export interface StoredSession {
   clientVersion: number;
   grantVersion: number;
   deviceName: string | null;
+  /** The device label exactly as the database holds it, every stored field. */
+  device: unknown;
   authenticatedAt: Date;
   expiresAt: Date;
   idleExpiresAt: Date;

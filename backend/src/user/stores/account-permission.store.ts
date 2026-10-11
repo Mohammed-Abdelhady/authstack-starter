@@ -1,12 +1,12 @@
 import { StoredAccount } from './stored-account';
 
 /**
- * The grants read for one account. The read does not ask for the deactivation,
- * so `isDeleted` is false for every stored account.
+ * The grants read for one account. The read does not ask for the
+ * deactivation: a caller that must refuse a deactivated account reads the
+ * account.
  */
 export interface AccountGrants {
   id: string;
-  isDeleted: boolean;
   role: string;
   permissions: string[];
 }

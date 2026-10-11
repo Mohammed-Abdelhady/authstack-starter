@@ -31,7 +31,6 @@ export class MongoAccountPermissionStore extends AccountPermissionStore {
     if (!user) return null;
     return {
       id: user._id.toString(),
-      isDeleted: Boolean(user.isDeleted),
       role: user.role,
       permissions: user.permissions || [],
     };

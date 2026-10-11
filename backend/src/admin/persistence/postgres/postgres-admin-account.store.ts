@@ -10,17 +10,20 @@ import {
 } from '../../stores/admin-account.store';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import { StoredAccount } from '../../../user/stores/stored-account';
+import {
+  LinkedAccountRecord,
+  StoredAccount,
+} from '../../../user/stores/stored-account';
 import {
   ACCOUNT_COLUMNS,
   accountFailure,
   accountStatement,
-  linkedAccountsOf,
   readAccount,
   storedId,
   toStoredAccount,
 } from '../../../user/persistence/postgres/postgres-account-rows';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
+import { anyUuid } from '../../../session/persistence/postgres/postgres-bind-parameters';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
 import { storedAddress } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
@@ -99,13 +102,16 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
         .offset((query.page - 1) * query.limit)
         .limit(query.limit)
         .execute();
-      const accounts: StoredAccount[] = [];
-      for (const row of rows) {
-        accounts.push(
-          toStoredAccount(row, await linkedAccountsOf(this.database, row.id)),
-        );
-      }
-      return { accounts, total: Number.parseInt(counted.total, 10) };
+      const links = await linkedAccountsByUser(
+        this.database,
+        rows.map((row) => row.id),
+      );
+      return {
+        accounts: rows.map((row) =>
+          toStoredAccount(row, links.get(row.id) ?? []),
+        ),
+        total: Number.parseInt(counted.total, 10),
+      };
     });
   }
 
@@ -275,6 +281,34 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     }
     return saved;
   }
+}
+
+/**
+ * The links of a page of accounts in one statement, each account's in the
+ * order they were made.
+ */
+async function linkedAccountsByUser(
+  database: Kysely<PostgresTables>,
+  userIds: string[],
+): Promise<Map<string, LinkedAccountRecord[]>> {
+  const links = new Map<string, LinkedAccountRecord[]>();
+  if (userIds.length === 0) return links;
+  const rows = await database
+    .selectFrom('user_linked_accounts')
+    .select(['user_id', 'provider', 'provider_id', 'linked_at'])
+    .where('user_id', '=', anyUuid(userIds))
+    .orderBy('id')
+    .execute();
+  for (const row of rows) {
+    const ofUser = links.get(row.user_id) ?? [];
+    ofUser.push({
+      provider: row.provider,
+      providerId: row.provider_id,
+      linkedAt: row.linked_at,
+    });
+    links.set(row.user_id, ofUser);
+  }
+  return links;
 }
 
 function statusFilter(query: AdminAccountQuery): {

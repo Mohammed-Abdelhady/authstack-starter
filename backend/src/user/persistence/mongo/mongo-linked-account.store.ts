@@ -51,10 +51,7 @@ export class MongoLinkedAccountStore extends LinkedAccountStore {
       .select(LINKED_ACCOUNT_FIELDS)
       .exec();
     if (!user) return null;
-    return {
-      isDeleted: Boolean(user.isDeleted),
-      linkedProviders: user.linkedProviders,
-    };
+    return { linkedProviders: user.linkedProviders };
   }
 
   async findPrimaryProviderState(

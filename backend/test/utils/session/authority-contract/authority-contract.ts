@@ -4,6 +4,7 @@ import {
   WEB_APPLICATION,
 } from '../issuance-contract/issuance-contract-support';
 import { AuthorityContractHarness } from './authority-contract-harness';
+import { authorityDeviceCases } from './authority-device-cases';
 import { authorityExtensionCases } from './authority-extension-cases';
 import { authorityIdentityCases } from './authority-identity-cases';
 import { authorityReadCases } from './authority-read-cases';
@@ -59,5 +60,6 @@ export function describeSessionAuthorityContract(
     accountRaceCases(current);
     revocationRouteIdCases(current);
     authorityIdentityCases(current);
+    authorityDeviceCases(current);
   });
 }

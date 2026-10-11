@@ -10,6 +10,8 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ROLE_ID = '65f0000000000000000000aa';
+/** Above the 3,855 rows of 17 columns a statement of 65,535 parameters holds. */
+const LARGE_BATCH = 4000;
 
 /** An event shares the fate of the unit of work it was appended in. */
 export function eventAtomicityCases(harness: HarnessSource): void {
@@ -127,6 +129,78 @@ export function eventAtomicityCases(harness: HarnessSource): void {
         conflict: true,
         stored: ['batch-1', 'batch-2', 'event-taken'],
       });
+    },
+    CASE_TIMEOUT_MS,
+  );
+
+  it(
+    'stores a batch of 4,000 events, more rows than one statement can bind',
+    async () => {
+      const userId = harness().ownAccountId();
+      const batch = Array.from({ length: LARGE_BATCH }, (_, index) =>
+        contractEvent(`large-${String(index).padStart(4, '0')}`, {
+          targetUserId: userId,
+          actorId: 'actor-1',
+          reasonCode: 'admin_forced',
+        }),
+      );
+
+      await inUnitOfWork(harness(), (unitOfWork) =>
+        harness().events.appendMany(unitOfWork, batch),
+      );
+
+      const stored = await harness().storedEventIds();
+      const [newest] = await harness().events.listRecentForUser(userId, 1);
+      expect({
+        stored: stored.length,
+        first: stored[0],
+        last: stored[stored.length - 1],
+        newest: {
+          eventId: newest.eventId,
+          actorId: newest.actorId,
+          targetUserId: newest.targetUserId,
+          reasonCode: newest.reasonCode,
+          occurredAt: newest.occurredAt,
+        },
+      }).toEqual({
+        stored: 4000,
+        first: 'large-0000',
+        last: 'large-3999',
+        newest: {
+          eventId: 'large-3999',
+          actorId: 'actor-1',
+          targetUserId: userId,
+          reasonCode: 'admin_forced',
+          occurredAt: NOW,
+        },
+      });
+    },
+    CASE_TIMEOUT_MS,
+  );
+
+  it(
+    'stores none of a batch of 4,000 events when the database refuses its last one',
+    async () => {
+      await harness().events.appendOutsideUnitOfWork(
+        contractEvent('event-taken'),
+      );
+      const batch = Array.from({ length: LARGE_BATCH - 1 }, (_, index) =>
+        contractEvent(`large-${String(index).padStart(4, '0')}`),
+      );
+
+      const failure = await rejectionOf(
+        inUnitOfWork(harness(), (unitOfWork) =>
+          harness().events.appendMany(unitOfWork, [
+            ...batch,
+            contractEvent('event-taken'),
+          ]),
+        ),
+      );
+
+      expect({
+        conflict: failure instanceof UniqueConflictError,
+        stored: await harness().storedEventIds(),
+      }).toEqual({ conflict: true, stored: ['event-taken'] });
     },
     CASE_TIMEOUT_MS,
   );

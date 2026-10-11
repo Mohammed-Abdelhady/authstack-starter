@@ -78,6 +78,21 @@ export async function bootMongoRoleHarness(): Promise<RoleContractHarness> {
       });
       return user._id.toString();
     },
+    seedAccounts: async (count, role) => {
+      const first = accounts;
+      accounts += count;
+      const stored = await users.insertMany(
+        Array.from({ length: count }, (_, index) => ({
+          email: `role-contract-${first + index + 1}@example.test`,
+          name: 'Contract Tester',
+          role,
+          isVerified: true,
+          sessionVersion: 0,
+        })),
+        { lean: true },
+      );
+      return stored.map((user) => user._id.toString()).sort();
+    },
     interruptRename: async (roleId, rename) => {
       const id = new Types.ObjectId(roleId);
       await roles.updateOne(
