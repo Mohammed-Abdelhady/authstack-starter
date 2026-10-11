@@ -147,6 +147,13 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
 
+The permission in the table opens the route. Three routes also hold the caller to what the caller holds itself, the same rule a role edit follows:
+
+- `POST /api/admin/users/:id/permissions` adds only a permission the caller holds. A caller with `*` holds every permission. `*` itself is never added here.
+- `PATCH /api/admin/users/:id/role` and `POST /api/admin/users` assign only a role whose permissions the caller holds, all of them. The role must also sit below the caller's level, and `admin` is never assigned.
+
+A request over that limit is answered 403 with the code `FORBIDDEN`, and nothing is stored. Removing a direct permission has no such limit, as removing a permission from a role has none: the caller needs `permissions:revoke:all` and a level above the account's.
+
 ## Mobile app sign-in (`/api/oauth`)
 
 | Method | Path                                   | Who may call it | Closed by | What it does                                                  |

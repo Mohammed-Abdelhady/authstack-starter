@@ -482,7 +482,7 @@ async function getEffectivePermissions(userId: ObjectId): Promise<string[]> {
 4. **Soft Delete**: Users are never hard-deleted (audit trail)
 5. **Password Hiding**: Password field excluded from default queries
 6. **Verification Required**: Some actions require `isVerified: true`
-7. **Role Permission Ceiling**: Creating a role or adding permissions to it only accepts permissions the caller holds, and adding `*` requires a caller who holds `*`. Existing permissions may be retained
+7. **Role Permission Ceiling**: Creating a role or adding permissions to it only accepts permissions the caller holds, and adding `*` requires a caller who holds `*`. Existing permissions may be retained. The same ceiling applies to a direct permission added to a user, and to a role assigned to a user or given to a new account: the caller must hold every permission the role carries
 8. **Role Hierarchy on Edits**: A role is edited only by a caller whose level is above it
 9. **Last Administrator**: The last active administrator cannot deactivate their own account
 
