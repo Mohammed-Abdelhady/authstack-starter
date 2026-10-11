@@ -120,9 +120,13 @@ export const rolesApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: { success: boolean; data: Role; message: string }) =>
         response.data,
+      // A rename moves every holder to the new slug, and a change of
+      // permissions changes what every holder inherits.
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ idOrSlug }: UpdateRoleArgs) => [
         'Roles',
         { type: 'Roles', id: idOrSlug },
+        'User',
+        'Permissions',
       ]),
     }),
 
