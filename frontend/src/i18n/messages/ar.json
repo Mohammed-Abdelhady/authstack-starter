@@ -341,8 +341,7 @@
       "slowConnection": "تم اكتشاف اتصال بطيء",
       "sessionExpiring": "جلستك على وشك الانتهاء",
       "quotaLimit": "اقتراب من حد الحصة",
-      "deprecatedFeature": "هذه الميزة مهملة",
-      "logoutError": "فشل تسجيل الخروج، لكن تم مسح الجلسة محلياً"
+      "deprecatedFeature": "هذه الميزة مهملة"
     },
     "info": {
       "loading": "جارٍ التحميل...",

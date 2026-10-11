@@ -341,8 +341,7 @@
       "slowConnection": "Slow connection detected",
       "sessionExpiring": "Your session is about to expire",
       "quotaLimit": "Approaching quota limit",
-      "deprecatedFeature": "This feature is deprecated",
-      "logoutError": "Logout failed, but session cleared locally"
+      "deprecatedFeature": "This feature is deprecated"
     },
     "info": {
       "loading": "Loading...",
