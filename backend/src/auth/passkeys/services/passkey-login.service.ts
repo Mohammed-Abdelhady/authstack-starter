@@ -17,7 +17,9 @@ import { PasskeyAccounts, PasskeySignIn } from '../stores/passkey-accounts';
  * only its owner can supply. That sign-in is let through even on an account
  * with TOTP on, which is the behaviour WebAuthn is designed for and matches
  * what the platforms do. A passkey that only proved possession, silent or
- * usernameless without user verification, still owes the TOTP code.
+ * usernameless without user verification, still owes a second factor. The
+ * held sign-in is told a passkey opened it, because another touch of a key is
+ * not a second factor.
  */
 @Injectable()
 export class PasskeyLoginService {

@@ -127,6 +127,32 @@ describe('sdk contract over a cookie transport', () => {
     ]);
   });
 
+  it('refuses to revoke the current session whatever the case of its id', async () => {
+    const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
+    const [current] = (await client.sessions.list()).sessions;
+    const upper = current.id.toUpperCase();
+    // Every other character upper, so the id is neither form the server issues.
+    const mixed = [...current.id]
+      .map((character, index) =>
+        index % 2 === 0 ? character.toUpperCase() : character,
+      )
+      .join('');
+    expect(upper).not.toBe(current.id);
+    expect(mixed).not.toBe(current.id);
+
+    for (const sessionId of [upper, mixed]) {
+      const refused = await apiErrorOf(client.sessions.revoke(sessionId));
+      expect(refused.status).toBe(400);
+      expect(refused.code).toBe('CANNOT_REVOKE_CURRENT_SESSION');
+    }
+
+    // The session that asked is still signed in.
+    const remaining = await client.sessions.list();
+    expect(remaining.sessions.map((session) => session.id)).toEqual([
+      current.id,
+    ]);
+  });
+
   it('revokes every other session and reports how many', async () => {
     const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
     await loginAs(e2e.httpServer, SEED_USER);

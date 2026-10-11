@@ -22,6 +22,7 @@ import {
   MovedAccount,
   NewActivatedAccount,
 } from '../../pending-codes/activation-accounts';
+import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from './sign-in.service';
 
 class MongoActivatedAccount extends ActivatedAccount {
@@ -164,6 +165,7 @@ export class MongoActivationSignIn extends ActivationSignIn {
     return this.signInService.completeSignIn(
       activatedDocumentOf(account),
       response,
+      FIRST_FACTOR.EMAIL_CODE, // feature:totp
     );
   }
 }

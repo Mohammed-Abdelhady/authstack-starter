@@ -4,6 +4,10 @@ import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
+import {
+  FIRST_FACTOR,
+  FirstFactor,
+} from '../../services/sessions/first-factor';
 import { PasskeyCredentialDto } from '../dto/passkey-credential.dto';
 import { PasskeyAssertionService } from './passkey-assertion.service';
 
@@ -21,10 +25,22 @@ export interface ChallengedAccount {
   readonly id: string;
 }
 
+/** The held sign-in an answer is given to, as far as this verifier reads it. */
+export interface ChallengedSignIn {
+  /** What its first step proved. */
+  readonly firstFactor: FirstFactor;
+}
+
 /**
  * A passkey as the answer to a two-factor challenge. It proves possession of a
  * key the account registered, which is what a code from the authenticator app
  * proves as well.
+ *
+ * A passkey that did not verify its user proves possession and nothing else.
+ * After a first step that was such a passkey too, it adds no second factor:
+ * whoever holds one key could answer both steps. That answer is refused,
+ * whichever of the account's passkeys gives it. A passkey that verified its
+ * user also proves who is holding it, and is accepted after any first step.
  *
  * TwoFactorModule picks this up through its verifier registry; nothing here
  * knows about the second factor.
@@ -47,13 +63,15 @@ export class PasskeySecondFactorVerifier {
    *
    * @throws AppException FEATURE_DISABLED when the deployment turned passkeys off
    * @throws AppException PASSKEY_VERIFICATION_FAILED when the credential
-   * belongs to another account
+   * belongs to another account, or did not verify its user after a first step
+   * that was a passkey
    */
   async verify(
     dto: PasskeySecondFactorPayload,
     user: ChallengedAccount,
     request: Request,
     response: Response,
+    signIn: ChallengedSignIn,
   ): Promise<void> {
     this.authFeaturesService.assertEnabled(AuthFeature.PASSKEYS);
 
@@ -61,13 +79,17 @@ export class PasskeySecondFactorVerifier {
       throw this.refused();
     }
 
-    const { passkey } = await this.assertions.verify(
+    const { passkey, userVerified } = await this.assertions.verify(
       dto.passkeyResponse,
       request,
       response,
     );
 
     if (passkey.userId !== user.id) {
+      throw this.refused();
+    }
+
+    if (!userVerified && signIn.firstFactor === FIRST_FACTOR.PASSKEY) {
       throw this.refused();
     }
   }

@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
 import {
   SignInCompletion,
   SignInOutcome,
@@ -74,6 +75,7 @@ export class OAuthService {
     const outcome = await this.signInService.completeSignIn(
       user,
       params.response,
+      FIRST_FACTOR.PROVIDER, // feature:totp
     );
 
     this.logger.log(

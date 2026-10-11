@@ -7,6 +7,7 @@ import { RolePermissions } from '../../../role/stores/role-permissions';
 import { Sessions } from './sessions';
 import { CSRF_HEADER } from '../../../session/constants/browser-proof';
 import { SessionCookieService } from './session-cookie.service';
+import { FirstFactor } from './first-factor'; // feature:totp
 import { AuthFeaturesService } from '../features/auth-features.service'; // feature:totp
 import { AuthFeature } from '../../enums/auth-feature.enum'; // feature:totp
 import {
@@ -52,10 +53,11 @@ export class SignInCompletion {
   async completeSignIn(
     user: SignInAccount,
     response: Response,
+    firstFactor: FirstFactor, // feature:totp
   ): Promise<SignInOutcome> {
     // feature:totp:start
     if (this.owesSecondFactor(user)) {
-      await this.challengeService.issue(user.id, response);
+      await this.challengeService.issue(user.id, response, firstFactor);
       this.logger.log('Sign-in held for a second factor');
       return { requiresTwoFactor: true };
     }

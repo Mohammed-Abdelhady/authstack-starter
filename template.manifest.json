@@ -282,6 +282,7 @@
       "files": [
         "backend/src/auth/passkeys/**",
         "backend/src/auth/passkeys/persistence/mongo/schemas/passkey.schema.ts",
+        "backend/src/auth/two-factor/contract/two-factor-contract-passkey-steps.harness-spec.ts",
         "backend/test/auth/passkey-removal.e2e-spec.ts",
         "frontend/src/modules/passkeys/**"
       ],

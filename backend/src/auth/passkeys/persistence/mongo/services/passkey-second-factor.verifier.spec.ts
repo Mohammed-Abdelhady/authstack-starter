@@ -18,6 +18,9 @@ import {
 const MOCK_REQUEST = createRequestMock({ cookies: {} });
 const MOCK_RESPONSE = createResponseMock({});
 const USER = { id: USER_ID.toString() };
+/** The held sign-in a password opened, and the one a passkey alone opened. */
+const AFTER_PASSWORD = { firstFactor: 'password' } as const;
+const AFTER_PASSKEY = { firstFactor: 'passkey' } as const;
 
 interface Harness {
   verifier: PasskeySecondFactorVerifier;
@@ -68,6 +71,7 @@ describe('PasskeySecondFactorVerifier', () => {
       USER,
       MOCK_REQUEST,
       MOCK_RESPONSE,
+      AFTER_PASSWORD,
     );
 
     expect(harness.assertions.verify).toHaveBeenCalledWith(
@@ -86,6 +90,7 @@ describe('PasskeySecondFactorVerifier', () => {
         USER,
         MOCK_REQUEST,
         MOCK_RESPONSE,
+        AFTER_PASSWORD,
       ),
     ).rejects.toMatchObject({
       code: ErrorCode.PASSKEY_VERIFICATION_FAILED,
@@ -102,6 +107,7 @@ describe('PasskeySecondFactorVerifier', () => {
         USER,
         MOCK_REQUEST,
         MOCK_RESPONSE,
+        AFTER_PASSWORD,
       ),
     ).rejects.toMatchObject({
       code: ErrorCode.FEATURE_DISABLED,
@@ -115,9 +121,60 @@ describe('PasskeySecondFactorVerifier', () => {
     const harness = createHarness();
 
     await expect(
-      harness.verifier.verify({}, USER, MOCK_REQUEST, MOCK_RESPONSE),
+      harness.verifier.verify(
+        {},
+        USER,
+        MOCK_REQUEST,
+        MOCK_RESPONSE,
+        AFTER_PASSWORD,
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_VERIFICATION_FAILED });
 
     expect(harness.assertions.verify).not.toHaveBeenCalled();
+  });
+
+  describe('a passkey that did not verify its user', () => {
+    function answer(
+      harness: Harness,
+      signIn: typeof AFTER_PASSWORD | typeof AFTER_PASSKEY,
+    ) {
+      return harness.verifier.verify(
+        { passkeyResponse: CREDENTIAL_BODY },
+        USER,
+        MOCK_REQUEST,
+        MOCK_RESPONSE,
+        signIn,
+      );
+    }
+
+    function possessionOnly(): Harness {
+      const harness = createHarness();
+      harness.assertions.verify.mockResolvedValue({
+        passkey: { userId: USER_ID.toString() },
+        userVerified: false,
+      });
+      return harness;
+    }
+
+    it('should be refused after a first step that was a passkey', async () => {
+      await expect(
+        answer(possessionOnly(), AFTER_PASSKEY),
+      ).rejects.toMatchObject({
+        code: ErrorCode.PASSKEY_VERIFICATION_FAILED,
+        status: 401,
+      });
+    });
+
+    it('should be accepted after a first step that was not a passkey', async () => {
+      await expect(
+        answer(possessionOnly(), AFTER_PASSWORD),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should not be what refuses one that did verify its user', async () => {
+      await expect(
+        answer(createHarness(), AFTER_PASSKEY),
+      ).resolves.toBeUndefined();
+    });
   });
 });

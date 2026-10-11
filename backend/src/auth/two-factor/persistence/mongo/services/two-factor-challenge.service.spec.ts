@@ -75,7 +75,7 @@ function requestWith(token: string): Request {
 /** Issues a challenge and hands back the cookie value it wrote. */
 async function issueToken(harness: Harness): Promise<string> {
   const { response, cookie } = responseSpy();
-  await harness.service.issue(USER_ID, response);
+  await harness.service.issue(USER_ID, response, 'password');
   return cookie.mock.calls[0][1] as string;
 }
 
@@ -104,7 +104,7 @@ describe('TwoFactorChallengeService', () => {
       const harness = createHarness();
       const { response, cookie } = responseSpy();
 
-      await harness.service.issue(USER_ID, response);
+      await harness.service.issue(USER_ID, response, 'password');
 
       expect(harness.model.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -149,6 +149,7 @@ describe('TwoFactorChallengeService', () => {
       expect(context).toEqual({
         challengeId: CHALLENGE_ID.toString(),
         userId: USER_ID.toString(),
+        firstFactor: 'password',
       });
     });
 
@@ -228,6 +229,7 @@ describe('TwoFactorChallengeService', () => {
       expect(context).toEqual({
         challengeId: CHALLENGE_ID.toString(),
         userId: USER_ID.toString(),
+        firstFactor: 'password',
       });
       expect(harness.model.findOneAndUpdate).toHaveBeenCalledWith(
         expect.objectContaining({

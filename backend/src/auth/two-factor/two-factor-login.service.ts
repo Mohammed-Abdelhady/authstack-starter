@@ -9,6 +9,7 @@ import { TwoFactorChallengeService } from './services/two-factor-challenge.servi
 import { TwoFactorVerificationService } from './services/two-factor-verification.service';
 import {
   SECOND_FACTOR_VERIFIERS,
+  SecondFactorAttempt,
   SecondFactorVerifier,
 } from './services/second-factor-verifiers';
 import { SecondFactorAccount } from './stores/second-factor-account';
@@ -21,7 +22,9 @@ import { SecondFactorStore } from './stores/second-factor.store';
  *
  * The answer is a TOTP code, a recovery code, or whatever a registered second
  * factor verifier accepts. A passkey is one of those: it proves possession of
- * a key the account registered, which is what a code from the app proves.
+ * a key the account registered, which is what a code from the app proves. A
+ * verifier is told what the first step proved, so it can refuse an answer
+ * that proves the same thing again.
  */
 @Injectable()
 export class TwoFactorLoginService {
@@ -60,7 +63,9 @@ export class TwoFactorLoginService {
     }
 
     try {
-      await this.checkSecondFactor(dto, user, request, response);
+      await this.checkSecondFactor(dto, user, request, response, {
+        firstFactor: challenge.firstFactor,
+      });
     } catch (error) {
       await this.challengeService.registerFailure(challenge.challengeId);
       throw error;
@@ -82,6 +87,7 @@ export class TwoFactorLoginService {
     user: SecondFactorAccount,
     request: Request,
     response: Response,
+    attempt: SecondFactorAttempt,
   ): Promise<void> {
     const verifier = this.verifiers.find((candidate) =>
       candidate.supports(dto),
@@ -92,7 +98,7 @@ export class TwoFactorLoginService {
       return;
     }
 
-    await verifier.verify(dto, user, request, response);
+    await verifier.verify(dto, user, request, response, attempt);
   }
 
   private async discard(
