@@ -1,5 +1,6 @@
 'use client';
 
+import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -32,6 +33,11 @@ export interface EditRoleFormProps {
   onCancel: () => void;
 }
 
+/** The ids a field is described by, without the ones that are not on the page. */
+function describedBy(...ids: Array<string | false>): string | undefined {
+  return ids.filter(Boolean).join(' ') || undefined;
+}
+
 /**
  * Body of the edit dialog. It remounts when the role changes through a key prop,
  * so the fields start from the role that is being edited.
@@ -41,6 +47,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const uid = useId();
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
+  const nameHintId = `${nameId}-hint`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -57,13 +64,15 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
 
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
+  const canRename = !isProtected && !isBaseRole;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.name = t('nameError');
-    if (permissions.length === 0) nextErrors.permissions = t('permissionsError');
+    const nextErrors = validateRoleForm(
+      { name, description, permissions, nameIsEditable: canRename },
+      t,
+    );
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -113,10 +122,15 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             busy={isLoading}
             required
             aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? nameErrorId : undefined}
+            aria-describedby={describedBy(canRename && nameHintId, errors.name && nameErrorId)}
             className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-name-input"
           />
+          {canRename && (
+            <p id={nameHintId} className="text-xs text-tertiary" data-testid="edit-role-name-hint">
+              {t('nameHint', ROLE_NAME_LENGTHS)}
+            </p>
+          )}
           <FieldError id={nameErrorId} message={errors.name} testId="edit-role-name-error" />
           {(isProtected || isBaseRole) && (
             <p className="text-xs text-tertiary">

@@ -19,8 +19,8 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
 }));
 
-/** The client accepts a slash; the server's rule for a role name does not. */
-const REFUSED_NAME = '24/7 Support';
+/** A name the form accepts and the server in these tests still refuses. */
+const REFUSED_NAME = 'Reserved Name';
 const ACCEPTED_NAME = '24-7 Support';
 
 const ROLE: Role = {

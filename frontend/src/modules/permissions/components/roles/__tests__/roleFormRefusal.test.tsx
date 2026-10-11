@@ -15,8 +15,9 @@ import { EditRoleDialog } from '../EditRoleDialog';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
-/** The client accepts a slash; the server's rule for a role name does not. */
-const REFUSED_NAME = '24/7 Support';
+/** A name the form accepts and the server in these tests still refuses. */
+const REFUSED_NAME = 'Reserved Name';
+const NAME_LENGTHS = { min: 2, max: 50 };
 
 const ROLE: Role = {
   id: 'role-support',
@@ -79,12 +80,17 @@ describe.each([
     it('marks the refused name, focuses it and raises one localized toast', async () => {
       refuseWrites(['name']);
 
-      const { name, description, fieldMessage, generalMessage, errorToasts } = await submit(locale);
+      const { name, description, fieldMessage, generalMessage, errorToasts, format } =
+        await submit(locale);
 
       await waitFor(() => {
         expect(name.getAttribute('aria-invalid')).toBe('true');
       });
-      expect(descriptions(name)).toEqual([fieldMessage]);
+      // The rule for a name stays on the field, with the refusal after it.
+      expect(descriptions(name)).toEqual([
+        format('roles.form.nameHint', NAME_LENGTHS),
+        fieldMessage,
+      ]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
       // The field is focused once the store reports the end of the request.
       await waitFor(() => {
@@ -124,7 +130,7 @@ describe.each([
     it('clears the mark as soon as the refused field is edited', async () => {
       refuseWrites(['name', 'description']);
 
-      const { name, description } = await submit(locale);
+      const { name, description, format } = await submit(locale);
       await waitFor(() => {
         expect(name.getAttribute('aria-invalid')).toBe('true');
       });
@@ -132,7 +138,7 @@ describe.each([
       fireEvent.change(description, { target: { value: 'Around the clock' } });
 
       expect(name.getAttribute('aria-invalid')).toBe('false');
-      expect(descriptions(name)).toEqual([]);
+      expect(descriptions(name)).toEqual([format('roles.form.nameHint', NAME_LENGTHS)]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
       expect(descriptions(description)).toEqual([]);
     });

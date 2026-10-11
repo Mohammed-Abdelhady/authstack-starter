@@ -1,5 +1,6 @@
 'use client';
 
+import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -60,6 +61,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const uid = useId();
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
+  const nameHintId = `${nameId}-hint`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -87,9 +89,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.name = t('nameError');
-    if (permissions.length === 0) nextErrors.permissions = t('permissionsError');
+    const nextErrors = validateRoleForm({ name, description, permissions }, t);
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -149,10 +149,13 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 busy={isLoading}
                 required
                 aria-invalid={Boolean(errors.name)}
-                aria-describedby={errors.name ? nameErrorId : undefined}
+                aria-describedby={errors.name ? `${nameHintId} ${nameErrorId}` : nameHintId}
                 className={FREE_TEXT_FIELD_CLASSES}
                 data-testid="role-name-input"
               />
+              <p id={nameHintId} className="text-xs text-tertiary" data-testid="role-name-hint">
+                {t('nameHint', ROLE_NAME_LENGTHS)}
+              </p>
               <FieldError id={nameErrorId} message={errors.name} testId="role-name-error" />
             </div>
 
