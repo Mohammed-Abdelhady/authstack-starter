@@ -14,6 +14,7 @@ import {
   MOBILE_SLUG_MAX_LENGTH,
   MOBILE_SLUG_PATTERN,
   RESERVED_SCHEMES,
+  SERVER_CLIENT_IDS,
 } from '../constants/mobile.js';
 import type {
   MobileIdentity,
@@ -82,6 +83,9 @@ function checkScheme(value: string): string | undefined {
   }
   if (RESERVED_SCHEMES.has(value))
     return `"${value}" belongs to the system. Use a scheme of your own.`;
+  if (SERVER_CLIENT_IDS.has(value)) {
+    return `"${value}" is a client id the server keeps for itself, and the scheme is the app's client id. Use another scheme.`;
+  }
   return undefined;
 }
 

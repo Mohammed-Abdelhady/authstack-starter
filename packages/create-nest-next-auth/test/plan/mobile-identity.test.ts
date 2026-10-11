@@ -34,6 +34,8 @@ describe('checkMobileField', () => {
     ['scheme', 'myapp'],
     ['scheme', 'com.example.my-app2'],
     ['scheme', 'httpx'],
+    ['scheme', 'webx'],
+    ['scheme', 'administrator'],
     ['scheme', SCHEME_AT_LIMIT],
   ] as const)('accepts %s %j', (field, value) => {
     expect(checkMobileField(field, value)).toBeUndefined();
@@ -80,6 +82,10 @@ describe('checkMobileField', () => {
     ['scheme', 'https'],
     ['scheme', 'file'],
     ['scheme', 'javascript'],
+    ['scheme', 'web'],
+    ['scheme', 'admin'],
+    ['scheme', 'WEB'],
+    ['scheme', 'Admin'],
     ['scheme', `${SCHEME_AT_LIMIT}b`],
   ] as const)('refuses %s %j with a reason', (field, value) => {
     const message = checkMobileField(field, value);

@@ -143,7 +143,7 @@ Endpoints:
 | `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                             | `http://localhost:3000`                               |
 | `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies                                | Required in production                                | <!-- feature:oauth-core,passkeys --> |
 | `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`  | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
-| `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in          | None. Use an https origin in production               | <!-- feature:native-core -->         |
+| `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in          | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
 | `AUTH_NATIVE_DPOP_REQUIRED`     | Reject native exchanges without DPoP and refreshes of unbound families | `false`                                               | <!-- feature:native-core -->         |
 | `TOTP_ENCRYPTION_KEY`           | 32-byte hex key to encrypt TOTP secrets                                | Required for 2FA                                      | <!-- feature:totp -->                |
 
@@ -189,7 +189,7 @@ For a host-run backend with MongoDB in Docker Compose, use `MONGO_URI=mongodb://
 
 The Expo app lives in `mobile/expo`. It signs in on the web sign-in page in the system browser, then shows the profile and the sessions.
 
-It has been built and run on an iOS simulator against this server. Android has not been built or run, so treat it as unverified.
+The template's Expo app, under its example name and ids, has been built and run on an iOS simulator. A generated app with its own name and ids has been linted, type checked, unit tested and bundled, but not launched. Android has not been built or run, so treat it as unverified.
 
 ### What the server needs
 

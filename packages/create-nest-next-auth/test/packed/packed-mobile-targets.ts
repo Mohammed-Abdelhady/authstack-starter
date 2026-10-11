@@ -7,6 +7,7 @@ import {
   MOBILE_RUN_COMMAND,
 } from '../../src/constants/mobile.js';
 import { nativeRegistration } from '../../src/mobile/apply.js';
+import { MOBILE_PROOF_TEXT } from '../../src/scaffold/rules-text-template.js';
 import {
   expectEngineSuitesStayInRepository,
   expectExpoWorkspace,
@@ -55,8 +56,10 @@ function mobileDocs(project: string): Record<string, boolean> {
     readmeRuns: readme.includes(MOBILE_RUN_COMMAND),
     readmeIdentity: readme.includes('mobile/expo/app.json'),
     readmeAndroid: /Android has not been built or run/.test(readme),
+    readmeProof: readme.includes(MOBILE_PROOF_TEXT),
     agentsRuns: agents.includes(MOBILE_RUN_COMMAND),
     agentsAndroid: /Android has not been built or run/.test(agents),
+    agentsProof: agents.includes(MOBILE_PROOF_TEXT),
     agentsScope: /^- Scopes: .*\bmobile\b/m.test(agents),
   };
 }
@@ -112,8 +115,10 @@ export function mobileTargetCases(getPacked: () => Packed): void {
         readmeRuns: false,
         readmeIdentity: false,
         readmeAndroid: false,
+        readmeProof: false,
         agentsRuns: false,
         agentsAndroid: false,
+        agentsProof: false,
         agentsScope: false,
       });
       expect(read(project, 'README.md')).not.toMatch(/mobile app/i);
@@ -136,8 +141,10 @@ export function mobileTargetCases(getPacked: () => Packed): void {
         readmeRuns: true,
         readmeIdentity: true,
         readmeAndroid: true,
+        readmeProof: true,
         agentsRuns: true,
         agentsAndroid: true,
+        agentsProof: true,
         agentsScope: true,
       });
       expect({
