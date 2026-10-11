@@ -115,7 +115,11 @@ export const SessionCardTimeline = memo(
                 <div className="mt-0.5 flex flex-wrap items-center gap-2">
                   {kind && <SessionKindBadge id={kindId} kind={kind} />}
                   {!nativeDevice && (
-                    <p className="text-sm text-card-foreground" data-testid="session-browser-os">
+                    <p
+                      dir="ltr"
+                      className="text-sm text-card-foreground"
+                      data-testid="session-browser-os"
+                    >
                       {browser} · {os}
                     </p>
                   )}
@@ -147,7 +151,9 @@ export const SessionCardTimeline = memo(
           <div className="space-y-1 text-sm text-card-foreground">
             <div className="flex items-center gap-2" data-testid="session-ip-row">
               <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-              <span data-testid="session-ip">{session.ip}</span>
+              <span dir="ltr" data-testid="session-ip">
+                {session.ip}
+              </span>
             </div>
             <div className="flex items-center gap-2" data-testid="session-last-activity-row">
               <Clock className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
