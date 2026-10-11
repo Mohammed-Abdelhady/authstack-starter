@@ -24,6 +24,8 @@ export interface FixtureCase {
   suite: string;
   title: string;
   status: string;
+  /** The first line of each failure of the case: the error and its message. */
+  failures: string[];
 }
 
 export interface FixtureRun {
@@ -46,10 +48,14 @@ function readReport(output: string): Omit<FixtureRun, 'exitCode'> {
     const results: unknown = Reflect.get(Object(suite), 'assertionResults');
     for (const result of Array.isArray(results) ? results : []) {
       const ancestors: unknown = Reflect.get(Object(result), 'ancestorTitles');
+      const messages: unknown = Reflect.get(Object(result), 'failureMessages');
       cases.push({
         suite: String(Array.isArray(ancestors) ? ancestors[0] : ''),
         title: String(Reflect.get(Object(result), 'title')),
         status: String(Reflect.get(Object(result), 'status')),
+        failures: (Array.isArray(messages) ? messages : []).map(
+          (message) => String(message).split('\n')[0],
+        ),
       });
     }
   }

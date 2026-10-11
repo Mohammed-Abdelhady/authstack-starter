@@ -11,6 +11,9 @@ const ABANDONING_SUITE = 'a suite whose cases abandon open work';
 const NEXT_SUITE = 'the suite that runs next';
 const CUT_SHORT_SUITE = 'a suite whose reset is cut short';
 const FAILED_BOOT_SUITE = 'a suite whose boot fails part way';
+// Written out here: a case that failed any other way, or ran out of its
+// budget, reports a different line.
+const PLANNED_FAILURE = ['Error: failed on purpose with a transaction open'];
 // Four suites boot a server each and stop it, on the budgets those hooks have.
 const FOUR_SUITES_MS =
   4 * (POSTGRES_BOOT_TIMEOUT_MS + POSTGRES_TEARDOWN_TIMEOUT_MS);
@@ -43,39 +46,46 @@ describe('PostgreSQL harness teardown after abandoned work', () => {
             suite: ABANDONING_SUITE,
             title: 'fails with an account held and a second writer waiting',
             status: 'failed',
+            failures: PLANNED_FAILURE,
           },
           {
             suite: ABANDONING_SUITE,
             title: 'starts the next case on empty tables',
             status: 'passed',
+            failures: [],
           },
           {
             suite: ABANDONING_SUITE,
             title:
               'fails again as the last case, so teardown meets the open work',
             status: 'failed',
+            failures: PLANNED_FAILURE,
           },
           {
             suite: NEXT_SUITE,
             title: 'starts on empty tables and stores its own account',
             status: 'passed',
+            failures: [],
           },
           {
             suite: CUT_SHORT_SUITE,
             title:
               'fails with its reset still waiting on an account taken after it began',
             status: 'failed',
+            failures: PLANNED_FAILURE,
           },
           {
             suite: CUT_SHORT_SUITE,
             title:
               'starts the next case on empty tables and keeps what it stores',
             status: 'passed',
+            failures: [],
           },
           {
             suite: FAILED_BOOT_SUITE,
             title: 'never runs its case',
             status: 'failed',
+            failures: PLANNED_FAILURE,
           },
         ],
       });
