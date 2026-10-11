@@ -45,7 +45,7 @@ describe.each([
         createTranslate(locale),
         deviceNameOf({ userAgent: 'okhttp/4.12.0', deviceName: 'Legacy phrase' }, true),
       ),
-    ).toBe('Legacy phrase');
+    ).toBe('\u2066Legacy phrase\u2069');
   });
 
   it("reads the server's own placeholder in the app's language", () => {

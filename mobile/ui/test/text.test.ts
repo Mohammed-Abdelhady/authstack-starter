@@ -130,7 +130,7 @@ describe('which message a state asks for', () => {
       ['sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }],
       ['sessions.unknownDevice', undefined],
     ]);
-    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('Work laptop');
+    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('\u2066Work laptop\u2069');
   });
 
   it('translates a known role and shows a custom one as the server spells it', () => {
@@ -138,7 +138,7 @@ describe('which message a state asks for', () => {
 
     expect([roleText(t, 'admin'), roleText(t, 'night-shift')]).toEqual([
       'role.admin',
-      'night-shift',
+      '\u2066night-shift\u2069',
     ]);
   });
 

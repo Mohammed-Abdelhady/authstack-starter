@@ -6,7 +6,7 @@ export const AR: Record<MessageKey, string> = {
   'common.offline': 'تحقق من اتصالك بالإنترنت ثم أعد المحاولة.',
   'common.serverError': 'لم يستجب الخادم بالشكل المتوقع. أعد المحاولة.',
 
-  'signIn.title': 'تسجيل الدخول إلى {appName}',
+  'signIn.title': 'تسجيل الدخول إلى \u2068{appName}\u2069',
   'signIn.description': 'يُفتح المتصفح لتسجيل دخولك ثم يعيدك إلى هذه الشاشة.',
   'signIn.action': 'المتابعة في المتصفح',
   'signIn.actionHint': 'يفتح المتصفح لتسجيل الدخول',
@@ -66,7 +66,7 @@ export const AR: Record<MessageKey, string> = {
   'sessions.activeNow': 'نشط الآن',
   'sessions.activeToday': 'نشط اليوم في {time}',
   'sessions.activeEarlier': 'آخر نشاط {date}',
-  'sessions.address': 'عنوان IP {ip}',
+  'sessions.address': 'عنوان IP \u2066{ip}\u2069',
   'sessions.revoke': 'تسجيل الخروج',
   'sessions.revokeLabel': 'تسجيل خروج {device}',
   'sessions.revokeOthers': 'تسجيل الخروج من جميع الأجهزة الأخرى',

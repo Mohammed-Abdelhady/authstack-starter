@@ -4,7 +4,7 @@ export const EN = {
   'common.offline': 'Check your internet connection, then try again.',
   'common.serverError': 'The server did not answer as expected. Try again.',
 
-  'signIn.title': 'Sign in to {appName}',
+  'signIn.title': 'Sign in to \u2068{appName}\u2069',
   'signIn.description': 'Your browser opens to sign you in, then brings you back here.',
   'signIn.action': 'Continue in browser',
   'signIn.actionHint': 'Opens your browser to sign in',
@@ -64,7 +64,7 @@ export const EN = {
   'sessions.activeNow': 'Active now',
   'sessions.activeToday': 'Active today at {time}',
   'sessions.activeEarlier': 'Last active {date}',
-  'sessions.address': 'IP address {ip}',
+  'sessions.address': 'IP address \u2066{ip}\u2069',
   'sessions.revoke': 'Sign out',
   'sessions.revokeLabel': 'Sign out {device}',
   'sessions.revokeOthers': 'Sign out all other devices',

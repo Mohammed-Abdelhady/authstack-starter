@@ -49,7 +49,7 @@ export function deviceNameOf(
     const browser = [parts.browserName, parts.browserMajorVersion].filter(Boolean).join(' ');
     if (parts.kind === DEVICE_KIND.MOBILE_APP) return { kind: 'mobileApp', system };
     if (browser && system) return { kind: 'browser', browser, system };
-    if (browser || system) return { kind: 'named', name: `\u2066${browser || system}\u2069` };
+    if (browser || system) return { kind: 'named', name: browser || system };
     return { kind: 'unknown' };
   }
   const stored = session.deviceName?.trim();
