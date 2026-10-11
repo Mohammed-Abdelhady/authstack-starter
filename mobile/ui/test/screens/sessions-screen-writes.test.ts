@@ -128,12 +128,7 @@ describe('signing devices out from the devices screen', () => {
 
     expect({ sessions: isShown(app.root, TEST_ID.SESSIONS_SCREEN), alerts: alerts(app) }).toEqual({
       sessions: true,
-      alerts: [
-        [
-          app.t('sessions.revokeFailed.title', { device: 'Pocket phone' }),
-          app.t('sessions.revokeFailed.description'),
-        ],
-      ],
+      alerts: [[app.t('account.signOutFailed.title'), app.t('account.signOutFailed.description')]],
     });
   });
 

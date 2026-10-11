@@ -53,10 +53,17 @@ export function useSessions() {
         setWritingRow((current) => (current === row.id ? undefined : current)),
       );
       if (result !== REVOKE_RESULT.UNDONE) return;
-      setProblem({
-        title: t('sessions.revokeFailed.title', { device }),
-        description: t('sessions.revokeFailed.description'),
-      });
+      setProblem(
+        row.isCurrent
+          ? {
+              title: t('account.signOutFailed.title'),
+              description: t('account.signOutFailed.description'),
+            }
+          : {
+              title: t('sessions.revokeFailed.title', { device }),
+              description: t('sessions.revokeFailed.description'),
+            },
+      );
     },
     [confirm, runtime, t],
   );

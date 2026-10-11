@@ -120,6 +120,34 @@ describe.each(LOCALES)('the account screen in %s', (locale) => {
     ]);
   });
 
+  it('says the person is still signed in when the sign-out fails, and signs out on a retry', async () => {
+    const app = await renderApp(ADA, { locale });
+    app.fake.failSignOut(new Error('port crashed'));
+
+    await press(app.root, TEST_ID.ACCOUNT_SIGN_OUT);
+
+    expect(isShown(app.root, TEST_ID.ACCOUNT_SCREEN)).toBe(true);
+    expect(alerts(app)).toEqual([
+      [app.t('account.signOutFailed.title'), app.t('account.signOutFailed.description')],
+    ]);
+    expect(accessibilityOf(byTestId(app.root, TEST_ID.ACCOUNT_SIGN_OUT_RETRY))).toEqual({
+      accessibilityRole: 'button',
+      accessibilityLabel: app.t('common.tryAgain'),
+      accessibilityHint: app.t('account.signOutHint'),
+      accessibilityState: { disabled: false, busy: false },
+    });
+
+    const signOut = app.fake.holdSignOut();
+    await press(app.root, TEST_ID.ACCOUNT_SIGN_OUT_RETRY);
+    expect({ signOuts: app.fake.signOuts, alerts: alerts(app) }).toEqual({
+      signOuts: 2,
+      alerts: [],
+    });
+
+    await app.step(() => signOut.resolve(REVOKED));
+    expect(isShown(app.root, TEST_ID.SIGN_IN_SCREEN)).toBe(true);
+  });
+
   it('warns that the sign-in is not saved when the engine says storage refused it', async () => {
     const app = await renderApp({ ...ADA, warning: 'storageBlocked' }, { locale });
 
@@ -190,15 +218,19 @@ describe('the account screen', () => {
     }).toEqual({ account: false, signIn: true });
   });
 
-  it('stays signed in and usable when the sign-out fails', async () => {
+  it('holds the sign-out button busy while the engine signs out', async () => {
     const app = await renderApp(ADA);
-    app.fake.failSignOut(new Error('port crashed'));
+    app.fake.holdSignOut();
 
     await press(app.root, TEST_ID.ACCOUNT_SIGN_OUT);
-
-    expect(isShown(app.root, TEST_ID.ACCOUNT_SCREEN)).toBe(true);
     await press(app.root, TEST_ID.ACCOUNT_SIGN_OUT);
-    expect(app.fake.signOuts).toBe(2);
+
+    const button = byTestId(app.root, TEST_ID.ACCOUNT_SIGN_OUT);
+    expect({
+      state: button.props.accessibilityState,
+      disabled: button.props.disabled,
+      signOuts: app.fake.signOuts,
+    }).toEqual({ state: { disabled: true, busy: true }, disabled: true, signOuts: 1 });
   });
 
   it("does not show one person's profile to the next", async () => {

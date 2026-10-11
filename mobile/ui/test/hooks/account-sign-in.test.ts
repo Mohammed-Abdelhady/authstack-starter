@@ -101,20 +101,27 @@ describe('the account hook', () => {
     expect(subject.fake.signOuts).toBe(1);
   });
 
-  // What the hook does today: a sign-out that fails is dropped, and the screen is told nothing.
-  it('leaves the account as it was, with nothing reported, when the sign-out fails', async () => {
+  it('reports a sign-out as under way, then as failed when the engine cannot do it', async () => {
     const subject = await renderUiHook(useAccount, ADA);
-    subject.fake.failSignOut(new Error('port crashed'));
+    const held = subject.fake.holdSignOut();
+    expect(subject.current().signOutState).toBe('idle');
 
     act(() => subject.current().signOut());
     await flush();
+    expect(subject.current().signOutState).toBe('pending');
 
+    held.reject(new Error('port crashed'));
+    await flush();
     expect({
-      signOuts: subject.fake.signOuts,
+      state: subject.current().signOutState,
       status: subject.fake.engine.snapshot.status,
-    }).toEqual({
-      signOuts: 1,
-      status: 'signedIn',
+    }).toEqual({ state: 'failed', status: 'signedIn' });
+
+    act(() => subject.current().signOut());
+    await flush();
+    expect({ state: subject.current().signOutState, signOuts: subject.fake.signOuts }).toEqual({
+      state: 'idle',
+      signOuts: 2,
     });
   });
 });

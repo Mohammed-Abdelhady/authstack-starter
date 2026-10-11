@@ -47,6 +47,8 @@ export const AR: Record<MessageKey, string> = {
   'account.sessions.action': 'إدارة الأجهزة',
   'account.signOut': 'تسجيل الخروج',
   'account.signOutHint': 'يسجّل خروجك من هذا الجهاز',
+  'account.signOutFailed.title': 'ما زلت مسجَّل الدخول',
+  'account.signOutFailed.description': 'تعذَّر تسجيل الخروج من هذا الجهاز. أعد المحاولة.',
 
   'role.user': 'مستخدم',
   'role.support': 'دعم',

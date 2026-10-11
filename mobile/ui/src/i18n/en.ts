@@ -45,6 +45,8 @@ export const EN = {
   'account.sessions.action': 'Manage devices',
   'account.signOut': 'Sign out',
   'account.signOutHint': 'Signs you out on this device',
+  'account.signOutFailed.title': 'You are still signed in',
+  'account.signOutFailed.description': 'This device could not sign out. Try again.',
 
   'role.user': 'User',
   'role.support': 'Support',
