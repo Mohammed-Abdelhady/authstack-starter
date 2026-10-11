@@ -4,14 +4,10 @@ export const MAGIC_LINK_TOKEN_BYTES = 32;
 /** Longest token the verify route reads before rejecting the request. */
 export const MAGIC_LINK_MAX_TOKEN_LENGTH = 128;
 
-/**
- * How long a pending link is kept after it expires. The per-address hourly cap
- * counts links created in the last hour, so records have to outlive the link
- * itself for the count to see them.
- */
+/** How long a pending link is kept after it expires. */
 export const MAGIC_LINK_RETENTION_SECONDS = 3600;
 
-/** Window the per-address cap counts over, in milliseconds. */
+/** Window the per-address cap counts over, from its first request. */
 export const MAGIC_LINK_RATE_WINDOW_MS = 3600000;
 
 /**

@@ -30,6 +30,12 @@ export abstract class MagicLinkAccounts {
   /** The account with this address, deleted ones included. */
   abstract findByEmail(email: string): Promise<MagicLinkAccount | null>;
 
+  /**
+   * True when the address belongs to a deleted account. One statement of the
+   * same size whether or not any account has the address.
+   */
+  abstract hasDeletedAccount(email: string): Promise<boolean>;
+
   abstract markVerified(account: MagicLinkAccount): Promise<void>;
 
   /**

@@ -22,6 +22,8 @@ import {
 import { buildClientUrl } from '../../common/utils/client-url.util';
 import { LoginResponseDto } from '../dto/login-response.dto';
 import { AuthMailService } from '../services/mail/auth-mail.service';
+import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../constants/auth-messages';
+import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
@@ -48,6 +50,7 @@ export class MagicLinkService {
     private readonly accounts: MagicLinkAccounts,
     private readonly configService: ConfigService,
     private readonly authMailService: AuthMailService,
+    private readonly mailDispatcher: MailDispatcherService,
     private readonly signIn: MagicLinkSignIn,
     private readonly clock: Clock,
   ) {
@@ -62,32 +65,25 @@ export class MagicLinkService {
    * Mail a sign-in link. An address without an account gets one too, because
    * following it is how a passwordless account is created. A soft-deleted
    * account and an address over the hourly cap get the reply and no mail.
+   *
+   * Every request does the same work, so the time an answer takes says
+   * nothing about the address: one account read, one slot taken from the cap,
+   * one link stored. A request that mails nothing stores a link that is
+   * already spent and whose token is thrown away. The mail leaves through the
+   * dispatcher, so no answer waits on SMTP.
    */
   async request(
     dto: RequestMagicLinkDto,
     request: Request,
   ): Promise<ApiResponse<MagicLinkRequestResponseDto>> {
     const now = this.clock.now();
-    const user = await this.accounts.findByEmail(dto.email);
-
-    if (user?.isDeleted) {
-      this.spendTokenHashingTime();
-      this.logger.warn('Magic link request for a deleted account');
-      return MagicLinkRequestResponseDto.success(dto.email);
-    }
-
-    const recentLinks = await this.links.countRequestedSince(
-      dto.email,
-      new Date(now.getTime() - MAGIC_LINK_RATE_WINDOW_MS),
-    );
-
-    if (recentLinks >= this.maxPerHour) {
-      this.spendTokenHashingTime();
-      this.logger.warn(
-        `Magic link hourly cap reached requestId=${currentRequestId() ?? 'unknown'}`,
-      );
-      return MagicLinkRequestResponseDto.success(dto.email);
-    }
+    const deleted = await this.accounts.hasDeletedAccount(dto.email);
+    const underCap = await this.links.takeRequestSlot(dto.email, {
+      now,
+      windowMs: MAGIC_LINK_RATE_WINDOW_MS,
+      limit: this.maxPerHour,
+    });
+    const mailed = !deleted && underCap;
 
     const token = createMagicLinkToken();
     const redirect = getAllowedNativeAuthorizeContinuation(dto.redirect);
@@ -98,18 +94,16 @@ export class MagicLinkService {
       requestIp: request.ip,
       userAgent: request.headers['user-agent'],
       ...(redirect ? { redirect } : {}),
+      ...(mailed ? {} : { consumedAt: now }),
     });
 
-    const sent = await this.authMailService.sendMagicLink(
-      dto.email,
-      this.buildLink(token),
-      Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
-    );
-
-    if (sent) {
-      this.logger.log(
-        `Magic link sent requestId=${currentRequestId() ?? 'unknown'}`,
-      );
+    const requestId = currentRequestId() ?? 'unknown';
+    if (mailed) {
+      this.deferLink(dto.email, token, requestId);
+    } else if (deleted) {
+      this.logger.warn('Magic link request for a deleted account');
+    } else {
+      this.logger.warn(`Magic link hourly cap reached requestId=${requestId}`);
     }
     return MagicLinkRequestResponseDto.success(dto.email);
   }
@@ -211,12 +205,18 @@ export class MagicLinkService {
     });
   }
 
-  /**
-   * Spend the work a real link would have cost, so a request that mails
-   * nothing does not answer faster than one that does.
-   */
-  private spendTokenHashingTime(): void {
-    hashMagicLinkToken(createMagicLinkToken());
+  /** Start the mail and return at once. A dropped send is logged, not thrown. */
+  private deferLink(email: string, token: string, requestId: string): void {
+    this.mailDispatcher.dispatch(async () => {
+      const sent = await this.authMailService.sendMagicLink(
+        email,
+        this.buildLink(token),
+        Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
+      );
+      if (sent) {
+        this.logger.log(`Magic link sent requestId=${requestId}`);
+      }
+    }, SIGN_IN_LINK_EMAIL_FAILED_MESSAGE);
   }
 
   private invalidLink(reason: string): AppException {
