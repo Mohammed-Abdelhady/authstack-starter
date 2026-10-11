@@ -157,9 +157,9 @@ Endpoints:
 | Variable                        | Description                                                                       | Default                                               |
 | ------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `PORT`                          | API server port. Example file sets `5001`.                                        | `3000` when unset                                     |
-| `NODE_ENV`                      | Environment name                                                                  | `development`                                         |
+| `NODE_ENV`                      | Environment name. `production` turns on the start checks and secure cookies       | `development`                                         |
 | `MONGO_URI`                     | MongoDB address, starting with `mongodb://` or `mongodb+srv://`                   | None, required                                        | <!-- feature:mongodb -->             |
-| `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                                        | `http://localhost:3000`                               |
+| `CLIENT_URL`                    | Frontend origin for CORS and mailed links. Must be `https` in production          | `http://localhost:3000`                               |
 | `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies, at least 32 characters                   | None, required                                        | <!-- feature:oauth-core,passkeys --> |
 | `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`             | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
 | `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in                     | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
@@ -210,7 +210,7 @@ Endpoints:
 | --------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
 | `NEXT_PUBLIC_API_URL` | Backend origin without `/api` suffix. Set it to the address the backend runs on | Port 5000 on `localhost` when unset |
 
-See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings.
+See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings, and [production security settings](docs/operations/production-security.md) for what a production start refuses.
 
 <!-- feature:mongodb:start -->
 

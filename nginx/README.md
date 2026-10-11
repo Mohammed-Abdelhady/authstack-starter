@@ -8,10 +8,8 @@ The nginx setup provides:
 
 - **Reverse Proxy**: Routes traffic between frontend and backend services
 - **SSL/TLS Termination**: Handles HTTPS encryption with automatic certificate renewal
-- **Security Headers**: Implements best-practice security headers
 - **Rate Limiting**: Protects against DDoS and brute force attacks
 - **Gzip Compression**: Optimizes content delivery
-- **Caching**: Improves performance for static assets
 - **Health Checks**: Monitors service availability
 
 ## Architecture
@@ -32,8 +30,6 @@ nginx/
 ├── Dockerfile                  # Nginx container build configuration
 ├── nginx.conf                  # Main nginx configuration
 ├── production-nginx.conf       # Production configuration template
-├── snippets/
-│   └── security-headers.conf   # Security headers snippet
 ├── ssl/                        # SSL certificates (create this directory)
 │   ├── fullchain.pem           # Full certificate chain
 │   ├── privkey.pem             # Private key
@@ -47,9 +43,7 @@ nginx/
 
 - **TLS 1.2/1.3 Only**: Modern, secure protocols
 - **Strong Ciphers**: Uses only secure cipher suites
-- **HSTS**: Enforces HTTPS connections
-- **Security Headers**: Centralized in `snippets/security-headers.conf` and included across all blocks that send headers.
-- **Content Security Policy**: Drops `'unsafe-eval'` to block arbitrary script evaluation. Retains `'unsafe-inline'` for `style-src` because Next.js and Tailwind inject runtime style tags.
+- **Security Headers**: nginx adds none. The frontend and the backend each send their own, including HSTS and the content security policy. See [production security settings](../docs/operations/production-security.md).
 - **Rate Limiting**: Multiple zones for different endpoint types
 - **Hidden Files**: Blocks access to sensitive files
 
@@ -57,7 +51,7 @@ nginx/
 
 - **HTTP/2**: Multiplexing and header compression
 - **Gzip Compression**: Reduces payload sizes
-- **Static Asset Caching**: Long-term caching for images, fonts, etc.
+- **Static Assets**: `/_next/static/` is passed to the frontend, which marks those files immutable for a year
 - **Keepalive Connections**: Reduces connection overhead
 - **Buffer Optimization**: Tuned for production workloads
 
@@ -67,7 +61,7 @@ nginx/
 - **Auth Routes**: `/api/auth/*` → Backend with stricter rate limiting
 - **Health Check**: `/health` → Backend health endpoint
 - **Frontend**: `/` → Frontend application
-- **Static Files**: Cached with 1-year expiration
+- **Build output**: `/_next/static/*` → Frontend, with no rate limit
 
 ## Setup Instructions
 
@@ -322,7 +316,7 @@ The configuration uses `worker_processes auto`, which automatically sets the num
 
 Adjust buffer sizes based on your application needs:
 
-- `client_max_body_size 20M`: Maximum upload size
+- `client_max_body_size 1m`: Largest request body. The backend reads JSON up to 100 kB, so raise both together if you add uploads
 - `client_body_buffer_size 128k`: Buffer size for request body
 
 ## Additional Resources
