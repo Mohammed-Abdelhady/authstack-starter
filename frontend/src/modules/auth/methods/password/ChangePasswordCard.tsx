@@ -7,16 +7,17 @@ import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FormPassword, PasswordRules, SubmitButton } from '@/components/forms';
+import { FormPassword, FormRootError, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
 import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
 import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
-import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
+import { useFormFieldTarget } from '@/hooks/useServerFieldErrors';
 import type { ChangePasswordFormData } from '@app/core';
 import { createChangePasswordSchema } from './changePasswordSchema';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
 
 /**
  * Password change, for the settings page.
@@ -31,7 +32,6 @@ export function ChangePasswordCard() {
   const tPassword = useTranslations('auth.passwordRules.errors');
   const { methods, isError: methodsFailed, retry, hasRetried } = useAuthMethods();
   const [changePassword, { isLoading }] = useChangePasswordMutation();
-  const refusalToast = useRefusalToast();
 
   const schema = useMemo(() => createChangePasswordSchema(t, tPassword), [t, tPassword]);
 
@@ -44,24 +44,22 @@ export function ChangePasswordCard() {
     },
   });
   const formRef = useRef<HTMLFormElement>(null);
-  const applyServerFieldErrors = useServerFieldErrors(
-    useFormFieldTarget(form.setError, formRef),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useFormFieldTarget(form.setError, formRef), isLoading);
 
   const submit = async (data: ChangePasswordFormData) => {
-    refusalToast.clearStale();
+    refusal.clear();
     try {
-      await changePassword({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      }).unwrap();
+      await showsOwnRefusal(
+        changePassword({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       form.reset();
     } catch (error) {
-      refusalToast.noteRefusal();
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
     }
   };
@@ -96,6 +94,7 @@ export function ChangePasswordCard() {
             className="space-y-4"
             data-testid="change-password-form"
           >
+            <FormRootError error={refusal.alert} testId="change-password-error" />
             <HiddenUsernameField />
             <FormPassword<ChangePasswordFormData>
               name="currentPassword"

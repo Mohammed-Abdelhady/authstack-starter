@@ -38,10 +38,10 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('ChangePasswordCard refused by the server in %s', (locale) => {
-  it('marks and focuses the rejected field and raises one localized toast', async () => {
+  it('marks and focuses the rejected field and raises no toast', async () => {
     refuseWrites(['newPassword', 'nickname'], AUTH_METHODS);
 
-    const { currentPassword, newPassword, fieldMessage, generalMessage, errorToasts } =
+    const { currentPassword, newPassword, fieldMessage, errorToasts } =
       await submitPasswordChange(locale);
 
     await waitFor(() => {
@@ -53,7 +53,8 @@ describe.each([
     await waitFor(() => {
       expect(document.activeElement).toBe(newPassword);
     });
-    expect(errorToasts()).toEqual([generalMessage]);
+    // The marked field says it. No toast repeats it.
+    expect(errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 

@@ -9,13 +9,14 @@ import { MailCheck, Send } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { Button } from '@/components/ui/button';
-import { zodEmail, parseApiError } from '@app/core';
+import { zodEmail } from '@app/core';
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
 import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
 import { isNativeAuthorizeContinuation } from '@/modules/auth/constants/nativeAuthorize';
 import { getRedirectPath } from '@/modules/auth/utils';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import type { AuthMethodFormProps } from '../types';
 import { useRequestMagicLinkMutation } from './magicLinkApi';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
@@ -47,7 +48,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
   const t = useTranslations('auth.magicLink');
   const tSignIn = useTranslations('auth.login');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const [requestMagicLink, { isLoading }] = useRequestMagicLinkMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
       const validated = getRedirectPath(redirect, '');
       const continuation = isNativeAuthorizeContinuation(validated) ? validated : undefined;
       try {
-        await requestMagicLink({ email, redirect: continuation }).unwrap();
+        await showsOwnRefusal(requestMagicLink({ email, redirect: continuation })).unwrap();
         setSentTo(email);
         startCooldown();
       } catch (err) {
@@ -83,14 +84,10 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
         if (handleFeatureDisabled(err)) {
           return;
         }
-        const code = translatableErrorCode(err, '');
-        setError('root', {
-          type: 'manual',
-          message: code ? tCodes(code) : parseApiError(err).message || t('error'),
-        });
+        setError('root', { type: 'manual', message: refusalText(err) });
       }
     },
-    [handleFeatureDisabled, redirect, requestMagicLink, setError, startCooldown, t, tCodes],
+    [handleFeatureDisabled, redirect, refusalText, requestMagicLink, setError, startCooldown],
   );
   const send = useSingleFlight(sendLink);
 
