@@ -52,9 +52,9 @@ export const PermissionNode = memo(function PermissionNode({
   // Variant styles
   const variantStyles = {
     default: 'bg-muted border-border text-foreground',
-    inherited: 'bg-info/10 border-info/30 text-info-foreground dark:bg-info/20 dark:border-info/40',
+    inherited: 'bg-info/10 border-info/30 text-foreground dark:bg-info/20 dark:border-info/40',
     direct:
-      'bg-success/10 border-success/30 text-success-foreground dark:bg-success/20 dark:border-success/40',
+      'bg-success/10 border-success/30 text-foreground dark:bg-success/20 dark:border-success/40',
   };
 
   return (
