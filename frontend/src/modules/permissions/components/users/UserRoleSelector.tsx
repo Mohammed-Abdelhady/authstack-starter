@@ -24,6 +24,8 @@ import { Loader2, Shield, ShieldAlert } from 'lucide-react';
 import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useReturnFocus } from '@/hooks/useReturnFocus';
+import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
 
 interface UserRoleSelectorProps {
   readonly userId: string;
@@ -51,6 +53,8 @@ export function UserRoleSelector({
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [triggerRef, returnFocusToTrigger] = useReturnFocus<HTMLButtonElement>();
+  const guardKeyUntilReleased = useKeyReleaseGuard();
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
   const roles = rolesData?.roles || [];
@@ -70,9 +74,8 @@ export function UserRoleSelector({
     chosenRole.current = newRole;
   };
 
-  // Enter on an option is still being handled when the option is chosen, and a
-  // button focused during that keystroke is pressed by it. The list hands focus
-  // back after the keystroke, so the confirmation opens then.
+  // The confirmation opens once the list has closed and handed focus back, so
+  // the trigger is the element it was opened from.
   const openConfirmation = () => {
     if (chosenRole.current === null) return;
     setPendingRole(chosenRole.current);
@@ -111,7 +114,11 @@ export function UserRoleSelector({
         onValueChange={handleRoleSelect}
         disabled={disabled || isLoadingRoles || isUpdating}
       >
-        <SelectTrigger className="w-full sm:w-[200px]" data-testid={`user-role-selector-${userId}`}>
+        <SelectTrigger
+          ref={triggerRef}
+          className="w-full sm:w-[200px]"
+          data-testid={`user-role-selector-${userId}`}
+        >
           {isLoadingRoles ? (
             <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
@@ -126,7 +133,7 @@ export function UserRoleSelector({
             </SelectValue>
           )}
         </SelectTrigger>
-        <SelectContent onCloseAutoFocus={openConfirmation}>
+        <SelectContent onKeyDownCapture={guardKeyUntilReleased} onCloseAutoFocus={openConfirmation}>
           {roles.map((role) => (
             <SelectItem
               key={role.id}
@@ -151,7 +158,10 @@ export function UserRoleSelector({
 
       {/* Confirmation Dialog */}
       <AlertDialog open={!!pendingRole} onOpenChange={(open) => !open && handleCancelRoleChange()}>
-        <AlertDialogContent data-testid="role-change-confirm-dialog">
+        <AlertDialogContent
+          data-testid="role-change-confirm-dialog"
+          onCloseAutoFocus={returnFocusToTrigger}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
