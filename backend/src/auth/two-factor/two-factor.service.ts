@@ -107,7 +107,7 @@ export class TwoFactorService {
 
   /**
    * Turn the second factor off. Needs a code or a recovery code, and the
-   * password as well when the account has one.
+   * password as well when the account has one and password sign-in is on.
    */
   async disable(
     userId: string,

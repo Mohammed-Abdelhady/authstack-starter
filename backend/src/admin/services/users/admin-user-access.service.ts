@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { RoleHierarchyService } from '../../../role/services/role-hierarchy.service';
 import { StoredAccount } from '../../../user/stores/stored-account';
+import { isSameId } from '../../../user/utils/user-lookup.util';
 import { AdminAccountStore } from '../../stores/admin-account.store';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -44,12 +45,13 @@ export class AdminUserAccessService {
   }
 
   /**
-   * Reject an operation an actor aims at its own account.
+   * Reject an operation an actor aims at its own account, however the letters
+   * of the id in the route are cased.
    *
    * @throws AppException CANNOT_MODIFY_SELF
    */
   assertNotSelf(targetId: string, actorId: string, message: string): void {
-    if (targetId === actorId) {
+    if (isSameId(targetId, actorId)) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_SELF,
         message,

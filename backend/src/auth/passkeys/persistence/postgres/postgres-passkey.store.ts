@@ -198,16 +198,27 @@ export class PostgresPasskeyStore extends PasskeyStore {
     });
   }
 
-  findOwned(userId: string, passkeyId: string): Promise<StoredPasskey | null> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const row = await this.database
+  findOwned(
+    userId: string,
+    passkeyId: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<StoredPasskey | null> {
+    const read = async (
+      reader: Kysely<PostgresTables>,
+    ): Promise<StoredPasskey | null> => {
+      const row = await reader
         .selectFrom('passkeys')
         .select(PASSKEY_COLUMNS)
         .where('id', '=', toUuid(passkeyId))
         .where('user_id', '=', toUuid(userId))
         .executeTakeFirst();
       return row ? toStoredPasskey(row) : null;
-    });
+    };
+    // The unit of work holds a connection. A read on the pool would wait for
+    // a second one, and never get it from a pool the transactions filled.
+    return unitOfWork
+      ? read(postgresTransactionOf(unitOfWork))
+      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
   }
 
   rename(passkey: StoredPasskey, name: string): Promise<StoredPasskey> {
