@@ -226,10 +226,6 @@
       "sentBody": "If ⁦{email}⁩ has an account, a sign-in link is on its way. The link works once and expires shortly.",
       "resend": "Send another link",
       "resendCooldown": "Send another link ({seconds}s)",
-      "errors": {
-        "emailRequired": "Email is required",
-        "emailInvalid": "Please enter a valid email address"
-      },
       "verify": {
         "title": "Signing you in",
         "pending": "Checking your link.",
