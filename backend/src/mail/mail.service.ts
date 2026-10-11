@@ -80,7 +80,7 @@ export class MailService {
     const from = this.configService.get<string>('smtp.from');
 
     if (!from) {
-      throw new Error('SMTP_FROM environment variable is not configured');
+      throw new Error('EMAIL_FROM environment variable is not configured');
     }
 
     try {

@@ -52,10 +52,13 @@ describe('MailService', () => {
     return sendMail.mock.calls[0][0] as SentMail;
   }
 
-  async function buildService(codeExpiresIn: number): Promise<MailService> {
+  async function buildService(
+    codeExpiresIn: number,
+    smtp: { from?: string } = { from: 'noreply@example.com' },
+  ): Promise<MailService> {
     const configService = {
       get: jest.fn((key: string, defaultValue?: unknown) => {
-        if (key === 'smtp.from') return 'noreply@example.com';
+        if (key === 'smtp.from') return smtp.from;
         if (key === 'smtp.host') return 'smtp.example.com';
         if (key === 'smtp.port') return 587;
         if (key === 'cors.clientUrl') return CLIENT_URL;
@@ -279,6 +282,19 @@ describe('MailService', () => {
       await expect(
         service.sendActivationCode('user@example.com', '123456'),
       ).rejects.toThrow('Failed to send email: connection refused');
+    });
+
+    it('names the setting that holds the sender when none is configured, and sends nothing', async () => {
+      const unconfigured = await buildService(CODE_LIFETIME_MS, {});
+
+      const refusal: unknown = await unconfigured
+        .sendMail({ to: 'user@example.com', subject: 'subject', text: 'text' })
+        .catch((error: unknown) => error);
+
+      const message = refusal instanceof Error ? refusal.message : '';
+      expect(message).toContain('EMAIL_FROM');
+      expect(message).not.toContain('SMTP_FROM');
+      expect(sendMail).not.toHaveBeenCalled();
     });
   });
 });
