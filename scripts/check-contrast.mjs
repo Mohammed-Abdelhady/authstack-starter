@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function hslToRgb(h, s, l) {
+export function hslToRgb(h, s, l) {
   const sat = s / 100;
   const lum = l / 100;
   const k = (n) => (n + h / 30) % 12;
@@ -29,7 +29,7 @@ function relativeLuminance([r, g, b]) {
   );
 }
 
-function contrastRatio(rgb1, rgb2) {
+export function contrastRatio(rgb1, rgb2) {
   const l1 = relativeLuminance(rgb1);
   const l2 = relativeLuminance(rgb2);
   const lighter = Math.max(l1, l2);
@@ -109,9 +109,109 @@ export const CONTRAST_PAIRS = [
   { token: 'ring', background: 'background', target: 3.0 },
 ];
 
+// A control on a status surface is read from source: the primitive's classes,
+// then the caller's `className`, where the later colour wins as in tailwind-merge.
+export const SURFACE_CONTROLS = [
+  {
+    surface: 'warning',
+    primitive: 'frontend/src/components/ui/checkbox.tsx',
+    usage: 'frontend/src/modules/permissions/components/selector/PermissionSelector.tsx',
+    element: 'Checkbox',
+    testId: 'wildcard-permission-checkbox',
+  },
+];
+
+const CONTROL_MINIMUM = 3.0;
+const CONTROL_ROLE_PREFIXES = {
+  border: 'border-',
+  checkedFill: 'data-[state=checked]:bg-',
+  checkMark: 'data-[state=checked]:text-',
+  ring: 'focus-visible:ring-',
+  ringOffset: 'ring-offset-',
+};
+const QUOTED_STRING = /'([^'\n]*)'|"([^"\n]*)"/g;
+
+export function resolveControlTokens(baseClasses, overrideClasses, knownTokens) {
+  const roles = {};
+
+  for (const className of `${baseClasses} ${overrideClasses}`.split(/\s+/)) {
+    for (const [role, prefix] of Object.entries(CONTROL_ROLE_PREFIXES)) {
+      if (!className.startsWith(prefix)) continue;
+      const [token, alpha] = className.slice(prefix.length).split('/');
+      if (!knownTokens.includes(token)) continue;
+      if (alpha !== undefined) {
+        throw new Error(`${className}: a translucent control colour cannot be audited`);
+      }
+      roles[role] = token;
+    }
+  }
+
+  return roles;
+}
+
+export function extractClassName(source, element, testId) {
+  const marker = source.indexOf(`data-testid="${testId}"`);
+  const start = marker === -1 ? -1 : source.lastIndexOf(`<${element}`, marker);
+  const end = source.indexOf('/>', marker);
+  if (start === -1 || end === -1) {
+    throw new Error(`<${element} data-testid="${testId}" /> was not found`);
+  }
+
+  const tag = source.slice(start, end);
+  if (!tag.includes('className=')) return '';
+  const literal = /className="([^"]*)"/.exec(tag);
+  if (!literal) {
+    throw new Error(`<${element} data-testid="${testId}" /> needs a literal className`);
+  }
+  return literal[1];
+}
+
+export function controlPairs(roles, surface) {
+  const missing = Object.keys(CONTROL_ROLE_PREFIXES).filter((role) => !roles[role]);
+  if (missing.length > 0) {
+    throw new Error(`no colour token found for: ${missing.join(', ')}`);
+  }
+
+  return [
+    { token: roles.border, background: surface, target: CONTROL_MINIMUM, part: 'border' },
+    {
+      token: roles.checkedFill,
+      background: surface,
+      target: CONTROL_MINIMUM,
+      part: 'checked fill',
+    },
+    {
+      token: roles.checkMark,
+      background: roles.checkedFill,
+      target: CONTROL_MINIMUM,
+      part: 'check mark',
+    },
+    { token: roles.ring, background: surface, target: CONTROL_MINIMUM, part: 'focus ring' },
+    {
+      token: roles.ring,
+      background: roles.ringOffset,
+      target: CONTROL_MINIMUM,
+      part: 'focus ring on its offset',
+    },
+  ];
+}
+
+export function loadControlPairs(knownTokens, controls = SURFACE_CONTROLS) {
+  const read = (file) => fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8');
+
+  return controls.flatMap(({ surface, primitive, usage, element, testId }) => {
+    const baseClasses = [...read(primitive).matchAll(QUOTED_STRING)]
+      .map(([, single, double]) => single ?? double)
+      .join(' ');
+    const overrideClasses = extractClassName(read(usage), element, testId);
+    return controlPairs(resolveControlTokens(baseClasses, overrideClasses, knownTokens), surface);
+  });
+}
+
 function run() {
   const css = loadCss();
   const { light, dark } = parseTokens(css);
+  const pairs = [...CONTRAST_PAIRS, ...loadControlPairs(Object.keys(light))];
 
   let failedCount = 0;
   let totalCount = 0;
@@ -123,7 +223,7 @@ function run() {
     );
     console.log('-'.repeat(68));
 
-    for (const { token, background, target } of CONTRAST_PAIRS) {
+    for (const { token, background, target, part } of pairs) {
       totalCount++;
       const tVal = tokens[token];
       const bgVal = tokens[background];
@@ -147,7 +247,7 @@ function run() {
       const status = passed ? 'PASS' : 'FAIL';
 
       console.log(
-        `${token.padEnd(24)} ${background.padEnd(16)} ${ratioStr.padEnd(10)} ${targetStr.padEnd(8)} ${status}`,
+        `${token.padEnd(24)} ${background.padEnd(16)} ${ratioStr.padEnd(10)} ${targetStr.padEnd(8)} ${status}${part ? ` (control ${part})` : ''}`,
       );
     }
   }
