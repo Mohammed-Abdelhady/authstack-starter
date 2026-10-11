@@ -24,6 +24,9 @@ export const THROTTLE_MAGIC_LINK_VERIFY_TTL = THROTTLE_TTL_15_MIN;
 export const THROTTLE_TWO_FACTOR_VERIFY_LIMIT = 10;
 export const THROTTLE_TWO_FACTOR_VERIFY_TTL = THROTTLE_TTL_15_MIN;
 
+export const THROTTLE_CHANGE_PASSWORD_LIMIT = 10;
+export const THROTTLE_CHANGE_PASSWORD_TTL = THROTTLE_TTL_15_MIN;
+
 export const THROTTLE_PASSKEY_LOGIN_LIMIT = 20;
 export const THROTTLE_PASSKEY_LOGIN_TTL = THROTTLE_TTL_15_MIN;
 
@@ -80,6 +83,14 @@ export const THROTTLE_TWO_FACTOR_VERIFY = {
   default: {
     limit: THROTTLE_TWO_FACTOR_VERIFY_LIMIT,
     ttl: THROTTLE_TWO_FACTOR_VERIFY_TTL,
+  },
+} as const;
+
+/** A signed-in caller guessing the current password on the change route. */
+export const THROTTLE_CHANGE_PASSWORD = {
+  default: {
+    limit: THROTTLE_CHANGE_PASSWORD_LIMIT,
+    ttl: THROTTLE_CHANGE_PASSWORD_TTL,
   },
 } as const;
 
