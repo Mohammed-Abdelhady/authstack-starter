@@ -33,6 +33,9 @@ export const AR: Record<MessageKey, string> = {
   'signIn.failed.generic': 'حدث خطأ. أعد المحاولة.',
   'signIn.reauth.title': 'انتهت جلستك',
   'signIn.reauth.description': 'سجّل الدخول مجددًا للمتابعة.',
+  'signIn.switchedOff.title': 'تسجيل الدخول من هذا التطبيق متوقف',
+  'signIn.switchedOff.description':
+    'أوقفت الخدمة تسجيل الدخول من تطبيقات الجوال مؤقتًا. أعد المحاولة لاحقًا.',
 
   'account.title': 'الحساب',
   'account.description': 'البيانات التي يحتفظ بها الخادم عنك.',

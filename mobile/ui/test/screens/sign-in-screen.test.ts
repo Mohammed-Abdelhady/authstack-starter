@@ -169,6 +169,22 @@ describe.each(LOCALES)('the sign-in screen in %s', (locale) => {
       expect(app.fake.signIns).toHaveLength(2);
     },
   );
+  it('says sign-in from the app is switched off when the service ended the session that way', async () => {
+    const app = await renderApp(ADA, { locale });
+
+    await app.publish({ status: 'signedOut', operation: 'none', reason: 'disabled' });
+
+    expect(shown(app)).toEqual({
+      button: button(app, 'signIn.action', false),
+      disabled: false,
+      notice: {
+        role: 'alert',
+        text: [app.t('signIn.switchedOff.title'), app.t('signIn.switchedOff.description')],
+      },
+    });
+    await press(app.root, TEST_ID.SIGN_IN_ACTION);
+    expect(app.fake.signIns).toHaveLength(1);
+  });
 });
 
 describe('the sign-in screen', () => {

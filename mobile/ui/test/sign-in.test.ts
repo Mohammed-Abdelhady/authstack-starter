@@ -206,6 +206,18 @@ describe('the sign-in screen state', () => {
     expect(view.state).toBe('inProgress');
   });
 
+  it('says sign-in is switched off only for a signed-out session the service ended that way', () => {
+    const off = (status: AuthSnapshot['status'], reason?: AuthSnapshot['reason']): boolean =>
+      signInView({ status, operation: 'none', ...(reason ? { reason } : {}) }, IDLE).switchedOff;
+
+    expect([
+      off('signedOut', 'disabled'),
+      off('signedOut'),
+      off('signedOut', 'oauthFailure'),
+      off('reauthRequired', 'disabled'),
+    ]).toEqual([true, false, false, false]);
+  });
+
   it('says the session ended when the engine needs a new sign-in', () => {
     expect([
       signInView(snapshot('reauthRequired'), IDLE).sessionEnded,

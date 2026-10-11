@@ -31,6 +31,9 @@ export const EN = {
   'signIn.failed.generic': 'Something went wrong. Try again.',
   'signIn.reauth.title': 'Your session ended',
   'signIn.reauth.description': 'Sign in again to continue.',
+  'signIn.switchedOff.title': 'Sign-in from this app is switched off',
+  'signIn.switchedOff.description':
+    'The service has switched off sign-in from mobile apps for now. Try again later.',
 
   'account.title': 'Account',
   'account.description': 'The details the server holds for you.',
