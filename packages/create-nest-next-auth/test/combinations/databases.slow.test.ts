@@ -33,6 +33,12 @@ import { verifyFeatureAvailability } from './feature-runtime.js';
  * suite gets 14.
  */
 const MINUTE_MS = 60 * 1000;
+/**
+ * How much of a failed suite's output the failure shows. Enough to hold the
+ * server's log lines around a failed request, which the last few thousand
+ * characters did not: a 503 could not be traced to the code that answered it.
+ */
+const FAILURE_OUTPUT_CHARS = 200_000;
 const POSTGRES_BUDGET = { budgetMs: 12 * MINUTE_MS, suiteMs: 6 * MINUTE_MS };
 const MONGODB_BUDGET = { budgetMs: 30 * MINUTE_MS, suiteMs: 14 * MINUTE_MS };
 
@@ -160,13 +166,13 @@ describe('generated projects by database', () => {
           timeout: testCase.suiteMs,
           signal,
         });
-        expect(unit.ok, unit.output.slice(-6000)).toBe(true);
+        expect(unit.ok, unit.output.slice(-FAILURE_OUTPUT_CHARS)).toBe(true);
         const api = await runTool('pnpm', ['--filter', 'backend', 'run', 'test:e2e'], {
           cwd: project,
           timeout: testCase.suiteMs,
           signal,
         });
-        expect(api.ok, api.output.slice(-6000)).toBe(true);
+        expect(api.ok, api.output.slice(-FAILURE_OUTPUT_CHARS)).toBe(true);
       },
       testCase.budgetMs,
     );
