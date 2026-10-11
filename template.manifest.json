@@ -381,6 +381,9 @@
       "files": [
         "backend/test/auth/activation-contract.e2e-spec.ts",
         "backend/test/auth/activation-races.e2e-spec.ts",
+        "backend/test/auth/activation-unknown-commit.e2e-spec.ts",
+        "backend/test/auth/activation-contract-legacy.mongo.e2e-spec.ts",
+        "backend/test/auth/resend-and-cleanup-windows.e2e-spec.ts",
         "backend/test/auth/anonymous-mail-off-path.e2e-spec.ts",
         "backend/test/auth/code-step-answer-activation.e2e-spec.ts",
         "backend/test/auth/code-step-answer-reset.e2e-spec.ts",
