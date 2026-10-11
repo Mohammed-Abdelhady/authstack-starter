@@ -4,11 +4,14 @@ export const MONGO_WORDS = [
   /replica set/i,
   /replset/i,
   /objectid/i,
-  /\bcollections?\b/,
-  /TTL index/,
+  /\bcollections?\b/i,
+  /TTL index/i,
   /27017/,
   /findOneAndUpdate/,
-  /subdocument/,
+  /subdocument/i,
+  /\$lookup/,
+  /\.aggregate\(/,
+  /\bdb\.[a-z]+\./,
   /pendingmagiclinks|twofactorchallenges|passkeychallenges|pendingregistrations|pendingpasswordresets|mailcounters/,
 ];
 
@@ -19,8 +22,8 @@ export const MONGO_WORDS = [
  *
  * The filter reads two failure shapes without loading a driver, and its specs
  * build those shapes by hand. The rest use the word for something else: a
- * request collection, a schematics collection, a statement that PostgreSQL
- * has no such index.
+ * request collection, a schematics collection, a collection of validation
+ * schemas, a statement that PostgreSQL has no such index.
  */
 export const MONGO_SURVIVING_LINES: Record<string, string[]> = {
   'backend/README.md': ['- [Postman collection](docs/postman/README.md)'],
@@ -33,6 +36,7 @@ export const MONGO_SURVIVING_LINES: Record<string, string[]> = {
     'This directory contains the Postman collection and environment files for testing backend endpoints.',
     '- `FULL-MERN-AUTH-Boilerplate-API.postman_collection.json`: Complete collection of backend requests organized by domain.',
     '### 1. Import collection',
+    '## Collection structure',
     'The collection contains the following folders:',
   ],
   'backend/nest-cli.json': ['"collection": "@nestjs/schematics",'],
@@ -83,5 +87,21 @@ export const MONGO_SURVIVING_LINES: Record<string, string[]> = {
   ],
   'docs/setup/setup-facebook-oauth-publishing-and-configuration.md': [
     '2. **User Consent**: Clear opt-in for data collection',
+  ],
+  'shared/core/src/validations/array/index.ts': [
+    '* Collection of array validation schemas. Every message comes from the caller',
+  ],
+  'shared/core/src/validations/boolean/index.ts': [
+    '* Collection of boolean validation schemas. Every message comes from the caller',
+  ],
+  'shared/core/src/validations/date/index.ts': [
+    '* Collection of date and time validation schemas. Every message comes from the',
+  ],
+  'shared/core/src/validations/number/index.ts': [
+    '* Collection of number validation schemas. Every message comes from the caller',
+  ],
+  'shared/core/src/validations/object/index.ts': ['* Collection of object validation schemas.'],
+  'shared/core/src/validations/special/index.ts': [
+    '* Collection of special-purpose validation schemas (enum, union, literal, etc.).',
   ],
 };

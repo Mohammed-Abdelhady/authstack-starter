@@ -588,6 +588,11 @@
       ],
       "from": "MongoDuplicateKeyError",
       "to": "DuplicateKeyError"
+    },
+    {
+      "files": ["backend/docs/atomic-role-revocation.md"],
+      "from": "```javascript\ndb.users.aggregate([\n  {\n    $lookup: {\n      from: 'roles',\n      localField: 'role',\n      foreignField: 'slug',\n      as: 'liveRole',\n    },\n  },\n  { $match: { 'liveRole.0': { $exists: false } } },\n  { $project: { _id: 1, role: 1 } },\n]);\n```",
+      "to": "```sql\nSELECT u.id, u.role\nFROM users u\nLEFT JOIN roles r ON r.slug = u.role\nWHERE r.id IS NULL;\n```"
     }
   ]
 }
