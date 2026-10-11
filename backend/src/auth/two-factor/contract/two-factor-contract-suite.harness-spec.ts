@@ -4,6 +4,7 @@ import { challengeStoreCases } from './two-factor-contract-challenge-store.harne
 import { challengeCases } from './two-factor-contract-challenge.harness-spec';
 import { enrolmentCases } from './two-factor-contract-enrolment.harness-spec';
 import { firstFactorCases } from './two-factor-contract-first-factor.harness-spec';
+import { passkeyStepCases } from './two-factor-contract-passkey-steps.harness-spec'; // feature:passkeys
 import { seamCases } from './two-factor-contract-seam.harness-spec';
 import { secondStepRefusalCases } from './two-factor-contract-second-step-refusals.harness-spec';
 import { secondStepCases } from './two-factor-contract-second-step.harness-spec';
@@ -82,6 +83,7 @@ export function describeTwoFactorContract(
     secondStepCases(current, seeded);
     secondStepRefusalCases(current, seeded);
     firstFactorCases(current, seeded);
+    passkeyStepCases(current, seeded); // feature:passkeys
     seamCases(current, seeded);
   });
 }
