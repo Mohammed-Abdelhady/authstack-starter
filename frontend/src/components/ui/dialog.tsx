@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 
 import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
 import { DESCRIPTION_ROLE_CLASSES, HEADING_ROLE_CLASSES } from '@/constants/typography';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { useOpenerFocus } from '@/hooks/useOpenerFocus';
 import { cn } from '@/lib/utils';
 import { busyPressProps } from './busy';
@@ -129,7 +130,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn(HEADING_ROLE_CLASSES.sectionTitle, className)}
+    className={cn(HEADING_ROLE_CLASSES.sectionTitle, WRAP_ANYWHERE_CLASSES, className)}
     {...props}
   />
 ));
@@ -141,7 +142,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn(DESCRIPTION_ROLE_CLASSES.description, className)}
+    className={cn(DESCRIPTION_ROLE_CLASSES.description, WRAP_ANYWHERE_CLASSES, className)}
     {...props}
   />
 ));

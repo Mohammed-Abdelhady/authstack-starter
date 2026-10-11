@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PermissionTreeView } from '../permission-tree/PermissionTreeView';
 import { Pencil, Trash2, Shield, Lock } from 'lucide-react';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { cn } from '@/lib/utils';
 import type { Role } from '../../api/rolesApi';
 
@@ -100,12 +101,12 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       <header className="pb-4 border-b border-border">
         <div className="flex items-start justify-between mb-2">
           <div className="min-w-0 flex-1">
-            <Heading level={2} variant="sectionTitle" className="break-words">
+            <Heading level={2} variant="sectionTitle" className={WRAP_ANYWHERE_CLASSES}>
               <span dir="auto" data-testid="role-detail-name">
                 {role.name}
               </span>
             </Heading>
-            <Description className="mt-1">
+            <Description className={cn('mt-1', WRAP_ANYWHERE_CLASSES)}>
               <span dir="ltr" data-testid="role-detail-slug">
                 {role.slug}
               </span>
@@ -130,8 +131,8 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Description */}
       {role.description && (
-        <section>
-          <Description>
+        <section className="min-w-0">
+          <Description className={WRAP_ANYWHERE_CLASSES}>
             <span dir="auto" data-testid="role-detail-description">
               {role.description}
             </span>

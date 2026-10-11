@@ -4,6 +4,7 @@ import * as React from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 
 import { DESCRIPTION_ROLE_CLASSES, HEADING_ROLE_CLASSES } from '@/constants/typography';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { useOpenerFocus } from '@/hooks/useOpenerFocus';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
@@ -64,7 +65,7 @@ const AlertDialogContent = React.forwardRef<
       <AlertDialogPrimitive.Content
         ref={contentRef}
         className={cn(
-          'fixed start-1/2 top-1/2 z-50 grid w-full max-w-lg ltr:-translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ltr:data-[state=closed]:slide-out-to-left-1/2 ltr:data-[state=open]:slide-in-from-left-1/2 rtl:data-[state=closed]:slide-out-to-right-1/2 rtl:data-[state=open]:slide-in-from-right-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+          'fixed start-1/2 top-1/2 z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] ltr:-translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ltr:data-[state=closed]:slide-out-to-left-1/2 ltr:data-[state=open]:slide-in-from-left-1/2 rtl:data-[state=closed]:slide-out-to-right-1/2 rtl:data-[state=open]:slide-in-from-right-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
           className,
         )}
         {...props}
@@ -95,7 +96,7 @@ const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn(HEADING_ROLE_CLASSES.sectionTitle, className)}
+    className={cn(HEADING_ROLE_CLASSES.sectionTitle, WRAP_ANYWHERE_CLASSES, className)}
     {...props}
   />
 ));
@@ -107,7 +108,7 @@ const AlertDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
-    className={cn(DESCRIPTION_ROLE_CLASSES.description, className)}
+    className={cn(DESCRIPTION_ROLE_CLASSES.description, WRAP_ANYWHERE_CLASSES, className)}
     {...props}
   />
 ));

@@ -43,7 +43,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               data-testid="dashboard-account-controls"
             >
               {user && (
-                <div className="hidden items-center gap-2 rounded-lg bg-muted px-3 py-2 sm:flex">
+                <div className="hidden min-w-0 items-center gap-2 rounded-lg bg-muted px-3 py-2 [overflow-wrap:anywhere] sm:flex">
                   <span
                     dir="auto"
                     className="text-sm font-medium text-foreground"
