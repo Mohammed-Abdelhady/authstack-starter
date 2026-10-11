@@ -26,6 +26,7 @@ import { TwoFactorLoginService } from '../two-factor-login.service';
 import { TwoFactorService } from '../two-factor.service';
 
 import {
+  StoredFailureFacts,
   StoredSecondFactorFacts,
   TwoFactorContractHarness,
 } from './two-factor-contract-database.harness-spec';
@@ -268,6 +269,12 @@ export const NO_SECOND_FACTOR: StoredSecondFactorFacts = {
   confirmedAt: null,
   recoveryCodes: [],
   lastUsedStep: null,
+};
+
+/** An account no wrong answer is counted on. */
+export const NO_FAILURES: StoredFailureFacts = {
+  failedAttempts: 0,
+  lockedUntil: null,
 };
 
 /** Turns the factor on around the adapters, with two unspent recovery codes. */

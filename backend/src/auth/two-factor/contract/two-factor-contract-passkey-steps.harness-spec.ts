@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
 import { RolePermissions } from '../../../role/stores/role-permissions';
 import { PasskeyCredentialDto } from '../../passkeys/dto/passkey-credential.dto';
@@ -274,4 +275,23 @@ export function passkeyStepCases(
       expect(await harness().storedChallenges()).toEqual([]);
     },
   );
+
+  it('takes a passkey as the second step while the codes of the account are locked, and leaves the lock as it is', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const locked = {
+      failedAttempts: 5,
+      lockedUntil: new Date(TEST_NOW.getTime() + 60_000),
+    };
+    await harness().seedFailures(ownerId, locked);
+    const holder = browser();
+    await steps.passwordFirst(holder);
+
+    await steps.passkeySecond(holder, KEY, false);
+
+    // A key cannot be guessed, so the lock on codes does not close it.
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+    expect(await harness().failures(ownerId)).toEqual(locked);
+  });
 }

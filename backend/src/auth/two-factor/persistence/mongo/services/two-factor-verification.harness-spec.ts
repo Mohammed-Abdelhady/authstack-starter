@@ -108,6 +108,8 @@ export function createVerificationHarness(
       confirmedAt: new Date(),
       recoveryCodes: [{ hash: hashRecoveryCode(RECOVERY_CODE), usedAt: null }],
       lastUsedStep: null,
+      failedAttempts: 0,
+      lockedUntil: null,
       ...overrides,
     },
     save,

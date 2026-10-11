@@ -214,6 +214,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0009_passkeys.sql',
       ...CORE_MIGRATIONS.slice(7),
       '0013_magic_links.sql',
+      '0014_two_factor_lockout.sql',
     ]);
   });
 

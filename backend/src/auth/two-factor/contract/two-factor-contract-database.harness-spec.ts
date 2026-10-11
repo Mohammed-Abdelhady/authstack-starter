@@ -12,6 +12,12 @@ export interface StoredSecondFactorFacts {
   lastUsedStep: number | null;
 }
 
+/** The wrong answers counted on an account, and the lock they earned. */
+export interface StoredFailureFacts {
+  failedAttempts: number;
+  lockedUntil: Date | null;
+}
+
 export interface StoredChallengeFacts {
   id: string;
   userId: string;
@@ -53,6 +59,9 @@ export interface TwoFactorContractHarness {
     state: StoredSecondFactorFacts,
   ): Promise<void>;
   secondFactor(userId: string): Promise<StoredSecondFactorFacts>;
+  /** Stores a count and a lock on an account that already has a state. */
+  seedFailures(userId: string, failures: StoredFailureFacts): Promise<void>;
+  failures(userId: string): Promise<StoredFailureFacts>;
 
   seedChallenge(challenge: SeedChallenge): Promise<string>;
   /** Changes stored fields of a challenge, committed, around the adapters. */
