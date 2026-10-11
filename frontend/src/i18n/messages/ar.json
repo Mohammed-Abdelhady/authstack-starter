@@ -2,7 +2,7 @@
   "common": {
     "view": "عرض",
     "selectOption": "اختر خيارًا",
-    "copyright": "© 2024 تطبيق المصادقة",
+    "copyright": "© {year} {name}",
     "emailPlaceholder": "name@example.com",
     "passwordPlaceholder": "••••••••",
     "codePlaceholder": "123456",

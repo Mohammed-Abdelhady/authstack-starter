@@ -2,7 +2,7 @@
   "common": {
     "view": "View",
     "selectOption": "Select an option",
-    "copyright": "© 2024 Auth App",
+    "copyright": "© {year} {name}",
     "emailPlaceholder": "name@example.com",
     "passwordPlaceholder": "••••••••",
     "codePlaceholder": "123456",
