@@ -1,4 +1,3 @@
-import { PALETTE } from '@app/native-ui/theme';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DebugScreen } from '../src/screen/DebugScreen';
@@ -18,10 +17,10 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
-/** Written by hand from the palette, so a palette swapped between schemes fails here too. */
+/** Written by hand from the token file's literals, so a changed or swapped palette fails here. */
 const EXPECTED = {
-  light: { colors: PALETTE.light, text: '#10201B', background: '#EEF2F0', bar: 'dark-content' },
-  dark: { colors: PALETTE.dark, text: '#E4EDE9', background: '#0C1412', bar: 'light-content' },
+  light: { text: '#10201B', background: '#EEF2F0', bar: 'dark-content' },
+  dark: { text: '#E4EDE9', background: '#0C1412', bar: 'light-content' },
 } as const;
 
 /** The screen is painted in the last language the app ships, with the direction it reads in. */
@@ -45,7 +44,6 @@ describe.each(SCHEMES)('the start notice when the system reports %j', (reported,
   it('writes in the palette text colour', () => {
     const [text] = ofKind(painted(), 'Text');
 
-    expect(text?.style.color).toBe(expected.colors.text);
     expect(text?.style.color).toBe(expected.text);
   });
 
@@ -53,7 +51,6 @@ describe.each(SCHEMES)('the start notice when the system reports %j', (reported,
     const [root] = painted();
 
     expect(root?.kind).toBe('View');
-    expect(root?.style.backgroundColor).toBe(expected.colors.background);
     expect(root?.style.backgroundColor).toBe(expected.background);
     expect(root?.style.flex).toBe(1);
   });
@@ -98,13 +95,11 @@ describe.each(SCHEMES)(
 
       expect(lines).toHaveLength(8);
       expect(lines.map((line) => line.style.color)).toEqual(Array(8).fill(expected.text));
-      expect(lines[0]?.style.color).toBe(expected.colors.text);
     });
 
     it('fills the scroll area with the palette background', () => {
       const [scroll] = ofKind(painted(), 'ScrollView');
 
-      expect(scroll?.style.backgroundColor).toBe(expected.colors.background);
       expect(scroll?.style.backgroundColor).toBe(expected.background);
     });
 
