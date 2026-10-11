@@ -80,6 +80,7 @@ describe('generation-time rules policy', () => {
             'Full-tree hard bans',
             'Package-manager inventory',
             'Workspace dependency check',
+            'Colour contrast',
             'Lint',
             'Typecheck',
             'Unit and config tests',
@@ -102,6 +103,7 @@ describe('generation-time rules policy', () => {
           gates: [
             'Package-manager inventory',
             'Workspace dependency check',
+            'Colour contrast',
             'Lint',
             'Typecheck',
             'Unit and config tests',
