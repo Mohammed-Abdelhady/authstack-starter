@@ -18,7 +18,7 @@ import { FieldError, SubmitButton } from '@/components/forms';
 import { useCreateRoleMutation } from '../../api/rolesApi';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
-import { useRefusalToast } from '../../hooks/useRefusalToast';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import {
@@ -103,7 +103,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
         permissions,
       }).unwrap();
 
-      refusalToast.clearBeforeSuccess();
+      refusalToast.clearStale();
       toast.success(t('createSuccess', { name: name.trim() }));
       resetForm();
       onOpenChange(false);
