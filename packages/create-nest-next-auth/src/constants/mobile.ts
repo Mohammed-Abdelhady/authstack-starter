@@ -71,6 +71,9 @@ export const RESERVED_SCHEMES: ReadonlySet<string> = new Set([
   'exps',
 ]);
 
+/** Client ids the server keeps for its own web and admin apps. The scheme is the app's client id. */
+export const SERVER_CLIENT_IDS: ReadonlySet<string> = new Set(['web', 'admin']);
+
 /** Android refuses a package part that is a Java keyword. */
 export const JAVA_KEYWORDS: ReadonlySet<string> = new Set(
   (
