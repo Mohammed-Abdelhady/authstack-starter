@@ -5,10 +5,11 @@ import { CI_TERMINATION_SIGNALS, EXIT_CODES } from '../guardrails/policy.mjs';
 export function selectGates(config, mode) {
   if (mode === '--install') return [config.install];
   if (mode === undefined) return config.gates;
-  const group = { '--quality': 'quality', '--installer': 'installer' }[mode];
-  if (!group) throw new Error(`Unknown CI mode: ${mode}`);
-  const gates = config.gates.filter((gate) => gate.group === group);
-  if (!gates.length) throw new Error(`No gates for CI mode: ${mode}`);
+  // A job runs one group of the list: `--quality` runs the gates of the group "quality".
+  const gates = mode.startsWith('--')
+    ? config.gates.filter((gate) => gate.group === mode.slice(2))
+    : [];
+  if (!gates.length) throw new Error(`Unknown CI mode: ${mode}`);
   return gates;
 }
 

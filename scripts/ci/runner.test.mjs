@@ -86,6 +86,8 @@ test('the repository gate list has separate quality, install and installer selec
       'Backend end-to-end',
       'Backend end-to-end on PostgreSQL',
       'Installer combinations',
+      'Installer PostgreSQL projects',
+      'Installer MongoDB projects',
     ],
   );
   assert.deepEqual(
@@ -102,6 +104,8 @@ test('the repository gate list has separate quality, install and installer selec
       ['pnpm', ['--filter', 'backend', 'run', 'test:e2e']],
       ['pnpm', ['--filter', 'backend', 'run', 'test:e2e:postgres']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
+      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
+      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
     ],
   );
   assert.deepEqual(
@@ -109,11 +113,21 @@ test('the repository gate list has separate quality, install and installer selec
     [['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
   );
   assert.deepEqual(
+    selectGates(config, '--installer-postgres').map((g) => g.args),
+    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
+  );
+  assert.deepEqual(
+    selectGates(config, '--installer-mongodb').map((g) => g.args),
+    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+  );
+  assert.deepEqual(
     selectGates(config, '--install').map((g) => [g.command, g.args]),
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
   assert.equal(selectGates(config, '--quality').length, 10);
   assert.throws(() => selectGates(config, '--unknown'), /Unknown CI mode/);
+  assert.throws(() => selectGates(config, 'quality'), /Unknown CI mode/);
+  assert.throws(() => selectGates({ ...config, gates: [] }, '--installer'), /Unknown CI mode/);
 });
 
 test('gate-specific environment reaches the real subprocess', async (t) => {

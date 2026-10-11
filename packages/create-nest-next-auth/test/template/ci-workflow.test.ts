@@ -15,6 +15,13 @@ import {
 
 const WORKFLOW = new URL('../../../../.github/workflows/ci.yml', import.meta.url);
 
+/** The commands a job's steps run, in order. */
+function runsOf(job: unknown): unknown[] {
+  return stepsOf(job)
+    .filter((step) => step.run)
+    .map((step) => step.run);
+}
+
 describe('CI workflow contract', () => {
   it('uses fork-safe branch events with read-only permissions and ref concurrency', () => {
     const workflow = readWorkflow(WORKFLOW);
@@ -49,7 +56,13 @@ describe('CI workflow contract', () => {
 
   it('pins actions and keeps package-manager commands in the shared entry point', () => {
     const jobs = jobsOf(readWorkflow(WORKFLOW));
-    expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'installer']);
+    expect(Object.keys(jobs)).toEqual([
+      'range-scan',
+      'quality',
+      'installer',
+      'installer-postgres',
+      'installer-mongodb',
+    ]);
     for (const job of Object.values(jobs)) {
       const steps = stepsOf(job);
       expect(steps[0].uses).toBe(CHECKOUT_ACTION);
@@ -58,7 +71,7 @@ describe('CI workflow contract', () => {
         if (step.uses === PNPM_SETUP_ACTION) expect(step.with).toEqual(PNPM_SETUP_WITH);
         if (typeof step.run !== 'string') continue;
         expect(step.run).toMatch(
-          /^node scripts\/ci\.mjs --(range|cache|install|quality|installer)$/,
+          /^node scripts\/ci\.mjs --(range|cache|install|quality|installer|installer-postgres|installer-mongodb)$/,
         );
       }
     }
@@ -95,8 +108,22 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --installer',
     ]);
-    expect(jobs.installer).toMatchObject({ if: 'github.event.deleted != true' });
-    expect(isRecord(jobs.installer) && jobs.installer.needs).toBeUndefined();
+    // The PostgreSQL projects start the server their own dependency carries.
+    expect(runsOf(jobs['installer-postgres'])).toEqual([
+      'node scripts/ci.mjs --install',
+      'node scripts/ci.mjs --installer-postgres',
+    ]);
+    expect(runsOf(jobs['installer-mongodb'])).toEqual([
+      'node scripts/ci.mjs --cache',
+      'node scripts/ci.mjs --install',
+      'node scripts/ci.mjs --installer-mongodb',
+    ]);
+    for (const id of ['installer', 'installer-postgres', 'installer-mongodb']) {
+      const job = jobs[id];
+      expect(job).toMatchObject({ if: 'github.event.deleted != true' });
+      expect(isRecord(job) && job.needs).toBeUndefined();
+      expect(stepsOf(job)[2]).toMatchObject({ uses: PNPM_SETUP_ACTION, with: PNPM_SETUP_WITH });
+    }
   });
 });
 
@@ -158,12 +185,14 @@ it('uses only inputs declared by each pinned action revision', () => {
   ]);
 });
 
-it('bounds jobs and caches runtime Mongo binaries in both jobs that need them', () => {
+it('bounds jobs and caches runtime Mongo binaries in the jobs that need them', () => {
   const jobs = jobsOf(readWorkflow(WORKFLOW));
   for (const [id, timeout] of [
     ['range-scan', 10],
     ['quality', 30],
-    ['installer', 30],
+    ['installer', 55],
+    ['installer-postgres', 50],
+    ['installer-mongodb', 80],
   ] as const) {
     expect(jobs[id]).toMatchObject({ 'runs-on': 'ubuntu-24.04', 'timeout-minutes': timeout });
   }
@@ -171,7 +200,7 @@ it('bounds jobs and caches runtime Mongo binaries in both jobs that need them', 
     'runs-on': 'ubuntu-24.04',
     'timeout-minutes': 10,
   });
-  for (const id of ['quality', 'installer']) {
+  for (const id of ['quality', 'installer', 'installer-mongodb']) {
     const steps = stepsOf(jobs[id]);
     expect(steps[3]).toMatchObject({ id: 'mongo', run: 'node scripts/ci.mjs --cache' });
     expect(steps[4]).toEqual({
