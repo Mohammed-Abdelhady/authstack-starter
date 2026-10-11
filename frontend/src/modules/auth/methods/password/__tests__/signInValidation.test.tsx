@@ -35,6 +35,13 @@ async function renderBesideAnotherControl(locale: AppLocale) {
   };
 }
 
+/** The ids a field names in `aria-describedby` that no element on the page has. */
+function missingDescriptions(field: HTMLElement): string[] {
+  return (field.getAttribute('aria-describedby') ?? '')
+    .split(' ')
+    .filter((id) => id !== '' && document.getElementById(id) === null);
+}
+
 /** Moves the focus the way Tab or a click does, and lets validation settle. */
 async function moveFocus(from: HTMLElement, to: HTMLElement) {
   await act(async () => {
@@ -123,6 +130,8 @@ describe.each([
     expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]);
     expect(email.getAttribute('aria-invalid')).toBe('true');
     expect(password.getAttribute('aria-invalid')).toBe('true');
+    expect(missingDescriptions(email)).toEqual([]);
+    expect(missingDescriptions(password)).toEqual([]);
     expect(requests).toEqual([]);
   });
 
