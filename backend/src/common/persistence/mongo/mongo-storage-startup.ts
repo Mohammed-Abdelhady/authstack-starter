@@ -1,7 +1,13 @@
 import { Injectable, Provider } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
-import { StorageStartup } from '../storage-startup';
+import {
+  PersistenceTimeoutError,
+  PersistenceUnavailableError,
+  UniqueConflictError,
+} from '../persistence-errors';
+import { StorageNotReadyError, StorageStartup } from '../storage-startup';
+import { mapMongoDriverError } from './mongo-driver-errors';
 
 /**
  * The schemas declare the indexes, and this adapter builds them before the
@@ -12,6 +18,10 @@ import { StorageStartup } from '../storage-startup';
  * Migrations are applied by an operator with `migrate-mongo`. The server has
  * never read their record at start and does not here: it neither applies a
  * migration nor refuses to start over one.
+ *
+ * An index that cannot be built is a `StorageNotReadyError` naming the
+ * collection, with the driver's error as its cause. A database that went away
+ * during the build leaves as the shared outage error.
  */
 @Injectable()
 export class MongoStorageStartup extends StorageStartup {
@@ -28,9 +38,33 @@ export class MongoStorageStartup extends StorageStartup {
   /** Waits out the build Mongoose started itself, then puts back what is lost. */
   private async buildIndexes(name: string): Promise<void> {
     const model = this.connection.model(name);
-    await model.init();
-    await model.createIndexes();
+    try {
+      await model.init();
+      await model.createIndexes();
+    } catch (error) {
+      throw indexBuildRefusal(model.collection.collectionName, error);
+    }
   }
+}
+
+function indexBuildRefusal(collection: string, error: unknown): unknown {
+  const mapped = mapMongoDriverError(error);
+  if (
+    mapped instanceof PersistenceUnavailableError ||
+    mapped instanceof PersistenceTimeoutError
+  ) {
+    return mapped;
+  }
+  if (mapped instanceof UniqueConflictError) {
+    return new StorageNotReadyError(
+      `MongoDB could not build the unique index "${mapped.constraint}" on the collection "${collection}", because stored documents break its rule. Remove or repair them, then start again.`,
+      error,
+    );
+  }
+  return new StorageNotReadyError(
+    `MongoDB could not build the indexes of the collection "${collection}". The cause says why. Repair the collection, then start again.`,
+    error,
+  );
 }
 
 export const MONGO_STORAGE_STARTUP: Provider = {
