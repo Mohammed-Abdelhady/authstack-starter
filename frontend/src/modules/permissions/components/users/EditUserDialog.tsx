@@ -14,15 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { FormRootError } from '@/components/forms';
 import { useUpdateUserMutation } from '@/store/api/userApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
 import { cn } from '@/lib/utils';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
@@ -70,10 +68,7 @@ function EditUserForm({
   const fieldId = (field: keyof EditUserFormValues) => fieldElementId(uid, field);
   const errorId = (field: keyof EditUserFormValues) => `${fieldId(field)}-error`;
 
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -113,12 +108,13 @@ function EditUserForm({
     }
 
     const nameChanged = name !== initialName;
+    refusal.clear();
     const success = await onSubmit(
       {
         email: email.trim(),
         ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
       },
-      applyServerFieldErrors,
+      refusal.show,
     );
     if (success) {
       onClose();
@@ -127,6 +123,7 @@ function EditUserForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      <FormRootError error={refusal.alert} className="mb-0" testId="edit-user-error" />
       {/* Name Field */}
       <div className="space-y-2">
         <Label
@@ -249,7 +246,6 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
-  const refusalToast = useRefusalToast(open);
 
   const handleSubmit = async (
     data: EditUserFormValues,
@@ -263,18 +259,18 @@ export function EditUserDialog({
       return true;
     }
 
-    refusalToast.clearStale();
     try {
-      await updateUser({
-        userId,
-        ...(data.name === undefined ? {} : { name: data.name }),
-        email: data.email,
-      }).unwrap();
+      await showsOwnRefusal(
+        updateUser({
+          userId,
+          ...(data.name === undefined ? {} : { name: data.name }),
+          email: data.email,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       return true;
     } catch (error) {
-      refusalToast.noteRefusal();
       onRejected(error);
       reportUnlessHandled(error);
       return false;
@@ -288,7 +284,7 @@ export function EditUserDialog({
   if (!userId) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
       <DialogContent
         className="sm:max-w-[500px]"
         data-testid="edit-user-dialog"

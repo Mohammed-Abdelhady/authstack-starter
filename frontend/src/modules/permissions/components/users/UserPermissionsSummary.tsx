@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 
 export interface UserPermissionsSummaryProps {
   role?: string;
+  /** The name of that role. Without it the slug stands in. */
+  roleName?: string;
   totalCount: number;
   inheritedCount: number;
   directCount: number;
@@ -13,6 +15,7 @@ export interface UserPermissionsSummaryProps {
 
 export function UserPermissionsSummary({
   role,
+  roleName,
   totalCount,
   inheritedCount,
   directCount,
@@ -28,12 +31,12 @@ export function UserPermissionsSummary({
               <span className="font-medium">{t('currentRole')}</span>{' '}
               {role ? (
                 <Badge
-                  dir="ltr"
+                  dir={roleName ? 'auto' : 'ltr'}
                   variant="secondary"
                   className="block min-w-0 truncate"
                   data-testid="user-permissions-role"
                 >
-                  {role}
+                  {roleName || role}
                 </Badge>
               ) : (
                 <Badge variant="secondary">{t('noRole')}</Badge>

@@ -73,7 +73,11 @@ export function UserActionConfirmDialog({
 
   return (
     // The confirmation stays until the request has an answer.
-    <AlertDialog open={action !== null} onOpenChange={(open) => !open && !isLoading && onCancel()}>
+    <AlertDialog
+      open={action !== null}
+      busy={isLoading}
+      onOpenChange={(open) => !open && onCancel()}
+    >
       <AlertDialogContent
         data-testid="user-action-confirm-dialog"
         onCloseAutoFocus={onCloseAutoFocus}

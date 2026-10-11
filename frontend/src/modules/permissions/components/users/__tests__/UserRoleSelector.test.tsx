@@ -110,13 +110,13 @@ describe.each([
       refusalWith(403, 'CANNOT_MODIFY_HIGHER_ROLE'),
     );
 
+    // The confirmation stays open and says why, once, and can be sent again.
     await waitFor(() => {
-      expect(errorToasts()).toEqual([message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE')]);
+      expect(screen.getByTestId('role-change-error').textContent).toBe(
+        message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
+      );
     });
-    // The confirmation stays open and says why, and can be sent again.
-    expect(screen.getByTestId('role-change-error').textContent).toBe(
-      message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
-    );
+    expect(errorToasts()).toEqual([]);
     await waitFor(() => {
       expect(availability(screen.getByTestId('confirm-role-change-button'))).toEqual(IDLE);
     });

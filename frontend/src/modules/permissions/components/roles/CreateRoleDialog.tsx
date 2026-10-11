@@ -15,18 +15,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FieldError, SubmitButton } from '@/components/forms';
+import { FieldError, FormRootError, SubmitButton } from '@/components/forms';
 import { useCreateRoleMutation } from '../../api/rolesApi';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface CreateRoleDialogProps {
   /**
@@ -73,17 +70,14 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createRole, { isLoading }] = useCreateRoleMutation();
-  const refusalToast = useRefusalToast(open);
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const resetForm = () => {
     setName('');
     setDescription('');
     setPermissions([]);
     setErrors({});
+    refusal.clear();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,21 +90,22 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
       return;
     }
 
+    refusal.clear();
     try {
-      await createRole({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        permissions,
-      }).unwrap();
+      await showsOwnRefusal(
+        createRole({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          permissions,
+        }),
+      ).unwrap();
 
-      refusalToast.clearStale();
       toast.success(t('createSuccess', { name: name.trim() }));
       resetForm();
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
-      refusalToast.noteRefusal();
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
     }
   };
@@ -121,7 +116,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
         data-testid="create-role-dialog"
@@ -133,6 +128,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
           </DialogHeader>
 
           <div className="space-y-6 py-6">
+            <FormRootError error={refusal.alert} className="mb-0" testId="create-role-error" />
             {/* Role Name */}
             <div className="space-y-2">
               <Label htmlFor={nameId}>

@@ -14,7 +14,12 @@ import { Button } from '@/components/ui/button';
 import { useDeleteRoleMutation, type Role } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { FormRootError } from '@/components/forms';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
+import { useDialogRefusal } from '@/hooks/useFormRefusal';
 import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { cn } from '@/lib/utils';
 
 export interface DeleteRoleDialogProps {
   /**
@@ -69,12 +74,19 @@ export function DeleteRoleDialog({
   const t = useTranslations('roles.delete');
   const [deleteRole, { isLoading }] = useDeleteRoleMutation();
   const { noteRemoved, focusLanding } = useRemovalFocus(landing);
+  const refusal = useDialogRefusal();
+
+  const changeOpen = (next: boolean) => {
+    if (!next) refusal.clear();
+    onOpenChange(next);
+  };
 
   const handleDelete = async () => {
     if (!role) return;
 
+    refusal.clear();
     try {
-      await deleteRole(role.id).unwrap();
+      await showsOwnRefusal(deleteRole(role.id)).unwrap();
 
       toast.success(t('success'));
       noteRemoved();
@@ -85,6 +97,7 @@ export function DeleteRoleDialog({
       // Call success callback
       onSuccess?.();
     } catch (error) {
+      refusal.show(error);
       reportUnlessHandled(error);
     }
   };
@@ -94,7 +107,7 @@ export function DeleteRoleDialog({
   const isProtected = role.isProtected;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={changeOpen}>
       <DialogContent data-testid="delete-role-dialog" onCloseAutoFocus={focusLanding}>
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
@@ -106,7 +119,7 @@ export function DeleteRoleDialog({
         <div className="space-y-4 py-4">
           {isProtected ? (
             <Alert variant="warningSoft" role="note">
-              <AlertDescription>
+              <AlertDescription className={WRAP_ANYWHERE_CLASSES}>
                 <strong>{t('protectedTitle')}</strong>{' '}
                 {t.rich('protectedNotice', {
                   name: role.name,
@@ -120,7 +133,12 @@ export function DeleteRoleDialog({
             </Alert>
           ) : (
             <>
-              <div className="rounded-lg border border-border bg-muted p-4 [overflow-wrap:anywhere]">
+              <div
+                className={cn(
+                  'rounded-lg border border-border bg-muted p-4',
+                  WRAP_ANYWHERE_CLASSES,
+                )}
+              >
                 <dl className="space-y-2">
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground">{t('roleName')}</dt>
@@ -160,11 +178,13 @@ export function DeleteRoleDialog({
           )}
         </div>
 
+        <FormRootError error={refusal.alert} className="mb-0" testId="delete-role-error" />
+
         <DialogFooter>
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => changeOpen(false)}
             busy={isLoading}
             data-testid="cancel-button"
           >

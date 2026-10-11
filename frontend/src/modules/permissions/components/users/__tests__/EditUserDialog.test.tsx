@@ -41,10 +41,10 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('EditUserDialog refused by the server in %s', (locale) => {
-  it('marks and focuses the rejected field and raises one localized toast', async () => {
+  it('marks and focuses the rejected field and raises no toast', async () => {
     refuseWrites(['email', 'nickname']);
 
-    const { name, email, fieldMessage, generalMessage, errorToasts } = await submitEdit(locale);
+    const { name, email, fieldMessage, errorToasts } = await submitEdit(locale);
 
     await waitFor(() => {
       expect(email.getAttribute('aria-invalid')).toBe('true');
@@ -56,7 +56,8 @@ describe.each([
     await waitFor(() => {
       expect(document.activeElement).toBe(email);
     });
-    expect(errorToasts()).toEqual([generalMessage]);
+    // The marked field says it. No toast repeats it.
+    expect(errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 

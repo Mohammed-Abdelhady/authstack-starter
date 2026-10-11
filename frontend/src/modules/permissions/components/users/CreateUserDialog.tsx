@@ -13,22 +13,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FieldError, PasswordVisibilityToggle, SubmitButton } from '@/components/forms';
+import {
+  FieldError,
+  FormRootError,
+  PasswordVisibilityToggle,
+  SubmitButton,
+} from '@/components/forms';
 import { useCreateUserMutation } from '@/store/api/userApi';
 import { DEFAULT_ROLE_SLUG } from '@/modules/roles/constants';
 import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
 import { CreateUserRoleField } from './CreateUserRoleField';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -69,13 +71,9 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createUser, { isLoading }] = useCreateUserMutation();
-  const refusalToast = useRefusalToast(open);
   const allRoles = useAllRoles();
 
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const validateForm = (): boolean => {
     const newErrors = validateCreateUserForm(
@@ -94,22 +92,22 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       return;
     }
 
-    refusalToast.clearStale();
+    refusal.clear();
     try {
-      await createUser({
-        email: email.trim(),
-        name: name.trim(),
-        password,
-        role,
-      }).unwrap();
+      await showsOwnRefusal(
+        createUser({
+          email: email.trim(),
+          name: name.trim(),
+          password,
+          role,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       handleClose();
       onSuccess?.();
     } catch (error) {
-      refusalToast.noteRefusal();
-      // A dialog that was closed in the meantime has no fields left to mark.
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
     }
   };
@@ -121,11 +119,16 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     setRole(DEFAULT_ROLE_SLUG);
     setShowPassword(false);
     setErrors({});
+    refusal.clear();
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}>
+    <Dialog
+      open={open}
+      busy={isLoading}
+      onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}
+    >
       <DialogContent className="sm:max-w-[500px]" data-testid="create-user-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
@@ -133,6 +136,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
         </DialogHeader>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <FormRootError error={refusal.alert} className="mb-0" testId="create-user-error" />
           {/* Email Field */}
           <div className="space-y-2">
             <Label
@@ -208,6 +212,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? errorId('password') : undefined}
                 className={errors.password ? 'border-destructive pe-10' : 'pe-10'}
+                autoComplete="new-password"
                 data-testid="create-user-password-input"
               />
               <PasswordVisibilityToggle

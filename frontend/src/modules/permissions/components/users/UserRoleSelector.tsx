@@ -27,7 +27,7 @@ import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
 import { FormRootError } from '@/components/forms';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
 import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
@@ -52,7 +52,7 @@ export function UserRoleSelector({
 }: UserRoleSelectorProps) {
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   // Why the last attempt was refused, said in the confirmation, which stays open.
   const [changeRefusal, setChangeRefusal] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
@@ -97,16 +97,15 @@ export function UserRoleSelector({
       toast.success(t('changeSuccess', { role: roleName }));
       setPendingRole(null);
     } catch (error) {
-      setChangeRefusal(tCodes(translatableErrorCode(error)));
+      setChangeRefusal(refusalText(error));
       reportUnlessHandled(error);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // The confirmation stays until the request has an answer.
+  // The dialog holds itself open until the request has an answer.
   const handleCancelRoleChange = () => {
-    if (isUpdating) return;
     setPendingRole(null);
     setChangeRefusal(null);
   };
@@ -180,7 +179,11 @@ export function UserRoleSelector({
       </Select>
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={!!pendingRole} onOpenChange={(open) => !open && handleCancelRoleChange()}>
+      <AlertDialog
+        open={!!pendingRole}
+        busy={isUpdating}
+        onOpenChange={(open) => !open && handleCancelRoleChange()}
+      >
         <AlertDialogContent data-testid="role-change-confirm-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>

@@ -9,15 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FieldError, SubmitButton } from '@/components/forms';
+import { FieldError, FormRootError, SubmitButton } from '@/components/forms';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import type { Role } from '../../api/rolesApi';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface EditRoleFormValues {
   name: string;
@@ -28,8 +25,8 @@ export interface EditRoleFormValues {
 export interface EditRoleFormProps {
   role: Role;
   isLoading: boolean;
-  /** `markRefusedFields` marks the fields a refused save names and focuses the first. */
-  onSubmit: (data: EditRoleFormValues, markRefusedFields: (error: unknown) => boolean) => void;
+  /** `showRefusal` shows a refused save on the field it names, or in the form's alert. */
+  onSubmit: (data: EditRoleFormValues, showRefusal: (error: unknown) => void) => void;
   onCancel: () => void;
 }
 
@@ -57,10 +54,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const [description, setDescription] = useState(role.description || '');
   const [permissions, setPermissions] = useState<string[]>(role.permissions || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
@@ -79,7 +73,8 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
       return;
     }
 
-    onSubmit({ name, description, permissions }, applyServerFieldErrors);
+    refusal.clear();
+    onSubmit({ name, description, permissions }, refusal.show);
   };
 
   return (
@@ -90,6 +85,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
       </DialogHeader>
 
       <div className="space-y-6 py-6">
+        <FormRootError error={refusal.alert} className="mb-0" testId="edit-role-error" />
         {isBaseRole && (
           <Alert variant="infoSoft" role="note" data-testid="base-role-note">
             <AlertDescription>
