@@ -64,8 +64,10 @@ Behind a reverse proxy, set `WEBAUTHN_ORIGIN` explicitly to the public URL. The 
 | ------------------ | ------------------------------------------------ | ------------------------ |
 | `PASSKEYS_ENABLED` | Turns the `/auth/passkeys` routes on or off      | `true`                   |
 | `WEBAUTHN_RP_ID`   | Domain the credentials are bound to, a bare host | hostname of `CLIENT_URL` |
-| `WEBAUTHN_RP_NAME` | Name shown in the browser prompt                 | the app name             |
+| `WEBAUTHN_RP_NAME` | Name shown in the browser prompt                 | `Auth Boilerplate`       |
 | `WEBAUTHN_ORIGIN`  | Origin the browser has to be on                  | origin of `CLIENT_URL`   |
+
+The web app shows its own name, `Auth App`, in the tab title and the header. That name is `common.appName` in the frontend message files and the server does not read it. Set `WEBAUTHN_RP_NAME` to the name your users see, or the passkey prompt says `Auth Boilerplate`.
 
 Setting `PASSKEYS_ENABLED=false` closes the routes with `404 FEATURE_DISABLED` and makes `GET /api/auth/methods` report `passkeys: false`.
 

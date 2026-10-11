@@ -94,7 +94,7 @@ export const CONVERTED: MutationCase[] = [
   },
   {
     name: 'updateRole',
-    reads: [readRoles, readRole],
+    reads: [readRoles, readRole, readUsers, readUser, readPermissions],
     write: (store) =>
       store.dispatch(
         rolesApi.endpoints.updateRole.initiate({ idOrSlug: 'editor', data: { name: 'Editor' } }),
@@ -103,8 +103,17 @@ export const CONVERTED: MutationCase[] = [
     // The server saves the rename first and moves users second: a failure
     // there answers an error against a role that is already renamed.
     outcomeUnknown: true,
-    requests: [GET_ROLES, GET_ROLE, 'PATCH /api/roles/editor'],
-    refetched: [GET_ROLES, GET_ROLE],
+    requests: [
+      GET_ROLES,
+      GET_ROLE,
+      GET_USERS,
+      GET_USER,
+      GET_PERMISSIONS,
+      'PATCH /api/roles/editor',
+    ],
+    // Holders move to the new slug and inherit the new permissions, so the
+    // user lists and the permissions of a user are read again with the roles.
+    refetched: [GET_ROLES, GET_ROLE, GET_USERS, GET_USER, GET_PERMISSIONS],
   },
   {
     name: 'deleteRole',
@@ -193,7 +202,7 @@ export const CONVERTED: MutationCase[] = [
   },
   {
     name: 'updateUserRole',
-    reads: [readUsers, readUser],
+    reads: [readUsers, readUser, readPermissions],
     write: (store) =>
       store.dispatch(
         usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }),
@@ -201,8 +210,9 @@ export const CONVERTED: MutationCase[] = [
     accepted: ADMIN_USER,
     // Same server shape: the role is saved, then sessions are revoked.
     outcomeUnknown: true,
-    requests: [GET_USERS, GET_USER, 'PATCH /api/admin/users/user-2/role'],
-    refetched: [GET_USERS, GET_USER],
+    requests: [GET_USERS, GET_USER, GET_PERMISSIONS, 'PATCH /api/admin/users/user-2/role'],
+    // The permissions read carries the role and what it grants.
+    refetched: [GET_USERS, GET_USER, GET_PERMISSIONS],
   },
   {
     name: 'deleteUser',
@@ -218,9 +228,10 @@ export const CONVERTED: MutationCase[] = [
 ];
 
 /**
- * Sign-out repeats its reads only when it was refused or its answer was lost:
+ * Sign-out repeats its reads only when the server answered and refused it:
  * the session may or may not be gone, so the server is asked. `refetched`
- * lists those reads. A confirmed sign-out repeats nothing.
+ * lists those reads. A confirmed sign-out repeats nothing, and neither does
+ * one sent to a server that could not be reached.
  */
 export const SIGN_OUT: MutationCase = {
   name: 'logout',

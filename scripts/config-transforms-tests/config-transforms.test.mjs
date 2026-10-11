@@ -185,3 +185,19 @@ test('the production prompt asks again until the database user and password fit 
   assert.equal(asked.length, 6);
   assert.deepEqual(answers, []);
 });
+
+test('the production prompt refuses a dollar sign and a quoted value, and says so', async (t) => {
+  const answers = ['app', 'pa$word', '"secret"', "'secret'", 'safe-Password_1', ''];
+  const printed = [];
+  t.mock.method(console, 'log', (line) => printed.push(String(line)));
+  const rl = { question: () => Promise.resolve(answers.shift()) };
+
+  const database = await configureDatabase(rl, 'my-app');
+  const refusals = printed.filter((line) => line.includes('@ / # % : ? $'));
+
+  assert.deepEqual(database, { username: 'app', password: 'safe-Password_1', dbName: 'my_app' });
+  assert.deepEqual(answers, []);
+  // One per refused answer, each naming the dollar sign and the quotes.
+  assert.equal(refusals.length, 3);
+  assert.equal(refusals.filter((line) => /quotes/.test(line)).length, 3);
+});

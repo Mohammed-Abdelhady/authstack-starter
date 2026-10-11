@@ -67,7 +67,6 @@ SMTP_PASS=xxxxxxxxxxxxxxxx  # App Password (no spaces)
 
 # Email sender
 EMAIL_FROM=your-email@gmail.com
-EMAIL_FROM_NAME=Auth Boilerplate
 ```
 
 ### Gmail Limitations
@@ -105,7 +104,6 @@ SMTP_PASS=your-password
 
 # Email sender
 EMAIL_FROM=your-email@outlook.com
-EMAIL_FROM_NAME=Auth Boilerplate
 ```
 
 **For Office 365 (Business)**:
@@ -173,7 +171,6 @@ SMTP_PASS=your-password
 
 # Email sender
 EMAIL_FROM=noreply@yourdomain.com
-EMAIL_FROM_NAME=Auth Boilerplate
 ```
 
 ### Find Your SMTP Settings
@@ -267,10 +264,9 @@ EMAIL_FROM=noreply@yourdomain.com
 
 ### Optional Variables
 
-| Variable          | Description                          | Default            |
-| ----------------- | ------------------------------------ | ------------------ |
-| `EMAIL_FROM_NAME` | Display name for sender              | `Auth Boilerplate` |
-| `SMTP_TLS_REJECT` | Reject unauthorized TLS certificates | `true`             |
+No setting holds the sender's display name. To show one, write it into `EMAIL_FROM`, for example `EMAIL_FROM="Auth App <noreply@yourdomain.com>"`.
+
+The server always checks the mail host's TLS certificate. No setting turns that off.
 
 ---
 

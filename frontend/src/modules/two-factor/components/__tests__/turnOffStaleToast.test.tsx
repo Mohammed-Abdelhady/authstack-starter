@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
@@ -47,7 +48,7 @@ async function openDialog(locale: AppLocale) {
     fireEvent.change(code(), { target: { value: codeValue } });
     fireEvent.submit(screen.getByTestId('two-factor-disable-form'));
   };
-  const isIdle = () => !password().hasAttribute('disabled');
+  const isIdle = () => !isHeld(password());
   return { ...view, password, code, send, isIdle };
 }
 

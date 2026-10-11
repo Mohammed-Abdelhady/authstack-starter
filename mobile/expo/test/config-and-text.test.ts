@@ -2,7 +2,7 @@ import { AuthPortError, CredentialStoreError } from '@app/native-auth';
 import { ApiError, OAuthError, TransportError } from '@app/sdk';
 import { SERVER_USER } from '@app/native-adapters/testing';
 import { describe, expect, it } from 'vitest';
-import { DIRECTION, MESSAGES, translate, type MessageKey } from '../src/i18n/messages';
+import { DIRECTION, LOCALES, MESSAGES, translate, type MessageKey } from '../src/i18n/messages';
 import {
   describeError,
   describeRestore,
@@ -75,6 +75,7 @@ describe('app configuration', () => {
 });
 
 describe('messages', () => {
+  // feature:locale-ar:start
   const keys = Object.keys(MESSAGES.en).filter((key): key is MessageKey => key in MESSAGES.en);
 
   it('has every key in both languages, each taking a value or not in both', () => {
@@ -88,8 +89,9 @@ describe('messages', () => {
       expect(MESSAGES.ar[key].replace(/\{(?:value|detail)\}/g, ''), key).not.toMatch(/[A-Za-z]/);
     }
   });
+  // feature:locale-ar:end
 
-  it('includes startup, device key, and token request messages in both catalogues', () => {
+  it('includes startup, device key, and token request messages in every catalogue', () => {
     const addedKeys: MessageKey[] = [
       'starting',
       'startFailed',
@@ -103,7 +105,7 @@ describe('messages', () => {
       'deviceKeyInvalidated',
       'refreshTokenRequests',
     ];
-    for (const locale of ['en', 'ar'] as const) {
+    for (const locale of LOCALES) {
       for (const key of addedKeys) {
         expect(MESSAGES[locale][key], key).toBeDefined();
         expect(MESSAGES[locale][key].trim(), key).not.toBe('');
@@ -111,12 +113,15 @@ describe('messages', () => {
     }
   });
 
-  it('lays Arabic out right to left and English left to right', () => {
-    expect(DIRECTION).toEqual({ en: 'ltr', ar: 'rtl' });
+  it('lays each language out in its own direction', () => {
+    expect(DIRECTION).toEqual({
+      en: 'ltr',
+      ar: 'rtl', // feature:locale-ar
+    });
   });
 
   it('puts the value into the message as it is', () => {
-    for (const locale of ['en', 'ar'] as const) {
+    for (const locale of LOCALES) {
       const text = translate(locale, 'status', 'a$&b');
 
       expect(text).toContain('a$&b');
@@ -131,12 +136,12 @@ describe('messages', () => {
     expect(text).toBe('signed out, first, second');
   });
 
-  it('returns a message without a value unchanged', () => {
-    expect(translate('ar', 'signIn')).toBe(MESSAGES.ar.signIn);
+  it.each(LOCALES)('returns a message without a value unchanged in %s', (locale) => {
+    expect(translate(locale, 'signIn')).toBe(MESSAGES[locale].signIn);
   });
 });
 
-describe.each(['en', 'ar'] as const)('incoming outcome cases in %s', (locale) => {
+describe.each(LOCALES)('incoming outcome cases in %s', (locale) => {
   const cases: [Described, MessageKey, string?, string?][] = [
     [
       describeRestore({ kind: 'restored', status: 'signedIn' }),

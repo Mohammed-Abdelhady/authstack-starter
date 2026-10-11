@@ -86,7 +86,7 @@ function inDocumentOrder(a: HTMLElement, b: HTMLElement): number {
  * the first of them as they appear on screen. Names the form has no control
  * for are ignored. Returns whether any field was marked.
  *
- * @param isSubmitting - The flag that disables the fields while the request runs
+ * @param isSubmitting - The flag that holds the fields while the request runs
  *
  * @example
  * ```tsx
@@ -108,8 +108,8 @@ export function useServerFieldErrors(
   const [focusRequest, setFocusRequest] = useState<{ name: string } | null>(null);
   const focusedRequest = useRef<{ name: string } | null>(null);
 
-  // A disabled field cannot take focus, and the store reports the end of the
-  // request a frame after the rejection reaches the form.
+  // The fields are held while the request runs, and the store reports its end
+  // a frame after the rejection reaches the form.
   useEffect(() => {
     if (focusRequest === null || isSubmitting || focusedRequest.current === focusRequest) return;
     focusedRequest.current = focusRequest;

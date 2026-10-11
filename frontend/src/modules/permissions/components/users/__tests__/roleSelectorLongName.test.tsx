@@ -8,6 +8,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { CreateUserDialog } from '../CreateUserDialog';
 import { UserRoleSelector } from '../UserRoleSelector';
 import { stubListLayout } from './roleSelectorHarness';
@@ -19,10 +20,12 @@ const LONG_NAME = '24-7 Very Long Support Role Name For Truncation';
 
 const ROLES = {
   roles: [
+    ADMIN_LISTED,
     {
       id: 'role-long',
       slug: LONG_SLUG,
       name: LONG_NAME,
+      level: 1,
       permissions: [],
       isSystemRole: false,
       isProtected: false,
@@ -30,7 +33,7 @@ const ROLES = {
       updatedAt: '2026-10-01T12:00:00.000Z',
     },
   ],
-  total: 1,
+  total: 2,
   page: 1,
 };
 
@@ -46,6 +49,7 @@ async function cardSelector(locale: AppLocale, currentRole: string) {
   const form = await renderForm(
     locale,
     <UserRoleSelector userId="user-1" currentRole={currentRole} />,
+    storeSignedInAs('admin'),
   );
   await loaded(screen.getByTestId('user-role-selector-user-1'));
   return form;
@@ -68,6 +72,8 @@ describe.each([
 
     expect(trigger.textContent).toBe(LONG_NAME);
     expect(within(trigger).getByText(LONG_NAME).getAttribute('dir')).toBe('auto');
+    // Direction marks belong in text on screen, not in a name that is read out.
+    expect(trigger.getAttribute('aria-label')?.endsWith(`: ${LONG_NAME}`)).toBe(true);
   });
 
   it('is whole in the open list of the card selector', async () => {
@@ -90,7 +96,11 @@ describe.each([
 
   it('is whole in the text of the create user selector, which keeps its field label', async () => {
     stubNetwork(() => success(ROLES));
-    const { message } = await renderForm(locale, <CreateUserDialog open onOpenChange={vi.fn()} />);
+    const { message } = await renderForm(
+      locale,
+      <CreateUserDialog open onOpenChange={vi.fn()} />,
+      storeSignedInAs('admin'),
+    );
     const trigger = screen.getByRole('combobox', { name: message('users.createUser.role') });
     await loaded(trigger);
 

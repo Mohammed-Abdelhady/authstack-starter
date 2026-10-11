@@ -29,12 +29,15 @@ import {
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 
 interface TwoFactorDisableDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** True when the account has a password, which the backend also asks for. */
   hasPassword: boolean;
+  /** The heading that takes focus once it is off and the button that opened this is gone. */
+  landing?: RemovalLanding;
 }
 
 const EMPTY_FORM: DisableFormData = { password: '', code: '', recoveryCode: '' };
@@ -44,6 +47,7 @@ export function TwoFactorDisableDialog({
   open,
   onOpenChange,
   hasPassword,
+  landing,
 }: TwoFactorDisableDialogProps) {
   const t = useTranslations('settings.twoFactor.disable');
   const tPassword = useTranslations('settings.password');
@@ -52,7 +56,8 @@ export function TwoFactorDisableDialog({
   const tAnswer = useTranslations('auth.twoFactor');
   const [disableTwoFactor, { isLoading }] = useDisableTwoFactorMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   // The dialog focuses its first field, the password, unless the answer claims it.
   const [answerTakesFocus, setAnswerTakesFocus] = useState(false);
@@ -74,8 +79,7 @@ export function TwoFactorDisableDialog({
     reset,
   } = form;
 
-  // The fields are still disabled when the refusal arrives and a disabled field
-  // cannot take the focus, so it moves once they have been drawn enabled again.
+  // The focus moves to the refused field once the refusal has been drawn.
   useEffect(() => {
     if (refused === null) return;
     setFocus(refused.field);
@@ -116,6 +120,7 @@ export function TwoFactorDisableDialog({
       try {
         await disableTwoFactor(request).unwrap();
         toast.success(t('success'));
+        noteRemoved();
         close();
       } catch (err) {
         refusalToast.noteRefusal();
@@ -132,13 +137,26 @@ export function TwoFactorDisableDialog({
         setRefused({ field });
       }
     },
-    [close, disableTwoFactor, handleFeatureDisabled, refusalToast, setError, t, tCodes],
+    [
+      close,
+      disableTwoFactor,
+      handleFeatureDisabled,
+      refusalToast,
+      noteRemoved,
+      setError,
+      t,
+      tCodes,
+    ],
   );
   const onSubmit = useSingleFlight(submit);
 
   return (
     <Dialog open={open} onOpenChange={onDialogOpenChange}>
-      <DialogContent className="sm:max-w-md" data-testid="two-factor-disable-dialog">
+      <DialogContent
+        className="sm:max-w-md"
+        data-testid="two-factor-disable-dialog"
+        onCloseAutoFocus={focusLanding}
+      >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>
@@ -164,7 +182,7 @@ export function TwoFactorDisableDialog({
                 label={t('password')}
                 placeholder={tCommon('passwordPlaceholder')}
                 autoComplete="current-password"
-                disabled={isLoading}
+                busy={isLoading}
                 data-testid="two-factor-disable-password"
               />
             )}

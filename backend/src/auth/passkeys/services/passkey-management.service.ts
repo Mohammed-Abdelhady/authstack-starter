@@ -2,7 +2,10 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../../common/persistence/unit-of-work';
 import {
   SignInMethodRule,
   WAY_IN_OUTCOME,
@@ -93,7 +96,7 @@ export class PasskeyManagementService {
       );
       // A removal of the same passkey may have finished while this one waited
       // for the hold. It is gone then, and the count no longer includes it.
-      await this.findOwned(userId, passkeyId);
+      await this.findOwned(userId, passkeyId, unitOfWork);
       this.assertNotTheLastWayIn(wayIn);
       await this.passkeys.remove(unitOfWork, passkey);
     });
@@ -105,8 +108,13 @@ export class PasskeyManagementService {
   private async findOwned(
     userId: string,
     passkeyId: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey> {
-    const passkey = await this.passkeys.findOwned(userId, passkeyId);
+    const passkey = await this.passkeys.findOwned(
+      userId,
+      passkeyId,
+      unitOfWork,
+    );
 
     if (!passkey) {
       throw new AppException(

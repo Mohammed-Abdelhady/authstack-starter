@@ -19,12 +19,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Shield, ShieldAlert } from 'lucide-react';
-import { useListRolesQuery } from '../../api/rolesApi';
+import { RoleListError } from '@/modules/roles/components/RoleListError';
+import { RoleRefusalBadge } from '@/modules/roles/components/RoleRefusalBadge';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
+import { FormRootError } from '@/components/forms';
+import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
@@ -49,25 +52,25 @@ export function UserRoleSelector({
 }: UserRoleSelectorProps) {
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
+  const tCodes = useTranslations('errors.codes');
+  // Why the last attempt was refused, said in the confirmation, which stays open.
+  const [changeRefusal, setChangeRefusal] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const guardKeyUntilReleased = useKeyReleaseGuard();
-  const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
-
-  const roles = rolesData?.roles || [];
+  const {
+    roles,
+    isLoading: isLoadingRoles,
+    isError: rolesFailed,
+    retry: retryRoles,
+    refusalFor,
+  } = useAllRoles();
 
   const handleRoleSelect = (newRole: string) => {
     if (newRole === currentRole) {
       return; // No change
-    }
-
-    // Check if the role is protected (admin roles)
-    const selectedRole = roles.find((r) => r.slug === newRole);
-    if (selectedRole?.isProtected && newRole !== currentRole) {
-      toast.error(t('cannotAssignProtected'));
-      return;
     }
 
     chosenRole.current = newRole;
@@ -87,36 +90,55 @@ export function UserRoleSelector({
     }
 
     setIsUpdating(true);
+    setChangeRefusal(null);
     try {
       await onRoleChange(pendingRole);
       const roleName = roles.find((r) => r.slug === pendingRole)?.name || pendingRole;
       toast.success(t('changeSuccess', { role: roleName }));
       setPendingRole(null);
     } catch (error) {
+      setChangeRefusal(tCodes(translatableErrorCode(error)));
       reportUnlessHandled(error);
     } finally {
       setIsUpdating(false);
     }
   };
 
+  // The confirmation stays until the request has an answer.
   const handleCancelRoleChange = () => {
+    if (isUpdating) return;
     setPendingRole(null);
+    setChangeRefusal(null);
   };
 
   const currentRoleData = roles.find((r) => r.slug === currentRole);
   const currentRoleName = currentRoleData?.name || currentRole;
   const pendingRoleData = pendingRole ? roles.find((r) => r.slug === pendingRole) : null;
 
+  if (rolesFailed) {
+    return (
+      <div className="space-y-1" data-testid={`user-role-unavailable-${userId}`}>
+        <span dir="ltr" className="text-xs font-medium">
+          {currentRole}
+        </span>
+        <RoleListError onRetry={retryRoles} testId={`user-role-list-error-${userId}`} />
+      </div>
+    );
+  }
+
   return (
     <>
       <Select
         value={currentRole}
         onValueChange={handleRoleSelect}
-        disabled={disabled || isLoadingRoles || isUpdating}
+        disabled={disabled || isLoadingRoles}
+        busy={isUpdating}
       >
         <SelectTrigger
-          className="w-full sm:w-[200px]"
+          // As wide as its column allows, so it never runs under the actions button.
+          className="w-full sm:max-w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}
+          aria-busy={isUpdating}
           data-testid={`user-role-selector-${userId}`}
         >
           {isLoadingRoles ? (
@@ -135,25 +157,25 @@ export function UserRoleSelector({
           )}
         </SelectTrigger>
         <SelectContent onKeyDownCapture={guardKeyUntilReleased} onCloseAutoFocus={openConfirmation}>
-          {roles.map((role) => (
-            <SelectItem
-              key={role.id}
-              value={role.slug}
-              disabled={role.isProtected && role.slug !== currentRole}
-              data-testid={`role-option-${role.slug}`}
-            >
-              <div className="flex items-center gap-2">
-                {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
-                {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
-                <span dir="auto">{role.name}</span>
-                {role.isProtected && role.slug !== currentRole && (
-                  <Badge variant="secondary" className="ms-2 text-xs">
-                    {t('protected')}
-                  </Badge>
-                )}
-              </div>
-            </SelectItem>
-          ))}
+          {roles.map((role) => {
+            // The role the user holds stays in the list as what is selected.
+            const refusal = role.slug === currentRole ? null : refusalFor(role);
+            return (
+              <SelectItem
+                key={role.id}
+                value={role.slug}
+                disabled={refusal !== null}
+                data-testid={`role-option-${role.slug}`}
+              >
+                <div className="flex items-center gap-2">
+                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
+                  {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
+                  <span dir="auto">{role.name}</span>
+                  {refusal && <RoleRefusalBadge refusal={refusal} />}
+                </div>
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
 
@@ -178,13 +200,18 @@ export function UserRoleSelector({
               {t('changeWarning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <FormRootError error={changeRefusal} className="mb-0" testId="role-change-error" />
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isUpdating} data-testid="cancel-role-change-button">
+            <AlertDialogCancel busy={isUpdating} data-testid="cancel-role-change-button">
               {tCommon('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmRoleChange}
-              disabled={isUpdating}
+              onClick={(event) => {
+                // Closes when the change is accepted, not when it is asked for.
+                event.preventDefault();
+                void handleConfirmRoleChange();
+              }}
+              busy={isUpdating}
               aria-busy={isUpdating}
               data-testid="confirm-role-change-button"
             >

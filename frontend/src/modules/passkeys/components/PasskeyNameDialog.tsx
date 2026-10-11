@@ -50,7 +50,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
   const t = useTranslations('settings.passkeys');
   const tCodes = useTranslations('errors.codes');
   const [renamePasskey, { isLoading }] = useRenamePasskeyMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const handleFeatureDisabled = useFeatureDisabledHandler();
 
   const schema = useMemo(() => createNameSchema(t), [t]);
@@ -126,7 +126,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
               name="name"
               label={t('name.field')}
               maxLength={PASSKEY_NAME_MAX_LENGTH}
-              disabled={isLoading}
+              busy={isLoading}
               autoFocus
               data-testid="passkey-name-input"
             />

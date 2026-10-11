@@ -139,6 +139,11 @@ export function templateContent(relativePath, bytes) {
     config.gates = config.gates
       .filter((gate) => !gate.repositoryOnly)
       .map(({ repositoryOnly, ...gate }) => gate);
+    // A group whose gates were all repository-only is not a group of the project.
+    if (Array.isArray(config.groups))
+      config.groups = config.groups.filter((group) =>
+        config.gates.some((gate) => gate.group === group),
+      );
     return Buffer.from(`${JSON.stringify(config, null, 2)}\n`);
   }
   const workflow = TEMPLATE_TEST_POLICY.WORKFLOW_PATHS.includes(relativePath);

@@ -6,8 +6,48 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { TEXT_CONTROL_FONT_SIZE } from '@/lib/config/form-styles';
+import { HELD_ATTRIBUTES } from './busy';
 
-const Select = SelectPrimitive.Root;
+const SelectBusyContext = React.createContext(false);
+
+interface SelectProps extends React.ComponentProps<typeof SelectPrimitive.Root> {
+  /**
+   * A request that depends on it is running: the trigger keeps focus, the list
+   * does not open and the value does not change.
+   */
+  busy?: boolean;
+}
+
+function Select({
+  busy = false,
+  open,
+  defaultOpen = false,
+  onOpenChange,
+  onValueChange,
+  ...props
+}: SelectProps) {
+  const [isOpen, setIsOpen] = React.useState(defaultOpen);
+
+  const changeOpen = (next: boolean) => {
+    if (busy && next) return;
+    setIsOpen(next);
+    onOpenChange?.(next);
+  };
+  const changeValue = (value: string) => {
+    if (!busy) onValueChange?.(value);
+  };
+
+  return (
+    <SelectBusyContext.Provider value={busy}>
+      <SelectPrimitive.Root
+        {...props}
+        open={open ?? isOpen}
+        onOpenChange={changeOpen}
+        onValueChange={changeValue}
+      />
+    </SelectBusyContext.Provider>
+  );
+}
 
 const SelectGroup = SelectPrimitive.Group;
 
@@ -16,22 +56,27 @@ const SelectValue = SelectPrimitive.Value;
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
-      TEXT_CONTROL_FONT_SIZE,
-      className,
-    )}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 opacity-50" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-));
+>(({ className, children, ...props }, ref) => {
+  const busy = React.useContext(SelectBusyContext);
+  return (
+    <SelectPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        // The gap keeps the chevron off the text when a name is cut at the chevron's side.
+        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        TEXT_CONTROL_FONT_SIZE,
+        className,
+      )}
+      {...props}
+      {...(busy ? HELD_ATTRIBUTES : undefined)}
+    >
+      {children}
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="h-4 w-4 opacity-50" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  );
+});
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
 const SelectScrollUpButton = React.forwardRef<

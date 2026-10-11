@@ -40,8 +40,8 @@ must not exist, or must be empty. With `--yes` and no directory the CLI uses
 | `-v, --version`    | Print the CLI version                                                                |
 
 Without `--yes`, `--features`, `--targets`, `--database`, `--preset` or `--config`
-the CLI asks for a directory and shows the methods grouped by kind. It needs a
-terminal for that.
+the CLI asks for a directory, the clients, the database and the sign-in methods,
+grouped by kind. It needs a terminal for that.
 
 The rules level is asked for in a terminal. Without a terminal and without
 `--rules` or a `rules` value in the config file, the level is `strict` and
@@ -248,8 +248,8 @@ A target or shared module owns its `files`, `envFiles` and `workspaces`. They ar
 removed when it is not part of the plan, and its id is a marker name like a
 feature id. `native-expo` keeps `mobile/expo` and the `native-core` packages and
 removes `mobile/cli`. Without it, all of `mobile/` goes. The Expo app has run on
-an iOS simulator. Android is not verified. `native-cli` stays planned: it only
-bundles. Every workspace an owner lists has to sit under its `files`.
+an iOS simulator. Android is not verified. `native-cli` stays planned: no native
+project is committed for it, see [Mobile app](docs/config.md#mobile-app). A workspace has to sit under its owner's `files`.
 
 `targets`, `databases` and `options` share `label`, `default` and `status`. A
 target also has `files`, `workspaces`, `envFiles`, `requires` (with `shared` and
@@ -276,10 +276,10 @@ a markdown `<!-- feature:docker:start -->` block, or a root `package.json`
 script that runs Docker. `production` requires `docker`; asking for
 `--no-docker` while production is still on is a usage error, not a silent drop.
 
-Turning Arabic off removes the `ar` locale, the Arabic catalogues and their
-tests. The `rtl:` utility variants, the direction provider and the `lint:rtl`
-direction-safe check stay, because the English UI still uses them; the option is
-about the language, not about stripping direction support.
+Turning Arabic off removes the `ar` locale, its catalogues and their tests from
+the website and the mobile apps. The `rtl:` utility variants, the direction
+provider and the `lint:rtl` direction-safe check stay, because the English UI
+still uses them; the option is about the language, not direction support.
 
 A `hidden` feature is never shown, never a default and cannot be requested by
 id. It arrives through another feature's `requires`, which is how `oauth-core`
@@ -298,7 +298,7 @@ build.
 ```bash
 pnpm --filter create-nest-next-auth run build   # sync-template.mjs, then tsdown
 pnpm --filter create-nest-next-auth run test
-pnpm --filter create-nest-next-auth run test:combinations   # slow
+pnpm --filter create-nest-next-auth run test:combinations:all   # slow, three jobs in CI
 npm pack -w packages/create-nest-next-auth --dry-run
 npm publish -w packages/create-nest-next-auth --dry-run
 ```

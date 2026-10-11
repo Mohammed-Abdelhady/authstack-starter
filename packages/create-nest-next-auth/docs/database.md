@@ -26,7 +26,8 @@ What is tested where:
   this repository.
 - A generated project of either database is installed from an empty folder,
   built, linted, typechecked and run through its unit and API suites by
-  `test:combinations`, for the feature sets listed in that suite.
+  `test:combinations:postgres` and `test:combinations:mongodb`, for the feature
+  sets listed in those suites.
 - A PostgreSQL project loses the service specs that are written against
   Mongoose models. The contract suites and the API suite cover the same
   services on PostgreSQL.
@@ -89,13 +90,18 @@ names a text the repository no longer has.
 The rewrites are kept in `template.rewrites.json` beside the manifest, keyed by
 database id, and are read with it. `scriptRenames` gives a backend command the
 plain name the other database left free, and refuses a name that is still
-taken. A rule that finds nothing to change is reported in the prune result. The
-installer's tests fail when one is reported for a project with everything on.
+taken. A rule that finds nothing to change is reported in the prune result.
+When nothing was left out that could explain it, the installer stops and names
+the rules, as it does for a reference to a removed file. That is a project with
+every sign-in method, option and client kept, under the strict rules level. The installer's tests fail when one is
+reported for a project with everything on.
 
 ## How generated projects are tested
 
-`test:combinations` installs a project of each database from its own pruned
-lockfile into an empty folder, then typechecks, lints and builds it and runs its
-unit and API suites. A PostgreSQL project runs them on the server
+`test:combinations:postgres` and `test:combinations:mongodb` each install
+projects of one database from their own pruned lockfile into an empty folder,
+then typecheck, lint and build them and run their unit and API suites. A
+PostgreSQL project runs them on the server
 `embedded-postgres` carries. The feature sets are listed in
-`test/combinations/databases.slow.test.ts`.
+`test/combinations/databases-postgres.slow.test.ts` and
+`test/combinations/databases-mongodb.slow.test.ts`.

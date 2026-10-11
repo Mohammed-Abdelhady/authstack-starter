@@ -92,11 +92,9 @@ BACKEND_DOMAIN=api.example.com
 
 # Frontend Configuration
 NEXT_PUBLIC_API_URL=https://api.example.com
-NEXT_PUBLIC_APP_URL=https://www.example.com
 
 # Backend Configuration
 CLIENT_URL=https://www.example.com
-BACKEND_URL=http://backend:5000
 
 # MongoDB Configuration
 MONGO_USERNAME=admin

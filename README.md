@@ -34,7 +34,7 @@ To scaffold a project with only the authentication methods you want:
 pnpm dlx create-nest-next-auth my-app
 ```
 
-The CLI prompts for the sign-in methods to keep. It removes unused strategy files, controller endpoints, frontend UI modules, environment variables, and setup docs. See [CLI options and flags](https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate/blob/master/packages/create-nest-next-auth/README.md).
+The CLI asks which clients, which database and which sign-in methods to keep. It removes unused strategy files, controller endpoints, frontend UI modules, environment variables, and setup docs. See [CLI options and flags](https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate/blob/master/packages/create-nest-next-auth/README.md).
 
 ## Choose your auth methods
 
@@ -154,17 +154,17 @@ Endpoints:
 
 ### Key backend variables (`backend/.env`)
 
-| Variable                        | Description                                                            | Default                                               |
-| ------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| `PORT`                          | API server port. Example file sets `5001`.                             | `3000` when unset                                     |
-| `NODE_ENV`                      | Environment name                                                       | `development`                                         |
-| `MONGO_URI`                     | MongoDB URI                                                            | `mongodb://localhost:27017/authboiler?replicaSet=rs0` | <!-- feature:mongodb -->             |
-| `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                             | `http://localhost:3000`                               |
-| `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies                                | Required in production                                | <!-- feature:oauth-core,passkeys --> |
-| `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`  | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
-| `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in          | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
-| `AUTH_NATIVE_DPOP_REQUIRED`     | Reject native exchanges without DPoP and refreshes of unbound families | `false`                                               | <!-- feature:native-core -->         |
-| `TOTP_ENCRYPTION_KEY`           | 32-byte hex key to encrypt TOTP secrets                                | Required for 2FA                                      | <!-- feature:totp -->                |
+| Variable                        | Description                                                                       | Default                                               |
+| ------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `PORT`                          | API server port. Example file sets `5001`.                                        | `3000` when unset                                     |
+| `NODE_ENV`                      | Environment name                                                                  | `development`                                         |
+| `MONGO_URI`                     | MongoDB address, starting with `mongodb://` or `mongodb+srv://`                   | None, required                                        | <!-- feature:mongodb -->             |
+| `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                                        | `http://localhost:3000`                               |
+| `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies, at least 32 characters                   | None, required                                        | <!-- feature:oauth-core,passkeys --> |
+| `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`             | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
+| `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in                     | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
+| `AUTH_NATIVE_DPOP_REQUIRED`     | Reject native exchanges without DPoP and refreshes of unbound families            | `false`                                               | <!-- feature:native-core -->         |
+| `TOTP_ENCRYPTION_KEY`           | 32 bytes in base64 that encrypt TOTP secrets. `openssl rand -base64 32` makes one | None. Two-step verification needs it                  | <!-- feature:totp -->                |
 
 <!-- feature:postgres:start -->
 
@@ -206,9 +206,9 @@ Endpoints:
 
 ### Key frontend variables (`frontend/.env.local`)
 
-| Variable              | Description                          | Default                 |
-| --------------------- | ------------------------------------ | ----------------------- |
-| `NEXT_PUBLIC_API_URL` | Backend origin without `/api` suffix | `http://localhost:5001` |
+| Variable              | Description                                                                     | Default                             |
+| --------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| `NEXT_PUBLIC_API_URL` | Backend origin without `/api` suffix. Set it to the address the backend runs on | Port 5000 on `localhost` when unset |
 
 See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings.
 

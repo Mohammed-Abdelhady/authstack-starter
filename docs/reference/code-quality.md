@@ -21,11 +21,11 @@ Install hooks with `pnpm install --frozen-lockfile` (`prepare` runs husky). Conf
 
 `pnpm run ci` runs the shared entry point, `scripts/ci.mjs`. Gate names, commands and order live in `scripts/ci/gates.json`, including the frozen dependency installation command. The runner prints each gate's name and exit status, stops at the first failure and returns that status. A launch error or a gate that terminates itself returns exit 2. SIGINT and SIGTERM sent to the entry point are forwarded to the running gate and its process group; the runner waits for it to close and returns 130 or 143 without starting another gate.
 
-The quality job invokes `node scripts/ci.mjs --install` for a frozen pnpm install, then `node scripts/ci.mjs --quality`. It runs the full-tree ban scan, package-manager inventory, workspace dependency check, lint, typecheck, unit and config tests, build, and backend end-to-end tests. The root lint, typecheck and test scripts recurse through the pnpm workspaces. Node comes from `.nvmrc`; a full-SHA-pinned pnpm setup action installs pnpm 12.6.0 and caches its store against `pnpm-lock.yaml`.
+The quality job invokes `node scripts/ci.mjs --install` for a frozen pnpm install, then `node scripts/ci.mjs --quality`. It runs the full-tree ban scan, package-manager inventory, workspace dependency check, lint, typecheck, unit and config tests, and build. A second job, `Backend API suites`, installs the same way and runs the backend end-to-end tests with `node scripts/ci.mjs --api`. The root lint, typecheck and test scripts recurse through the pnpm workspaces. Node comes from `.nvmrc`; a full-SHA-pinned pnpm setup action installs pnpm 12.6.0 and caches its store against `pnpm-lock.yaml`.
 
 <!-- repository-only:start -->
 
-The repository quality list also runs `pnpm run test:config:all` after the unit tests. Installer combinations run in a separate job on every matching pull request and push, without a path filter. Every repository file can become a template input, so an incomplete input filter could miss a broken generated project. The local entry point runs this slow suite last; `node scripts/ci.mjs --installer` runs it alone. Generated projects omit that job, its gate and the repository-only regression suites.
+The repository quality list also runs `pnpm run test:config:all` after the unit tests. Installer combinations run in three more jobs on every matching pull request and push, without a path filter: `--installer`, `--installer-postgres` and `--installer-mongodb`. Every repository file can become a template input, so an incomplete input filter could miss a broken generated project. The local entry point runs these slow suites last. Generated projects omit those jobs, their gates and the repository-only regression suites.
 <!-- repository-only:end -->
 
 The ordinary `pull_request` jobs run the PR's own workflow, entry point and policy. They exercise quality gates on the proposed code, but a PR can weaken or replace those gates. A passing ordinary range scan is not proof that the base branch's policy was enforced. The push range job scans `before` to `after` when the former is an ancestor. For a new branch, force push or event missing `before`, it uses the fetched default branch's merge base. If that base is unavailable, unrelated or already at the head, it scans the whole checked-out tree. Deleted refs have no content to scan. Branch pushes are enabled; tag pushes and merge queues are not.
@@ -41,11 +41,11 @@ The scanner itself always comes from the checkout of the event's `base.sha`. A b
 
 From that base checkout, `node scripts/ci.mjs --range <base.sha> <head.sha> <current-base.sha>` validates all three object IDs before Git runs. It scans from the merge base of the fetched current base tip and event head, so already-merged base additions are not blamed on a PR with a stale event base. It never checks out, imports, installs or executes PR-head files. Editing the PR's policy, entry point, gate list or workflow cannot disable this scan when the trusted workflow runs. It enforces the base policy on final added lines and changed-file lengths, including PRs that change the scanner itself. Intermediate violations removed before that head are outside this range check.
 
-Both workflows use read-only contents permission, no referenced secrets, full commit pins with version comments, and `ubuntu-24.04`. The trusted scan has no dependency install or cache. The ordinary range job also needs no installed dependencies. Superseded PR runs are cancelled. Push runs use a unique run-ID concurrency group, so a later push cannot replace either a running or pending range scan. Only the trusted workflow includes `edited`, so title or description edits rerun its short scan. A stacked pull request retargeted to a matching base gets its quality run on its next push. No job-level skip is used for retarget filtering, because a skipped job satisfies a required check. Range jobs have 10-minute limits. The quality job has a 30-minute limit, allowing headroom over local quality runs lasting several minutes.
+Both workflows use read-only contents permission, no referenced secrets, full commit pins with version comments, and `ubuntu-24.04`. The trusted scan has no dependency install or cache. The ordinary range job also needs no installed dependencies. Superseded PR runs are cancelled. Push runs use a unique run-ID concurrency group, so a later push cannot replace either a running or pending range scan. Only the trusted workflow includes `edited`, so title or description edits rerun its short scan. A stacked pull request retargeted to a matching base gets its quality run on its next push. No job-level skip is used for retarget filtering, because a skipped job satisfies a required check. Range jobs have 10-minute limits. The quality job has a 45-minute limit and the API job a 35-minute limit.
 
 <!-- repository-only:start -->
 
-A retargeted pull request also gets its installer run on its next push. The installer job has a 30-minute limit, with headroom over combinations measured at about eight minutes.
+A retargeted pull request also gets its installer runs on its next push. The installer suite runs as three jobs: `Installer combinations` with a 55-minute limit, `Installer PostgreSQL projects` with 50 and `Installer MongoDB projects` with 80. No runner has timed any job, because GitHub Actions is off for this repository. On a 12-core Mac the quality gates took at most 14 minutes, the API suites 11, and the three installer jobs 17, 15 and 26. Each limit is that time doubled for a 4-vCPU runner, which is an assumption, with half as much again as headroom, rounded up to five minutes. The measurements are written beside each limit in the workflow.
 <!-- repository-only:end -->
 
 Package-manager commands and MongoDB environment/cache settings live in `scripts/ci/gates.json`. Installation sets `MONGOMS_DISABLE_POSTINSTALL=1`, deferring the binary download until a test actually needs it. The quality job caches `.mongodb-binaries`; the cache key includes the locked `mongodb-memory-server` package version from `pnpm-lock.yaml`, the configured mongod binary version, runner OS and architecture. `MONGOMS_VERSION` in that data file pins the binary used by the tests. Gate subprocesses receive the absolute download directory.
@@ -73,7 +73,7 @@ Generated workflows also target `main`, the usual initial branch created by `git
 
 Administrators must configure these hosting-service settings; repository files cannot enforce them:
 
-- Protect `staging` and `master`, and `main` where used. Require pull requests and the `Trusted hard-ban range`, `Hard-ban range` and `Quality gates` checks.
+- Protect `staging` and `master`, and `main` where used. Require pull requests and the `Trusted hard-ban range`, `Hard-ban range`, `Quality gates` and `Backend API suites` checks.
 - Ensure the trusted workflow exists on the default branch, and confirm its selected revision on a real pull request.
 - Dismiss stale approvals when new commits are pushed and require approval of the most recent push.
 - Require Code Owner review for the protected CI and scanner files. Include administrators in the protections, and disallow force pushes and branch deletion.
@@ -85,7 +85,7 @@ An author cannot approve their own pull request. Requiring Code Owner review wit
 
 <!-- repository-only:start -->
 
-Also require the `Installer combinations` check in this repository.
+Also require the `Installer combinations`, `Installer PostgreSQL projects` and `Installer MongoDB projects` checks in this repository.
 <!-- repository-only:end -->
 
 None of these workflows has run on the hosting service yet. Local YAML parsing, Git fixtures, generated-project checks and gate runs do not verify action downloads, event/retarget scheduling, fork execution, fetch availability, cache restore/save, hosted gate results or the repository settings above. Until the workflows are deployed and those settings are enabled, the checks are not an enforced merge boundary.
@@ -231,7 +231,7 @@ Backend unit tests use Jest (`pnpm --filter backend test`). Frontend unit tests 
 
 <!-- repository-only:start -->
 
-The same backend end-to-end suite runs on PostgreSQL with `pnpm --filter backend run test:e2e:postgres`, on an embedded server it starts and removes itself. CI runs it as a quality gate right after the MongoDB run, and a red suite on either database fails the build.
+The same backend end-to-end suite runs on PostgreSQL with `pnpm --filter backend run test:e2e:postgres`, on an embedded server it starts and removes itself. CI runs it in the API job right after the MongoDB run, and a red suite on either database fails that job.
 
 Frontend end-to-end tests use Playwright (`pnpm --filter frontend run test:e2e`). They run manually, outside commit and push, and are omitted from generated projects.
 <!-- repository-only:end -->

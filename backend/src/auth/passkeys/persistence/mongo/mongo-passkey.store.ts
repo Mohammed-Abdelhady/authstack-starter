@@ -167,12 +167,16 @@ export class MongoPasskeyStore extends PasskeyStore {
   async findOwned(
     userId: string,
     passkeyId: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null> {
     toObjectId(userId);
     toObjectId(passkeyId);
-    const passkey = await passkeyStatement(() =>
-      this.passkeyModel.findOne({ _id: passkeyId, user: userId }),
-    );
+    const owned = { _id: passkeyId, user: userId };
+    const passkey = unitOfWork
+      ? await this.passkeyModel.findOne(owned, null, {
+          session: mongoSessionOf(unitOfWork),
+        })
+      : await passkeyStatement(() => this.passkeyModel.findOne(owned));
     return passkey ? toStoredPasskey(passkey) : null;
   }
 

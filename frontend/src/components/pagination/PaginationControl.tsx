@@ -40,8 +40,8 @@ export function PaginationControl({
         variant="outline"
         size="sm"
         onClick={() => onPageChange(currentPage - 1)}
-        disabled={isFirstPage || isLoading}
-        aria-disabled={isFirstPage || isLoading}
+        disabled={isFirstPage}
+        busy={isLoading}
         data-testid="pagination-previous"
         className="gap-1"
       >
@@ -57,8 +57,8 @@ export function PaginationControl({
         variant="outline"
         size="sm"
         onClick={() => onPageChange(currentPage + 1)}
-        disabled={isLastPage || isLoading}
-        aria-disabled={isLastPage || isLoading}
+        disabled={isLastPage}
+        busy={isLoading}
         data-testid="pagination-next"
         className="gap-1"
       >

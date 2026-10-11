@@ -17,7 +17,8 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 /** Digits, hyphens, then letters: the shape a right-to-left line reorders. */
 const SLUG = '24-7-support';
 /** Left-to-right isolate and pop directional isolate, written out. */
-const ISOLATED_SLUG = `⁦${SLUG}⁩`;
+/** The slug in its brackets, as one left-to-right run. */
+const ISOLATED_SLUG = `⁦(${SLUG})⁩`;
 
 const USER = {
   _id: 'user-1',

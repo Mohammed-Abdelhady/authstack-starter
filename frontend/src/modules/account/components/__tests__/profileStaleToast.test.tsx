@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
@@ -28,7 +29,7 @@ describe('the toast of a refused profile save', () => {
     const { message } = await renderForm('en', <UpdateProfileCard />);
     const name = await screen.findByRole('textbox', { name: message('settings.profile.name') });
     await waitFor(() => expect(name).toHaveProperty('value', 'Layla Haddad'));
-    const isIdle = () => !name.hasAttribute('disabled');
+    const isIdle = () => !isHeld(name);
     const save = (value: string) => () => {
       fireEvent.change(name, { target: { value } });
       fireEvent.submit(screen.getByTestId('update-profile-form'));

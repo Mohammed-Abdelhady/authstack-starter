@@ -11,7 +11,7 @@ const styles = StyleSheet.create({
 export const ARRIVAL = { NONE: 'none', FORWARD: 'forward', BACK: 'back' } as const;
 export type Arrival = (typeof ARRIVAL)[keyof typeof ARRIVAL];
 
-/** Forward travel comes from the end edge, which is the left in Arabic. */
+/** Forward travel comes from the end edge, which is the left when reading right to left. */
 const TRAVEL: Record<Arrival, number> = { none: 0, forward: 1, back: -1 };
 const RTL_SIGN = -1;
 const LTR_SIGN = 1;

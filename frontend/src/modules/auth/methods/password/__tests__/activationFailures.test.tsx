@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, HELD } from '@/tests/busyControls';
 import {
   change,
   fillActivation,
@@ -122,7 +123,7 @@ describe.each([
     fireEvent.submit(screen.getByTestId('activate-form'));
     try {
       await waitFor(() =>
-        expect(screen.getByTestId('activate-submit')).toHaveProperty('disabled', true),
+        expect(availability(screen.getByTestId('activate-submit'))).toEqual(HELD),
       );
       expect(requests).toEqual(['POST /api/auth/activate']);
     } finally {
@@ -146,6 +147,6 @@ describe.each([
       expect(form.successToasts()).toEqual([form.message('toast.success.resendSuccess')]),
     );
     expect(screen.getByTestId('activate-password-input')).toHaveProperty('value', 'Passw0rdLayla');
-    expect(screen.getByTestId('resend-button')).toHaveProperty('disabled', true);
+    expect(availability(screen.getByTestId('resend-button'))).toEqual(HELD);
   });
 });

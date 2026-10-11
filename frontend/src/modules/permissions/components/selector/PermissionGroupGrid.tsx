@@ -9,7 +9,7 @@ interface PermissionGroupGridProps {
   permissions: Record<string, string>;
   selectedPermissions: string[];
   onTogglePermission: (permission: string) => void;
-  disabled?: boolean;
+  busy?: boolean;
   prefix?: string;
 }
 
@@ -17,7 +17,7 @@ export const PermissionGroupGrid = memo(function PermissionGroupGrid({
   permissions,
   selectedPermissions,
   onTogglePermission,
-  disabled = false,
+  busy = false,
   prefix = '',
 }: PermissionGroupGridProps) {
   const formatPermissionLabel = usePermissionLabel();
@@ -32,7 +32,7 @@ export const PermissionGroupGrid = memo(function PermissionGroupGrid({
               id={id}
               checked={selectedPermissions.includes(permission)}
               onCheckedChange={() => onTogglePermission(permission)}
-              disabled={disabled}
+              busy={busy}
               data-testid={`permission-checkbox-${permission}`}
             />
             <div className="flex-1">

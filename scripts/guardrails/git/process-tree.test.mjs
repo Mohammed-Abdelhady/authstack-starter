@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
-import { isRunning, stopProcessTree } from './round8-hook-fixture.mjs';
+import { isRunning, stopProcessTree } from '../../lib/process-tree.mjs';
 
 for (const leader of [0, 1, -5, 1.5, Number.NaN, process.pid]) {
   test(`${leader} is refused as the leader of a tree to stop`, () => {

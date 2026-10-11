@@ -17,6 +17,7 @@ import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useUserActions } from '../../hooks/useUserActions';
 import { EditUserDialog } from './EditUserDialog';
 import { UserActionConfirmDialog, type UserConfirmAction } from './UserActionConfirmDialog';
+import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { PermissionGuard } from '../guards/PermissionGuard';
 
 export interface UserActionsMenuUser {
@@ -35,6 +36,8 @@ export interface UserActionsMenuProps {
   onManagePermissions?: (opener: HTMLElement | null) => void;
   /** Whether actions are disabled */
   disabled?: boolean;
+  /** Another request for this user is running: the button keeps focus and does not open */
+  busy?: boolean;
   /** Additional className */
   className?: string;
 }
@@ -61,40 +64,56 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   user,
   onManagePermissions,
   disabled = false,
+  busy = false,
   className,
 }: UserActionsMenuProps) {
   const t = useTranslations('users.actions');
+  const tCodes = useTranslations('errors.codes');
+  // Why the last attempt was refused, said in the confirmation, which stays open.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { handleStatusChange, handleResendEmailChange, isLoading } = useUserActions();
   // The dialogs open from menu entries, which are gone by the time they close.
   const [menuButtonRef, returnFocusToMenuButton] = useReturnFocus<HTMLButtonElement>();
 
   const isNormalUser = user.role === 'user';
+  const isBusy = busy || isLoading;
+  const changeMenuOpen = useCallback(
+    (next: boolean) => {
+      if (!(isBusy && next)) setMenuOpen(next);
+    },
+    [isBusy],
+  );
 
   // Handle confirmation action
   const handleConfirm = useCallback(async () => {
-    let success = false;
-
-    if (confirmAction === 'activate') {
-      success = await handleStatusChange(user._id, true, user.name);
-    } else if (confirmAction === 'deactivate') {
-      success = await handleStatusChange(user._id, false, user.name);
-    }
+    if (confirmAction === null) return;
+    setRefusal(null);
+    const success = await handleStatusChange(
+      user._id,
+      confirmAction === 'activate',
+      user.name,
+      (error) => setRefusal(tCodes(translatableErrorCode(error))),
+    );
 
     if (success) {
       setConfirmAction(null);
     }
-  }, [confirmAction, handleStatusChange, user._id, user.name]);
+  }, [confirmAction, handleStatusChange, tCodes, user._id, user.name]);
 
-  const handleCancelConfirm = useCallback(() => setConfirmAction(null), []);
+  const handleCancelConfirm = useCallback(() => {
+    setConfirmAction(null);
+    setRefusal(null);
+  }, []);
   const handleResend = useCallback(() => {
     void handleResendEmailChange(user._id);
   }, [handleResendEmailChange, user._id]);
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={changeMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             ref={menuButtonRef}
@@ -106,7 +125,8 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               'transition-all duration-200',
               className,
             )}
-            disabled={disabled || isLoading}
+            disabled={disabled}
+            busy={isBusy}
             aria-busy={isLoading}
             data-testid={`user-actions-menu-${user._id}`}
           >
@@ -188,6 +208,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         action={confirmAction}
         userName={user.name}
         isLoading={isLoading}
+        refusal={refusal}
         onConfirm={handleConfirm}
         onCancel={handleCancelConfirm}
         onCloseAutoFocus={returnFocusToMenuButton}

@@ -52,7 +52,7 @@ describe.each([
     expect(descriptions(email)).toEqual([fieldMessage]);
     expect(name.getAttribute('aria-invalid')).toBe('false');
     expect(descriptions(name)).toEqual([]);
-    // The fields stay disabled until the store reports the end of the request.
+    // The field is focused once the store reports the end of the request.
     await waitFor(() => {
       expect(document.activeElement).toBe(email);
     });

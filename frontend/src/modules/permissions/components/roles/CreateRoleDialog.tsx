@@ -1,5 +1,6 @@
 'use client';
 
+import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -60,6 +61,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const uid = useId();
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
+  const nameHintId = `${nameId}-hint`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -71,7 +73,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createRole, { isLoading }] = useCreateRoleMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
     isLoading,
@@ -87,9 +89,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: Record<string, string> = {};
-    if (!name.trim()) nextErrors.name = t('nameError');
-    if (permissions.length === 0) nextErrors.permissions = t('permissionsError');
+    const nextErrors = validateRoleForm({ name, description, permissions }, t);
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
@@ -146,13 +146,16 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                   if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
                 }}
                 placeholder={t('namePlaceholder')}
-                disabled={isLoading}
+                busy={isLoading}
                 required
                 aria-invalid={Boolean(errors.name)}
-                aria-describedby={errors.name ? nameErrorId : undefined}
+                aria-describedby={errors.name ? `${nameHintId} ${nameErrorId}` : nameHintId}
                 className={FREE_TEXT_FIELD_CLASSES}
                 data-testid="role-name-input"
               />
+              <p id={nameHintId} className="text-xs text-tertiary" data-testid="role-name-hint">
+                {t('nameHint', ROLE_NAME_LENGTHS)}
+              </p>
               <FieldError id={nameErrorId} message={errors.name} testId="role-name-error" />
             </div>
 
@@ -168,7 +171,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 }}
                 placeholder={t('descriptionPlaceholder')}
                 rows={3}
-                disabled={isLoading}
+                busy={isLoading}
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? descriptionErrorId : undefined}
                 className={FREE_TEXT_FIELD_CLASSES}
@@ -200,7 +203,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                       setErrors((prev) => ({ ...prev, permissions: '' }));
                     }
                   }}
-                  disabled={isLoading}
+                  busy={isLoading}
                 />
               </div>
               <FieldError
@@ -216,7 +219,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
               type="button"
               variant="outline"
               onClick={handleCancel}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="cancel-button"
             >
               {t('cancel')}

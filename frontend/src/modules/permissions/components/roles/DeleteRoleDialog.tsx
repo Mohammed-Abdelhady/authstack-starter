@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useDeleteRoleMutation, type Role } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 
 export interface DeleteRoleDialogProps {
   /**
@@ -35,6 +36,11 @@ export interface DeleteRoleDialogProps {
    * Callback when role is successfully deleted
    */
   onSuccess?: () => void;
+
+  /**
+   * The heading that takes focus once the role is gone
+   */
+  landing?: RemovalLanding;
 }
 
 /**
@@ -53,9 +59,16 @@ export interface DeleteRoleDialogProps {
  * />
  * ```
  */
-export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: DeleteRoleDialogProps) {
+export function DeleteRoleDialog({
+  open,
+  onOpenChange,
+  role,
+  onSuccess,
+  landing,
+}: DeleteRoleDialogProps) {
   const t = useTranslations('roles.delete');
   const [deleteRole, { isLoading }] = useDeleteRoleMutation();
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
 
   const handleDelete = async () => {
     if (!role) return;
@@ -64,6 +77,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
       await deleteRole(role.id).unwrap();
 
       toast.success(t('success'));
+      noteRemoved();
 
       // Close dialog
       onOpenChange(false);
@@ -81,7 +95,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="delete-role-dialog">
+      <DialogContent data-testid="delete-role-dialog" onCloseAutoFocus={focusLanding}>
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
@@ -151,7 +165,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={isLoading}
+            busy={isLoading}
             data-testid="cancel-button"
           >
             {t('cancel')}
@@ -161,7 +175,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
               type="button"
               variant="destructive"
               onClick={handleDelete}
-              disabled={isLoading}
+              busy={isLoading}
               aria-busy={isLoading}
               data-testid="delete-role-button"
             >

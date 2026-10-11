@@ -42,7 +42,7 @@ function validationRejection(fieldNames: string[]) {
   });
 }
 
-/** A form whose fields are disabled while a request runs, as the real forms are. */
+/** A form whose fields are held while a request runs, as the real forms are. */
 function Harness({ error, startsSubmitting, onResult }: HarnessProps) {
   const [submitting, setSubmitting] = useState(startsSubmitting);
   const formRef = useRef<HTMLFormElement>(null);
@@ -57,9 +57,9 @@ function Harness({ error, startsSubmitting, onResult }: HarnessProps) {
   return (
     <FormProvider {...form}>
       <form ref={formRef}>
-        <FormInput<HarnessValues> name="name" label="Name" disabled={submitting} />
-        <FormInput<HarnessValues> name="email" label="Email" disabled={submitting} />
-        <FormInput<HarnessValues> name="address.city" label="City" disabled={submitting} />
+        <FormInput<HarnessValues> name="name" label="Name" busy={submitting} />
+        <FormInput<HarnessValues> name="email" label="Email" busy={submitting} />
+        <FormInput<HarnessValues> name="address.city" label="City" busy={submitting} />
         <button type="button" onClick={() => onResult(applyServerFieldErrors(error))}>
           Reject
         </button>

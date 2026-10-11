@@ -2,6 +2,7 @@
 
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
+import { busyPressProps } from '@/components/ui/busy';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SearchPermissionGrid } from './SearchPermissionGrid';
 import {
@@ -94,9 +95,9 @@ export function SearchPermissionTabs({
                 </Heading>
                 <button
                   type="button"
-                  onClick={() => onSelectAll(group.filteredPermissions)}
-                  disabled={isLoading || groupPerms.length === 0}
-                  className="text-xs text-primary hover:underline disabled:opacity-50"
+                  disabled={groupPerms.length === 0}
+                  {...busyPressProps(isLoading, () => onSelectAll(group.filteredPermissions))}
+                  className="text-xs text-primary hover:underline disabled:opacity-50 aria-disabled:opacity-50"
                   data-testid={`select-all-${group.id}`}
                 >
                   {allSelected ? t('deselectAll') : t('selectAll')}
@@ -141,9 +142,8 @@ export function SearchPermissionTabs({
                   </p>
                   <button
                     type="button"
-                    onClick={() => onSelectAll(filtered.filteredPermissions)}
-                    disabled={isLoading}
-                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                    {...busyPressProps(isLoading, () => onSelectAll(filtered.filteredPermissions))}
+                    className="text-xs text-primary hover:underline aria-disabled:opacity-50"
                     data-testid={`select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}

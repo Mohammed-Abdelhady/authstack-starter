@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
@@ -41,7 +42,7 @@ describe('the toast of a refused passkey rename', () => {
 
     await sendRefusedThenAgain(
       () => fireEvent.submit(form),
-      () => !name.hasAttribute('disabled'),
+      () => !isHeld(name),
     );
 
     await waitFor(() => expect(screen.queryByTestId('passkey-name-dialog')).toBeNull());

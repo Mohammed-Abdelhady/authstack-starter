@@ -1,6 +1,6 @@
 'use client';
 
-import { useListRolesQuery } from '../../api/rolesApi';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 
 export interface UserRoleLabelProps {
   /** The slug stored on the user. */
@@ -13,8 +13,8 @@ export interface UserRoleLabelProps {
  * hold, the slug is shown as it is.
  */
 export function UserRoleLabel({ slug }: UserRoleLabelProps): React.JSX.Element {
-  const { data } = useListRolesQuery(undefined);
-  const name = (data?.roles ?? []).find((role) => role.slug === slug)?.name;
+  const { roles } = useAllRoles();
+  const name = roles.find((role) => role.slug === slug)?.name;
 
   return (
     <span dir={name ? 'auto' : 'ltr'} className="font-medium" data-testid="user-card-role">

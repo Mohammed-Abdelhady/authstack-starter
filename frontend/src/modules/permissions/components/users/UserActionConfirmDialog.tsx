@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Loader2 } from 'lucide-react';
+import { FormRootError } from '@/components/forms';
 
 /** The two state changes a user row can confirm. */
 export type UserConfirmAction = 'activate' | 'deactivate';
@@ -45,6 +46,8 @@ export interface UserActionConfirmDialogProps {
   userName: string;
   /** Whether the action is running */
   isLoading: boolean;
+  /** Why the last attempt was refused, shown while the dialog stays open */
+  refusal?: string | null;
   /** Runs the action */
   onConfirm: () => void;
   /** Closes the dialog without acting */
@@ -60,6 +63,7 @@ export function UserActionConfirmDialog({
   action,
   userName,
   isLoading,
+  refusal,
   onConfirm,
   onCancel,
   onCloseAutoFocus,
@@ -68,7 +72,8 @@ export function UserActionConfirmDialog({
   const copy = action ? CONFIRM_ACTION_COPY[action] : null;
 
   return (
-    <AlertDialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
+    // The confirmation stays until the request has an answer.
+    <AlertDialog open={action !== null} onOpenChange={(open) => !open && !isLoading && onCancel()}>
       <AlertDialogContent
         data-testid="user-action-confirm-dialog"
         onCloseAutoFocus={onCloseAutoFocus}
@@ -88,13 +93,18 @@ export function UserActionConfirmDialog({
               : null}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <FormRootError error={refusal} className="mb-0" testId="user-action-error" />
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading} data-testid="cancel-user-action-button">
+          <AlertDialogCancel busy={isLoading} data-testid="cancel-user-action-button">
             {t('cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
-            onClick={onConfirm}
-            disabled={isLoading}
+            onClick={(event) => {
+              // Closes when the change is accepted, not when it is asked for.
+              event.preventDefault();
+              onConfirm();
+            }}
+            busy={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-user-action-button"
           >

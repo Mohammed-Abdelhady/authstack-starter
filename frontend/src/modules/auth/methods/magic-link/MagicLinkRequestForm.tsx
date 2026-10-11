@@ -111,7 +111,8 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           variant="ghost"
           className="mt-4 w-full"
           onClick={onResend}
-          disabled={isLoading || isCooling}
+          busy={isLoading || isCooling}
+          aria-busy={isLoading}
           data-testid="magic-link-resend"
         >
           {isCooling ? t('resendCooldown', { seconds: secondsLeft }) : t('resend')}
@@ -145,7 +146,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
           autoComplete="email"
-          disabled={isLoading}
+          busy={isLoading}
           autoFocus={isOnlyMethod}
           onBlur={onEmailBlur}
           data-testid="magic-link-email-input"

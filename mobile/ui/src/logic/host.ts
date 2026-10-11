@@ -13,7 +13,7 @@ export function deviceLocale(readTag: () => string | undefined = systemLocaleTag
   }
 }
 
-/** A safe-area source reports left and right. The start edge is the right one in Arabic. */
+/** A safe-area source reports left and right. The start edge is the right one when reading right to left. */
 export function logicalInsets(physical: PhysicalInsets, locale: Locale): EdgeInsets {
   const rtl = DIRECTION[locale] === 'rtl';
   return {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Heading } from '@/components/design-system';
+import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +18,8 @@ import { LinkProviderButton } from './LinkProviderButton';
  */
 export function LinkedAccounts() {
   const t = useTranslations('settings.accounts');
+  // Takes focus once an account is unlinked: its card and buttons are gone.
+  const linkedHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const {
     data: linkedProvidersData,
@@ -62,7 +65,7 @@ export function LinkedAccounts() {
       <CardContent className="space-y-6">
         {linkedProviders.length > 0 && (
           <div className="space-y-4">
-            <Heading level={3} variant="subsectionTitle">
+            <Heading level={3} variant="subsectionTitle" ref={linkedHeadingRef} tabIndex={-1}>
               {t('linkedAccountsLabel')}
             </Heading>
             <div className="space-y-3">
@@ -81,6 +84,7 @@ export function LinkedAccounts() {
                   primaryHint={primaryHints?.[providerId]}
                   emailSignIn={providerId === EMAIL_PROVIDER ? emailSignIn : undefined}
                   onChange={refetch}
+                  landing={linkedHeadingRef}
                 />
               ))}
             </div>

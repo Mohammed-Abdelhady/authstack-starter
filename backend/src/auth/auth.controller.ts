@@ -43,9 +43,11 @@ import {
 /**
  * Password sign-in and the account lifecycle around it.
  *
- * The four routes that need a password close with AUTH_PASSWORD_ENABLED=false.
- * Activation, resend and logout stay open: an activation code also confirms an
- * address an admin moved an account to, which has nothing to do with passwords.
+ * Six routes close with AUTH_PASSWORD_ENABLED=false: register, activate,
+ * resend-activation, login, forgot-password and reset-password. Activation
+ * sets a password, so it closes with the rest. Logout stays open, and so does
+ * confirm-email-change: it confirms an address an admin moved an account to,
+ * which has nothing to do with passwords.
  */
 @ApiTags('auth')
 @Controller('auth')

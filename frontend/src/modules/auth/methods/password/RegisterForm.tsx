@@ -176,7 +176,7 @@ export function RegisterForm() {
               label={t('email')}
               placeholder={t('emailPlaceholder')}
               autoComplete="email"
-              disabled={isLoading}
+              busy={isLoading}
               autoFocus
             />
 

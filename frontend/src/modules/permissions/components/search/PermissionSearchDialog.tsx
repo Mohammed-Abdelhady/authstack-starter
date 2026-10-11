@@ -202,7 +202,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
                   id="wildcard-permission"
                   checked={hasWildcard}
                   onCheckedChange={handleToggleWildcard}
-                  disabled={isLoading}
+                  busy={isLoading}
                   data-testid="wildcard-permission-checkbox"
                 />
                 <div className="flex-1">
@@ -257,14 +257,16 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="cancel-add-permissions"
             >
               {t('cancel')}
             </Button>
             <Button
               onClick={onConfirm}
-              disabled={availableCount === 0 || isLoading}
+              disabled={availableCount === 0}
+              busy={isLoading}
+              aria-busy={isLoading}
               data-testid="confirm-add-permissions"
             >
               <Plus className="me-2 h-4 w-4" aria-hidden="true" />

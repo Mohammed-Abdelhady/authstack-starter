@@ -33,7 +33,8 @@ export function SubmitButton({
   return (
     <Button
       type="submit"
-      disabled={disabled || isLoading}
+      disabled={disabled}
+      busy={isLoading}
       aria-busy={isLoading}
       data-testid={testId}
       className={cn(

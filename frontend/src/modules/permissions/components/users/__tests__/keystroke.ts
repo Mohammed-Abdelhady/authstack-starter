@@ -37,6 +37,11 @@ export function keystroke(key: Key) {
       down(true);
       press(true);
     },
+    /** The same from a keyboard that does not mark its repeats. */
+    unmarkedRepeat: () => {
+      down(false);
+      press(false);
+    },
     up: () => {
       const target = focused();
       const released = fireEvent.keyUp(target, { key });

@@ -60,6 +60,15 @@ const createResetPasswordSchema = (
 type ResetPasswordFormData = z.infer<ReturnType<typeof createResetPasswordSchema>>;
 
 /**
+ * The answers after which the code that was typed can never work: the server
+ * found it wrong, expired or locked, or took it and found no account.
+ */
+const CODE_SPENT_ERRORS: ReadonlySet<string> = new Set([
+  ErrorCode.PASSWORD_RESET_CODE_INVALID,
+  ErrorCode.USER_NOT_FOUND_FOR_RESET,
+]);
+
+/**
  * ResetPasswordForm component for completing password reset
  * Uses 6-digit code sent via email (similar to activation flow)
  *
@@ -157,7 +166,8 @@ export function ResetPasswordForm() {
           message: errorMessage,
         });
 
-        setValue('code', '');
+        // Any other refusal leaves the code usable, so what was typed stays.
+        if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
     [refusalToast, resetPassword, router, setError, setValue, t, tCodes, tToast],
@@ -211,7 +221,7 @@ export function ResetPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="username"
-              disabled={isLoading}
+              busy={isLoading}
               readOnly
               className="bg-muted"
             />
@@ -226,7 +236,7 @@ export function ResetPasswordForm() {
               label={t('code')}
               placeholder={tCommon('codePlaceholder')}
               autoComplete="one-time-code"
-              disabled={isLoading}
+              busy={isLoading}
               maxLength={6}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus
@@ -240,7 +250,7 @@ export function ResetPasswordForm() {
               label={t('password')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 
@@ -253,7 +263,7 @@ export function ResetPasswordForm() {
               label={t('confirmPassword')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 

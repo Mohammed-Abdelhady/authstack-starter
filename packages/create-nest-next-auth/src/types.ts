@@ -210,4 +210,9 @@ export interface PruneResult {
    * for a project with everything on.
    */
   unmatchedDatabaseRules: string[];
+  /**
+   * The same rules when nothing was left out that could explain them: the
+   * manifest and the template no longer agree, and the scaffold stops.
+   */
+  unexplainedDatabaseRules: string[];
 }
