@@ -146,7 +146,7 @@ export const PermissionSelector = memo(function PermissionSelector({
               <Label htmlFor="wildcard-permission" className="font-semibold text-inherit">
                 {t('wildcardTitle')}
               </Label>
-              <p className="mt-1 text-sm text-inherit">{t('wildcardDescription')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('wildcardDescription')}</p>
             </div>
           </div>
         </Alert>
