@@ -52,7 +52,8 @@ export class TwoFactorController {
     description:
       'Stores an unconfirmed secret and returns the otpauth URL to render as a ' +
       'QR code. Accounts with a password send it in the body; passwordless ' +
-      'accounts need a session younger than five minutes.',
+      'accounts need a session younger than five minutes. With password ' +
+      'sign-in off, every account is treated as passwordless.',
   })
   @ApiBody({ type: SetupTwoFactorDto })
   async setup(
@@ -95,7 +96,8 @@ export class TwoFactorController {
     summary: 'Turn two-factor authentication off',
     description:
       'Needs a code or a recovery code, plus the password when the account has ' +
-      'one. Clears the secret and every recovery code.',
+      'one and password sign-in is on. Clears the secret and every recovery ' +
+      'code.',
   })
   @ApiBody({ type: DisableTwoFactorDto })
   async disable(
