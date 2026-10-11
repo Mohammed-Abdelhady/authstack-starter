@@ -20,8 +20,20 @@ vi.mock('react-native-safe-area-context', () => ({
 
 /** Written by hand from the palette, so a palette swapped between schemes fails here too. */
 const EXPECTED = {
-  light: { colors: PALETTE.light, text: '#10201B', background: '#EEF2F0', bar: 'dark-content' },
-  dark: { colors: PALETTE.dark, text: '#E4EDE9', background: '#0C1412', bar: 'light-content' },
+  light: {
+    colors: PALETTE.light,
+    text: '#10201B',
+    background: '#EEF2F0',
+    bar: 'dark-content',
+    button: { backgroundColor: '#FAFCFB', borderColor: '#6F807A' },
+  },
+  dark: {
+    colors: PALETTE.dark,
+    text: '#E4EDE9',
+    background: '#0C1412',
+    bar: 'light-content',
+    button: { backgroundColor: '#141F1C', borderColor: '#6E817A' },
+  },
 } as const;
 
 /** The screen is painted in the last language the app ships, with the direction it reads in. */
@@ -96,8 +108,9 @@ describe.each(SCHEMES)(
     it('writes every line in the palette text colour', () => {
       const lines = ofKind(painted(), 'Text');
 
-      expect(lines).toHaveLength(8);
-      expect(lines.map((line) => line.style.color)).toEqual(Array(8).fill(expected.text));
+      // Eight lines of state and the labels of the five actions.
+      expect(lines).toHaveLength(13);
+      expect(lines.map((line) => line.style.color)).toEqual(Array(13).fill(expected.text));
       expect(lines[0]?.style.color).toBe(expected.colors.text);
     });
 
@@ -117,7 +130,31 @@ describe.each(SCHEMES)(
     it('keeps every line reading in the direction of its language', () => {
       const directions = ofKind(painted(), 'Text').map((line) => line.style.writingDirection);
 
-      expect(directions).toEqual(Array(8).fill(SHOWN.direction));
+      expect(directions).toEqual(Array(13).fill(SHOWN.direction));
+    });
+
+    it('draws the five actions on the palette surface instead of the platform tint', () => {
+      const all = painted();
+      const actions = ofKind(all, 'Pressable');
+      const faces = ofKind(all, 'View').filter((view) => 'minHeight' in view.style);
+
+      expect(ofKind(all, 'Button')).toEqual([]);
+      expect(actions.map((action) => action.props.testID)).toEqual([
+        'auth-sign-in',
+        'auth-refresh',
+        'auth-load-profile',
+        'auth-sign-out',
+        'auth-close',
+      ]);
+      expect(actions.map((action) => action.props.accessibilityRole)).toEqual(
+        Array(5).fill('button'),
+      );
+      expect(
+        faces.map(({ style }) => ({
+          backgroundColor: style.backgroundColor,
+          borderColor: style.borderColor,
+        })),
+      ).toEqual(Array(5).fill(expected.button));
     });
   },
 );

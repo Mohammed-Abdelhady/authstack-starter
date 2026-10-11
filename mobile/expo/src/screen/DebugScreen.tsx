@@ -1,6 +1,7 @@
+import { Button, ShellPaint } from '@app/native-ui';
 import { isolateLtr } from '@app/native-ui/host';
 import { useTheme } from '@app/native-ui/theme';
-import { Button, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { StartedShellAuth } from '../shell';
 import { DIRECTION, translate, type Locale, type MessageKey } from '../i18n/messages';
 import { OPERATION_KEY, REASON_KEY, STATUS_KEY, STORAGE_WARNING_KEY } from '../logic/outcome-keys';
@@ -93,36 +94,43 @@ export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
           {text('refreshTokenRequests', String(refreshTokenRequests))}
         </Text>
       </View>
-      <Button
-        testID={TEST_ID.SIGN_IN}
-        title={text('signIn')}
-        accessibilityLabel={text('signInLabel')}
-        onPress={signIn}
-      />
-      <Button
-        testID={TEST_ID.REFRESH}
-        title={text('refresh')}
-        accessibilityLabel={text('refreshLabel')}
-        onPress={refresh}
-      />
-      <Button
-        testID={TEST_ID.LOAD_PROFILE}
-        title={text('loadProfile')}
-        accessibilityLabel={text('loadProfileLabel')}
-        onPress={loadProfile}
-      />
-      <Button
-        testID={TEST_ID.SIGN_OUT}
-        title={text('signOut')}
-        accessibilityLabel={text('signOutLabel')}
-        onPress={signOut}
-      />
-      <Button
-        testID={TEST_ID.CLOSE}
-        title={text('close')}
-        accessibilityLabel={text('closeLabel')}
-        onPress={onClose}
-      />
+      <ShellPaint direction={direction}>
+        <Button
+          testID={TEST_ID.SIGN_IN}
+          stretch
+          label={text('signIn')}
+          accessibilityLabel={text('signInLabel')}
+          onPress={signIn}
+        />
+        <Button
+          testID={TEST_ID.REFRESH}
+          stretch
+          label={text('refresh')}
+          accessibilityLabel={text('refreshLabel')}
+          onPress={refresh}
+        />
+        <Button
+          testID={TEST_ID.LOAD_PROFILE}
+          stretch
+          label={text('loadProfile')}
+          accessibilityLabel={text('loadProfileLabel')}
+          onPress={loadProfile}
+        />
+        <Button
+          testID={TEST_ID.SIGN_OUT}
+          stretch
+          label={text('signOut')}
+          accessibilityLabel={text('signOutLabel')}
+          onPress={signOut}
+        />
+        <Button
+          testID={TEST_ID.CLOSE}
+          stretch
+          label={text('close')}
+          accessibilityLabel={text('closeLabel')}
+          onPress={onClose}
+        />
+      </ShellPaint>
     </ScrollView>
   );
 }
