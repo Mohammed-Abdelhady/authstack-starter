@@ -7,6 +7,7 @@ import {
   PNPM_WORKSPACE_FILE,
   ROOT_PACKAGE_JSON,
   DEFAULT_RULES_POLICY,
+  RULES_POLICY,
 } from '../constants/index.js';
 import { databaseMarkerIds, defaultDatabaseIds } from '../manifest/dimensions.js';
 import {
@@ -17,6 +18,7 @@ import {
   writeDatabaseEnvExamples,
 } from './database.js';
 import { defaultOwnership, type Ownership } from '../manifest/ownership.js';
+import { isAvailable } from '../manifest/select.js';
 import { pruneIgnoreFile } from './ignore-file.js';
 import { pruneLintStaged } from './lint-staged.js';
 import { pruneRules } from './rules.js';
@@ -182,6 +184,12 @@ export async function prune(
   ]);
 
   const dangling = await findDanglingReferences(root, deletedFiles);
+  // Only something that was left out can take a rule's target with it.
+  const everythingKept =
+    removed.every((id) => !isAvailable(manifest.features[id])) &&
+    removedOptions.length === 0 &&
+    ownership.removedFiles.length === 0 &&
+    rules === RULES_POLICY.STRICT;
 
   return {
     selected: selectedFeatures,
@@ -195,5 +203,6 @@ export async function prune(
     formattedFiles,
     dangling,
     unmatchedDatabaseRules,
+    unexplainedDatabaseRules: everythingKept ? unmatchedDatabaseRules : [],
   };
 }
