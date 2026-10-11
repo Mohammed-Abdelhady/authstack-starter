@@ -87,7 +87,8 @@ export async function bootE2eApp(
     CLIENT_URL: E2E_CLIENT_URL,
     API_URL: 'http://127.0.0.1:5107',
     PORT: '5107',
-    BCRYPT_ROUNDS: '4',
+    // The cheapest cost is accepted in a test run only.
+    BCRYPT_ROUNDS: nodeEnv === 'test' ? '4' : '10',
     THROTTLE_TTL: String(options.throttleTtl ?? 60),
     THROTTLE_LIMIT: String(options.throttleLimit ?? 1000),
     AUTH_PASSWORD_ENABLED: 'true',

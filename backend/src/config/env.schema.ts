@@ -11,7 +11,12 @@ import {
   Matches,
   Max,
   Min,
+  Validate,
 } from 'class-validator';
+import {
+  BCRYPT_ROUNDS_DEFAULT,
+  BcryptRoundsConstraint,
+} from './bcrypt-rounds.constraint';
 import { OAuthEnvironmentConfig } from './env.oauth.schema';
 import { NativeEnvironmentVariables } from './env.native.schema';
 import {
@@ -161,11 +166,9 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   MAIL_DRAIN_DEADLINE_MS: number = MAIL_DRAIN_DEADLINE_MS;
 
   @Type(() => Number)
-  @IsInt()
-  @Min(4)
-  @Max(12)
+  @Validate(BcryptRoundsConstraint)
   @IsOptional()
-  BCRYPT_ROUNDS: number = 10;
+  BCRYPT_ROUNDS: number = BCRYPT_ROUNDS_DEFAULT;
 
   @IsString()
   @IsOptional()
