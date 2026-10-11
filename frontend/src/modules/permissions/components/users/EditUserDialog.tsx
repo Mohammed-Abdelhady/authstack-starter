@@ -17,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import { useUpdateUserMutation } from '@/store/api/userApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 import {
   fieldElementId,
   useLocalFieldTarget,
@@ -248,6 +249,7 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
+  const refusalToast = useRefusalToast();
 
   const handleSubmit = async (
     data: EditUserFormValues,
@@ -261,6 +263,7 @@ export function EditUserDialog({
       return true;
     }
 
+    refusalToast.clearStale();
     try {
       await updateUser({
         userId,
@@ -271,6 +274,7 @@ export function EditUserDialog({
       toast.success(t('success'));
       return true;
     } catch (error) {
+      refusalToast.noteRefusal();
       onRejected(error);
       reportUnlessHandled(error);
       return false;

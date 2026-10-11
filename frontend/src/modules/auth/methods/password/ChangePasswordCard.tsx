@@ -16,6 +16,7 @@ import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerField
 import type { ChangePasswordFormData } from '@app/core';
 import { createChangePasswordSchema } from './changePasswordSchema';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 /**
  * Password change, for the settings page.
@@ -30,6 +31,7 @@ export function ChangePasswordCard() {
   const tPassword = useTranslations('auth.passwordRules.errors');
   const { methods, isError: methodsFailed, retry, hasRetried } = useAuthMethods();
   const [changePassword, { isLoading }] = useChangePasswordMutation();
+  const refusalToast = useRefusalToast();
 
   const schema = useMemo(() => createChangePasswordSchema(t, tPassword), [t, tPassword]);
 
@@ -48,6 +50,7 @@ export function ChangePasswordCard() {
   );
 
   const submit = async (data: ChangePasswordFormData) => {
+    refusalToast.clearStale();
     try {
       await changePassword({
         currentPassword: data.currentPassword,
@@ -57,6 +60,7 @@ export function ChangePasswordCard() {
       toast.success(t('success'));
       form.reset();
     } catch (error) {
+      refusalToast.noteRefusal();
       applyServerFieldErrors(error);
       reportUnlessHandled(error);
     }

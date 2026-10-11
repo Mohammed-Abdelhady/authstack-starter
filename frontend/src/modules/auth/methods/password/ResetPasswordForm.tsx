@@ -26,6 +26,7 @@ import { filterDigits } from '@/modules/auth/utils/digitFilter';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 /**
  * Reset password form validation schema
@@ -74,6 +75,7 @@ export function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
+  const refusalToast = useRefusalToast();
   const [showRequestNew, setShowRequestNew] = useState(false);
 
   // Get email from URL params (passed from forgot password page)
@@ -117,6 +119,7 @@ export function ResetPasswordForm() {
 
   const submit = useCallback(
     async (data: ResetPasswordFormData) => {
+      refusalToast.clearStale();
       try {
         await resetPassword({
           email: data.email,
@@ -132,6 +135,7 @@ export function ResetPasswordForm() {
           router.push('/auth/login');
         }, 1500);
       } catch (err: unknown) {
+        refusalToast.noteRefusal();
         const parsed = parseApiError(err);
         const code = translatableErrorCode(err, '');
         // The server answers one code for a wrong, missing, expired or locked
@@ -156,7 +160,7 @@ export function ResetPasswordForm() {
         setValue('code', '');
       }
     },
-    [resetPassword, router, setError, setValue, t, tCodes, tToast],
+    [refusalToast, resetPassword, router, setError, setValue, t, tCodes, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 

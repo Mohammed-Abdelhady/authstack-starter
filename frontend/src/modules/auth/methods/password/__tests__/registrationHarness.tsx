@@ -18,7 +18,9 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ children, ...props }: { children?: React.ReactNode }) =>
     React.createElement('a', props, children),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 export const SIGNED_IN_USER = {
   id: 'user-1',

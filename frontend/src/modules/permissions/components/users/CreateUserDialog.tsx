@@ -27,6 +27,7 @@ import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
 import { TruncatedText } from '../shared/TruncatedText';
@@ -75,6 +76,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createUser, { isLoading }] = useCreateUserMutation();
+  const refusalToast = useRefusalToast();
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
   const roles = rolesData?.roles || [];
@@ -103,6 +105,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       return;
     }
 
+    refusalToast.clearStale();
     try {
       await createUser({
         email: email.trim(),
@@ -115,6 +118,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       handleClose();
       onSuccess?.();
     } catch (error) {
+      refusalToast.noteRefusal();
       // A dialog that was closed in the meantime has no fields left to mark.
       applyServerFieldErrors(error);
       reportUnlessHandled(error);

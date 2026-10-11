@@ -15,6 +15,7 @@ import { useGetCurrentUserQuery, useUpdateProfileMutation } from '@/modules/auth
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 const createUpdateProfileSchema = (t: (key: string) => string) =>
   z.object({
@@ -40,6 +41,7 @@ export function UpdateProfileCard() {
   const t = useTranslations('settings.profile');
   const { data: user } = useGetCurrentUserQuery();
   const [updateProfile, { isLoading }] = useUpdateProfileMutation();
+  const refusalToast = useRefusalToast();
 
   const updateProfileSchema = useMemo(() => createUpdateProfileSchema(t), [t]);
 
@@ -67,10 +69,12 @@ export function UpdateProfileCard() {
       return;
     }
 
+    refusalToast.clearStale();
     try {
       await updateProfile({ name: data.name }).unwrap();
       toast.success(t('success'));
     } catch (error) {
+      refusalToast.noteRefusal();
       applyServerFieldErrors(error);
       reportUnlessHandled(error);
     }
