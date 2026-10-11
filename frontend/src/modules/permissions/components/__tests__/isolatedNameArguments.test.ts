@@ -15,7 +15,6 @@ const POP = '⁩';
 const ISOLATED_ARGUMENTS = [
   ['users.actions.activateSuccess', `${FIRST_STRONG}{name}${POP}`],
   ['users.actions.deactivateSuccess', `${FIRST_STRONG}{name}${POP}`],
-  ['users.actions.deleteSuccess', `${FIRST_STRONG}{name}${POP}`],
   ['roles.form.editTitle', `${FIRST_STRONG}{name}${POP}`],
   ['roles.form.createSuccess', `${FIRST_STRONG}{name}${POP}`],
   ['roles.form.updateSuccess', `${FIRST_STRONG}{name}${POP}`],

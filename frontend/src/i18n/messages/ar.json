@@ -774,21 +774,16 @@
       "managePermissions": "إدارة الصلاحيات",
       "activateUser": "تفعيل المستخدم",
       "deactivateUser": "إلغاء تفعيل المستخدم",
-      "deleteUser": "حذف المستخدم",
       "activateTitle": "تفعيل المستخدم؟",
       "activateDescription": "هل أنت متأكد من رغبتك في تفعيل <strong>{name}</strong>؟ سيؤدي ذلك إلى استعادة وصوله إلى النظام.",
       "activateConfirm": "تفعيل",
       "deactivateTitle": "إلغاء تفعيل المستخدم؟",
       "deactivateDescription": "هل أنت متأكد من رغبتك في إلغاء تفعيل <strong>{name}</strong>؟ سيفقد الوصول إلى النظام ولكن يمكن استعادة حسابه لاحقاً.",
       "deactivateConfirm": "إلغاء التفعيل",
-      "deleteTitle": "حذف المستخدم؟",
-      "deleteDescription": "هل أنت متأكد من رغبتك في حذف <strong>{name}</strong>؟ سيُلغى تفعيل حسابه وتُنهى جميع جلساته. لن تُمحى أي بيانات. يبقى الحساب محفوظاً مع بياناته، ويظل المستخدم في هذه القائمة بحالة «غير نشط»، ويمكنك إعادة تفعيله لاحقاً.",
-      "deleteConfirm": "حذف",
       "cancel": "إلغاء",
       "roleUpdateSuccess": "تم تحديث الدور بنجاح",
       "activateSuccess": "تم تفعيل ⁨{name}⁩ بنجاح",
-      "deactivateSuccess": "تم إلغاء تفعيل ⁨{name}⁩ بنجاح",
-      "deleteSuccess": "تم إلغاء تفعيل ⁨{name}⁩ وسيظل في القائمة بحالة «غير نشط»"
+      "deactivateSuccess": "تم إلغاء تفعيل ⁨{name}⁩ بنجاح"
     },
     "card": {
       "role": "الدور:",

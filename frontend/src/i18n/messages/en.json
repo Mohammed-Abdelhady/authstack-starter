@@ -774,21 +774,16 @@
       "managePermissions": "Manage Permissions",
       "activateUser": "Activate User",
       "deactivateUser": "Deactivate User",
-      "deleteUser": "Delete User",
       "activateTitle": "Activate User?",
       "activateDescription": "Are you sure you want to activate <strong>{name}</strong>? This will restore their access to the system.",
       "activateConfirm": "Activate",
       "deactivateTitle": "Deactivate User?",
       "deactivateDescription": "Are you sure you want to deactivate <strong>{name}</strong>? They will lose access to the system but their account can be restored later.",
       "deactivateConfirm": "Deactivate",
-      "deleteTitle": "Delete User?",
-      "deleteDescription": "Are you sure you want to delete <strong>{name}</strong>? Their account is deactivated and they are signed out of every session. Nothing is erased. The account and its data are kept, the user stays in this list as inactive, and you can activate them again.",
-      "deleteConfirm": "Delete",
       "cancel": "Cancel",
       "roleUpdateSuccess": "Role updated successfully",
       "activateSuccess": "⁨{name}⁩ activated successfully",
-      "deactivateSuccess": "⁨{name}⁩ deactivated successfully",
-      "deleteSuccess": "⁨{name}⁩ was deactivated and stays in the list as inactive"
+      "deactivateSuccess": "⁨{name}⁩ deactivated successfully"
     },
     "card": {
       "role": "Role:",
