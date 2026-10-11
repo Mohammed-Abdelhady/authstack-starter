@@ -26,6 +26,8 @@ import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
+import { FormRootError } from '@/components/forms';
+import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
@@ -50,6 +52,9 @@ export function UserRoleSelector({
 }: UserRoleSelectorProps) {
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
+  const tCodes = useTranslations('errors.codes');
+  // Why the last attempt was refused, said in the confirmation, which stays open.
+  const [changeRefusal, setChangeRefusal] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
@@ -85,20 +90,25 @@ export function UserRoleSelector({
     }
 
     setIsUpdating(true);
+    setChangeRefusal(null);
     try {
       await onRoleChange(pendingRole);
       const roleName = roles.find((r) => r.slug === pendingRole)?.name || pendingRole;
       toast.success(t('changeSuccess', { role: roleName }));
       setPendingRole(null);
     } catch (error) {
+      setChangeRefusal(tCodes(translatableErrorCode(error)));
       reportUnlessHandled(error);
     } finally {
       setIsUpdating(false);
     }
   };
 
+  // The confirmation stays until the request has an answer.
   const handleCancelRoleChange = () => {
+    if (isUpdating) return;
     setPendingRole(null);
+    setChangeRefusal(null);
   };
 
   const currentRoleData = roles.find((r) => r.slug === currentRole);
@@ -189,12 +199,17 @@ export function UserRoleSelector({
               {t('changeWarning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <FormRootError error={changeRefusal} className="mb-0" testId="role-change-error" />
           <AlertDialogFooter>
             <AlertDialogCancel busy={isUpdating} data-testid="cancel-role-change-button">
               {tCommon('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmRoleChange}
+              onClick={(event) => {
+                // Closes when the change is accepted, not when it is asked for.
+                event.preventDefault();
+                void handleConfirmRoleChange();
+              }}
               busy={isUpdating}
               aria-busy={isUpdating}
               data-testid="confirm-role-change-button"

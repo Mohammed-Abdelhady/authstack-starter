@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, IDLE } from '@/tests/busyControls';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
@@ -112,9 +113,12 @@ describe.each([
     await waitFor(() => {
       expect(errorToasts()).toEqual([message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE')]);
     });
-    // The selector is enabled again once the refusal has been handled.
+    // The confirmation stays open and says why, and can be sent again.
+    expect(screen.getByTestId('role-change-error').textContent).toBe(
+      message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
+    );
     await waitFor(() => {
-      expect(screen.getByRole('combobox').hasAttribute('disabled')).toBe(false);
+      expect(availability(screen.getByTestId('confirm-role-change-button'))).toEqual(IDLE);
     });
     expect(successToasts()).toEqual([]);
   });

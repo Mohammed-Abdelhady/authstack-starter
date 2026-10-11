@@ -17,6 +17,7 @@ import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useUserActions } from '../../hooks/useUserActions';
 import { EditUserDialog } from './EditUserDialog';
 import { UserActionConfirmDialog, type UserConfirmAction } from './UserActionConfirmDialog';
+import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { PermissionGuard } from '../guards/PermissionGuard';
 
 export interface UserActionsMenuUser {
@@ -67,6 +68,9 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   className,
 }: UserActionsMenuProps) {
   const t = useTranslations('users.actions');
+  const tCodes = useTranslations('errors.codes');
+  // Why the last attempt was refused, said in the confirmation, which stays open.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,20 +89,24 @@ export const UserActionsMenu = memo(function UserActionsMenu({
 
   // Handle confirmation action
   const handleConfirm = useCallback(async () => {
-    let success = false;
-
-    if (confirmAction === 'activate') {
-      success = await handleStatusChange(user._id, true, user.name);
-    } else if (confirmAction === 'deactivate') {
-      success = await handleStatusChange(user._id, false, user.name);
-    }
+    if (confirmAction === null) return;
+    setRefusal(null);
+    const success = await handleStatusChange(
+      user._id,
+      confirmAction === 'activate',
+      user.name,
+      (error) => setRefusal(tCodes(translatableErrorCode(error))),
+    );
 
     if (success) {
       setConfirmAction(null);
     }
-  }, [confirmAction, handleStatusChange, user._id, user.name]);
+  }, [confirmAction, handleStatusChange, tCodes, user._id, user.name]);
 
-  const handleCancelConfirm = useCallback(() => setConfirmAction(null), []);
+  const handleCancelConfirm = useCallback(() => {
+    setConfirmAction(null);
+    setRefusal(null);
+  }, []);
   const handleResend = useCallback(() => {
     void handleResendEmailChange(user._id);
   }, [handleResendEmailChange, user._id]);
@@ -200,6 +208,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         action={confirmAction}
         userName={user.name}
         isLoading={isLoading}
+        refusal={refusal}
         onConfirm={handleConfirm}
         onCancel={handleCancelConfirm}
         onCloseAutoFocus={returnFocusToMenuButton}

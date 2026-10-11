@@ -49,9 +49,6 @@ const ENDINGS = {
   refused: () => refusalWith(403, ErrorCode.CANNOT_MODIFY_HIGHER_ROLE),
   unreachable,
 } as const;
-type Ending = keyof typeof ENDINGS;
-
-const focusedId = () => document.activeElement?.getAttribute('data-testid') ?? null;
 
 /** The card of an editor, with the role list loaded and every change held until settled. */
 async function renderCard(locale: AppLocale) {
@@ -59,7 +56,8 @@ async function renderCard(locale: AppLocale) {
   const requests = stubNetwork((request) =>
     request.method === 'GET'
       ? success({ roles: ROLES, total: ROLES.length, page: 1, pages: 1 })
-      : held.answer,
+      : // Each send reads its own copy, so the same answer can refuse a second one.
+        held.answer.then((response) => response.clone()),
   );
   const card = await renderAdminCard(locale, USER);
   const selector = await screen.findByTestId(SELECTOR);
@@ -97,71 +95,119 @@ beforeAll(stubListLayout);
 
 registerFormTestLifecycle();
 
+/** What each kind of change is confirmed in, and what opened it. */
+const CHANGES = {
+  'role change': {
+    opener: SELECTOR,
+    dialog: 'role-change-confirm-dialog',
+    confirm: 'confirm-role-change-button',
+    error: 'role-change-error',
+    request: 'PATCH /api/admin/users/user-7/role',
+  },
+  deactivation: {
+    opener: MENU_BUTTON,
+    dialog: 'user-action-confirm-dialog',
+    confirm: 'confirm-user-action-button',
+    error: 'user-action-error',
+    request: 'PATCH /api/admin/users/user-7/status',
+  },
+} as const;
+type Change = keyof typeof CHANGES;
+
+/** Confirms a change by keyboard and waits until its request is in flight. */
+async function confirmed(locale: AppLocale, change: Change) {
+  const card = await renderCard(locale);
+  if (change === 'role change') await confirmRoleChange(card.selector);
+  else await confirmDeactivation();
+  const confirm = screen.getByTestId(CHANGES[change].confirm);
+  await waitFor(() => expect(availability(confirm)).toEqual(HELD));
+  return { ...card, confirm, opener: screen.getByTestId(CHANGES[change].opener) };
+}
+
 describe.each([
   'en',
   'ar', // feature:locale-ar
-] as const)('focus on a user card while a confirmed change runs in %s', (locale) => {
-  it.each(['accepted', 'refused', 'unreachable'] as const)(
-    'stays on the role selector during a role change and after it is %s',
-    async (ending: Ending) => {
-      const { selector, settle, requests } = await renderCard(locale);
+] as const)('a confirmed change on a user card while its request runs in %s', (locale) => {
+  describe.each(['role change', 'deactivation'] as const)('%s', (change) => {
+    const { dialog, error, request } = CHANGES[change];
 
-      await confirmRoleChange(selector);
+    it('keeps the confirmation open, busy and in focus, and holds the card behind it', async () => {
+      const card = await confirmed(locale, change);
 
-      await waitFor(() => expect(screen.queryByTestId('role-change-confirm-dialog')).toBeNull());
-      await waitFor(() => expect(focusedId()).toBe(SELECTOR));
-      expect(availability(selector)).toEqual(HELD);
-      expect(selector.getAttribute('aria-busy')).toBe('true');
-      expect(availability(screen.getByTestId(MENU_BUTTON))).toEqual(HELD);
-      expect(requests.filter((request) => !request.startsWith('GET'))).toEqual([
-        'PATCH /api/admin/users/user-7/role',
-      ]);
-
-      settle(ENDINGS[ending]);
-
-      await waitFor(() => expect(availability(selector)).toEqual(IDLE));
       await settled();
-      expect(focusedId()).toBe(SELECTOR);
-      expect(selector.getAttribute('aria-busy')).toBe('false');
-    },
-  );
+      expect(screen.queryByTestId(dialog)).not.toBeNull();
+      expect(document.activeElement).toBe(card.confirm);
+      expect(card.confirm.getAttribute('aria-busy')).toBe('true');
+      expect(availability(card.opener)).toEqual(HELD);
+      expect(card.requests.filter((sent) => !sent.startsWith('GET'))).toEqual([request]);
 
-  it.each(['accepted', 'refused', 'unreachable'] as const)(
-    'stays on the actions button during a deactivation and after it is %s',
-    async (ending: Ending) => {
-      const { settle, requests } = await renderCard(locale);
-      const menuButton = screen.getByTestId(MENU_BUTTON);
+      fireEvent.keyDown(screen.getByTestId(dialog), { key: 'Escape' });
+      fireEvent.click(card.confirm);
 
-      await confirmDeactivation();
-
-      await waitFor(() => expect(screen.queryByTestId('user-action-confirm-dialog')).toBeNull());
-      await waitFor(() => expect(focusedId()).toBe(MENU_BUTTON));
-      expect(availability(menuButton)).toEqual(HELD);
-      expect(menuButton.getAttribute('aria-busy')).toBe('true');
-      expect(requests.filter((request) => !request.startsWith('GET'))).toEqual([
-        'PATCH /api/admin/users/user-7/status',
-      ]);
-
-      settle(ENDINGS[ending]);
-
-      await waitFor(() => expect(availability(menuButton)).toEqual(IDLE));
       await settled();
-      expect(focusedId()).toBe(MENU_BUTTON);
-    },
-  );
+      expect(screen.queryByTestId(dialog)).not.toBeNull();
+      expect(card.requests.filter((sent) => !sent.startsWith('GET'))).toEqual([request]);
+      card.settle(ENDINGS.accepted);
+      await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
+    });
+
+    it('closes once the change is accepted and returns focus to what opened it', async () => {
+      const card = await confirmed(locale, change);
+
+      card.settle(ENDINGS.accepted);
+
+      await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(card.opener));
+      await waitFor(() => expect(availability(card.opener)).toEqual(IDLE));
+      await settled();
+      expect(document.activeElement).toBe(card.opener);
+    });
+
+    it.each([
+      ['refused', 'errors.codes.CANNOT_MODIFY_HIGHER_ROLE'],
+      ['unreachable', 'errors.codes.INTERNAL_ERROR'],
+    ] as const)(
+      'stays open when the change is %s, says why inside, and returns focus when closed',
+      async (ending, reason) => {
+        const card = await confirmed(locale, change);
+
+        card.settle(ENDINGS[ending]);
+
+        await waitFor(() => expect(availability(card.confirm)).toEqual(IDLE));
+        await settled();
+        expect(screen.getByTestId(error).textContent).toBe(card.message(reason));
+        expect(document.activeElement).toBe(card.confirm);
+        expect(card.confirm.getAttribute('aria-busy')).toBe('false');
+
+        fireEvent.keyDown(screen.getByTestId(dialog), { key: 'Escape' });
+
+        await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
+        await waitFor(() => expect(document.activeElement).toBe(card.opener));
+      },
+    );
+
+    it('drops the reason of a refusal when the change is sent again', async () => {
+      const card = await confirmed(locale, change);
+      card.settle(ENDINGS.refused);
+      await waitFor(() => expect(screen.queryByTestId(error)).not.toBeNull());
+      await waitFor(() => expect(availability(card.confirm)).toEqual(IDLE));
+
+      fireEvent.click(card.confirm);
+
+      await waitFor(() => expect(screen.queryByTestId(error)).toBeNull());
+    });
+  });
 
   it('does not open the actions menu or the role list while a role change runs', async () => {
-    const { selector, settle } = await renderCard(locale);
-    await confirmRoleChange(selector);
-    await waitFor(() => expect(availability(selector)).toEqual(HELD));
+    const card = await confirmed(locale, 'role change');
 
     fireEvent.keyDown(screen.getByTestId(MENU_BUTTON), { key: 'Enter' });
-    fireEvent.keyDown(selector, { key: 'Enter' });
+    fireEvent.keyDown(card.selector, { key: 'Enter' });
 
     await settled();
     expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.queryByRole('listbox')).toBeNull();
-    settle(ENDINGS.accepted);
-    await waitFor(() => expect(availability(selector)).toEqual(IDLE));
+    card.settle(ENDINGS.accepted);
+    await waitFor(() => expect(availability(card.selector)).toEqual(IDLE));
   });
 });
