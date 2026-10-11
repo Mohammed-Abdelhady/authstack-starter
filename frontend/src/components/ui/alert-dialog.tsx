@@ -8,8 +8,30 @@ import { useOpenerFocus } from '@/hooks/useOpenerFocus';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { busyPressProps } from './busy';
+import { DialogBusyProvider, heldDismiss, useDialogBusy, useHeldOpenState } from './dialog-busy';
 
-const AlertDialog = AlertDialogPrimitive.Root;
+export interface AlertDialogProps extends React.ComponentPropsWithoutRef<
+  typeof AlertDialogPrimitive.Root
+> {
+  /** Its request is in flight: it cannot be closed until the request settles. */
+  busy?: boolean;
+}
+
+function AlertDialog({
+  busy,
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
+  ...props
+}: AlertDialogProps) {
+  const state = useHeldOpenState({ open, defaultOpen, onOpenChange, busy });
+  return (
+    <AlertDialogPrimitive.Root {...props} {...state}>
+      <DialogBusyProvider busy={busy}>{children}</DialogBusyProvider>
+    </AlertDialogPrimitive.Root>
+  );
+}
 
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 
@@ -33,7 +55,8 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, onCloseAutoFocus, ...props }, ref) => {
+>(({ className, onCloseAutoFocus, onEscapeKeyDown, ...props }, ref) => {
+  const busy = useDialogBusy();
   const { contentRef, returnToOpener } = useOpenerFocus(ref, onCloseAutoFocus);
   return (
     <AlertDialogPortal>
@@ -46,6 +69,7 @@ const AlertDialogContent = React.forwardRef<
         )}
         {...props}
         onCloseAutoFocus={returnToOpener}
+        onEscapeKeyDown={heldDismiss(busy, onEscapeKeyDown)}
       />
     </AlertDialogPortal>
   );
@@ -97,27 +121,33 @@ interface BusyProps {
 const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action> & BusyProps
->(({ className, busy, onClick, ...props }, ref) => (
-  <AlertDialogPrimitive.Action
-    ref={ref}
-    className={cn(buttonVariants(), className)}
-    {...props}
-    {...busyPressProps(busy, onClick)}
-  />
-));
+>(({ className, busy, onClick, ...props }, ref) => {
+  const dialogBusy = useDialogBusy();
+  return (
+    <AlertDialogPrimitive.Action
+      ref={ref}
+      className={cn(buttonVariants(), className)}
+      {...props}
+      {...busyPressProps(busy || dialogBusy, onClick)}
+    />
+  );
+});
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName;
 
 const AlertDialogCancel = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel> & BusyProps
->(({ className, busy, onClick, ...props }, ref) => (
-  <AlertDialogPrimitive.Cancel
-    ref={ref}
-    className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 sm:mt-0', className)}
-    {...props}
-    {...busyPressProps(busy, onClick)}
-  />
-));
+>(({ className, busy, onClick, ...props }, ref) => {
+  const dialogBusy = useDialogBusy();
+  return (
+    <AlertDialogPrimitive.Cancel
+      ref={ref}
+      className={cn(buttonVariants({ variant: 'outline' }), 'mt-2 sm:mt-0', className)}
+      {...props}
+      {...busyPressProps(busy || dialogBusy, onClick)}
+    />
+  );
+});
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName;
 
 export {
