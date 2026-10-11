@@ -54,7 +54,11 @@ async function scaffoldAndCheck(target: string, args: string[]): Promise<Command
 }
 
 /** Updates the pruned graph, then verifies it with lifecycle scripts enabled. */
-export async function installProject(project: string, store: string): Promise<CommandResult> {
+export async function installProject(
+  project: string,
+  store: string,
+  signal?: AbortSignal,
+): Promise<CommandResult> {
   const workspaceFile = join(project, 'pnpm-workspace.yaml');
   const workspace: unknown = parse(await readFile(workspaceFile, 'utf8'));
   if (!isRecord(workspace)) throw new Error('Invalid generated pnpm workspace configuration.');
@@ -63,6 +67,7 @@ export async function installProject(project: string, store: string): Promise<Co
   const options = {
     cwd: project,
     env: { MONGOMS_DOWNLOAD_DIR: join(dirname(store), 'mongo-binaries') },
+    signal,
   };
   const update = await runTool(
     'pnpm',
@@ -152,11 +157,18 @@ export function linkDependencies(project: string): void {
   }
 }
 
-export function typecheck(project: string, workspace: string): Promise<CommandResult> {
+export function typecheck(
+  project: string,
+  workspace: string,
+  signal?: AbortSignal,
+): Promise<CommandResult> {
   const binary = createRequire(join(project, workspace, 'package.json')).resolve(
     'typescript/bin/tsc',
   );
-  return runTool(process.execPath, [binary, '--noEmit', '-p', workspace], { cwd: project });
+  return runTool(process.execPath, [binary, '--noEmit', '-p', workspace], {
+    cwd: project,
+    signal,
+  });
 }
 
 /**

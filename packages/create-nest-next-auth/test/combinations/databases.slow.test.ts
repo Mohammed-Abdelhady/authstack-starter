@@ -28,9 +28,9 @@ import { verifyFeatureAvailability } from './feature-runtime.js';
  * unit suite. So a PostgreSQL case gets 12 minutes and each of its suites 6,
  * about twice the slowest measurement of each. A MongoDB case runs the whole
  * unit suite on one replica set per worker and then the API suite in band:
- * 515 to 528 seconds. Its budget is 30 minutes, the one case kind above the
- * default, because a cold machine also downloads the server binary, and each
- * suite gets 14.
+ * 500 to 924 seconds measured. Its budget is 30 minutes, the one case kind
+ * above the default, because a cold machine also downloads the server binary,
+ * and each suite gets 14.
  */
 const MINUTE_MS = 60 * 1000;
 /**
@@ -142,7 +142,7 @@ describe('generated projects by database', () => {
         const scaffolded = await scaffold(project, features, ['--database', testCase.database]);
         expect(scaffolded.ok, scaffolded.output).toBe(true);
 
-        await expectInstallsLintsBuilds(project, inject('pnpmStore'));
+        await expectInstallsLintsBuilds(project, inject('pnpmStore'), signal);
         // The lockfile the install wrote names nothing of the other database.
         const lockfile = readFileSync(join(project, 'pnpm-lock.yaml'), 'utf8');
         const foreign = Object.entries(manifest.databases)
@@ -156,7 +156,7 @@ describe('generated projects by database', () => {
 
         // The root configuration tests read the README, the compose files and
         // the setup scripts as this database left them.
-        await expectConfigTests(project);
+        await expectConfigTests(project, signal);
 
         // The commands a person reads in the project's own README.
         // The signal ends the suite and everything it started when the case
