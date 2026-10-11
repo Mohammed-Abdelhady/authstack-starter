@@ -1,7 +1,7 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ShieldCheck } from 'lucide-react';
@@ -54,14 +54,20 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
     setUseRecoveryCode((current) => !current);
   }, [resetField]);
 
+  const inFlight = useRef(false);
+
   const onSubmit = useCallback(
     async (data: AnswerFormData) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         const response = await verify(toAnswer(data)).unwrap();
         await completeSignIn(response, redirect);
       } catch (err) {
         handleFeatureDisabled(err);
         setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
+      } finally {
+        inFlight.current = false;
       }
     },
     [completeSignIn, handleFeatureDisabled, redirect, setError, tCodes, verify],

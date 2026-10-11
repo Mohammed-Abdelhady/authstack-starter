@@ -9,7 +9,7 @@ import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { useForgotPasswordMutation } from '@/modules/auth/store/authApi';
 import { NETWORK_ERROR_CODE, zodEmail, parseApiError } from '@app/core';
 import { Mail } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
@@ -63,8 +63,12 @@ export function ForgotPasswordForm() {
   } = form;
 
   // Memoize submit handler to prevent recreating on every render
+  const inFlight = useRef(false);
+
   const onSubmit = useCallback(
     async (data: ForgotPasswordFormData) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         await forgotPassword({
           email: data.email,
@@ -89,6 +93,8 @@ export function ForgotPasswordForm() {
           type: 'manual',
           message: errorMessage,
         });
+      } finally {
+        inFlight.current = false;
       }
     },
     [forgotPassword, router, setError, t, tToast],

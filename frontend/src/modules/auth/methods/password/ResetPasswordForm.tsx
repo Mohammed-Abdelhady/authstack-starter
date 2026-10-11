@@ -16,7 +16,7 @@ import {
 import { useResetPasswordMutation } from '@/modules/auth/store/authApi';
 import { ErrorCode, NETWORK_ERROR_CODE, parseApiError } from '@app/core';
 import { KeyRound } from 'lucide-react';
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
@@ -113,8 +113,12 @@ export function ResetPasswordForm() {
   }, [emailFromUrl, router, setValue]);
 
   // Memoize submit handler to prevent recreating on every render
+  const inFlight = useRef(false);
+
   const onSubmit = useCallback(
     async (data: ResetPasswordFormData) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         await resetPassword({
           email: data.email,
@@ -152,6 +156,8 @@ export function ResetPasswordForm() {
         });
 
         setValue('code', '');
+      } finally {
+        inFlight.current = false;
       }
     },
     [resetPassword, router, setError, setValue, t, tCodes, tToast],

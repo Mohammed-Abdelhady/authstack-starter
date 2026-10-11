@@ -1,7 +1,7 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { FormProvider } from 'react-hook-form';
@@ -60,8 +60,12 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     getValues,
   } = form;
 
+  const inFlight = useRef(false);
+
   const send = useCallback(
     async (email: string) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
       // Only the native authorize continuation is worth carrying through the
       // link, and only its validated value is sent, never the raw query string.
       const validated = getRedirectPath(redirect, '');
@@ -80,6 +84,8 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           type: 'manual',
           message: code ? tCodes(code) : parseApiError(err).message || t('error'),
         });
+      } finally {
+        inFlight.current = false;
       }
     },
     [handleFeatureDisabled, redirect, requestMagicLink, setError, startCooldown, t, tCodes],

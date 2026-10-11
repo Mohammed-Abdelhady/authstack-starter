@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useCompleteSignIn } from '@/modules/auth/hooks/useCompleteSignIn';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
@@ -45,7 +45,12 @@ export function usePasskeySignIn(
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const inFlight = useRef(false);
+
   const run = useCallback(async () => {
+    // `isBusy` disables the button only after a render.
+    if (inFlight.current) return;
+    inFlight.current = true;
     setError(null);
     setIsBusy(true);
 
@@ -66,6 +71,7 @@ export function usePasskeySignIn(
       }
       setError(tCodes(translatableErrorCode(err)));
     } finally {
+      inFlight.current = false;
       setIsBusy(false);
     }
   }, [completeSignIn, createLoginOptions, handleFeatureDisabled, redirect, t, tCodes, verify]);

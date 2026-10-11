@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { FormProvider } from 'react-hook-form';
@@ -56,8 +56,14 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
     setError,
   } = form;
 
+  const inFlight = useRef(false);
+
   const onSubmit = useCallback(
     async (data: PasswordSignInData) => {
+      // The button is only disabled after a render, which a second submission
+      // in the same tick does not wait for.
+      if (inFlight.current) return;
+      inFlight.current = true;
       try {
         const response = await login({ email: data.email, password: data.password }).unwrap();
         await completeSignIn(response, redirect);
@@ -67,6 +73,8 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           type: 'manual',
           message: code ? tCodes(code) : translateAuthError(err, t),
         });
+      } finally {
+        inFlight.current = false;
       }
     },
     [completeSignIn, login, redirect, setError, t, tCodes],
