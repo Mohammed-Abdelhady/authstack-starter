@@ -2,6 +2,7 @@ import { TEST_NOW } from '../../frozen-clock';
 import { roleAtomicityCases } from './role-contract-atomicity';
 import { roleEditCases } from './role-contract-edits';
 import { RoleContractHarness } from './role-contract-harness';
+import { roleLargeMoveCases } from './role-contract-large-moves';
 import { roleRaceCases } from './role-contract-races';
 import { roleReadCases } from './role-contract-reads';
 import { roleRepairCases } from './role-contract-repairs';
@@ -60,5 +61,6 @@ export function describeRoleStoresContract(
     roleRaceCases(current, seeded);
     roleRepairCases(current, seeded);
     roleSweepStoreCases(current, seeded);
+    roleLargeMoveCases(current, seeded);
   });
 }
