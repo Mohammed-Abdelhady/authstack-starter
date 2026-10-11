@@ -45,7 +45,7 @@ Both workflows use read-only contents permission, no referenced secrets, full co
 
 <!-- repository-only:start -->
 
-A retargeted pull request also gets its installer run on its next push. The installer job has a 30-minute limit, with headroom over combinations measured at about eight minutes.
+A retargeted pull request also gets its installer runs on its next push. The installer suite runs as three jobs: `Installer combinations` with a 55-minute limit, `Installer PostgreSQL projects` with 50 and `Installer MongoDB projects` with 80. No runner has timed them, because GitHub Actions is off for this repository. Alone on a 12-core Mac the three took at most 17, 15 and 26 minutes, and each limit is that time doubled for a 4-vCPU runner, which is an assumption, with half as much again as headroom. The measurements are written beside each limit in the workflow.
 <!-- repository-only:end -->
 
 Package-manager commands and MongoDB environment/cache settings live in `scripts/ci/gates.json`. Installation sets `MONGOMS_DISABLE_POSTINSTALL=1`, deferring the binary download until a test actually needs it. The quality job caches `.mongodb-binaries`; the cache key includes the locked `mongodb-memory-server` package version from `pnpm-lock.yaml`, the configured mongod binary version, runner OS and architecture. `MONGOMS_VERSION` in that data file pins the binary used by the tests. Gate subprocesses receive the absolute download directory.
