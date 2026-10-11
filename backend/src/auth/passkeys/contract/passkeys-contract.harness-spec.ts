@@ -1,22 +1,30 @@
 import { createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { rerunAtOnce } from '../../../../test/utils/session/issuance-contract/issuance-contract-support';
 import { AppException } from '../../../common/exceptions/app.exception';
+import { HashService } from '../../../common/services/hash.service';
 import { RerunPause } from '../../../common/persistence/unit-of-work';
 import {
   createRequestMock,
   createResponseMock,
+  partialMock, // feature:totp
 } from '../../../common/testing/test-doubles.harness-spec';
 import { SignInMethodRule } from '../../../user/services/sign-in-method.rule';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
+import { TwoFactorVerificationService } from '../../two-factor/services/two-factor-verification.service'; // feature:totp
+import { SecondFactorStore } from '../../two-factor/stores/second-factor.store'; // feature:totp
 import { PasskeyCredentialDto } from '../dto/passkey-credential.dto';
 import { PasskeyAssertionService } from '../services/passkey-assertion.service';
 import { PasskeyChallengeService } from '../services/passkey-challenge.service';
 import { PasskeyConfigService } from '../services/passkey-config.service';
 import { PasskeyLoginService } from '../services/passkey-login.service';
 import { PasskeyManagementService } from '../services/passkey-management.service';
-import { PasskeyRegistrationService } from '../services/passkey-registration.service';
+import { PasskeyRegistrationReauth } from '../services/passkey-registration-reauth.service';
+import {
+  PasskeyRegistrationService,
+  SignedInRequest,
+} from '../services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.verifier';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
@@ -116,6 +124,7 @@ export function passkeyServices(
       origin: 'http://localhost:3000',
     },
     auth: { passwordEnabled: features.password ?? true },
+    bcrypt: { rounds: BCRYPT_ROUNDS },
     magicLink: { enabled: features.magicLink ?? false },
     NODE_ENV: 'test',
   });
@@ -146,6 +155,19 @@ export function passkeyServices(
       authenticator,
       passkeyConfig,
       challenge,
+      new PasskeyRegistrationReauth(
+        new HashService(config),
+        featureSwitches,
+        accounts,
+        // The accounts of these cases have no second factor. The cases of an
+        // account that has one run in the second factor contract.
+        // feature:totp:start
+        partialMock<SecondFactorStore>({
+          findAccount: () => Promise.resolve(null),
+        }),
+        partialMock<TwoFactorVerificationService>({}),
+        // feature:totp:end
+      ),
     ),
     assertion,
     login: new PasskeyLoginService(accounts, assertion, signIn),
@@ -188,18 +210,31 @@ export function attestationOf(
   };
 }
 
+/** The session a browser is signed in on, as far as a passkey route reads it. */
+export interface BrowserSession {
+  id: string;
+  createdAt: Date;
+}
+
+/** A session that started at the frozen time, so it counts as a recent sign-in. */
+export const SESSION: BrowserSession = { id: 'session-one', createdAt: NOW };
+
 /** One browser: the cookies it holds, and the request and response using them. */
 export interface Browser {
-  request: Request;
+  request: SignedInRequest;
   response: Response;
   cookies: Record<string, string>;
 }
 
-export function browser(cookies: Record<string, string> = {}): Browser {
+/** A browser on `session`, or signed out when it is given null. */
+export function browser(
+  cookies: Record<string, string> = {},
+  session: BrowserSession | null = SESSION,
+): Browser {
   const jar = { ...cookies };
   return {
     cookies: jar,
-    request: createRequestMock({ cookies: jar }),
+    request: createRequestMock({ cookies: jar, session: session ?? undefined }),
     response: createResponseMock({
       cookie: (name: string, value: string): void => {
         jar[name] = value;
@@ -260,12 +295,20 @@ export async function signInBrowser(
   return holder;
 }
 
-/** Asks for registration options the way a signed-in browser does. */
+/**
+ * Asks for registration options the way a signed-in browser does: with the
+ * password, on a session that started at the frozen time.
+ */
 export async function registrationBrowser(
   services: PasskeyServices,
   userId: string,
 ): Promise<Browser> {
   const holder = browser();
-  await services.registration.createOptions(userId, holder.response);
+  await services.registration.createOptions(
+    userId,
+    { password: PASSWORD },
+    holder.request,
+    holder.response,
+  );
   return holder;
 }

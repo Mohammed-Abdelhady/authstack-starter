@@ -2,7 +2,6 @@ import { ConfigService } from '@nestjs/config';
 import { Document, MongoClient, ObjectId } from 'mongodb';
 import {
   request as expressRequest,
-  Request,
   response as expressResponse,
   Response,
 } from 'express';
@@ -34,7 +33,12 @@ import { MongoSignInMethodStore } from '../../../../user/persistence/mongo/mongo
 import { SignInMethodRule } from '../../../../user/services/sign-in-method.rule';
 import { PasskeyConfigService } from '../../services/passkey-config.service';
 import { PasskeyManagementService } from '../../services/passkey-management.service';
-import { PasskeyRegistrationService } from '../../services/passkey-registration.service';
+import { PasskeyRegistrationReauth } from '../../services/passkey-registration-reauth.service';
+import {
+  PasskeyRegistrationService,
+  SignedInRequest,
+} from '../../services/passkey-registration.service';
+import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
 import {
   AttestationVerification,
   WebAuthnAdapter,
@@ -136,6 +140,8 @@ describe('passkey ObjectId round trip', () => {
           adapter,
           new PasskeyConfigService(config),
           challengeService,
+          // The proof asked before a passkey is added has its own cases.
+          partialMock<PasskeyRegistrationReauth>({}),
         );
         const management = new PasskeyManagementService(
           new MongoPasskeyStore(passkeys),
@@ -159,6 +165,7 @@ describe('passkey ObjectId round trip', () => {
           'register',
           'round-trip-challenge',
           registeredUserId,
+          ROUND_TRIP_SESSION.id,
         );
         const request = createRequest({
           [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],
@@ -270,11 +277,17 @@ function createResponse(): {
   return { response, cookies };
 }
 
-function createRequest(cookies: Record<string, string>): Request {
+/** The session the round-trip challenge is issued to and answered on. */
+const ROUND_TRIP_SESSION = { id: 'round-trip-session', createdAt: new Date(0) };
+
+function createRequest(cookies: Record<string, string>): SignedInRequest {
   return new Proxy(expressRequest, {
     get(target, property, receiver): unknown {
       if (property === 'cookies') {
         return cookies;
+      }
+      if (property === 'session') {
+        return ROUND_TRIP_SESSION;
       }
       return Reflect.get(target, property, receiver);
     },

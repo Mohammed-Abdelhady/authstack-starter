@@ -13,6 +13,7 @@ import {
   PasskeysFixture,
   PasskeysHarnessSource,
   passkeyServices,
+  PASSWORD,
   refusalOf,
   registrationBrowser,
   sha256,
@@ -53,6 +54,8 @@ export function registrationCases(
 
       const options = await services.registration.createOptions(
         ownerId,
+        { password: PASSWORD },
+        holder.request,
         holder.response,
       );
 
@@ -89,7 +92,12 @@ export function registrationCases(
       for (const userId of [harness().absentId(), ownerId]) {
         expect(
           await refusalOf(
-            services.registration.createOptions(userId, browser().response),
+            services.registration.createOptions(
+              userId,
+              { password: PASSWORD },
+              browser().request,
+              browser().response,
+            ),
           ),
         ).toEqual(NOT_FOUND);
       }
