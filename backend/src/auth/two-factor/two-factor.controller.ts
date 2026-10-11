@@ -140,7 +140,11 @@ export class TwoFactorController {
       'recovery code or a passkey, then sets the session cookie and returns ' +
       'the account. A passkey answer is fetched from ' +
       'POST /auth/passkeys/login/options first and sent as passkeyResponse; it ' +
-      'has to belong to the challenged account. Five wrong answers end the ' +
+      'has to belong to the challenged account. A passkey that did not ' +
+      'verify its user is refused with PASSKEY_VERIFICATION_FAILED when the ' +
+      'first step was also a passkey that did not verify its user, because ' +
+      'holding one key would then answer both steps. A passkey that verified ' +
+      'its user is accepted after any first step. Five wrong answers end the ' +
       'challenge.',
   })
   @ApiBody({ type: VerifyTwoFactorDto })
