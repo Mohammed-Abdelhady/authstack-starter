@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
+import type { AppLocale } from '@/i18n/load-messages';
 import { directionOf, registerRtlDocument } from '@/tests/direction';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
 import { PermissionSearchDialog } from '../PermissionSearchDialog';
@@ -9,12 +10,14 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 
 /** A leading colon is what a right-to-left box moves to the far end. */
 const KEY_QUERY = ':read';
+// feature:locale-ar:start
 /** The Arabic label of the "read" action. */
 const ARABIC_QUERY = 'قراءة';
+// feature:locale-ar:end
 const READ_KEY = 'users:read:all';
 const CREATE_KEY = 'users:create:all';
 
-async function openSearch(locale: 'en' | 'ar') {
+async function openSearch(locale: AppLocale) {
   const form = await renderForm(
     locale,
     <PermissionSearchDialog
@@ -62,6 +65,7 @@ describe.each([
     expect(shown()).toEqual({ read: true, create: false });
   });
 
+  // feature:locale-ar:start
   it('finds permissions by an Arabic word only where the labels are Arabic', async () => {
     const { box, shown } = await openSearch(locale);
 
@@ -70,4 +74,5 @@ describe.each([
     expect(box.getAttribute('dir')).toBeNull();
     expect(shown()).toEqual({ read: locale === 'ar', create: false });
   });
+  // feature:locale-ar:end
 });

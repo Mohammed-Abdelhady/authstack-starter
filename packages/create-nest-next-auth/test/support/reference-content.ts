@@ -1,5 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { extname, join, relative } from 'node:path';
+import { LOCALE_AR_OPTION_ID, MARKER_EXTENSIONS } from '../../src/constants/index.js';
+import { stripFeatureMarkers } from '../../src/prune/markers.js';
+import { matchesAnyGlob } from '../../src/utils/glob.js';
 
 export interface ContentException {
   path: string;
@@ -78,6 +81,28 @@ export const ARABIC_FORBIDDEN = [
   /switchToArabic/,
   /[\u0600-\u06FF]/,
 ];
+
+const MARKER_ID_LIST = /(?:\/\/|\{\/\*)\s*feature:([a-z0-9,-]+)/g;
+
+/**
+ * The code files a project generated without Arabic would keep that still hold
+ * Arabic content once the lines marked for it are removed. `files` maps a
+ * repository path to its text; `removedFiles` are the globs such a project loses.
+ */
+export function arabicLeftBehind(files: Map<string, string>, removedFiles: string[]): string[] {
+  const left: string[] = [];
+  for (const [file, content] of files) {
+    if (!(MARKER_EXTENSIONS as readonly string[]).includes(extname(file))) continue;
+    if (matchesAnyGlob(file, removedFiles)) continue;
+    const known = new Set(
+      [...content.matchAll(MARKER_ID_LIST)].flatMap((marker) => marker[1].split(',')),
+    );
+    const kept = new Set([...known].filter((id) => id !== LOCALE_AR_OPTION_ID));
+    const remaining = stripFeatureMarkers(content, file, kept, known).content;
+    if (ARABIC_FORBIDDEN.some((pattern) => pattern.test(remaining))) left.push(file);
+  }
+  return left.sort();
+}
 
 const LEGACY_NPM = 'n' + 'pm';
 const LEGACY_NPX = LEGACY_NPM + 'x';

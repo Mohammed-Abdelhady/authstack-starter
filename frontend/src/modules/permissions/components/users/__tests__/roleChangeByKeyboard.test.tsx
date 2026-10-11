@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import type { AppLocale } from '@/i18n/load-messages';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -38,7 +39,7 @@ const MENU_USER = {
 };
 
 /** Opens the role list by keyboard and puts focus on the "Editor" option. */
-async function focusEditorOption(locale: 'en' | 'ar') {
+async function focusEditorOption(locale: AppLocale) {
   const requests = stubNetwork(() => success(ROLES));
   const onRoleChange = vi.fn(async () => undefined);
   const form = await renderForm(

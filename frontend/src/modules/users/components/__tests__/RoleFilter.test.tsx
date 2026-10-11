@@ -17,7 +17,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 const SLUG = '24-7-support';
 const NAMES = [
   ['a Latin name starting with digits', '24-7 Support'],
-  ['an Arabic name', 'دعم العملاء'],
+  ['an Arabic name', 'دعم العملاء'], // feature:locale-ar
 ] as const;
 
 function roles(name: string) {
