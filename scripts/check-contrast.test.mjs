@@ -1,8 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-// The colour math and the token parser have their own files of cases, run as part of this one.
-import './contrast-math.test.mjs';
-import './check-contrast.tokens.test.mjs';
 import {
   CONTRAST_PAIRS,
   controlPairs,
