@@ -37,3 +37,21 @@ it.each(LOCALES)('makes the setup key a keyboard tab stop in $locale', ({ locale
   expect(document.activeElement).toBe(key);
   expect(key.tabIndex).toBe(0);
 });
+
+it.each(LOCALES)(
+  'keeps the setup key left to right in an rtl page in $locale',
+  ({ locale, messages }) => {
+    render(
+      <div dir="rtl">
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <ScanStep setup={SETUP} onContinue={() => undefined} />
+        </NextIntlClientProvider>
+      </div>,
+    );
+    const key = screen.getByRole('group', {
+      name: messages.settings.twoFactor.setup.scan.secretLabel,
+    });
+    expect(key.getAttribute('dir')).toBe('ltr');
+    expect(key.parentElement?.getAttribute('dir')).toBeNull();
+  },
+);

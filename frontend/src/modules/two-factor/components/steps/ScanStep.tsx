@@ -39,6 +39,7 @@ export function ScanStep({ setup, onContinue }: ScanStepProps) {
         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('secretLabel')}</p>
         <div className="flex items-center gap-2">
           <code
+            dir="ltr"
             role="group"
             aria-label={t('secretLabel')}
             tabIndex={0}
