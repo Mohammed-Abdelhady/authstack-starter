@@ -15,6 +15,7 @@ import {
   NATIVE_REDIRECT,
   nativeAuthorizeQuery,
 } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
+import { SEED_USER } from '../../constants/seed-users';
 import type { E2eApp } from '../e2e-app';
 import type { AuthorizationReadGate } from '../e2e-state-native';
 
@@ -24,6 +25,15 @@ export interface StartedNativeAuthorization {
   transactionId: string;
   verifier: string;
   location: string;
+}
+
+/** The seed user's id, which a consent action names as the account it was shown to. */
+export async function seedUserId(e2e: E2eApp): Promise<string> {
+  const id = await e2e.state.accounts.accountIdFor(SEED_USER.email);
+  if (id === null) {
+    throw new Error('the seed user is missing');
+  }
+  return id;
 }
 
 export async function createNativeApplication(e2e: E2eApp): Promise<void> {

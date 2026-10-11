@@ -17,6 +17,7 @@ import {
 } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
+import { seedUserId } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -67,7 +68,7 @@ describe('native return addresses (e2e)', () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId })
+      .send({ transactionId, expectedUserId: await seedUserId(e2e) })
       .expect(200);
     const code = new URL(
       String(

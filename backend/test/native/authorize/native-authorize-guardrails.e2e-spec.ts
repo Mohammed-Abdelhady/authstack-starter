@@ -6,6 +6,7 @@ import {
   beginNativeAuthorization,
   createNativeApplication,
   NATIVE_CLIENT_ID,
+  seedUserId,
 } from '../../utils/native/native-authorize.fixtures';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import {
@@ -161,7 +162,10 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
 
       const response = await browser
         .post(`/api/oauth/authorize/${action}`)
-        .send({ transactionId: started.transactionId });
+        .send({
+          transactionId: started.transactionId,
+          expectedUserId: await seedUserId(e2e),
+        });
 
       expect(response.status).toBe(404);
       expect((response.body as ApiErrorBody).error.code).toBe(
@@ -189,9 +193,10 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
     const started = await beginNativeAuthorization(e2e);
     await e2e.state.applications.changeApplication(NATIVE_CLIENT_ID, patch);
 
-    const response = await browser
-      .post('/api/oauth/authorize/deny')
-      .send({ transactionId: started.transactionId });
+    const response = await browser.post('/api/oauth/authorize/deny').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
 
     expect(response.status).toBe(404);
     expect((response.body as ApiErrorBody).error.code).toBe(
