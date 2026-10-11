@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthMethods } from '../hooks/useAuthMethods';
+import { AuthMethodsLoadError } from './AuthMethodsLoadError';
 import type { AuthMethods } from '@app/sdk';
 
 interface AuthMethodsGateProps {
@@ -20,15 +20,7 @@ interface AuthMethodsGateProps {
  */
 export function AuthMethodsGate({ children }: AuthMethodsGateProps) {
   const t = useTranslations('auth.methods');
-  const tCommon = useTranslations('common');
-  const { methods, isLoading, isError, retry } = useAuthMethods();
-  // The button leaves the page while the retry runs, so a second failure
-  // hands the focus back to it.
-  const [hasRetried, setHasRetried] = useState(false);
-  const onRetry = useCallback(() => {
-    setHasRetried(true);
-    retry();
-  }, [retry]);
+  const { methods, isLoading, isError, retry, hasRetried } = useAuthMethods();
 
   if (isLoading || methods === undefined) {
     return (
@@ -42,17 +34,11 @@ export function AuthMethodsGate({ children }: AuthMethodsGateProps) {
 
   if (isError) {
     return (
-      <div
-        className="mx-auto mt-8 flex max-w-xs flex-col items-center gap-4 text-center"
-        data-testid="auth-methods-error"
-      >
-        <p className="text-sm text-muted-foreground" role="alert">
-          {t('loadFailed')}
-        </p>
-        <Button type="button" onClick={onRetry} autoFocus={hasRetried}>
-          {tCommon('retry')}
-        </Button>
-      </div>
+      <AuthMethodsLoadError
+        onRetry={retry}
+        takeFocus={hasRetried}
+        className="mx-auto mt-8 max-w-xs"
+      />
     );
   }
 

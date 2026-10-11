@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useState } from 'react';
 import { useGetAuthMethodsQuery } from '../api/authMethodsApi';
 import type { AuthMethods } from '@app/sdk';
 
@@ -13,6 +14,8 @@ export interface AuthMethodsState {
   hasNoMethods: boolean;
   /** Asks again after a failed read. */
   retry: () => void;
+  /** True once this screen has asked again, so its retry control can take the focus back. */
+  hasRetried: boolean;
 }
 
 const NOTHING_ENABLED: AuthMethods = {
@@ -36,12 +39,20 @@ function countsAsEnabled(methods: AuthMethods): boolean {
 export function useAuthMethods(): AuthMethodsState {
   const { data, isLoading, isError, refetch } = useGetAuthMethodsQuery();
   const methods = isError ? NOTHING_ENABLED : data;
+  // The retry control leaves the page while the read runs again. Kept here,
+  // the fact outlives that, and belongs to the one screen that asked.
+  const [hasRetried, setHasRetried] = useState(false);
+  const retry = useCallback(() => {
+    setHasRetried(true);
+    void refetch();
+  }, [refetch]);
 
   return {
     methods,
     isLoading,
     isError,
     hasNoMethods: !isLoading && !isError && methods !== undefined && !countsAsEnabled(methods),
-    retry: refetch,
+    retry,
+    hasRetried,
   };
 }
