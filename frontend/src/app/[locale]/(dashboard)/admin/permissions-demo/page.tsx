@@ -217,7 +217,7 @@ export default function PermissionsDemoPage() {
               <Heading level={3} variant="subsectionTitle" className="mb-2">
                 {t('componentCodeTitle')}
               </Heading>
-              <CodeBlock>
+              <CodeBlock label={t('componentCodeTitle')}>
                 {`import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 
@@ -231,7 +231,7 @@ import { USER_PERMISSIONS } from '@app/core';
               <Heading level={3} variant="subsectionTitle" className="mb-2">
                 {t('routeCodeTitle')}
               </Heading>
-              <CodeBlock>
+              <CodeBlock label={t('routeCodeTitle')}>
                 {`import { RoutePermissionGuard } from '@/modules/permissions';
 import { ROLE_PERMISSIONS } from '@app/core';
 
@@ -249,7 +249,7 @@ export default function RolesPage() {
               <Heading level={3} variant="subsectionTitle" className="mb-2">
                 {t('allCodeTitle')}
               </Heading>
-              <CodeBlock>
+              <CodeBlock label={t('allCodeTitle')}>
                 {`<PermissionGuard
   permissions={[USER_PERMISSIONS.LIST_ALL, ROLE_PERMISSIONS.LIST_ALL]}
 >
@@ -262,7 +262,7 @@ export default function RolesPage() {
               <Heading level={3} variant="subsectionTitle" className="mb-2">
                 {t('anyCodeTitle')}
               </Heading>
-              <CodeBlock>
+              <CodeBlock label={t('anyCodeTitle')}>
                 {`<PermissionGuard
   anyPermissions={[SESSION_PERMISSIONS.READ_ALL, SESSION_PERMISSIONS.READ_OWN]}
 >
