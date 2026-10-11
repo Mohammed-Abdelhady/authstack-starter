@@ -7,6 +7,7 @@ import {
 } from '../mail/constants/mail.constants';
 import type { NativeApplicationConfiguration } from './types/native-application.type';
 import { parseNativeApplications } from './utils/native-application-config.util';
+import { defaultSessionCookieName } from './utils/production-environment.util';
 
 export { EnvironmentConfig, EnvironmentVariables } from './env.schema';
 
@@ -155,7 +156,7 @@ const configuration = (): Configuration => {
     session: {
       cookieName:
         process.env.SESSION_COOKIE_NAME ||
-        (process.env.NODE_ENV === 'production' ? '__Host-sid' : 'sid'),
+        defaultSessionCookieName(process.env.NODE_ENV, clientUrl),
       cookieMaxAge: Number.parseInt(
         process.env.SESSION_COOKIE_MAX_AGE || '604800000',
         10,
