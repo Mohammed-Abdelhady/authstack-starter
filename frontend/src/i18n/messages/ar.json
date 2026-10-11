@@ -941,7 +941,7 @@
       "inheritedAndDirect": "{inherited} موروثة + {direct} مباشرة",
       "wildcardTitle": "صلاحية شاملة (*):",
       "wildcardDescription": "هذا المستخدم لديه جميع الصلاحيات.",
-      "inheritedFromRole": "موروثة من الدور ({role})",
+      "inheritedFromRole": "موروثة من الدور (⁦{role}⁩)",
       "noInheritedPermissions": "لا توجد صلاحيات موروثة من الدور",
       "directPermissions": "الصلاحيات المباشرة ({count})",
       "addPermissions": "إضافة صلاحيات",

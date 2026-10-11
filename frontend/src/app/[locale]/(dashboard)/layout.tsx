@@ -45,7 +45,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {user && (
                 <div className="hidden items-center gap-2 rounded-lg bg-muted px-3 py-2 sm:flex">
                   <span className="text-sm font-medium text-foreground">{user.name}</span>
-                  <span className="text-xs text-muted-foreground">({user.role})</span>
+                  <span className="text-xs text-muted-foreground">
+                    (
+                    <span dir="ltr" data-testid="dashboard-user-role">
+                      {user.role}
+                    </span>
+                    )
+                  </span>
                 </div>
               )}
               <LanguageSwitcher /> {/* feature:locale-ar */}

@@ -129,13 +129,19 @@ export const UserCard = memo(
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
                 <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                  {t('role')}{' '}
+                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
+                    {user.role}
+                  </span>
                 </div>
               }
             >
               {isProtectedRole || user.isDeleted ? (
                 <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                  {t('role')}{' '}
+                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
+                    {user.role}
+                  </span>
                 </div>
               ) : (
                 <UserRoleSelector

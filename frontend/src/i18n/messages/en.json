@@ -941,7 +941,7 @@
       "inheritedAndDirect": "{inherited} inherited + {direct} direct",
       "wildcardTitle": "Wildcard Permission (*):",
       "wildcardDescription": "This user has all permissions.",
-      "inheritedFromRole": "Inherited from Role ({role})",
+      "inheritedFromRole": "Inherited from Role (⁦{role}⁩)",
       "noInheritedPermissions": "No permissions inherited from role",
       "directPermissions": "Direct Permissions ({count})",
       "addPermissions": "Add Permissions",
