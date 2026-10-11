@@ -77,7 +77,6 @@ describe('device-bound revocation', () => {
   it.each([
     ['a lost answer', new TransportError(TRANSPORT_FAILURE.NO_RESPONSE), TransportError],
     ['an unavailable authority', failedApiReply(503, 'AUTHORITY_UNAVAILABLE'), ApiError],
-    ['a second challenge', dpopChallenge('server-nonce-1'), OAuthError],
   ] as const satisfies readonly (readonly [string, TransportStep, unknown])[])(
     'signs out here and reports the revoke as failed after a challenge then %s',
     async (_name, step, errorType) => {
@@ -93,6 +92,30 @@ describe('device-bound revocation', () => {
       expect(ports.credentials.value).toBeUndefined();
     },
   );
+
+  it('answers a second challenge in a row and revokes', async () => {
+    const { engine, transport } = await establishBoundSession();
+    transport.enqueue(...challengeThen(dpopChallenge('server-nonce-1'), { status: 200, body: {} }));
+
+    const outcome = await engine.signOut();
+
+    expect(outcome).toEqual({ kind: 'signedOut', revocation: 'revoked' });
+    expect(proofNonces(revokeRequests(transport))).toEqual(['', CHALLENGE_NONCE, 'server-nonce-1']);
+  });
+
+  it('signs out here and reports the revoke as failed after the third challenge in a row', async () => {
+    const { engine, ports, transport } = await establishBoundSession();
+    transport.enqueue(
+      ...challengeThen(dpopChallenge('server-nonce-1'), dpopChallenge('server-nonce-2')),
+    );
+
+    const outcome = await engine.signOut();
+
+    expect(outcome).toMatchObject({ kind: 'signedOut', revocation: 'failed' });
+    expect(outcome.error).toBeInstanceOf(OAuthError);
+    expect(proofNonces(revokeRequests(transport))).toEqual(['', CHALLENGE_NONCE, 'server-nonce-1']);
+    expect(ports.credentials.value).toBeUndefined();
+  });
 
   it('times the revoke out when the answer to the challenged retry never comes', async () => {
     const { engine, ports, transport } = await establishBoundSession();

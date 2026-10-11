@@ -22,6 +22,7 @@ import {
 const PROFILE = { method: HTTP_METHOD.GET, path: '/api/user/profile' } as const;
 const REFRESH_DEADLINE_MS = 15_000;
 const NEXT_NONCE = 'server-nonce-1';
+const LAST_NONCE = 'server-nonce-2';
 
 describe('a bound refresh the server challenges first', () => {
   it('answers a new challenge on the replay after a lost answer, and rotates', async () => {
@@ -52,16 +53,71 @@ describe('a bound refresh the server challenges first', () => {
     expect(engine.snapshot.status).toBe('signedIn');
   });
 
-  // What the engine does today. The server sends a challenge before it spends the
-  // token, so nothing was rotated, yet the person is asked to sign in again.
-  it('asks for sign-in after a second challenge in a row, with the token unspent and marked in flight', async () => {
+  it('answers a second challenge in a row and rotates', async () => {
     const { engine, ports, transport } = await establishBoundSession();
     ports.clock.advance(270_000);
-    enqueueBoundRefresh(transport, REFRESH_TOKEN, dpopChallenge(NEXT_NONCE));
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      dpopChallenge(NEXT_NONCE),
+      dpopTokenReply('access-1', 'refresh-1'),
+      apiReply({ id: 'profile' }),
+    );
+
+    await engine.transport.request(PROFILE);
+
+    expect(proofNonces(refreshRequests(transport))).toEqual(['', CHALLENGE_NONCE, NEXT_NONCE]);
+    expect(parseStoredRecord(ports.credentials.value ?? '')?.tokens?.refreshToken).toBe(
+      'refresh-1',
+    );
+    expect(engine.snapshot.status).toBe('signedIn');
+  });
+
+  it('gives up after the third challenge in a row and keeps the session, since nothing was spent', async () => {
+    const { engine, ports, transport } = await establishBoundSession();
+    ports.clock.advance(270_000);
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      dpopChallenge(NEXT_NONCE),
+      dpopChallenge(LAST_NONCE),
+    );
+
+    await expect(engine.transport.request(PROFILE)).rejects.toMatchObject({
+      name: 'DpopChallengeLimitError',
+      cause: { error: 'use_dpop_nonce' },
+    });
+
+    expect(proofNonces(refreshRequests(transport))).toEqual(['', CHALLENGE_NONCE, NEXT_NONCE]);
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
+    const stored = parseStoredRecord(ports.credentials.value ?? '');
+    expect(stored?.tokens?.refreshToken).toBe(REFRESH_TOKEN);
+    expect(stored?.refreshInFlight).toBeUndefined();
+  });
+
+  it('asks for sign-in when the challenges run out after a lost answer, since the token may be spent', async () => {
+    const { engine, ports, transport } = await establishBoundSession();
+    ports.clock.advance(270_000);
+    allowBoundRefreshReplayAfterUnknownOutcome(REFRESH_TOKEN);
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      new TransportError(TRANSPORT_FAILURE.NO_RESPONSE),
+      dpopChallenge(NEXT_NONCE),
+      dpopChallenge(LAST_NONCE),
+    );
 
     await expect(engine.transport.request(PROFILE)).rejects.toBeInstanceOf(OAuthError);
 
-    expect(proofNonces(refreshRequests(transport))).toEqual(['', CHALLENGE_NONCE]);
+    expect(proofNonces(refreshRequests(transport))).toEqual([
+      '',
+      CHALLENGE_NONCE,
+      CHALLENGE_NONCE,
+      NEXT_NONCE,
+    ]);
     expect(engine.snapshot).toMatchObject({
       status: 'reauthRequired',
       reason: 'refreshInterrupted',
@@ -70,6 +126,30 @@ describe('a bound refresh the server challenges first', () => {
       tokens: { refreshToken: REFRESH_TOKEN },
       refreshInFlight: true,
     });
+  });
+
+  it('sends the token once more, and no more, after an answer is lost behind two challenges', async () => {
+    const { engine, ports, transport } = await establishBoundSession();
+    ports.clock.advance(270_000);
+    allowBoundRefreshReplayAfterUnknownOutcome(REFRESH_TOKEN);
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      dpopChallenge(NEXT_NONCE),
+      new TransportError(TRANSPORT_FAILURE.NO_RESPONSE),
+      new TransportError(TRANSPORT_FAILURE.NO_RESPONSE),
+    );
+
+    await expect(engine.transport.request(PROFILE)).rejects.toBeInstanceOf(TransportError);
+
+    expect(proofNonces(refreshRequests(transport))).toEqual([
+      '',
+      CHALLENGE_NONCE,
+      NEXT_NONCE,
+      NEXT_NONCE,
+    ]);
+    expect(engine.snapshot.status).toBe('reauthRequired');
   });
 
   it('runs the challenge and the retry under one deadline, and asks for sign-in when it passes', async () => {

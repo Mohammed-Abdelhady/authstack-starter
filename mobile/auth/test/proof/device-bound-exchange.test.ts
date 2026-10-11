@@ -4,6 +4,7 @@ import { createAuthEngine } from '../support/engine';
 import {
   CHALLENGE_NONCE,
   challengeThen,
+  dpopChallenge,
   dpopTokenReply,
   proofNonces,
   requestPayload as payloadOf,
@@ -72,13 +73,27 @@ describe('device-bound code exchange', () => {
     );
   });
 
-  it('stops after a second nonce challenge', async () => {
+  it('answers a second challenge in a row and signs in', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport, new SoftwareDeviceKey());
     transport.enqueue(
-      { status: 400, body: { error: 'use_dpop_nonce' }, headers: { 'DPoP-Nonce': 'nonce-1' } },
-      { status: 400, body: { error: 'use_dpop_nonce' }, headers: { 'DPoP-Nonce': 'nonce-2' } },
+      ...challengeThen(dpopChallenge('nonce-2'), dpopTokenReply()),
+      successUserReply(),
     );
+    acceptCode(ports.authBrowser, 'twice-code');
+    const engine = createAuthEngine(CONFIG, ports);
+    await engine.restore();
+
+    const outcome = await engine.signIn();
+
+    expect(outcome.kind).toBe('signedIn');
+    expect(proofNonces(tokenRequests(transport))).toEqual(['', CHALLENGE_NONCE, 'nonce-2']);
+  });
+
+  it('stops after the third challenge in a row', async () => {
+    const transport = new ScriptedTransport();
+    const ports = testPorts(transport, new SoftwareDeviceKey());
+    transport.enqueue(...challengeThen(dpopChallenge('nonce-2'), dpopChallenge('nonce-3')));
     acceptCode(ports.authBrowser, 'loop-code');
     const engine = createAuthEngine(CONFIG, ports);
     await engine.restore();
@@ -86,7 +101,8 @@ describe('device-bound code exchange', () => {
     const outcome = await engine.signIn();
 
     expect(outcome.kind).toBe('oauthFailure');
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
+    expect(proofNonces(tokenRequests(transport))).toEqual(['', CHALLENGE_NONCE, 'nonce-2']);
+    expect(transport.sent).toHaveLength(3);
     expect(ports.credentials.value).toBeUndefined();
   });
 

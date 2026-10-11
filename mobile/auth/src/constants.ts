@@ -34,6 +34,12 @@ export const PKCE_VERIFIER_BYTES = 32;
 export const OAUTH_STATE_BYTES = 16;
 export const SESSION_LINEAGE_BYTES = 16;
 export const DPOP_JTI_BYTES = 16;
+/**
+ * Nonce challenges answered in one exchange, refresh or revoke. The server sends a
+ * challenge before it reads the token, so answering one spends nothing. The limit
+ * only ends a server that never stops challenging.
+ */
+export const DPOP_CHALLENGES_ANSWERED_MAX = 2;
 export const MIN_OAUTH_STATE_CHARACTERS = Math.ceil((OAUTH_STATE_BYTES * 8) / 6);
 export const AUTHORIZATION_CODE_LIFETIME_MS = 60_000;
 export const PENDING_AUTHORIZATION_LIFETIME_MS = 5 * 60_000;
