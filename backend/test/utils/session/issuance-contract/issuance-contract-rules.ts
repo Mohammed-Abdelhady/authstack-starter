@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { TEST_NOW } from '../../frozen-clock';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from './issuance-contract-harness';
 import {
   ADMIN_CLIENT,
   ADMIN_SESSION_CAP,
@@ -32,119 +31,103 @@ export function issuanceRuleCases(harness: HarnessSource): void {
         clientId,
       );
 
-  it(
-    'stores the session, its grant, both counters and the event for a first sign-in',
-    async () => {
-      const userId = await harness().seedAccount();
+  it('stores the session, its grant, both counters and the event for a first sign-in', async () => {
+    const userId = await harness().seedAccount();
 
-      const issued = await signIn(userId);
+    const issued = await signIn(userId);
 
-      const [session] = await harness().sessions(userId);
-      expect({
-        session: { ...session, id: typeof session.id },
-        grants: (await harness().grants(userId)).map((grant) => ({
-          clientId: grant.clientId,
-          allowed: grant.allowed,
-          issuanceFence: grant.issuanceFence,
-        })),
-        account: await harness().account(userId),
-        events: await harness().events(),
-      }).toEqual({
-        session: {
-          id: 'string',
-          tokenHash: createHash('sha256')
-            .update(issued.sessionToken)
-            .digest('hex'),
-          tokenHashBytes: 32,
-          csrfToken: issued.csrfToken,
+    const [session] = await harness().sessions(userId);
+    expect({
+      session: { ...session, id: typeof session.id },
+      grants: (await harness().grants(userId)).map((grant) => ({
+        clientId: grant.clientId,
+        allowed: grant.allowed,
+        issuanceFence: grant.issuanceFence,
+      })),
+      account: await harness().account(userId),
+      events: await harness().events(),
+    }).toEqual({
+      session: {
+        id: 'string',
+        tokenHash: createHash('sha256')
+          .update(issued.sessionToken)
+          .digest('hex'),
+        tokenHashBytes: 32,
+        csrfToken: issued.csrfToken,
+        clientId: 'web',
+        isValid: true,
+        revoked: false,
+        userVersion: 0,
+        clientVersion: 0,
+        grantVersion: 0,
+        deviceName: 'Chrome 120 on Windows 10/11',
+        authenticatedAt: new Date('2099-01-01T12:00:00.000Z'),
+        expiresAt: new Date('2099-01-01T14:00:00.000Z'),
+        idleExpiresAt: new Date('2099-01-01T12:10:00.000Z'),
+      },
+      grants: [{ clientId: 'web', allowed: true, issuanceFence: 1 }],
+      account: { issuanceFence: 1, sessionVersion: 0 },
+      events: [
+        {
+          action: 'session_issued',
+          targetUserId: userId,
           clientId: 'web',
-          isValid: true,
-          revoked: false,
-          userVersion: 0,
-          clientVersion: 0,
-          grantVersion: 0,
-          deviceName: 'Chrome 120 on Windows 10/11',
-          authenticatedAt: new Date('2099-01-01T12:00:00.000Z'),
-          expiresAt: new Date('2099-01-01T14:00:00.000Z'),
-          idleExpiresAt: new Date('2099-01-01T12:10:00.000Z'),
+          sessionId: session.id,
         },
-        grants: [{ clientId: 'web', allowed: true, issuanceFence: 1 }],
-        account: { issuanceFence: 1, sessionVersion: 0 },
-        events: [
-          {
-            action: 'session_issued',
-            targetUserId: userId,
-            clientId: 'web',
-            sessionId: session.id,
-          },
-        ],
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+      ],
+    });
+  });
 
-  it(
-    'reuses the grant on the next sign-in and counts it again',
-    async () => {
-      const userId = await harness().seedAccount();
+  it('reuses the grant on the next sign-in and counts it again', async () => {
+    const userId = await harness().seedAccount();
 
-      await signIn(userId);
-      await signIn(userId);
+    await signIn(userId);
+    await signIn(userId);
 
-      expect(await storedCounts(harness(), userId)).toEqual({
-        sessions: 2,
-        grants: 1,
-        grantFences: [2],
-        accountFence: 2,
-        events: 2,
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect(await storedCounts(harness(), userId)).toEqual({
+      sessions: 2,
+      grants: 1,
+      grantFences: [2],
+      accountFence: 2,
+      events: 2,
+    });
+  });
 
-  it(
-    'stamps the session with the versions stored at sign-in',
-    async () => {
-      const userId = await harness().seedAccount();
-      await harness().seedApplication({
-        ...WEB_APPLICATION,
-        sessionVersion: 3,
-      });
-      await harness().bumpAccountVersion(userId);
+  it('stamps the session with the versions stored at sign-in', async () => {
+    const userId = await harness().seedAccount();
+    await harness().seedApplication({
+      ...WEB_APPLICATION,
+      sessionVersion: 3,
+    });
+    await harness().bumpAccountVersion(userId);
 
-      await signIn(userId);
+    await signIn(userId);
 
-      const [session] = await harness().sessions(userId);
-      expect({
-        userVersion: session.userVersion,
-        clientVersion: session.clientVersion,
-        grantVersion: session.grantVersion,
-      }).toEqual({ userVersion: 1, clientVersion: 3, grantVersion: 0 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    const [session] = await harness().sessions(userId);
+    expect({
+      userVersion: session.userVersion,
+      clientVersion: session.clientVersion,
+      grantVersion: session.grantVersion,
+    }).toEqual({ userVersion: 1, clientVersion: 3, grantVersion: 0 });
+  });
 
   it.each([
     ['an account that does not exist', 'absent', ErrorCode.USER_NOT_FOUND],
     ['a deleted account', 'deleted', ErrorCode.USER_NOT_FOUND],
-  ] as const)(
-    'refuses %s and stores nothing',
-    async (_, kind, code) => {
-      const userId =
-        kind === 'absent'
-          ? harness().absentAccountId()
-          : await harness().seedAccount({ deleted: true });
+  ] as const)('refuses %s and stores nothing', async (_, kind, code) => {
+    const userId =
+      kind === 'absent'
+        ? harness().absentAccountId()
+        : await harness().seedAccount({ deleted: true });
 
-      await expect(signIn(userId)).rejects.toMatchObject({ code });
+    await expect(signIn(userId)).rejects.toMatchObject({ code });
 
-      expect({
-        sessions: await harness().sessions(userId),
-        grants: await harness().grants(userId),
-        events: await harness().events(),
-      }).toEqual({ sessions: [], grants: [], events: [] });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      sessions: await harness().sessions(userId),
+      grants: await harness().grants(userId),
+      events: await harness().events(),
+    }).toEqual({ sessions: [], grants: [], events: [] });
+  });
 
   it.each([
     ['an unregistered client', 'unregistered', ErrorCode.APPLICATION_NOT_FOUND],
@@ -168,110 +151,89 @@ export function issuanceRuleCases(harness: HarnessSource): void {
         events: 0,
       });
     },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
   );
 
-  it(
-    'refuses an account whose grant is blocked and leaves both counters alone',
-    async () => {
-      const userId = await harness().seedAccount();
-      await harness().seedBlockedGrant(userId, WEB_CLIENT);
+  it('refuses an account whose grant is blocked and leaves both counters alone', async () => {
+    const userId = await harness().seedAccount();
+    await harness().seedBlockedGrant(userId, WEB_CLIENT);
 
-      await expect(signIn(userId)).rejects.toMatchObject({
-        code: ErrorCode.GRANT_BLOCKED,
-      });
+    await expect(signIn(userId)).rejects.toMatchObject({
+      code: ErrorCode.GRANT_BLOCKED,
+    });
 
-      expect(await storedCounts(harness(), userId)).toEqual({
-        sessions: 0,
+    expect(await storedCounts(harness(), userId)).toEqual({
+      sessions: 0,
+      grants: 1,
+      grantFences: [0],
+      accountFence: 0,
+      events: 0,
+    });
+  });
+
+  it('admits the sign-in that fills the cap and refuses the next, leaving state untouched', async () => {
+    const userId = await harness().seedAccount();
+    await signInTimes(harness().service(rerunAtOnce), userId, SESSION_CAP - 1);
+
+    await signIn(userId);
+    const atCap = await storedCounts(harness(), userId);
+    await expect(signIn(userId)).rejects.toMatchObject({
+      code: ErrorCode.SESSION_LIMIT_REACHED,
+    });
+
+    expect({
+      atCap,
+      afterRefusal: await storedCounts(harness(), userId),
+    }).toEqual({
+      atCap: {
+        sessions: 20,
         grants: 1,
-        grantFences: [0],
-        accountFence: 0,
-        events: 0,
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+        grantFences: [20],
+        accountFence: 20,
+        events: 20,
+      },
+      afterRefusal: {
+        sessions: 20,
+        grants: 1,
+        grantFences: [20],
+        accountFence: 20,
+        events: 20,
+      },
+    });
+  });
 
-  it(
-    'admits the sign-in that fills the cap and refuses the next, leaving state untouched',
-    async () => {
-      const userId = await harness().seedAccount();
-      await signInTimes(
-        harness().service(rerunAtOnce),
-        userId,
-        SESSION_CAP - 1,
-      );
+  it('counts only the sessions of the account that is signing in', async () => {
+    const fullUser = await harness().seedAccount();
+    const otherUser = await harness().seedAccount();
+    await signInTimes(harness().service(rerunAtOnce), fullUser, SESSION_CAP);
 
-      await signIn(userId);
-      const atCap = await storedCounts(harness(), userId);
-      await expect(signIn(userId)).rejects.toMatchObject({
-        code: ErrorCode.SESSION_LIMIT_REACHED,
-      });
+    await signIn(otherUser);
 
-      expect({
-        atCap,
-        afterRefusal: await storedCounts(harness(), userId),
-      }).toEqual({
-        atCap: {
-          sessions: 20,
-          grants: 1,
-          grantFences: [20],
-          accountFence: 20,
-          events: 20,
-        },
-        afterRefusal: {
-          sessions: 20,
-          grants: 1,
-          grantFences: [20],
-          accountFence: 20,
-          events: 20,
-        },
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      full: (await harness().sessions(fullUser)).length,
+      other: (await harness().sessions(otherUser)).length,
+    }).toEqual({ full: 20, other: 1 });
+  });
 
-  it(
-    'counts only the sessions of the account that is signing in',
-    async () => {
-      const fullUser = await harness().seedAccount();
-      const otherUser = await harness().seedAccount();
-      await signInTimes(harness().service(rerunAtOnce), fullUser, SESSION_CAP);
+  it('caps admin sessions lower, and a web sign-in is still admitted', async () => {
+    const userId = await harness().seedAccount();
+    await signInTimes(
+      harness().service(rerunAtOnce),
+      userId,
+      ADMIN_SESSION_CAP,
+      ADMIN_CLIENT,
+    );
 
-      await signIn(otherUser);
+    await expect(signIn(userId, ADMIN_CLIENT)).rejects.toMatchObject({
+      code: ErrorCode.SESSION_LIMIT_REACHED,
+    });
+    await signIn(userId, WEB_CLIENT);
 
-      expect({
-        full: (await harness().sessions(fullUser)).length,
-        other: (await harness().sessions(otherUser)).length,
-      }).toEqual({ full: 20, other: 1 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'caps admin sessions lower, and a web sign-in is still admitted',
-    async () => {
-      const userId = await harness().seedAccount();
-      await signInTimes(
-        harness().service(rerunAtOnce),
-        userId,
-        ADMIN_SESSION_CAP,
-        ADMIN_CLIENT,
-      );
-
-      await expect(signIn(userId, ADMIN_CLIENT)).rejects.toMatchObject({
-        code: ErrorCode.SESSION_LIMIT_REACHED,
-      });
-      await signIn(userId, WEB_CLIENT);
-
-      const sessions = await harness().sessions(userId);
-      expect({
-        admin: sessions.filter(({ clientId }) => clientId === 'admin').length,
-        web: sessions.filter(({ clientId }) => clientId === 'web').length,
-      }).toEqual({ admin: 5, web: 1 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    const sessions = await harness().sessions(userId);
+    expect({
+      admin: sessions.filter(({ clientId }) => clientId === 'admin').length,
+      web: sessions.filter(({ clientId }) => clientId === 'web').length,
+    }).toEqual({ admin: 5, web: 1 });
+  });
 
   it.each([
     ['whose idle time has run out', 'expired'],
@@ -279,38 +241,34 @@ export function issuanceRuleCases(harness: HarnessSource): void {
     ['issued before the account version moved', 'outdated'],
     ['issued before its client version moved', 'client-moved'],
     ['that outlived a shortened idle policy', 'policy-shortened'],
-  ] as const)(
-    'does not count a session %s toward the cap',
-    async (_, kind) => {
-      const userId = await harness().seedAccount();
-      await signInTimes(harness().service(rerunAtOnce), userId, SESSION_CAP);
-      if (kind === 'expired') {
-        harness().clock.set(new Date(TEST_NOW.getTime() + ELEVEN_MINUTES_MS));
-      }
-      if (kind === 'revoked') {
-        await harness().revokeOneSession(userId);
-      }
-      if (kind === 'outdated') {
-        await harness().bumpAccountVersion(userId);
-      }
-      if (kind === 'client-moved') {
-        await harness().seedApplication({
-          ...WEB_APPLICATION,
-          sessionVersion: 1,
-        });
-      }
-      if (kind === 'policy-shortened') {
-        await harness().seedApplication({
-          ...WEB_APPLICATION,
-          idleLifetimeMs: ONE_MINUTE_MS,
-        });
-        harness().clock.set(new Date(TEST_NOW.getTime() + TWO_MINUTES_MS));
-      }
+  ] as const)('does not count a session %s toward the cap', async (_, kind) => {
+    const userId = await harness().seedAccount();
+    await signInTimes(harness().service(rerunAtOnce), userId, SESSION_CAP);
+    if (kind === 'expired') {
+      harness().clock.set(new Date(TEST_NOW.getTime() + ELEVEN_MINUTES_MS));
+    }
+    if (kind === 'revoked') {
+      await harness().revokeOneSession(userId);
+    }
+    if (kind === 'outdated') {
+      await harness().bumpAccountVersion(userId);
+    }
+    if (kind === 'client-moved') {
+      await harness().seedApplication({
+        ...WEB_APPLICATION,
+        sessionVersion: 1,
+      });
+    }
+    if (kind === 'policy-shortened') {
+      await harness().seedApplication({
+        ...WEB_APPLICATION,
+        idleLifetimeMs: ONE_MINUTE_MS,
+      });
+      harness().clock.set(new Date(TEST_NOW.getTime() + TWO_MINUTES_MS));
+    }
 
-      await signIn(userId);
+    await signIn(userId);
 
-      expect((await harness().sessions(userId)).length).toBe(21);
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect((await harness().sessions(userId)).length).toBe(21);
+  });
 }

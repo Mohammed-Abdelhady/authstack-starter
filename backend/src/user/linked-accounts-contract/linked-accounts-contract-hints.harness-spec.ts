@@ -1,6 +1,5 @@
 import { AppException } from '../../common/exceptions/app.exception';
 import {
-  linkedCase,
   LinkedHarnessSource,
   linkedServicesOn,
   profileOf,
@@ -148,71 +147,65 @@ async function answerOf(unlink: Promise<unknown>): Promise<string> {
 
 /** The hint a page reads says what the unlink would answer. */
 export function unlinkHintCases(harness: LinkedHarnessSource): void {
-  linkedCase(
-    'tells the page an unlink is allowed exactly when the unlink would go through',
-    async () => {
-      const observed: Record<string, Observed> = {};
-      for (const [name, account] of Object.entries(ACCOUNTS)) {
-        const email = `${name.replaceAll(' ', '-')}@example.test`;
-        const userId = await harness().seedAccount({
-          email,
-          role: 'user',
-          passwordHash: account.passwordHash,
-        });
-        const { linking } = linkedServicesOn(
-          harness(),
-          undefined,
-          account.switches,
-        );
-        for (const provider of account.providers) {
-          await linking.linkProvider(
-            userId,
-            provider,
-            profileOf(`${provider}-${name}`, { email }),
-          );
-        }
-        if (account.madeByProvider) {
-          await harness().setAuthProvider(userId, account.providers[0]);
-        }
-
-        // Asked first, the way a page reads it before it offers the action.
-        const hints = await linking.unlinkHints(
-          userId,
-          await linking.getLinkedProviders(userId),
-        );
-        const canUnlink = await linking.canUnlinkProvider(
-          userId,
-          account.unlink,
-        );
-        const answer = await answerOf(
-          linking.unlinkProvider(userId, account.unlink),
-        );
-        observed[name] = {
-          hints,
-          canUnlink,
-          answer,
-          stored: (await harness().storedLinks(userId)).map(
-            (link) => link.provider,
-          ),
-        };
-      }
-
-      for (const [name, seen] of Object.entries(observed)) {
-        const hinted = seen.hints[ACCOUNTS[name].unlink] === 'allowed';
-        expect({ name, hinted, canUnlink: seen.canUnlink }).toEqual({
-          name,
-          hinted: seen.answer === UNLINKED,
-          canUnlink: seen.answer === UNLINKED,
-        });
-      }
-      expect(observed).toEqual(
-        Object.fromEntries(
-          Object.entries(ACCOUNTS).map(([name, { expected }]) => [
-            name,
-            expected,
-          ]),
-        ),
+  it('tells the page an unlink is allowed exactly when the unlink would go through', async () => {
+    const observed: Record<string, Observed> = {};
+    for (const [name, account] of Object.entries(ACCOUNTS)) {
+      const email = `${name.replaceAll(' ', '-')}@example.test`;
+      const userId = await harness().seedAccount({
+        email,
+        role: 'user',
+        passwordHash: account.passwordHash,
+      });
+      const { linking } = linkedServicesOn(
+        harness(),
+        undefined,
+        account.switches,
       );
-    },
-  );
+      for (const provider of account.providers) {
+        await linking.linkProvider(
+          userId,
+          provider,
+          profileOf(`${provider}-${name}`, { email }),
+        );
+      }
+      if (account.madeByProvider) {
+        await harness().setAuthProvider(userId, account.providers[0]);
+      }
+
+      // Asked first, the way a page reads it before it offers the action.
+      const hints = await linking.unlinkHints(
+        userId,
+        await linking.getLinkedProviders(userId),
+      );
+      const canUnlink = await linking.canUnlinkProvider(userId, account.unlink);
+      const answer = await answerOf(
+        linking.unlinkProvider(userId, account.unlink),
+      );
+      observed[name] = {
+        hints,
+        canUnlink,
+        answer,
+        stored: (await harness().storedLinks(userId)).map(
+          (link) => link.provider,
+        ),
+      };
+    }
+
+    for (const [name, seen] of Object.entries(observed)) {
+      const hinted = seen.hints[ACCOUNTS[name].unlink] === 'allowed';
+      expect({ name, hinted, canUnlink: seen.canUnlink }).toEqual({
+        name,
+        hinted: seen.answer === UNLINKED,
+        canUnlink: seen.answer === UNLINKED,
+      });
+    }
+    expect(observed).toEqual(
+      Object.fromEntries(
+        Object.entries(ACCOUNTS).map(([name, { expected }]) => [
+          name,
+          expected,
+        ]),
+      ),
+    );
+  });
 }

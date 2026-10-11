@@ -1,6 +1,5 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { holdBefore } from '../../race-gate';
-import { NATIVE_CONTRACT_CASE_TIMEOUT_MS } from './native-contract-harness';
 import {
   begin,
   codeOf,
@@ -15,58 +14,53 @@ const EXPIRED = ErrorCode.NATIVE_TRANSACTION_EXPIRED;
 
 /** Approve and deny at once: both have read the request pending, one wins. */
 export function authorizationRaceCases(harness: NativeHarnessSource): void {
-  const budget = NATIVE_CONTRACT_CASE_TIMEOUT_MS;
   const { gate, restoreLater } = nativeRaceTools();
 
-  it(
-    'gives two approvals of one request one winner, one code and one grant',
-    async () => {
-      const services = harness().services();
-      const userId = await harness().issuance.seedAccount();
-      const { transactionId } = await begin(services);
-      const first = gate();
-      const second = gate();
-      restoreLater(
-        holdBefore(harness().stores.authorizations, 'approve', (call) =>
-          call === 0 ? first : call === 1 ? second : undefined,
-        ),
-      );
+  it('gives two approvals of one request one winner, one code and one grant', async () => {
+    const services = harness().services();
+    const userId = await harness().issuance.seedAccount();
+    const { transactionId } = await begin(services);
+    const first = gate();
+    const second = gate();
+    restoreLater(
+      holdBefore(harness().stores.authorizations, 'approve', (call) =>
+        call === 0 ? first : call === 1 ? second : undefined,
+      ),
+    );
 
-      const racers = [
-        outcomeOf(services.authorize.approve(userId, transactionId, [])),
-        outcomeOf(services.authorize.approve(userId, transactionId, [])),
-      ];
-      await first.reached(1);
-      await second.reached(1);
-      first.release();
-      const winner = await Promise.race(racers);
-      second.release();
-      const answers = await Promise.all(racers);
+    const racers = [
+      outcomeOf(services.authorize.approve(userId, transactionId, [])),
+      outcomeOf(services.authorize.approve(userId, transactionId, [])),
+    ];
+    await first.reached(1);
+    await second.reached(1);
+    first.release();
+    const winner = await Promise.race(racers);
+    second.release();
+    const answers = await Promise.all(racers);
 
-      const codes = answers.filter(
-        (answer): answer is { redirectUri: string } =>
-          typeof answer === 'object' && answer !== null,
-      );
-      expect({
-        winnerIsAnApproval: codes.includes(winner as { redirectUri: string }),
-        refusals: answers.filter((answer) => answer === EXPIRED).length,
-        approvals: codes.length,
-        storedCodeIsTheWinners:
-          (await harness().authorization(transactionId))?.codeHash ===
-          sha256Hex(codeOf(codes[0].redirectUri)),
-        grants: (await harness().issuance.grants(userId)).map(
-          ({ clientId }) => clientId,
-        ),
-      }).toEqual({
-        winnerIsAnApproval: true,
-        refusals: 1,
-        approvals: 1,
-        storedCodeIsTheWinners: true,
-        grants: [NATIVE_CLIENT],
-      });
-    },
-    budget,
-  );
+    const codes = answers.filter(
+      (answer): answer is { redirectUri: string } =>
+        typeof answer === 'object' && answer !== null,
+    );
+    expect({
+      winnerIsAnApproval: codes.includes(winner as { redirectUri: string }),
+      refusals: answers.filter((answer) => answer === EXPIRED).length,
+      approvals: codes.length,
+      storedCodeIsTheWinners:
+        (await harness().authorization(transactionId))?.codeHash ===
+        sha256Hex(codeOf(codes[0].redirectUri)),
+      grants: (await harness().issuance.grants(userId)).map(
+        ({ clientId }) => clientId,
+      ),
+    }).toEqual({
+      winnerIsAnApproval: true,
+      refusals: 1,
+      approvals: 1,
+      storedCodeIsTheWinners: true,
+      grants: [NATIVE_CLIENT],
+    });
+  });
 
   it.each([
     { released: 'the denial', approvalWins: false },
@@ -129,37 +123,32 @@ export function authorizationRaceCases(harness: NativeHarnessSource): void {
             },
       );
     },
-    budget,
   );
 
-  it(
-    'gives two denials of one request one winner',
-    async () => {
-      const services = harness().services();
-      const { transactionId } = await begin(services);
-      const first = gate();
-      const second = gate();
-      restoreLater(
-        holdBefore(harness().stores.authorizations, 'deny', (call) =>
-          call === 0 ? first : call === 1 ? second : undefined,
-        ),
-      );
+  it('gives two denials of one request one winner', async () => {
+    const services = harness().services();
+    const { transactionId } = await begin(services);
+    const first = gate();
+    const second = gate();
+    restoreLater(
+      holdBefore(harness().stores.authorizations, 'deny', (call) =>
+        call === 0 ? first : call === 1 ? second : undefined,
+      ),
+    );
 
-      const racers = [
-        outcomeOf(services.browser.deny(transactionId)),
-        outcomeOf(services.browser.deny(transactionId)),
-      ];
-      await first.reached(1);
-      await second.reached(1);
-      first.release();
-      second.release();
-      const answers = await Promise.all(racers);
+    const racers = [
+      outcomeOf(services.browser.deny(transactionId)),
+      outcomeOf(services.browser.deny(transactionId)),
+    ];
+    await first.reached(1);
+    await second.reached(1);
+    first.release();
+    second.release();
+    const answers = await Promise.all(racers);
 
-      expect({
-        refusals: answers.filter((answer) => answer === EXPIRED).length,
-        denials: answers.filter((answer) => answer !== EXPIRED).length,
-      }).toEqual({ refusals: 1, denials: 1 });
-    },
-    budget,
-  );
+    expect({
+      refusals: answers.filter((answer) => answer === EXPIRED).length,
+      denials: answers.filter((answer) => answer !== EXPIRED).length,
+    }).toEqual({ refusals: 1, denials: 1 });
+  });
 }

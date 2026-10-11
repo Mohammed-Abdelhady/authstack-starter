@@ -4,7 +4,6 @@ import {
   rejectionOf,
   rerunAtOnce,
 } from '../../session/issuance-contract/issuance-contract-support';
-import { ROLE_CONTRACT_CASE_TIMEOUT_MS } from './role-contract-harness';
 import {
   accountsOf,
   ADMIN_FORCED,
@@ -15,7 +14,6 @@ import {
   READ_POSTS,
   revocationsOf,
   REVOKED_ALL,
-  roleCase,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -96,57 +94,53 @@ export function roleAtomicityCases(
         stored: untouched(fixture().editorRoleId),
       });
     },
-    ROLE_CONTRACT_CASE_TIMEOUT_MS,
   );
 
-  roleCase(
-    'rolls the role and its holders back when the work throws after both were written',
-    async () => {
-      const holders = [
-        await harness().seedAccount({ role: EDITOR_SLUG }),
-        await harness().seedAccount({ role: EDITOR_SLUG }),
-      ];
-      const seen: { moved?: number } = {};
+  it('rolls the role and its holders back when the work throws after both were written', async () => {
+    const holders = [
+      await harness().seedAccount({ role: EDITOR_SLUG }),
+      await harness().seedAccount({ role: EDITOR_SLUG }),
+    ];
+    const seen: { moved?: number } = {};
 
-      const failure = await rejectionOf(
-        inUnitOfWork(async (unitOfWork) => {
-          const { changes } = harness();
-          await changes.takeRoleForChange(unitOfWork, fixture().editorRoleId);
-          await changes.saveRoleEdit(unitOfWork, fixture().editorRoleId, {
-            name: 'Content Lead',
-            slug: LEAD_SLUG,
-          });
-          const moved = await changes.moveHolders(unitOfWork, {
-            fromSlugs: [EDITOR_SLUG],
-            toSlug: LEAD_SLUG,
-          });
-          seen.moved = moved.holderIds.length;
-          await changes.appendHolderRevocations(
-            unitOfWork,
-            moved.holderIds.map((targetUserId) => ({
-              targetUserId,
-              actorId: fixture().adminId,
-              action: REVOKED_ALL,
-              reasonCode: ADMIN_FORCED,
-            })),
-          );
-          throw new WorkAbandoned('abandoned after every write');
-        }),
-      );
+    const failure = await rejectionOf(
+      inUnitOfWork(async (unitOfWork) => {
+        const { changes } = harness();
+        await changes.takeRoleForChange(unitOfWork, fixture().editorRoleId);
+        await changes.saveRoleEdit(unitOfWork, fixture().editorRoleId, {
+          name: 'Content Lead',
+          slug: LEAD_SLUG,
+        });
+        const moved = await changes.moveHolders(unitOfWork, {
+          fromSlugs: [EDITOR_SLUG],
+          toSlug: LEAD_SLUG,
+        });
+        seen.moved = moved.holderIds.length;
+        await changes.appendHolderRevocations(
+          unitOfWork,
+          moved.holderIds.map((targetUserId) => ({
+            targetUserId,
+            actorId: fixture().adminId,
+            action: REVOKED_ALL,
+            reasonCode: ADMIN_FORCED,
+          })),
+        );
+        throw new WorkAbandoned('abandoned after every write');
+      }),
+    );
 
-      expect({
-        rethrownAsItself: failure instanceof WorkAbandoned,
-        movedInsideTheWork: seen.moved,
-        stored: await storedEdit(holders),
-      }).toEqual({
-        rethrownAsItself: true,
-        movedInsideTheWork: 2,
-        stored: untouched(fixture().editorRoleId),
-      });
-    },
-  );
+    expect({
+      rethrownAsItself: failure instanceof WorkAbandoned,
+      movedInsideTheWork: seen.moved,
+      stored: await storedEdit(holders),
+    }).toEqual({
+      rethrownAsItself: true,
+      movedInsideTheWork: 2,
+      stored: untouched(fixture().editorRoleId),
+    });
+  });
 
-  roleCase('never commits work that swallowed a store failure', async () => {
+  it('never commits work that swallowed a store failure', async () => {
     const holders = [
       await harness().seedAccount({ role: EDITOR_SLUG }),
       await harness().seedAccount({ role: EDITOR_SLUG }),
@@ -189,38 +183,35 @@ export function roleAtomicityCases(
     });
   });
 
-  roleCase(
-    'moves only the holders named and answers with exactly those',
-    async () => {
-      const named = await harness().seedAccount({ role: EDITOR_SLUG });
-      const other = await harness().seedAccount({ role: EDITOR_SLUG });
+  it('moves only the holders named and answers with exactly those', async () => {
+    const named = await harness().seedAccount({ role: EDITOR_SLUG });
+    const other = await harness().seedAccount({ role: EDITOR_SLUG });
 
-      const moved = await inUnitOfWork((unitOfWork) =>
-        harness().changes.moveHolders(unitOfWork, {
-          fromSlugs: [EDITOR_SLUG],
-          toSlug: LEAD_SLUG,
-          holderIds: [named, harness().absentId()],
-        }),
-      );
-      const nobody = await inUnitOfWork((unitOfWork) =>
-        harness().changes.moveHolders(unitOfWork, {
-          fromSlugs: ['ghost'],
-          toSlug: LEAD_SLUG,
-        }),
-      );
+    const moved = await inUnitOfWork((unitOfWork) =>
+      harness().changes.moveHolders(unitOfWork, {
+        fromSlugs: [EDITOR_SLUG],
+        toSlug: LEAD_SLUG,
+        holderIds: [named, harness().absentId()],
+      }),
+    );
+    const nobody = await inUnitOfWork((unitOfWork) =>
+      harness().changes.moveHolders(unitOfWork, {
+        fromSlugs: ['ghost'],
+        toSlug: LEAD_SLUG,
+      }),
+    );
 
-      expect({
-        moved,
-        nobody,
-        accounts: await accountsOf(harness(), [named, other]),
-      }).toEqual({
-        moved: { holderIds: [named], moved: 1 },
-        nobody: { holderIds: [], moved: 0 },
-        accounts: [
-          { role: LEAD_SLUG, sessionVersion: 1 },
-          { role: EDITOR_SLUG, sessionVersion: 0 },
-        ],
-      });
-    },
-  );
+    expect({
+      moved,
+      nobody,
+      accounts: await accountsOf(harness(), [named, other]),
+    }).toEqual({
+      moved: { holderIds: [named], moved: 1 },
+      nobody: { holderIds: [], moved: 0 },
+      accounts: [
+        { role: LEAD_SLUG, sessionVersion: 1 },
+        { role: EDITOR_SLUG, sessionVersion: 0 },
+      ],
+    });
+  });
 }

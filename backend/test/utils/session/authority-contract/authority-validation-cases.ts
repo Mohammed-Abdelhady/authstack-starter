@@ -6,7 +6,6 @@ import {
   WEB_APPLICATION,
   WEB_CLIENT,
 } from '../issuance-contract/issuance-contract-support';
-import { AUTHORITY_CONTRACT_CASE_TIMEOUT_MS } from './authority-contract-harness';
 import {
   AuthorityHarnessSource,
   outcomeOf,
@@ -26,87 +25,65 @@ function before(deadline: Date): Date {
 export function authorityValidationCases(
   harness: AuthorityHarnessSource,
 ): void {
-  const budget = AUTHORITY_CONTRACT_CASE_TIMEOUT_MS;
+  it('validates a signed-in credential and names its session and account', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const { token, sessionId } = await signIn(harness(), userId);
+    const validated = await harness().validator().validateByToken(token, false);
+    expect({
+      session: validated?.session.id,
+      owner: validated?.session.userId,
+      account: validated?.account,
+      extended: validated?.extended,
+      unknown: await harness().validator().validateByToken('unknown', false),
+      empty: await harness().validator().validateByToken('', false),
+    }).toEqual({
+      session: sessionId,
+      owner: userId,
+      account: { id: userId, isDeleted: false, sessionVersion: 0 },
+      extended: false,
+      unknown: null,
+      empty: null,
+    });
+  });
 
-  it(
-    'validates a signed-in credential and names its session and account',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const { token, sessionId } = await signIn(harness(), userId);
-      const validated = await harness()
-        .validator()
-        .validateByToken(token, false);
-      expect({
-        session: validated?.session.id,
-        owner: validated?.session.userId,
-        account: validated?.account,
-        extended: validated?.extended,
-        unknown: await harness().validator().validateByToken('unknown', false),
-        empty: await harness().validator().validateByToken('', false),
-      }).toEqual({
-        session: sessionId,
-        owner: userId,
-        account: { id: userId, isDeleted: false, sessionVersion: 0 },
-        extended: false,
-        unknown: null,
-        empty: null,
-      });
-    },
-    budget,
-  );
+  it('validates by id only a native-access session, and by credential only a browser one', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const browser = await signIn(harness(), userId, 'browser/1');
+    const native = await signIn(harness(), userId, 'native/1');
+    await harness().patchSession(native.sessionId, {
+      credentialPurpose: 'native_access',
+    });
+    const validator = harness().validator();
+    expect({
+      nativeById: (await validator.validateById(native.sessionId, false))
+        ?.session.id,
+      browserById: await validator.validateById(browser.sessionId, false),
+      nativeByCredential: await validator.validateByToken(native.token, false),
+      browserByCredential: (
+        await validator.validateByToken(browser.token, false)
+      )?.session.id,
+    }).toEqual({
+      nativeById: native.sessionId,
+      browserById: null,
+      nativeByCredential: null,
+      browserByCredential: browser.sessionId,
+    });
+  });
 
-  it(
-    'validates by id only a native-access session, and by credential only a browser one',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const browser = await signIn(harness(), userId, 'browser/1');
-      const native = await signIn(harness(), userId, 'native/1');
-      await harness().patchSession(native.sessionId, {
-        credentialPurpose: 'native_access',
-      });
-      const validator = harness().validator();
-      expect({
-        nativeById: (await validator.validateById(native.sessionId, false))
-          ?.session.id,
-        browserById: await validator.validateById(browser.sessionId, false),
-        nativeByCredential: await validator.validateByToken(
-          native.token,
-          false,
-        ),
-        browserByCredential: (
-          await validator.validateByToken(browser.token, false)
-        )?.session.id,
-      }).toEqual({
-        nativeById: native.sessionId,
-        browserById: null,
-        nativeByCredential: null,
-        browserByCredential: browser.sessionId,
-      });
-    },
-    budget,
-  );
-
-  it(
-    'answers a malformed session id as unavailable and an absent one as no session',
-    async () => {
-      const validator = harness().validator();
-      expect({
-        word: await outcomeOf(validator.validateById('not-an-id', false)),
-        foreign: await outcomeOf(
-          validator.validateById(harness().foreignSessionId(), false),
-        ),
-        absent: await validator.validateById(
-          harness().absentSessionId(),
-          false,
-        ),
-      }).toEqual({
-        word: ErrorCode.AUTHORITY_UNAVAILABLE,
-        foreign: ErrorCode.AUTHORITY_UNAVAILABLE,
-        absent: null,
-      });
-    },
-    budget,
-  );
+  it('answers a malformed session id as unavailable and an absent one as no session', async () => {
+    const validator = harness().validator();
+    expect({
+      word: await outcomeOf(validator.validateById('not-an-id', false)),
+      foreign: await outcomeOf(
+        validator.validateById(harness().foreignSessionId(), false),
+      ),
+      absent: await validator.validateById(harness().absentSessionId(), false),
+    }).toEqual({
+      word: ErrorCode.AUTHORITY_UNAVAILABLE,
+      foreign: ErrorCode.AUTHORITY_UNAVAILABLE,
+      absent: null,
+    });
+  });
 
   it.each([
     ['a revoked session', { revoke: true }],
@@ -135,135 +112,110 @@ export function authorityValidationCases(
         validAfter: await validates(harness(), token),
       }).toEqual({ validBefore: true, validAfter: false });
     },
-    budget,
   );
 
-  it(
-    'refuses a session once its account is deleted or its version has moved on',
-    async () => {
-      const deleted = await harness().issuance.seedAccount();
-      const moved = await harness().issuance.seedAccount();
-      const kept = await harness().issuance.seedAccount();
-      const deletedSession = await signIn(harness(), deleted);
-      const movedSession = await signIn(harness(), moved);
-      const keptSession = await signIn(harness(), kept);
-      await harness().markAccountDeleted(deleted);
-      await harness().issuance.bumpAccountVersion(moved);
-      expect({
-        deleted: await validates(harness(), deletedSession.token),
-        moved: await validates(harness(), movedSession.token),
-        kept: await validates(harness(), keptSession.token),
-      }).toEqual({ deleted: false, moved: false, kept: true });
-    },
-    budget,
-  );
+  it('refuses a session once its account is deleted or its version has moved on', async () => {
+    const deleted = await harness().issuance.seedAccount();
+    const moved = await harness().issuance.seedAccount();
+    const kept = await harness().issuance.seedAccount();
+    const deletedSession = await signIn(harness(), deleted);
+    const movedSession = await signIn(harness(), moved);
+    const keptSession = await signIn(harness(), kept);
+    await harness().markAccountDeleted(deleted);
+    await harness().issuance.bumpAccountVersion(moved);
+    expect({
+      deleted: await validates(harness(), deletedSession.token),
+      moved: await validates(harness(), movedSession.token),
+      kept: await validates(harness(), keptSession.token),
+    }).toEqual({ deleted: false, moved: false, kept: true });
+  });
 
-  it(
-    'refuses a session whose application is disabled or has moved its version',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const web = await signIn(harness(), userId, 'web/1', WEB_CLIENT);
-      const admin = await signIn(harness(), userId, 'admin/1', ADMIN_CLIENT);
-      await harness().issuance.seedApplication({
-        ...WEB_APPLICATION,
-        enabled: false,
-      });
-      await harness().issuance.seedApplication({
-        ...ADMIN_APPLICATION,
-        sessionVersion: 1,
-      });
-      const refused = {
-        disabled: await validates(harness(), web.token),
-        versionMoved: await validates(harness(), admin.token),
-      };
-      await harness().issuance.seedApplication(WEB_APPLICATION);
-      expect({
-        refused,
-        enabledAgain: await validates(harness(), web.token),
-      }).toEqual({
-        refused: { disabled: false, versionMoved: false },
-        enabledAgain: true,
-      });
-    },
-    budget,
-  );
+  it('refuses a session whose application is disabled or has moved its version', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const web = await signIn(harness(), userId, 'web/1', WEB_CLIENT);
+    const admin = await signIn(harness(), userId, 'admin/1', ADMIN_CLIENT);
+    await harness().issuance.seedApplication({
+      ...WEB_APPLICATION,
+      enabled: false,
+    });
+    await harness().issuance.seedApplication({
+      ...ADMIN_APPLICATION,
+      sessionVersion: 1,
+    });
+    const refused = {
+      disabled: await validates(harness(), web.token),
+      versionMoved: await validates(harness(), admin.token),
+    };
+    await harness().issuance.seedApplication(WEB_APPLICATION);
+    expect({
+      refused,
+      enabledAgain: await validates(harness(), web.token),
+    }).toEqual({
+      refused: { disabled: false, versionMoved: false },
+      enabledAgain: true,
+    });
+  });
 
-  it(
-    'refuses a session whose grant is blocked, has moved its version, or is gone',
-    async () => {
-      const blocked = await harness().issuance.seedAccount();
-      const moved = await harness().issuance.seedAccount();
-      const gone = await harness().issuance.seedAccount();
-      const blockedSession = await signIn(harness(), blocked);
-      const movedSession = await signIn(harness(), moved);
-      const goneSession = await signIn(harness(), gone);
-      await harness().patchGrant(blocked, WEB_CLIENT, { allowed: false });
-      await harness().patchGrant(moved, WEB_CLIENT, { sessionVersion: 1 });
-      await harness().removeGrant(gone, WEB_CLIENT);
-      expect({
-        blocked: await validates(harness(), blockedSession.token),
-        moved: await validates(harness(), movedSession.token),
-        gone: await validates(harness(), goneSession.token),
-      }).toEqual({ blocked: false, moved: false, gone: false });
-    },
-    budget,
-  );
+  it('refuses a session whose grant is blocked, has moved its version, or is gone', async () => {
+    const blocked = await harness().issuance.seedAccount();
+    const moved = await harness().issuance.seedAccount();
+    const gone = await harness().issuance.seedAccount();
+    const blockedSession = await signIn(harness(), blocked);
+    const movedSession = await signIn(harness(), moved);
+    const goneSession = await signIn(harness(), gone);
+    await harness().patchGrant(blocked, WEB_CLIENT, { allowed: false });
+    await harness().patchGrant(moved, WEB_CLIENT, { sessionVersion: 1 });
+    await harness().removeGrant(gone, WEB_CLIENT);
+    expect({
+      blocked: await validates(harness(), blockedSession.token),
+      moved: await validates(harness(), movedSession.token),
+      gone: await validates(harness(), goneSession.token),
+    }).toEqual({ blocked: false, moved: false, gone: false });
+  });
 
-  it(
-    'ends authority at the idle deadline while the session is still stored',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const { token, sessionId } = await signIn(harness(), userId);
-      harness().issuance.clock.set(before(IDLE_DEADLINE));
-      const justBefore = await validates(harness(), token);
-      harness().issuance.clock.set(IDLE_DEADLINE);
-      expect({
-        justBefore,
-        atDeadline: await validates(harness(), token),
-        storedAsValid: (await harness().session(sessionId))?.isValid,
-      }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
-    },
-    budget,
-  );
+  it('ends authority at the idle deadline while the session is still stored', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const { token, sessionId } = await signIn(harness(), userId);
+    harness().issuance.clock.set(before(IDLE_DEADLINE));
+    const justBefore = await validates(harness(), token);
+    harness().issuance.clock.set(IDLE_DEADLINE);
+    expect({
+      justBefore,
+      atDeadline: await validates(harness(), token),
+      storedAsValid: (await harness().session(sessionId))?.isValid,
+    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
+  });
 
-  it(
-    'ends authority at the absolute deadline whatever the activity',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const { token, sessionId } = await signIn(harness(), userId);
-      await harness().patchSession(sessionId, {
-        lastActivityAt: new Date('2099-01-01T13:55:00.000Z'),
-        idleExpiresAt: new Date('2099-01-01T15:00:00.000Z'),
-      });
-      harness().issuance.clock.set(before(ABSOLUTE_DEADLINE));
-      const justBefore = await validates(harness(), token);
-      harness().issuance.clock.set(ABSOLUTE_DEADLINE);
-      expect({
-        justBefore,
-        atDeadline: await validates(harness(), token),
-        storedAsValid: (await harness().session(sessionId))?.isValid,
-      }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
-    },
-    budget,
-  );
+  it('ends authority at the absolute deadline whatever the activity', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const { token, sessionId } = await signIn(harness(), userId);
+    await harness().patchSession(sessionId, {
+      lastActivityAt: new Date('2099-01-01T13:55:00.000Z'),
+      idleExpiresAt: new Date('2099-01-01T15:00:00.000Z'),
+    });
+    harness().issuance.clock.set(before(ABSOLUTE_DEADLINE));
+    const justBefore = await validates(harness(), token);
+    harness().issuance.clock.set(ABSOLUTE_DEADLINE);
+    expect({
+      justBefore,
+      atDeadline: await validates(harness(), token),
+      storedAsValid: (await harness().session(sessionId))?.isValid,
+    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
+  });
 
-  it(
-    'ends authority early when the application shortens its idle lifetime',
-    async () => {
-      const userId = await harness().issuance.seedAccount();
-      const { token } = await signIn(harness(), userId);
-      await harness().issuance.seedApplication({
-        ...WEB_APPLICATION,
-        idleLifetimeMs: 60_000,
-      });
-      harness().issuance.clock.set(new Date('2099-01-01T12:00:59.999Z'));
-      const justBefore = await validates(harness(), token);
-      harness().issuance.clock.set(new Date('2099-01-01T12:01:00.000Z'));
-      expect({
-        justBefore,
-        atShortened: await validates(harness(), token),
-      }).toEqual({ justBefore: true, atShortened: false });
-    },
-    budget,
-  );
+  it('ends authority early when the application shortens its idle lifetime', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const { token } = await signIn(harness(), userId);
+    await harness().issuance.seedApplication({
+      ...WEB_APPLICATION,
+      idleLifetimeMs: 60_000,
+    });
+    harness().issuance.clock.set(new Date('2099-01-01T12:00:59.999Z'));
+    const justBefore = await validates(harness(), token);
+    harness().issuance.clock.set(new Date('2099-01-01T12:01:00.000Z'));
+    expect({
+      justBefore,
+      atShortened: await validates(harness(), token),
+    }).toEqual({ justBefore: true, atShortened: false });
+  });
 }

@@ -1,7 +1,6 @@
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { AccountsContractHarness } from '../../../../test/utils/user/accounts-contract/accounts-contract-harness';
 import {
-  accountCase,
   seedAccountsFixture,
   servicesOn,
 } from '../../../../test/utils/user/accounts-contract/accounts-contract-support';
@@ -87,61 +86,58 @@ export function describePasskeysAfterDeletion(
       await current().accounts.reset();
     }, budgets.resetMs);
 
-    accountCase(
-      'keeps the passkeys of an account that left and of one an admin deleted',
-      async () => {
-        const { accounts, passkeys } = current();
-        const { adminId, userId, supportId } =
-          await seedAccountsFixture(accounts);
-        await register(passkeys, userId, LEAVER_CREDENTIAL);
-        await register(passkeys, supportId, DELETED_CREDENTIAL);
-        const services = servicesOn(accounts);
+    it('keeps the passkeys of an account that left and of one an admin deleted', async () => {
+      const { accounts, passkeys } = current();
+      const { adminId, userId, supportId } =
+        await seedAccountsFixture(accounts);
+      await register(passkeys, userId, LEAVER_CREDENTIAL);
+      await register(passkeys, supportId, DELETED_CREDENTIAL);
+      const services = servicesOn(accounts);
 
-        await services.profile.deactivateAccount(userId);
-        await services.adminUsers.deleteUser(supportId, adminId);
+      await services.profile.deactivateAccount(userId);
+      await services.adminUsers.deleteUser(supportId, adminId);
 
-        expect({
-          left: await passkeysOf(current(), userId, LEAVER_CREDENTIAL),
-          deleted: await passkeysOf(current(), supportId, DELETED_CREDENTIAL),
-        }).toEqual({
-          left: {
-            account: {
-              id: userId,
-              email: 'person@example.test',
-              name: 'Plain Person',
-              isDeleted: true,
-            },
-            listed: [
-              {
-                credentialId: LEAVER_CREDENTIAL,
-                name: 'Key bGVhdmVyLWtleQ',
-                counter: 4,
-              },
-            ],
-            owner: userId,
-            count: 1,
-            profileCount: 1,
+      expect({
+        left: await passkeysOf(current(), userId, LEAVER_CREDENTIAL),
+        deleted: await passkeysOf(current(), supportId, DELETED_CREDENTIAL),
+      }).toEqual({
+        left: {
+          account: {
+            id: userId,
+            email: 'person@example.test',
+            name: 'Plain Person',
+            isDeleted: true,
           },
-          deleted: {
-            account: {
-              id: supportId,
-              email: 'support@example.test',
-              name: 'Contract Tester',
-              isDeleted: true,
+          listed: [
+            {
+              credentialId: LEAVER_CREDENTIAL,
+              name: 'Key bGVhdmVyLWtleQ',
+              counter: 4,
             },
-            listed: [
-              {
-                credentialId: DELETED_CREDENTIAL,
-                name: 'Key ZGVsZXRlZC1rZXk',
-                counter: 4,
-              },
-            ],
-            owner: supportId,
-            count: 1,
-            profileCount: 1,
+          ],
+          owner: userId,
+          count: 1,
+          profileCount: 1,
+        },
+        deleted: {
+          account: {
+            id: supportId,
+            email: 'support@example.test',
+            name: 'Contract Tester',
+            isDeleted: true,
           },
-        });
-      },
-    );
+          listed: [
+            {
+              credentialId: DELETED_CREDENTIAL,
+              name: 'Key ZGVsZXRlZC1rZXk',
+              counter: 4,
+            },
+          ],
+          owner: supportId,
+          count: 1,
+          profileCount: 1,
+        },
+      });
+    });
   });
 }

@@ -2,7 +2,6 @@ import * as bcrypt from 'bcrypt';
 import { failAfter } from '../../session/authority-contract/authority-contract-support';
 import { rejectionOf } from '../../session/issuance-contract/issuance-contract-support';
 import {
-  accountCase,
   AccountsFixture,
   AccountsHarnessSource,
   DEFAULT_SLUG,
@@ -79,91 +78,76 @@ export function accountAbortCases(
     };
   }
 
-  accountCase(
-    'stores nothing of a password change aborted after its sign-out event',
-    async () => {
-      const { userId } = fixture();
-      const { kept, live } = await twoSessions();
-      restore = failAfter(harness().sessions, 'revokeAllExcept', failure);
+  it('stores nothing of a password change aborted after its sign-out event', async () => {
+    const { userId } = fixture();
+    const { kept, live } = await twoSessions();
+    restore = failAfter(harness().sessions, 'revokeAllExcept', failure);
 
-      const raised = await rejectionOf(
-        servicesOn(harness()).profile.changePassword(
-          userId,
-          { currentPassword: OLD_PASSWORD, newPassword: NEW_PASSWORD },
-          kept,
-        ),
-      );
+    const raised = await rejectionOf(
+      servicesOn(harness()).profile.changePassword(
+        userId,
+        { currentPassword: OLD_PASSWORD, newPassword: NEW_PASSWORD },
+        kept,
+      ),
+    );
 
-      expect(await stored(raised)).toEqual(unchanged(live));
-    },
-  );
+    expect(await stored(raised)).toEqual(unchanged(live));
+  });
 
-  accountCase(
-    'stores nothing of leaving aborted after its sign-out event',
-    async () => {
-      const { userId } = fixture();
-      const { live } = await twoSessions();
-      restore = failAfter(harness().sessions, 'revokeAll', failure);
+  it('stores nothing of leaving aborted after its sign-out event', async () => {
+    const { userId } = fixture();
+    const { live } = await twoSessions();
+    restore = failAfter(harness().sessions, 'revokeAll', failure);
 
-      const raised = await rejectionOf(
-        servicesOn(harness()).profile.deactivateAccount(userId),
-      );
+    const raised = await rejectionOf(
+      servicesOn(harness()).profile.deactivateAccount(userId),
+    );
 
-      expect(await stored(raised)).toEqual(unchanged(live));
-    },
-  );
+    expect(await stored(raised)).toEqual(unchanged(live));
+  });
 
-  accountCase(
-    'stores nothing of an admin deactivation aborted after its sign-out event',
-    async () => {
-      const { userId, managerId } = fixture();
-      const { live } = await twoSessions();
-      restore = failAfter(harness().sessions, 'revokeAll', failure);
+  it('stores nothing of an admin deactivation aborted after its sign-out event', async () => {
+    const { userId, managerId } = fixture();
+    const { live } = await twoSessions();
+    restore = failAfter(harness().sessions, 'revokeAll', failure);
 
-      const raised = await rejectionOf(
-        servicesOn(harness()).adminUsers.updateUserStatus(
-          userId,
-          { isActive: false },
-          managerId,
-        ),
-      );
+    const raised = await rejectionOf(
+      servicesOn(harness()).adminUsers.updateUserStatus(
+        userId,
+        { isActive: false },
+        managerId,
+      ),
+    );
 
-      expect(await stored(raised)).toEqual(unchanged(live));
-    },
-  );
+    expect(await stored(raised)).toEqual(unchanged(live));
+  });
 
-  accountCase(
-    'stores nothing of an admin deletion aborted after its sign-out event',
-    async () => {
-      const { userId, managerId } = fixture();
-      const { live } = await twoSessions();
-      restore = failAfter(harness().sessions, 'revokeAll', failure);
+  it('stores nothing of an admin deletion aborted after its sign-out event', async () => {
+    const { userId, managerId } = fixture();
+    const { live } = await twoSessions();
+    restore = failAfter(harness().sessions, 'revokeAll', failure);
 
-      const raised = await rejectionOf(
-        servicesOn(harness()).adminUsers.deleteUser(userId, managerId),
-      );
+    const raised = await rejectionOf(
+      servicesOn(harness()).adminUsers.deleteUser(userId, managerId),
+    );
 
-      expect(await stored(raised)).toEqual(unchanged(live));
-    },
-  );
+    expect(await stored(raised)).toEqual(unchanged(live));
+  });
 
-  accountCase(
-    'stores nothing of a role change aborted after its sign-out event',
-    async () => {
-      const { userId, managerId } = fixture();
-      const { live } = await twoSessions();
-      restore = failAfter(harness().sessions, 'revokeAll', failure);
+  it('stores nothing of a role change aborted after its sign-out event', async () => {
+    const { userId, managerId } = fixture();
+    const { live } = await twoSessions();
+    restore = failAfter(harness().sessions, 'revokeAll', failure);
 
-      const raised = await rejectionOf(
-        servicesOn(harness()).adminUsers.updateUserRole(
-          userId,
-          { role: EDITOR_SLUG },
-          managerId,
-          MANAGER_SLUG,
-        ),
-      );
+    const raised = await rejectionOf(
+      servicesOn(harness()).adminUsers.updateUserRole(
+        userId,
+        { role: EDITOR_SLUG },
+        managerId,
+        MANAGER_SLUG,
+      ),
+    );
 
-      expect(await stored(raised)).toEqual(unchanged(live));
-    },
-  );
+    expect(await stored(raised)).toEqual(unchanged(live));
+  });
 }
