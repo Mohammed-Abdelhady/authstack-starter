@@ -1,16 +1,10 @@
 import { test, expect } from './fixtures/authenticated';
 import { settleAnimations } from './utils/accessibility';
+import { message } from './utils/messages';
 
-const messages = {
-  en: 'Network error. Please check your connection',
-  ar: 'خطأ في الشبكة. يرجى التحقق من اتصالك',
-};
-
+const NETWORK_ERROR = 'toast.error.networkError';
 /** The toast region is named in the page's language. */
-const toastRegions = {
-  en: 'Notifications',
-  ar: 'الإشعارات',
-};
+const TOAST_REGION = 'common.toastRegion';
 
 test.use({ authenticate: false });
 for (const locale of ['en', 'ar'] as const) {
@@ -27,8 +21,10 @@ for (const locale of ['en', 'ar'] as const) {
     await apiAvailability(false);
     try {
       await page.reload();
-      const notifications = page.getByRole('region', { name: toastRegions[locale] });
-      await expect(notifications.getByRole('listitem').first()).toContainText(messages[locale]);
+      const notifications = page.getByRole('region', { name: message(locale, TOAST_REGION) });
+      await expect(notifications.getByRole('listitem').first()).toContainText(
+        message(locale, NETWORK_ERROR),
+      );
       await expect(notifications).not.toContainText('toast.error');
       await expect(notifications).not.toContainText('getCurrentUser');
       await settleAnimations(page);
@@ -40,8 +36,10 @@ for (const locale of ['en', 'ar'] as const) {
       await page.getByTestId(`language-switcher-${other}`).click();
       await expect(page.locator('html')).toHaveAttribute('lang', other);
       await expect(page.locator('html')).toHaveAttribute('dir', other === 'ar' ? 'rtl' : 'ltr');
-      const translated = page.getByRole('region', { name: toastRegions[other] });
-      await expect(translated.getByRole('listitem').first()).toContainText(messages[other]);
+      const translated = page.getByRole('region', { name: message(other, TOAST_REGION) });
+      await expect(translated.getByRole('listitem').first()).toContainText(
+        message(other, NETWORK_ERROR),
+      );
       await settleAnimations(page);
       await info.attach(`${locale}-to-${other}-network-fallback`, {
         body: await page.screenshot({ fullPage: true }),
