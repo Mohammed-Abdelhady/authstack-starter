@@ -16,8 +16,7 @@ import { bootE2eApp, E2eApp } from '../../utils/e2e-app';
 import { TEST_NOW } from '../../utils/frozen-clock';
 // feature:totp:start
 // feature:passkeys:start
-// feature:magic-link:start
-import { ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config'; // feature:magic-link
 import {
   PasskeyAccounts,
   PasskeySignIn,
@@ -26,7 +25,6 @@ import { SecondFactorSignIn } from '../../../src/auth/two-factor/stores/second-f
 import { SecondFactorStore } from '../../../src/auth/two-factor/stores/second-factor.store';
 import { SeedStore } from '../../../src/database/seeds/seed.store';
 import { SEED_MANAGER, SEED_USER } from '../../constants/seed-users';
-// feature:magic-link:end
 // feature:passkeys:end
 // feature:totp:end
 
@@ -185,17 +183,18 @@ describe('the sign-in ports on the running database (e2e)', () => {
 
   // feature:totp:start
   // feature:passkeys:start
-  // feature:magic-link:start
-  // These cases need magic link, passkeys and the second factor together.
-  /** 32 bytes in base64, as the deployment setting is given. */
-  const FACTOR_KEY = Buffer.alloc(32, 7).toString('base64');
-  const CHALLENGE = 'mfa_challenge';
-
+  // These cases need passkeys and the second factor together.
   async function idOf(email: string): Promise<string> {
     const id = await port(SeedStore).findAccountId(email);
     if (!id) throw new Error(`no account for ${email}`);
     return id;
   }
+
+  // feature:magic-link:start
+  // This one needs magic link as well.
+  /** 32 bytes in base64, as the deployment setting is given. */
+  const FACTOR_KEY = Buffer.alloc(32, 7).toString('base64');
+  const CHALLENGE = 'mfa_challenge';
 
   it('holds a sign-in for the second factor of an account that confirmed one, and issues no session', async () => {
     e2e.app.get(ConfigService).set('twoFactor.encryptionKey', FACTOR_KEY);
@@ -237,6 +236,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
       sessions: [],
     });
   });
+  // feature:magic-link:end
 
   it('issues the session a passkey or a second factor proved, for the account that was read', async () => {
     const id = await idOf(SEED_MANAGER.email);
@@ -327,7 +327,6 @@ describe('the sign-in ports on the running database (e2e)', () => {
       sessions: [],
     });
   });
-  // feature:magic-link:end
   // feature:passkeys:end
   // feature:totp:end
 });

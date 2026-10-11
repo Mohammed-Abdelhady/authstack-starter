@@ -3,7 +3,7 @@ import { replacePermissions } from '../utils/permissions';
 import type { Response } from 'supertest';
 import {
   bootE2eApp,
-  browserAgent,
+  browserAgent, // feature:email-password
   loginAs,
   type E2eApp,
   type TestAgent,
@@ -81,6 +81,7 @@ describe('Permission enforcement (e2e)', () => {
       expect(user).toHaveProperty('role');
     });
 
+    // feature:email-password:start
     it('should allow users with same role to have different permissions', async () => {
       const userResponse: Response = await userAgent
         .get('/api/user/profile')
@@ -113,6 +114,7 @@ describe('Permission enforcement (e2e)', () => {
       expect((profile.body as ApiBody<UserResponse>).data.role).toBe('user');
       expect(await e2e.captureMail()).toHaveLength(1);
     });
+    // feature:email-password:end
   });
 
   describe('Protected permissions', () => {

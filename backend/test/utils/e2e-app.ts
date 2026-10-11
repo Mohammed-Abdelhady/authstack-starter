@@ -10,14 +10,12 @@ import { useContainer } from 'class-validator';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import * as bcrypt from 'bcrypt';
-import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
-import request from 'supertest';
+import type request from 'supertest';
 import { browserCors } from '../../src/common/security/browser-cors';
 import { DEVELOPMENT_CONTENT_SECURITY_POLICY } from '../../src/common/security/content-security-policy';
 import { createValidationPipe } from '../../src/common/pipes/validation-pipe.factory';
 import { Clock } from '../../src/common/services/clock';
 import {
-  SeedUser,
   SEED_ADMIN,
   SEED_MANAGER,
   SEED_SUPPORT,
@@ -30,8 +28,10 @@ import type { NativeApplicationConfiguration } from '../../src/config/types/nati
 import { type E2eState, startE2eStorage } from './e2e-storage';
 import { FrozenClock, TEST_NOW } from './frozen-clock';
 import { mailedCode as lastMailedCode } from './pending-race';
+import { rememberFixture } from './e2e-sign-in';
 import { withTemporaryWorkingDirectory } from './temporary-working-directory';
 
+export { browserAgent, loginAs } from './e2e-sign-in';
 export type HttpServer = Server;
 export type TestAgent = ReturnType<typeof request.agent>;
 export const E2E_CLIENT_URL = 'http://127.0.0.1:3107';
@@ -247,9 +247,11 @@ export async function bootE2eApp(
       mail.length = 0;
     };
     await reset();
+    const httpServer = nestApp.getHttpServer() as Server;
+    rememberFixture(httpServer, { app: nestApp, state: stored.state });
     return {
       app: nestApp,
-      httpServer: nestApp.getHttpServer() as Server,
+      httpServer,
       mail,
       clock,
       state: stored.state,
@@ -268,44 +270,4 @@ export async function bootE2eApp(
     await close().catch(() => undefined);
     throw error;
   }
-}
-
-/** Returns an agent with a session issued by the real password login route. */
-export async function loginAs(
-  httpServer: HttpServer,
-  user: SeedUser,
-): Promise<TestAgent> {
-  const agent = request.agent(httpServer);
-  const proof = await agent.get('/api/auth/browser-proof').expect(200);
-  const preAuth = (proof.body as { data: { token: string } }).data.token;
-  const login = await agent
-    .post('/api/auth/login')
-    .set(CSRF_HEADER, preAuth)
-    .send({ email: user.email, password: user.password })
-    .expect(200);
-  return bindBrowserProof(agent, headerToken(login));
-}
-
-export async function browserAgent(httpServer: HttpServer): Promise<TestAgent> {
-  const agent = request.agent(httpServer);
-  const proof = await agent.get('/api/auth/browser-proof').expect(200);
-  const token = (proof.body as { data: { token: string } }).data.token;
-  return bindBrowserProof(agent, token);
-}
-
-function headerToken(response: { headers: Record<string, unknown> }): string {
-  const value = response.headers[CSRF_HEADER];
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error('login did not return a browser proof');
-  }
-  return value;
-}
-
-function bindBrowserProof(agent: TestAgent, token: string): TestAgent {
-  const methods = ['post', 'put', 'patch', 'delete'] as const;
-  for (const method of methods) {
-    const original = agent[method].bind(agent);
-    agent[method] = (url: string) => original(url).set(CSRF_HEADER, token);
-  }
-  return agent;
 }

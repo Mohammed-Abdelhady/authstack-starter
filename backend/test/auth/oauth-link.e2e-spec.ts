@@ -68,6 +68,7 @@ describe('provider link start with both credentials (e2e)', () => {
     );
   });
 
+  // feature:email-password,magic-link:start
   it('lists the sign-in methods with what an unlink of each would be told', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     await e2e.state.auth.linkProviderAccounts(SEED_USER.email, [
@@ -89,6 +90,7 @@ describe('provider link start with both credentials (e2e)', () => {
       data: { providers: ['email'], unlinkHints: { email: 'not_removable' } },
     });
   });
+  // feature:email-password,magic-link:end
 
   it('lists which sign-in methods can be primary and answers each choice the same way', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
@@ -127,12 +129,14 @@ describe('provider link start with both credentials (e2e)', () => {
   it('says whether email sign-in is usable, and nothing for an account a provider made', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
 
+    // feature:email-password,magic-link:start
     const byEmail = await browser.get('/api/user/linked-providers').expect(200);
 
     // Password sign-in is on in this deployment.
     expect(byEmail.body).toMatchObject({
       data: { providers: ['email'], emailSignIn: 'usable' },
     });
+    // feature:email-password,magic-link:end
 
     await e2e.state.auth.makeProviderCreated(SEED_USER.email, 'google', [
       { provider: 'google', providerId: 'google-1', linkedAt: TEST_NOW },

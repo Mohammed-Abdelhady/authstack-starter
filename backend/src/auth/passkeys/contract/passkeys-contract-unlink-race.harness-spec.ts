@@ -1,9 +1,9 @@
-import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
+import { holdBefore, RaceGate } from '../../../../test/utils/race-gate'; // feature:email-password
 import {
-  holdReruns,
+  holdReruns, // feature:email-password
   rerunAtOnce,
 } from '../../../../test/utils/session/issuance-contract/issuance-contract-support';
-import { AppException } from '../../../common/exceptions/app.exception';
+import { AppException } from '../../../common/exceptions/app.exception'; // feature:email-password
 import { AccountLinkingService } from '../../../user/services/account-linking.service';
 import {
   CREDENTIAL_ID,
@@ -16,7 +16,7 @@ import {
   refusalOf,
 } from './passkeys-contract.harness-spec';
 
-const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
+const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 }; // feature:email-password
 const LAST_PROVIDER = { code: 'CANNOT_UNLINK_LAST_PROVIDER', status: 400 };
 /** No address can sign in or be recovered by itself. */
 const NO_EMAIL_WAY_IN: FeatureSwitches = { password: false, magicLink: false };
@@ -54,6 +54,7 @@ function linkingOn(
   );
 }
 
+// feature:email-password:start
 function outcomeOf(result: PromiseSettledResult<unknown>): unknown {
   if (result.status === 'fulfilled') return 'done';
   const reason: unknown = result.reason;
@@ -61,9 +62,11 @@ function outcomeOf(result: PromiseSettledResult<unknown>): unknown {
     ? { code: reason.code, status: reason.getStatus() }
     : reason;
 }
+// feature:email-password:end
 
 /** A passkey removal and a provider unlink on one account at the same time. */
 export function unlinkRaceCases(harness: PasskeysHarnessSource): void {
+  // feature:email-password:start
   passkeyCase(
     'keeps the passkey when the provider it counted is unlinked at the same time',
     async () => {
@@ -113,6 +116,7 @@ export function unlinkRaceCases(harness: PasskeysHarnessSource): void {
       expect(await harness().storedPasskeys()).toHaveLength(1);
     },
   );
+  // feature:email-password:end
 
   passkeyCase(
     'refuses the provider after the passkey went when no address can sign in by itself',

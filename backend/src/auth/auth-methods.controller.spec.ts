@@ -6,6 +6,10 @@ import { OAuthRegistryService } from './oauth/oauth-registry.service'; // featur
 
 describe('AuthMethodsController', () => {
   const providers = [{ id: 'google', displayName: 'Google' }]; // feature:oauth-core
+  /** Written by hand: a project that left password sign-in out never offers it. */
+  const carried: string[] = [
+    'password', // feature:email-password
+  ];
 
   async function createController(config: {
     passwordEnabled: boolean;
@@ -55,7 +59,7 @@ describe('AuthMethodsController', () => {
       success: true,
       data: {
         methods: {
-          password: true,
+          password: carried.includes('password'),
           magicLink: true, // feature:magic-link
           twoFactor: true, // feature:totp
           passkeys: true, // feature:passkeys

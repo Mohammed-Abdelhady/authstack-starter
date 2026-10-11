@@ -51,6 +51,7 @@ const ACCOUNTS: Record<string, EmailAccount & { expected: Observed }> = {
       unlinkGoogle: LAST_PROVIDER,
     },
   },
+  // feature:email-password:start
   'password sign-in only': {
     linksGoogle: true,
     switches: { password: true, magicLink: false },
@@ -61,6 +62,8 @@ const ACCOUNTS: Record<string, EmailAccount & { expected: Observed }> = {
       unlinkGoogle: UNLINKED,
     },
   },
+  // feature:email-password:end
+  // feature:magic-link:start
   'magic links only': {
     linksGoogle: true,
     switches: { password: false, magicLink: true },
@@ -71,6 +74,8 @@ const ACCOUNTS: Record<string, EmailAccount & { expected: Observed }> = {
       unlinkGoogle: UNLINKED,
     },
   },
+  // feature:magic-link:end
+  // feature:email-password,magic-link:start
   'both switched on': {
     linksGoogle: true,
     switches: { password: true, magicLink: true },
@@ -81,6 +86,7 @@ const ACCOUNTS: Record<string, EmailAccount & { expected: Observed }> = {
       unlinkGoogle: UNLINKED,
     },
   },
+  // feature:email-password,magic-link:end
   'email alone and both switched off': {
     linksGoogle: false,
     switches: { password: false, magicLink: false },

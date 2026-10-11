@@ -139,7 +139,7 @@ describe('sdk contract over a cookie transport', () => {
   it('reads the sign-in methods without a session', async () => {
     const methods = await publicClient(e2e).auth.methods();
 
-    expect(methods.password).toBe(true);
+    expect(methods.password).toBe(true); // feature:email-password
     expect(methods.magicLink).toBe(false);
     expect(methods.twoFactor).toBe(true); // feature:totp
     expect(methods.passkeys).toBe(true); // feature:passkeys

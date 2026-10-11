@@ -155,19 +155,25 @@ export function lastWayInCases(
           switches: { password: false, magicLink: false },
           unlinked: false,
         },
+        // feature:email-password:start
         'password reset by email': {
           switches: { password: true, magicLink: false },
           unlinked: true,
         },
+        // feature:email-password:end
+        // feature:magic-link:start
         'magic links': {
           switches: { password: false, magicLink: true },
           unlinked: true,
         },
+        // feature:magic-link:end
+        // feature:email-password:start
         'a password': {
           passwordHash: 'stored-hash',
           switches: { password: true, magicLink: false },
           unlinked: true,
         },
+        // feature:email-password:end
       };
 
       const unlinked: Record<string, boolean> = {};
@@ -202,9 +208,9 @@ export function lastWayInCases(
       expect(unlinked).toEqual({
         'nothing by email': false,
         'a password that cannot be used': false,
-        'password reset by email': true,
-        'magic links': true,
-        'a password': true,
+        'password reset by email': true, // feature:email-password
+        'magic links': true, // feature:magic-link
+        'a password': true, // feature:email-password
       });
     },
   );

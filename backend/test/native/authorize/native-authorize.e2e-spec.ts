@@ -30,10 +30,6 @@ interface TokenResponseBody {
   access_token: string;
 }
 
-interface BrowserProofResponseBody {
-  data: { token: string };
-}
-
 describe('native browser authorization (e2e)', () => {
   let e2e: E2eApp;
 
@@ -91,21 +87,17 @@ describe('native browser authorization (e2e)', () => {
   // feature:locale-ar:end
 
   it('requires a browser proof header for approval and denial', async () => {
-    const browser = request.agent(e2e.httpServer);
-    const proof = await browser.get('/api/auth/browser-proof').expect(200);
-    const preAuthToken = (proof.body as BrowserProofResponseBody).data.token;
-    await browser
-      .post('/api/auth/login')
-      .set(CSRF_HEADER, preAuthToken)
-      .send({ email: SEED_USER.email, password: SEED_USER.password })
-      .expect(200);
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
     const started = await beginNativeAuthorization(e2e);
 
+    // The agent presents its proof by itself, so these two take it off.
     const approval = await browser
       .post('/api/oauth/authorize/approve')
+      .unset(CSRF_HEADER)
       .send({ transactionId: started.transactionId });
     const denial = await browser
       .post('/api/oauth/authorize/deny')
+      .unset(CSRF_HEADER)
       .send({ transactionId: started.transactionId });
     for (const response of [approval, denial]) {
       expect(response.status).toBe(403);

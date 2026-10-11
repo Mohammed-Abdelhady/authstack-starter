@@ -197,11 +197,13 @@ export function linkedAccountCases(
         'github',
       );
 
+      // feature:email-password,magic-link:start
       // With no provider left there is no primary provider either.
       await linking.unlinkProvider(ownerId, 'github');
       expect(await harness().storedLinks(ownerId)).toEqual([]);
       expect((await harness().syncFacts(ownerId))?.primaryProvider).toBeNull();
       expect(await linking.getLinkedProviders(ownerId)).toEqual(['email']);
+      // feature:email-password,magic-link:end
     },
   );
 
@@ -224,7 +226,7 @@ export function linkedAccountCases(
         code: 'PROVIDER_NOT_LINKED',
         status: 400,
       });
-      expect(await linking.canUnlinkProvider(ownerId, 'google')).toBe(true);
+      expect(await linking.canUnlinkProvider(ownerId, 'google')).toBe(true); // feature:email-password,magic-link
       expect(await linking.canUnlinkProvider(ownerId, 'email')).toBe(false);
       expect(
         await linking.canUnlinkProvider(harness().absentId(), 'google'),
@@ -243,7 +245,7 @@ export function linkedAccountCases(
       });
       expect(await linking.isPrimaryProvider(ownerId, 'google')).toBe(false);
       // This one read never asks for the deactivation, so it still answers.
-      expect(await linking.canUnlinkProvider(ownerId, 'google')).toBe(true);
+      expect(await linking.canUnlinkProvider(ownerId, 'google')).toBe(true); // feature:email-password,magic-link
       expect(await harness().storedLinks(ownerId)).toEqual([
         { provider: 'google', providerId: 'google-1' },
       ]);

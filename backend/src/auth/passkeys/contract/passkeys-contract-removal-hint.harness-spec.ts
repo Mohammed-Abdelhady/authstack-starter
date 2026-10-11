@@ -25,7 +25,7 @@ interface HintedAccount {
 
 const ACCOUNTS: Record<string, HintedAccount> = {
   'nothing else': { features: {}, removable: false },
-  'a password': { password: true, features: {}, removable: true },
+  'a password': { password: true, features: {}, removable: true }, // feature:email-password
   'a password that cannot be used': {
     password: true,
     features: { password: false },
@@ -36,10 +36,12 @@ const ACCOUNTS: Record<string, HintedAccount> = {
     features: { password: false },
     removable: true,
   },
+  // feature:magic-link:start
   'magic links': {
     features: { password: false, magicLink: true },
     removable: true,
   },
+  // feature:magic-link:end
   'a second passkey': {
     secondPasskey: true,
     features: { password: false },
@@ -92,10 +94,10 @@ export function removalHintCases(harness: PasskeysHarnessSource): void {
       expect(hinted).toEqual(removed);
       expect(hinted).toEqual({
         'nothing else': false,
-        'a password': true,
+        'a password': true, // feature:email-password
         'a password that cannot be used': false,
         'a linked provider': true,
-        'magic links': true,
+        'magic links': true, // feature:magic-link
         'a second passkey': true,
       });
     },

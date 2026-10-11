@@ -1,3 +1,4 @@
+// feature:totp:start
 // AuthModule reaches the otplib adapter through the two-factor services; this
 // spec only reads module metadata.
 jest.mock('../two-factor/utils/totp.util', () => ({
@@ -5,6 +6,7 @@ jest.mock('../two-factor/utils/totp.util', () => ({
   buildOtpauthUrl: jest.fn(),
   checkTotpDelta: jest.fn(),
 }));
+// feature:totp:end
 
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { MagicLinkModule } from './magic-link.module';
