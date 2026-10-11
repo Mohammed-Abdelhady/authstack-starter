@@ -77,7 +77,7 @@ export function CreateUserRoleField({
             <SelectItem
               key={role.id}
               value={role.slug}
-              disabled={refusal !== null}
+              unavailableReason={refusal ? <RoleRefusalBadge refusal={refusal} /> : undefined}
               data-testid={`role-option-${role.slug}`}
             >
               <div className="flex items-center gap-2">
@@ -85,7 +85,6 @@ export function CreateUserRoleField({
                 {role.isSystemRole && (
                   <span className="text-xs text-tertiary">{t('systemRole')}</span>
                 )}
-                {refusal && <RoleRefusalBadge refusal={refusal} />}
               </div>
             </SelectItem>
           );

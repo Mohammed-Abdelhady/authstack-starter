@@ -163,14 +163,13 @@ export function UserRoleSelector({
               <SelectItem
                 key={role.id}
                 value={role.slug}
-                disabled={refusal !== null}
+                unavailableReason={refusal ? <RoleRefusalBadge refusal={refusal} /> : undefined}
                 data-testid={`role-option-${role.slug}`}
               >
                 <div className="flex items-center gap-2">
                   {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
                   {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
                   <span dir="auto">{role.name}</span>
-                  {refusal && <RoleRefusalBadge refusal={refusal} />}
                 </div>
               </SelectItem>
             );
