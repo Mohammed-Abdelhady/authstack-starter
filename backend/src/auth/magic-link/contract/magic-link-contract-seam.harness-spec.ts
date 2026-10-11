@@ -102,7 +102,7 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
   );
 
   it(
-    'removes only the links that expired at or before the cutoff, so the cap still counts a kept one',
+    'removes only the links that expired at or before the cutoff',
     async () => {
       const cutoff = new Date(TEST_NOW.getTime() - ONE_HOUR_MS);
       const created = new Date(TEST_NOW.getTime() - 1000);
@@ -129,13 +129,11 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
         before: await harness().link('before'),
         at: await harness().link('at'),
         after: (await harness().link('after'))?.tokenHash,
-        stillCounted: await harness().links.countRequestedSince(EMAIL, cutoff),
       }).toEqual({
         removed: 2,
         before: null,
         at: null,
         after: 'after',
-        stillCounted: 1,
       });
     },
     MAGIC_LINK_CONTRACT_CASE_TIMEOUT_MS,

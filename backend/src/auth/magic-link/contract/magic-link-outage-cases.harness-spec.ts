@@ -5,6 +5,7 @@ import { MagicLinkStore } from '../stores/magic-link.store';
 
 const UNAVAILABLE = 'PersistenceUnavailableError';
 const EMAIL = 'outage@example.test';
+const HOUR_MS = 3_600_000;
 
 /** Every link and account method that is one statement committing by itself. */
 export function magicLinkStatements(
@@ -12,8 +13,12 @@ export function magicLinkStatements(
   accounts: MagicLinkAccounts,
 ): Statements {
   return {
-    'link.countRequestedSince': () =>
-      links.countRequestedSince(EMAIL, TEST_NOW),
+    'link.takeRequestSlot': () =>
+      links.takeRequestSlot(EMAIL, {
+        now: TEST_NOW,
+        windowMs: HOUR_MS,
+        limit: 5,
+      }),
     'link.insertLink': () =>
       links.insertLink({
         email: EMAIL,
@@ -23,6 +28,7 @@ export function magicLinkStatements(
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
     'link.deleteExpiredBefore': () => links.deleteExpiredBefore(TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
+    'account.hasDeletedAccount': () => accounts.hasDeletedAccount(EMAIL),
     'account.createPasswordless': () =>
       accounts.createPasswordless({ email: EMAIL, name: 'Outage Tester' }),
   };
@@ -30,10 +36,11 @@ export function magicLinkStatements(
 
 /** What every one of those statements raises while the database is away. */
 export const MAGIC_LINK_OUTAGES: Record<string, string> = {
-  'link.countRequestedSince': UNAVAILABLE,
+  'link.takeRequestSlot': UNAVAILABLE,
   'link.insertLink': UNAVAILABLE,
   'link.claimLink': UNAVAILABLE,
   'link.deleteExpiredBefore': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,
+  'account.hasDeletedAccount': UNAVAILABLE,
   'account.createPasswordless': UNAVAILABLE,
 };

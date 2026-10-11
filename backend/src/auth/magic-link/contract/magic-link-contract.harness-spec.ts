@@ -17,7 +17,7 @@ import {
   MagicLinkSignIn,
   MagicLinkSignInOutcome,
 } from '../stores/magic-link-accounts';
-import { MagicLinkStore } from '../stores/magic-link.store';
+import { MagicLinkStore, NewMagicLink } from '../stores/magic-link.store';
 
 /** Jest budget for a contract case, the one the sign-in contract established. */
 export const MAGIC_LINK_CONTRACT_CASE_TIMEOUT_MS = 60000;
@@ -115,6 +115,12 @@ export interface LinkServices {
   signedIn: string[];
   /** Every store call the service made, in order. */
   storeCalls: string[];
+  /** The token hash of every link the service stored, in order. */
+  storedHashes: string[];
+  /** Mails the transport finished, which takes one turn of the event loop. */
+  finishedMail(): number;
+  /** Waits for every mail the service started. */
+  settleMail(): Promise<void>;
   /** The token the last mail carried in its link. */
   mailedToken(): string;
 }
@@ -127,7 +133,9 @@ export const LINK_REQUEST: Request = createRequestMock({
 export const LINK_RESPONSE: Response = createResponseMock({});
 
 /** The real service on one database's adapters, with mail kept in memory. */
-export function linkServices(harness: MagicLinkContractHarness): LinkServices {
+export function linkServices(
+  harness: Pick<MagicLinkContractHarness, 'clock' | 'links' | 'accounts'>,
+): LinkServices {
   const config = new ConfigService({
     magicLink: { expiresIn: LINK_LIFETIME_MS, maxPerHour: LINKS_PER_HOUR },
     cors: { clientUrl: 'http://localhost:3000' },
@@ -135,29 +143,48 @@ export function linkServices(harness: MagicLinkContractHarness): LinkServices {
   });
   const mail: MailOptions[] = [];
   const mailService = new MailService(config);
-  mailService.sendMail = (options: MailOptions): Promise<void> => {
+  let finished = 0;
+  mailService.sendMail = async (options: MailOptions): Promise<void> => {
     mail.push(options);
-    return Promise.resolve();
+    // A transport answers later than the code that called it.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    finished += 1;
   };
-  const authMail = new AuthMailService(
-    mailService,
-    new MailDispatcherService(config, mailService),
-  );
+  const dispatcher = new MailDispatcherService(config, mailService);
+  const authMail = new AuthMailService(mailService, dispatcher);
   const signIn = new RecordingSignIn();
   const storeCalls: string[] = [];
+  const storedHashes: string[] = [];
+  const links = new Proxy(harness.links, {
+    get(target, property) {
+      if (property !== 'insertLink') {
+        return Reflect.get(target, property, target) as unknown;
+      }
+      return (link: NewMagicLink): Promise<void> => {
+        storedHashes.push(link.tokenHash);
+        return target.insertLink(link);
+      };
+    },
+  });
 
   return {
     service: new MagicLinkService(
-      recorded(harness.links, 'links', storeCalls),
+      recorded(links, 'links', storeCalls),
       recorded(harness.accounts, 'accounts', storeCalls),
       config,
       authMail,
+      dispatcher,
       signIn,
       harness.clock,
     ),
     mail,
     signedIn: signIn.accountIds,
     storeCalls,
+    storedHashes,
+    finishedMail: () => finished,
+    settleMail: () => dispatcher.flush(),
     mailedToken: () => {
       const last = mail[mail.length - 1];
       const token = /token=([A-Za-z0-9_-]+)/.exec(last?.text ?? '')?.[1];

@@ -20,6 +20,9 @@ import {
   MongoMagicLinkSignIn,
 } from './mongo-magic-link-accounts';
 import { AuthMailService } from '../../../services/mail/auth-mail.service';
+import { MailCounter } from '../../../persistence/mongo/schemas/mail-counter.schema';
+import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
+import { MailService } from '../../../../mail/mail.service';
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import { User } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { AuthProvider } from '../../../../user/enums/auth-provider.enum';
@@ -28,6 +31,7 @@ import { FrozenClock, TEST_NOW } from '../../../../../test/utils/frozen-clock';
 import {
   createRequestMock,
   createResponseMock,
+  partialMock,
 } from '../../../../common/testing/test-doubles.harness-spec';
 
 /**
@@ -39,12 +43,10 @@ import {
 export interface MagicLinkHarness {
   service: MagicLinkService;
   clock: FrozenClock;
-  pendingModel: {
-    create: jest.Mock;
-    countDocuments: jest.Mock;
-    findOneAndUpdate: jest.Mock;
-  };
-  userModel: { findOne: jest.Mock; create: jest.Mock };
+  pendingModel: { create: jest.Mock; findOneAndUpdate: jest.Mock };
+  /** The cap's counter. Its answer is the count after this request. */
+  counterModel: { findOneAndUpdate: jest.Mock };
+  userModel: { findOne: jest.Mock; exists: jest.Mock; create: jest.Mock };
   authMailService: { sendMagicLink: jest.Mock };
   signInService: { completeSignIn: jest.Mock; issueSession: jest.Mock };
 }
@@ -97,19 +99,22 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const clock = new FrozenClock(TEST_NOW);
   const pendingModel = {
     create: jest.fn().mockResolvedValue(undefined),
-    countDocuments: jest.fn().mockResolvedValue(0),
     findOneAndUpdate: jest.fn(),
+  };
+  const counterModel = {
+    findOneAndUpdate: jest.fn().mockResolvedValue({ mailedCodes: 1 }),
   };
 
   const userModel = {
     findOne: jest.fn().mockResolvedValue(null),
+    exists: jest.fn().mockResolvedValue(null),
     create: jest.fn().mockResolvedValue(MOCK_USER),
   };
 
   const configService = new ConfigService(CONFIG_VALUES);
 
   const authMailService = {
-    sendMagicLink: jest.fn().mockResolvedValue(undefined),
+    sendMagicLink: jest.fn().mockResolvedValue(true),
   };
 
   const signInService = {
@@ -129,9 +134,17 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
         provide: getModelToken(PendingMagicLink.name),
         useValue: pendingModel,
       },
+      { provide: getModelToken(MailCounter.name), useValue: counterModel },
       { provide: getModelToken(User.name), useValue: userModel },
       { provide: ConfigService, useValue: configService },
       { provide: AuthMailService, useValue: authMailService },
+      {
+        provide: MailDispatcherService,
+        useValue: new MailDispatcherService(
+          configService,
+          partialMock<MailService>({}),
+        ),
+      },
       { provide: SignInService, useValue: signInService },
       { provide: Clock, useValue: clock },
     ],
@@ -141,6 +154,7 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
     service: module.get<MagicLinkService>(MagicLinkService),
     clock,
     pendingModel,
+    counterModel,
     userModel,
     authMailService,
     signInService,

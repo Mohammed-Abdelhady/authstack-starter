@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
 import { MagicLinkModule } from '../../magic-link.module';
 import { MagicLinkService } from '../../magic-link.service';
 import {
@@ -49,21 +50,16 @@ describe('MagicLinkService logging with real repositories', () => {
         .get(MagicLinkService)
         .request({ email: LOGGING_EMAIL }, loggingResponse().request),
     );
+    await fixture.module.get(MailDispatcherService).flush();
     expect(log).toHaveBeenCalled();
     expect(loggedCalls(log)).toContain('Magic link sent requestId=req-ml');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
   it('warns a capped address with the request id, never the address', async () => {
-    const pending = fixture.module.get<Model<PendingMagicLinkDocument>>(
-      getModelToken(PendingMagicLink.name),
-    );
-    for (let index = 0; index < 5; index += 1) {
-      await pending.create({
-        email: LOGGING_EMAIL,
-        tokenHash: `token-${index}`,
-        createdAt: fixture.clock.now(),
-        expiresAt: new Date(MAGIC_LINK_EXPIRES_AT),
-      });
+    for (let mailed = 0; mailed < 5; mailed += 1) {
+      await fixture.module
+        .get(MagicLinkService)
+        .request({ email: LOGGING_EMAIL }, loggingResponse().request);
     }
     const log = captureLogs();
     const warn = jest

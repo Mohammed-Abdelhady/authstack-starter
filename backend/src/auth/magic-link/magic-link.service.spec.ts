@@ -1,6 +1,7 @@
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { MAGIC_LINK_SENT_MESSAGE } from './constants/magic-link.constants';
 import { hashMagicLinkToken } from './utils/magic-link-token.util';
+import { TEST_NOW } from '../../../test/utils/frozen-clock';
 import {
   MagicLinkHarness,
   MAGIC_LINK_MAX_PER_HOUR,
@@ -63,45 +64,42 @@ describe('MagicLinkService', () => {
     });
 
     it('should send nothing for a soft-deleted account and answer the same way', async () => {
-      harness.userModel.findOne.mockResolvedValueOnce({
-        ...MOCK_USER,
-        isDeleted: true,
-      });
+      harness.userModel.exists.mockResolvedValueOnce({ _id: MOCK_USER._id });
 
       const result = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
       );
 
-      expect(harness.pendingModel.create).not.toHaveBeenCalled();
+      expect(harness.pendingModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: EMAIL, consumedAt: TEST_NOW }),
+      );
       expect(harness.authMailService.sendMagicLink).not.toHaveBeenCalled();
       expect(result.data.email).toBe(EMAIL);
       expect(result.message).toBe(MAGIC_LINK_SENT_MESSAGE);
     });
 
-    it('should stop mailing once the address hits the hourly cap', async () => {
-      harness.pendingModel.countDocuments.mockResolvedValueOnce(
-        MAGIC_LINK_MAX_PER_HOUR,
-      );
+    it('should stop mailing once the address is past the hourly cap', async () => {
+      harness.counterModel.findOneAndUpdate.mockResolvedValueOnce({
+        mailedCodes: MAGIC_LINK_MAX_PER_HOUR + 1,
+      });
 
       const result = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
       );
 
-      expect(harness.pendingModel.countDocuments).toHaveBeenCalledWith({
-        email: { $eq: EMAIL },
-        createdAt: { $gte: expect.any(Date) as Date },
-      });
-      expect(harness.pendingModel.create).not.toHaveBeenCalled();
+      expect(harness.pendingModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: EMAIL, consumedAt: TEST_NOW }),
+      );
       expect(harness.authMailService.sendMagicLink).not.toHaveBeenCalled();
       expect(result.message).toBe(MAGIC_LINK_SENT_MESSAGE);
     });
 
-    it('should keep mailing while the address is under the cap', async () => {
-      harness.pendingModel.countDocuments.mockResolvedValueOnce(
-        MAGIC_LINK_MAX_PER_HOUR - 1,
-      );
+    it('should keep mailing up to the hourly cap', async () => {
+      harness.counterModel.findOneAndUpdate.mockResolvedValueOnce({
+        mailedCodes: MAGIC_LINK_MAX_PER_HOUR,
+      });
 
       await harness.service.request({ email: EMAIL }, MOCK_REQUEST);
 
