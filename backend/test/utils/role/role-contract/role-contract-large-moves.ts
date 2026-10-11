@@ -19,11 +19,15 @@ const RENAMED_SLUG = 'crowd-renamed';
  */
 const CROWD = 66_000;
 /**
- * These two cases only. On a machine at a load of 31 the rename took 16 s on
- * the slower database and 3 s on the faster, and the move 2.5 s on both. A
- * full run on a busier machine gets the room a database case does not need.
+ * The rename case only: it stores 66,000 accounts, moves and signs out each
+ * one, and empties the tables again. Slowest measured: 30 seconds.
  */
-const LARGE_MOVE_TIMEOUT_MS = 180_000;
+const LARGE_RENAME_CASE_MS = 60_000;
+/**
+ * The move case only: it stores 66,000 accounts, moves them in one unit of
+ * work, and empties the tables again. Slowest measured: 11 seconds.
+ */
+const LARGE_MOVE_CASE_MS = 30_000;
 
 /** A role held by more accounts than a statement can name one by one. */
 export function roleLargeMoveCases(
@@ -38,9 +42,22 @@ export function roleLargeMoveCases(
       harness().changes.countHoldersInWork(unitOfWork, slug),
     );
 
+  /**
+   * Empties the tables inside the case, on the case's own budget, so the
+   * reset before the next case has an ordinary amount to remove.
+   */
+  const thenEmptied =
+    (body: () => Promise<void>) => async (): Promise<void> => {
+      try {
+        await body();
+      } finally {
+        await harness().reset();
+      }
+    };
+
   it(
     'renames a role 66,000 accounts hold, moving and signing out each one once',
-    async () => {
+    thenEmptied(async () => {
       const crowd = await harness().seedRole({
         name: 'Crowd',
         slug: CROWD_SLUG,
@@ -92,13 +109,13 @@ export function roleLargeMoveCases(
         signedOut: 66000,
         actorsAndReasons: [`${fixture().adminId} (${ADMIN_FORCED})`],
       });
-    },
-    LARGE_MOVE_TIMEOUT_MS,
+    }),
+    LARGE_RENAME_CASE_MS,
   );
 
   it(
     'moves 66,000 accounts named one by one and reads the role each held before',
-    async () => {
+    thenEmptied(async () => {
       const { changes, sweeps } = harness();
       const crowd = await harness().seedRole({
         name: 'Crowd',
@@ -145,7 +162,7 @@ export function roleLargeMoveCases(
           { role: CROWD_SLUG, sessionVersion: 0 },
         ],
       });
-    },
-    LARGE_MOVE_TIMEOUT_MS,
+    }),
+    LARGE_MOVE_CASE_MS,
   );
 }

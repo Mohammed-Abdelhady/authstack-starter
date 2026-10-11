@@ -25,9 +25,6 @@ import {
 
 const BACKEND = join(__dirname, '..', '..', '..', '..');
 const CHILD = join(__dirname, 'session-loss-child.harness-spec.ts');
-/** The child compiles the adapter before it runs, which the default bound does not cover. */
-const CHILD_CASE_TIMEOUT_MS = 60_000;
-
 interface ChildRun {
   exitCode: number | null;
   said: unknown;
@@ -80,18 +77,14 @@ describe('a PostgreSQL session that ends under the application', () => {
     return { pool, database, runner: new PostgresUnitOfWorkRunner(database) };
   }
 
-  it(
-    'leaves the process running when a statement in flight loses its session',
-    async () => {
-      const run = await runChild(server.url());
+  it('leaves the process running when a statement in flight loses its session', async () => {
+    const run = await runChild(server.url());
 
-      expect(run).toEqual({
-        exitCode: 0,
-        said: { inFlightWork: 'PersistenceUnavailableError', nextAnswer: 1 },
-      });
-    },
-    CHILD_CASE_TIMEOUT_MS,
-  );
+    expect(run).toEqual({
+      exitCode: 0,
+      said: { inFlightWork: 'PersistenceUnavailableError', nextAnswer: 1 },
+    });
+  });
 
   it('refuses the work whose statement was in flight, and serves the next on a new connection', async () => {
     const { pool, runner } = open();
