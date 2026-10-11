@@ -1,10 +1,14 @@
 -- Mailed sign-in links. A file of its own: it belongs to magic link sign-in,
--- and a project without that feature does not carry it. It depends on no
--- other file. PostgreSQL has no TTL index, so a row stays after it expires
--- until the retention job removes it, and no statement may read "stored" as
--- "still valid".
+-- and a project without that feature does not carry it. It may depend only on
+-- files every project carries that are lower in number, and it depends on
+-- none. PostgreSQL has no TTL index, so a row stays after it expires until the
+-- retention job removes it, and no statement may read "stored" as "still
+-- valid".
+--
+-- IF NOT EXISTS: 0003 made this table and both indexes, with these statements,
+-- before they moved here. A database from then holds them with no 0013 record.
 
-CREATE TABLE pending_magic_links (
+CREATE TABLE IF NOT EXISTS pending_magic_links (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
   email text NOT NULL,
   token_hash text NOT NULL,
@@ -17,7 +21,8 @@ CREATE TABLE pending_magic_links (
   CONSTRAINT pending_magic_link_token_hash_unique UNIQUE (token_hash)
 );
 
-CREATE INDEX pending_magic_link_email_created
+CREATE INDEX IF NOT EXISTS pending_magic_link_email_created
   ON pending_magic_links (email, created_at DESC);
 
-CREATE INDEX pending_magic_link_expires_at ON pending_magic_links (expires_at);
+CREATE INDEX IF NOT EXISTS pending_magic_link_expires_at
+  ON pending_magic_links (expires_at);

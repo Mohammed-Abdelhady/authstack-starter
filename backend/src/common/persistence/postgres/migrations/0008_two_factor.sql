@@ -1,7 +1,9 @@
 -- The second factor of an account and the sign-ins waiting for one.
 -- The state is one row per account and one row per recovery code, both gone
 -- with the account. Builds on the users table of 0001 and touches no column
--- of it.
+-- of it. A project without two-factor does not carry this file, and one that
+-- gains it later applies it after higher numbers: it may depend only on files
+-- every project carries that are lower in number.
 
 CREATE TABLE user_two_factor (
   user_id uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,

@@ -1,6 +1,9 @@
 -- WebAuthn credentials and the challenges handed out for them.
 -- The account column is a plain reference, not a foreign key: a passkey
--- outlives its account, and sign-in refuses it.
+-- outlives its account, and sign-in refuses it. A project without passkeys
+-- does not carry this file, and one that gains them later applies it after
+-- higher numbers: it may depend only on files every project carries that are
+-- lower in number.
 
 CREATE TABLE passkeys (
   id uuid PRIMARY KEY DEFAULT uuidv7(),

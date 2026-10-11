@@ -3,7 +3,7 @@ import { Pool } from 'pg';
 import { StorageStartupHarness } from '../utils/startup/storage-startup-contract';
 import { listPostgresMigrations } from '../../src/common/persistence/postgres/postgres-migrations';
 import { PostgresStorageStartup } from '../../src/common/persistence/postgres/postgres-storage-startup';
-import { openTestConnection } from './postgres-connection';
+import { ignoreSessionEnd, openTestConnection } from './postgres-connection';
 import { startPostgresTestServer } from './server/postgres-test-server';
 
 const UNIQUE_VIOLATION = '23505';
@@ -23,6 +23,9 @@ export async function prepareOnEmptyDatabase(
 ): Promise<{ refused: string; record: string | null }> {
   const server = await startPostgresTestServer();
   const pool = new Pool(server.connection);
+  // The pool reports a connection closed before its socket is, so the server
+  // stopping below can still end one.
+  pool.on('error', ignoreSessionEnd);
   try {
     const refused = await new PostgresStorageStartup(pool, carried)
       .prepare()

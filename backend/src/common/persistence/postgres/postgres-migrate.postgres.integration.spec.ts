@@ -1,91 +1,16 @@
-import { randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
-import {
-  POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_TEARDOWN_TIMEOUT_MS,
-  PostgresTestServer,
-  startPostgresTestServer,
-} from '../../../../test/postgres/server/postgres-test-server';
 import {
   MIGRATE_COMMAND,
   migrateCommandOf,
   runMigrateCommand,
 } from './postgres-migrate';
-import { PostgresStorageStartup } from './postgres-storage-startup';
-
-/** Budget for a case that applies every migration to a database of its own. */
-const MIGRATE_CASE_TIMEOUT_MS = 60_000;
-
-const EVERY_MIGRATION = [
-  '0001_browser_issuance.sql',
-  '0002_roles.sql',
-  '0003_pending_codes.sql',
-  '0004_browser_proofs_security_events.sql',
-  '0005_accounts.sql',
-  '0006_session_authority_revocation.sql',
-  '0007_applications_grants.sql',
-  '0008_two_factor.sql', // feature:totp
-  '0009_passkeys.sql', // feature:passkeys
-  '0010_native_sign_in.sql',
-  '0011_session_listing.sql',
-  '0012_retention_indexes.sql',
-  '0013_magic_links.sql', // feature:magic-link
-];
-/** What is left to apply once the first four files are in. */
-const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
+import {
+  EVERY_MIGRATION,
+  MIGRATE_CASE_TIMEOUT_MS,
+  useMigrateDatabases,
+} from './postgres-migrate.harness-spec';
 
 describe('the PostgreSQL migration command', () => {
-  let server: PostgresTestServer;
-  let admin: Pool;
-  const pools: Pool[] = [];
-
-  beforeAll(async () => {
-    server = await startPostgresTestServer();
-    admin = new Pool(server.connection);
-  }, POSTGRES_BOOT_TIMEOUT_MS);
-
-  afterAll(async () => {
-    // A pool reports its connections as closed before their sockets are, so
-    // the server stopping below can still end one. That is not a failure.
-    for (const pool of pools) pool.on('error', () => undefined);
-    admin?.on('error', () => undefined);
-    await Promise.all(pools.map((pool) => pool.end()));
-    await admin?.end();
-    await server?.stop();
-  }, POSTGRES_TEARDOWN_TIMEOUT_MS);
-
-  /** A database nothing was ever applied to. */
-  async function emptyDatabase(): Promise<Pool> {
-    const name = `migrate_${randomUUID().replaceAll('-', '')}`;
-    await admin.query(`CREATE DATABASE "${name}"`);
-    const pool = new Pool({ ...server.connection, database: name });
-    pools.push(pool);
-    return pool;
-  }
-
-  async function run(
-    command: 'up' | 'status',
-    pool: Pool,
-  ): Promise<{ exit: number; said: string[] }> {
-    const said: string[] = [];
-    const exit = await runMigrateCommand(command, pool, (line) =>
-      said.push(line),
-    );
-    return { exit, said };
-  }
-
-  async function recorded(pool: Pool): Promise<string[]> {
-    const rows = await pool.query<{ name: string }>(
-      'SELECT name FROM schema_migrations ORDER BY name',
-    );
-    return rows.rows.map(({ name }) => name);
-  }
-
-  const startUp = (pool: Pool): Promise<string> =>
-    new PostgresStorageStartup(pool).prepare().then(
-      () => 'serves',
-      (error: Error) => error.name,
-    );
+  const { emptyDatabase, run, recorded, startUp } = useMigrateDatabases();
 
   it('reads only up and status as commands', () => {
     expect(
@@ -239,63 +164,6 @@ describe('the PostgreSQL migration command', () => {
       expect({ exit: up.exit, recorded: await recorded(pool) }).toEqual({
         exit: 1,
         recorded: ['9999_from_a_newer_build.sql'],
-      });
-    },
-    MIGRATE_CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'leaves nothing of a migration that failed part way, and applies only what is missing afterwards',
-    async () => {
-      const pool = await emptyDatabase();
-      // 0005 adds the password column first and creates this table later.
-      await pool.query('CREATE TABLE user_linked_accounts (blocker integer)');
-
-      const failure = await run('up', pool).then(
-        () => 'applied',
-        (error: { code?: string }) => error.code,
-      );
-      const passwordColumn = await pool.query(
-        "SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_hash'",
-      );
-      const status = await run('status', pool);
-      const recordedAfterFailure = await recorded(pool);
-      const refused = await startUp(pool);
-      await pool.query('DROP TABLE user_linked_accounts');
-
-      expect({
-        failure,
-        passwordColumns: passwordColumn.rowCount,
-        status,
-        recordedAfterFailure,
-        refused,
-        again: await run('up', pool),
-        recorded: await recorded(pool),
-        after: await startUp(pool),
-      }).toEqual({
-        failure: '42P07',
-        passwordColumns: 0,
-        status: {
-          exit: 1,
-          said: [
-            'Applied: 4',
-            `Pending: ${AFTER_THE_FOURTH.join(', ')}`,
-            'Not carried by this build: none',
-          ],
-        },
-        recordedAfterFailure: [
-          '0001_browser_issuance.sql',
-          '0002_roles.sql',
-          '0003_pending_codes.sql',
-          '0004_browser_proofs_security_events.sql',
-        ],
-        refused: 'StorageNotReadyError',
-        again: {
-          exit: 0,
-          said: [`Applied: ${AFTER_THE_FOURTH.join(', ')}`],
-        },
-        recorded: EVERY_MIGRATION,
-        after: 'serves',
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,
