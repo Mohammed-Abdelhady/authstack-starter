@@ -164,6 +164,8 @@ A passkey that verified the user, with a PIN, a fingerprint or a face scan, has 
 
 A passkey that only proved possession, with no user verification, still owes the code. That sign-in answers `requiresTwoFactor: true` and leaves the `mfa_challenge` cookie, exactly like the password path.
 
+A security key used without a PIN or a biometric cannot be both steps. After it opens the sign-in, the second step refuses any passkey that does not verify the user, and the person finishes with their code or a recovery code.
+
 A passkey can also answer a challenge that some other method opened. The client fetches `POST /api/auth/passkeys/login/options` while the `mfa_challenge` cookie is set, then posts the assertion to the two-factor route:
 
 ```http
