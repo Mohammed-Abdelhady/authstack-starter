@@ -142,8 +142,8 @@ export function UserPermissionsDialog({
 
                 {/* Inherited Permissions (Read-only) - Tree View */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-info" />
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Shield className="h-4 w-4 shrink-0 text-info" />
                     <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
                       {t('inheritedFromRole', { role: data?.role || '' })}
                     </Heading>
@@ -151,7 +151,7 @@ export function UserPermissionsDialog({
                       <Badge
                         dir="ltr"
                         variant="secondary"
-                        className="text-xs"
+                        className="block min-w-0 truncate text-xs"
                         data-testid="inherited-role-slug"
                       >
                         {data.role}

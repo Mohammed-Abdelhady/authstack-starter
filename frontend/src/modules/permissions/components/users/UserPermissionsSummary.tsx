@@ -23,11 +23,16 @@ export function UserPermissionsSummary({
     <>
       <div className="rounded-lg border border-border bg-muted p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-muted-foreground">
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
               <span className="font-medium">{t('currentRole')}</span>{' '}
               {role ? (
-                <Badge dir="ltr" variant="secondary" data-testid="user-permissions-role">
+                <Badge
+                  dir="ltr"
+                  variant="secondary"
+                  className="block min-w-0 truncate"
+                  data-testid="user-permissions-role"
+                >
                   {role}
                 </Badge>
               ) : (
