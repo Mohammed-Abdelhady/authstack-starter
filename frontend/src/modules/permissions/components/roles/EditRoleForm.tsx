@@ -1,6 +1,11 @@
 'use client';
 
-import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
+import {
+  ROLE_NAME_LENGTHS,
+  firstInvalidRoleField,
+  validateRoleForm,
+} from '../../utils/roleFormValidation';
+import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,11 +35,6 @@ export interface EditRoleFormProps {
   onCancel: () => void;
 }
 
-/** The ids a field is described by, without the ones that are not on the page. */
-function describedBy(...ids: Array<string | false>): string | undefined {
-  return ids.filter(Boolean).join(' ') || undefined;
-}
-
 /**
  * Body of the edit dialog. It remounts when the role changes through a key prop,
  * so the fields start from the role that is being edited.
@@ -45,6 +45,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
   const nameHintId = `${nameId}-hint`;
+  const nameCodeId = `${nameId}-code`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -59,6 +60,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
   const canRename = !isProtected && !isBaseRole;
+  const code = previewedRoleCode(name);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +72,9 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      // The first field with a problem takes the focus, not whichever had it.
+      const invalid = firstInvalidRoleField(nextErrors);
+      if (invalid) document.getElementById(fieldElementId(uid, invalid))?.focus();
       return;
     }
 
@@ -118,7 +123,11 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             busy={isLoading}
             required
             aria-invalid={Boolean(errors.name)}
-            aria-describedby={describedBy(canRename && nameHintId, errors.name && nameErrorId)}
+            aria-describedby={describedBy(
+              canRename && nameHintId,
+              canRename && code !== '' && nameCodeId,
+              Boolean(errors.name) && nameErrorId,
+            )}
             className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-name-input"
           />
@@ -126,6 +135,9 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             <p id={nameHintId} className="text-xs text-tertiary" data-testid="edit-role-name-hint">
               {t('nameHint', ROLE_NAME_LENGTHS)}
             </p>
+          )}
+          {canRename && (
+            <RoleCodePreview id={nameCodeId} code={code} testId="edit-role-code-preview" />
           )}
           <FieldError id={nameErrorId} message={errors.name} testId="edit-role-name-error" />
           {(isProtected || isBaseRole) && (

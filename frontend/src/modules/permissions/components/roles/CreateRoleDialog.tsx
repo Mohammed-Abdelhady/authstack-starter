@@ -1,6 +1,11 @@
 'use client';
 
-import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
+import {
+  ROLE_NAME_LENGTHS,
+  firstInvalidRoleField,
+  validateRoleForm,
+} from '../../utils/roleFormValidation';
+import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -59,6 +64,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
   const nameHintId = `${nameId}-hint`;
+  const nameCodeId = `${nameId}-code`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -68,6 +74,8 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const code = previewedRoleCode(name);
 
   const [createRole, { isLoading }] = useCreateRoleMutation();
   const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
@@ -87,6 +95,9 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      // The first field with a problem takes the focus, not whichever had it.
+      const invalid = firstInvalidRoleField(nextErrors);
+      if (invalid) document.getElementById(fieldElementId(uid, invalid))?.focus();
       return;
     }
 
@@ -145,13 +156,18 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 busy={isLoading}
                 required
                 aria-invalid={Boolean(errors.name)}
-                aria-describedby={errors.name ? `${nameHintId} ${nameErrorId}` : nameHintId}
+                aria-describedby={describedBy(
+                  nameHintId,
+                  code !== '' && nameCodeId,
+                  Boolean(errors.name) && nameErrorId,
+                )}
                 className={FREE_TEXT_FIELD_CLASSES}
                 data-testid="role-name-input"
               />
               <p id={nameHintId} className="text-xs text-tertiary" data-testid="role-name-hint">
                 {t('nameHint', ROLE_NAME_LENGTHS)}
               </p>
+              <RoleCodePreview id={nameCodeId} code={code} testId="role-code-preview" />
               <FieldError id={nameErrorId} message={errors.name} testId="role-name-error" />
             </div>
 

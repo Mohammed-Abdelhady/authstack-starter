@@ -88,6 +88,7 @@ describe.each([
       // The rule for a name stays on the field, with the refusal after it.
       expect(descriptions(name)).toEqual([
         format('roles.form.nameHint', NAME_LENGTHS),
+        format('roles.form.codePreview', { code: 'reserved-name' }),
         fieldMessage,
       ]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
@@ -138,7 +139,10 @@ describe.each([
       fireEvent.change(description, { target: { value: 'Around the clock' } });
 
       expect(name.getAttribute('aria-invalid')).toBe('false');
-      expect(descriptions(name)).toEqual([format('roles.form.nameHint', NAME_LENGTHS)]);
+      expect(descriptions(name)).toEqual([
+        format('roles.form.nameHint', NAME_LENGTHS),
+        format('roles.form.codePreview', { code: '24-7-support' }),
+      ]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
       expect(descriptions(description)).toEqual([]);
     });

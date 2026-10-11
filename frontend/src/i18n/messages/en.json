@@ -819,6 +819,8 @@
       "nameCharacters": "Use Latin letters, digits, spaces and hyphens only",
       "nameTooShort": "Use at least {min} characters",
       "nameTooLong": "Use at most {max} characters",
+      "nameCodeTooShort": "The code made from this name is too short. Add letters or digits.",
+      "codePreview": "Code: ⁦{code}⁩",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Brief description of what this role can do",
       "descriptionTooLong": "Use at most {max} characters",
