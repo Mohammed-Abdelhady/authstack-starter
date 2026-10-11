@@ -17,6 +17,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { FieldError, SubmitButton } from '@/components/forms';
 import { useCreateRoleMutation } from '../../api/rolesApi';
 import { PermissionSelector } from '../selector/PermissionSelector';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
+import { useRefusalToast } from '../../hooks/useRefusalToast';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import {
@@ -69,6 +71,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createRole, { isLoading }] = useCreateRoleMutation();
+  const refusalToast = useRefusalToast();
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
     isLoading,
@@ -100,11 +103,13 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
         permissions,
       }).unwrap();
 
+      refusalToast.clearBeforeSuccess();
       toast.success(t('createSuccess', { name: name.trim() }));
       resetForm();
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
+      refusalToast.noteRefusal();
       applyServerFieldErrors(error);
       reportUnlessHandled(error);
     }
@@ -145,6 +150,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 required
                 aria-invalid={Boolean(errors.name)}
                 aria-describedby={errors.name ? nameErrorId : undefined}
+                className={FREE_TEXT_FIELD_CLASSES}
                 data-testid="role-name-input"
               />
               <FieldError id={nameErrorId} message={errors.name} testId="role-name-error" />
@@ -165,6 +171,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 disabled={isLoading}
                 aria-invalid={Boolean(errors.description)}
                 aria-describedby={errors.description ? descriptionErrorId : undefined}
+                className={FREE_TEXT_FIELD_CLASSES}
                 data-testid="role-description-input"
               />
               <FieldError

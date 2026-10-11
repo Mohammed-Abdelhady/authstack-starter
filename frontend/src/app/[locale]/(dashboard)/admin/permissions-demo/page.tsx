@@ -48,18 +48,16 @@ export default function PermissionsDemoPage() {
 
           <div className="space-y-2">
             <PermissionGuard permission={USER_PERMISSIONS.LIST_ALL}>
-              <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-                <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm text-green-800 dark:text-green-200">
-                  {t('singleAllowed')}
-                </span>
+              <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+                <Unlock className="h-4 w-4 text-status-success" />
+                <span className="text-sm text-foreground">{t('singleAllowed')}</span>
               </div>
             </PermissionGuard>
 
             <PermissionGuard permission="fake:permission:that:nobody:has">
-              <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950">
-                <Lock className="h-4 w-4 text-red-600 dark:text-red-400" />
-                <span className="text-sm text-red-800 dark:text-red-200">{t('singleDenied')}</span>
+              <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 dark:bg-destructive/20">
+                <Lock className="h-4 w-4 text-status-danger" />
+                <span className="text-sm text-foreground">{t('singleDenied')}</span>
               </div>
             </PermissionGuard>
           </div>
@@ -76,16 +74,16 @@ export default function PermissionsDemoPage() {
           <Description>{t('allDescription')}</Description>
 
           <PermissionGuard permissions={[USER_PERMISSIONS.LIST_ALL, ROLE_PERMISSIONS.LIST_ALL]}>
-            <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-              <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-green-800 dark:text-green-200">{t('allAllowed')}</span>
+            <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+              <Unlock className="h-4 w-4 text-status-success" />
+              <span className="text-sm text-foreground">{t('allAllowed')}</span>
             </div>
           </PermissionGuard>
 
           <PermissionGuard permissions={[USER_PERMISSIONS.LIST_ALL, 'fake:permission']}>
-            <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950">
-              <Lock className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-800 dark:text-red-200">{t('allDenied')}</span>
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 dark:bg-destructive/20">
+              <Lock className="h-4 w-4 text-status-danger" />
+              <span className="text-sm text-foreground">{t('allDenied')}</span>
             </div>
           </PermissionGuard>
         </section>
@@ -103,9 +101,9 @@ export default function PermissionsDemoPage() {
           <PermissionGuard
             anyPermissions={[SESSION_PERMISSIONS.READ_ALL, SESSION_PERMISSIONS.READ_OWN]}
           >
-            <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-              <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-green-800 dark:text-green-200">{t('anyAllowed')}</span>
+            <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+              <Unlock className="h-4 w-4 text-status-success" />
+              <span className="text-sm text-foreground">{t('anyAllowed')}</span>
             </div>
           </PermissionGuard>
         </section>
@@ -159,8 +157,8 @@ export default function PermissionsDemoPage() {
             </div>
           </div>
 
-          <div className="rounded-md bg-blue-50 p-3 dark:bg-blue-950">
-            <p className="text-sm text-blue-800 dark:text-blue-200">{t('tip')}</p>
+          <div className="rounded-md bg-info/10 p-3 dark:bg-info/20">
+            <p className="text-sm text-foreground">{t('tip')}</p>
           </div>
         </section>
 
@@ -183,8 +181,8 @@ export default function PermissionsDemoPage() {
               </div>
             }
           >
-            <div className="rounded-md bg-green-50 p-4 dark:bg-green-950">
-              <p className="text-sm text-green-800 dark:text-green-200">{t('secretContent')}</p>
+            <div className="rounded-md bg-success/10 p-4 dark:bg-success/20">
+              <p className="text-sm text-foreground">{t('secretContent')}</p>
             </div>
           </PermissionGuard>
         </section>

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Heading, StatusBadge } from '@/components/design-system';
 import { UserRoleSelector } from './UserRoleSelector';
 import { UserActionsMenu } from './UserActionsMenu';
-import { TruncatedText } from '../shared/TruncatedText';
+import { UserRoleLabel } from './UserRoleLabel';
 import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 import { HOVER_REVEAL_CLASSES } from '@/constants/focusStyles';
@@ -83,7 +83,7 @@ export const UserCard = memo(
           'bg-card border border-border',
           'transition-all duration-200 ease-out',
           'hover:border-input hover:shadow-sm',
-          user.isDeleted && 'opacity-60',
+          user.isDeleted && 'border-dashed',
           className,
         )}
       >
@@ -95,12 +95,17 @@ export const UserCard = memo(
             </AvatarFallback>
           </Avatar>
 
-          <div className="min-w-0 grow basis-28">
-            <Heading level={3} variant="subsectionTitle" className="flex min-w-0">
-              <TruncatedText value={user.name} dir="auto" testId="user-card-name" />
+          {/* Name and address wrap inside the card, so the whole value is always on screen. */}
+          <div className="min-w-0 grow basis-28 [overflow-wrap:anywhere]">
+            <Heading level={3} variant="subsectionTitle">
+              <span dir="auto" data-testid="user-card-name">
+                {user.name}
+              </span>
             </Heading>
-            <p className="flex min-w-0 text-xs text-tertiary tracking-wide">
-              <TruncatedText value={user.email} dir="ltr" reveal testId="user-card-email" />
+            <p className="text-xs text-tertiary tracking-wide">
+              <span dir="ltr" data-testid="user-card-email">
+                {user.email}
+              </span>
             </p>
           </div>
 
@@ -128,7 +133,7 @@ export const UserCard = memo(
             <PermissionGuard
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
-                <div className="text-xs text-tertiary capitalize">
+                <div className="text-xs text-tertiary">
                   {t('role')}{' '}
                   <span dir="ltr" className="font-medium" data-testid="user-card-role">
                     {user.role}
@@ -137,11 +142,8 @@ export const UserCard = memo(
               }
             >
               {isProtectedRole || user.isDeleted ? (
-                <div className="text-xs text-tertiary capitalize">
-                  {t('role')}{' '}
-                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
-                    {user.role}
-                  </span>
+                <div className="text-xs text-tertiary">
+                  {t('role')} <UserRoleLabel slug={user.role} />
                 </div>
               ) : (
                 <UserRoleSelector

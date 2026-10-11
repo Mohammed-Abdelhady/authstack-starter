@@ -25,7 +25,9 @@ import { FieldError, PasswordVisibilityToggle, SubmitButton } from '@/components
 import { useCreateUserMutation } from '@/store/api/userApi';
 import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
 import {
   fieldElementId,
@@ -183,7 +185,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
               disabled={isLoading}
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? errorId('name') : undefined}
-              className={errors.name ? 'border-destructive' : ''}
+              className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
               data-testid="create-user-name-input"
             />
             <FieldError id={errorId('name')} message={errors.name} testId="name-error" />

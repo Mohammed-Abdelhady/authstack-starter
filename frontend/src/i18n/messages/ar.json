@@ -773,17 +773,17 @@
       "editUser": "تعديل المستخدم",
       "managePermissions": "إدارة الصلاحيات",
       "activateUser": "تفعيل المستخدم",
-      "deactivateUser": "إلغاء تفعيل المستخدم",
+      "deactivateUser": "تعطيل الحساب",
       "activateTitle": "تفعيل المستخدم؟",
       "activateDescription": "هل أنت متأكد من رغبتك في تفعيل <strong>{name}</strong>؟ سيؤدي ذلك إلى استعادة وصوله إلى النظام.",
       "activateConfirm": "تفعيل",
-      "deactivateTitle": "إلغاء تفعيل المستخدم؟",
-      "deactivateDescription": "هل أنت متأكد من رغبتك في إلغاء تفعيل <strong>{name}</strong>؟ سيفقد الوصول إلى النظام ولكن يمكن استعادة حسابه لاحقاً.",
-      "deactivateConfirm": "إلغاء التفعيل",
+      "deactivateTitle": "تعطيل الحساب؟",
+      "deactivateDescription": "هل أنت متأكد من رغبتك في تعطيل حساب <strong>{name}</strong>؟ سيفقد الوصول إلى النظام، ويمكن تفعيل حسابه لاحقاً.",
+      "deactivateConfirm": "تعطيل الحساب",
       "cancel": "إلغاء",
       "roleUpdateSuccess": "تم تحديث الدور بنجاح",
       "activateSuccess": "تم تفعيل ⁨{name}⁩ بنجاح",
-      "deactivateSuccess": "تم إلغاء تفعيل ⁨{name}⁩ بنجاح"
+      "deactivateSuccess": "تم تعطيل حساب ⁨{name}⁩ بنجاح"
     },
     "card": {
       "role": "الدور:",

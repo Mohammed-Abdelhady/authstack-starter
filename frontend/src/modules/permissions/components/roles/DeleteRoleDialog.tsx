@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDeleteRoleMutation, type Role } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
@@ -90,8 +91,8 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
 
         <div className="space-y-4 py-4">
           {isProtected ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950">
-              <p className="text-sm text-amber-900 dark:text-amber-100">
+            <Alert variant="warning" role="note">
+              <AlertDescription>
                 <strong>{t('protectedTitle')}</strong>{' '}
                 {t.rich('protectedNotice', {
                   name: role.name,
@@ -101,17 +102,15 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                     </strong>
                   ),
                 })}
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           ) : (
             <>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+              <div className="rounded-lg border border-border bg-muted p-4 [overflow-wrap:anywhere]">
                 <dl className="space-y-2">
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {t('roleName')}
-                    </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    <dt className="text-sm font-medium text-muted-foreground">{t('roleName')}</dt>
+                    <dd className="mt-1 text-sm text-foreground">
                       <span dir="auto" data-testid="delete-role-name">
                         {role.name}
                       </span>
@@ -119,30 +118,30 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                   </div>
                   {role.description && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      <dt className="text-sm font-medium text-muted-foreground">
                         {t('description')}
                       </dt>
-                      <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                      <dd className="mt-1 text-sm text-foreground">
                         <span dir="auto">{role.description}</span>
                       </dd>
                     </div>
                   )}
                   <div>
-                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <dt className="text-sm font-medium text-muted-foreground">
                       {t('permissions')}
                     </dt>
-                    <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    <dd className="mt-1 text-sm text-foreground">
                       {t('permissionsCount', { count: role.permissions.length })}
                     </dd>
                   </div>
                 </dl>
               </div>
 
-              <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950">
-                <p className="text-sm text-red-900 dark:text-red-100">
+              <Alert variant="destructive" role="note">
+                <AlertDescription>
                   <strong>{t('warningTitle')}</strong> {t('warningNotice')}
-                </p>
-              </div>
+                </AlertDescription>
+              </Alert>
             </>
           )}
         </div>

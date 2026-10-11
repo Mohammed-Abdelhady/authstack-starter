@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import { registerRtlDocument } from '@/tests/direction';
+import { directionOf, registerRtlDocument } from '@/tests/direction';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
 import { PermissionSearchDialog } from '../PermissionSearchDialog';
 
@@ -41,13 +41,15 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the permission search box in an rtl page in %s', (locale) => {
-  it('lets the typed text take its own direction, before and after typing', async () => {
+  it('keeps the box in the page direction, before and after typing', async () => {
     const { box } = await openSearch(locale);
+    const direction = () => ({ own: box.getAttribute('dir'), inForce: directionOf(box) });
 
-    expect(box.getAttribute('dir')).toBe('auto');
+    expect(direction()).toEqual({ own: null, inForce: 'rtl' });
     fireEvent.change(box, { target: { value: KEY_QUERY } });
-    expect({ dir: box.getAttribute('dir'), value: box.getAttribute('value') }).toEqual({
-      dir: 'auto',
+    expect({ ...direction(), value: box.getAttribute('value') }).toEqual({
+      own: null,
+      inForce: 'rtl',
       value: KEY_QUERY,
     });
   });
@@ -65,7 +67,7 @@ describe.each([
 
     fireEvent.change(box, { target: { value: ARABIC_QUERY } });
 
-    expect(box.getAttribute('dir')).toBe('auto');
+    expect(box.getAttribute('dir')).toBeNull();
     expect(shown()).toEqual({ read: locale === 'ar', create: false });
   });
 });

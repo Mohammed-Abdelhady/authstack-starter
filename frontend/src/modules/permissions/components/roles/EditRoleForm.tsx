@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FieldError, SubmitButton } from '@/components/forms';
 import { PermissionSelector } from '../selector/PermissionSelector';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import type { Role } from '../../api/rolesApi';
 import {
   fieldElementId,
@@ -112,6 +113,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             required
             aria-invalid={Boolean(errors.name)}
             aria-describedby={errors.name ? nameErrorId : undefined}
+            className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-name-input"
           />
           <FieldError id={nameErrorId} message={errors.name} testId="edit-role-name-error" />
@@ -137,6 +139,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             disabled={isLoading || isBaseRole}
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? descriptionErrorId : undefined}
+            className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-description-input"
           />
           <FieldError

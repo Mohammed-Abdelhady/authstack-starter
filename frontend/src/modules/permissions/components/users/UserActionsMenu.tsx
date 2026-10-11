@@ -154,10 +154,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               onClick={() => setConfirmAction('activate')}
               data-testid={`activate-user-${user._id}`}
             >
-              <UserCheck
-                className="me-2 h-4 w-4 text-green-600 dark:text-green-400"
-                aria-hidden="true"
-              />
+              <UserCheck className="me-2 h-4 w-4 text-status-success" aria-hidden="true" />
               <span>{t('activateUser')}</span>
             </DropdownMenuItem>
           ) : (
@@ -165,10 +162,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               onClick={() => setConfirmAction('deactivate')}
               data-testid={`deactivate-user-${user._id}`}
             >
-              <UserX
-                className="me-2 h-4 w-4 text-amber-600 dark:text-amber-400"
-                aria-hidden="true"
-              />
+              <UserX className="me-2 h-4 w-4 text-status-warning" aria-hidden="true" />
               <span>{t('deactivateUser')}</span>
             </DropdownMenuItem>
           )}

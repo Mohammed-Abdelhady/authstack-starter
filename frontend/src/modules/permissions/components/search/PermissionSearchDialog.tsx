@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { SearchBar } from '@/components/design-system';
 import { Plus, Shield } from 'lucide-react';
 import { WILDCARD_PERMISSION } from '@app/core';
+import { FREE_TEXT_SEARCH_CLASSES } from '../../constants/freeText';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
 import { SearchPermissionTabs, PERMISSION_GROUPS } from './SearchPermissionTabs';
 
@@ -183,8 +184,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
         <div className="flex-1 overflow-hidden flex flex-col gap-4">
           {/* Search Bar */}
           <SearchBar
-            dir="auto"
-            className="[&_input]:[text-align:match-parent]"
+            className={FREE_TEXT_SEARCH_CLASSES}
             placeholder={t('searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
