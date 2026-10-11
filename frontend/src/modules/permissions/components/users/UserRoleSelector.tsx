@@ -24,7 +24,6 @@ import { Loader2, Shield, ShieldAlert } from 'lucide-react';
 import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
 import { TruncatedText } from '../shared/TruncatedText';
 
@@ -54,7 +53,6 @@ export function UserRoleSelector({
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [triggerRef, returnFocusToTrigger] = useReturnFocus<HTMLButtonElement>();
   const guardKeyUntilReleased = useKeyReleaseGuard();
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
@@ -76,7 +74,7 @@ export function UserRoleSelector({
   };
 
   // The confirmation opens once the list has closed and handed focus back, so
-  // the trigger is the element it was opened from.
+  // the trigger holds focus then, and the dialog returns focus to it on close.
   const openConfirmation = () => {
     if (chosenRole.current === null) return;
     setPendingRole(chosenRole.current);
@@ -117,7 +115,6 @@ export function UserRoleSelector({
         disabled={disabled || isLoadingRoles || isUpdating}
       >
         <SelectTrigger
-          ref={triggerRef}
           className="w-full sm:w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}
           data-testid={`user-role-selector-${userId}`}
@@ -162,10 +159,7 @@ export function UserRoleSelector({
 
       {/* Confirmation Dialog */}
       <AlertDialog open={!!pendingRole} onOpenChange={(open) => !open && handleCancelRoleChange()}>
-        <AlertDialogContent
-          data-testid="role-change-confirm-dialog"
-          onCloseAutoFocus={returnFocusToTrigger}
-        >
+        <AlertDialogContent data-testid="role-change-confirm-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
