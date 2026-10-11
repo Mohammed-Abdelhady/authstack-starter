@@ -58,10 +58,13 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the user named in the role change confirmation in %s', (locale) => {
-  it('is the user by name, in the name’s own direction', async () => {
-    const { confirmation, message } = await confirmationFor(locale, 'ليلى حداد');
+  it.each([
+    ['a Latin name', 'Layla Haddad'],
+    ['an Arabic name', 'ليلى حداد'], // feature:locale-ar
+  ])('is the user by name, in the name’s own direction: %s', async (_kind, userName) => {
+    const { confirmation, message } = await confirmationFor(locale, userName);
 
-    expect(within(confirmation).getByText('ليلى حداد').getAttribute('dir')).toBe('auto');
+    expect(within(confirmation).getByText(userName).getAttribute('dir')).toBe('auto');
     expect(confirmation.textContent).not.toContain(message('permissions.userRole.thisUser'));
   });
 
