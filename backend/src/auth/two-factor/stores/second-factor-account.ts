@@ -21,6 +21,10 @@ export interface SecondFactorState {
   readonly recoveryCodes: readonly StoredRecoveryCode[];
   /** Highest TOTP step already spent. */
   readonly lastUsedStep: number | null;
+  /** Wrong answers since the last correct one. */
+  readonly failedAttempts: number;
+  /** No answer is checked before this instant. */
+  readonly lockedUntil: Date | null;
 }
 
 /**

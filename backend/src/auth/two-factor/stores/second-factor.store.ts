@@ -8,6 +8,24 @@ export const SPEND_OUTCOME = {
 /** How a single-use value ended: this call spent it, or it was spent before. */
 export type SpendOutcome = (typeof SPEND_OUTCOME)[keyof typeof SPEND_OUTCOME];
 
+export const ATTEMPT_RESERVATION = {
+  RESERVED: 'reserved',
+  REFUSED: 'refused',
+} as const;
+
+/**
+ * Whether an answer may be checked: this call counted it, or another answer
+ * for the account was counted since the record was read.
+ */
+export type AttemptReservation =
+  (typeof ATTEMPT_RESERVATION)[keyof typeof ATTEMPT_RESERVATION];
+
+/** The count and the lock an answer leaves stored while it is checked. */
+export interface CountedAttempt {
+  failedAttempts: number;
+  lockedUntil: Date | null;
+}
+
 export interface SecondFactorConfirmation {
   /** sha256 of each new recovery code, hex encoded. */
   recoveryCodeHashes: string[];
@@ -69,6 +87,19 @@ export abstract class SecondFactorStore {
     account: SecondFactorAccount,
     step: number,
   ): Promise<SpendOutcome>;
+  /**
+   * Counts an answer before it is checked: stores `attempt`, only while the
+   * stored count is still the one this record was read with. Of two answers
+   * that read the same state, one is counted and the other is refused, so the
+   * answers checked can never outrun the count.
+   */
+  abstract reserveAttempt(
+    account: SecondFactorAccount,
+    attempt: CountedAttempt,
+  ): Promise<AttemptReservation>;
+  /** Clears the count and the lock after a correct answer. */
+  abstract clearFailedAttempts(account: SecondFactorAccount): Promise<void>;
+
   /** Marks the unspent recovery code with this hash as used at `usedAt`. */
   abstract spendRecoveryCode(
     account: SecondFactorAccount,

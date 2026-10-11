@@ -58,6 +58,18 @@ export class TwoFactor {
    */
   @Prop({ type: Number, default: null })
   lastUsedStep!: number | null;
+
+  /**
+   * Wrong answers since the last correct one. Every fifth locks the factor,
+   * for longer each time, so guesses are bounded per account and not only
+   * per sign-in attempt or per client address.
+   */
+  @Prop({ type: Number, default: 0 })
+  failedAttempts!: number;
+
+  /** No answer is checked before this instant. */
+  @Prop({ type: Date, default: null })
+  lockedUntil!: Date | null;
 }
 
 export const TwoFactorSchema = SchemaFactory.createForClass(TwoFactor);

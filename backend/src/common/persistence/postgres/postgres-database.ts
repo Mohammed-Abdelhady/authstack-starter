@@ -60,6 +60,8 @@ export interface UserTwoFactorTable {
   secret_tag: string | null;
   confirmed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   last_used_step: number | null;
+  failed_attempts: Generated<number>;
+  locked_until: ColumnType<Date | null, Date | null | undefined, Date | null>;
 }
 
 export interface UserRecoveryCodesTable {

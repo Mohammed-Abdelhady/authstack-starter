@@ -7,6 +7,9 @@ import {
   StoredTotpSecret,
 } from '../../stores/second-factor-account';
 import {
+  ATTEMPT_RESERVATION,
+  AttemptReservation,
+  CountedAttempt,
   SecondFactorConfirmation,
   SecondFactorStore,
   SPEND_OUTCOME,
@@ -70,6 +73,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
       secret_tag: secret.tag,
       confirmed_at: null,
       last_used_step: null,
+      failed_attempts: 0,
+      locked_until: null,
     };
     return this.change(async (work) => {
       await work
@@ -189,6 +194,38 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     });
   }
 
+  reserveAttempt(
+    account: SecondFactorAccount,
+    attempt: CountedAttempt,
+  ): Promise<AttemptReservation> {
+    const id = toUuid(account.id);
+    return autocommit(NO_CONSTRAINTS, async () => {
+      const counted = await this.database
+        .updateTable('user_two_factor')
+        .set({
+          failed_attempts: attempt.failedAttempts,
+          locked_until: attempt.lockedUntil,
+        })
+        .where('user_id', '=', id)
+        .where('failed_attempts', '=', account.twoFactor.failedAttempts)
+        .executeTakeFirst();
+      return counted.numUpdatedRows === 1n
+        ? ATTEMPT_RESERVATION.RESERVED
+        : ATTEMPT_RESERVATION.REFUSED;
+    });
+  }
+
+  clearFailedAttempts(account: SecondFactorAccount): Promise<void> {
+    const id = toUuid(account.id);
+    return autocommit(NO_CONSTRAINTS, async () => {
+      await this.database
+        .updateTable('user_two_factor')
+        .set({ failed_attempts: 0, locked_until: null })
+        .where('user_id', '=', id)
+        .execute();
+    });
+  }
+
   /** One statement, so the state and its codes come from one snapshot. */
   private read(
     userId: string,
@@ -214,6 +251,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
           'state.secret_tag',
           'state.confirmed_at',
           'state.last_used_step',
+          'state.failed_attempts',
+          'state.locked_until',
           jsonArrayFrom(
             select
               .selectFrom('user_recovery_codes as code')
@@ -253,6 +292,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
             usedAt: code.used_at === null ? null : new Date(code.used_at),
           })),
           lastUsedStep: row.last_used_step,
+          failedAttempts: row.failed_attempts ?? 0,
+          lockedUntil: row.locked_until,
         },
       };
       return rememberSignInAccount(

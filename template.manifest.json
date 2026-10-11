@@ -513,6 +513,7 @@
         "backend/src/user/persistence/mongo/schemas/two-factor.schema.ts",
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
+        "backend/src/common/persistence/postgres/migrations/0014_two_factor_lockout.sql",
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
         "frontend/src/app/[locale]/(auth)/auth/2fa/**"

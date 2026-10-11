@@ -22,6 +22,15 @@ export const TWO_FACTOR_CHALLENGE_TTL_MS = 300000;
 /** Wrong codes a single challenge tolerates before it is discarded. */
 export const TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS = 5;
 
+/** Wrong answers an account may give before its second factor is locked. */
+export const TWO_FACTOR_LOCK_THRESHOLD = 5;
+
+/** How long the first lock holds, in milliseconds. Each later one doubles. */
+export const TWO_FACTOR_LOCK_BASE_MS = 60000;
+
+/** The longest a lock holds, in milliseconds. */
+export const TWO_FACTOR_LOCK_MAX_MS = 3600000;
+
 /**
  * How fresh a session has to be for a passwordless account to start setup.
  * Password accounts re-enter their password instead.
