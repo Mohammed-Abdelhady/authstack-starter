@@ -1,6 +1,8 @@
 'use client';
 
+import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { Loader2 } from 'lucide-react';
 import {
   Select,
@@ -41,16 +43,27 @@ export function CreateUserRoleField({
   errorId,
 }: CreateUserRoleFieldProps) {
   const t = useTranslations('users.createUser');
-  const { roles, isLoading: isLoadingRoles, isError, retry, refusalFor } = allRoles;
+  const { roles, isLoading: isLoadingRoles, isError, isRetrying, retry, refusalFor } = allRoles;
+  // Retry leaves with the failure, and the field it stood in for takes the focus.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const retryAndFollow = useRetryHandOff(isError, retry, triggerRef);
   const selected = roles.find((role) => role.slug === value);
 
   if (isError) {
-    return <RoleListError announce onRetry={retry} testId="create-user-roles-error" />;
+    return (
+      <RoleListError
+        announce
+        onRetry={retryAndFollow}
+        isRetrying={isRetrying}
+        testId="create-user-roles-error"
+      />
+    );
   }
 
   return (
     <Select value={value} onValueChange={onChange} disabled={isLoadingRoles} busy={busy}>
       <SelectTrigger
+        ref={triggerRef}
         id={id}
         aria-invalid={errorId !== undefined}
         aria-describedby={errorId}

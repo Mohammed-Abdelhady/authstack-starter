@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
 
 /**
  * For a control that is replaced by what it brings about: a Retry that leaves
@@ -28,4 +28,26 @@ export function useFocusHandOff() {
   }, []);
 
   return { arm, handTo };
+}
+
+/**
+ * For a Retry that leaves the page once the read it retries succeeds. Returns
+ * the retry to call from the button. When the failure is over, focus goes to
+ * `landing`: the heading or first control of what the failure stood in for.
+ */
+export function useRetryHandOff(
+  hasFailed: boolean,
+  retry: () => unknown,
+  landing: RefObject<HTMLElement | null>,
+) {
+  const { arm, handTo } = useFocusHandOff();
+
+  useEffect(() => {
+    if (!hasFailed) handTo(landing.current);
+  }, [hasFailed, handTo, landing]);
+
+  return useCallback(() => {
+    arm();
+    void retry();
+  }, [arm, retry]);
 }

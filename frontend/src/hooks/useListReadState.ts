@@ -1,9 +1,10 @@
-import { useCallback, useEffect, type RefObject } from 'react';
-import { useFocusHandOff } from './useFocusHandOff';
+import type { RefObject } from 'react';
+import { useRetryHandOff } from './useFocusHandOff';
 
 interface ListRead {
   isLoading: boolean;
-  isError: boolean;
+  /** What the last read failed with. The store keeps it until a read succeeds. */
+  error: unknown;
   /** Whether the list for this view was read at least once. */
   hasData: boolean;
   refetch: () => unknown;
@@ -14,23 +15,17 @@ interface ListRead {
 /**
  * How a list page shows a failed read. A first load that failed replaces the
  * list. A later read that failed leaves the list, and whatever is open over
- * it, on screen with a notice above it.
+ * it, on screen with a notice above it. Either stays while a retry runs, so
+ * Retry keeps the focus until the failure is over.
  */
-export function useListReadState({ isLoading, isError, hasData, refetch, landing }: ListRead) {
-  const { arm, handTo } = useFocusHandOff();
-
-  const retry = useCallback(() => {
-    arm();
-    void refetch();
-  }, [arm, refetch]);
-
-  useEffect(() => {
-    if (!isError) handTo(landing.current);
-  }, [isError, handTo, landing]);
+export function useListReadState({ isLoading, error, hasData, refetch, landing }: ListRead) {
+  const hasFailed = error !== undefined;
+  const retry = useRetryHandOff(hasFailed, refetch, landing);
 
   return {
-    showLoadError: !isLoading && isError && !hasData,
-    isStale: isError && hasData,
+    showSkeleton: isLoading && !hasFailed,
+    showLoadError: hasFailed && !hasData,
+    isStale: hasFailed && hasData,
     retry,
   };
 }

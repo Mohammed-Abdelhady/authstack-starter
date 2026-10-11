@@ -37,7 +37,6 @@ export default function SessionsPage() {
     data: sessions,
     isLoading,
     isFetching,
-    isError,
     error,
     refetch,
   } = useGetSessionsQuery(undefined, {
@@ -47,9 +46,9 @@ export default function SessionsPage() {
   // Takes focus once a session is signed out: its button leaves with it.
   const titleRef = useRef<HTMLHeadingElement>(null);
   // A list already on screen stays when a later read of it fails.
-  const { showLoadError, isStale, retry } = useListReadState({
+  const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
     isLoading,
-    isError,
+    error,
     hasData: sessions !== undefined,
     refetch,
     landing: titleRef,
@@ -101,7 +100,7 @@ export default function SessionsPage() {
       </div>
 
       {/* Loading State */}
-      <Activity mode={isLoading ? 'visible' : 'hidden'}>
+      <Activity mode={showSkeleton ? 'visible' : 'hidden'}>
         <SessionTimelineSkeleton />
       </Activity>
 
@@ -128,7 +127,7 @@ export default function SessionsPage() {
 
       {/* Empty State */}
       <Activity
-        mode={!isLoading && !showLoadError && sessions?.length === 0 ? 'visible' : 'hidden'}
+        mode={!showSkeleton && !showLoadError && sessions?.length === 0 ? 'visible' : 'hidden'}
       >
         <div
           className="flex flex-col items-center justify-center py-12 text-center"
@@ -154,7 +153,7 @@ export default function SessionsPage() {
       {/* Sessions Timeline */}
       <Activity
         mode={
-          !isLoading && !showLoadError && sessions && sessions.length > 0 ? 'visible' : 'hidden'
+          !showSkeleton && !showLoadError && sessions && sessions.length > 0 ? 'visible' : 'hidden'
         }
       >
         <section aria-labelledby="sessions-list-heading" data-testid="sessions-list">

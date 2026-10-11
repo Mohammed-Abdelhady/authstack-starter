@@ -40,9 +40,9 @@ export default function RolesPage() {
   });
 
   // A list already on screen stays when a later read of it fails.
-  const { showLoadError, isStale, retry } = useListReadState({
+  const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
     isLoading,
-    isError,
+    error,
     hasData: currentData !== undefined,
     refetch,
     landing: titleRef,
@@ -120,7 +120,7 @@ export default function RolesPage() {
         </div>
 
         {/* State 1: Skeleton Loading */}
-        <Activity mode={isLoading ? 'visible' : 'hidden'}>
+        <Activity mode={showSkeleton ? 'visible' : 'hidden'}>
           <RoleSplitViewSkeleton />
         </Activity>
 
@@ -146,7 +146,9 @@ export default function RolesPage() {
         )}
 
         {/* State 3: Empty */}
-        <Activity mode={!isLoading && !showLoadError && roles.length === 0 ? 'visible' : 'hidden'}>
+        <Activity
+          mode={!showSkeleton && !showLoadError && roles.length === 0 ? 'visible' : 'hidden'}
+        >
           <div
             className="flex flex-col items-center justify-center py-16 text-center"
             data-testid="empty-state"
@@ -183,7 +185,7 @@ export default function RolesPage() {
         </Activity>
 
         {/* State 4: Data */}
-        <Activity mode={!isLoading && !showLoadError && roles.length > 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!showSkeleton && !showLoadError && roles.length > 0 ? 'visible' : 'hidden'}>
           <div className="space-y-6">
             <SplitView
               sidebar={

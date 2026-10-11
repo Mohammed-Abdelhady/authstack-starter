@@ -16,6 +16,8 @@ export interface AllRoles {
   isLoading: boolean;
   /** The read failed: the list is missing, not short. */
   isError: boolean;
+  /** A read is running, the one Retry started included. */
+  isRetrying: boolean;
   retry: () => void;
   /** Why the signed-in person may not hand this role out, or null when they may. */
   refusalFor: (role: Pick<Role, 'slug' | 'level'>) => RoleRefusal | null;
@@ -26,7 +28,7 @@ export interface AllRoles {
  * page shares, with what the signed-in person may assign.
  */
 export function useAllRoles(): AllRoles {
-  const { data, isLoading, isError, refetch } = useListAllRolesQuery();
+  const { data, isLoading, isFetching, error, refetch } = useListAllRolesQuery();
   const actorRole = useAppSelector(selectUser)?.role ?? '';
   const roles = data ?? NO_ROLES;
   const actorLevel = levelOfRole(roles, actorRole);
@@ -39,6 +41,14 @@ export function useAllRoles(): AllRoles {
     void refetch();
   }, [refetch]);
 
-  // A list read once stays in use when a later read of it fails.
-  return { roles, isLoading, isError: isError && data === undefined, retry, refusalFor };
+  return {
+    roles,
+    // The error state stays while a retry runs, so Retry is not taken away mid-press.
+    isLoading: isLoading && error === undefined,
+    // A list read once stays in use when a later read of it fails.
+    isError: error !== undefined && data === undefined,
+    isRetrying: isFetching,
+    retry,
+    refusalFor,
+  };
 }

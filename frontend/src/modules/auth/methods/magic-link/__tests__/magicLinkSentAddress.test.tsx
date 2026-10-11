@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -42,4 +42,27 @@ describe.each([
     const [before, after] = message('auth.magicLink.sentBody').split('⁦{email}⁩');
     expect(sent.textContent).toContain(`${before}${ISOLATED_EMAIL}${after}`);
   });
+
+  it.each(['the address field', 'the submit button'] as const)(
+    'moves focus from %s to the heading of the confirmation that replaces the form',
+    async (from) => {
+      stubNetwork(() => success({ email: EMAIL }));
+      const { message } = await renderForm(
+        locale,
+        <MagicLinkRequestForm redirect={null} isOnlyMethod />,
+      );
+      const field = screen.getByRole('textbox', { name: message('auth.magicLink.email') });
+      fireEvent.change(field, { target: { value: EMAIL } });
+      (from === 'the address field' ? field : screen.getByTestId('magic-link-submit')).focus();
+
+      fireEvent.submit(screen.getByTestId('magic-link-form'));
+
+      const heading = await screen.findByRole('heading', {
+        name: message('auth.magicLink.sentTitle'),
+      });
+      await waitFor(() => expect(document.activeElement).toBe(heading));
+      // The confirmation is a status, so it is read out as it appears.
+      expect(screen.getByRole('status').contains(heading)).toBe(true);
+    },
+  );
 });

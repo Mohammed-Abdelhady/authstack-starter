@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import {
   Select,
@@ -64,9 +65,13 @@ export function UserRoleSelector({
     roles,
     isLoading: isLoadingRoles,
     isError: rolesFailed,
+    isRetrying: isRetryingRoles,
     retry: retryRoles,
     refusalFor,
   } = useAllRoles();
+  // Retry leaves with the failure, and the selector it stood in for takes the focus.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const retryAndFollow = useRetryHandOff(rolesFailed, retryRoles, triggerRef);
 
   const handleRoleSelect = (newRole: string) => {
     if (newRole === currentRole) {
@@ -120,7 +125,11 @@ export function UserRoleSelector({
         <span dir="ltr" className="text-xs font-medium">
           {currentRole}
         </span>
-        <RoleListError onRetry={retryRoles} testId={`user-role-list-error-${userId}`} />
+        <RoleListError
+          onRetry={retryAndFollow}
+          isRetrying={isRetryingRoles}
+          testId={`user-role-list-error-${userId}`}
+        />
       </div>
     );
   }
@@ -134,6 +143,7 @@ export function UserRoleSelector({
         busy={isUpdating}
       >
         <SelectTrigger
+          ref={triggerRef}
           // As wide as its column allows, so it never runs under the actions button.
           className="w-full sm:max-w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}

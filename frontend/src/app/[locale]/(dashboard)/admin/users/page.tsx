@@ -48,7 +48,6 @@ export default function AdminUsersPage() {
     currentData,
     isLoading,
     isFetching,
-    isError,
     error,
     refetch,
   } = useGetUsersQuery({
@@ -60,9 +59,9 @@ export default function AdminUsersPage() {
 
   const titleRef = useRef<HTMLHeadingElement>(null);
   // A list already on screen stays when a later read of it fails.
-  const { showLoadError, isStale, retry } = useListReadState({
+  const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
     isLoading,
-    isError,
+    error,
     hasData: currentData !== undefined,
     refetch,
     landing: titleRef,
@@ -167,7 +166,7 @@ export default function AdminUsersPage() {
         />
 
         {/* State 1: Skeleton Loading */}
-        <Activity mode={isLoading ? 'visible' : 'hidden'}>
+        <Activity mode={showSkeleton ? 'visible' : 'hidden'}>
           <UserListSkeleton />
         </Activity>
 
@@ -193,7 +192,9 @@ export default function AdminUsersPage() {
         )}
 
         {/* State 3: Empty */}
-        <Activity mode={!isLoading && !showLoadError && users.length === 0 ? 'visible' : 'hidden'}>
+        <Activity
+          mode={!showSkeleton && !showLoadError && users.length === 0 ? 'visible' : 'hidden'}
+        >
           <div
             className="flex flex-col items-center justify-center py-12 text-center"
             data-testid="empty-state"
@@ -223,7 +224,7 @@ export default function AdminUsersPage() {
         </Activity>
 
         {/* State 4: Data */}
-        <Activity mode={!isLoading && !showLoadError && users.length > 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!showSkeleton && !showLoadError && users.length > 0 ? 'visible' : 'hidden'}>
           <UserGroupedList
             verifiedUsers={verifiedUsers}
             pendingUsers={pendingUsers}
