@@ -1,11 +1,11 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { LOCALE_AR_OPTION_ID } from '../../src/constants/index.js';
+import { isExcluded, trackedFiles } from '../../scripts/sync-template.mjs';
+import { LOCALE_AR_OPTION_ID, MARKER_EXTENSIONS } from '../../src/constants/index.js';
 import { loadManifest } from '../../src/manifest/load.js';
-import { listFiles } from '../../src/utils/fs.js';
 import {
   ARABIC_FORBIDDEN,
   arabicLeftBehind,
@@ -108,11 +108,24 @@ describe('findForbiddenContent', () => {
 });
 
 const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
-const FRONTEND_SOURCE = 'frontend/src';
-const MOBILE_SOURCE = 'mobile';
+const WORKSPACE_FOLDERS = ['backend', 'frontend', 'mobile', 'scripts', 'shared'];
+
+/**
+ * The tracked code files the template sync copies: what a project can be made
+ * of. The manifest then says which of them a project without Arabic loses.
+ */
+function shippedCodeFiles(): string[] {
+  return trackedFiles(REPO_ROOT).filter((path) => {
+    if (!(MARKER_EXTENSIONS as readonly string[]).includes(extname(path))) return false;
+    const segments = path.split('/');
+    return !segments.some((name, index) =>
+      isExcluded(segments.slice(0, index + 1).join(sep), name, index < segments.length - 1),
+    );
+  });
+}
 const ARABIC_NAME = '\u0644\u064a\u0644\u0649';
 
-describe('website and mobile code a project without Arabic keeps', () => {
+describe('code a project without Arabic keeps', () => {
   it('reports Arabic content on lines that are not marked for the Arabic option', () => {
     const left = arabicLeftBehind(
       new Map([
@@ -157,24 +170,21 @@ describe('website and mobile code a project without Arabic keeps', () => {
     expect(left).toEqual([]);
   });
 
-  it.each([FRONTEND_SOURCE, MOBILE_SOURCE])(
-    'finds none in %s of this repository',
-    async (source) => {
-      const manifest = await loadManifest(REPO_ROOT);
-      const files = new Map<string, string>();
-      for (const file of await listFiles(join(REPO_ROOT, source))) {
-        const path = `${source}/${file}`;
-        files.set(path, await readFile(join(REPO_ROOT, path), 'utf8'));
-      }
-      // An empty folder would pass without reading anything.
-      expect(files.size).toBeGreaterThan(100);
+  it('finds none in any code file this repository ships to a project', async () => {
+    const manifest = await loadManifest(REPO_ROOT);
+    const files = new Map<string, string>();
+    for (const path of shippedCodeFiles()) {
+      files.set(path, await readFile(join(REPO_ROOT, path), 'utf8'));
+    }
+    const folders = new Set([...files.keys()].map((path) => path.split('/')[0]));
 
-      expect(
-        arabicLeftBehind(files, [
-          ...manifest.core.alwaysRemoveFiles,
-          ...manifest.options[LOCALE_AR_OPTION_ID].files,
-        ]),
-      ).toEqual([]);
-    },
-  );
+    // Every workspace folder was read: an empty list would pass without reading anything.
+    expect(WORKSPACE_FOLDERS.filter((folder) => folders.has(folder))).toEqual(WORKSPACE_FOLDERS);
+    expect(
+      arabicLeftBehind(files, [
+        ...manifest.core.alwaysRemoveFiles,
+        ...manifest.options[LOCALE_AR_OPTION_ID].files,
+      ]),
+    ).toEqual([]);
+  });
 });
