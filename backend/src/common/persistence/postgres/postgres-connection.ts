@@ -97,16 +97,26 @@ export function postgresMigrationPoolConfig(config: ConfigService): PoolConfig {
 }
 
 /**
- * Opens nothing by itself: the pool connects on its first statement. An idle
+ * Opens nothing by itself: the pool connects on its first statement. A
  * connection the server drops is logged and replaced, and never ends the
- * process.
+ * process, whether it was idle or in use.
  */
 export function openPostgresPool(config: PoolConfig): Pool {
   const logger = new Logger('Postgres');
   const pool = new Pool(config);
-  pool.on('error', (error: Error) => {
-    logger.error(`PostgreSQL connection error: ${error.message}`, error.stack);
+  // pg-pool listens on a connection only while it is idle. One that is lost
+  // while in use raises `error` on the client itself, and an `error` nothing
+  // listens for ends the process.
+  pool.on('connect', (client) => {
+    client.on('error', (error: Error) => {
+      logger.error(
+        `PostgreSQL connection error: ${error.message}`,
+        error.stack,
+      );
+    });
   });
+  // The idle case again, already logged above. The pool needs a listener too.
+  pool.on('error', () => undefined);
   return pool;
 }
 
