@@ -2,6 +2,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import {
+  SERVER_TEXT,
+  refusalWith,
   registerFormTestLifecycle,
   renderForm,
   stubNetwork,
@@ -65,4 +67,19 @@ describe.each([
       expect(screen.getByRole('status').contains(heading)).toBe(true);
     },
   );
+
+  it('shows the catalogue message for a refused request in the form, once, and not the server text', async () => {
+    stubNetwork(() => refusalWith(429, 'SOMETHING_NEW'));
+    const view = await renderForm(locale, <MagicLinkRequestForm redirect={null} isOnlyMethod />);
+    fireEvent.change(screen.getByRole('textbox', { name: view.message('auth.magicLink.email') }), {
+      target: { value: EMAIL },
+    });
+
+    fireEvent.submit(screen.getByTestId('magic-link-form'));
+
+    const alert = await screen.findByTestId('magic-link-error');
+    expect(alert.textContent).toBe(view.message('toast.error.tooManyRequests'));
+    expect(view.errorToasts()).toEqual([]);
+    expect(document.body.textContent).not.toContain(SERVER_TEXT);
+  });
 });

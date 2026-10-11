@@ -2,12 +2,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
+import { ErrorCode } from '@app/core';
 import {
   SERVER_TEXT,
   descriptions,
+  refusalWith,
   refuseWrites,
   renderForm,
   registerFormTestLifecycle,
+  stubNetwork,
+  success,
 } from '@/tests/serverRejectionHarness';
 import { ChangePasswordCard } from '../ChangePasswordCard';
 
@@ -56,6 +60,45 @@ describe.each([
     // The marked field says it. No toast repeats it.
     expect(errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
+  });
+
+  it.each([
+    ['a wrong current password', 400, ErrorCode.INVALID_CURRENT_PASSWORD, 'currentPassword'],
+    ['a new password equal to the current one', 400, ErrorCode.SAME_PASSWORD, 'newPassword'],
+  ] as const)(
+    'marks and focuses the field for %s, with the reason, and raises no toast',
+    async (_what, status, code, field) => {
+      stubNetwork((request) =>
+        request.method === 'GET' ? success(AUTH_METHODS) : refusalWith(status, code),
+      );
+
+      const form = await submitPasswordChange(locale);
+      const refused = form[field];
+      const other = field === 'currentPassword' ? form.newPassword : form.currentPassword;
+
+      await waitFor(() => expect(refused.getAttribute('aria-invalid')).toBe('true'));
+      expect(descriptions(refused)).toEqual([form.message(`errors.codes.${code}`)]);
+      expect(other.getAttribute('aria-invalid')).toBe('false');
+      await waitFor(() => expect(document.activeElement).toBe(refused));
+      expect(screen.queryByTestId('change-password-error')).toBeNull();
+      expect(form.errorToasts()).toEqual([]);
+      expect(document.body.textContent).not.toContain(SERVER_TEXT);
+    },
+  );
+
+  it('says a refusal about no field in the alert of the form, once', async () => {
+    stubNetwork((request) =>
+      request.method === 'GET'
+        ? success(AUTH_METHODS)
+        : refusalWith(429, ErrorCode.RATE_LIMIT_EXCEEDED),
+    );
+
+    const form = await submitPasswordChange(locale);
+
+    const alert = await screen.findByTestId('change-password-error');
+    expect(alert.textContent).toBe(form.message('errors.codes.RATE_LIMIT_EXCEEDED'));
+    expect(form.currentPassword.getAttribute('aria-invalid')).toBe('false');
+    expect(form.errorToasts()).toEqual([]);
   });
 
   it('tells the browser which password each field holds', async () => {
