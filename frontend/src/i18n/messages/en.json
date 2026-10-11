@@ -4,7 +4,7 @@
     "selectOption": "Select an option",
     "copyright": "© {year} {name}",
     "emailPlaceholder": "name@example.com",
-    "passwordPlaceholder": "••••••••",
+    "passwordPlaceholder": "Enter your password",
     "codePlaceholder": "123456",
     "recoveryCodePlaceholder": "K3M7QRTVWX",
     "status": {
