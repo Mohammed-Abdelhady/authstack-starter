@@ -127,9 +127,13 @@ function recorded<Store extends object>(
 export function twoFactorServices(
   harness: TwoFactorContractHarness,
   verifiers: SecondFactorVerifier[] = [],
+  keys: { current?: string; previous?: string } = {},
 ): TwoFactorServices {
   const config = new ConfigService({
-    twoFactor: { encryptionKey: ENCRYPTION_KEY },
+    twoFactor: {
+      encryptionKey: keys.current ?? ENCRYPTION_KEY,
+      previousEncryptionKey: keys.previous,
+    },
     bcrypt: { rounds: BCRYPT_ROUNDS },
     NODE_ENV: 'test',
   });
