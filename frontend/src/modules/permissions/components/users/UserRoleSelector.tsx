@@ -19,9 +19,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Shield, ShieldAlert } from 'lucide-react';
-import { useListRolesQuery } from '../../api/rolesApi';
+import { RoleListError } from '@/modules/roles/components/RoleListError';
+import { RoleRefusalBadge } from '@/modules/roles/components/RoleRefusalBadge';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
@@ -54,20 +55,17 @@ export function UserRoleSelector({
   const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const guardKeyUntilReleased = useKeyReleaseGuard();
-  const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
-
-  const roles = rolesData?.roles || [];
+  const {
+    roles,
+    isLoading: isLoadingRoles,
+    isError: rolesFailed,
+    retry: retryRoles,
+    refusalFor,
+  } = useAllRoles();
 
   const handleRoleSelect = (newRole: string) => {
     if (newRole === currentRole) {
       return; // No change
-    }
-
-    // Check if the role is protected (admin roles)
-    const selectedRole = roles.find((r) => r.slug === newRole);
-    if (selectedRole?.isProtected && newRole !== currentRole) {
-      toast.error(t('cannotAssignProtected'));
-      return;
     }
 
     chosenRole.current = newRole;
@@ -107,6 +105,17 @@ export function UserRoleSelector({
   const currentRoleName = currentRoleData?.name || currentRole;
   const pendingRoleData = pendingRole ? roles.find((r) => r.slug === pendingRole) : null;
 
+  if (rolesFailed) {
+    return (
+      <div className="space-y-1" data-testid={`user-role-unavailable-${userId}`}>
+        <span dir="ltr" className="text-xs font-medium">
+          {currentRole}
+        </span>
+        <RoleListError onRetry={retryRoles} testId={`user-role-list-error-${userId}`} />
+      </div>
+    );
+  }
+
   return (
     <>
       <Select
@@ -137,25 +146,25 @@ export function UserRoleSelector({
           )}
         </SelectTrigger>
         <SelectContent onKeyDownCapture={guardKeyUntilReleased} onCloseAutoFocus={openConfirmation}>
-          {roles.map((role) => (
-            <SelectItem
-              key={role.id}
-              value={role.slug}
-              disabled={role.isProtected && role.slug !== currentRole}
-              data-testid={`role-option-${role.slug}`}
-            >
-              <div className="flex items-center gap-2">
-                {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
-                {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
-                <span dir="auto">{role.name}</span>
-                {role.isProtected && role.slug !== currentRole && (
-                  <Badge variant="secondary" className="ms-2 text-xs">
-                    {t('protected')}
-                  </Badge>
-                )}
-              </div>
-            </SelectItem>
-          ))}
+          {roles.map((role) => {
+            // The role the user holds stays in the list as what is selected.
+            const refusal = role.slug === currentRole ? null : refusalFor(role);
+            return (
+              <SelectItem
+                key={role.id}
+                value={role.slug}
+                disabled={refusal !== null}
+                data-testid={`role-option-${role.slug}`}
+              >
+                <div className="flex items-center gap-2">
+                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
+                  {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
+                  <span dir="auto">{role.name}</span>
+                  {refusal && <RoleRefusalBadge refusal={refusal} />}
+                </div>
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
 

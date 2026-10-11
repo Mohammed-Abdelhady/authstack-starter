@@ -13,24 +13,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
 import { FieldError, PasswordVisibilityToggle, SubmitButton } from '@/components/forms';
 import { useCreateUserMutation } from '@/store/api/userApi';
-import { useListRolesQuery } from '../../api/rolesApi';
+import { DEFAULT_ROLE_SLUG } from '@/modules/roles/constants';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useRefusalToast } from '@/hooks/useRefusalToast';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
-import { TruncatedText } from '../shared/TruncatedText';
+import { CreateUserRoleField } from './CreateUserRoleField';
 import {
   fieldElementId,
   useLocalFieldTarget,
@@ -49,7 +42,7 @@ export interface CreateUserDialogProps {
  *
  * Features:
  * - Email, name, password input fields
- * - Role selector (non-protected roles only)
+ * - Role selector: every role, with the ones this person may not assign held back
  * - Form validation
  * - Error handling
  * - Loading states
@@ -71,17 +64,13 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user');
+  const [role, setRole] = useState(DEFAULT_ROLE_SLUG);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createUser, { isLoading }] = useCreateUserMutation();
   const refusalToast = useRefusalToast();
-  const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
-
-  const roles = rolesData?.roles || [];
-  const availableRoles = roles.filter((r) => !r.isProtected);
-  const selectedRole = availableRoles.find((r) => r.slug === role);
+  const allRoles = useAllRoles();
 
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
@@ -129,7 +118,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     setEmail('');
     setName('');
     setPassword('');
-    setRole('user');
+    setRole(DEFAULT_ROLE_SLUG);
     setShowPassword(false);
     setErrors({});
     onOpenChange(false);
@@ -242,48 +231,17 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
             >
               {t('role')}
             </Label>
-            <Select
+            <CreateUserRoleField
+              id={fieldId('role')}
               value={role}
-              onValueChange={(value) => {
+              onChange={(value) => {
                 setRole(value);
                 if (errors.role) setErrors((prev) => ({ ...prev, role: '' }));
               }}
-              disabled={isLoadingRoles}
+              allRoles={allRoles}
               busy={isLoading}
-            >
-              <SelectTrigger
-                id={fieldId('role')}
-                aria-invalid={Boolean(errors.role)}
-                aria-describedby={errors.role ? errorId('role') : undefined}
-                className={errors.role ? 'border-destructive' : ''}
-                data-testid="create-user-role-select"
-              >
-                {isLoadingRoles ? (
-                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
-                ) : (
-                  <SelectValue placeholder={t('selectRole')}>
-                    {/* One line, cut at the end of the name. The list shows it whole. */}
-                    {selectedRole ? (
-                      <span className="flex min-w-0">
-                        <TruncatedText value={selectedRole.name} dir="auto" />
-                      </span>
-                    ) : undefined}
-                  </SelectValue>
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map((r) => (
-                  <SelectItem key={r.id} value={r.slug} data-testid={`role-option-${r.slug}`}>
-                    <div className="flex items-center gap-2">
-                      <span dir="auto">{r.name}</span>
-                      {r.isSystemRole && (
-                        <span className="text-xs text-tertiary">{t('systemRole')}</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              errorId={errors.role ? errorId('role') : undefined}
+            />
             <FieldError id={errorId('role')} message={errors.role} testId="role-error" />
           </div>
 
@@ -299,6 +257,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
             </Button>
             <SubmitButton
               isLoading={isLoading}
+              disabled={allRoles.isError}
               loadingText={t('creating')}
               className="h-10 mt-0 w-auto py-2"
               testId="submit-create-user-button"

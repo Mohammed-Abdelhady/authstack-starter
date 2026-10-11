@@ -3,6 +3,7 @@ import {
   invalidateOnSuccess,
   invalidateOnSuccessOrUnknownOutcome,
 } from '@/store/api/invalidateOnSuccess';
+import { ROLE_LIST_MAX_PAGE_SIZE, ROLE_LIST_MAX_PAGES, ROLE_LIST_TOO_LONG } from '../constants';
 import type {
   Role,
   CreateRoleRequest,
@@ -15,6 +16,11 @@ import type {
 export interface UpdateRoleArgs {
   idOrSlug: string;
   data: UpdateRoleRequest;
+}
+
+/** A page of the roles list as the server sends it. */
+interface RoleListBody {
+  data: { roles: Role[]; total: number; pages?: number };
 }
 
 /**
@@ -52,6 +58,30 @@ export const rolesApi = baseApi.injectEndpoints({
           limit,
           totalPages,
         };
+      },
+      providesTags: ['Roles'],
+    }),
+
+    /**
+     * Every role, read a page at a time until the last one. The server has no
+     * route for the whole list and caps a page, so a selector that needs them
+     * all asks here. A failed page fails the whole read.
+     */
+    listAllRoles: builder.query<Role[], void>({
+      async queryFn(_arg, _api, _extraOptions, fetchPage) {
+        const roles = new Map<string, Role>();
+        for (let page = 1; page <= ROLE_LIST_MAX_PAGES; page += 1) {
+          const result = await fetchPage({
+            url: '/api/roles',
+            params: { page, limit: ROLE_LIST_MAX_PAGE_SIZE },
+          });
+          if (result.error) return { error: result.error };
+          const { roles: pageRoles, pages, total } = (result.data as RoleListBody).data;
+          for (const role of pageRoles) roles.set(role.id, role);
+          const lastPage = pages ?? Math.ceil(total / ROLE_LIST_MAX_PAGE_SIZE);
+          if (page >= lastPage) return { data: [...roles.values()] };
+        }
+        return { error: { status: 'CUSTOM_ERROR', error: ROLE_LIST_TOO_LONG } };
       },
       providesTags: ['Roles'],
     }),
@@ -111,6 +141,7 @@ export const rolesApi = baseApi.injectEndpoints({
 
 export const {
   useListRolesQuery,
+  useListAllRolesQuery,
   useGetRoleQuery,
   useCreateRoleMutation,
   useUpdateRoleMutation,

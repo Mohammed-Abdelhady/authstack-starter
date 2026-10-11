@@ -15,6 +15,7 @@ import {
 import { SearchBar } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { useDebounce } from '@/hooks/useDebounce';
 import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
 import { TruncatedText } from '@/modules/permissions/components/shared/TruncatedText';
@@ -33,8 +34,10 @@ export function RoleFilter({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  // The filter value is a slug. The name is only known for a role picked from the list.
+  // The filter value is a slug. Its name comes from the role picked here, or
+  // from the list of every role once the page has read it.
   const [picked, setPicked] = useState<Pick<Role, 'slug' | 'name'> | null>(null);
+  const { roles: allRoles } = useAllRoles();
   const query = useDebounce(search, 300);
   const { currentData, isFetching, isError, refetch } = useListRolesQuery(
     { page, limit: 20, search: query.trim() || undefined },
@@ -49,7 +52,8 @@ export function RoleFilter({
     setOpen(false);
   }
 
-  const pickedName = picked?.slug === value ? picked.name : null;
+  const known = picked?.slug === value ? picked : allRoles.find((role) => role.slug === value);
+  const pickedName = known?.name ?? null;
 
   function changeSearch(next: string) {
     setSearch(next);

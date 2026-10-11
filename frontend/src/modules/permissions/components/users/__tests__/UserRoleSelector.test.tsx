@@ -9,6 +9,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { useUserActions } from '../../../hooks/useUserActions';
 import { UserRoleSelector } from '../UserRoleSelector';
 
@@ -19,6 +20,7 @@ function role(slug: string, name: string) {
     id: `role-${slug}`,
     slug,
     name,
+    level: 1,
     permissions: [],
     isSystemRole: false,
     isProtected: false,
@@ -27,7 +29,11 @@ function role(slug: string, name: string) {
   };
 }
 
-const ROLES = { roles: [role('user', 'User'), role('editor', 'Editor')], total: 2, page: 1 };
+const ROLES = {
+  roles: [ADMIN_LISTED, role('user', 'User'), role('editor', 'Editor')],
+  total: 3,
+  page: 1,
+};
 
 const UPDATED_USER = {
   id: 'user-2',
@@ -56,7 +62,7 @@ function UserRoleControl() {
 
 async function changeRoleToEditor(locale: AppLocale, answer: () => Response) {
   const requests = stubNetwork((request) => (request.method === 'GET' ? success(ROLES) : answer()));
-  const form = await renderForm(locale, <UserRoleControl />);
+  const form = await renderForm(locale, <UserRoleControl />, storeSignedInAs('admin'));
 
   const trigger = screen.getByRole('combobox');
   await waitFor(() => {

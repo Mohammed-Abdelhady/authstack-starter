@@ -952,8 +952,11 @@
       "removeError": "فشل في إزالة الصلاحية"
     },
     "userRole": {
-      "protected": "محمي",
       "selectorLabel": "الدور: ⁨{role}⁩",
+      "refusal": {
+        "admin": "لا يمكن تعيينه",
+        "level": "في مستوى دورك أو أعلى منه"
+      },
       "changeTitle": "تغيير دور المستخدم؟",
       "thisUser": "هذا المستخدم",
       "changeDescription": "أنت على وشك تغيير دور <strong>{name}</strong> من <strong>{from}</strong> إلى <strong>{to}</strong>.",
@@ -961,7 +964,6 @@
       "cancel": "إلغاء",
       "changing": "جارٍ التغيير...",
       "changeRole": "تغيير الدور",
-      "cannotAssignProtected": "لا يمكن تعيين أدوار المشرف المحمية",
       "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩",
       "changeError": "فشل في تغيير دور المستخدم"
     },

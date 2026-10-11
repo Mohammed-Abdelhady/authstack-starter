@@ -952,8 +952,11 @@
       "removeError": "Failed to remove permission"
     },
     "userRole": {
-      "protected": "Protected",
       "selectorLabel": "Role: ⁨{role}⁩",
+      "refusal": {
+        "admin": "Cannot be assigned",
+        "level": "At or above your role"
+      },
       "changeTitle": "Change User Role?",
       "thisUser": "this user",
       "changeDescription": "You are about to change <strong>{name}</strong>'s role from <strong>{from}</strong> to <strong>{to}</strong>.",
@@ -961,7 +964,6 @@
       "cancel": "Cancel",
       "changing": "Changing...",
       "changeRole": "Change Role",
-      "cannotAssignProtected": "Cannot assign protected admin roles",
       "changeSuccess": "User role changed to ⁨{role}⁩",
       "changeError": "Failed to change user role"
     },

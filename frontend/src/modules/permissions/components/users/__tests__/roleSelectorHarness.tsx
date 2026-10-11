@@ -3,6 +3,7 @@ import { expect, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
 import { renderForm, stubNetwork, success } from '@/tests/serverRejectionHarness';
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { UserRoleSelector } from '../UserRoleSelector';
 
 export const CONFIRM_DIALOG = 'role-change-confirm-dialog';
@@ -12,6 +13,7 @@ function role(slug: string, name: string) {
     id: `role-${slug}`,
     slug,
     name,
+    level: 1,
     permissions: [],
     isSystemRole: false,
     isProtected: false,
@@ -20,7 +22,11 @@ function role(slug: string, name: string) {
   };
 }
 
-const ROLES = { roles: [role('user', 'User'), role('editor', 'Editor')], total: 2, page: 1 };
+const ROLES = {
+  roles: [ADMIN_LISTED, role('user', 'User'), role('editor', 'Editor')],
+  total: 3,
+  page: 1,
+};
 
 interface SelectorOnCardProps {
   readonly onRoleChange: (role: string) => Promise<void>;
@@ -54,6 +60,7 @@ export async function renderSelector(locale: AppLocale) {
   const form = await renderForm(
     locale,
     <SelectorOnCard onRoleChange={onRoleChange} heard={heard} />,
+    storeSignedInAs('admin'),
   );
   const trigger = screen.getByRole('combobox');
   await waitFor(() => {
