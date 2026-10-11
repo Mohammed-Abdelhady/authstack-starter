@@ -92,7 +92,7 @@ export const UserCard = memo(
       >
         {/* Header: Avatar + Name/Email + Status Badge */}
         <header className="flex flex-wrap items-start gap-3 mb-3">
-          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-transparent group-hover:ring-primary/20 transition-all">
+          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-card ring-transparent group-hover:ring-primary/20 transition-all">
             <AvatarFallback className="bg-secondary text-primary text-sm font-medium">
               {initials}
             </AvatarFallback>

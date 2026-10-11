@@ -121,7 +121,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
         <div className="mt-2 flex justify-end">
           <Link
             href="/auth/forgot-password"
-            className="no-underline hover:underline text-primary text-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
+            className="no-underline hover:underline text-primary text-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-card rounded-sm"
             data-testid="forgot-password-link"
             aria-label={t('forgotPassword')}
             onMouseDown={preventNavigationBlur}

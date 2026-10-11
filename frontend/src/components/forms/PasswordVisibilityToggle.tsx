@@ -33,7 +33,7 @@ export function PasswordVisibilityToggle({
       className={cn(
         'absolute end-3 top-1/2 -translate-y-1/2 flex items-center justify-center',
         'h-7 w-7 min-h-[24px] min-w-[24px] rounded-md text-muted-foreground hover:text-foreground',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
         'transition-colors',
         className,
       )}
