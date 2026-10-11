@@ -75,10 +75,11 @@ describe.each(SCHEMES)('the start notice when the system reports %j', (reported,
   });
 
   it('keeps the reading direction and the safe area it was given', () => {
+    const [root] = painted();
     const [text] = ofKind(painted(), 'Text');
 
     expect(text?.style.writingDirection).toBe('rtl');
-    expect(text?.style.marginTop).toBe(59);
+    expect(root?.style.paddingTop).toBe(59);
   });
 });
 
