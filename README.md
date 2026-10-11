@@ -189,7 +189,7 @@ For a host-run backend with MongoDB in Docker Compose, use `MONGO_URI=mongodb://
 
 The Expo app lives in `mobile/expo`. It signs in on the web sign-in page in the system browser, then shows the profile and the sessions.
 
-It has been built and run on an iOS simulator against this server. Android has not been built or run, so treat it as unverified.
+The template's Expo app, under its example name and ids, has been built and run on an iOS simulator. A generated app with its own name and ids has been linted, type checked, unit tested and bundled, but not launched. Android has not been built or run, so treat it as unverified.
 
 ### What the server needs
 
