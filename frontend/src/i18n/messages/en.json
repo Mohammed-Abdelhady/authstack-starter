@@ -17,6 +17,7 @@
       "danger": "Danger"
     },
     "appName": "Auth App",
+    "appDescription": "Authentication and role-based access control boilerplate",
     "welcome": "Welcome",
     "language": "Language",
     "loading": "Loading...",

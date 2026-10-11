@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-/** The tab title carries the product name the page itself shows, in its locale. */
+/** The product name the page itself shows and its description, in the request locale. */
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: 'common' });
@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       default: name,
       template: `%s | ${name}`,
     },
-    description: 'Authentication and role-based access control boilerplate',
+    description: t('appDescription'),
   };
 }
 

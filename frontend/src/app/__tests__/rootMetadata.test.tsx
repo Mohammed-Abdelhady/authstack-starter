@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
+import { lookupMessage } from '@/i18n/__tests__/message-tree';
 import { loadMessages, type AppLocale } from '@/i18n/load-messages';
 import { SidebarBrand } from '@/components/navigation/SidebarBrand';
 
@@ -58,5 +59,15 @@ describe.each([
 
     expect(brand).not.toBe('');
     expect(metadata.title).toEqual({ default: brand, template: `%s | ${brand}` });
+  });
+
+  it('describes the product in the language of the page', async () => {
+    request.locale = locale;
+
+    const metadata = await generateMetadata();
+
+    expect(metadata.description).toBe(
+      lookupMessage(await loadMessages(locale), 'common.appDescription'),
+    );
   });
 });
