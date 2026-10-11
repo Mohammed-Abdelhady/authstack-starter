@@ -115,5 +115,16 @@ describe('a session issued for a stored account (e2e)', () => {
     );
     expect((fromLogin.body as ProfileBody).data.email).toBe('admin@seed.local');
   });
+
+  it('is not what loginAs uses here: loginAs signs in through the password route', async () => {
+    // The password route refuses a wrong password. An issued session never asks for one.
+    await expect(
+      loginAs(e2e.httpServer, { ...SEED_USER, password: 'Not-the-password-1' }),
+    ).rejects.toThrow();
+    expect(await e2e.state.sessions.countSessions()).toBe(0);
+
+    await loginAs(e2e.httpServer, SEED_USER);
+    expect(await e2e.state.sessions.countSessions()).toBe(1);
+  });
   // feature:email-password:end
 });
