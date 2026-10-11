@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { Provider } from 'react-redux';
 import { confirmWithAlert } from './components/confirm';
 import { ROOT_VIEW, ROUTE, SIGN_IN_ACTION } from './constants';
@@ -8,13 +8,13 @@ import { useEngineSnapshot } from './hooks/use-engine-snapshot';
 import { useForegroundRestore } from './hooks/use-foreground-restore';
 import { useReducedMotion } from './hooks/use-reduced-motion';
 import { useRoute } from './hooks/use-route';
+import { useTheme } from './hooks/use-theme';
 import { createTranslate, DIRECTION } from './i18n';
 import { rootView } from './logic/sign-in-view';
 import { AccountScreen } from './screens/AccountScreen';
 import { SessionsScreen } from './screens/SessionsScreen';
 import { SignInScreen } from './screens/SignInScreen';
 import { createUiRuntime } from './state/runtime';
-import { COLOR_SCHEME, PALETTE } from './theme/tokens';
 import type { NativeAppProps } from './types';
 
 const styles = StyleSheet.create({ root: { flex: 1 } });
@@ -49,8 +49,7 @@ export function NativeApp({
 
   const snapshot = useEngineSnapshot(engine);
   const reduceMotion = useReducedMotion();
-  const scheme = useColorScheme() === COLOR_SCHEME.DARK ? COLOR_SCHEME.DARK : COLOR_SCHEME.LIGHT;
-  const colors = PALETTE[scheme];
+  const { colors, statusBarStyle } = useTheme();
   const direction = DIRECTION[locale];
 
   const ui = useMemo<Ui>(
@@ -73,6 +72,7 @@ export function NativeApp({
     <Provider store={runtime.store}>
       <UiContext.Provider value={ui}>
         <View style={[styles.root, { backgroundColor: colors.background, direction }]}>
+          <StatusBar barStyle={statusBarStyle} />
           {rootView(snapshot) === ROOT_VIEW.SIGNED_IN ? <SignedInScreens /> : <SignInScreen />}
         </View>
       </UiContext.Provider>
