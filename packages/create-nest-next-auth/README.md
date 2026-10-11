@@ -22,22 +22,22 @@ directory and the `name` in the generated root `package.json`. The directory
 must not exist, or must be empty. With `--yes` and no directory the CLI uses
 `my-app`.
 
-| Option             | What it does                                                                       |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `-y, --yes`        | Take the defaults and skip the prompts                                             |
-| `--features a,b,c` | Use these feature ids and skip the feature prompt                                  |
-| `--targets a,b,c`  | Client ids: `web`, `native-expo`. See [Mobile app](docs/config.md#mobile-app)      |
-| `--database <id>`  | Database id: `mongodb` (the default) or `postgres`. See [Database](#database)      |
-| `--preset <id>`    | Apply a preset: `minimal`, `standard`, `everything`                                |
-| `--config <file>`  | JSON file with the same selection keys                                             |
-| `--rules <level>`  | Rules level: `strict` (the default) or `standard`                                  |
-| `--locales <list>` | Locale ids; `en` is required, `en,ar` adds Arabic                                  |
-| `--no-docker`      | Leave out the Docker files and the commands that run them                          |
-| `--no-production`  | Leave out nginx, the production compose file and the production docs               |
-| `--dry-run`        | Print the resolved plan and write nothing                                          |
-| `--no-install`     | Skip dependency installation; the lockfile is still updated when pnpm is available |
-| `--no-git`         | Skip `git init` and the first commit                                               |
-| `-v, --version`    | Print the CLI version                                                              |
+| Option             | What it does                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `-y, --yes`        | Take the defaults and skip the prompts                                               |
+| `--features a,b,c` | Use these feature ids and skip the feature prompt                                    |
+| `--targets a,b,c`  | Client ids: `web`, `native-expo`. See [Mobile app](docs/config.md#mobile-app)        |
+| `--database <id>`  | Database id: `mongodb` (the default) or `postgres`. See [Database](docs/database.md) |
+| `--preset <id>`    | Apply a preset: `minimal`, `standard`, `everything`                                  |
+| `--config <file>`  | JSON file with the same selection keys                                               |
+| `--rules <level>`  | Rules level: `strict` (the default) or `standard`                                    |
+| `--locales <list>` | Locale ids; `en` is required, `en,ar` adds Arabic                                    |
+| `--no-docker`      | Leave out the Docker files and the commands that run them                            |
+| `--no-production`  | Leave out nginx, the production compose file and the production docs                 |
+| `--dry-run`        | Print the resolved plan and write nothing                                            |
+| `--no-install`     | Skip dependency installation; the lockfile is still updated when pnpm is available   |
+| `--no-git`         | Skip `git init` and the first commit                                                 |
+| `-v, --version`    | Print the CLI version                                                                |
 
 Without `--yes`, `--features`, `--targets`, `--database`, `--preset` or `--config`
 the CLI asks for a directory and shows the methods grouped by kind. It needs a
@@ -46,11 +46,6 @@ terminal for that.
 The rules level is asked for in a terminal. Without a terminal and without
 `--rules` or a `rules` value in the config file, the level is `strict` and
 nothing is asked.
-
-The database is asked for the same way. Without a terminal and without
-`--database` or a `database` value in the config file, the project runs on
-MongoDB and nothing is asked, so a command line written before there was a
-choice builds the project it always built.
 
 Feature ids: `email-password`, `magic-link`, `totp`, `passkeys`, and the
 providers `google`, `github`, `facebook`, `microsoft`, `apple`, `discord`,
@@ -86,48 +81,8 @@ See [Config file](docs/config.md) for selection keys, precedence and rules valid
 - `everything`: every available client, feature and option.
 
 A preset never makes an unavailable id available. Planned targets and options
-stay as the manifest defines them. A preset carries no database.
-
-### Database
-
-A project runs on one database, chosen when it is generated.
-
-| Choice     | What the project gets                                                                                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mongodb`  | The Mongoose adapter, the `migrate-mongo` migrations and commands, a MongoDB replica set service in the compose files, and tests on `mongodb-memory-server`                 |
-| `postgres` | The Kysely adapter on `pg`, plain SQL migrations with `migration:up` and `migration:status`, a PostgreSQL 18 service in the compose files, and tests on `embedded-postgres` |
-
-The other database's adapter, migrations, packages, lockfile entries, compose
-service, environment variables with their validation, setup script steps and
-documentation are removed. No setting chooses a database in a generated
-project: it carries one adapter and wires it directly.
-
-PostgreSQL has to be version 18 or newer, because new ids come from its
-`uuidv7()` function. A PostgreSQL project carries `embedded-postgres` as a
-development dependency: its unit and API suites start a server from it, with a
-data folder of their own that they remove, so the documented test commands need
-no database installed. The migrations of an optional sign-in method live in a
-file of their own, and a project without that method does not carry the file,
-its tables, its retention rule or its entries in the table map.
-
-What is tested where:
-
-- Both databases pass the same store contract suites and the same API suite in
-  this repository.
-- A generated project of either database is installed from an empty folder,
-  built, linted, typechecked and run through its unit and API suites by
-  `test:combinations`, for the feature sets listed in that suite.
-- A PostgreSQL project loses the service specs that are written against
-  Mongoose models. The contract suites and the API suite cover the same
-  services on PostgreSQL.
-- Not tested on either database here: Docker Compose against a real database
-  service, a hosted database, a failover, and upgrading a project that was
-  generated earlier.
-
-The two databases answer differently in a few documented places, such as the
-form of an id and when an expired row is removed. A PostgreSQL project carries
-`backend/docs/database-postgres.md`, and this repository lists every difference
-in `backend/docs/persistence-notes.md`.
+stay as the manifest defines them. A preset carries no database. The database
+is chosen apart from it, see [Database](docs/database.md).
 
 ### Dry run
 
@@ -216,25 +171,8 @@ with `web`, `mongodb` and no options.
     "native-core": { "files": ["mobile/auth/**"], "workspaces": ["mobile/auth"] }
   },
   "databases": {
-    "mongodb": {
-      "label": "MongoDB",
-      "default": true,
-      "files": ["backend/src/**/persistence/mongo/**"],
-      "envVars": ["MONGO_URI"],
-      "packages": ["mongoose"],
-      "scripts": ["migration:down"]
-    },
-    "postgres": {
-      "label": "PostgreSQL",
-      "default": false,
-      "files": ["backend/src/**/persistence/postgres/**"],
-      "envVars": ["POSTGRES_URL"],
-      "packages": ["pg", "kysely"],
-      "renames": { "backend/test/jest-e2e-postgres.json": "backend/test/jest-e2e.json" },
-      "rewrites": [
-        { "files": ["backend/package.json"], "from": "test:e2e:postgres", "to": "test:e2e" }
-      ]
-    }
+    "mongodb": { "label": "MongoDB", "default": true, "files": [], "envVars": ["MONGO_URI"] },
+    "postgres": { "label": "PostgreSQL", "default": false, "envVars": ["POSTGRES_URL"] }
   },
   "options": {
     "docker": {
@@ -316,19 +254,8 @@ bundles. Every workspace an owner lists has to sit under its `files`.
 `targets`, `databases` and `options` share `label`, `default` and `status`. A
 target also has `files`, `workspaces`, `envFiles`, `requires` (with `shared` and
 `targets` lists) and `needsSignInSite`. An option has `files`, `requires`,
-`docs` and `catalogueKeys`.
-
-A database owns what only it needs, and all of it goes when another database is
-chosen: `files` and `docs`, `envVars` in the environment examples, `packages`
-in every package manifest, `scripts` in the backend manifest, `jsonKeys` (a
-file and the key paths in it) and `buildApprovals` in the pnpm workspace file.
-Three more lists apply when the database is the chosen one. `renames` gives a
-file the plain name the other database left free. `rewrites` replaces a literal
-text in the files it names, for a command or a sentence that told the two
-databases apart. `envExamples` appends settings to an environment example. A
-rewrite whose text is not in the project is skipped, because an option that was
-left out can take the text with it. The installer's tests fail when a rewrite
-names a text the repository no longer has.
+`docs` and `catalogueKeys`. What a database owns and changes is in
+[Database](docs/database.md#what-a-database-owns-in-the-manifest).
 
 A preset says which ids to start from. Each field is a list of ids, `"available"`
 for every available id, or `"defaults"` for the manifest defaults.
@@ -381,9 +308,7 @@ directory. It updates each pruned lockfile, verifies a frozen pnpm install with
 build scripts enabled, and checks the generated workspaces. All combinations
 share an explicit store under the test temp root. A separate warm-store offline
 case retains the store and MongoDB binary cache. The shipped lockfile alone
-does not make a fresh install work offline. The PostgreSQL cases install from
-their own pruned lockfile too, then run the generated unit and API suites on
-the server `embedded-postgres` carries.
+does not make a fresh install work offline.
 
 The full-feature browser suite is maintainer tooling. Generated projects omit `frontend/e2e`, both Playwright configurations and the backend browser/consent helpers. Their frontend package omits the corresponding `test:e2e` scripts. Product unit tests and the disposable backend functional API suite remain available. The source repository retains all browser coverage.
 

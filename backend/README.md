@@ -23,16 +23,8 @@ solo run uses all but one available CPU by default. If another backend test
 command is active, a new command uses one worker and one database instance.
 
 <!-- feature:mongodb:end -->
-<!-- feature:postgres:start -->
 
-The PostgreSQL suites need no database of your own. Each one starts a server
-from the `embedded-postgres` development dependency, with a data folder of its
-own, and removes both when it ends. The API suite starts one server for the
-whole run and gives every booted application a database of its own. A solo run
-uses all but one available CPU by default. If another backend test command is
-active, a new command uses one worker.
-
-<!-- feature:postgres:end -->
+The PostgreSQL suites start a server of their own and need no database installed. See [Tests on PostgreSQL](docs/database-postgres.md#tests). <!-- feature:postgres -->
 
 Set the unit worker count with `pnpm test -- --maxWorkers=4`. The separate
 `--maxWorkers 4`, `-w 4`, and percentage forms are also accepted.
@@ -116,20 +108,10 @@ mongosh --eval "rs.initiate()"
 ```
 
 <!-- feature:mongodb:end -->
-<!-- feature:postgres:start -->
 
-The server needs PostgreSQL 18 or newer. Create a database, put its address in
-`POSTGRES_URL`, and apply the migrations before the first start and after every
-upgrade. The server refuses to start on a database whose migrations differ from
-the ones it carries. See [PostgreSQL](docs/database-postgres.md).
+On PostgreSQL the server needs version 18 or newer, its address in `POSTGRES_URL`, and the migrations applied before the first start. See [PostgreSQL](docs/database-postgres.md). <!-- feature:postgres -->
 
 Set `DATABASE_TYPE=postgres` too. Without it the server runs on MongoDB. <!-- feature:database-choice -->
-
-```bash
-pnpm run migration:postgres:up
-```
-
-<!-- feature:postgres:end -->
 
 <!-- feature:docker:start -->
 

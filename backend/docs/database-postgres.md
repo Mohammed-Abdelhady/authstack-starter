@@ -91,4 +91,6 @@ pnpm --filter backend run test:e2e:postgres
 
 Neither needs a database of your own. The `embedded-postgres` development dependency carries a PostgreSQL 18 server for your platform. A suite that needs a database starts one with a data folder of its own under the system temporary folder and removes both when it ends. The API suite starts one server for the whole run, gives each booted application a database copied from a migrated template, and removes all of it when the run ends.
 
+A unit run on its own uses all but one available CPU. When another backend test command is running, a new one uses one worker.
+
 The store contract suites, the API suite and the unit suite run on that server. Nothing here tests a failover, a replica, a pooler or a hosted database.
