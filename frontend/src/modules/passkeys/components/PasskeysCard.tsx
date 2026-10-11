@@ -7,6 +7,7 @@ import { FormRootError } from '@/components/forms';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
 import { useGetPasskeysQuery } from '../api';
 import {
@@ -30,12 +31,19 @@ import { PasskeyPrompt } from './PasskeyPrompt';
  * Passkey settings.
  *
  * The card disappears where the deployment turned passkeys off, which is also
- * where every route behind it answers FEATURE_DISABLED.
+ * where every route behind it answers FEATURE_DISABLED. Not knowing whether
+ * it is off is a failure with a retry, not a card that is gone.
  */
 export function PasskeysCard() {
   const t = useTranslations('settings.passkeys');
   const tAuth = useTranslations('auth.passkeys');
-  const { methods, isLoading: isLoadingMethods } = useAuthMethods();
+  const {
+    methods,
+    isLoading: isLoadingMethods,
+    isError: methodsFailed,
+    retry,
+    hasRetried,
+  } = useAuthMethods();
   const isOn = methods?.passkeys === true;
   const { data: listed, isLoading: isLoadingList } = useGetPasskeysQuery(undefined, {
     skip: !isOn,
@@ -61,6 +69,17 @@ export function PasskeysCard() {
 
   if (isLoadingMethods) {
     return <Skeleton className="h-48 w-full" data-testid="passkeys-card-loading" />;
+  }
+
+  if (methodsFailed) {
+    return (
+      <AuthMethodsLoadErrorCard
+        title={t('title')}
+        onRetry={retry}
+        takeFocus={hasRetried}
+        testId="passkeys-card-error"
+      />
+    );
   }
 
   if (!isOn) {

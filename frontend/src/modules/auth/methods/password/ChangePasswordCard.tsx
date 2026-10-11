@@ -9,6 +9,7 @@ import { reportUnlessHandled } from '@/lib/requestFailure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormPassword, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
+import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
 import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
@@ -20,13 +21,14 @@ import { useSingleFlight } from '@/hooks/useSingleFlight';
  * Password change, for the settings page.
  *
  * A deployment with password sign-in turned off has no password to change, so
- * the card is not rendered there.
+ * the card is not rendered there. Not knowing whether it is off is a failure
+ * with a retry, not a card that is gone.
  */
 export function ChangePasswordCard() {
   const t = useTranslations('settings.password');
   const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
-  const { methods } = useAuthMethods();
+  const { methods, isError: methodsFailed, retry, hasRetried } = useAuthMethods();
   const [changePassword, { isLoading }] = useChangePasswordMutation();
 
   const schema = useMemo(() => createChangePasswordSchema(t, tPassword), [t, tPassword]);
@@ -60,6 +62,17 @@ export function ChangePasswordCard() {
     }
   };
   const onSubmit = useSingleFlight(submit);
+
+  if (methodsFailed) {
+    return (
+      <AuthMethodsLoadErrorCard
+        title={t('title')}
+        onRetry={retry}
+        takeFocus={hasRetried}
+        testId="change-password-card-error"
+      />
+    );
+  }
 
   if (methods !== undefined && !methods.password) {
     return null;

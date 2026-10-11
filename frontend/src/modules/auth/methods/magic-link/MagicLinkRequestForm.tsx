@@ -23,11 +23,15 @@ import { useSingleFlight } from '@/hooks/useSingleFlight';
 /** Seconds before the same address may ask for another link. */
 const RESEND_COOLDOWN_SECONDS = 60;
 
-const createMagicLinkSchema = (t: (key: string) => string) =>
+/** @param tSignIn - The sign-in page's messages, so both of its forms word an address error alike */
+const createMagicLinkSchema = (tSignIn: (key: string) => string) =>
   z.object({
     email: zodEmail({
       required: true,
-      messages: { required: t('errors.emailRequired'), invalid: t('errors.emailInvalid') },
+      messages: {
+        required: tSignIn('errors.emailRequired'),
+        invalid: tSignIn('errors.emailInvalid'),
+      },
     }),
   });
 
@@ -41,6 +45,7 @@ type MagicLinkFormData = z.infer<ReturnType<typeof createMagicLinkSchema>>;
  */
 export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormProps) {
   const t = useTranslations('auth.magicLink');
+  const tSignIn = useTranslations('auth.login');
   const tCommon = useTranslations('common');
   const tCodes = useTranslations('errors.codes');
   const [requestMagicLink, { isLoading }] = useRequestMagicLinkMutation();
@@ -48,7 +53,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
   const [sentTo, setSentTo] = useState<string | null>(null);
   const { secondsLeft, isCooling, start: startCooldown } = useCooldown(RESEND_COOLDOWN_SECONDS);
 
-  const schema = useMemo(() => createMagicLinkSchema(t), [t]);
+  const schema = useMemo(() => createMagicLinkSchema(tSignIn), [tSignIn]);
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '' },

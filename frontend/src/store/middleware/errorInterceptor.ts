@@ -36,6 +36,8 @@ const SESSION_CHECK_ENDPOINT = 'getCurrentUser';
 
 interface Announcement extends LocalizedToastMessageProps {
   duration: number;
+  /** Announcements that share an id show as one toast, however many requests failed. */
+  id?: string;
 }
 
 interface RejectionMeta {
@@ -107,7 +109,12 @@ function announcementFor(error: FetchBaseQueryError): Announcement | null {
     return { messageKey: ERROR_MESSAGES.TIMEOUT_ERROR, duration: TOAST_DURATION.TIMEOUT_ERROR };
   }
   if (error.status === 'FETCH_ERROR') {
-    return { messageKey: ERROR_MESSAGES.NETWORK_ERROR, duration: TOAST_DURATION.NETWORK_ERROR };
+    // A lost connection fails every request on the page, and it is one thing to say.
+    return {
+      id: ERROR_MESSAGES.NETWORK_ERROR,
+      messageKey: ERROR_MESSAGES.NETWORK_ERROR,
+      duration: TOAST_DURATION.NETWORK_ERROR,
+    };
   }
 
   const fallbackKey = statusMessageKey(status);
@@ -124,8 +131,8 @@ function announcementFor(error: FetchBaseQueryError): Announcement | null {
   };
 }
 
-function announce({ duration, ...message }: Announcement): void {
-  toast.show('error', createElement(LocalizedToastMessage, message), { duration });
+function announce({ duration, id, ...message }: Announcement): void {
+  toast.show('error', createElement(LocalizedToastMessage, message), { duration, id });
 }
 
 type InterceptorDispatch = ThunkDispatch<unknown, unknown, UnknownAction>;
