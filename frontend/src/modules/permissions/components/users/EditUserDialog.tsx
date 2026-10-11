@@ -32,6 +32,8 @@ interface EditUserDialogProps {
   currentEmail: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 interface EditUserFormValues {
@@ -242,6 +244,7 @@ export function EditUserDialog({
   currentEmail,
   open,
   onOpenChange,
+  onCloseAutoFocus,
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
@@ -282,7 +285,11 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="edit-user-dialog">
+      <DialogContent
+        className="sm:max-w-[500px]"
+        data-testid="edit-user-dialog"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>

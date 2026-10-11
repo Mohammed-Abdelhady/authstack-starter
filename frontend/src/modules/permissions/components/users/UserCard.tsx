@@ -28,7 +28,7 @@ export interface UserCardProps {
   /** User data */
   user: User;
   /** Callback when manage permissions is clicked */
-  onManagePermissions?: (userId: string) => void;
+  onManagePermissions?: (userId: string, opener: HTMLElement | null) => void;
   /** Optional className */
   className?: string;
 }
@@ -60,9 +60,12 @@ export const UserCard = memo(
     const initials = getInitials(user.name);
     const joinedDate = formatDateShort(user.createdAt, locale);
 
-    const handleManageClick = useCallback(() => {
-      onManagePermissions?.(user._id);
-    }, [onManagePermissions, user._id]);
+    const handleManageClick = useCallback(
+      (opener: HTMLElement | null) => {
+        onManagePermissions?.(user._id, opener);
+      },
+      [onManagePermissions, user._id],
+    );
 
     const onRoleChange = useCallback(
       async (newRole: string) => {
