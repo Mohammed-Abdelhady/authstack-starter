@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Select,
@@ -48,6 +48,8 @@ export function UserRoleSelector({
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
   const [pendingRole, setPendingRole] = useState<string | null>(null);
+  // The role picked in the list. It becomes `pendingRole` once the list has closed.
+  const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
@@ -65,7 +67,16 @@ export function UserRoleSelector({
       return;
     }
 
-    setPendingRole(newRole);
+    chosenRole.current = newRole;
+  };
+
+  // Enter on an option is still being handled when the option is chosen, and a
+  // button focused during that keystroke is pressed by it. The list hands focus
+  // back after the keystroke, so the confirmation opens then.
+  const openConfirmation = () => {
+    if (chosenRole.current === null) return;
+    setPendingRole(chosenRole.current);
+    chosenRole.current = null;
   };
 
   const handleConfirmRoleChange = async () => {
@@ -115,7 +126,7 @@ export function UserRoleSelector({
             </SelectValue>
           )}
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent onCloseAutoFocus={openConfirmation}>
           {roles.map((role) => (
             <SelectItem
               key={role.id}
