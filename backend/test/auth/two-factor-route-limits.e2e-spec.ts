@@ -15,12 +15,14 @@ interface ErrorBody {
  * on an account that never set the factor up.
  */
 const ROUTES: [string, Record<string, string>, number, string][] = [
+  // feature:email-password:start
   [
     '/api/auth/2fa/setup',
     { password: 'NotThePassword1!' },
     400,
     'INVALID_CURRENT_PASSWORD',
   ],
+  // feature:email-password:end
   [
     '/api/auth/2fa/confirm',
     { code: '000000' },

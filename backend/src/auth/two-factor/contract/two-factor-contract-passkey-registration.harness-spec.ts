@@ -3,6 +3,7 @@ import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { HashService } from '../../../common/services/hash.service';
 import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
+import { AuthFeature } from '../../enums/auth-feature.enum';
 import { PasskeyRegistrationReauth } from '../../passkeys/services/passkey-registration-reauth.service';
 import { PasskeyAccounts } from '../../passkeys/stores/passkey-accounts';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
@@ -57,6 +58,22 @@ async function refusalOf(promise: Promise<unknown>): Promise<Refusal> {
 }
 
 /**
+ * The feature switches as the case sets them: password sign-in on, so the
+ * same cases hold in a project generated without that method.
+ */
+class Switches extends AuthFeaturesService {
+  constructor(private readonly twoFactorOn: boolean) {
+    super(new ConfigService());
+  }
+
+  override isEnabled(feature: AuthFeature): boolean {
+    if (feature === AuthFeature.PASSWORD) return true;
+    if (feature === AuthFeature.TWO_FACTOR) return this.twoFactorOn;
+    return super.isEnabled(feature);
+  }
+}
+
+/**
  * The real check before a passkey is added, on this database's second factor
  * store. The account's password is read through that same store.
  */
@@ -65,13 +82,9 @@ function reauthOn(
   services: TwoFactorServices,
   twoFactorOn = true,
 ): PasskeyRegistrationReauth {
-  const config = new ConfigService({
-    bcrypt: { rounds: BCRYPT_ROUNDS },
-    twoFactor: { enabled: twoFactorOn },
-  });
   return new PasskeyRegistrationReauth(
-    new HashService(config),
-    new AuthFeaturesService(config),
+    new HashService(new ConfigService({ bcrypt: { rounds: BCRYPT_ROUNDS } })),
+    new Switches(twoFactorOn),
     partialMock<PasskeyAccounts>({
       findPassword: async (userId: string) => {
         const account = await harness.accounts.findAccountWithPassword(userId);
