@@ -4,7 +4,6 @@ import {
   UniqueConflictError,
 } from '../../../../src/common/persistence/persistence-errors';
 import { UnitOfWork } from '../../../../src/common/persistence/unit-of-work';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from './issuance-contract-harness';
 import {
   contractSession,
   HarnessSource,
@@ -29,50 +28,46 @@ export function issuanceSeamCases(harness: HarnessSource): void {
       .service(rerunAtOnce)
       .createBrowserSession(userId, 'Contract/1', SIGN_IN_ADDRESS);
 
-  it(
-    'hands ids out as strings and takes the same strings back',
-    async () => {
-      const userId = await harness().seedAccount();
-      const store = harness().store;
+  it('hands ids out as strings and takes the same strings back', async () => {
+    const userId = await harness().seedAccount();
+    const store = harness().store;
 
-      const ids = await inUnitOfWork(async (unitOfWork) => {
-        const account = await store.readAccountForIssuance(unitOfWork, userId);
-        const created = await store.createGrant(unitOfWork, {
-          userId,
-          clientId: WEB_CLIENT,
-          allowedScopes: ['api'],
-        });
-        const found = await store.findGrant(unitOfWork, userId, WEB_CLIENT);
-        await store.markGrantIssuance(unitOfWork, created.id);
-        const sessionId = await store.insertBrowserSession(
-          unitOfWork,
-          contractSession(userId, HASH_A),
-        );
-        return {
-          account: account?.id,
-          createdGrant: created.id,
-          foundGrant: found?.id,
-          sessionId,
-        };
+    const ids = await inUnitOfWork(async (unitOfWork) => {
+      const account = await store.readAccountForIssuance(unitOfWork, userId);
+      const created = await store.createGrant(unitOfWork, {
+        userId,
+        clientId: WEB_CLIENT,
+        allowedScopes: ['api'],
       });
+      const found = await store.findGrant(unitOfWork, userId, WEB_CLIENT);
+      await store.markGrantIssuance(unitOfWork, created.id);
+      const sessionId = await store.insertBrowserSession(
+        unitOfWork,
+        contractSession(userId, HASH_A),
+      );
+      return {
+        account: account?.id,
+        createdGrant: created.id,
+        foundGrant: found?.id,
+        sessionId,
+      };
+    });
 
-      const [grant] = await harness().grants(userId);
-      const [session] = await harness().sessions(userId);
-      expect({
-        ...ids,
-        idTypes: [typeof ids.createdGrant, typeof ids.sessionId],
-        storedGrantFence: grant.issuanceFence,
-      }).toEqual({
-        account: userId,
-        createdGrant: grant.id,
-        foundGrant: grant.id,
-        sessionId: session.id,
-        idTypes: ['string', 'string'],
-        storedGrantFence: 1,
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    const [grant] = await harness().grants(userId);
+    const [session] = await harness().sessions(userId);
+    expect({
+      ...ids,
+      idTypes: [typeof ids.createdGrant, typeof ids.sessionId],
+      storedGrantFence: grant.issuanceFence,
+    }).toEqual({
+      account: userId,
+      createdGrant: grant.id,
+      foundGrant: grant.id,
+      sessionId: session.id,
+      idTypes: ['string', 'string'],
+      storedGrantFence: 1,
+    });
+  });
 
   it.each([
     ['a word', 'word'],
@@ -115,95 +110,75 @@ export function issuanceSeamCases(harness: HarnessSource): void {
 
       expect(refusals).toEqual([true, true, true, true, true, true, true]);
     },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
   );
 
-  it(
-    'answers a sign-in for a malformed id as an unavailable authority',
-    async () => {
-      await expect(signIn('not-an-id')).rejects.toMatchObject({
-        code: ErrorCode.AUTHORITY_UNAVAILABLE,
-      });
-      expect(await harness().events()).toEqual([]);
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+  it('answers a sign-in for a malformed id as an unavailable authority', async () => {
+    await expect(signIn('not-an-id')).rejects.toMatchObject({
+      code: ErrorCode.AUTHORITY_UNAVAILABLE,
+    });
+    expect(await harness().events()).toEqual([]);
+  });
 
-  it(
-    'says whether the account it was asked to count was there',
-    async () => {
-      const userId = await harness().seedAccount();
-      const store = harness().store;
+  it('says whether the account it was asked to count was there', async () => {
+    const userId = await harness().seedAccount();
+    const store = harness().store;
 
-      const marks = await inUnitOfWork(async (unitOfWork) => [
-        await store.markAccountIssuance(unitOfWork, userId),
-        await store.markAccountIssuance(
-          unitOfWork,
-          harness().absentAccountId(),
-        ),
-      ]);
+    const marks = await inUnitOfWork(async (unitOfWork) => [
+      await store.markAccountIssuance(unitOfWork, userId),
+      await store.markAccountIssuance(unitOfWork, harness().absentAccountId()),
+    ]);
 
-      expect({
-        marks,
-        fence: (await harness().account(userId))?.issuanceFence,
-      }).toEqual({ marks: ['marked', 'account_missing'], fence: 1 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      marks,
+      fence: (await harness().account(userId))?.issuanceFence,
+    }).toEqual({ marks: ['marked', 'account_missing'], fence: 1 });
+  });
 
-  it(
-    'reports a refused duplicate as a unique conflict that names the rule',
-    async () => {
-      const userId = await harness().seedAccount();
-      const allowEvents = await harness().refuseSecurityEvents();
+  it('reports a refused duplicate as a unique conflict that names the rule', async () => {
+    const userId = await harness().seedAccount();
+    const allowEvents = await harness().refuseSecurityEvents();
 
-      let failure: unknown;
-      try {
-        failure = await rejectionOf(
-          inUnitOfWork((unitOfWork) =>
-            harness().store.appendSecurityEvent(unitOfWork, {
-              targetUserId: userId,
-              clientId: WEB_CLIENT,
-              sessionId: 'contract-session',
-              action: SIGN_IN_EVENT,
-            }),
-          ),
-        );
-      } finally {
-        allowEvents();
-      }
-
-      expect({
-        shared: failure instanceof UniqueConflictError,
-        constraint:
-          failure instanceof UniqueConflictError ? failure.constraint : null,
-      }).toEqual({ shared: true, constraint: 'security_event.event_id' });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'reports a second session with the same token hash as that rule',
-    async () => {
-      const userId = await harness().seedAccount();
-      const insert = (hash: string) =>
+    let failure: unknown;
+    try {
+      failure = await rejectionOf(
         inUnitOfWork((unitOfWork) =>
-          harness().store.insertBrowserSession(
-            unitOfWork,
-            contractSession(userId, hash),
-          ),
-        );
-      await insert(HASH_A);
-      await insert(HASH_B);
+          harness().store.appendSecurityEvent(unitOfWork, {
+            targetUserId: userId,
+            clientId: WEB_CLIENT,
+            sessionId: 'contract-session',
+            action: SIGN_IN_EVENT,
+          }),
+        ),
+      );
+    } finally {
+      allowEvents();
+    }
 
-      const failure = await rejectionOf(insert(HASH_A));
+    expect({
+      shared: failure instanceof UniqueConflictError,
+      constraint:
+        failure instanceof UniqueConflictError ? failure.constraint : null,
+    }).toEqual({ shared: true, constraint: 'security_event.event_id' });
+  });
 
-      expect({
-        constraint:
-          failure instanceof UniqueConflictError ? failure.constraint : null,
-        stored: (await harness().sessions(userId)).length,
-      }).toEqual({ constraint: 'session.token_hash', stored: 2 });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+  it('reports a second session with the same token hash as that rule', async () => {
+    const userId = await harness().seedAccount();
+    const insert = (hash: string) =>
+      inUnitOfWork((unitOfWork) =>
+        harness().store.insertBrowserSession(
+          unitOfWork,
+          contractSession(userId, hash),
+        ),
+      );
+    await insert(HASH_A);
+    await insert(HASH_B);
+
+    const failure = await rejectionOf(insert(HASH_A));
+
+    expect({
+      constraint:
+        failure instanceof UniqueConflictError ? failure.constraint : null,
+      stored: (await harness().sessions(userId)).length,
+    }).toEqual({ constraint: 'session.token_hash', stored: 2 });
+  });
 }

@@ -12,7 +12,6 @@ import {
   EDITOR_SLUG,
   LEAD_SLUG,
   revocationsOf,
-  roleCase,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -123,168 +122,156 @@ export function roleRaceCases(
     };
   }
 
-  roleCase(
-    'runs two renames of one role one after the other, the later on top',
-    async () => {
-      const race = await raceTwoRenames(true);
+  it('runs two renames of one role one after the other, the later on top', async () => {
+    const race = await raceTwoRenames(true);
 
-      expect({
-        race: { ...race, holder: undefined },
-        roles: {
-          editor: await harness().role(EDITOR_SLUG),
-          lead: await harness().role(LEAD_SLUG),
-          chief: (await harness().role(CHIEF_SLUG))?.name,
-          owed: (await harness().role(CHIEF_SLUG))?.owedRepairs,
-        },
-        holder: await harness().account(race.holder),
-        revocations: await revocationsOf(harness()),
-      }).toEqual({
-        race: {
-          holder: undefined,
-          secondWas: REFUSED_AT_THE_ROLE,
-          whileBothHeld: { role: EDITOR_SLUG, sessionVersion: 0 },
-          first: DONE,
-          second: DONE,
-          pauses: [1],
-        },
-        roles: {
-          editor: null,
-          lead: null,
-          chief: 'Content Chief',
-          owed: [],
-        },
-        holder: { role: CHIEF_SLUG, sessionVersion: 2 },
-        revocations: [
-          `${race.holder} by ${fixture().adminId} (${ADMIN_FORCED})`,
-          `${race.holder} by ${fixture().adminId} (${ADMIN_FORCED})`,
-        ],
-      });
-    },
-  );
-
-  roleCase(
-    'gives up a rename as unavailable after three refusals and changes nothing',
-    async () => {
-      const race = await raceTwoRenames(false);
-
-      expect({
-        race: { ...race, holder: undefined },
-        roles: {
-          lead: (await harness().role(LEAD_SLUG))?.name,
-          chief: await harness().role(CHIEF_SLUG),
-        },
-        holder: await harness().account(race.holder),
-      }).toEqual({
-        race: {
-          holder: undefined,
-          secondWas: REFUSED_AT_THE_ROLE,
-          whileBothHeld: { role: EDITOR_SLUG, sessionVersion: 0 },
-          afterSecondGaveUp: { role: EDITOR_SLUG, sessionVersion: 0 },
-          first: DONE,
-          second: ErrorCode.AUTHORITY_UNAVAILABLE,
-          pauses: [1, 2],
-        },
-        roles: { lead: 'Content Lead', chief: null },
-        holder: { role: LEAD_SLUG, sessionVersion: 1 },
-      });
-    },
-  );
-
-  roleCase(
-    'commits the owed repair with the rename, before the repair runs',
-    async () => {
-      const holder = await harness().seedAccount({ role: EDITOR_SLUG });
-      const committed = gate();
-      restores.push(
-        holdBefore(harness().sweeps, 'clearPendingSweep', () => committed),
-      );
-
-      const rename = servicesOn(harness()).roles.update(
-        EDITOR_SLUG,
-        { name: 'Content Lead' },
-        fixture().adminId,
-      );
-      await committed.reached(1);
-      const beforeTheRepairCleared = {
-        owed: (await harness().role(LEAD_SLUG))?.owedRepairs,
-        holder: await harness().account(holder),
-      };
-      committed.release();
-      await rename;
-
-      expect({
-        beforeTheRepairCleared,
-        owedAfter: (await harness().role(LEAD_SLUG))?.owedRepairs,
-      }).toEqual({
-        beforeTheRepairCleared: {
-          owed: [`${EDITOR_SLUG} for ${fixture().editorRoleId}`],
-          holder: { role: LEAD_SLUG, sessionVersion: 1 },
-        },
-        owedAfter: [],
-      });
-    },
-  );
-
-  roleCase(
-    'refuses a second move of holders another unit of work is moving',
-    async () => {
-      const holders = [
-        await harness().seedAccount({ role: EDITOR_SLUG }),
-        await harness().seedAccount({ role: EDITOR_SLUG }),
-      ];
-      const reruns = holdReruns();
-      gates.push(reruns.refused);
-      const firstMoved = gate();
-      const move = { fromSlugs: [EDITOR_SLUG], toSlug: LEAD_SLUG };
-
-      const first = harness()
-        .runner(rerunAtOnce)
-        .run(async (unitOfWork) => {
-          const moved = await harness().changes.moveHolders(unitOfWork, move);
-          await firstMoved.hold();
-          return moved.moved;
-        });
-      await firstMoved.reached(1);
-      const secondMoved = gate();
-      const second = harness()
-        .runner(reruns.pause)
-        .run(async (unitOfWork) => {
-          const moved = await harness().changes.moveHolders(unitOfWork, move);
-          await secondMoved.hold();
-          return moved.moved;
-        });
-      const secondWas = await Promise.race([
-        reruns.refused.reached(1).then(() => REFUSED_AT_THE_HOLDERS),
-        secondMoved.reached(1).then(() => MOVED_UNDER_THE_FIRST),
-      ]);
-      const whileBothHeld = await accountsOf(harness(), holders);
-
-      firstMoved.release();
-      secondMoved.release();
-      const firstCount = await first;
-      reruns.refused.release();
-
-      expect({
-        first: firstCount,
-        second: await second,
-        secondWas,
-        whileBothHeld,
-        pauses: reruns.calls,
-        accounts: await accountsOf(harness(), holders),
-      }).toEqual({
-        first: 2,
-        second: 0,
-        secondWas: REFUSED_AT_THE_HOLDERS,
-        whileBothHeld: [
-          { role: EDITOR_SLUG, sessionVersion: 0 },
-          { role: EDITOR_SLUG, sessionVersion: 0 },
-        ],
+    expect({
+      race: { ...race, holder: undefined },
+      roles: {
+        editor: await harness().role(EDITOR_SLUG),
+        lead: await harness().role(LEAD_SLUG),
+        chief: (await harness().role(CHIEF_SLUG))?.name,
+        owed: (await harness().role(CHIEF_SLUG))?.owedRepairs,
+      },
+      holder: await harness().account(race.holder),
+      revocations: await revocationsOf(harness()),
+    }).toEqual({
+      race: {
+        holder: undefined,
+        secondWas: REFUSED_AT_THE_ROLE,
+        whileBothHeld: { role: EDITOR_SLUG, sessionVersion: 0 },
+        first: DONE,
+        second: DONE,
         pauses: [1],
-        accounts: [
-          { role: LEAD_SLUG, sessionVersion: 1 },
-          { role: LEAD_SLUG, sessionVersion: 1 },
-        ],
+      },
+      roles: {
+        editor: null,
+        lead: null,
+        chief: 'Content Chief',
+        owed: [],
+      },
+      holder: { role: CHIEF_SLUG, sessionVersion: 2 },
+      revocations: [
+        `${race.holder} by ${fixture().adminId} (${ADMIN_FORCED})`,
+        `${race.holder} by ${fixture().adminId} (${ADMIN_FORCED})`,
+      ],
+    });
+  });
+
+  it('gives up a rename as unavailable after three refusals and changes nothing', async () => {
+    const race = await raceTwoRenames(false);
+
+    expect({
+      race: { ...race, holder: undefined },
+      roles: {
+        lead: (await harness().role(LEAD_SLUG))?.name,
+        chief: await harness().role(CHIEF_SLUG),
+      },
+      holder: await harness().account(race.holder),
+    }).toEqual({
+      race: {
+        holder: undefined,
+        secondWas: REFUSED_AT_THE_ROLE,
+        whileBothHeld: { role: EDITOR_SLUG, sessionVersion: 0 },
+        afterSecondGaveUp: { role: EDITOR_SLUG, sessionVersion: 0 },
+        first: DONE,
+        second: ErrorCode.AUTHORITY_UNAVAILABLE,
+        pauses: [1, 2],
+      },
+      roles: { lead: 'Content Lead', chief: null },
+      holder: { role: LEAD_SLUG, sessionVersion: 1 },
+    });
+  });
+
+  it('commits the owed repair with the rename, before the repair runs', async () => {
+    const holder = await harness().seedAccount({ role: EDITOR_SLUG });
+    const committed = gate();
+    restores.push(
+      holdBefore(harness().sweeps, 'clearPendingSweep', () => committed),
+    );
+
+    const rename = servicesOn(harness()).roles.update(
+      EDITOR_SLUG,
+      { name: 'Content Lead' },
+      fixture().adminId,
+    );
+    await committed.reached(1);
+    const beforeTheRepairCleared = {
+      owed: (await harness().role(LEAD_SLUG))?.owedRepairs,
+      holder: await harness().account(holder),
+    };
+    committed.release();
+    await rename;
+
+    expect({
+      beforeTheRepairCleared,
+      owedAfter: (await harness().role(LEAD_SLUG))?.owedRepairs,
+    }).toEqual({
+      beforeTheRepairCleared: {
+        owed: [`${EDITOR_SLUG} for ${fixture().editorRoleId}`],
+        holder: { role: LEAD_SLUG, sessionVersion: 1 },
+      },
+      owedAfter: [],
+    });
+  });
+
+  it('refuses a second move of holders another unit of work is moving', async () => {
+    const holders = [
+      await harness().seedAccount({ role: EDITOR_SLUG }),
+      await harness().seedAccount({ role: EDITOR_SLUG }),
+    ];
+    const reruns = holdReruns();
+    gates.push(reruns.refused);
+    const firstMoved = gate();
+    const move = { fromSlugs: [EDITOR_SLUG], toSlug: LEAD_SLUG };
+
+    const first = harness()
+      .runner(rerunAtOnce)
+      .run(async (unitOfWork) => {
+        const moved = await harness().changes.moveHolders(unitOfWork, move);
+        await firstMoved.hold();
+        return moved.moved;
       });
-    },
-  );
+    await firstMoved.reached(1);
+    const secondMoved = gate();
+    const second = harness()
+      .runner(reruns.pause)
+      .run(async (unitOfWork) => {
+        const moved = await harness().changes.moveHolders(unitOfWork, move);
+        await secondMoved.hold();
+        return moved.moved;
+      });
+    const secondWas = await Promise.race([
+      reruns.refused.reached(1).then(() => REFUSED_AT_THE_HOLDERS),
+      secondMoved.reached(1).then(() => MOVED_UNDER_THE_FIRST),
+    ]);
+    const whileBothHeld = await accountsOf(harness(), holders);
+
+    firstMoved.release();
+    secondMoved.release();
+    const firstCount = await first;
+    reruns.refused.release();
+
+    expect({
+      first: firstCount,
+      second: await second,
+      secondWas,
+      whileBothHeld,
+      pauses: reruns.calls,
+      accounts: await accountsOf(harness(), holders),
+    }).toEqual({
+      first: 2,
+      second: 0,
+      secondWas: REFUSED_AT_THE_HOLDERS,
+      whileBothHeld: [
+        { role: EDITOR_SLUG, sessionVersion: 0 },
+        { role: EDITOR_SLUG, sessionVersion: 0 },
+      ],
+      pauses: [1],
+      accounts: [
+        { role: LEAD_SLUG, sessionVersion: 1 },
+        { role: LEAD_SLUG, sessionVersion: 1 },
+      ],
+    });
+  });
 }

@@ -4,10 +4,7 @@ import { RoleSweepBootstrapService } from '../../../../src/role/services/bootstr
 import { RoleEditService } from '../../../../src/role/services/edit/role-edit.service';
 import { RoleHierarchyService } from '../../../../src/role/services/role-hierarchy.service';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
-import {
-  ROLE_CONTRACT_CASE_TIMEOUT_MS,
-  RoleContractHarness,
-} from './role-contract-harness';
+import { RoleContractHarness } from './role-contract-harness';
 
 export type RoleHarnessSource = () => RoleContractHarness;
 
@@ -114,11 +111,6 @@ export function answerOf(error: unknown): { code: unknown; status: unknown } {
     code: Reflect.get(error, 'code') ?? error.name,
     status: Reflect.get(error, 'status'),
   };
-}
-
-/** A contract case with the budget a database case gets. */
-export function roleCase(name: string, body: () => Promise<void>): void {
-  it(name, body, ROLE_CONTRACT_CASE_TIMEOUT_MS);
 }
 
 /** Stored facts of several accounts, in the order asked. */

@@ -1,6 +1,5 @@
 import { AppException } from '../../common/exceptions/app.exception';
 import {
-  linkedCase,
   LinkedHarnessSource,
   linkedServicesOn,
   profileOf,
@@ -125,63 +124,60 @@ async function answerOf(unlink: Promise<unknown>): Promise<string> {
 
 /** The page is told email sign-in is usable when the rule counts it. */
 export function emailSignInHintCases(harness: LinkedHarnessSource): void {
-  linkedCase(
-    'tells the page email sign-in is usable exactly when the rule counts it as a way in',
-    async () => {
-      const observed: Record<string, Observed> = {};
-      for (const [name, account] of Object.entries(ACCOUNTS)) {
-        const email = `${name.replaceAll(' ', '-')}@example.test`;
-        const userId = await harness().seedAccount({
-          email,
-          role: 'user',
-          passwordHash: account.passwordHash,
-        });
-        const { linking } = linkedServicesOn(
-          harness(),
-          undefined,
-          account.switches,
-        );
-        if (account.linksGoogle) {
-          await linking.linkProvider(
-            userId,
-            'google',
-            profileOf(`google-${name}`, { email }),
-          );
-        }
-        if (account.madeByProvider) {
-          await harness().setAuthProvider(userId, 'google');
-        }
-
-        // Asked first, the way a page reads it before it shows the row.
-        const providers = await linking.getLinkedProviders(userId);
-        const told = await linking.signInMethodHints(userId, providers);
-        observed[name] = {
-          providers,
-          emailSignIn: told.emailSignIn ?? null,
-          unlinkHints: told.unlinkHints,
-          unlinkGoogle: account.linksGoogle
-            ? await answerOf(linking.unlinkProvider(userId, 'google'))
-            : null,
-        };
-      }
-
-      expect(observed).toEqual(
-        Object.fromEntries(
-          Object.entries(ACCOUNTS).map(([name, { expected }]) => [
-            name,
-            expected,
-          ]),
-        ),
+  it('tells the page email sign-in is usable exactly when the rule counts it as a way in', async () => {
+    const observed: Record<string, Observed> = {};
+    for (const [name, account] of Object.entries(ACCOUNTS)) {
+      const email = `${name.replaceAll(' ', '-')}@example.test`;
+      const userId = await harness().seedAccount({
+        email,
+        role: 'user',
+        passwordHash: account.passwordHash,
+      });
+      const { linking } = linkedServicesOn(
+        harness(),
+        undefined,
+        account.switches,
       );
-      // On an email account whose one provider goes, email is the way left.
-      for (const [name, seen] of Object.entries(observed)) {
-        if (seen.emailSignIn !== null && seen.unlinkGoogle !== null) {
-          expect({ name, usable: seen.emailSignIn === 'usable' }).toEqual({
-            name,
-            usable: seen.unlinkGoogle === UNLINKED,
-          });
-        }
+      if (account.linksGoogle) {
+        await linking.linkProvider(
+          userId,
+          'google',
+          profileOf(`google-${name}`, { email }),
+        );
       }
-    },
-  );
+      if (account.madeByProvider) {
+        await harness().setAuthProvider(userId, 'google');
+      }
+
+      // Asked first, the way a page reads it before it shows the row.
+      const providers = await linking.getLinkedProviders(userId);
+      const told = await linking.signInMethodHints(userId, providers);
+      observed[name] = {
+        providers,
+        emailSignIn: told.emailSignIn ?? null,
+        unlinkHints: told.unlinkHints,
+        unlinkGoogle: account.linksGoogle
+          ? await answerOf(linking.unlinkProvider(userId, 'google'))
+          : null,
+      };
+    }
+
+    expect(observed).toEqual(
+      Object.fromEntries(
+        Object.entries(ACCOUNTS).map(([name, { expected }]) => [
+          name,
+          expected,
+        ]),
+      ),
+    );
+    // On an email account whose one provider goes, email is the way left.
+    for (const [name, seen] of Object.entries(observed)) {
+      if (seen.emailSignIn !== null && seen.unlinkGoogle !== null) {
+        expect({ name, usable: seen.emailSignIn === 'usable' }).toEqual({
+          name,
+          usable: seen.unlinkGoogle === UNLINKED,
+        });
+      }
+    }
+  });
 }

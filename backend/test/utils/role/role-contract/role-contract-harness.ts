@@ -6,10 +6,6 @@ import { RoleCatalogStore } from '../../../../src/role/stores/role-catalog.store
 import { RoleChangeStore } from '../../../../src/role/stores/role-change.store';
 import { RoleSweepStore } from '../../../../src/role/stores/role-sweep.store';
 import { FrozenClock } from '../../frozen-clock';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from '../../session/issuance-contract/issuance-contract-harness';
-
-/** The budget step 1 set for a contract case that talks to a database. */
-export const ROLE_CONTRACT_CASE_TIMEOUT_MS = ISSUANCE_CONTRACT_CASE_TIMEOUT_MS;
 
 export interface SeedRole {
   name: string;

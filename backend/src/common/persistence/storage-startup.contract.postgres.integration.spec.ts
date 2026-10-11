@@ -4,7 +4,6 @@ import {
 } from '../../../test/postgres/postgres-startup-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../../test/postgres/server/postgres-test-server';
 import { describeStorageStartupContract } from '../../../test/utils/startup/storage-startup-contract';
@@ -25,7 +24,6 @@ jest.mock('@nestjs/mongoose', () => {
 describeStorageStartupContract('PostgreSQL', bootPostgresStartupHarness, {
   bootMs: POSTGRES_BOOT_TIMEOUT_MS,
   teardownMs: POSTGRES_TEARDOWN_TIMEOUT_MS,
-  caseMs: POSTGRES_RESET_TIMEOUT_MS,
   behind:
     'The database is behind this build. Apply these migrations in order, then start again: 9999_not_applied_yet.sql',
   ahead:

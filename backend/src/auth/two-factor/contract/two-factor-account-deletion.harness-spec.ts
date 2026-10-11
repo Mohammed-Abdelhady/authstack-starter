@@ -1,7 +1,6 @@
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { AccountsContractHarness } from '../../../../test/utils/user/accounts-contract/accounts-contract-harness';
 import {
-  accountCase,
   seedAccountsFixture,
   servicesOn,
 } from '../../../../test/utils/user/accounts-contract/accounts-contract-support';
@@ -67,54 +66,51 @@ export function describeSecondFactorAfterDeletion(
       await current().accounts.reset();
     }, budgets.resetMs);
 
-    accountCase(
-      'keeps the second factor of an account that left and of one an admin deleted',
-      async () => {
-        const { accounts, secondFactor } = current();
-        const { adminId, userId, supportId } =
-          await seedAccountsFixture(accounts);
-        await enrol(secondFactor, userId);
-        await enrol(secondFactor, supportId);
-        const services = servicesOn(accounts);
+    it('keeps the second factor of an account that left and of one an admin deleted', async () => {
+      const { accounts, secondFactor } = current();
+      const { adminId, userId, supportId } =
+        await seedAccountsFixture(accounts);
+      await enrol(secondFactor, userId);
+      await enrol(secondFactor, supportId);
+      const services = servicesOn(accounts);
 
-        await services.profile.deactivateAccount(userId);
-        await services.adminUsers.deleteUser(supportId, adminId);
+      await services.profile.deactivateAccount(userId);
+      await services.adminUsers.deleteUser(supportId, adminId);
 
-        const kept = {
-          enabled: true,
-          secret: SECRET,
-          confirmedAt: CONFIRMED_AT,
-          recoveryCodes: [
-            { hash: FIRST_CODE, usedAt: TEST_NOW },
-            { hash: SECOND_CODE, usedAt: null },
-          ],
-          lastUsedStep: SPENT_STEP,
-        };
-        expect({
-          left: await secondFactor.findAccount(userId),
-          deleted: await secondFactor.findAccount(supportId),
-          challenged: await secondFactor.findChallengedAccount(userId),
-        }).toEqual({
-          left: {
-            id: userId,
-            email: 'person@example.test',
-            isDeleted: true,
-            twoFactor: kept,
-          },
-          deleted: {
-            id: supportId,
-            email: 'support@example.test',
-            isDeleted: true,
-            twoFactor: kept,
-          },
-          challenged: {
-            id: userId,
-            email: 'person@example.test',
-            isDeleted: true,
-            twoFactor: kept,
-          },
-        });
-      },
-    );
+      const kept = {
+        enabled: true,
+        secret: SECRET,
+        confirmedAt: CONFIRMED_AT,
+        recoveryCodes: [
+          { hash: FIRST_CODE, usedAt: TEST_NOW },
+          { hash: SECOND_CODE, usedAt: null },
+        ],
+        lastUsedStep: SPENT_STEP,
+      };
+      expect({
+        left: await secondFactor.findAccount(userId),
+        deleted: await secondFactor.findAccount(supportId),
+        challenged: await secondFactor.findChallengedAccount(userId),
+      }).toEqual({
+        left: {
+          id: userId,
+          email: 'person@example.test',
+          isDeleted: true,
+          twoFactor: kept,
+        },
+        deleted: {
+          id: supportId,
+          email: 'support@example.test',
+          isDeleted: true,
+          twoFactor: kept,
+        },
+        challenged: {
+          id: userId,
+          email: 'person@example.test',
+          isDeleted: true,
+          twoFactor: kept,
+        },
+      });
+    });
   });
 }

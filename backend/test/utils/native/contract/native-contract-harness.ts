@@ -16,9 +16,6 @@ import { NativeTokenService } from '../../../../src/session/native/token/native-
 import { NativeSessionRevocationService } from '../../../../src/session/services/native-session-revocation.service';
 import { IssuanceContractHarness } from '../../session/issuance-contract/issuance-contract-harness';
 
-/** Jest budget for one contract case, the budget the sign-in contract set. */
-export const NATIVE_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 /**
  * Where an adapter takes a token family, or a code, for a unit of work. Both
  * are allowed by the store ports. It decides which of two concurrent units of

@@ -31,9 +31,6 @@ import {
 
 export * from './two-factor-contract-database.harness-spec';
 
-/** Jest budget for a contract case, the one the sign-in contract established. */
-export const TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 /** Written out, so a changed constant cannot agree with itself. */
 export const CHALLENGE_LIFETIME_MS = 300_000;
 export const MAX_WRONG_ANSWERS = 5;
@@ -56,11 +53,6 @@ export const OTHER_RECOVERY_HASH =
 export const CHALLENGE_COOKIE = 'mfa_challenge';
 
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
-
-/** A contract case with the budget a database case gets. */
-export function twoFactorCase(name: string, body: () => Promise<void>): void {
-  it(name, body, TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS);
-}
 
 const SUMMARY = {
   email: 'signed-in@example.test',

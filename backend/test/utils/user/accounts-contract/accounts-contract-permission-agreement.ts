@@ -12,7 +12,6 @@ import { RolePermissions } from '../../../../src/role/stores/role-permissions';
 import { NativeAccessService } from '../../../../src/session/native/access/native-access.service';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import {
-  accountCase,
   AccountsFixture,
   AccountsHarnessSource,
   READ_POSTS,
@@ -91,67 +90,58 @@ export function accountPermissionAgreementCases(
     profile: await profilePermissions(userId),
   });
 
-  accountCase(
-    'tells an account the same permissions in its profile as the guard tells a request',
-    async () => {
-      const { userId, adminId, supportId } = fixture();
-      await harness().alterAccount(supportId, { role: GHOST_SLUG });
-      const noRole = await harness().seedAccount({
-        email: 'no-role-of-that-slug@example.test',
-        role: GHOST_SLUG,
-        permissions: [READ_USERS, READ_USERS],
-      });
+  it('tells an account the same permissions in its profile as the guard tells a request', async () => {
+    const { userId, adminId, supportId } = fixture();
+    await harness().alterAccount(supportId, { role: GHOST_SLUG });
+    const noRole = await harness().seedAccount({
+      email: 'no-role-of-that-slug@example.test',
+      role: GHOST_SLUG,
+      permissions: [READ_USERS, READ_USERS],
+    });
 
-      expect({
-        roleAndOwn: await both(userId),
-        wildcardRole: await both(adminId),
-        slugNoRoleCarries: await both(supportId),
-        ownOnly: await both(noRole),
-      }).toEqual({
-        roleAndOwn: {
-          guard: [READ_POSTS, READ_USERS],
-          profile: [READ_POSTS, READ_USERS],
-        },
-        wildcardRole: { guard: [WILDCARD], profile: [WILDCARD] },
-        slugNoRoleCarries: { guard: [], profile: [] },
-        ownOnly: { guard: [READ_USERS], profile: [READ_USERS] },
-      });
-    },
-  );
+    expect({
+      roleAndOwn: await both(userId),
+      wildcardRole: await both(adminId),
+      slugNoRoleCarries: await both(supportId),
+      ownOnly: await both(noRole),
+    }).toEqual({
+      roleAndOwn: {
+        guard: [READ_POSTS, READ_USERS],
+        profile: [READ_POSTS, READ_USERS],
+      },
+      wildcardRole: { guard: [WILDCARD], profile: [WILDCARD] },
+      slugNoRoleCarries: { guard: [], profile: [] },
+      ownOnly: { guard: [READ_USERS], profile: [READ_USERS] },
+    });
+  });
 
-  accountCase(
-    'applies a rule added to the shared resolution to the profile and the guard alike',
-    async () => {
-      const { userId } = fixture();
-      jest
-        .spyOn(permissionRules, 'effectivePermissions')
-        .mockImplementation((ofRole, own) =>
-          [...(ofRole ?? []), ...(own ?? [])].filter(
-            (permission) => permission !== READ_USERS,
-          ),
-        );
+  it('applies a rule added to the shared resolution to the profile and the guard alike', async () => {
+    const { userId } = fixture();
+    jest
+      .spyOn(permissionRules, 'effectivePermissions')
+      .mockImplementation((ofRole, own) =>
+        [...(ofRole ?? []), ...(own ?? [])].filter(
+          (permission) => permission !== READ_USERS,
+        ),
+      );
 
-      expect(await both(userId)).toEqual({
-        guard: [READ_POSTS],
-        profile: [READ_POSTS],
-      });
-    },
-  );
+    expect(await both(userId)).toEqual({
+      guard: [READ_POSTS],
+      profile: [READ_POSTS],
+    });
+  });
 
-  accountCase(
-    'reads the role for the profile through the adapter the guard reads it through',
-    async () => {
-      const { userId } = fixture();
-      const adapter: unknown = Object.getPrototypeOf(harness().rolePermissions);
-      if (!(adapter instanceof RolePermissions)) {
-        throw new Error('the harness holds no role permissions adapter');
-      }
-      jest.spyOn(adapter, 'ofRole').mockResolvedValue([WILDCARD]);
+  it('reads the role for the profile through the adapter the guard reads it through', async () => {
+    const { userId } = fixture();
+    const adapter: unknown = Object.getPrototypeOf(harness().rolePermissions);
+    if (!(adapter instanceof RolePermissions)) {
+      throw new Error('the harness holds no role permissions adapter');
+    }
+    jest.spyOn(adapter, 'ofRole').mockResolvedValue([WILDCARD]);
 
-      expect(await both(userId)).toEqual({
-        guard: [WILDCARD, READ_USERS],
-        profile: [WILDCARD, READ_USERS],
-      });
-    },
-  );
+    expect(await both(userId)).toEqual({
+      guard: [WILDCARD, READ_USERS],
+      profile: [WILDCARD, READ_USERS],
+    });
+  });
 }

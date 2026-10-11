@@ -10,7 +10,6 @@ import {
   READ_POSTS,
   revocationsOf,
   REVOKED_ALL,
-  roleCase,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -24,101 +23,92 @@ export function roleEditCases(
 ): void {
   const roles = () => servicesOn(harness()).roles;
 
-  roleCase(
-    'moves every holder and ends its sessions when a role is renamed',
-    async () => {
-      const first = await harness().seedAccount({ role: EDITOR_SLUG });
-      const second = await harness().seedAccount({ role: EDITOR_SLUG });
-      const bystander = await harness().seedAccount({ role: DEFAULT_SLUG });
+  it('moves every holder and ends its sessions when a role is renamed', async () => {
+    const first = await harness().seedAccount({ role: EDITOR_SLUG });
+    const second = await harness().seedAccount({ role: EDITOR_SLUG });
+    const bystander = await harness().seedAccount({ role: DEFAULT_SLUG });
 
-      const answer = await roles().update(
-        EDITOR_SLUG,
-        { name: 'Content Lead' },
-        fixture().adminId,
-      );
+    const answer = await roles().update(
+      EDITOR_SLUG,
+      { name: 'Content Lead' },
+      fixture().adminId,
+    );
 
-      expect({
-        answer: { slug: answer.slug, usersMoved: answer.usersMoved },
-        old: await harness().role(EDITOR_SLUG),
-        renamed: await harness().role(LEAD_SLUG),
-        accounts: await accountsOf(harness(), [first, second, bystander]),
-        revocations: await revocationsOf(harness()),
-      }).toEqual({
-        answer: { slug: LEAD_SLUG, usersMoved: 2 },
-        old: null,
-        renamed: {
-          id: fixture().editorRoleId,
-          name: 'Content Lead',
-          slug: LEAD_SLUG,
-          description: null,
-          level: null,
-          permissions: [READ_POSTS],
-          isSystemRole: false,
-          isProtected: false,
-          owedRepairs: [],
-        },
-        accounts: [
-          { role: LEAD_SLUG, sessionVersion: 1 },
-          { role: LEAD_SLUG, sessionVersion: 1 },
-          { role: DEFAULT_SLUG, sessionVersion: 0 },
-        ],
-        revocations: [
-          `${first} by ${fixture().adminId} (${ADMIN_FORCED})`,
-          `${second} by ${fixture().adminId} (${ADMIN_FORCED})`,
-        ].sort(),
-      });
-    },
-  );
+    expect({
+      answer: { slug: answer.slug, usersMoved: answer.usersMoved },
+      old: await harness().role(EDITOR_SLUG),
+      renamed: await harness().role(LEAD_SLUG),
+      accounts: await accountsOf(harness(), [first, second, bystander]),
+      revocations: await revocationsOf(harness()),
+    }).toEqual({
+      answer: { slug: LEAD_SLUG, usersMoved: 2 },
+      old: null,
+      renamed: {
+        id: fixture().editorRoleId,
+        name: 'Content Lead',
+        slug: LEAD_SLUG,
+        description: null,
+        level: null,
+        permissions: [READ_POSTS],
+        isSystemRole: false,
+        isProtected: false,
+        owedRepairs: [],
+      },
+      accounts: [
+        { role: LEAD_SLUG, sessionVersion: 1 },
+        { role: LEAD_SLUG, sessionVersion: 1 },
+        { role: DEFAULT_SLUG, sessionVersion: 0 },
+      ],
+      revocations: [
+        `${first} by ${fixture().adminId} (${ADMIN_FORCED})`,
+        `${second} by ${fixture().adminId} (${ADMIN_FORCED})`,
+      ].sort(),
+    });
+  });
 
-  roleCase(
-    'ends holder sessions without moving them when permissions change',
-    async () => {
-      const holder = await harness().seedAccount({ role: EDITOR_SLUG });
+  it('ends holder sessions without moving them when permissions change', async () => {
+    const holder = await harness().seedAccount({ role: EDITOR_SLUG });
 
-      const answer = await roles().update(
-        EDITOR_SLUG,
-        { permissions: [READ_POSTS, UPDATE_ROLES] },
-        fixture().adminId,
-      );
+    const answer = await roles().update(
+      EDITOR_SLUG,
+      { permissions: [READ_POSTS, UPDATE_ROLES] },
+      fixture().adminId,
+    );
 
-      expect({
-        usersMoved: answer.usersMoved,
-        permissions: (await harness().role(EDITOR_SLUG))?.permissions,
-        holder: await harness().account(holder),
-        revocations: (await harness().events()).map((event) => event.action),
-      }).toEqual({
-        usersMoved: 0,
-        permissions: [READ_POSTS, UPDATE_ROLES],
-        holder: { role: EDITOR_SLUG, sessionVersion: 1 },
-        revocations: [REVOKED_ALL],
-      });
-    },
-  );
+    expect({
+      usersMoved: answer.usersMoved,
+      permissions: (await harness().role(EDITOR_SLUG))?.permissions,
+      holder: await harness().account(holder),
+      revocations: (await harness().events()).map((event) => event.action),
+    }).toEqual({
+      usersMoved: 0,
+      permissions: [READ_POSTS, UPDATE_ROLES],
+      holder: { role: EDITOR_SLUG, sessionVersion: 1 },
+      revocations: [REVOKED_ALL],
+    });
+  });
 
-  roleCase(
-    'leaves holders signed in when only the description changes',
-    async () => {
-      const holder = await harness().seedAccount({ role: EDITOR_SLUG });
+  it('leaves holders signed in when only the description changes', async () => {
+    const holder = await harness().seedAccount({ role: EDITOR_SLUG });
 
-      await roles().update(
-        EDITOR_SLUG,
-        { description: 'Edits content', permissions: [READ_POSTS] },
-        fixture().adminId,
-      );
+    await roles().update(
+      EDITOR_SLUG,
+      { description: 'Edits content', permissions: [READ_POSTS] },
+      fixture().adminId,
+    );
 
-      expect({
-        description: (await harness().role(EDITOR_SLUG))?.description,
-        holder: await harness().account(holder),
-        events: await harness().events(),
-      }).toEqual({
-        description: 'Edits content',
-        holder: { role: EDITOR_SLUG, sessionVersion: 0 },
-        events: [],
-      });
-    },
-  );
+    expect({
+      description: (await harness().role(EDITOR_SLUG))?.description,
+      holder: await harness().account(holder),
+      events: await harness().events(),
+    }).toEqual({
+      description: 'Edits content',
+      holder: { role: EDITOR_SLUG, sessionVersion: 0 },
+      events: [],
+    });
+  });
 
-  roleCase('deletes only an unprotected role nobody holds', async () => {
+  it('deletes only an unprotected role nobody holds', async () => {
     await harness().seedRole({
       name: 'Unused',
       slug: 'unused',

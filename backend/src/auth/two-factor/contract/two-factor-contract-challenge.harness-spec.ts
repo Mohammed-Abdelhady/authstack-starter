@@ -8,7 +8,6 @@ import {
   MAX_WRONG_ANSWERS,
   outcomeOf,
   refusalOf,
-  twoFactorCase,
   TwoFactorContractHarness,
   TwoFactorFixture,
   TwoFactorHarnessSource,
@@ -45,228 +44,204 @@ export function challengeCases(
   harness: TwoFactorHarnessSource,
   fixture: () => TwoFactorFixture,
 ): void {
-  twoFactorCase(
-    'opens a challenge under the hash of its nonce and first factor with five minutes to live',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
+  it('opens a challenge under the hash of its nonce and first factor with five minutes to live', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
 
-      const holder = await challengedBrowser(services, ownerId);
+    const holder = await challengedBrowser(services, ownerId);
 
-      const token = holder.cookies[CHALLENGE_COOKIE];
-      const payload: unknown = JSON.parse(
-        Buffer.from(token.split('.')[0], 'base64url').toString('utf8'),
-      );
-      expect(payload).toEqual({
-        sub: ownerId,
-        nonce: expect.stringMatching(/^[\w-]{43}$/) as string,
-        expiresAt: NOW_MS + CHALLENGE_LIFETIME_MS,
-        firstFactor: 'password',
-      });
-      const { nonce } = payload as { nonce: string };
-      const stored = await harness().storedChallenges();
-      expect(stored).toEqual([
-        {
-          id: stored[0].id,
-          userId: ownerId,
-          nonceHash: createHash('sha256')
-            .update(`${nonce}.password`)
-            .digest('hex'),
-          attempts: 0,
-          claimed: false,
-          expiresAt: at(CHALLENGE_LIFETIME_MS),
-        },
-      ]);
-    },
-  );
-
-  twoFactorCase(
-    'claims an open challenge for one request and refuses the same cookie again',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
-      const holder = await challengedBrowser(services, ownerId);
-      const challengeId = await onlyChallengeId(harness());
-
-      expect(await services.challenge.claim(holder.request)).toEqual({
-        challengeId,
+    const token = holder.cookies[CHALLENGE_COOKIE];
+    const payload: unknown = JSON.parse(
+      Buffer.from(token.split('.')[0], 'base64url').toString('utf8'),
+    );
+    expect(payload).toEqual({
+      sub: ownerId,
+      nonce: expect.stringMatching(/^[\w-]{43}$/) as string,
+      expiresAt: NOW_MS + CHALLENGE_LIFETIME_MS,
+      firstFactor: 'password',
+    });
+    const { nonce } = payload as { nonce: string };
+    const stored = await harness().storedChallenges();
+    expect(stored).toEqual([
+      {
+        id: stored[0].id,
         userId: ownerId,
-        firstFactor: 'password',
-      });
-      expect((await harness().storedChallenges())[0].claimed).toBe(true);
-      expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
-        CHALLENGE_INVALID,
-      );
-    },
-  );
+        nonceHash: createHash('sha256')
+          .update(`${nonce}.password`)
+          .digest('hex'),
+        attempts: 0,
+        claimed: false,
+        expiresAt: at(CHALLENGE_LIFETIME_MS),
+      },
+    ]);
+  });
 
-  twoFactorCase(
-    'lets one of two simultaneous requests claim a challenge',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
-      const holder = await challengedBrowser(services, ownerId);
-      const copy = browser(holder.cookies);
-      const gate = new RaceGate();
-      const restore = holdBefore(harness().challenges, 'claim', () => gate);
+  it('claims an open challenge for one request and refuses the same cookie again', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
+    const holder = await challengedBrowser(services, ownerId);
+    const challengeId = await onlyChallengeId(harness());
 
-      const attempts = [
-        outcomeOf(services.challenge.claim(holder.request)),
-        outcomeOf(services.challenge.claim(copy.request)),
-      ];
-      await gate.reached(2);
-      gate.release();
-      const outcomes = await Promise.all(attempts);
-      restore();
+    expect(await services.challenge.claim(holder.request)).toEqual({
+      challengeId,
+      userId: ownerId,
+      firstFactor: 'password',
+    });
+    expect((await harness().storedChallenges())[0].claimed).toBe(true);
+    expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
+      CHALLENGE_INVALID,
+    );
+  });
 
-      expect(outcomes.sort()).toEqual([
-        'TWO_FACTOR_CHALLENGE_INVALID',
-        'accepted',
-      ]);
-    },
-  );
+  it('lets one of two simultaneous requests claim a challenge', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
+    const holder = await challengedBrowser(services, ownerId);
+    const copy = browser(holder.cookies);
+    const gate = new RaceGate();
+    const restore = holdBefore(harness().challenges, 'claim', () => gate);
 
-  twoFactorCase(
-    'refuses a challenge at its expiry though its row is stored, and takes it a millisecond earlier',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
-      const { clock } = harness();
-      const holder = await challengedBrowser(services, ownerId);
-      const challengeId = await onlyChallengeId(harness());
-      // The row lapses long before the cookie, so only the stored expiry decides.
-      await harness().alterChallenge(challengeId, { expiresAt: at(1000) });
+    const attempts = [
+      outcomeOf(services.challenge.claim(holder.request)),
+      outcomeOf(services.challenge.claim(copy.request)),
+    ];
+    await gate.reached(2);
+    gate.release();
+    const outcomes = await Promise.all(attempts);
+    restore();
 
-      clock.set(at(1000));
-      expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
-        CHALLENGE_INVALID,
-      );
-      expect(await harness().storedChallenges()).toMatchObject([
-        { id: challengeId, claimed: false, expiresAt: at(1000) },
-      ]);
+    expect(outcomes.sort()).toEqual([
+      'TWO_FACTOR_CHALLENGE_INVALID',
+      'accepted',
+    ]);
+  });
 
-      clock.set(at(999));
-      expect(await services.challenge.claim(holder.request)).toEqual({
-        challengeId,
-        userId: ownerId,
-        firstFactor: 'password',
-      });
-    },
-  );
+  it('refuses a challenge at its expiry though its row is stored, and takes it a millisecond earlier', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
+    const { clock } = harness();
+    const holder = await challengedBrowser(services, ownerId);
+    const challengeId = await onlyChallengeId(harness());
+    // The row lapses long before the cookie, so only the stored expiry decides.
+    await harness().alterChallenge(challengeId, { expiresAt: at(1000) });
 
-  twoFactorCase(
-    'compares the expiry and the attempts it is given, at the store',
-    async () => {
-      const { ownerId } = fixture();
-      const { challenges } = harness();
-      const key = { nonceHash: NONCE_HASH, userId: ownerId };
-      const challengeId = await harness().seedChallenge({
-        ...key,
-        attempts: MAX_WRONG_ANSWERS - 1,
-        expiresAt: at(60_000),
-      });
+    clock.set(at(1000));
+    expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
+      CHALLENGE_INVALID,
+    );
+    expect(await harness().storedChallenges()).toMatchObject([
+      { id: challengeId, claimed: false, expiresAt: at(1000) },
+    ]);
 
-      expect(await challenges.claim(key, limits(at(60_000)))).toBe(null);
-      expect(await challenges.claim(key, limits(at(60_001)))).toBe(null);
-      expect(
-        await challenges.claim(key, {
-          now: at(0),
-          maxAttempts: MAX_WRONG_ANSWERS - 1,
-        }),
-      ).toBe(null);
-      expect((await harness().storedChallenges())[0].claimed).toBe(false);
+    clock.set(at(999));
+    expect(await services.challenge.claim(holder.request)).toEqual({
+      challengeId,
+      userId: ownerId,
+      firstFactor: 'password',
+    });
+  });
 
-      expect(await challenges.claim(key, limits(at(59_999)))).toEqual({
-        id: challengeId,
-        userId: ownerId,
-        attempts: MAX_WRONG_ANSWERS - 1,
-        expiresAt: at(60_000),
-      });
-      expect(await challenges.claim(key, limits(at(0)))).toBe(null);
-    },
-  );
+  it('compares the expiry and the attempts it is given, at the store', async () => {
+    const { ownerId } = fixture();
+    const { challenges } = harness();
+    const key = { nonceHash: NONCE_HASH, userId: ownerId };
+    const challengeId = await harness().seedChallenge({
+      ...key,
+      attempts: MAX_WRONG_ANSWERS - 1,
+      expiresAt: at(60_000),
+    });
 
-  twoFactorCase(
-    'refuses a challenge that is out of attempts though its row is stored',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
-      const holder = await challengedBrowser(services, ownerId);
-      const challengeId = await onlyChallengeId(harness());
-      await harness().alterChallenge(challengeId, {
-        attempts: MAX_WRONG_ANSWERS,
-      });
+    expect(await challenges.claim(key, limits(at(60_000)))).toBe(null);
+    expect(await challenges.claim(key, limits(at(60_001)))).toBe(null);
+    expect(
+      await challenges.claim(key, {
+        now: at(0),
+        maxAttempts: MAX_WRONG_ANSWERS - 1,
+      }),
+    ).toBe(null);
+    expect((await harness().storedChallenges())[0].claimed).toBe(false);
 
-      expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
-        CHALLENGE_INVALID,
-      );
-      expect(await harness().storedChallenges()).toMatchObject([
-        { id: challengeId, attempts: MAX_WRONG_ANSWERS, claimed: false },
-      ]);
-    },
-  );
+    expect(await challenges.claim(key, limits(at(59_999)))).toEqual({
+      id: challengeId,
+      userId: ownerId,
+      attempts: MAX_WRONG_ANSWERS - 1,
+      expiresAt: at(60_000),
+    });
+    expect(await challenges.claim(key, limits(at(0)))).toBe(null);
+  });
 
-  twoFactorCase(
-    'reads an open challenge and drops one that lapsed or ran out of attempts',
-    async () => {
-      const { ownerId, otherId } = fixture();
-      const services = twoFactorServices(harness());
-      const lapsing = await challengedBrowser(services, ownerId);
-      const lapsingId = await onlyChallengeId(harness());
+  it('refuses a challenge that is out of attempts though its row is stored', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
+    const holder = await challengedBrowser(services, ownerId);
+    const challengeId = await onlyChallengeId(harness());
+    await harness().alterChallenge(challengeId, {
+      attempts: MAX_WRONG_ANSWERS,
+    });
 
-      expect(await services.challenge.read(lapsing.request)).toEqual({
-        challengeId: lapsingId,
-        userId: ownerId,
-        firstFactor: 'password',
-      });
-      await harness().alterChallenge(lapsingId, { expiresAt: at(0) });
-      expect(await refusalOf(services.challenge.read(lapsing.request))).toEqual(
-        CHALLENGE_INVALID,
-      );
-      expect(await harness().storedChallenges()).toEqual([]);
+    expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
+      CHALLENGE_INVALID,
+    );
+    expect(await harness().storedChallenges()).toMatchObject([
+      { id: challengeId, attempts: MAX_WRONG_ANSWERS, claimed: false },
+    ]);
+  });
 
-      const exhausted = await challengedBrowser(services, otherId);
-      const exhaustedId = await onlyChallengeId(harness());
-      await harness().alterChallenge(exhaustedId, {
-        attempts: MAX_WRONG_ANSWERS,
-      });
-      expect(
-        await refusalOf(services.challenge.read(exhausted.request)),
-      ).toEqual(CHALLENGE_INVALID);
-      expect(await harness().storedChallenges()).toEqual([]);
-    },
-  );
+  it('reads an open challenge and drops one that lapsed or ran out of attempts', async () => {
+    const { ownerId, otherId } = fixture();
+    const services = twoFactorServices(harness());
+    const lapsing = await challengedBrowser(services, ownerId);
+    const lapsingId = await onlyChallengeId(harness());
 
-  twoFactorCase(
-    'counts a wrong answer once, releases the claim, and drops the challenge on the fifth',
-    async () => {
-      const { ownerId } = fixture();
-      const services = twoFactorServices(harness());
-      const holder = await challengedBrowser(services, ownerId);
-      const challengeId = await onlyChallengeId(harness());
-      await services.challenge.claim(holder.request);
+    expect(await services.challenge.read(lapsing.request)).toEqual({
+      challengeId: lapsingId,
+      userId: ownerId,
+      firstFactor: 'password',
+    });
+    await harness().alterChallenge(lapsingId, { expiresAt: at(0) });
+    expect(await refusalOf(services.challenge.read(lapsing.request))).toEqual(
+      CHALLENGE_INVALID,
+    );
+    expect(await harness().storedChallenges()).toEqual([]);
 
-      await services.challenge.registerFailure(challengeId);
+    const exhausted = await challengedBrowser(services, otherId);
+    const exhaustedId = await onlyChallengeId(harness());
+    await harness().alterChallenge(exhaustedId, {
+      attempts: MAX_WRONG_ANSWERS,
+    });
+    expect(await refusalOf(services.challenge.read(exhausted.request))).toEqual(
+      CHALLENGE_INVALID,
+    );
+    expect(await harness().storedChallenges()).toEqual([]);
+  });
 
-      expect(await harness().storedChallenges()).toMatchObject([
-        { id: challengeId, attempts: 1, claimed: false },
-      ]);
-      for (let wrong = 2; wrong < MAX_WRONG_ANSWERS; wrong += 1) {
-        await services.challenge.claim(holder.request);
-        await services.challenge.registerFailure(challengeId);
-      }
-      expect(await harness().storedChallenges()).toMatchObject([
-        { id: challengeId, attempts: MAX_WRONG_ANSWERS - 1, claimed: false },
-      ]);
+  it('counts a wrong answer once, releases the claim, and drops the challenge on the fifth', async () => {
+    const { ownerId } = fixture();
+    const services = twoFactorServices(harness());
+    const holder = await challengedBrowser(services, ownerId);
+    const challengeId = await onlyChallengeId(harness());
+    await services.challenge.claim(holder.request);
 
+    await services.challenge.registerFailure(challengeId);
+
+    expect(await harness().storedChallenges()).toMatchObject([
+      { id: challengeId, attempts: 1, claimed: false },
+    ]);
+    for (let wrong = 2; wrong < MAX_WRONG_ANSWERS; wrong += 1) {
       await services.challenge.claim(holder.request);
       await services.challenge.registerFailure(challengeId);
+    }
+    expect(await harness().storedChallenges()).toMatchObject([
+      { id: challengeId, attempts: MAX_WRONG_ANSWERS - 1, claimed: false },
+    ]);
 
-      expect(await harness().storedChallenges()).toEqual([]);
-      // Counting against a challenge that is gone stores nothing.
-      await services.challenge.registerFailure(challengeId);
-      expect(await harness().challenges.countFailure(challengeId)).toBe(null);
-      expect(await harness().storedChallenges()).toEqual([]);
-    },
-  );
+    await services.challenge.claim(holder.request);
+    await services.challenge.registerFailure(challengeId);
+
+    expect(await harness().storedChallenges()).toEqual([]);
+    // Counting against a challenge that is gone stores nothing.
+    await services.challenge.registerFailure(challengeId);
+    expect(await harness().challenges.countFailure(challengeId)).toBe(null);
+    expect(await harness().storedChallenges()).toEqual([]);
+  });
 }

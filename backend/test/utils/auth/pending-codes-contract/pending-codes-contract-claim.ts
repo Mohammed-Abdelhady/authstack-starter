@@ -1,7 +1,6 @@
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
 import { ReservedCode } from '../../../../src/auth/interfaces/pending-code.interface';
 import { holdBefore, RaceGate } from '../../race-gate';
-import { PENDING_CONTRACT_CASE_TIMEOUT_MS } from './pending-codes-contract-harness';
 import {
   CODE,
   CODE_LIFETIME_MS,
@@ -46,132 +45,108 @@ export function registrationClaimCases(harness: HarnessSource): void {
         services.verification.consumeCode(reserved, unitOfWork),
       );
 
-  it(
-    'lets one of two simultaneous claims of one code win',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const first = await verify(CODE);
-      const second = await verify(CODE);
-      const gate = new RaceGate();
-      const restore = holdBefore(
-        harness().stores.registrations,
-        'claimCode',
-        (call) => (call < 2 ? gate : undefined),
-      );
-      let claims: boolean[];
-      try {
-        const both = [claim(first), claim(second)];
-        await gate.reached(2);
-        gate.release();
-        claims = await Promise.all(both);
-      } finally {
-        restore();
-      }
+  it('lets one of two simultaneous claims of one code win', async () => {
+    await seed(LIVE_EXPIRY);
+    const first = await verify(CODE);
+    const second = await verify(CODE);
+    const gate = new RaceGate();
+    const restore = holdBefore(
+      harness().stores.registrations,
+      'claimCode',
+      (call) => (call < 2 ? gate : undefined),
+    );
+    let claims: boolean[];
+    try {
+      const both = [claim(first), claim(second)];
+      await gate.reached(2);
+      gate.release();
+      claims = await Promise.all(both);
+    } finally {
+      restore();
+    }
 
-      expect({
-        won: claims.filter(Boolean).length,
-        lost: claims.filter((claimed) => !claimed).length,
-        rows: await harness().registrationCount(),
-      }).toEqual({ won: 1, lost: 1, rows: 0 });
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      won: claims.filter(Boolean).length,
+      lost: claims.filter((claimed) => !claimed).length,
+      rows: await harness().registrationCount(),
+    }).toEqual({ won: 1, lost: 1, rows: 0 });
+  });
 
-  it(
-    'refuses a claim once the code has expired, though its row is still stored',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const reserved = await verify(CODE);
-      harness().clock.advance(CODE_LIFETIME_MS);
+  it('refuses a claim once the code has expired, though its row is still stored', async () => {
+    await seed(LIVE_EXPIRY);
+    const reserved = await verify(CODE);
+    harness().clock.advance(CODE_LIFETIME_MS);
 
-      const claimed = await claim(reserved);
+    const claimed = await claim(reserved);
 
-      expect({ claimed, rows: await harness().registrationCount() }).toEqual({
-        claimed: false,
-        rows: 1,
-      });
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({ claimed, rows: await harness().registrationCount() }).toEqual({
+      claimed: false,
+      rows: 1,
+    });
+  });
 
-  it(
-    'claims one millisecond before the code expires',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const reserved = await verify(CODE);
-      harness().clock.advance(CODE_LIFETIME_MS - 1);
+  it('claims one millisecond before the code expires', async () => {
+    await seed(LIVE_EXPIRY);
+    const reserved = await verify(CODE);
+    harness().clock.advance(CODE_LIFETIME_MS - 1);
 
-      expect(await claim(reserved)).toBe(true);
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect(await claim(reserved)).toBe(true);
+  });
 
-  it(
-    'refuses the claim of a code a resend replaced and keeps the new code usable',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const stale = await verify(CODE);
-      const reissued = await services.verification.resendActivationCode(
-        EMAIL,
-        SIGNUP,
-      );
+  it('refuses the claim of a code a resend replaced and keeps the new code usable', async () => {
+    await seed(LIVE_EXPIRY);
+    const stale = await verify(CODE);
+    const reissued = await services.verification.resendActivationCode(
+      EMAIL,
+      SIGNUP,
+    );
 
-      const staleClaim = await claim(stale);
-      const fresh = await verify(reissued?.code ?? '');
-      const freshClaim = await claim(fresh);
+    const staleClaim = await claim(stale);
+    const fresh = await verify(reissued?.code ?? '');
+    const freshClaim = await claim(fresh);
 
-      expect({ staleClaim, freshClaim }).toEqual({
-        staleClaim: false,
-        freshClaim: true,
-      });
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({ staleClaim, freshClaim }).toEqual({
+      staleClaim: false,
+      freshClaim: true,
+    });
+  });
 
-  it(
-    'refuses a claim made for the other purpose',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const reserved = await verify(CODE);
+  it('refuses a claim made for the other purpose', async () => {
+    await seed(LIVE_EXPIRY);
+    const reserved = await verify(CODE);
 
-      const claimed = await claim({
-        ...reserved,
-        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
-      });
+    const claimed = await claim({
+      ...reserved,
+      purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+    });
 
-      expect({ claimed, rows: await harness().registrationCount() }).toEqual({
-        claimed: false,
-        rows: 1,
-      });
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({ claimed, rows: await harness().registrationCount() }).toEqual({
+      claimed: false,
+      rows: 1,
+    });
+  });
 
-  it(
-    'puts the code back when the unit of work that claimed it fails',
-    async () => {
-      await seed(LIVE_EXPIRY);
-      const reserved = await verify(CODE);
-      const laterStep = new Error('the account write failed');
+  it('puts the code back when the unit of work that claimed it fails', async () => {
+    await seed(LIVE_EXPIRY);
+    const reserved = await verify(CODE);
+    const laterStep = new Error('the account write failed');
 
-      const failure = await rejectionOf(
-        harness()
-          .runner(rerunAtOnce)
-          .run(async (unitOfWork) => {
-            const claimed = await services.verification.consumeCode(
-              reserved,
-              unitOfWork,
-            );
-            if (claimed) throw laterStep;
-          }),
-      );
+    const failure = await rejectionOf(
+      harness()
+        .runner(rerunAtOnce)
+        .run(async (unitOfWork) => {
+          const claimed = await services.verification.consumeCode(
+            reserved,
+            unitOfWork,
+          );
+          if (claimed) throw laterStep;
+        }),
+    );
 
-      expect({
-        rethrown: failure === laterStep,
-        rows: await harness().registrationCount(),
-        claimedAfter: await claim(reserved),
-      }).toEqual({ rethrown: true, rows: 1, claimedAfter: true });
-    },
-    PENDING_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      rethrown: failure === laterStep,
+      rows: await harness().registrationCount(),
+      claimedAfter: await claim(reserved),
+    }).toEqual({ rethrown: true, rows: 1, claimedAfter: true });
+  });
 }

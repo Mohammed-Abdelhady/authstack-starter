@@ -19,9 +19,6 @@ import {
 } from '../stores/magic-link-accounts';
 import { MagicLinkStore } from '../stores/magic-link.store';
 
-/** Jest budget for a contract case, the one the sign-in contract established. */
-export const MAGIC_LINK_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 /** Written out, so a changed constant cannot agree with itself. */
 export const LINK_LIFETIME_MS = 900_000;
 export const LINKS_PER_HOUR = 5;

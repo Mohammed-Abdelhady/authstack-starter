@@ -1,10 +1,6 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { holdBefore } from '../../race-gate';
-import {
-  NATIVE_CONTRACT_CASE_TIMEOUT_MS,
-  NativeContractHarness,
-  TAKEN_AT,
-} from './native-contract-harness';
+import { NativeContractHarness, TAKEN_AT } from './native-contract-harness';
 import {
   actions,
   answerOf,
@@ -28,7 +24,6 @@ const ENDED = { sessionLive: false, revokedReason: REPLAYED };
 
 /** A replay of a spent token against a rotation of its successor, both orders. */
 export function replayRaceCases(harness: NativeHarnessSource): void {
-  const budget = NATIVE_CONTRACT_CASE_TIMEOUT_MS;
   const { gate, restoreLater, heldReruns, refusedOr } = nativeRaceTools();
 
   const secondStands = (h: NativeContractHarness): string =>
@@ -81,88 +76,80 @@ export function replayRaceCases(harness: NativeHarnessSource): void {
     };
   }
 
-  it(
-    'has ended the family by the time a replay is answered as a failure, when the replay goes first',
-    async () => {
-      const race = await holdReplayAndRotation();
-      race.releaseReplay();
-      const replay = await race.replaying;
-      const whenTheReplayWasAnswered = await familyState(
-        harness(),
-        race.signedIn.sessionId,
-      );
-      race.rotationGate.release();
-      const rotation = await race.rotating;
+  it('has ended the family by the time a replay is answered as a failure, when the replay goes first', async () => {
+    const race = await holdReplayAndRotation();
+    race.releaseReplay();
+    const replay = await race.replaying;
+    const whenTheReplayWasAnswered = await familyState(
+      harness(),
+      race.signedIn.sessionId,
+    );
+    race.rotationGate.release();
+    const rotation = await race.rotating;
 
-      const observed = {
-        replayWas: race.replayWas,
-        replay,
-        whenTheReplayWasAnswered,
-        rotation,
-        pauses: race.reruns.calls,
-        family: await familyState(harness(), race.signedIn.sessionId),
-        replays: await count(REPLAYED),
-      };
-      const ended = { ...ENDED, tokens: 4, unspent: 0, unrevoked: 0 };
-      // An adapter that takes the family at its first read never lets the
-      // replay in while the rotation holds it: the replay is refused, three
-      // times, and answers that the authority is unavailable. The family is
-      // alive then, and the rotation it could not overtake succeeds.
-      expect(observed).toEqual(
-        harness().takenAt === TAKEN_AT.FIRST_READ
-          ? {
-              replayWas: REFUSED,
-              replay: ErrorCode.AUTHORITY_UNAVAILABLE,
-              whenTheReplayWasAnswered: {
-                ...ALIVE,
-                tokens: 4,
-                unspent: 2,
-                unrevoked: 3,
-              },
-              rotation: 'ok',
-              pauses: [1, 2],
-              family: { ...ALIVE, tokens: 6, unspent: 2, unrevoked: 4 },
-              replays: 0,
-            }
-          : {
-              replayWas: REACHED_ITS_WRITE,
-              replay: INVALID_GRANT,
-              whenTheReplayWasAnswered: ended,
-              rotation: INVALID_GRANT,
-              pauses: [1],
-              family: ended,
-              replays: 1,
+    const observed = {
+      replayWas: race.replayWas,
+      replay,
+      whenTheReplayWasAnswered,
+      rotation,
+      pauses: race.reruns.calls,
+      family: await familyState(harness(), race.signedIn.sessionId),
+      replays: await count(REPLAYED),
+    };
+    const ended = { ...ENDED, tokens: 4, unspent: 0, unrevoked: 0 };
+    // An adapter that takes the family at its first read never lets the
+    // replay in while the rotation holds it: the replay is refused, three
+    // times, and answers that the authority is unavailable. The family is
+    // alive then, and the rotation it could not overtake succeeds.
+    expect(observed).toEqual(
+      harness().takenAt === TAKEN_AT.FIRST_READ
+        ? {
+            replayWas: REFUSED,
+            replay: ErrorCode.AUTHORITY_UNAVAILABLE,
+            whenTheReplayWasAnswered: {
+              ...ALIVE,
+              tokens: 4,
+              unspent: 2,
+              unrevoked: 3,
             },
-      );
-    },
-    budget,
-  );
+            rotation: 'ok',
+            pauses: [1, 2],
+            family: { ...ALIVE, tokens: 6, unspent: 2, unrevoked: 4 },
+            replays: 0,
+          }
+        : {
+            replayWas: REACHED_ITS_WRITE,
+            replay: INVALID_GRANT,
+            whenTheReplayWasAnswered: ended,
+            rotation: INVALID_GRANT,
+            pauses: [1],
+            family: ended,
+            replays: 1,
+          },
+    );
+  });
 
-  it(
-    'ends the family, the new pair included, when the rotation goes first and the replay follows',
-    async () => {
-      const race = await holdReplayAndRotation();
-      race.rotationGate.release();
-      const rotation = await race.rotating;
-      race.releaseReplay();
-      const replay = await race.replaying;
+  it('ends the family, the new pair included, when the rotation goes first and the replay follows', async () => {
+    const race = await holdReplayAndRotation();
+    race.rotationGate.release();
+    const rotation = await race.rotating;
+    race.releaseReplay();
+    const replay = await race.replaying;
 
-      expect({
-        replayWas: race.replayWas,
-        rotation,
-        replay,
-        pauses: race.reruns.calls,
-        family: await familyState(harness(), race.signedIn.sessionId),
-        replays: await count(REPLAYED),
-      }).toEqual({
-        replayWas: secondStands(harness()),
-        rotation: 'ok',
-        replay: INVALID_GRANT,
-        pauses: [1],
-        family: { ...ENDED, tokens: 6, unspent: 0, unrevoked: 0 },
-        replays: 1,
-      });
-    },
-    budget,
-  );
+    expect({
+      replayWas: race.replayWas,
+      rotation,
+      replay,
+      pauses: race.reruns.calls,
+      family: await familyState(harness(), race.signedIn.sessionId),
+      replays: await count(REPLAYED),
+    }).toEqual({
+      replayWas: secondStands(harness()),
+      rotation: 'ok',
+      replay: INVALID_GRANT,
+      pauses: [1],
+      family: { ...ENDED, tokens: 6, unspent: 0, unrevoked: 0 },
+      replays: 1,
+    });
+  });
 }

@@ -2,7 +2,6 @@ import { holdBefore, RaceGate } from '../../race-gate';
 import { holdReruns } from '../../session/issuance-contract/issuance-contract-support';
 import { TEST_NOW } from '../../frozen-clock';
 import {
-  accountCase,
   AccountsFixture,
   AccountsHarnessSource,
   ADMIN_SLUG,
@@ -37,7 +36,7 @@ export function accountLeavingCases(
   harness: AccountsHarnessSource,
   fixture: () => AccountsFixture,
 ): void {
-  accountCase('deactivates an account and ends its sessions', async () => {
+  it('deactivates an account and ends its sessions', async () => {
     const { userId } = fixture();
     await harness().seedSession(userId);
 
@@ -54,7 +53,7 @@ export function accountLeavingCases(
     ]);
   });
 
-  accountCase('answers not found for an account already gone', async () => {
+  it('answers not found for an account already gone', async () => {
     const { userId } = fixture();
     await harness().alterAccount(userId, { deleted: true });
     const services = servicesOn(harness());
@@ -68,7 +67,7 @@ export function accountLeavingCases(
     expect((await storedAccount(harness(), userId)).sessionVersion).toBe(0);
   });
 
-  accountCase('lets one of two admins leave and refuses the last', async () => {
+  it('lets one of two admins leave and refuses the last', async () => {
     const { adminId, secondAdminId } = fixture();
     const kept = await harness().seedSession(secondAdminId);
     const services = servicesOn(harness());
@@ -86,22 +85,17 @@ export function accountLeavingCases(
     expect(await harness().liveSessionIds(secondAdminId)).toEqual([kept]);
   });
 
-  accountCase(
-    'does not count a deactivated admin as one who remains',
-    async () => {
-      const { adminId, secondAdminId } = fixture();
-      await harness().alterAccount(secondAdminId, { deleted: true });
+  it('does not count a deactivated admin as one who remains', async () => {
+    const { adminId, secondAdminId } = fixture();
+    await harness().alterAccount(secondAdminId, { deleted: true });
 
-      expect(
-        await refusalOf(
-          servicesOn(harness()).profile.deactivateAccount(adminId),
-        ),
-      ).toEqual(LAST_ADMIN);
-      expect((await storedAccount(harness(), adminId)).isDeleted).toBe(false);
-    },
-  );
+    expect(
+      await refusalOf(servicesOn(harness()).profile.deactivateAccount(adminId)),
+    ).toEqual(LAST_ADMIN);
+    expect((await storedAccount(harness(), adminId)).isDeleted).toBe(false);
+  });
 
-  accountCase('refuses an admin when no admin role is stored', async () => {
+  it('refuses an admin when no admin role is stored', async () => {
     const { adminId } = fixture();
     await harness().removeRole(ADMIN_SLUG);
 
@@ -111,34 +105,31 @@ export function accountLeavingCases(
     expect((await storedAccount(harness(), adminId)).isDeleted).toBe(false);
   });
 
-  accountCase(
-    'keeps the account and its sessions when the sign-out cannot be recorded',
-    async () => {
-      const { userId } = fixture();
-      const session = await harness().seedSession(userId);
-      const restore = await harness().refuseSecurityEvents();
-      let rejected = false;
-      try {
-        await servicesOn(harness())
-          .profile.deactivateAccount(userId)
-          .catch(() => {
-            rejected = true;
-          });
-      } finally {
-        restore();
-      }
+  it('keeps the account and its sessions when the sign-out cannot be recorded', async () => {
+    const { userId } = fixture();
+    const session = await harness().seedSession(userId);
+    const restore = await harness().refuseSecurityEvents();
+    let rejected = false;
+    try {
+      await servicesOn(harness())
+        .profile.deactivateAccount(userId)
+        .catch(() => {
+          rejected = true;
+        });
+    } finally {
+      restore();
+    }
 
-      expect(rejected).toBe(true);
-      expect(await storedAccount(harness(), userId)).toMatchObject({
-        isDeleted: false,
-        deletedAt: null,
-        sessionVersion: 0,
-      });
-      expect(await harness().liveSessionIds(userId)).toEqual([session]);
-    },
-  );
+    expect(rejected).toBe(true);
+    expect(await storedAccount(harness(), userId)).toMatchObject({
+      isDeleted: false,
+      deletedAt: null,
+      sessionVersion: 0,
+    });
+    expect(await harness().liveSessionIds(userId)).toEqual([session]);
+  });
 
-  accountCase('leaves one admin when two leave at the same time', async () => {
+  it('leaves one admin when two leave at the same time', async () => {
     const { adminId, secondAdminId } = fixture();
     const reruns = holdReruns();
     const services = servicesOn(harness(), reruns.pause);
@@ -169,41 +160,36 @@ export function accountLeavingCases(
     expect(await activeAdmins(harness, [adminId, secondAdminId])).toBe(1);
   });
 
-  accountCase(
-    'counts again when the other admin left after the count',
-    async () => {
-      const { adminId, secondAdminId } = fixture();
-      const reruns = holdReruns();
-      const services = servicesOn(harness(), reruns.pause);
-      const counted = new RaceGate();
-      const restore = holdBefore(
-        harness().profiles,
-        'fenceAdminRole',
-        (call) => (call === 0 ? counted : undefined),
-      );
-      // The first admin has counted the second one and not passed the fence.
-      const first = services.profile.deactivateAccount(adminId);
-      await counted.reached(1);
-      const second = services.profile.deactivateAccount(secondAdminId);
-      const both = Promise.allSettled([first, second]);
-      try {
-        // The second one left, or was refused because the first holds the fence.
-        await Promise.race([
-          second.catch(() => undefined),
-          reruns.refused.reached(1),
-        ]);
-        counted.release();
-        await Promise.race([first, second]).catch(() => undefined);
-      } finally {
-        counted.release();
-        reruns.refused.release();
-        restore();
-      }
+  it('counts again when the other admin left after the count', async () => {
+    const { adminId, secondAdminId } = fixture();
+    const reruns = holdReruns();
+    const services = servicesOn(harness(), reruns.pause);
+    const counted = new RaceGate();
+    const restore = holdBefore(harness().profiles, 'fenceAdminRole', (call) =>
+      call === 0 ? counted : undefined,
+    );
+    // The first admin has counted the second one and not passed the fence.
+    const first = services.profile.deactivateAccount(adminId);
+    await counted.reached(1);
+    const second = services.profile.deactivateAccount(secondAdminId);
+    const both = Promise.allSettled([first, second]);
+    try {
+      // The second one left, or was refused because the first holds the fence.
+      await Promise.race([
+        second.catch(() => undefined),
+        reruns.refused.reached(1),
+      ]);
+      counted.release();
+      await Promise.race([first, second]).catch(() => undefined);
+    } finally {
+      counted.release();
+      reruns.refused.release();
+      restore();
+    }
 
-      const outcomes = (await both).map(outcomeOf);
-      expect(outcomes).toContain('left');
-      expect(outcomes).toContainEqual(LAST_ADMIN);
-      expect(await activeAdmins(harness, [adminId, secondAdminId])).toBe(1);
-    },
-  );
+    const outcomes = (await both).map(outcomeOf);
+    expect(outcomes).toContain('left');
+    expect(outcomes).toContainEqual(LAST_ADMIN);
+    expect(await activeAdmins(harness, [adminId, secondAdminId])).toBe(1);
+  });
 }

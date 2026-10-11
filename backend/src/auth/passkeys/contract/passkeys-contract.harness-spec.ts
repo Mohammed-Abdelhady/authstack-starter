@@ -29,9 +29,6 @@ import {
 export * from './passkeys-contract-database.harness-spec';
 export * from './passkeys-contract-doubles.harness-spec';
 
-/** Jest budget for a contract case, the one the sign-in contract established. */
-export const PASSKEYS_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 /** Written out, so a changed constant cannot agree with itself. */
 export const CHALLENGE_LIFETIME_MS = 300_000;
 export const CHALLENGE_COOKIE = 'pk_challenge';
@@ -49,11 +46,6 @@ export interface PasskeysFixture {
   ownerId: string;
   /** A second account, also with one. */
   otherId: string;
-}
-
-/** A contract case with the budget a database case gets. */
-export function passkeyCase(name: string, body: () => Promise<void>): void {
-  it(name, body, PASSKEYS_CONTRACT_CASE_TIMEOUT_MS);
 }
 
 /** The stored form of a challenge, worked out apart from the service. */
