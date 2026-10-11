@@ -13,6 +13,7 @@ import {
   success,
 } from '@/tests/serverRejectionHarness';
 import { clickTwiceInOneTick, writesOf } from '../../__tests__/submitTwice';
+import { useGetCurrentUserQuery } from '../../store/authApi';
 import { LogoutButton } from '../LogoutButton';
 
 vi.mock('sonner', () => ({
@@ -176,11 +177,67 @@ describe('a sign-out the server did not confirm', () => {
     fireEvent.click(page.retry());
 
     await waitFor(() => expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]));
-    await waitFor(() => expect(page.retry()).toHaveProperty('disabled', false));
+    await waitFor(() => expect(page.retry().getAttribute('aria-busy')).toBe('false'));
     expect(screen.getByRole('alertdialog')).toBeTruthy();
     expect(window.location.hash).toBe('');
     expect(page.isSignedIn()).toBe(true);
     expect(page.successToasts()).toEqual([]);
+  });
+
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('states each failed retry in the notice itself in %s', async (locale) => {
+    answerSignOut(sessionGone, unreachable);
+    const page = await renderSignedIn(locale);
+    const stated = () => screen.queryByRole('alert')?.textContent ?? null;
+    const retryAndWait = async () => {
+      fireEvent.click(page.retry());
+      await waitFor(() => expect(page.retry().getAttribute('aria-busy')).toBe('true'));
+      await waitFor(() => expect(page.retry().getAttribute('aria-busy')).toBe('false'));
+    };
+    fireEvent.click(page.button());
+    await screen.findByRole('alertdialog');
+    expect(stated()).toBeNull();
+
+    await retryAndWait();
+    expect(stated()).toBe(page.format('auth.signOut.retryFailed', { count: 2 }));
+
+    await retryAndWait();
+    expect(stated()).toBe(page.format('auth.signOut.retryFailed', { count: 3 }));
+  });
+
+  it('keeps "Try again" able to hold the focus while it retries and after it fails', async () => {
+    const retried = Promise.withResolvers<Response>();
+    answerSignOut(sessionGone, unreachable, () => retried.promise);
+    const page = await renderSignedIn();
+    fireEvent.click(page.button());
+    await screen.findByRole('alertdialog');
+    page.retry().focus();
+
+    fireEvent.click(page.retry());
+
+    await waitFor(() => expect(page.retry().getAttribute('aria-disabled')).toBe('true'));
+    expect(page.retry()).toHaveProperty('disabled', false);
+    retried.resolve(refusalWith(500, ErrorCode.INTERNAL_ERROR));
+    await waitFor(() => expect(page.retry().getAttribute('aria-disabled')).toBe('false'));
+    expect(document.activeElement).toBe(page.retry());
+  });
+
+  it('starts counting again once the notice has been closed', async () => {
+    answerSignOut(sessionGone, unreachable);
+    const page = await renderSignedIn();
+    fireEvent.click(page.button());
+    await screen.findByRole('alertdialog');
+    fireEvent.click(page.retry());
+    await screen.findByRole('alert');
+    fireEvent.click(page.stay());
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+    fireEvent.click(page.button());
+
+    await screen.findByRole('alertdialog');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('closes the notice and stays signed in when the person chooses to stay', async () => {
@@ -197,5 +254,50 @@ describe('a sign-out the server did not confirm', () => {
     expect(window.location.hash).toBe('');
     expect(writes()).toEqual([SIGN_OUT]);
     await waitFor(() => expect(document.activeElement).toBe(page.button()));
+  });
+});
+
+describe('the reads of the page after a sign-out that was not confirmed', () => {
+  const PROFILE = 'GET /api/user/profile';
+
+  /** A part of the page that shows the profile, so the read has someone to refetch for. */
+  function ProfileReader() {
+    const { data } = useGetCurrentUserQuery();
+    return <p data-testid="profile-name">{data?.name}</p>;
+  }
+
+  async function signOutWith(answer: () => Response) {
+    const requests = stubNetwork((request) =>
+      request.method === 'GET' ? success(USER) : answer(),
+    );
+    const store = makeStore();
+    store.dispatch(loginFulfilled(USER));
+    const view = await renderForm(
+      'en',
+      <>
+        <ProfileReader />
+        <LogoutButton />
+      </>,
+      store,
+    );
+    await waitFor(() => expect(screen.getByTestId('profile-name').textContent).toBe(USER.name));
+    fireEvent.click(
+      screen.getByRole('button', { name: view.message('auth.activate.logout'), hidden: true }),
+    );
+    await screen.findByRole('alertdialog');
+    return requests;
+  }
+
+  it('are not asked again while the server cannot be reached', async () => {
+    const requests = await signOutWith(unreachable);
+
+    // The mutation has settled by the time the notice is up, so a refetch would be listed.
+    expect(requests).toEqual([PROFILE, SIGN_OUT]);
+  });
+
+  it('are asked again when the server answered with a failure', async () => {
+    const requests = await signOutWith(() => refusalWith(500, ErrorCode.INTERNAL_ERROR));
+
+    await waitFor(() => expect(requests).toEqual([PROFILE, SIGN_OUT, PROFILE]));
   });
 });

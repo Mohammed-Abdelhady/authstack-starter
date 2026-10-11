@@ -31,7 +31,7 @@ export function LogoutButton() {
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
-  const [notConfirmed, setNotConfirmed] = useState(false);
+  const [failedTries, setFailedTries] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const signOut = useCallback(async () => {
@@ -39,7 +39,7 @@ export function LogoutButton() {
       await logout().unwrap();
     } catch (error) {
       if (!sessionIsAlreadyClosed(error)) {
-        setNotConfirmed(true);
+        setFailedTries((tries) => tries + 1);
         return;
       }
     }
@@ -49,7 +49,7 @@ export function LogoutButton() {
     window.location.href = getPathname({ href: '/auth/login', locale });
   }, [logout, dispatch, tToast, locale]);
   const handleLogout = useSingleFlight(signOut);
-  const closeNotice = useCallback(() => setNotConfirmed(false), []);
+  const closeNotice = useCallback(() => setFailedTries(0), []);
 
   // Don't render if not authenticated
   if (!isAuthenticated) {
@@ -74,7 +74,7 @@ export function LogoutButton() {
         <span className="hidden sm:inline">{isLoggingOut ? t('loggingOut') : t('logout')}</span>
       </Button>
       <SignOutNotConfirmedDialog
-        open={notConfirmed}
+        failedTries={failedTries}
         isRetrying={isLoggingOut}
         onRetry={handleLogout}
         onClose={closeNotice}

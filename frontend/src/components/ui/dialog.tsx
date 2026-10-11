@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 
 import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
 import { DESCRIPTION_ROLE_CLASSES, HEADING_ROLE_CLASSES } from '@/constants/typography';
+import { useOpenerFocus } from '@/hooks/useOpenerFocus';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
@@ -35,8 +36,9 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+>(({ className, children, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
   const t = useTranslations('common');
+  const { rememberOpener, returnToOpener } = useOpenerFocus(onOpenAutoFocus, onCloseAutoFocus);
 
   return (
     <DialogPortal>
@@ -48,6 +50,8 @@ const DialogContent = React.forwardRef<
           className,
         )}
         {...props}
+        onOpenAutoFocus={rememberOpener}
+        onCloseAutoFocus={returnToOpener}
       >
         {children}
         <DialogPrimitive.Close

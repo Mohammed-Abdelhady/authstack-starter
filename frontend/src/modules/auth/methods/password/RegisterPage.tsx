@@ -57,6 +57,7 @@ function NoPasswordHint({ createsAccountByLink }: NoPasswordHintProps) {
  * instead of offering a second path.
  */
 export function RegisterPage() {
+  const t = useTranslations('auth.register');
   const router = useRouter();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const user = useAppSelector(selectUser);
@@ -74,15 +75,23 @@ export function RegisterPage() {
 
   return (
     <AuthLayout>
-      <AuthMethodsGate>
-        {(methods) =>
-          methods.password ? (
-            <RegisterForm />
-          ) : (
-            <NoPasswordHint createsAccountByLink={methods.magicLink} />
-          )
-        }
-      </AuthMethodsGate>
+      {/* The heading stays while the sign-in options load, fail or leave no form. */}
+      <section className="mt-12 flex flex-col items-center" aria-labelledby="register-heading">
+        <Heading level={1} variant="display" id="register-heading" data-testid="register-title">
+          {t('title')}
+        </Heading>
+        <div className="w-full flex-1">
+          <AuthMethodsGate>
+            {(methods) =>
+              methods.password ? (
+                <RegisterForm />
+              ) : (
+                <NoPasswordHint createsAccountByLink={methods.magicLink} />
+              )
+            }
+          </AuthMethodsGate>
+        </div>
+      </section>
     </AuthLayout>
   );
 }

@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { SearchBar } from '@/components/design-system';
 import { Plus, Shield } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { WILDCARD_PERMISSION } from '@app/core';
 import { FREE_TEXT_SEARCH_CLASSES } from '../../constants/freeText';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
@@ -195,7 +196,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
 
           {/* Wildcard Option */}
           {showWildcard && (
-            <div className="rounded-lg border border-warning bg-warning/15 p-4 text-warning-foreground">
+            <Alert variant="warningSoft" role="note">
               <div className="flex items-start gap-3">
                 <Checkbox
                   id="wildcard-permission"
@@ -209,7 +210,8 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
                     htmlFor="wildcard-permission"
                     className="font-semibold text-foreground flex items-center gap-2"
                   >
-                    <Shield className="h-4 w-4 text-warning" aria-hidden="true" />
+                    {/* Decorative: the title beside it says what the box is about. */}
+                    <Shield className="h-4 w-4 text-status-warning" aria-hidden="true" />
                     {tSelector('wildcardTitle')}
                   </Label>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -217,7 +219,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
                   </p>
                 </div>
               </div>
-            </div>
+            </Alert>
           )}
 
           {/* Category Tabs */}

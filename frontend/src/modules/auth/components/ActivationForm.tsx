@@ -22,6 +22,7 @@ import { AuthCompletionNotice } from './AuthCompletionNotice';
 
 export function ActivationForm() {
   const t = useTranslations('auth.activate');
+  const tCommon = useTranslations('common');
   const {
     form,
     formRef,
@@ -136,6 +137,7 @@ export function ActivationForm() {
               name="password"
               data-testid="activate-password-input"
               label={t('password')}
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
               disabled={isLoading || isResending}
               className={FORM_STYLES.authField}
@@ -145,6 +147,7 @@ export function ActivationForm() {
               name="confirmPassword"
               data-testid="activate-confirm-password-input"
               label={t('confirmPassword')}
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
               disabled={isLoading || isResending}
               className={FORM_STYLES.authField}

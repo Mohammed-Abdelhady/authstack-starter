@@ -13,6 +13,7 @@ import {
 import { Settings, MoreHorizontal, UserCheck, UserX, Loader2, Pencil, Mail } from 'lucide-react';
 import { USER_PERMISSIONS } from '@app/core';
 import { cn } from '@/lib/utils';
+import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useUserActions } from '../../hooks/useUserActions';
 import { EditUserDialog } from './EditUserDialog';
 import { UserActionConfirmDialog, type UserConfirmAction } from './UserActionConfirmDialog';
@@ -30,8 +31,8 @@ export interface UserActionsMenuUser {
 export interface UserActionsMenuProps {
   /** User data */
   user: UserActionsMenuUser;
-  /** Callback when manage permissions is clicked */
-  onManagePermissions?: () => void;
+  /** Called when manage permissions is chosen, with the menu button to return focus to */
+  onManagePermissions?: (opener: HTMLElement | null) => void;
   /** Whether actions are disabled */
   disabled?: boolean;
   /** Additional className */
@@ -66,6 +67,8 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { handleStatusChange, handleResendEmailChange, isLoading } = useUserActions();
+  // The dialogs open from menu entries, which are gone by the time they close.
+  const [menuButtonRef, returnFocusToMenuButton] = useReturnFocus<HTMLButtonElement>();
 
   const isNormalUser = user.role === 'user';
 
@@ -94,6 +97,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            ref={menuButtonRef}
             variant="ghost"
             size="sm"
             className={cn(
@@ -138,7 +142,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
                 {t('editUser')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={onManagePermissions}
+                onClick={() => onManagePermissions?.(menuButtonRef.current)}
                 data-testid={`manage-permissions-${user._id}`}
               >
                 <Settings className="me-2 h-4 w-4" aria-hidden="true" />
@@ -176,6 +180,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         currentEmail={user.email}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+        onCloseAutoFocus={returnFocusToMenuButton}
       />
 
       {/* Co-located Confirmation Dialog */}
@@ -185,6 +190,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         isLoading={isLoading}
         onConfirm={handleConfirm}
         onCancel={handleCancelConfirm}
+        onCloseAutoFocus={returnFocusToMenuButton}
       />
     </>
   );

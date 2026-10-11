@@ -28,6 +28,7 @@ import {
 } from '../utils/disableSchema';
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 interface TwoFactorDisableDialogProps {
   open: boolean;
@@ -51,6 +52,7 @@ export function TwoFactorDisableDialog({
   const tAnswer = useTranslations('auth.twoFactor');
   const [disableTwoFactor, { isLoading }] = useDisableTwoFactorMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
+  const refusalToast = useRefusalToast();
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   // The dialog focuses its first field, the password, unless the answer claims it.
   const [answerTakesFocus, setAnswerTakesFocus] = useState(false);
@@ -109,11 +111,14 @@ export function TwoFactorDisableDialog({
   const submit = useCallback(
     async (data: DisableFormData) => {
       const request = toDisableRequest(data);
+      // A wrong password leaves a toast, and the next answer may be about the code.
+      refusalToast.clearStale();
       try {
         await disableTwoFactor(request).unwrap();
         toast.success(t('success'));
         close();
       } catch (err) {
+        refusalToast.noteRefusal();
         if (handleFeatureDisabled(err)) {
           return;
         }
@@ -127,7 +132,7 @@ export function TwoFactorDisableDialog({
         setRefused({ field });
       }
     },
-    [close, disableTwoFactor, handleFeatureDisabled, setError, t, tCodes],
+    [close, disableTwoFactor, handleFeatureDisabled, refusalToast, setError, t, tCodes],
   );
   const onSubmit = useSingleFlight(submit);
 

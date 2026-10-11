@@ -28,7 +28,7 @@ export interface UserCardProps {
   /** User data */
   user: User;
   /** Callback when manage permissions is clicked */
-  onManagePermissions?: (userId: string) => void;
+  onManagePermissions?: (userId: string, opener: HTMLElement | null) => void;
   /** Optional className */
   className?: string;
 }
@@ -60,9 +60,12 @@ export const UserCard = memo(
     const initials = getInitials(user.name);
     const joinedDate = formatDateShort(user.createdAt, locale);
 
-    const handleManageClick = useCallback(() => {
-      onManagePermissions?.(user._id);
-    }, [onManagePermissions, user._id]);
+    const handleManageClick = useCallback(
+      (opener: HTMLElement | null) => {
+        onManagePermissions?.(user._id, opener);
+      },
+      [onManagePermissions, user._id],
+    );
 
     const onRoleChange = useCallback(
       async (newRole: string) => {
@@ -83,13 +86,14 @@ export const UserCard = memo(
           'bg-card border border-border',
           'transition-all duration-200 ease-out',
           'hover:border-input hover:shadow-sm',
-          user.isDeleted && 'border-dashed',
+          // The dashed line marks an inactive account, so it uses the 3:1 border token.
+          user.isDeleted && 'border-dashed border-input',
           className,
         )}
       >
         {/* Header: Avatar + Name/Email + Status Badge */}
         <header className="flex flex-wrap items-start gap-3 mb-3">
-          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-transparent group-hover:ring-primary/20 transition-all">
+          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-card ring-transparent group-hover:ring-primary/20 transition-all">
             <AvatarFallback className="bg-secondary text-primary text-sm font-medium">
               {initials}
             </AvatarFallback>

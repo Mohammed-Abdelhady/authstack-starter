@@ -17,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import { useUpdateUserMutation } from '@/store/api/userApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 import {
   fieldElementId,
   useLocalFieldTarget,
@@ -32,6 +33,8 @@ interface EditUserDialogProps {
   currentEmail: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 interface EditUserFormValues {
@@ -242,9 +245,11 @@ export function EditUserDialog({
   currentEmail,
   open,
   onOpenChange,
+  onCloseAutoFocus,
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
+  const refusalToast = useRefusalToast();
 
   const handleSubmit = async (
     data: EditUserFormValues,
@@ -258,6 +263,7 @@ export function EditUserDialog({
       return true;
     }
 
+    refusalToast.clearStale();
     try {
       await updateUser({
         userId,
@@ -268,6 +274,7 @@ export function EditUserDialog({
       toast.success(t('success'));
       return true;
     } catch (error) {
+      refusalToast.noteRefusal();
       onRejected(error);
       reportUnlessHandled(error);
       return false;
@@ -282,7 +289,11 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="edit-user-dialog">
+      <DialogContent
+        className="sm:max-w-[500px]"
+        data-testid="edit-user-dialog"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>

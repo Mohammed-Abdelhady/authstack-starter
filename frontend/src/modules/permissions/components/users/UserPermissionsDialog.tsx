@@ -31,6 +31,8 @@ export interface UserPermissionsDialogProps {
   onOpenChange: (open: boolean) => void;
   userId: string | null;
   userName?: string;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export function UserPermissionsDialog({
   onOpenChange,
   userId,
   userName,
+  onCloseAutoFocus,
 }: UserPermissionsDialogProps) {
   const t = useTranslations('permissions.dialog');
   // Component will remount when userId changes due to key prop on Dialog
@@ -113,7 +116,11 @@ export function UserPermissionsDialog({
   return (
     <>
       <Dialog key={userId || 'no-user'} open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent
+          className="max-h-[90vh] max-w-3xl overflow-y-auto"
+          data-testid="user-permissions-dialog"
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
           <DialogHeader>
             <DialogTitle>{t('title')}</DialogTitle>
             <DialogDescription>
@@ -142,11 +149,14 @@ export function UserPermissionsDialog({
 
                 {/* Inherited Permissions (Read-only) - Tree View */}
                 <div className="space-y-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <Shield className="h-4 w-4 shrink-0 text-info" />
-                    <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
-                      {t('inheritedFromRole', { role: data?.role || '' })}
-                    </Heading>
+                  {/* The badge moves to a line of its own before it is cut. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Shield className="h-4 w-4 shrink-0 text-info" />
+                      <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
+                        {t('inheritedFromRole', { role: data?.role || '' })}
+                      </Heading>
+                    </div>
                     {data?.role && (
                       <Badge
                         dir="ltr"

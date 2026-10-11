@@ -27,8 +27,10 @@ import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
+import { TruncatedText } from '../shared/TruncatedText';
 import {
   fieldElementId,
   useLocalFieldTarget,
@@ -74,10 +76,12 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [createUser, { isLoading }] = useCreateUserMutation();
+  const refusalToast = useRefusalToast();
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
   const roles = rolesData?.roles || [];
   const availableRoles = roles.filter((r) => !r.isProtected);
+  const selectedRole = availableRoles.find((r) => r.slug === role);
 
   const applyServerFieldErrors = useServerFieldErrors(
     useLocalFieldTarget(setErrors, uid),
@@ -101,6 +105,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       return;
     }
 
+    refusalToast.clearStale();
     try {
       await createUser({
         email: email.trim(),
@@ -113,6 +118,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       handleClose();
       onSuccess?.();
     } catch (error) {
+      refusalToast.noteRefusal();
       // A dialog that was closed in the meantime has no fields left to mark.
       applyServerFieldErrors(error);
       reportUnlessHandled(error);
@@ -254,7 +260,14 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 {isLoadingRoles ? (
                   <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
                 ) : (
-                  <SelectValue placeholder={t('selectRole')} />
+                  <SelectValue placeholder={t('selectRole')}>
+                    {/* One line, cut at the end of the name. The list shows it whole. */}
+                    {selectedRole ? (
+                      <span className="flex min-w-0">
+                        <TruncatedText value={selectedRole.name} dir="auto" />
+                      </span>
+                    ) : undefined}
+                  </SelectValue>
                 )}
               </SelectTrigger>
               <SelectContent>

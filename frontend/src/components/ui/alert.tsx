@@ -16,6 +16,16 @@ const alertVariants = cva(
         success:
           'border-success/50 bg-success text-success-foreground [&>svg]:text-success-foreground',
         info: 'border-info/50 bg-info text-info-foreground [&>svg]:text-info-foreground',
+        // Soft: a tint of the status colour, for a note inside a page or a dialog.
+        // The solid ones above are for the alert a whole page is about.
+        infoSoft:
+          'border-info/30 bg-info/10 text-foreground dark:border-info/40 dark:bg-info/20 [&>svg]:text-info',
+        warningSoft:
+          'border-warning/40 bg-warning/15 text-foreground dark:border-warning/40 dark:bg-warning/20 [&>svg]:text-status-warning',
+        successSoft:
+          'border-success/30 bg-success/10 text-foreground dark:border-success/40 dark:bg-success/20 [&>svg]:text-status-success',
+        destructiveSoft:
+          'border-destructive/30 bg-destructive/10 text-foreground dark:border-destructive/40 dark:bg-destructive/20 [&>svg]:text-status-danger',
       },
     },
     defaultVariants: {

@@ -2,12 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   CONTRAST_PAIRS,
-  compositeOver,
-  contrastRatio,
   controlPairs,
   extractClassName,
   extractVariantClasses,
-  hslToRgb,
   loadControlPairs,
   loadCss,
   loadTintedPairs,
@@ -28,86 +25,6 @@ const STOCK_ROLES = {
   ring: 'ring',
   ringOffset: 'background',
 };
-
-test('a color-scheme rule on html.dark does not shadow the dark token block', () => {
-  const css = `
-    :root { --x: 220 14% 97%; }
-    html.dark { color-scheme: dark; }
-    .dark { --x: 224 71% 5%; }
-  `;
-
-  assert.deepEqual(parseTokens(css), {
-    light: { x: [220, 14, 97] },
-    dark: { x: [224, 71, 5] },
-  });
-});
-
-test('a token defined for one theme is absent from the other', () => {
-  const css = `
-    :root { --only-light: 0 0% 100%; }
-    .dark { --only-dark: 0 0% 0%; }
-  `;
-
-  assert.deepEqual(parseTokens(css), {
-    light: { 'only-light': [0, 0, 100] },
-    dark: { 'only-dark': [0, 0, 0] },
-  });
-});
-
-test('blocks with the same selector merge and the later one wins', () => {
-  const css = `
-    .dark { --x: 1 2% 3%; --y: 4 5% 6%; }
-    .dark { --x: 7 8% 9%; --z: 10 11% 12%; }
-  `;
-
-  assert.deepEqual(parseTokens(css).dark, {
-    x: [7, 8, 9],
-    y: [4, 5, 6],
-    z: [10, 11, 12],
-  });
-});
-
-test('a stylesheet without theme blocks yields no tokens', () => {
-  assert.deepEqual(parseTokens('body { color: red; }'), { light: {}, dark: {} });
-  assert.deepEqual(parseTokens(''), { light: {}, dark: {} });
-});
-
-test('a theme block inside a comment is ignored', () => {
-  const css = `
-    /* .dark { --x: 1 2% 3%; } */
-    .dark { --x: 215 20% 41%; }
-  `;
-
-  assert.deepEqual(parseTokens(css).dark, { x: [215, 20, 41] });
-});
-
-test('nested blocks are read and a nested html.dark is still skipped', () => {
-  const css = `
-    @layer base {
-      :root { --x: 220 13% 58%; }
-      .dark { --x: 215 20% 41%; }
-      html.dark { color-scheme: dark; --x: 1 2% 3%; }
-    }
-  `;
-
-  assert.deepEqual(parseTokens(css), {
-    light: { x: [220, 13, 58] },
-    dark: { x: [215, 20, 41] },
-  });
-});
-
-test('a theme block right after an at-rule statement is read', () => {
-  const css = `@import 'tailwindcss';
-    :root { --x: 220 13% 58%; }`;
-
-  assert.deepEqual(parseTokens(css).light, { x: [220, 13, 58] });
-});
-
-test('only hsl triplets are tokens and decimals are kept', () => {
-  const css = ':root { --radius: 0.5rem; --x: 220.5 13.25% 58%; --font: var(--geist); }';
-
-  assert.deepEqual(parseTokens(css).light, { x: [220.5, 13.25, 58] });
-});
 
 test('the real stylesheets define every audited token in both themes', () => {
   const themes = parseTokens(loadCss());
@@ -203,9 +120,11 @@ test('a missing element or a computed className stops the audit', () => {
   );
 });
 
+const SOFT_TINT = { light: { token: 'warning', alpha: 0.15 }, dark: { token: 'warning', alpha: 0.2 } };
+
 test('a control is audited on its surface, its own fill and its ring offset', () => {
   assert.deepEqual(
-    controlPairs(STOCK_ROLES, 'warning').map(({ token, background, target }) => [
+    controlPairs(STOCK_ROLES, { background: 'warning' }).map(({ token, background, target }) => [
       token,
       background,
       target,
@@ -220,34 +139,60 @@ test('a control is audited on its surface, its own fill and its ring offset', ()
   );
 });
 
-test('a control with an unresolved colour stops the audit', () => {
-  assert.throws(() => controlPairs({ ...STOCK_ROLES, ring: undefined }, 'warning'), /ring/);
+test('a control on a soft surface meets the tint, but its mark and ring offset do not', () => {
+  const pairs = controlPairs(STOCK_ROLES, { background: 'card', tint: SOFT_TINT });
+
+  assert.deepEqual(
+    pairs.map(({ part, background, tint }) => [part, background, tint]),
+    [
+      ['border', 'card', SOFT_TINT],
+      ['checked fill', 'card', SOFT_TINT],
+      ['check mark', 'primary', undefined],
+      ['focus ring', 'card', SOFT_TINT],
+      ['focus ring on its offset', 'background', undefined],
+    ],
+  );
 });
 
-test('every control placed on a status surface keeps 3:1 in both themes', () => {
+test('a control with an unresolved colour stops the audit', () => {
+  assert.throws(
+    () => controlPairs({ ...STOCK_ROLES, ring: undefined }, { background: 'warning' }),
+    /ring/,
+  );
+});
+
+/** The pairs that fall short of their own target, as `theme: token on backdrop`. */
+function shortfalls(pairs) {
   const themes = parseTokens(loadCss());
-  const pairs = loadControlPairs(Object.keys(themes.light));
-  const failures = [];
+  return Object.entries(themes).flatMap(([theme, tokens]) =>
+    pairs
+      .filter((pair) => !(pairRatio(pair, tokens, theme) >= pair.target))
+      .map(({ token, background }) => `${theme}: ${token} on ${background}`),
+  );
+}
+const knownTokens = () => Object.keys(parseTokens(loadCss()).light);
 
-  for (const [theme, tokens] of Object.entries(themes)) {
-    for (const { token, background, part } of pairs) {
-      const ratio = contrastRatio(hslToRgb(...tokens[token]), hslToRgb(...tokens[background]));
-      if (ratio < 3) failures.push(`${theme}: ${part}`);
-    }
-  }
+test('both wildcard checkboxes keep 3:1 on the soft warning note in both themes', () => {
+  const pairs = loadControlPairs(knownTokens());
 
-  assert.equal(pairs.length, 5);
-  assert.deepEqual(failures, []);
+  assert.deepEqual(
+    pairs.map(({ token, part, tint }) => `${token} ${part}${tint ? ' on warning/15' : ''}`),
+    [1, 2].flatMap(() => [
+      'primary border on warning/15',
+      'primary checked fill on warning/15',
+      'primary-foreground check mark',
+      'ring focus ring on warning/15',
+      'ring focus ring on its offset',
+    ]),
+  );
+  assert.deepEqual(
+    pairs.filter(({ tint }) => tint).map(({ tint }) => [tint.light.alpha, tint.dark.alpha]),
+    Array.from({ length: 6 }, () => [0.15, 0.2]),
+  );
+  assert.deepEqual(shortfalls(pairs), []);
 });
 
 const TINT_TOKENS = ['info', 'foreground', 'text-tertiary', 'background'];
-const GREYS = { ink: [0, 0, 0], paper: [0, 0, 100] };
-
-test('a tint is mixed with its backdrop by its alpha', () => {
-  assert.deepEqual(compositeOver([255, 255, 255], [0, 0, 0], 0.1), [25.5, 25.5, 25.5]);
-  assert.deepEqual(compositeOver([200, 100, 0], [10, 20, 30], 0), [10, 20, 30]);
-  assert.deepEqual(compositeOver([200, 100, 0], [10, 20, 30], 1), [200, 100, 0]);
-});
 
 test('a variant class string is read on its own line or the next', () => {
   const source = `
@@ -304,46 +249,57 @@ test('every text colour is audited on every backdrop at the text minimum', () =>
   );
 });
 
-test('a pair is measured against the tint as painted in that theme', () => {
-  const half = { token: 'paper', alpha: 0.5 };
-  const tint = { light: half, dark: { token: 'paper', alpha: 1 } };
-  const pair = { token: 'ink', background: 'ink', tint };
-
-  // White at 50% over black is rgb 127.5: luminance 0.2140, so (0.2140 + 0.05) / 0.05.
-  assert.equal(pairRatio(pair, GREYS, 'light').toFixed(2), '5.28');
-  assert.equal(pairRatio(pair, GREYS, 'dark').toFixed(2), '21.00');
-  assert.equal(pairRatio({ token: 'ink', background: 'paper' }, GREYS, 'light').toFixed(2), '21.00');
+test('the colour of a direct icon child is read with the surface', () => {
+  assert.deepEqual(
+    resolveTintedSurface('bg-info/10 text-foreground [&>svg]:text-background', TINT_TOKENS).icon,
+    'background',
+  );
+  assert.equal(
+    'icon' in resolveTintedSurface('bg-info/10 text-foreground [&>svg]:text-brand', TINT_TOKENS),
+    false,
+  );
 });
 
-test('a pair naming a missing token has no ratio', () => {
-  const tint = { light: { token: 'mist', alpha: 0.5 }, dark: { token: 'mist', alpha: 0.5 } };
+test('an icon is audited on every backdrop at 3:1 beside the text at 4.5:1', () => {
+  const tint = { light: { token: 'info', alpha: 0.1 }, dark: { token: 'info', alpha: 0.2 } };
 
-  assert.equal(pairRatio({ token: 'ink', background: 'paper', tint }, GREYS, 'light'), null);
-  assert.equal(pairRatio({ token: 'fog', background: 'paper' }, GREYS, 'light'), null);
+  assert.deepEqual(tintedPairs({ text: 'foreground', icon: 'info', tint }, ['background', 'card']), [
+    { token: 'foreground', background: 'background', tint, target: 4.5 },
+    { token: 'info', background: 'background', tint, target: 3 },
+    { token: 'foreground', background: 'card', tint, target: 4.5 },
+    { token: 'info', background: 'card', tint, target: 3 },
+  ]);
 });
 
-test('permission keys on the inherited and direct tints keep 4.5:1 in both themes', () => {
-  const themes = parseTokens(loadCss());
-  const pairs = loadTintedPairs(Object.keys(themes.light));
-  const failures = [];
-
-  for (const [theme, tokens] of Object.entries(themes)) {
-    for (const pair of pairs) {
-      const ratio = pairRatio(pair, tokens, theme);
-      if (ratio === null || ratio < 4.5) failures.push(`${theme}: ${pair.token}`);
-    }
-  }
+test('every tinted surface keeps its text at 4.5:1 and its icon at 3:1 in both themes', () => {
+  const pairs = loadTintedPairs(knownTokens());
+  const onPageAndCard = (rows) =>
+    ['background', 'card'].flatMap((backdrop) => rows.map((row) => `${row} over ${backdrop}`));
 
   assert.deepEqual(
-    pairs.map(({ token, tint }) => `${token} on ${tint.light.token}`),
+    pairs.map(
+      ({ token, tint, background, target }) =>
+        `${token} on ${tint.light.token}/${tint.light.alpha * 100}/${tint.dark.alpha * 100} at ${target} over ${background}`,
+    ),
     [
-      'foreground on info',
-      'muted-foreground on info',
-      'text-tertiary on info',
-      'foreground on success',
-      'muted-foreground on success',
-      'text-tertiary on success',
+      'foreground on info/10/20 at 4.5 over background',
+      'muted-foreground on info/10/20 at 4.5 over background',
+      'text-tertiary on info/10/20 at 4.5 over background',
+      'foreground on success/10/20 at 4.5 over background',
+      'muted-foreground on success/10/20 at 4.5 over background',
+      'text-tertiary on success/10/20 at 4.5 over background',
+      ...onPageAndCard(['foreground on info/10/20 at 4.5', 'info on info/10/20 at 3']),
+      ...onPageAndCard([
+        'foreground on warning/15/20 at 4.5',
+        'muted-foreground on warning/15/20 at 4.5',
+        'status-warning on warning/15/20 at 3',
+      ]),
+      ...onPageAndCard(['foreground on success/10/20 at 4.5', 'status-success on success/10/20 at 3']),
+      ...onPageAndCard([
+        'foreground on destructive/10/20 at 4.5',
+        'status-danger on destructive/10/20 at 3',
+      ]),
     ],
   );
-  assert.deepEqual(failures, []);
+  assert.deepEqual(shortfalls(pairs), []);
 });

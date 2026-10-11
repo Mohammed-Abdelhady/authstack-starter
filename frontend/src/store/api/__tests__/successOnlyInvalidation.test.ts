@@ -42,14 +42,12 @@ describe('logout', () => {
     ]);
   });
 
-  it('asks for the profile again when the answer is lost', async () => {
+  // A read sent to a server that cannot be reached fails as the sign-out did.
+  // The next request that gets through tells the page what became of the session.
+  it('asks for nothing more when the server could not be reached', async () => {
     const requests = await requestsOf(SIGN_OUT, () => {
       throw new TypeError('Failed to fetch');
     });
-    expect(requests).toEqual([
-      'GET /api/user/profile',
-      'POST /api/auth/logout',
-      'GET /api/user/profile',
-    ]);
+    expect(requests).toEqual(['GET /api/user/profile', 'POST /api/auth/logout']);
   });
 });

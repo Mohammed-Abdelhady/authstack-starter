@@ -14,6 +14,7 @@ import { CreateUserButton } from '@/modules/permissions/components/users/CreateU
 import { PermissionGuard, RoutePermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS, parseApiError } from '@app/core';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useAppDispatch } from '@/store/hooks';
 import { baseApi } from '@/store/api/baseApi';
 
@@ -62,9 +63,15 @@ export default function AdminUsersPage() {
   const verifiedUsers = useMemo(() => users.filter((u) => u.isVerified), [users]);
   const pendingUsers = useMemo(() => users.filter((u) => !u.isVerified), [users]);
 
-  const handleManagePermissions = useCallback((userId: string) => {
-    setSelectedUserId(userId);
-  }, []);
+  // The menu button the permissions dialog was opened from, to return focus to.
+  const [permissionsOpenerRef, returnFocusToOpener] = useReturnFocus();
+  const handleManagePermissions = useCallback(
+    (userId: string, opener: HTMLElement | null) => {
+      permissionsOpenerRef.current = opener;
+      setSelectedUserId(userId);
+    },
+    [permissionsOpenerRef],
+  );
 
   const handleClosePermissionsDialog = useCallback((open: boolean) => {
     if (!open) setSelectedUserId(null);
@@ -233,6 +240,7 @@ export default function AdminUsersPage() {
               userId={selectedUserId || ''}
               open={!!selectedUserId}
               onOpenChange={handleClosePermissionsDialog}
+              onCloseAutoFocus={returnFocusToOpener}
             />
           </Suspense>
         </Activity>

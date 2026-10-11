@@ -81,7 +81,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent data-testid="delete-role-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
@@ -91,7 +91,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
 
         <div className="space-y-4 py-4">
           {isProtected ? (
-            <Alert variant="warning" role="note">
+            <Alert variant="warningSoft" role="note">
               <AlertDescription>
                 <strong>{t('protectedTitle')}</strong>{' '}
                 {t.rich('protectedNotice', {
@@ -137,7 +137,7 @@ export function DeleteRoleDialog({ open, onOpenChange, role, onSuccess }: Delete
                 </dl>
               </div>
 
-              <Alert variant="destructive" role="note">
+              <Alert variant="destructiveSoft" role="note">
                 <AlertDescription>
                   <strong>{t('warningTitle')}</strong> {t('warningNotice')}
                 </AlertDescription>

@@ -29,3 +29,18 @@ export function contrastRatio(rgb1, rgb2) {
   const darker = Math.min(l1, l2);
   return (lighter + 0.05) / (darker + 0.05);
 }
+
+export function compositeOver(tintRgb, backdropRgb, alpha) {
+  return tintRgb.map((channel, index) => channel * alpha + backdropRgb[index] * (1 - alpha));
+}
+
+/** The ratio of a pair in one theme, or null when a token is missing. */
+export function pairRatio({ token, background, tint }, tokens, theme) {
+  const fill = tint?.[theme];
+  if (!tokens[token] || !tokens[background] || (fill && !tokens[fill.token])) return null;
+  const backdrop = hslToRgb(...tokens[background]);
+  const surface = fill
+    ? compositeOver(hslToRgb(...tokens[fill.token]), backdrop, fill.alpha)
+    : backdrop;
+  return contrastRatio(hslToRgb(...tokens[token]), surface);
+}

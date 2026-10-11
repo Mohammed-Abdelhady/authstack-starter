@@ -214,6 +214,7 @@
       "notConfirmedTitle": "Sign-out was not confirmed",
       "notConfirmedBody": "The server did not confirm the sign-out, so you may still be signed in. Try again before you leave this computer.",
       "retry": "Try again",
+      "retryFailed": "Still not confirmed. Tries that failed: {count}.",
       "staySignedIn": "Stay signed in"
     },
     "magicLink": {
@@ -952,6 +953,7 @@
     },
     "userRole": {
       "protected": "Protected",
+      "selectorLabel": "Role: ⁨{role}⁩",
       "changeTitle": "Change User Role?",
       "thisUser": "this user",
       "changeDescription": "You are about to change <strong>{name}</strong>'s role from <strong>{from}</strong> to <strong>{to}</strong>.",

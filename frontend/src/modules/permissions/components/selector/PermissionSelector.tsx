@@ -133,21 +133,20 @@ export const PermissionSelector = memo(function PermissionSelector({
     <div className="space-y-4">
       {/* Wildcard Permission */}
       {showWildcard && (
-        <Alert variant="warning" role="note">
+        <Alert variant="warningSoft" role="note">
           <div className="flex items-start gap-3">
             <Checkbox
               id="wildcard-permission"
               checked={hasWildcard}
               onCheckedChange={handleToggleWildcard}
               disabled={disabled}
-              className="border-warning-foreground ring-offset-warning focus-visible:ring-warning-foreground data-[state=checked]:bg-warning-foreground data-[state=checked]:text-warning"
               data-testid="wildcard-permission-checkbox"
             />
             <div className="flex-1">
               <Label htmlFor="wildcard-permission" className="font-semibold text-inherit">
                 {t('wildcardTitle')}
               </Label>
-              <p className="mt-1 text-sm text-inherit">{t('wildcardDescription')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('wildcardDescription')}</p>
             </div>
           </div>
         </Alert>

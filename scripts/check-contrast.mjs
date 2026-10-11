@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { contrastRatio, hslToRgb } from './contrast-math.mjs';
+import { compositeOver, contrastRatio, hslToRgb, pairRatio } from './contrast-math.mjs';
 
-export { contrastRatio, hslToRgb };
+export { compositeOver, contrastRatio, hslToRgb, pairRatio };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,17 +98,21 @@ export const TINTED_BOX_PAIRS = [
   { token: 'status-danger', tint: boxTint('destructive'), target: 3.0 },
 ].map((pair) => ({ background: 'card', target: 4.5, ...pair }));
 
+const ALERT = 'frontend/src/components/ui/alert.tsx';
+const PERMISSIONS = 'frontend/src/modules/permissions/components';
+
 // A control on a status surface is read from source: the primitive's classes,
 // then the caller's `className`, where the later colour wins as in tailwind-merge.
-export const SURFACE_CONTROLS = [
-  {
-    surface: 'warning',
+// The wildcard checkbox sits on the soft warning note of a dialog, in two places.
+export const SURFACE_CONTROLS = ['selector/PermissionSelector', 'search/PermissionSearchDialog'].map(
+  (file) => ({
+    surface: { usage: ALERT, variant: 'warningSoft', backdrop: 'background' },
     primitive: 'frontend/src/components/ui/checkbox.tsx',
-    usage: 'frontend/src/modules/permissions/components/selector/PermissionSelector.tsx',
+    usage: `${PERMISSIONS}/${file}.tsx`,
     element: 'Checkbox',
     testId: 'wildcard-permission-checkbox',
-  },
-];
+  }),
+);
 
 const CONTROL_MINIMUM = 3.0;
 const CONTROL_ROLE_PREFIXES = {
@@ -161,27 +165,14 @@ export function controlPairs(roles, surface) {
     throw new Error(`no colour token found for: ${missing.join(', ')}`);
   }
 
+  // `surface` is a backdrop token and, for a soft surface, the tint painted over it.
+  const pair = (token, on, part) => ({ token, ...on, target: CONTROL_MINIMUM, part });
   return [
-    { token: roles.border, background: surface, target: CONTROL_MINIMUM, part: 'border' },
-    {
-      token: roles.checkedFill,
-      background: surface,
-      target: CONTROL_MINIMUM,
-      part: 'checked fill',
-    },
-    {
-      token: roles.checkMark,
-      background: roles.checkedFill,
-      target: CONTROL_MINIMUM,
-      part: 'check mark',
-    },
-    { token: roles.ring, background: surface, target: CONTROL_MINIMUM, part: 'focus ring' },
-    {
-      token: roles.ring,
-      background: roles.ringOffset,
-      target: CONTROL_MINIMUM,
-      part: 'focus ring on its offset',
-    },
+    pair(roles.border, surface, 'border'),
+    pair(roles.checkedFill, surface, 'checked fill'),
+    pair(roles.checkMark, { background: roles.checkedFill }, 'check mark'),
+    pair(roles.ring, surface, 'focus ring'),
+    pair(roles.ring, { background: roles.ringOffset }, 'focus ring on its offset'),
   ];
 }
 
@@ -193,7 +184,14 @@ export function loadControlPairs(knownTokens, controls = SURFACE_CONTROLS) {
       .map(([, single, double]) => single ?? double)
       .join(' ');
     const overrideClasses = extractClassName(read(usage), element, testId);
-    return controlPairs(resolveControlTokens(baseClasses, overrideClasses, knownTokens), surface);
+    const { tint } = resolveTintedSurface(
+      extractVariantClasses(read(surface.usage), surface.variant),
+      knownTokens,
+    );
+    return controlPairs(resolveControlTokens(baseClasses, overrideClasses, knownTokens), {
+      background: surface.backdrop,
+      tint,
+    });
   });
 }
 
@@ -203,19 +201,26 @@ export function loadControlPairs(knownTokens, controls = SURFACE_CONTROLS) {
 const PERMISSION_NODE =
   'frontend/src/modules/permissions/components/permission-tree/PermissionNode.tsx';
 const NODE_SEGMENTS = ['muted-foreground', 'text-tertiary'];
-export const TINTED_SURFACES = ['inherited', 'direct'].map((variant) => ({
-  usage: PERMISSION_NODE,
-  variant,
-  backdrops: ['background'],
-  innerText: NODE_SEGMENTS,
-}));
+// The soft alerts are notes on a page, a card or a dialog. The wildcard note
+// sets its description in the muted text colour.
+export const TINTED_SURFACES = [
+  ...['inherited', 'direct'].map((variant) => ({
+    usage: PERMISSION_NODE,
+    variant,
+    backdrops: ['background'],
+    innerText: NODE_SEGMENTS,
+  })),
+  ...['info', 'warning', 'success', 'destructive'].map((status) => ({
+    usage: ALERT,
+    variant: `${status}Soft`,
+    backdrops: ['background', 'card'],
+    innerText: status === 'warning' ? ['muted-foreground'] : [],
+  })),
+];
 
 const TEXT_MINIMUM = 4.5;
 const TINT_CLASS = /^(dark:)?bg-([a-z0-9-]+)(?:\/(\d+))?$/;
-
-export function compositeOver(tintRgb, backdropRgb, alpha) {
-  return tintRgb.map((channel, index) => channel * alpha + backdropRgb[index] * (1 - alpha));
-}
+const ICON_PREFIX = '[&>svg]:text-';
 
 export function extractVariantClasses(source, variant) {
   const match = new RegExp(`\\b${variant}:\\s*'([^']*)'`).exec(source);
@@ -226,6 +231,7 @@ export function extractVariantClasses(source, variant) {
 export function resolveTintedSurface(classes, knownTokens) {
   const tint = {};
   let text;
+  let icon;
 
   for (const className of classes.split(/\s+/)) {
     const [, dark, token, percent] = TINT_CLASS.exec(className) ?? [];
@@ -237,16 +243,21 @@ export function resolveTintedSurface(classes, knownTokens) {
     const named = className.startsWith('text-') ? className.slice('text-'.length) : undefined;
     const textToken = [named, className].find((name) => knownTokens.includes(name));
     if (named !== undefined && textToken) text = textToken;
+    const iconToken = className.startsWith(ICON_PREFIX) && className.slice(ICON_PREFIX.length);
+    if (knownTokens.includes(iconToken)) icon = iconToken;
   }
 
   if (!tint.light || !text) throw new Error(`no tint or text colour found in "${classes}"`);
-  return { text, tint: { light: tint.light, dark: tint.dark ?? tint.light } };
+  const surface = { text, tint: { light: tint.light, dark: tint.dark ?? tint.light } };
+  return icon ? { ...surface, icon } : surface;
 }
 
-export function tintedPairs({ text, tint }, backdrops, innerText = []) {
-  return backdrops.flatMap((background) =>
-    [text, ...innerText].map((token) => ({ token, background, tint, target: TEXT_MINIMUM })),
-  );
+// An icon that carries meaning needs 3:1, as a control does.
+export function tintedPairs({ text, icon, tint }, backdrops, innerText = []) {
+  return backdrops.flatMap((background) => [
+    ...[text, ...innerText].map((token) => ({ token, background, tint, target: TEXT_MINIMUM })),
+    ...(icon ? [{ token: icon, background, tint, target: CONTROL_MINIMUM }] : []),
+  ]);
 }
 
 export function loadTintedPairs(knownTokens, surfaces = TINTED_SURFACES) {
@@ -255,17 +266,6 @@ export function loadTintedPairs(knownTokens, surfaces = TINTED_SURFACES) {
     const surface = resolveTintedSurface(extractVariantClasses(source, variant), knownTokens);
     return tintedPairs(surface, backdrops, innerText);
   });
-}
-
-/** The ratio of a pair in one theme, or null when a token is missing. */
-export function pairRatio({ token, background, tint }, tokens, theme) {
-  const fill = tint?.[theme];
-  if (!tokens[token] || !tokens[background] || (fill && !tokens[fill.token])) return null;
-  const backdrop = hslToRgb(...tokens[background]);
-  const surface = fill
-    ? compositeOver(hslToRgb(...tokens[fill.token]), backdrop, fill.alpha)
-    : backdrop;
-  return contrastRatio(hslToRgb(...tokens[token]), surface);
 }
 
 function run() {

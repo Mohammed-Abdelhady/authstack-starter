@@ -15,7 +15,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface SignOutNotConfirmedDialogProps {
-  open: boolean;
+  /** How many sign-outs in a row the server did not confirm. The dialog is open above zero. */
+  failedTries: number;
   isRetrying: boolean;
   onRetry: () => void;
   onClose: () => void;
@@ -29,7 +30,7 @@ interface SignOutNotConfirmedDialogProps {
  * computer the person must not walk away believing they are signed out.
  */
 export function SignOutNotConfirmedDialog({
-  open,
+  failedTries,
   isRetrying,
   onRetry,
   onClose,
@@ -38,7 +39,7 @@ export function SignOutNotConfirmedDialog({
   const t = useTranslations('auth.signOut');
 
   return (
-    <AlertDialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <AlertDialog open={failedTries > 0} onOpenChange={(next) => !next && onClose()}>
       <AlertDialogContent
         data-testid="sign-out-not-confirmed-dialog"
         onCloseAutoFocus={(event) => {
@@ -51,6 +52,16 @@ export function SignOutNotConfirmedDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{t('notConfirmedTitle')}</AlertDialogTitle>
           <AlertDialogDescription>{t('notConfirmedBody')}</AlertDialogDescription>
+          {/* A failed retry changes nothing else on screen, so the dialog says it each time. */}
+          {failedTries > 1 && (
+            <p
+              role="alert"
+              className="text-sm text-destructive"
+              data-testid="sign-out-retry-failed"
+            >
+              {t('retryFailed', { count: failedTries })}
+            </p>
+          )}
         </AlertDialogHeader>
 
         <AlertDialogFooter>
@@ -61,7 +72,9 @@ export function SignOutNotConfirmedDialog({
               event.preventDefault();
               onRetry();
             }}
-            disabled={isRetrying}
+            // Not `disabled`: a disabled button drops the focus, and it must be
+            // on this button when the retry fails.
+            aria-disabled={isRetrying}
             aria-busy={isRetrying}
             data-testid="sign-out-retry"
           >

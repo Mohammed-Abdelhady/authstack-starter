@@ -214,6 +214,7 @@
       "notConfirmedTitle": "لم يتم تأكيد تسجيل الخروج",
       "notConfirmedBody": "لم يؤكد الخادم تسجيل الخروج، لذا قد تكون ما زلت مسجلًا للدخول. أعد المحاولة قبل مغادرة هذا الحاسوب.",
       "retry": "إعادة المحاولة",
+      "retryFailed": "لم يتم التأكيد بعد. عدد المحاولات الفاشلة: {count}.",
       "staySignedIn": "البقاء مسجلًا للدخول"
     },
     "magicLink": {
@@ -952,6 +953,7 @@
     },
     "userRole": {
       "protected": "محمي",
+      "selectorLabel": "الدور: ⁨{role}⁩",
       "changeTitle": "تغيير دور المستخدم؟",
       "thisUser": "هذا المستخدم",
       "changeDescription": "أنت على وشك تغيير دور <strong>{name}</strong> من <strong>{from}</strong> إلى <strong>{to}</strong>.",

@@ -82,7 +82,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
 
       <div className="space-y-6 py-6">
         {isBaseRole && (
-          <Alert variant="info" role="note" data-testid="base-role-note">
+          <Alert variant="infoSoft" role="note" data-testid="base-role-note">
             <AlertDescription>
               <strong>{t('baseRoleAlertTitle')}</strong> {t('baseRoleAlert')}
             </AlertDescription>
@@ -90,7 +90,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
         )}
 
         {isProtected && !isBaseRole && (
-          <Alert variant="warning" role="note" data-testid="protected-role-note">
+          <Alert variant="warningSoft" role="note" data-testid="protected-role-note">
             <AlertDescription>
               <strong>{t('protectedRoleAlertTitle')}</strong> {t('protectedRoleAlert')}
             </AlertDescription>

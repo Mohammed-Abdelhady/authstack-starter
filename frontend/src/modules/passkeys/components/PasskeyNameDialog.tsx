@@ -20,6 +20,7 @@ import { useRenamePasskeyMutation } from '../api';
 import { PASSKEY_NAME_MAX_LENGTH } from '../constants';
 import { PASSKEY_NAME_MODE, type PasskeyNameTarget } from '../types';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 interface PasskeyNameDialogProps {
   open: boolean;
@@ -49,6 +50,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
   const t = useTranslations('settings.passkeys');
   const tCodes = useTranslations('errors.codes');
   const [renamePasskey, { isLoading }] = useRenamePasskeyMutation();
+  const refusalToast = useRefusalToast();
   const handleFeatureDisabled = useFeatureDisabledHandler();
 
   const schema = useMemo(() => createNameSchema(t), [t]);
@@ -77,10 +79,12 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
       if (!target) {
         return;
       }
+      refusalToast.clearStale();
       try {
         await renamePasskey({ id: target.passkey.id, name: data.name }).unwrap();
         onClose();
       } catch (err) {
+        refusalToast.noteRefusal();
         // The gate takes the card off the page once the refetch lands.
         if (handleFeatureDisabled(err)) {
           onClose();
@@ -89,7 +93,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
         setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
       }
     },
-    [handleFeatureDisabled, onClose, renamePasskey, setError, tCodes, target],
+    [handleFeatureDisabled, onClose, refusalToast, renamePasskey, setError, tCodes, target],
   );
   const onSubmit = useSingleFlight(submit);
 

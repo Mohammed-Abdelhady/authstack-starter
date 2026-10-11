@@ -24,6 +24,8 @@ import { Loader2, Shield, ShieldAlert } from 'lucide-react';
 import { useListRolesQuery } from '../../api/rolesApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
+import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
   readonly userId: string;
@@ -51,6 +53,7 @@ export function UserRoleSelector({
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const guardKeyUntilReleased = useKeyReleaseGuard();
   const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
 
   const roles = rolesData?.roles || [];
@@ -70,9 +73,8 @@ export function UserRoleSelector({
     chosenRole.current = newRole;
   };
 
-  // Enter on an option is still being handled when the option is chosen, and a
-  // button focused during that keystroke is pressed by it. The list hands focus
-  // back after the keystroke, so the confirmation opens then.
+  // The confirmation opens once the list has closed and handed focus back, so
+  // the trigger holds focus then, and the dialog returns focus to it on close.
   const openConfirmation = () => {
     if (chosenRole.current === null) return;
     setPendingRole(chosenRole.current);
@@ -102,6 +104,7 @@ export function UserRoleSelector({
   };
 
   const currentRoleData = roles.find((r) => r.slug === currentRole);
+  const currentRoleName = currentRoleData?.name || currentRole;
   const pendingRoleData = pendingRole ? roles.find((r) => r.slug === pendingRole) : null;
 
   return (
@@ -111,22 +114,27 @@ export function UserRoleSelector({
         onValueChange={handleRoleSelect}
         disabled={disabled || isLoadingRoles || isUpdating}
       >
-        <SelectTrigger className="w-full sm:w-[200px]" data-testid={`user-role-selector-${userId}`}>
+        <SelectTrigger
+          className="w-full sm:w-[200px]"
+          aria-label={t('selectorLabel', { role: currentRoleName })}
+          data-testid={`user-role-selector-${userId}`}
+        >
           {isLoadingRoles ? (
             <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <SelectValue>
-              <div className="flex items-center gap-2">
-                {currentRoleData?.isSystemRole && <Shield className="h-3 w-3 text-info" />}
+              {/* One line, cut at the end of the name. The list below shows it whole. */}
+              <span className="flex min-w-0 items-center gap-2">
+                {currentRoleData?.isSystemRole && <Shield className="h-3 w-3 shrink-0 text-info" />}
                 {currentRoleData?.isProtected && (
-                  <ShieldAlert className="h-3 w-3 text-status-warning" />
+                  <ShieldAlert className="h-3 w-3 shrink-0 text-status-warning" />
                 )}
-                <span dir="auto">{currentRoleData?.name || currentRole}</span>
-              </div>
+                <TruncatedText value={currentRoleName} dir="auto" />
+              </span>
             </SelectValue>
           )}
         </SelectTrigger>
-        <SelectContent onCloseAutoFocus={openConfirmation}>
+        <SelectContent onKeyDownCapture={guardKeyUntilReleased} onCloseAutoFocus={openConfirmation}>
           {roles.map((role) => (
             <SelectItem
               key={role.id}
@@ -157,7 +165,7 @@ export function UserRoleSelector({
             <AlertDialogDescription>
               {t.rich('changeDescription', {
                 name: userName?.trim() || t('thisUser'),
-                from: currentRoleData?.name || currentRole,
+                from: currentRoleName,
                 to: pendingRoleData?.name || pendingRole || '',
                 strong: (chunks) => (
                   <strong>

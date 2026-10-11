@@ -49,6 +49,8 @@ export interface UserActionConfirmDialogProps {
   onConfirm: () => void;
   /** Closes the dialog without acting */
   onCancel: () => void;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -60,13 +62,17 @@ export function UserActionConfirmDialog({
   isLoading,
   onConfirm,
   onCancel,
+  onCloseAutoFocus,
 }: UserActionConfirmDialogProps) {
   const t = useTranslations('users.actions');
   const copy = action ? CONFIRM_ACTION_COPY[action] : null;
 
   return (
     <AlertDialog open={action !== null} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent data-testid="user-action-confirm-dialog">
+      <AlertDialogContent
+        data-testid="user-action-confirm-dialog"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>{copy ? t(copy.titleKey) : ''}</AlertDialogTitle>
           <AlertDialogDescription>

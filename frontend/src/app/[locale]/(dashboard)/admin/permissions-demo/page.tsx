@@ -27,7 +27,7 @@ export default function PermissionsDemoPage() {
   const tCommon = useTranslations('common');
   return (
     <RoutePermissionGuard permission={PERMISSION_PERMISSIONS.MANAGE_ALL}>
-      <div className="container mx-auto max-w-6xl space-y-8 py-8">
+      <div className="container mx-auto max-w-6xl space-y-8 px-4 py-8">
         {/* Page Header */}
         <div>
           <Heading level={1} variant="pageTitle" className="mt-8">
@@ -188,9 +188,9 @@ export default function PermissionsDemoPage() {
         </section>
 
         {/* Wildcard Permission */}
-        <Alert variant="warning" role="note" className="space-y-4 p-6">
+        <Alert variant="warningSoft" role="note" className="space-y-4 p-6">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+            <Shield className="h-5 w-5 text-status-warning" />
             <Heading level={2} variant="sectionTitle" className="text-inherit">
               {t('wildcardTitle')}
             </Heading>
