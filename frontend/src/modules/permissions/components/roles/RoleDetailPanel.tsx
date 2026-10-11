@@ -183,7 +183,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Base Role Notice */}
       {isBaseRole && (
-        <Alert variant="info" role="note" className="p-3">
+        <Alert variant="infoSoft" role="note" className="p-3">
           <AlertDescription className="text-xs">
             <strong>{t('baseRoleNoticeTitle')}</strong> {t('baseRoleNotice')}
           </AlertDescription>
@@ -192,7 +192,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Protected Notice */}
       {role.isProtected && !isBaseRole && (
-        <Alert variant="warning" role="note" className="p-3">
+        <Alert variant="warningSoft" role="note" className="p-3">
           <AlertDescription className="text-xs">
             <strong>{t('protectedRoleNoticeTitle')}</strong> {t('protectedRoleNotice')}
           </AlertDescription>

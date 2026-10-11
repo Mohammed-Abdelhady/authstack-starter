@@ -85,9 +85,9 @@ export function PermissionTreeView({
     <div className={className} data-testid="permission-tree-view">
       {/* Wildcard Warning */}
       {hasWildcard && (
-        <Alert variant="warning" role="note" className="mb-4">
+        <Alert variant="warningSoft" role="note" className="mb-4">
           <AlertDescription className="flex items-center gap-2">
-            <Shield className="h-4 w-4" aria-hidden="true" />
+            <Shield className="h-4 w-4 shrink-0 text-status-warning" aria-hidden="true" />
             <strong>{t('wildcardLabel')}</strong> {t('wildcardNotice')}
           </AlertDescription>
         </Alert>

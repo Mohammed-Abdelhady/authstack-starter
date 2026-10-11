@@ -74,7 +74,12 @@ export default function SessionsPage() {
           </div>
         </div>
 
-        <Alert variant="warning" role="note" className="mt-4" data-testid="sessions-security-note">
+        <Alert
+          variant="warningSoft"
+          role="note"
+          className="mt-4"
+          data-testid="sessions-security-note"
+        >
           <Shield className="h-4 w-4" aria-hidden="true" />
           <AlertDescription>{t('securityWarning')}</AlertDescription>
         </Alert>

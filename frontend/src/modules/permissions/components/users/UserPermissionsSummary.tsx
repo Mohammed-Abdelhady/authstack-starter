@@ -52,7 +52,7 @@ export function UserPermissionsSummary({
       </div>
 
       {hasWildcard && (
-        <Alert variant="warning" role="note">
+        <Alert variant="warningSoft" role="note">
           <AlertDescription>
             <strong>{t('wildcardTitle')}</strong> {t('wildcardDescription')}
           </AlertDescription>

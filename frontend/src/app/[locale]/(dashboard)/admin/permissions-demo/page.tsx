@@ -188,9 +188,9 @@ export default function PermissionsDemoPage() {
         </section>
 
         {/* Wildcard Permission */}
-        <Alert variant="warning" role="note" className="space-y-4 p-6">
+        <Alert variant="warningSoft" role="note" className="space-y-4 p-6">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
+            <Shield className="h-5 w-5 text-status-warning" />
             <Heading level={2} variant="sectionTitle" className="text-inherit">
               {t('wildcardTitle')}
             </Heading>
