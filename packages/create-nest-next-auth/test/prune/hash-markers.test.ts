@@ -73,6 +73,37 @@ describe('markers in files whose comments start with a hash', () => {
     expect(() => strip(content, ['docker'])).toThrow(/^ci\.yml:\d+ /);
   });
 
+  it('leaves a hash that starts no comment alone, a link fragment included', () => {
+    const linked = [
+      'docs: https://example.test/guide#feature:mongodb',
+      'anchor: page#feature:docker:start',
+      'kept: value # feature:docker',
+    ].join('\n');
+
+    expect(strip(linked, ['docker'])).toBe(
+      [
+        'docs: https://example.test/guide#feature:mongodb',
+        'anchor: page#feature:docker:start',
+        'kept: value',
+      ].join('\n'),
+    );
+  });
+
+  it.each(['backend/Dockerfile', '.dockerignore', 'frontend/.gitignore'])(
+    'refuses a marker after other text in %s, where a hash there is not a comment',
+    (file) => {
+      const strict = (content: string): string =>
+        stripHashMarkers(content, file, new Set(['docker']), KNOWN).content;
+
+      expect(() => strict('node_modules # feature:docker')).toThrow(
+        new RegExp(`^${file.replace('.', '\\.')}:1 puts a marker after other text`),
+      );
+      // A block is how such a file marks its lines.
+      expect(strict('# feature:mongodb:start\ndata\n# feature:mongodb:end\nkept')).toBe('kept');
+      expect(strict('# feature:docker:start\ndata\n# feature:docker:end\nkept')).toBe('data\nkept');
+    },
+  );
+
   it('reads YAML, shell, Dockerfiles and ignore files, and nothing else', () => {
     const files = [
       '.github/workflows/ci.yml',

@@ -10,14 +10,20 @@ import {
   type Stripper,
 } from './strip-markers.js';
 
-// `# feature:mongodb`, `# feature:mongodb:start`, at line end.
-const HASH_MARKER = /\s*#\s*feature:([^\r\n]*?)\s*$/;
+// `# feature:mongodb`, `# feature:mongodb:start`, at line end. The `#` starts
+// the line or follows whitespace, as a comment does: `url#feature:x` is no marker.
+const HASH_MARKER = /(?:^|\s+)#\s*feature:([^\r\n]*?)\s*$/;
 
 export class HashMarkerError extends Error {
   constructor(file: string, line: number, problem: string) {
     super(`${file}:${line} ${problem}`);
     this.name = 'HashMarkerError';
   }
+}
+
+/** A Dockerfile or an ignore file: a `#` after other text is part of that text. */
+function commentsOnlyAtLineStart(file: string): boolean {
+  return (HASH_MARKER_FILENAMES as readonly string[]).includes(posix.basename(file));
 }
 
 function parseHashMarker(
@@ -37,8 +43,16 @@ function parseHashMarker(
     (f, l, p) => new HashMarkerError(f, l, p),
     { id: '', malformed: 'hash' },
   );
-  if (kind !== 'line' && line.slice(0, match.index).trim().length > 0) {
+  const afterText = line.slice(0, match.index).trim().length > 0;
+  if (kind !== 'line' && afterText) {
     throw new HashMarkerError(file, number, `puts a ${kind} marker on a line with other text`);
+  }
+  if (afterText && commentsOnlyAtLineStart(file)) {
+    throw new HashMarkerError(
+      file,
+      number,
+      'puts a marker after other text, where `#` does not start a comment: use a block',
+    );
   }
   return { ids, kind, at: match.index };
 }
@@ -47,7 +61,7 @@ const HASH_STRIPPER: Stripper = {
   parse: parseHashMarker,
   fences: false,
   error: (file, line, problem) => new HashMarkerError(file, line, problem),
-  leftover: /#\s*feature:/,
+  leftover: /(?:^|\s)#\s*feature:/,
   leftoverProblem: 'has a hash marker that is not alone at the end of its line',
 };
 
@@ -68,10 +82,9 @@ export function stripHashMarkers(
 
 /** True for a file whose comments start with `#` and may carry markers. */
 export function takesHashMarkers(file: string): boolean {
-  const name = posix.basename(file);
   return (
-    (HASH_MARKER_FILENAMES as readonly string[]).includes(name) ||
-    (HASH_MARKER_EXTENSIONS as readonly string[]).includes(posix.extname(name))
+    commentsOnlyAtLineStart(file) ||
+    (HASH_MARKER_EXTENSIONS as readonly string[]).includes(posix.extname(posix.basename(file)))
   );
 }
 
