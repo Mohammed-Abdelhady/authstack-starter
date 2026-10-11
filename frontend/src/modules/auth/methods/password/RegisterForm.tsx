@@ -1,6 +1,6 @@
 'use client';
 
-import { Description, Heading } from '@/components/design-system';
+import { Description } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { z } from 'zod';
@@ -119,18 +119,7 @@ export function RegisterForm() {
   const onSubmit = useSingleFlight(submit);
 
   return (
-    <section className="mt-12 flex flex-col items-center" aria-labelledby="register-heading">
-      {/* Title */}
-      <Heading
-        level={1}
-        variant="display"
-        id="register-heading"
-
-        data-testid="register-title"
-      >
-        {t('title')}
-      </Heading>
-
+    <div className="flex flex-col items-center">
       <Description variant="lead" className="mt-4 text-center max-w-md">
         {t('description')}
       </Description>
@@ -198,6 +187,6 @@ export function RegisterForm() {
           </form>
         </FormProvider>
       </div>
-    </section>
+    </div>
   );
 }
