@@ -4,12 +4,15 @@ import { basename, resolve } from 'node:path';
 import { cancel, intro, log, note, outro } from '@clack/prompts';
 import { CommanderError } from 'commander';
 import { BROKEN_PACKAGE_EXIT_CODE, CLI_NAME, USAGE_EXIT_CODE } from './constants/index.js';
+import { MOBILE_DEFAULT_PROJECT_NAME } from './constants/mobile.js';
 import { ConfigFileError, readConfigFile } from './flags/config-file.js';
 import { parseCliOptions } from './flags/options.js';
 import { toPlanRequest } from './flags/request.js';
 import { CliError, BrokenPackageError } from './errors.js';
 import { loadManifest } from './manifest/load.js';
 import { resolvePlan } from './manifest/plan.js';
+import type { PlanError } from './manifest/plan-types.js';
+import { resolveMobileIdentity } from './mobile/identity.js';
 import { packageRoot } from './paths.js';
 import { askDirectory, CANCELLED } from './prompts/index.js';
 import { askPlan, type PlanPromptNeeds, planPromptNeeds } from './prompts/plan.js';
@@ -100,11 +103,19 @@ export async function main(
       directory: !options.dryRun && options.directory === undefined,
       ...planPromptNeeds(manifest, request, terminal),
     };
-    // A mobile flag may be waiting for the clients question, so it is judged after the answer.
+    // A mobile flag may be waiting for the clients question, so whether it is used is judged
+    // after the answer. Its value is wrong whatever the answer, so that is judged now.
     const asksClients = needs.targets && !options.yes && terminal;
-    const requested = resolvePlan(manifest, request).errors.filter(
+    const requested: PlanError[] = resolvePlan(manifest, request).errors.filter(
       (error) => !(asksClients && error.reason === 'identity-unused'),
     );
+    if (asksClients && !requested.some((error) => error.reason === 'identity')) {
+      const given = request.mobile ?? {};
+      for (const { field, message } of resolveMobileIdentity(given, MOBILE_DEFAULT_PROJECT_NAME)
+        .problems) {
+        requested.push({ id: field, reason: 'identity', message });
+      }
+    }
     if (requested.length > 0) {
       for (const line of describePlanErrors(manifest, requested)) log.error(line);
       outro('Nothing was written.');
