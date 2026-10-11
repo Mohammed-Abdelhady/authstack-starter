@@ -7,6 +7,7 @@
       "MONGOMS_DISABLE_POSTINSTALL": "1"
     }
   },
+  "groups": ["quality", "installer", "installer-postgres", "installer-mongodb"],
   "gates": [
     {
       "name": "Full-tree hard bans",

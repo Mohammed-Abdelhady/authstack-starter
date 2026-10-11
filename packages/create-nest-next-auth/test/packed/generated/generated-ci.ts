@@ -143,13 +143,13 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
     [
       '--input-type=module',
       '--eval',
-      "import { selectGates } from './scripts/ci/runner.mjs'; import { readFileSync } from 'node:fs'; console.log(selectGates(JSON.parse(readFileSync('scripts/ci/gates.json')), '--quality').length);",
+      "import { selectGates } from './scripts/ci/runner.mjs'; import { readFileSync } from 'node:fs'; const config = JSON.parse(readFileSync('scripts/ci/gates.json')); console.log([selectGates(config, '--quality').length, config.groups.join()].join(' '));",
     ],
     { cwd: project, encoding: 'utf8' },
   );
   expect({ status: output.status, output: output.stdout.trim() }).toEqual({
     status: 0,
-    output: '8',
+    output: '8 quality',
   });
   const missingGroup = spawnSync(process.execPath, ['scripts/ci.mjs', '--installer'], {
     cwd: project,

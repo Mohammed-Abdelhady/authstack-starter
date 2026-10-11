@@ -125,9 +125,34 @@ test('the repository gate list has separate quality, install and installer selec
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
   assert.equal(selectGates(config, '--quality').length, 10);
+  // Every gate sits in a listed group, and no listed group is empty.
+  assert.deepEqual(config.groups, [
+    'quality',
+    'installer',
+    'installer-postgres',
+    'installer-mongodb',
+  ]);
+  assert.deepEqual([...new Set(config.gates.map((g) => g.group))], config.groups);
   assert.throws(() => selectGates(config, '--unknown'), /Unknown CI mode/);
   assert.throws(() => selectGates(config, 'quality'), /Unknown CI mode/);
-  assert.throws(() => selectGates({ ...config, gates: [] }, '--installer'), /Unknown CI mode/);
+});
+
+test('a mode that names no group and a group with no gate are told apart', () => {
+  const config = {
+    groups: ['quality', 'empty'],
+    gates: [{ name: 'Lint', group: 'quality', command: 'pnpm', args: ['run', 'lint'] }],
+  };
+
+  assert.throws(() => selectGates(config, '--missing'), {
+    message: 'Unknown CI mode: --missing. The gate list has the groups: quality, empty',
+  });
+  assert.throws(() => selectGates(config, '--empty'), {
+    message: 'No gates for CI mode: --empty. The group "empty" is listed with no gate',
+  });
+  // A list written before groups were named: its groups are the ones its gates use.
+  const older = { gates: config.gates };
+  assert.deepEqual(selectGates(older, '--quality'), config.gates);
+  assert.throws(() => selectGates(older, '--empty'), /^Error: Unknown CI mode: --empty\./);
 });
 
 test('gate-specific environment reaches the real subprocess', async (t) => {
