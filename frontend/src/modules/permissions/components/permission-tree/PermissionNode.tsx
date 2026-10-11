@@ -72,9 +72,11 @@ export const PermissionNode = memo(function PermissionNode({
         <ChevronRight className="h-3 w-3 flex-shrink-0 text-muted-foreground rtl:rotate-180" />
       )}
       <code className="font-mono flex-1">
-        <span className="font-semibold">{resource}</span>
-        {action && <span className="text-muted-foreground">:{action}</span>}
-        {scope && <span className="text-tertiary">:{scope}</span>}
+        <span dir="ltr">
+          <span className="font-semibold">{resource}</span>
+          {action && <span className="text-muted-foreground">:{action}</span>}
+          {scope && <span className="text-tertiary">:{scope}</span>}
+        </span>
       </code>
     </div>
   );

@@ -37,7 +37,9 @@ export function SearchPermissionGrid({
             >
               {formatPermissionLabel(permission)}
             </Label>
-            <p className="mt-0.5 text-xs text-tertiary font-mono">{permission}</p>
+            <p className="mt-0.5 text-xs text-tertiary font-mono">
+              <span dir="ltr">{permission}</span>
+            </p>
           </div>
         </div>
       ))}
