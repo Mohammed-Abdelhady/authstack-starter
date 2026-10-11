@@ -47,7 +47,6 @@ describe('the toast of a refused password form is gone when the form is sent aga
     };
     const { send, isIdle } = sender('reset-password-form', 'reset-password-code-input');
 
-    // A refused reset empties the code, so it is typed again each time.
     await sendRefusedThenAgain(() => {
       fill();
       send();

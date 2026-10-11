@@ -60,6 +60,15 @@ const createResetPasswordSchema = (
 type ResetPasswordFormData = z.infer<ReturnType<typeof createResetPasswordSchema>>;
 
 /**
+ * The answers after which the code that was typed can never work: the server
+ * found it wrong, expired or locked, or took it and found no account.
+ */
+const CODE_SPENT_ERRORS: ReadonlySet<string> = new Set([
+  ErrorCode.PASSWORD_RESET_CODE_INVALID,
+  ErrorCode.USER_NOT_FOUND_FOR_RESET,
+]);
+
+/**
  * ResetPasswordForm component for completing password reset
  * Uses 6-digit code sent via email (similar to activation flow)
  *
@@ -157,7 +166,8 @@ export function ResetPasswordForm() {
           message: errorMessage,
         });
 
-        setValue('code', '');
+        // Any other refusal leaves the code usable, so what was typed stays.
+        if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
     [refusalToast, resetPassword, router, setError, setValue, t, tCodes, tToast],
