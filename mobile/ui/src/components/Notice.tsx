@@ -9,7 +9,7 @@ export type NoticeTone = (typeof NOTICE_TONE)[keyof typeof NOTICE_TONE];
 const RULE_COLOR: Record<NoticeTone, keyof Palette> = { info: 'accent', problem: 'danger' };
 
 const styles = StyleSheet.create({
-  // The rule sits on the start edge, so it moves to the right in Arabic.
+  // The rule sits on the start edge, so it moves to the right when reading right to left.
   notice: { borderStartWidth: SIZE.EDGE_RULE, paddingStart: SPACE.LG, gap: SPACE.XS },
 });
 

@@ -50,16 +50,19 @@ afterEach(() => {
 });
 
 describe('what the bare shell hands the screens', () => {
-  it('hands over the engine the shell built, not another one', async () => {
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('hands over the engine the shell built, not another one, in %s', async (locale) => {
     const { auth } = await startShell();
     const other = (await startShell()).auth;
     try {
-      const props = hostProps(auth, 'Mobile CLI', 'ar');
+      const props = hostProps(auth, 'Mobile CLI', locale);
 
       expect(props.engine).toBe(auth.engine);
       expect(props.engine).not.toBe(other.engine);
       expect(props.appName).toBe('Mobile CLI');
-      expect(props.locale).toBe('ar');
+      expect(props.locale).toBe(locale);
     } finally {
       auth.engine.dispose();
       other.engine.dispose();
@@ -87,9 +90,9 @@ describe('what the bare shell hands the screens', () => {
 
 describe('the language the bare shell starts in', () => {
   it.each([
-    ['ar', 'ar'],
-    ['ar-SA', 'ar'],
-    ['ar_EG', 'ar'],
+    ['ar', 'ar'], // feature:locale-ar
+    ['ar-SA', 'ar'], // feature:locale-ar
+    ['ar_EG', 'ar'], // feature:locale-ar
     ['en-GB', 'en'],
     ['arc', 'en'],
     ['', 'en'],
@@ -98,10 +101,10 @@ describe('the language the bare shell starts in', () => {
     expect(deviceLocale(() => tag)).toBe(expected);
   });
 
-  it('puts the right-hand safe area on the start edge in Arabic only', () => {
+  it('puts the right-hand safe area on the start edge only when reading right to left', () => {
     const physical = { top: 59, bottom: 34, left: 0, right: 21 };
 
-    expect(logicalInsets(physical, 'ar')).toEqual({ top: 59, bottom: 34, start: 21, end: 0 });
+    expect(logicalInsets(physical, 'ar')).toEqual({ top: 59, bottom: 34, start: 21, end: 0 }); // feature:locale-ar
     expect(logicalInsets(physical, 'en')).toEqual({ top: 59, bottom: 34, start: 0, end: 21 });
   });
 });

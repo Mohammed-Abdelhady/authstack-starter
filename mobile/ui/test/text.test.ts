@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AR } from '../src/i18n/ar';
+import { AR } from '../src/i18n/ar'; // feature:locale-ar
 import { EN } from '../src/i18n/en';
 import {
   placeholdersOf,
@@ -13,7 +13,7 @@ import { signInActionText, signInNotice } from '../src/logic/sign-in-text';
 import { deviceText, failureText, roleText } from '../src/logic/session-text';
 import type { SignInView } from '../src/types';
 
-const ARABIC_LETTER = /[؀-ۿ]/;
+const ARABIC_LETTER = /[؀-ۿ]/; // feature:locale-ar
 
 /** Records the key and arguments asked for, so no test depends on the wording. */
 function recorder() {
@@ -25,11 +25,12 @@ function recorder() {
   return { asked, t };
 }
 
-describe('the two catalogues', () => {
+describe('the catalogues', () => {
   it('finds unique sorted arguments and handles an argument-free message', () => {
     expect([placeholdersOf('{b} {a} {b}'), placeholdersOf('')]).toEqual([['a', 'b'], []]);
   });
 
+  // feature:locale-ar:start
   it('hold the same keys', () => {
     expect(Object.keys(AR).sort()).toEqual(Object.keys(EN).sort());
   });
@@ -43,23 +44,25 @@ describe('the two catalogues', () => {
 
     expect(differing).toEqual([]);
   });
+  // feature:locale-ar:end
 
-  it('leave no message empty and no Arabic message untranslated', () => {
+  it('leave no message empty and none untranslated', () => {
     const empty = Object.entries({ ...EN }).filter(([, text]) => text.trim() === '');
-    const untranslated = Object.entries(AR).filter(([, text]) => !ARABIC_LETTER.test(text));
+    const untranslated = Object.entries(AR).filter(([, text]) => !ARABIC_LETTER.test(text)); // feature:locale-ar
 
-    expect({ empty, untranslated }).toEqual({ empty: [], untranslated: [] });
+    expect(empty).toEqual([]);
+    expect(untranslated).toEqual([]); // feature:locale-ar
   });
 });
 
 describe('reading a message', () => {
-  it('fills each argument in both languages', () => {
+  it('fills each argument in every language', () => {
     expect([
       translate('en', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }),
-      translate('ar', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }),
+      translate('ar', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }), // feature:locale-ar
     ]).toEqual([
       EN['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'),
-      AR['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'),
+      AR['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'), // feature:locale-ar
     ]);
   });
 
@@ -74,9 +77,9 @@ describe('reading a message', () => {
   });
 
   it.each([
-    ['ar', 'ar'],
-    ['ar-SA', 'ar'],
-    ['AR_eg', 'ar'],
+    ['ar', 'ar'], // feature:locale-ar
+    ['ar-SA', 'ar'], // feature:locale-ar
+    ['AR_eg', 'ar'], // feature:locale-ar
     ['arc', 'en'],
     ['en-GB', 'en'],
     ['', 'en'],

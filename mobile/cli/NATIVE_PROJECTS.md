@@ -91,6 +91,8 @@ without one:
 </dict>
 ```
 
+<!-- feature:locale-ar:start -->
+
 Declare the two languages the screens ship in:
 
 ```xml
@@ -100,6 +102,8 @@ Declare the two languages the screens ship in:
   <string>ar</string>
 </array>
 ```
+
+<!-- feature:locale-ar:end -->
 
 The template already sets `NSAllowsLocalNetworking` under
 `NSAppTransportSecurity`. Keep it. The development build talks to

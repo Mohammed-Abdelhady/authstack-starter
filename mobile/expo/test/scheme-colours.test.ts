@@ -24,6 +24,13 @@ const EXPECTED = {
   dark: { colors: PALETTE.dark, text: '#E4EDE9', background: '#0C1412', bar: 'light-content' },
 } as const;
 
+/** The screen is painted in the last language the app ships, with the direction it reads in. */
+const SHIPPED = [
+  { locale: 'en', direction: 'ltr' },
+  { locale: 'ar', direction: 'rtl' }, // feature:locale-ar
+] as const;
+const SHOWN = SHIPPED[SHIPPED.length - 1];
+
 const SCHEMES = [
   ['light', 'light'],
   ['dark', 'dark'],
@@ -74,7 +81,11 @@ describe.each(SCHEMES)(
       return paint(
         native,
         reported,
-        createElement(DebugScreen, { auth: shell.auth, locale: 'ar', onClose: () => undefined }),
+        createElement(DebugScreen, {
+          auth: shell.auth,
+          locale: SHOWN.locale,
+          onClose: () => undefined,
+        }),
       );
     };
 
@@ -103,10 +114,10 @@ describe.each(SCHEMES)(
       ]);
     });
 
-    it('keeps every line reading right to left in Arabic', () => {
+    it('keeps every line reading in the direction of its language', () => {
       const directions = ofKind(painted(), 'Text').map((line) => line.style.writingDirection);
 
-      expect(directions).toEqual(Array(8).fill('rtl'));
+      expect(directions).toEqual(Array(8).fill(SHOWN.direction));
     });
   },
 );
