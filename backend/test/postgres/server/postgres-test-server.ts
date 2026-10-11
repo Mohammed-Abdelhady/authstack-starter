@@ -2,14 +2,24 @@ import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 
-/** Jest hook budget for creating a cluster and starting its server under load. */
-export const POSTGRES_BOOT_TIMEOUT_MS = 120000;
+/**
+ * Jest hook budget for creating a cluster, starting its server and applying
+ * every migration. The slowest boot measured took 32 seconds, with eleven
+ * suites starting servers at once.
+ */
+export const POSTGRES_BOOT_TIMEOUT_MS = 60000;
 
-/** Jest hook budget for stopping the server and removing its data. */
-export const POSTGRES_TEARDOWN_TIMEOUT_MS = 60000;
+/**
+ * Jest hook budget for stopping the server and removing its data. The slowest
+ * teardown measured took 15 seconds.
+ */
+export const POSTGRES_TEARDOWN_TIMEOUT_MS = 30000;
 
-/** Jest hook budget for emptying every table and seeding a case's first rows under load. */
-export const POSTGRES_RESET_TIMEOUT_MS = 10000;
+/**
+ * Jest hook budget for emptying every table and seeding a case's first rows.
+ * Jest's own default: the slowest reset measured took 0.4 seconds.
+ */
+export const POSTGRES_RESET_TIMEOUT_MS = 5000;
 
 const LAUNCHER = join(__dirname, 'postgres-server.mjs');
 const HOST = '127.0.0.1';
