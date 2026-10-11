@@ -11,6 +11,10 @@ import {
   SQLSTATE,
   sqlStateOf,
 } from '../../utils/sql-state.util';
+import {
+  DRIVER_TIMEOUT_MESSAGES,
+  DRIVER_UNAVAILABLE_MESSAGES,
+} from './postgres-driver-failures';
 import { ROLE_CONSTRAINT } from '../../../role/stores/role-records';
 import { ISSUANCE_CONSTRAINT } from '../../../session/issuance/browser-issuance.store';
 
@@ -95,10 +99,28 @@ export function mapPostgresError(error: unknown): unknown {
     return mapSqlState(state, error);
   }
   const socketCode = failureText(error, 'code');
-  if (socketCode !== undefined && TIMEOUT_SOCKET_CODES.has(socketCode)) {
+  if (socketCode === undefined) {
+    return mapCodelessFailure(error);
+  }
+  if (TIMEOUT_SOCKET_CODES.has(socketCode)) {
     return new PersistenceTimeoutError(error);
   }
-  if (socketCode !== undefined && UNAVAILABLE_SOCKET_CODES.has(socketCode)) {
+  if (UNAVAILABLE_SOCKET_CODES.has(socketCode)) {
+    return new PersistenceUnavailableError(error);
+  }
+  return error;
+}
+
+/** The driver's own failures, which carry a message and nothing else. */
+function mapCodelessFailure(error: object): unknown {
+  const message = failureText(error, 'message');
+  if (message === undefined) {
+    return error;
+  }
+  if (DRIVER_TIMEOUT_MESSAGES.has(message)) {
+    return new PersistenceTimeoutError(error);
+  }
+  if (DRIVER_UNAVAILABLE_MESSAGES.has(message)) {
     return new PersistenceUnavailableError(error);
   }
   return error;
