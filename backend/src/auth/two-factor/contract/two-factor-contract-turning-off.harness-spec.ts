@@ -119,6 +119,7 @@ export function turningOffCases(
 
     const replaced = await settings.regenerateRecoveryCodes(ownerId, {
       code: codeAt(harness().clock, TOTP_SECRET),
+      password: PASSWORD,
     });
 
     const codes = replaced.data.recoveryCodes;
@@ -147,6 +148,7 @@ export function turningOffCases(
       await refusalOf(
         settings.regenerateRecoveryCodes(ownerId, {
           code: wrongCode(harness().clock, TOTP_SECRET),
+          password: PASSWORD,
         }),
       ),
     ).toEqual(CODE_INVALID);
