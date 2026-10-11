@@ -286,12 +286,6 @@
       }
     }
   },
-  "welcome": {
-    "title": "مرحباً بك، {name}!",
-    "subtitle": "تم تفعيل حسابك بنجاح",
-    "message": "شكراً لانضمامك إلينا. نحن سعداء بوجودك معنا!",
-    "cta": "ابدأ الآن"
-  },
   "toast": {
     "success": {
       "loginSuccess": "مرحباً بعودتك!",
@@ -816,10 +810,15 @@
       "editDescription": "تحديث تفاصيل الدور والصلاحيات. ستُطبق التغييرات على جميع المستخدمين الذين لديهم هذا الدور.",
       "nameLabel": "اسم الدور",
       "nameRequired": "*",
-      "namePlaceholder": "مثال: محرر المحتوى",
+      "namePlaceholder": "مثال: Content Editor",
       "nameError": "اسم الدور مطلوب",
+      "nameHint": "أحرف لاتينية وأرقام ومسافات وشرطات. من {min} إلى {max} حرفًا.",
+      "nameCharacters": "استخدم الأحرف اللاتينية والأرقام والمسافات والشرطات فقط",
+      "nameTooShort": "الاسم قصير جدًا. الحد الأدنى {min} من الأحرف",
+      "nameTooLong": "الاسم طويل جدًا. الحد الأقصى {max} حرفًا",
       "descriptionLabel": "الوصف",
       "descriptionPlaceholder": "وصف موجز لما يمكن لهذا الدور فعله",
+      "descriptionTooLong": "الوصف طويل جدًا. الحد الأقصى {max} حرف",
       "permissionsLabel": "الصلاحيات",
       "permissionsRequired": "*",
       "permissionsError": "مطلوب صلاحية واحدة على الأقل",
@@ -939,7 +938,7 @@
       "inheritedAndDirect": "{inherited} موروثة + {direct} مباشرة",
       "wildcardTitle": "صلاحية شاملة (*):",
       "wildcardDescription": "هذا المستخدم لديه جميع الصلاحيات.",
-      "inheritedFromRole": "موروثة من الدور (⁦{role}⁩)",
+      "inheritedFromRole": "موروثة من الدور ⁦({role})⁩",
       "noInheritedPermissions": "لا توجد صلاحيات موروثة من الدور",
       "directPermissions": "الصلاحيات المباشرة ({count})",
       "addPermissions": "إضافة صلاحيات",
@@ -952,8 +951,11 @@
       "removeError": "فشل في إزالة الصلاحية"
     },
     "userRole": {
-      "protected": "محمي",
-      "selectorLabel": "الدور: ⁨{role}⁩",
+      "selectorLabel": "الدور: {role}",
+      "refusal": {
+        "admin": "لا يمكن تعيينه",
+        "level": "في مستوى دورك أو أعلى منه"
+      },
       "changeTitle": "تغيير دور المستخدم؟",
       "thisUser": "هذا المستخدم",
       "changeDescription": "أنت على وشك تغيير دور <strong>{name}</strong> من <strong>{from}</strong> إلى <strong>{to}</strong>.",
@@ -961,7 +963,6 @@
       "cancel": "إلغاء",
       "changing": "جارٍ التغيير...",
       "changeRole": "تغيير الدور",
-      "cannotAssignProtected": "لا يمكن تعيين أدوار المشرف المحمية",
       "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩",
       "changeError": "فشل في تغيير دور المستخدم"
     },

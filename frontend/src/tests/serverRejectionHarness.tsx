@@ -13,6 +13,7 @@ import { baseApi } from '@/store/api/baseApi';
 import { clearBrowserProof, rememberBrowserProof } from '@/store/api/browser-proof';
 import { errorInterceptor } from '@/store/middleware/errorInterceptor';
 import authReducer from '@/modules/auth/store/authSlice';
+import { loseFocusWhenDisabled } from './busyControls';
 
 /** Text the server sends. It is English only and must never reach the page. */
 export const SERVER_TEXT = 'server says this value is wrong';
@@ -165,6 +166,7 @@ function describeFailure(kind: string, reason: unknown): string {
 export function registerFormTestLifecycle() {
   const unhandled: string[] = [];
   const expectedLogs: RegExp[] = [];
+  let keepFocusRule = () => {};
   const onRejection = (reason: unknown) => {
     unhandled.push(describeFailure('unhandled rejection', reason));
   };
@@ -184,9 +186,11 @@ export function registerFormTestLifecycle() {
     window.addEventListener('error', onWindowError);
     vi.spyOn(console, 'error').mockImplementation(onConsoleError);
     rememberBrowserProof('session-proof', 'session');
+    keepFocusRule = loseFocusWhenDisabled();
   });
 
   afterEach(async () => {
+    keepFocusRule();
     cleanup();
     // A rejection is reported as unhandled once the pending work has run.
     await new Promise<void>((resolve) => setTimeout(resolve, 0));

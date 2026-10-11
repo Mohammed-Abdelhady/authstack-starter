@@ -100,7 +100,7 @@ export function ActivationForm() {
               label={t('email')}
               placeholder={t('emailPlaceholder')}
               autoComplete="username"
-              disabled={isLoading || isResending}
+              busy={isLoading || isResending}
               data-testid="activate-email-input"
               readOnly={Boolean(emailInMemory)}
               className={emailInMemory ? 'bg-muted' : undefined}
@@ -117,7 +117,7 @@ export function ActivationForm() {
               label={t('code')}
               placeholder={t('codePlaceholder')}
               autoComplete="one-time-code"
-              disabled={isLoading || isResending}
+              busy={isLoading || isResending}
               maxLength={VERIFICATION_CODE_LENGTH}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus={Boolean(emailInMemory)}
@@ -131,7 +131,7 @@ export function ActivationForm() {
               label={t('name')}
               placeholder={t('namePlaceholder')}
               autoComplete="name"
-              disabled={isLoading || isResending}
+              busy={isLoading || isResending}
             />
             <FormPassword
               name="password"
@@ -139,7 +139,7 @@ export function ActivationForm() {
               label={t('password')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading || isResending}
+              busy={isLoading || isResending}
               className={FORM_STYLES.authField}
             />
             <PasswordRules name="password" className="mt-3" />
@@ -149,7 +149,7 @@ export function ActivationForm() {
               label={t('confirmPassword')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading || isResending}
+              busy={isLoading || isResending}
               className={FORM_STYLES.authField}
             />
 
@@ -166,7 +166,7 @@ export function ActivationForm() {
             <Button
               type="button"
               onClick={handleResend}
-              disabled={isResendDisabled}
+              busy={isResendDisabled}
               variant="ghost"
               className="mt-4 w-full flex items-center justify-center gap-2"
               data-testid="resend-button"

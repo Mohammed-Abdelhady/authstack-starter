@@ -20,7 +20,8 @@ const ISOLATED_ARGUMENTS = [
   ['roles.form.updateSuccess', `${FIRST_STRONG}{name}${POP}`],
   ['permissions.dialog.descriptionWithUser', `${FIRST_STRONG}{name}${POP}`],
   ['permissions.userRole.changeSuccess', `${FIRST_STRONG}{role}${POP}`],
-  ['permissions.dialog.inheritedFromRole', `${LEFT_TO_RIGHT}{role}${POP}`],
+  // The brackets sit inside the isolate, so a slug that wraps keeps them on its own ends.
+  ['permissions.dialog.inheritedFromRole', `${LEFT_TO_RIGHT}({role})${POP}`],
 ] as const;
 
 describe.each([

@@ -4,6 +4,7 @@ import { Heading } from '@/components/design-system';
 import { useState, useMemo, useCallback, memo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/ui/alert';
+import { busyPressProps } from '@/components/ui/busy';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,9 +32,10 @@ export interface PermissionSelectorProps {
   onChange: (permissions: string[]) => void;
 
   /**
-   * Whether the selector is disabled
+   * The request of the form around it is running: its controls keep focus and
+   * cannot be changed.
    */
-  disabled?: boolean;
+  busy?: boolean;
 
   /**
    * Whether to show the wildcard permission option
@@ -64,14 +66,14 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
 export const PermissionSelector = memo(function PermissionSelector({
   selectedPermissions,
   onChange,
-  disabled = false,
+  busy = false,
   showWildcard = true,
 }: PermissionSelectorProps) {
   const t = useTranslations('permissions.selector');
   const [activeTab, setActiveTab] = useState('all');
   const handleTogglePermission = useCallback(
     (permission: string) => {
-      if (disabled) return;
+      if (busy) return;
 
       const isSelected = selectedPermissions.includes(permission);
 
@@ -81,11 +83,11 @@ export const PermissionSelector = memo(function PermissionSelector({
         onChange([...selectedPermissions, permission]);
       }
     },
-    [disabled, selectedPermissions, onChange],
+    [busy, selectedPermissions, onChange],
   );
 
   const handleToggleWildcard = useCallback(() => {
-    if (disabled) return;
+    if (busy) return;
 
     const hasWildcard = selectedPermissions.includes(WILDCARD_PERMISSION);
 
@@ -94,11 +96,11 @@ export const PermissionSelector = memo(function PermissionSelector({
     } else {
       onChange([WILDCARD_PERMISSION]);
     }
-  }, [disabled, selectedPermissions, onChange]);
+  }, [busy, selectedPermissions, onChange]);
 
   const handleSelectAll = useCallback(
     (groupPermissions: Record<string, string>) => {
-      if (disabled) return;
+      if (busy) return;
 
       const groupPerms = Object.values(groupPermissions);
       const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
@@ -115,7 +117,7 @@ export const PermissionSelector = memo(function PermissionSelector({
         onChange(newPermissions);
       }
     },
-    [disabled, selectedPermissions, onChange],
+    [busy, selectedPermissions, onChange],
   );
 
   const hasWildcard = selectedPermissions.includes(WILDCARD_PERMISSION);
@@ -139,7 +141,7 @@ export const PermissionSelector = memo(function PermissionSelector({
               id="wildcard-permission"
               checked={hasWildcard}
               onCheckedChange={handleToggleWildcard}
-              disabled={disabled}
+              busy={busy}
               data-testid="wildcard-permission-checkbox"
             />
             <div className="flex-1">
@@ -201,9 +203,8 @@ export const PermissionSelector = memo(function PermissionSelector({
                     </Heading>
                     <button
                       type="button"
-                      onClick={() => handleSelectAll(group.permissions)}
-                      disabled={disabled}
-                      className="text-xs text-primary hover:underline disabled:opacity-50"
+                      {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
+                      className="text-xs text-primary hover:underline aria-disabled:opacity-50"
                       data-testid={`permission-group-select-all-${group.id}`}
                     >
                       {allSelected ? t('deselectAll') : t('selectAll')}
@@ -214,7 +215,7 @@ export const PermissionSelector = memo(function PermissionSelector({
                     permissions={group.permissions}
                     selectedPermissions={selectedPermissions}
                     onTogglePermission={handleTogglePermission}
-                    disabled={disabled}
+                    busy={busy}
                   />
                 </div>
               );
@@ -234,9 +235,8 @@ export const PermissionSelector = memo(function PermissionSelector({
                   </p>
                   <button
                     type="button"
-                    onClick={() => handleSelectAll(group.permissions)}
-                    disabled={disabled}
-                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                    {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
+                    className="text-xs text-primary hover:underline aria-disabled:opacity-50"
                     data-testid={`permission-group-select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}
@@ -247,7 +247,7 @@ export const PermissionSelector = memo(function PermissionSelector({
                   permissions={group.permissions}
                   selectedPermissions={selectedPermissions}
                   onTogglePermission={handleTogglePermission}
-                  disabled={disabled}
+                  busy={busy}
                   prefix={group.id}
                 />
               </TabsContent>

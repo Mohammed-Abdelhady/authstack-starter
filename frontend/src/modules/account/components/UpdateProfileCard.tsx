@@ -99,7 +99,7 @@ export function UpdateProfileCard() {
               name="name"
               label={t('name')}
               placeholder={t('namePlaceholder')}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="profile-name-input"
             />
 

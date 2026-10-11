@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { RefreshCw, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,8 @@ export function TwoFactorCard() {
     hasRetried,
   } = useAuthMethods();
   const [dialog, setDialog] = useState<'setup' | 'disable' | 'regenerate' | null>(null);
+  // Takes focus once two-step verification is off: the button that turned it off is gone.
+  const titleRef = useRef<HTMLParagraphElement>(null);
 
   if (isLoadingUser || isLoadingMethods) {
     return <Skeleton className="h-48 w-full" data-testid="two-factor-card-loading" />;
@@ -63,7 +65,9 @@ export function TwoFactorCard() {
     <Card data-testid="two-factor-card">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>{t('title')}</CardTitle>
+          <CardTitle ref={titleRef} tabIndex={-1}>
+            {t('title')}
+          </CardTitle>
           <Badge
             variant={isEnabled ? 'success' : 'secondary'}
             data-testid="two-factor-status-badge"
@@ -120,6 +124,7 @@ export function TwoFactorCard() {
         open={dialog === 'disable'}
         onOpenChange={(open) => setDialog(open ? 'disable' : null)}
         hasPassword={hasPassword}
+        landing={titleRef}
       />
       <RegenerateCodesDialog
         open={dialog === 'regenerate'}

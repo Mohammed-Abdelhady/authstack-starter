@@ -27,7 +27,7 @@ export function SearchPermissionGrid({
             id={`permission-${permission}`}
             checked={selectedPermissions.includes(permission)}
             onCheckedChange={() => onTogglePermission(permission)}
-            disabled={isLoading}
+            busy={isLoading}
             data-testid={`permission-checkbox-${permission}`}
           />
           <div className="flex-1">

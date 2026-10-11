@@ -5,26 +5,24 @@ const ACTIVATION_KEYS: ReadonlySet<string> = new Set(['Enter', ' ']);
 const GUARDED_EVENTS = ['keydown', 'keypress', 'keyup'] as const;
 
 /**
- * Swallows every further event of `key` until the key comes up. Returns the
- * function that ends the guard early.
+ * Swallows every further event of `key` until the key comes up. A keydown of
+ * the same key before its keyup is a repeat, whether or not the keyboard says
+ * so. The window losing focus ends it too, because the keyup may then go
+ * somewhere this page cannot see. Returns the function that ends the guard early.
  */
 function swallowUntilReleased(key: string): () => void {
   const stop = () => {
     for (const type of GUARDED_EVENTS) document.removeEventListener(type, swallow, true);
+    window.removeEventListener('blur', stop);
   };
   function swallow(event: KeyboardEvent) {
     if (event.key !== key) return;
-    // A fresh press means the release happened where this page could not see it,
-    // for example in another window.
-    if (event.type === 'keydown' && !event.repeat) {
-      stop();
-      return;
-    }
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type === 'keyup') stop();
   }
   for (const type of GUARDED_EVENTS) document.addEventListener(type, swallow, true);
+  window.addEventListener('blur', stop);
   return stop;
 }
 

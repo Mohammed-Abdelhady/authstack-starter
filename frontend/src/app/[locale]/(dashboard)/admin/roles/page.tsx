@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, Activity } from 'react';
+import { useState, useMemo, useCallback, useRef, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -29,6 +29,8 @@ export default function RolesPage() {
   const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
+  // Takes focus once a role is deleted: its delete button then stands for another role.
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const { data, currentData, isLoading, isFetching, isError, error, refetch } = useListRolesQuery({
     page,
@@ -79,7 +81,7 @@ export default function RolesPage() {
         <div className="my-8">
           <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
             <div>
-              <Heading level={1} variant="pageTitle">
+              <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
                 {t('title')}
               </Heading>
               <Description className="mt-1">{t('count', { count: totalCount })}</Description>
@@ -205,6 +207,7 @@ export default function RolesPage() {
           onDeleteOpenChange={setDeleteDialogOpen}
           roleToEdit={roleToEdit}
           onSuccess={handleSuccess}
+          deleteLanding={titleRef}
         />
       </div>
     </RoutePermissionGuard>

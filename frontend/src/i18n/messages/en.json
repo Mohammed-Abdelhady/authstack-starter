@@ -286,12 +286,6 @@
       }
     }
   },
-  "welcome": {
-    "title": "Welcome aboard, {name}!",
-    "subtitle": "Your account is now active",
-    "message": "Thank you for joining us. We're excited to have you on board!",
-    "cta": "Get Started"
-  },
   "toast": {
     "success": {
       "loginSuccess": "Welcome back!",
@@ -818,8 +812,13 @@
       "nameRequired": "*",
       "namePlaceholder": "e.g., Content Editor",
       "nameError": "Role name is required",
+      "nameHint": "Latin letters, digits, spaces and hyphens. {min} to {max} characters.",
+      "nameCharacters": "Use Latin letters, digits, spaces and hyphens only",
+      "nameTooShort": "Use at least {min} characters",
+      "nameTooLong": "Use at most {max} characters",
       "descriptionLabel": "Description",
       "descriptionPlaceholder": "Brief description of what this role can do",
+      "descriptionTooLong": "Use at most {max} characters",
       "permissionsLabel": "Permissions",
       "permissionsRequired": "*",
       "permissionsError": "At least one permission is required",
@@ -939,7 +938,7 @@
       "inheritedAndDirect": "{inherited} inherited + {direct} direct",
       "wildcardTitle": "Wildcard Permission (*):",
       "wildcardDescription": "This user has all permissions.",
-      "inheritedFromRole": "Inherited from Role (⁦{role}⁩)",
+      "inheritedFromRole": "Inherited from Role ⁦({role})⁩",
       "noInheritedPermissions": "No permissions inherited from role",
       "directPermissions": "Direct Permissions ({count})",
       "addPermissions": "Add Permissions",
@@ -952,8 +951,11 @@
       "removeError": "Failed to remove permission"
     },
     "userRole": {
-      "protected": "Protected",
-      "selectorLabel": "Role: ⁨{role}⁩",
+      "selectorLabel": "Role: {role}",
+      "refusal": {
+        "admin": "Cannot be assigned",
+        "level": "At or above your role"
+      },
       "changeTitle": "Change User Role?",
       "thisUser": "this user",
       "changeDescription": "You are about to change <strong>{name}</strong>'s role from <strong>{from}</strong> to <strong>{to}</strong>.",
@@ -961,7 +963,6 @@
       "cancel": "Cancel",
       "changing": "Changing...",
       "changeRole": "Change Role",
-      "cannotAssignProtected": "Cannot assign protected admin roles",
       "changeSuccess": "User role changed to ⁨{role}⁩",
       "changeError": "Failed to change user role"
     },

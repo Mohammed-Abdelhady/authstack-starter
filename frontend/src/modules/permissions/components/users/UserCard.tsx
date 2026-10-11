@@ -171,7 +171,8 @@ export const UserCard = memo(
               <UserActionsMenu
                 user={user}
                 onManagePermissions={handleManageClick}
-                disabled={isAdminRole || isUpdatingRole}
+                disabled={isAdminRole}
+                busy={isUpdatingRole}
               />
             </PermissionGuard>
           </div>

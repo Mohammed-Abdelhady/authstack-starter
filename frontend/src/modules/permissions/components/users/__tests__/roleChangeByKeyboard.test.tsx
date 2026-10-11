@@ -95,6 +95,26 @@ describe.each([
     },
   );
 
+  it.each(['Enter', ' '] as const)(
+    'keeps the confirmation while "%s" is held down by a keyboard that does not mark its repeats',
+    async (key) => {
+      const { onRoleChange, heard } = await focusEditorOption(locale);
+      const stroke = keystroke(key);
+
+      stroke.down();
+      stroke.press();
+      await settledConfirmation(CONFIRM_DIALOG);
+      stroke.unmarkedRepeat();
+      stroke.unmarkedRepeat();
+      stroke.unmarkedRepeat();
+      stroke.up();
+
+      expect(confirmationNow()).toEqual(OPEN_ON_CANCEL);
+      expect(onRoleChange).not.toHaveBeenCalled();
+      expect(heard).toEqual(['keydown']);
+    },
+  );
+
   it('lets the page hear nothing more of the keystroke that chose the role', async () => {
     const { heard } = await focusEditorOption(locale);
     const stroke = keystroke('Enter');
@@ -150,16 +170,30 @@ describe.each([
     });
   });
 
-  it('obeys a new press when the release of the first was never seen', async () => {
+  it('obeys a new press when the window lost focus before the first was released', async () => {
     await focusEditorOption(locale);
     keystroke('Enter').down();
     await settledConfirmation(CONFIRM_DIALOG);
 
+    fireEvent.blur(window);
     pressKey('Enter');
 
     await waitFor(() => {
       expect(screen.queryByTestId(CONFIRM_DIALOG)).toBeNull();
     });
+  });
+
+  it('goes on holding the key back when focus only moves inside the page', async () => {
+    await focusEditorOption(locale);
+    const stroke = keystroke('Enter');
+    stroke.down();
+    await settledConfirmation(CONFIRM_DIALOG);
+
+    fireEvent.blur(screen.getByTestId('cancel-role-change-button'));
+    stroke.unmarkedRepeat();
+    stroke.up();
+
+    expect(confirmationNow()).toEqual(OPEN_ON_CANCEL);
   });
 
   it('stops holding the key back once the selector has left the page', async () => {

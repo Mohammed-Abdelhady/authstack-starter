@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
-                disabled={isLoading || isFetching}
+                busy={isLoading || isFetching}
                 aria-busy={isLoading || isFetching}
                 data-testid="refresh-users-button"
               >

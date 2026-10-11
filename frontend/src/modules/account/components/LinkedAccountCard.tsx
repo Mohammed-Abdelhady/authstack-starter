@@ -2,6 +2,7 @@
 
 import { Description, Heading } from '@/components/design-system';
 import { useId, useState } from 'react';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
@@ -43,6 +44,8 @@ interface LinkedAccountCardProps {
   /** On the email row: whether the address can sign in now. Without one, it is shown as connected. */
   emailSignIn?: EmailSignInHint;
   onChange?: () => void;
+  /** The heading that takes focus once this account is unlinked and its card is gone. */
+  landing?: RemovalLanding;
 }
 
 /**
@@ -57,6 +60,7 @@ export function LinkedAccountCard({
   primaryHint,
   emailSignIn,
   onChange,
+  landing,
 }: LinkedAccountCardProps) {
   const t = useTranslations('settings.accounts');
   const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
@@ -74,11 +78,13 @@ export function LinkedAccountCard({
 
   // Unlinking and choosing a primary change the same list, so they share one gate.
   const exclusive = useSharedSingleFlight();
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
 
   const unlink = async () => {
     try {
       await unlinkProvider(providerId).unwrap();
       toast.success(t('unlinkSuccess', { provider: displayName }));
+      noteRemoved();
       onChange?.();
       setShowUnlinkDialog(false);
     } catch (error) {
@@ -150,7 +156,8 @@ export function LinkedAccountCard({
                     variant="outline"
                     size="sm"
                     onClick={handleSetPrimary}
-                    disabled={isSettingPrimary || isUnlinking}
+                    busy={isSettingPrimary || isUnlinking}
+                    aria-busy={isSettingPrimary}
                     className="w-full whitespace-nowrap lg:w-auto"
                     data-testid={`set-primary-${providerId}`}
                   >
@@ -173,9 +180,10 @@ export function LinkedAccountCard({
                     variant="destructive"
                     size="sm"
                     onClick={openUnlinkDialog}
-                    disabled={isUnlinking || isSettingPrimary}
                     // Focusable while blocked, so the reason is read out with it.
                     aria-disabled={isUnlinkBlocked || undefined}
+                    busy={isUnlinking || isSettingPrimary}
+                    aria-busy={isUnlinking}
                     aria-describedby={isUnlinkBlocked ? unlinkBlockedId : undefined}
                     className="w-full whitespace-nowrap lg:w-auto"
                     data-testid={`unlink-${providerId}`}
@@ -210,7 +218,7 @@ export function LinkedAccountCard({
       </Card>
 
       <AlertDialog open={showUnlinkDialog} onOpenChange={setShowUnlinkDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={focusLanding}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('unlinkConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -218,11 +226,17 @@ export function LinkedAccountCard({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid={`unlink-cancel-${providerId}`}>
+            <AlertDialogCancel busy={isUnlinking} data-testid={`unlink-cancel-${providerId}`}>
               {t('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleUnlink}
+              onClick={(event) => {
+                // Stays open until the answer arrives, so focus has one place to go.
+                event.preventDefault();
+                void handleUnlink();
+              }}
+              busy={isUnlinking}
+              aria-busy={isUnlinking}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid={`unlink-confirm-${providerId}`}
             >

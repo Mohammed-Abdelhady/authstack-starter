@@ -144,7 +144,7 @@ function EditUserForm({
             setName(e.target.value);
             if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
           }}
-          disabled={isLoading}
+          busy={isLoading}
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? errorId('name') : undefined}
           className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
@@ -175,7 +175,7 @@ function EditUserForm({
             setEmail(e.target.value);
             if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
           }}
-          disabled={isLoading}
+          busy={isLoading}
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? errorId('email') : undefined}
           className={errors.email ? 'border-destructive' : ''}
@@ -193,14 +193,14 @@ function EditUserForm({
           type="button"
           variant="ghost"
           onClick={onClose}
-          disabled={isLoading}
+          busy={isLoading}
           data-testid="cancel-edit-user-button"
         >
           {t('cancel')}
         </Button>
         <Button
           type="submit"
-          disabled={isLoading}
+          busy={isLoading}
           aria-busy={isLoading}
           data-testid="submit-edit-user-button"
         >
@@ -249,7 +249,7 @@ export function EditUserDialog({
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
-  const refusalToast = useRefusalToast();
+  const refusalToast = useRefusalToast(open);
 
   const handleSubmit = async (
     data: EditUserFormValues,

@@ -3,6 +3,7 @@
 import { lazy, Suspense, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { LoadingRegion } from '@/components/layout/LoadingRegion';
+import type { RemovalLanding } from '@/hooks/useRemovalFocus';
 import type { Role } from '@/modules/roles/types';
 
 const CreateRoleDialog = lazy(() =>
@@ -32,6 +33,8 @@ export interface RoleDialogsProps {
   onDeleteOpenChange: (open: boolean) => void;
   roleToEdit: Role | null;
   onSuccess: () => void;
+  /** The heading that takes focus once a role is deleted. */
+  deleteLanding?: RemovalLanding;
 }
 
 export function RoleDialogs({
@@ -43,6 +46,7 @@ export function RoleDialogs({
   onDeleteOpenChange,
   roleToEdit,
   onSuccess,
+  deleteLanding,
 }: RoleDialogsProps) {
   const tCommon = useTranslations('common');
 
@@ -96,6 +100,7 @@ export function RoleDialogs({
             onOpenChange={onDeleteOpenChange}
             role={roleToEdit}
             onSuccess={onSuccess}
+            landing={deleteLanding}
           />
         </Suspense>
       </Activity>

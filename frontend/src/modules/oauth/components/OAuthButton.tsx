@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
 import { cn } from '@/lib/utils';
+import { busyPressProps } from '@/components/ui/busy';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getProviderMeta } from '../constants';
 import { currentRedirectPath, startOAuthFlow } from '../utils';
@@ -41,14 +42,14 @@ export function OAuthButton({ provider, redirect, disabled = false }: OAuthButto
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={handleClick}
-            disabled={isBusy}
+            disabled={disabled}
             aria-busy={isRedirecting}
+            {...busyPressProps(isRedirecting, handleClick)}
             className={cn(
               'group relative inline-flex h-14 w-14 items-center justify-center rounded-full',
               'transition-all duration-200 ease-in-out',
               FOCUS_RING_CLASSES,
-              'disabled:pointer-events-none',
+              'disabled:pointer-events-none aria-disabled:pointer-events-none',
               buttonClassName,
               isBusy ? 'cursor-not-allowed opacity-50' : `cursor-pointer ${hoverClassName}`,
             )}

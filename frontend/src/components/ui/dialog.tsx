@@ -36,21 +36,20 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
+>(({ className, children, onCloseAutoFocus, ...props }, ref) => {
   const t = useTranslations('common');
-  const { rememberOpener, returnToOpener } = useOpenerFocus(onOpenAutoFocus, onCloseAutoFocus);
+  const { contentRef, returnToOpener } = useOpenerFocus(ref, onCloseAutoFocus);
 
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
-        ref={ref}
+        ref={contentRef}
         className={cn(
           'fixed start-1/2 top-1/2 z-50 grid w-full max-w-lg grid-cols-[minmax(0,1fr)] ltr:-translate-x-1/2 rtl:translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 ltr:data-[state=closed]:slide-out-to-left-1/2 ltr:data-[state=open]:slide-in-from-left-1/2 rtl:data-[state=closed]:slide-out-to-right-1/2 rtl:data-[state=open]:slide-in-from-right-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
           className,
         )}
         {...props}
-        onOpenAutoFocus={rememberOpener}
         onCloseAutoFocus={returnToOpener}
       >
         {children}

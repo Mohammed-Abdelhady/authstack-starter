@@ -181,9 +181,11 @@ export const usersApi = baseApi.injectEndpoints({
         const { id, ...rest } = response.data;
         return { ...rest, _id: id };
       },
+      // The permissions read of a user carries the role and what it grants.
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ userId }: UpdateUserRoleRequest) => [
         { type: 'User', id: userId },
         { type: 'User', id: 'LIST' },
+        { type: 'Permissions', id: userId },
       ]),
     }),
 

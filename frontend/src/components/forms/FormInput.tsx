@@ -2,13 +2,13 @@
 
 import * as React from 'react';
 import { type FieldPath, type FieldValues } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
+import { Input, type InputProps } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getInputClassName } from '@/lib/config/form-styles';
 import { BaseFormField } from './BaseFormField';
 
 export interface FormInputProps<TFieldValues extends FieldValues = FieldValues> extends Omit<
-  React.ComponentProps<'input'>,
+  InputProps,
   'name'
 > {
   name: FieldPath<TFieldValues>;

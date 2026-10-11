@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { change, navigation, SIGNED_IN_USER } from './registrationHarness';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
@@ -17,7 +18,7 @@ beforeEach(() => {
 function sender(formId: string, firstField: string) {
   return {
     send: () => fireEvent.submit(screen.getByTestId(formId)),
-    isIdle: () => !screen.getByTestId(firstField).hasAttribute('disabled'),
+    isIdle: () => !isHeld(screen.getByTestId(firstField)),
   };
 }
 
@@ -46,7 +47,6 @@ describe('the toast of a refused password form is gone when the form is sent aga
     };
     const { send, isIdle } = sender('reset-password-form', 'reset-password-code-input');
 
-    // A refused reset empties the code, so it is typed again each time.
     await sendRefusedThenAgain(() => {
       fill();
       send();
@@ -70,7 +70,7 @@ describe('the toast of a refused password form is gone when the form is sent aga
         fill();
         fireEvent.submit(screen.getByTestId('change-password-form'));
       },
-      () => !field('currentPassword').hasAttribute('disabled'),
+      () => !isHeld(field('currentPassword')),
     );
 
     await waitFor(() => expect(toastOrder()).toEqual(['error', 'dismiss', 'success']));

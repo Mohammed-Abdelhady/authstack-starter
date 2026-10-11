@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { isHeld } from '@/tests/busyControls';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { toast as sonnerToast } from 'sonner';
@@ -18,8 +19,8 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
 }));
 
-/** The client accepts a slash; the server's rule for a role name does not. */
-const REFUSED_NAME = '24/7 Support';
+/** A name the form accepts and the server in these tests still refuses. */
+const REFUSED_NAME = 'Reserved Name';
 const ACCEPTED_NAME = '24-7 Support';
 
 const ROLE: Role = {
@@ -29,6 +30,7 @@ const ROLE: Role = {
   description: 'Answers tickets',
   isSystemRole: false,
   isProtected: false,
+  level: 1,
   permissions: ['users:read:all'],
   createdAt: '2026-10-01T12:00:00.000Z',
   updatedAt: '2026-10-01T12:00:00.000Z',
@@ -121,7 +123,7 @@ describe.each([
       });
       expect(dismissalsAndSuccesses()).toEqual([]);
       await waitFor(() => {
-        expect(screen.getByTestId(formCase.nameField).hasAttribute('disabled')).toBe(false);
+        expect(isHeld(screen.getByTestId(formCase.nameField))).toBe(false);
       });
       submitName(ACCEPTED_NAME);
 

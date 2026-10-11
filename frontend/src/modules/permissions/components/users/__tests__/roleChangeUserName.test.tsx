@@ -8,16 +8,19 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { UserRoleSelector } from '../UserRoleSelector';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const ROLES = {
   roles: [
+    ADMIN_LISTED,
     {
       id: 'role-editor',
       slug: 'editor',
       name: 'Editor',
+      level: 1,
       permissions: [],
       isSystemRole: false,
       isProtected: false,
@@ -25,7 +28,7 @@ const ROLES = {
       updatedAt: '2026-10-01T12:00:00.000Z',
     },
   ],
-  total: 1,
+  total: 2,
   page: 1,
 };
 
@@ -35,6 +38,7 @@ async function confirmationFor(locale: AppLocale, userName?: string) {
   const form = await renderForm(
     locale,
     <UserRoleSelector userId="user-1" currentRole="user" userName={userName} />,
+    storeSignedInAs('admin'),
   );
   const trigger = screen.getByRole('combobox');
   await waitFor(() => {

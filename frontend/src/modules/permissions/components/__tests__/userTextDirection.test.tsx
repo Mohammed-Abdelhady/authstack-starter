@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Direction } from 'radix-ui';
@@ -38,6 +39,7 @@ function role(name: string, description: string): Role {
     description,
     isSystemRole: false,
     isProtected: false,
+    level: 1,
     permissions: ['users:read:all'],
     createdAt: '2026-10-01T12:00:00.000Z',
     updatedAt: '2026-10-01T12:00:00.000Z',
@@ -96,25 +98,31 @@ describe.each([
     });
 
     it('takes its own direction in the role selector of a user card', async () => {
-      stubNetwork(() => success({ roles: [role(name, description)], total: 1, page: 1 }));
+      stubNetwork(() =>
+        success({ roles: [ADMIN_LISTED, role(name, description)], total: 2, page: 1 }),
+      );
       // Radix reads the direction from its provider, as the locale layout sets it.
       await renderForm(
         locale,
         <Direction.DirectionProvider dir="rtl">
           <UserRoleSelector userId="user-1" currentRole="support-team" />
         </Direction.DirectionProvider>,
+        storeSignedInAs('admin'),
       );
 
       expect(valueAndLine(await screen.findByText(name))).toEqual(expected);
     });
 
     it('takes its own direction in the open role list and in the change confirmation', async () => {
-      stubNetwork(() => success({ roles: [role(name, description)], total: 1, page: 1 }));
+      stubNetwork(() =>
+        success({ roles: [ADMIN_LISTED, role(name, description)], total: 2, page: 1 }),
+      );
       await renderForm(
         locale,
         <Direction.DirectionProvider dir="rtl">
           <UserRoleSelector userId="user-1" currentRole="user" />
         </Direction.DirectionProvider>,
+        storeSignedInAs('admin'),
       );
       const trigger = screen.getByRole('combobox');
       await waitFor(() => {
@@ -133,12 +141,15 @@ describe.each([
     });
 
     it('takes its own direction in the role list of the create user dialog', async () => {
-      stubNetwork(() => success({ roles: [role(name, description)], total: 1, page: 1 }));
+      stubNetwork(() =>
+        success({ roles: [ADMIN_LISTED, role(name, description)], total: 2, page: 1 }),
+      );
       const { message } = await renderForm(
         locale,
         <Direction.DirectionProvider dir="rtl">
           <CreateUserDialog open onOpenChange={vi.fn()} />
         </Direction.DirectionProvider>,
+        storeSignedInAs('admin'),
       );
       const trigger = screen.getByRole('combobox', { name: message('users.createUser.role') });
       await waitFor(() => {

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { toast } from '@/lib/toast';
 
 export interface RefusalToast {
@@ -17,9 +17,19 @@ export interface RefusalToast {
  * on a field. The store raises that error toast and keeps no handle to it, so
  * every toast on screen is dismissed, and only when this form was refused
  * since it last cleared.
+ *
+ * @param isOpen - For a form in a dialog: whether the dialog is open. The
+ * toast of its refusal goes when the dialog closes, so it cannot show beside
+ * the refusal of the next dialog.
  */
-export function useRefusalToast(): RefusalToast {
+export function useRefusalToast(isOpen = true): RefusalToast {
   const refused = useRef(false);
+
+  useEffect(() => {
+    if (isOpen || !refused.current) return;
+    refused.current = false;
+    toast.dismissAll();
+  }, [isOpen]);
 
   return useMemo(
     () => ({

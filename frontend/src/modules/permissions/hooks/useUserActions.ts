@@ -15,7 +15,13 @@ export interface UseUserActionsReturn {
   /** Update user role */
   handleRoleChange: (userId: string, newRole: string) => Promise<void>;
   /** Activate or deactivate user */
-  handleStatusChange: (userId: string, isActive: boolean, userName: string) => Promise<boolean>;
+  /** Activate or deactivate user. `onRefused` receives what the request failed with. */
+  handleStatusChange: (
+    userId: string,
+    isActive: boolean,
+    userName: string,
+    onRefused?: (error: unknown) => void,
+  ) => Promise<boolean>;
   handleResendEmailChange: (userId: string) => Promise<void>;
   /** Whether any action is loading */
   isLoading: boolean;
@@ -76,7 +82,12 @@ export function useUserActions(): UseUserActionsReturn {
    * Returns true on success, false on failure.
    */
   const handleStatusChange = useCallback(
-    async (userId: string, isActive: boolean, userName: string): Promise<boolean> => {
+    async (
+      userId: string,
+      isActive: boolean,
+      userName: string,
+      onRefused?: (error: unknown) => void,
+    ): Promise<boolean> => {
       try {
         await updateStatus({ userId, isActive }).unwrap();
         toast.success(
@@ -86,6 +97,7 @@ export function useUserActions(): UseUserActionsReturn {
         );
         return true;
       } catch (error) {
+        onRefused?.(error);
         reportUnlessHandled(error);
         return false;
       }
