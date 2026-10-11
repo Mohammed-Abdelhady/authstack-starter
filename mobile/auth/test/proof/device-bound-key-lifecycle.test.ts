@@ -3,12 +3,14 @@ import { parseStoredRecord } from '../../src/storage/persistence';
 import { createAuthEngine } from '../support/engine';
 import {
   dpopTokenReply,
+  enqueueBoundRefresh,
   establishBoundSession,
   refreshRequests,
 } from '../support/device-bound-support';
 import { FIXED_PUBLIC_JWK, SoftwareDeviceKey } from '../support/software-device-key';
 import {
   CONFIG,
+  REFRESH_TOKEN,
   ScriptedTransport,
   acceptCode,
   successUserReply,
@@ -68,7 +70,12 @@ describe('device-bound key lifecycle', () => {
 
   it('requires sign-in when the key is invalidated between two refreshes', async () => {
     const { engine, ports, transport, deviceKey } = await establishBoundSession();
-    transport.enqueue(dpopTokenReply('access-1', 'refresh-1'), successUserReply());
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      dpopTokenReply('access-1', 'refresh-1'),
+      successUserReply(),
+    );
     ports.clock.advance(270_000);
     await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
     const sentBeforeFailure = refreshRequests(transport).length;
@@ -91,7 +98,12 @@ describe('device-bound key lifecycle', () => {
 
   it('refuses a valid but different key between two refreshes', async () => {
     const { engine, ports, transport, deviceKey } = await establishBoundSession();
-    transport.enqueue(dpopTokenReply('access-1', 'refresh-1'), successUserReply());
+    enqueueBoundRefresh(
+      transport,
+      REFRESH_TOKEN,
+      dpopTokenReply('access-1', 'refresh-1'),
+      successUserReply(),
+    );
     ports.clock.advance(270_000);
     await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
     deviceKey.publicKeyResult = {
@@ -104,7 +116,7 @@ describe('device-bound key lifecycle', () => {
       engine.transport.request({ method: 'GET', path: '/api/user/profile' }),
     ).rejects.toMatchObject({ reason: 'thumbprintMismatch' });
 
-    expect(refreshRequests(transport)).toHaveLength(1);
+    expect(refreshRequests(transport)).toHaveLength(2);
     expect(engine.snapshot).toMatchObject({
       status: 'reauthRequired',
       reason: 'deviceKeyInvalidated',
