@@ -107,6 +107,66 @@ describe.each([
     expect(requests).toEqual([]);
   });
 
+  it('keeps both messages when the form is submitted from the empty password field', async () => {
+    const { email, password, message, requests } = await renderBesideAnotherControl(locale);
+    const form = screen.getByTestId('login-form');
+    if (!(form instanceof HTMLFormElement)) throw new Error('the sign-in form is not a form');
+    // Enter in a field submits the form and leaves the focus where it was.
+    await moveFocus(email, password);
+
+    act(() => form.requestSubmit());
+
+    await waitFor(() => expect(document.activeElement).toBe(email));
+    await waitFor(() =>
+      expect(descriptions(password)).toEqual([message('auth.login.errors.passwordRequired')]),
+    );
+    expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]);
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(password.getAttribute('aria-invalid')).toBe('true');
+    expect(requests).toEqual([]);
+  });
+
+  it('keeps the password message when a wrong address was erased before the submit', async () => {
+    const { email, password, message } = await renderBesideAnotherControl(locale);
+    const form = screen.getByTestId('login-form');
+    if (!(form instanceof HTMLFormElement)) throw new Error('the sign-in form is not a form');
+    change('login-email-input', 'layla@');
+    await moveFocus(email, password);
+    await waitFor(() =>
+      expect(descriptions(email)).toEqual([message('auth.login.errors.emailInvalid')]),
+    );
+    change('login-email-input', '');
+
+    act(() => form.requestSubmit());
+
+    await waitFor(() => expect(document.activeElement).toBe(email));
+    await waitFor(() =>
+      expect(descriptions(password)).toEqual([message('auth.login.errors.passwordRequired')]),
+    );
+    expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]);
+  });
+
+  it('keeps the password message when a short password was erased before the submit', async () => {
+    const { email, password, message } = await renderBesideAnotherControl(locale);
+    const form = screen.getByTestId('login-form');
+    if (!(form instanceof HTMLFormElement)) throw new Error('the sign-in form is not a form');
+    change('login-password-input', 'abc');
+    await moveFocus(password, email);
+    await waitFor(() =>
+      expect(descriptions(password)).toEqual([message('auth.login.errors.passwordMinLength')]),
+    );
+    await moveFocus(email, password);
+    change('login-password-input', '');
+
+    act(() => form.requestSubmit());
+
+    await waitFor(() => expect(document.activeElement).toBe(email));
+    await waitFor(() =>
+      expect(descriptions(password)).toEqual([message('auth.login.errors.passwordRequired')]),
+    );
+    expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]);
+  });
+
   it('keeps the message of a submitted empty field when the focus moves on', async () => {
     const { email, message } = await renderBesideAnotherControl(locale);
     fireEvent.submit(screen.getByTestId('login-form'));
