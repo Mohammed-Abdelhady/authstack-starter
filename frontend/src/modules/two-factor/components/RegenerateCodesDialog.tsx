@@ -21,6 +21,7 @@ import { useRegenerateRecoveryCodesMutation } from '../api';
 import { TOTP_CODE_LENGTH } from '../constants';
 import { CodeField } from './CodeField';
 import { RecoveryCodeList } from './RecoveryCodeList';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface RegenerateCodesDialogProps {
   open: boolean;
@@ -56,7 +57,7 @@ export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDia
     reset,
   } = form;
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: RegenerateFormData) => {
       try {
         const result = await regenerate({ code: data.code }).unwrap();
@@ -70,6 +71,7 @@ export function RegenerateCodesDialog({ open, onOpenChange }: RegenerateCodesDia
     },
     [handleFeatureDisabled, regenerate, setError, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
 
   const onDone = useCallback(() => {
     setCodes(null);

@@ -19,6 +19,7 @@ import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { useRenamePasskeyMutation } from '../api';
 import { PASSKEY_NAME_MAX_LENGTH } from '../constants';
 import { PASSKEY_NAME_MODE, type PasskeyNameTarget } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface PasskeyNameDialogProps {
   open: boolean;
@@ -71,7 +72,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
     }
   }, [target, reset]);
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: NameFormData) => {
       if (!target) {
         return;
@@ -90,6 +91,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
     },
     [handleFeatureDisabled, onClose, renamePasskey, setError, tCodes, target],
   );
+  const onSubmit = useSingleFlight(submit);
 
   const isCreate = target?.mode === PASSKEY_NAME_MODE.CREATE;
 

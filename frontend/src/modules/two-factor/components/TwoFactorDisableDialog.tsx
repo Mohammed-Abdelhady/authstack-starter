@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { ShieldOff } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormPassword, FormRootError, SubmitButton } from '@/components/forms';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,7 @@ import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { useDisableTwoFactorMutation } from '../api';
 import { createAnswerSchema, toAnswer, type AnswerFormData } from '../utils/answerSchema';
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface TwoFactorDisableDialogProps {
   open: boolean;
@@ -64,7 +66,7 @@ export function TwoFactorDisableDialog({
     setUseRecoveryCode((current) => !current);
   }, [resetField]);
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: DisableFormData) => {
       try {
         await disableTwoFactor({ ...toAnswer(data), password: data.password }).unwrap();
@@ -80,6 +82,7 @@ export function TwoFactorDisableDialog({
     },
     [disableTwoFactor, handleFeatureDisabled, onOpenChange, reset, setError, t, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,6 +105,7 @@ export function TwoFactorDisableDialog({
               testId="two-factor-disable-error"
             />
 
+            {hasPassword && <HiddenUsernameField />}
             {hasPassword && (
               <FormPassword<DisableFormData>
                 name="password"

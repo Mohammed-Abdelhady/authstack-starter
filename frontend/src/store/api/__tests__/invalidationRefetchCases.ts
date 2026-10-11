@@ -218,20 +218,26 @@ export const CONVERTED: MutationCase[] = [
 ];
 
 /**
+ * Sign-out repeats its reads only when it was refused or its answer was lost:
+ * the session may or may not be gone, so the server is asked. `refetched`
+ * lists those reads. A confirmed sign-out repeats nothing.
+ */
+export const SIGN_OUT: MutationCase = {
+  name: 'logout',
+  reads: [readProfile],
+  write: (store) => store.dispatch(authApi.endpoints.logout.initiate()),
+  accepted: { message: 'Signed out' },
+  requests: [GET_PROFILE, 'POST /api/auth/logout'],
+  refetched: [GET_PROFILE],
+};
+
+/**
  * Mutations that must keep invalidating even when the request is rejected.
  * Revoking a listed session: a 404 "already revoked" answers after the server
  * did revoke, and an answer can be lost in flight, so the reads repeat on a
  * 400 refusal and on anything else.
  */
-export const EXCEPTIONS: MutationCase[] = [
-  {
-    name: 'logout',
-    reads: [readProfile],
-    write: (store) => store.dispatch(authApi.endpoints.logout.initiate()),
-    accepted: { message: 'Signed out' },
-    requests: [GET_PROFILE, 'POST /api/auth/logout'],
-    refetched: [GET_PROFILE],
-  },
+export const SESSION_REVOCATIONS: MutationCase[] = [
   {
     name: 'deleteSession',
     reads: [readSessions],
@@ -249,3 +255,6 @@ export const EXCEPTIONS: MutationCase[] = [
     refetched: [GET_SESSIONS],
   },
 ];
+
+/** Every mutation that invalidates on a rejection, for the coverage guards. */
+export const EXCEPTIONS: MutationCase[] = [SIGN_OUT, ...SESSION_REVOCATIONS];

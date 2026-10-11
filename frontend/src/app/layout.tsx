@@ -4,7 +4,6 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { AppProviders } from '@/components/providers';
 import { routing } from '@/i18n/routing';
 import { getTextDirection } from '@/i18n/direction';
-import { APP_NAME } from '@/constants/app';
 import './globals.css';
 
 const geistSans = Geist({
@@ -17,13 +16,20 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: APP_NAME,
-    template: `%s | ${APP_NAME}`,
-  },
-  description: 'Authentication and role-based access control boilerplate',
-};
+/** The product name the page itself shows and its description, in the request locale. */
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getLocale();
+  const t = await getTranslations({ locale, namespace: 'common' });
+  const name = t('appName');
+
+  return {
+    title: {
+      default: name,
+      template: `%s | ${name}`,
+    },
+    description: t('appDescription'),
+  };
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

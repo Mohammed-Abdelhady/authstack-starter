@@ -14,6 +14,7 @@ import { FormInput, SubmitButton } from '@/components/forms';
 import { useGetCurrentUserQuery, useUpdateProfileMutation } from '@/modules/auth/store';
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 const createUpdateProfileSchema = (t: (key: string) => string) =>
   z.object({
@@ -60,7 +61,7 @@ export function UpdateProfileCard() {
     }
   }, [user?.name, form]);
 
-  const onSubmit = async (data: UpdateProfileFormData) => {
+  const submit = async (data: UpdateProfileFormData) => {
     if (data.name === user?.name) {
       toast.info(t('noChanges'));
       return;
@@ -74,6 +75,7 @@ export function UpdateProfileCard() {
       reportUnlessHandled(error);
     }
   };
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <Card>

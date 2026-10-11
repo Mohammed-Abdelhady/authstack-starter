@@ -12,6 +12,7 @@ import { reportUnlessHandled } from '@/lib/requestFailure';
 import { getRedirectPath } from '@/modules/auth/utils';
 import { startOAuthFlow } from '@/modules/oauth';
 import { useGetSyncStatusQuery, useInitiateProfileSyncMutation } from '../api';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Profile Sync Status Component
@@ -29,7 +30,7 @@ export function ProfileSyncStatus() {
    * again. The backend updates the profile while handling the callback and
    * sends the browser back to this page.
    */
-  const handleManualSync = async () => {
+  const startManualSync = async () => {
     setIsSyncing(true);
     try {
       const response = await initiateSync().unwrap();
@@ -46,6 +47,7 @@ export function ProfileSyncStatus() {
       reportUnlessHandled(error);
     }
   };
+  const handleManualSync = useSingleFlight(startManualSync);
 
   if (isLoading) {
     return (

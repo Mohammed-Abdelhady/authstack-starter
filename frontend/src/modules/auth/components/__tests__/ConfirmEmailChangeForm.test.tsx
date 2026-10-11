@@ -13,6 +13,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { submitTwiceInOneTick } from '../../__tests__/submitTwice';
 import { ConfirmEmailChangeForm } from '../ConfirmEmailChangeForm';
 
 vi.mock('@/i18n/navigation', () => ({
@@ -62,6 +63,22 @@ describe.each([
         .getByRole('link', { name: form.message('auth.confirmEmailChange.signIn') })
         .getAttribute('href'),
     ).toBe('/auth/login');
+  });
+
+  it('confirms once when the form is submitted twice in one tick', async () => {
+    const requests = stubNetwork(() => success({ message: 'Confirmed' }));
+    const form = await renderForm(locale, <ConfirmEmailChangeForm />);
+    fireEvent.change(screen.getByRole('textbox', { name: form.message('auth.activate.email') }), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: form.message('auth.activate.code') }), {
+      target: { value: '123456' },
+    });
+
+    submitTwiceInOneTick(screen.getByTestId('confirm-email-form'));
+
+    await screen.findByTestId('confirm-email-success');
+    expect(requests).toEqual(['POST /api/auth/confirm-email-change']);
   });
 
   it('shows a rejected code through the catalogue and keeps both fields', async () => {

@@ -38,7 +38,7 @@ async function renderShell(locale: AppLocale, now: string) {
     </NextIntlClientProvider>,
   );
   return {
-    brand: lookupMessage(messages, 'dashboard.shell.brand'),
+    brand: lookupMessage(messages, 'common.appName'),
     format: formatter(locale, messages),
   };
 }

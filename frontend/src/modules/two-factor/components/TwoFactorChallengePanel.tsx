@@ -15,6 +15,7 @@ import { PasskeyChallengeButton } from '@/modules/passkeys'; // feature:passkeys
 import { useVerifyTwoFactorMutation } from '../api';
 import { createAnswerSchema, toAnswer, type AnswerFormData } from '../utils/answerSchema';
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface TwoFactorChallengePanelProps {
   redirect: string | null;
@@ -54,7 +55,7 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
     setUseRecoveryCode((current) => !current);
   }, [resetField]);
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: AnswerFormData) => {
       try {
         const response = await verify(toAnswer(data)).unwrap();
@@ -66,6 +67,7 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
     },
     [completeSignIn, handleFeatureDisabled, redirect, setError, tCodes, verify],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <section className="mt-12 flex flex-col items-center" aria-labelledby="two-factor-heading">

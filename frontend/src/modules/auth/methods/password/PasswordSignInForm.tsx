@@ -11,11 +11,13 @@ import { FormInput, FormPassword, FormRootError, SubmitButton } from '@/componen
 import { zodEmail } from '@app/core';
 import { Link } from '@/i18n/navigation';
 import { useCompleteSignIn } from '@/modules/auth/hooks/useCompleteSignIn';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useLoginMutation } from '@/modules/auth/store/authApi';
 import { translateAuthError } from '@/modules/auth/utils/authHelpers';
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
 import type { AuthMethodFormProps } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Sign-in schema. The minimum length is only there to catch an empty box; the
@@ -47,8 +49,10 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '', password: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
+  const onPasswordBlur = useValidateFilledOnBlur(form, 'password');
 
   const {
     handleSubmit,
@@ -56,7 +60,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
     setError,
   } = form;
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: PasswordSignInData) => {
       try {
         const response = await login({ email: data.email, password: data.password }).unwrap();
@@ -71,6 +75,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
     },
     [completeSignIn, login, redirect, setError, t, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <FormProvider {...form}>
@@ -90,9 +95,10 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           type="email"
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
-          autoComplete="email"
+          autoComplete="username"
           disabled={isLoading}
           autoFocus
+          onBlur={onEmailBlur}
           data-testid="login-email-input"
         />
 
@@ -103,6 +109,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           autoComplete="current-password"
           disabled={isLoading}
           showToggle={false}
+          onBlur={onPasswordBlur}
           className={FORM_STYLES.authField}
           data-testid="login-password-input"
         />

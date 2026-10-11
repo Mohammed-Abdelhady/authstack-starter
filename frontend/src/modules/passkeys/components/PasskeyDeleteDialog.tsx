@@ -19,6 +19,7 @@ import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabl
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { useDeletePasskeyMutation } from '../api';
 import type { PasskeySummary } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface PasskeyDeleteDialogProps {
   open: boolean;
@@ -51,7 +52,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDia
 
   const name = passkey?.name ?? '';
 
-  const onConfirm = useCallback(async () => {
+  const confirmRemoval = useCallback(async () => {
     if (!passkey) {
       return;
     }
@@ -67,6 +68,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose }: PasskeyDeleteDia
       setError(tCodes(translatableErrorCode(err)));
     }
   }, [close, deletePasskey, handleFeatureDisabled, passkey, t, tCodes]);
+  const onConfirm = useSingleFlight(confirmRemoval);
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => !next && close()}>

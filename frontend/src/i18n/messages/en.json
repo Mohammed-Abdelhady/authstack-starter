@@ -16,7 +16,8 @@
       "warning": "Warning",
       "danger": "Danger"
     },
-    "appName": "Auth Boilerplate",
+    "appName": "Auth App",
+    "appDescription": "Authentication and role-based access control boilerplate",
     "welcome": "Welcome",
     "language": "Language",
     "loading": "Loading...",
@@ -640,7 +641,6 @@
       "sessions": "Sessions"
     },
     "shell": {
-      "brand": "Auth App",
       "brandHome": "{name}, go to dashboard",
       "openMenu": "Open navigation menu",
       "closeMenu": "Close navigation menu",

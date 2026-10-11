@@ -6,12 +6,11 @@ import { useNow, useTranslations } from 'next-intl';
  */
 export function SidebarCopyright(): React.JSX.Element {
   const t = useTranslations('common');
-  const tShell = useTranslations('dashboard.shell');
   const year = String(useNow().getUTCFullYear());
 
   return (
     <p className="text-xs text-muted-foreground" data-testid="sidebar-copyright">
-      {t('copyright', { year, name: tShell('brand') })}
+      {t('copyright', { year, name: t('appName') })}
     </p>
   );
 }

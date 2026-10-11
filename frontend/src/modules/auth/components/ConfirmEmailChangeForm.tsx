@@ -17,6 +17,7 @@ import { translatableErrorCode } from '../utils/errorCodeMessage';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
 import { AuthCompletionNotice } from './AuthCompletionNotice';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 type EmailCodeData = z.infer<ReturnType<typeof createEmailCodeSchema>>;
 
@@ -34,27 +35,23 @@ export function ConfirmEmailChangeForm() {
   const [confirm, { isLoading }] = useConfirmEmailChangeMutation();
   const [confirmed, setConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
-  const inFlight = useRef(false);
   const applyServerFieldErrors = useServerFieldErrors(
     useFormFieldTarget(form.setError, formRef),
     isLoading,
   );
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: EmailCodeData) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
       try {
         await confirm(data).unwrap();
         setConfirmed(true);
       } catch (error) {
         applyServerFieldErrors(error);
         form.setError('root', { type: 'manual', message: tCodes(translatableErrorCode(error)) });
-      } finally {
-        inFlight.current = false;
       }
     },
     [applyServerFieldErrors, confirm, form, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
   const onCodeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     event.target.value = filterDigits(event.target.value, VERIFICATION_CODE_LENGTH);
   }, []);
