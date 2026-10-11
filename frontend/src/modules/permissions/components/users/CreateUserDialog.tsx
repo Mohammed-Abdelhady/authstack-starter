@@ -147,6 +147,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
             <Input
               id={fieldId('email')}
               type="email"
+              dir="ltr"
               placeholder={t('emailPlaceholder')}
               value={email}
               onChange={(e) => {
@@ -258,7 +259,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 {availableRoles.map((r) => (
                   <SelectItem key={r.id} value={r.slug} data-testid={`role-option-${r.slug}`}>
                     <div className="flex items-center gap-2">
-                      <span>{r.name}</span>
+                      <span dir="auto">{r.name}</span>
                       {r.isSystemRole && (
                         <span className="text-xs text-tertiary">{t('systemRole')}</span>
                       )}

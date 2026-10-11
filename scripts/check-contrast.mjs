@@ -208,10 +208,82 @@ export function loadControlPairs(knownTokens, controls = SURFACE_CONTROLS) {
   });
 }
 
+// Text on a tint is read from source: the variant's class string names the
+// tint, its alpha in each theme and the text colour. The tint is measured as
+// painted, composited over each backdrop the surface is placed on.
+const PERMISSION_NODE =
+  'frontend/src/modules/permissions/components/permission-tree/PermissionNode.tsx';
+const NODE_SEGMENTS = ['muted-foreground', 'text-tertiary'];
+export const TINTED_SURFACES = ['inherited', 'direct'].map((variant) => ({
+  usage: PERMISSION_NODE,
+  variant,
+  backdrops: ['background'],
+  innerText: NODE_SEGMENTS,
+}));
+
+const TEXT_MINIMUM = 4.5;
+const TINT_CLASS = /^(dark:)?bg-([a-z0-9-]+)(?:\/(\d+))?$/;
+
+export function compositeOver(tintRgb, backdropRgb, alpha) {
+  return tintRgb.map((channel, index) => channel * alpha + backdropRgb[index] * (1 - alpha));
+}
+
+export function extractVariantClasses(source, variant) {
+  const match = new RegExp(`\\b${variant}:\\s*'([^']*)'`).exec(source);
+  if (!match) throw new Error(`variant "${variant}" needs a literal class string`);
+  return match[1];
+}
+
+export function resolveTintedSurface(classes, knownTokens) {
+  const tint = {};
+  let text;
+
+  for (const className of classes.split(/\s+/)) {
+    const [, dark, token, percent] = TINT_CLASS.exec(className) ?? [];
+    if (knownTokens.includes(token)) {
+      const fill = { token, alpha: percent === undefined ? 1 : Number.parseInt(percent, 10) / 100 };
+      if (dark) tint.dark = fill;
+      else tint.light = fill;
+    }
+    const named = className.startsWith('text-') ? className.slice('text-'.length) : undefined;
+    const textToken = [named, className].find((name) => knownTokens.includes(name));
+    if (named !== undefined && textToken) text = textToken;
+  }
+
+  if (!tint.light || !text) throw new Error(`no tint or text colour found in "${classes}"`);
+  return { text, tint: { light: tint.light, dark: tint.dark ?? tint.light } };
+}
+
+export function tintedPairs({ text, tint }, backdrops, innerText = []) {
+  return backdrops.flatMap((background) =>
+    [text, ...innerText].map((token) => ({ token, background, tint, target: TEXT_MINIMUM })),
+  );
+}
+
+export function loadTintedPairs(knownTokens, surfaces = TINTED_SURFACES) {
+  return surfaces.flatMap(({ usage, variant, backdrops, innerText }) => {
+    const source = fs.readFileSync(path.resolve(__dirname, '..', usage), 'utf8');
+    const surface = resolveTintedSurface(extractVariantClasses(source, variant), knownTokens);
+    return tintedPairs(surface, backdrops, innerText);
+  });
+}
+
+/** The ratio of a pair in one theme, or null when a token is missing. */
+export function pairRatio({ token, background, tint }, tokens, theme) {
+  const fill = tint?.[theme];
+  if (!tokens[token] || !tokens[background] || (fill && !tokens[fill.token])) return null;
+  const backdrop = hslToRgb(...tokens[background]);
+  const surface = fill
+    ? compositeOver(hslToRgb(...tokens[fill.token]), backdrop, fill.alpha)
+    : backdrop;
+  return contrastRatio(hslToRgb(...tokens[token]), surface);
+}
+
 function run() {
   const css = loadCss();
   const { light, dark } = parseTokens(css);
-  const pairs = [...CONTRAST_PAIRS, ...loadControlPairs(Object.keys(light))];
+  const known = Object.keys(light);
+  const pairs = [...CONTRAST_PAIRS, ...loadControlPairs(known), ...loadTintedPairs(known)];
 
   let failedCount = 0;
   let totalCount = 0;
@@ -223,12 +295,16 @@ function run() {
     );
     console.log('-'.repeat(68));
 
-    for (const { token, background, target, part } of pairs) {
+    for (const pair of pairs) {
+      const { token, target, part } = pair;
+      const fill = pair.tint?.[themeName.toLowerCase()];
+      const background = fill
+        ? `${fill.token}/${Math.round(fill.alpha * 100)} on ${pair.background}`
+        : pair.background;
       totalCount++;
-      const tVal = tokens[token];
-      const bgVal = tokens[background];
+      const ratio = pairRatio(pair, tokens, themeName.toLowerCase());
 
-      if (!tVal || !bgVal) {
+      if (ratio === null) {
         console.log(
           `${token.padEnd(24)} ${background.padEnd(16)} MISSING TOKEN`,
         );
@@ -236,7 +312,6 @@ function run() {
         continue;
       }
 
-      const ratio = contrastRatio(hslToRgb(...tVal), hslToRgb(...bgVal));
       const passed = ratio >= target;
       if (!passed) {
         failedCount++;

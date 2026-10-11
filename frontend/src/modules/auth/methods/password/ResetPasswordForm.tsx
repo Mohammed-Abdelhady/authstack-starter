@@ -25,6 +25,7 @@ import { createPasswordSchema } from '@/modules/auth/utils/passwordSchema';
 import { filterDigits } from '@/modules/auth/utils/digitFilter';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Reset password form validation schema
@@ -113,7 +114,8 @@ export function ResetPasswordForm() {
   }, [emailFromUrl, router, setValue]);
 
   // Memoize submit handler to prevent recreating on every render
-  const onSubmit = useCallback(
+
+  const submit = useCallback(
     async (data: ResetPasswordFormData) => {
       try {
         await resetPassword({
@@ -156,6 +158,7 @@ export function ResetPasswordForm() {
     },
     [resetPassword, router, setError, setValue, t, tCodes, tToast],
   );
+  const onSubmit = useSingleFlight(submit);
 
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.value = filterDigits(e.target.value, 6);
@@ -203,7 +206,7 @@ export function ResetPasswordForm() {
               type="email"
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
-              autoComplete="email"
+              autoComplete="username"
               disabled={isLoading}
               readOnly
               className="bg-muted"

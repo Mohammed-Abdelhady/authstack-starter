@@ -11,12 +11,14 @@ import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { Button } from '@/components/ui/button';
 import { zodEmail, parseApiError } from '@app/core';
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
 import { isNativeAuthorizeContinuation } from '@/modules/auth/constants/nativeAuthorize';
 import { getRedirectPath } from '@/modules/auth/utils';
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import type { AuthMethodFormProps } from '../types';
 import { useRequestMagicLinkMutation } from './magicLinkApi';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /** Seconds before the same address may ask for another link. */
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -50,8 +52,9 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
 
   const {
     handleSubmit,
@@ -60,7 +63,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     getValues,
   } = form;
 
-  const send = useCallback(
+  const sendLink = useCallback(
     async (email: string) => {
       // Only the native authorize continuation is worth carrying through the
       // link, and only its validated value is sent, never the raw query string.
@@ -84,6 +87,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     },
     [handleFeatureDisabled, redirect, requestMagicLink, setError, startCooldown, t, tCodes],
   );
+  const send = useSingleFlight(sendLink);
 
   const onSubmit = useCallback(async (data: MagicLinkFormData) => send(data.email), [send]);
 
@@ -138,6 +142,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           autoComplete="email"
           disabled={isLoading}
           autoFocus={isOnlyMethod}
+          onBlur={onEmailBlur}
           data-testid="magic-link-email-input"
         />
 

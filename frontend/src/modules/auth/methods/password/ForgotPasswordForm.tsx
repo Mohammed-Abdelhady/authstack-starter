@@ -13,6 +13,7 @@ import { useCallback, useMemo } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Forgot password form validation schema
@@ -63,7 +64,8 @@ export function ForgotPasswordForm() {
   } = form;
 
   // Memoize submit handler to prevent recreating on every render
-  const onSubmit = useCallback(
+
+  const submit = useCallback(
     async (data: ForgotPasswordFormData) => {
       try {
         await forgotPassword({
@@ -93,6 +95,7 @@ export function ForgotPasswordForm() {
     },
     [forgotPassword, router, setError, t, tToast],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <section className="mt-12 flex flex-col items-center" aria-labelledby="forgot-password-heading">

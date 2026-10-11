@@ -60,16 +60,21 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
       }),
       transformResponse: (response: unknown) => unwrapObjectBody<MessageResult>(response),
-      // Sign-out: the server may have ended the session even when the answer
-      // was lost, so the UI must stop showing a signed-in user either way.
-      invalidatesTags: [
-        'Auth',
-        'User',
-        'LinkedProviders', // feature:oauth-core
-        'ProfileSync', // feature:oauth-core
-        'Roles',
-        'Permissions',
-      ],
+      // A refused or lost sign-out leaves the session's fate unknown, so the
+      // reads are asked again. A confirmed one clears the slice and the caller
+      // drops the cache, and a refetch would only ask a closed session for its
+      // profile and collect a 401.
+      invalidatesTags: (_result, error) =>
+        error
+          ? [
+              'Auth',
+              'User',
+              'LinkedProviders', // feature:oauth-core
+              'ProfileSync', // feature:oauth-core
+              'Roles',
+              'Permissions',
+            ]
+          : [],
     }),
 
     /**

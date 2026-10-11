@@ -107,7 +107,10 @@ export const UserListSection = memo(function UserListSection({
       {!collapsed && (
         <div
           id={gridId}
-          className={cn('grid gap-4 md:grid-cols-2 lg:grid-cols-3', 'motion-safe:animate-fade-in')}
+          className={cn(
+            'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3',
+            'motion-safe:animate-fade-in',
+          )}
           data-testid={gridId}
         >
           {children}

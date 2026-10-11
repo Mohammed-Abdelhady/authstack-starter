@@ -21,6 +21,7 @@ import { translatableErrorCode } from '../utils/errorCodeMessage';
 import { filterDigits } from '../utils/digitFilter';
 import { createActivationSchema } from '../utils/activationSchema';
 import type { z } from 'zod';
+import { useSharedSingleFlight } from '@/hooks/useSingleFlight';
 
 type ActivationFormData = z.infer<ReturnType<typeof createActivationSchema>>;
 
@@ -58,7 +59,6 @@ export function useActivationForm() {
   const { setError, getValues, trigger, reset } = form;
 
   const formRef = useRef<HTMLFormElement>(null);
-  const inFlight = useRef(false);
   const applyServerFieldErrors = useServerFieldErrors(
     useFormFieldTarget(setError, formRef),
     isLoading || isResending,
@@ -74,10 +74,10 @@ export function useActivationForm() {
     }
   }, [cooldownSeconds]);
 
-  const onSubmit = useCallback(
+  const exclusive = useSharedSingleFlight();
+
+  const submit = useCallback(
     async (data: ActivationFormData) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
       try {
         const result = await activate({
           email: data.email,
@@ -112,8 +112,6 @@ export function useActivationForm() {
           type: 'manual',
           message: errorMessage,
         });
-      } finally {
-        inFlight.current = false;
       }
     },
     [
@@ -130,10 +128,13 @@ export function useActivationForm() {
     ],
   );
 
+  const onSubmit = useCallback(
+    (data: ActivationFormData) => exclusive(() => submit(data)),
+    [exclusive, submit],
+  );
+
   // Handle resend activation code
-  const handleResend = useCallback(async () => {
-    if (inFlight.current || cooldownSeconds > 0) return;
-    inFlight.current = true;
+  const resend = useCallback(async () => {
     try {
       if (!(await trigger('email'))) return;
       await resendActivation({ email: getValues('email').trim().toLowerCase() }).unwrap();
@@ -142,19 +143,13 @@ export function useActivationForm() {
     } catch (err: unknown) {
       applyServerFieldErrors(err);
       setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
-    } finally {
-      inFlight.current = false;
     }
-  }, [
-    applyServerFieldErrors,
-    cooldownSeconds,
-    getValues,
-    resendActivation,
-    setError,
-    tCodes,
-    tToast,
-    trigger,
-  ]);
+  }, [applyServerFieldErrors, getValues, resendActivation, setError, tCodes, tToast, trigger]);
+
+  const handleResend = useCallback(async () => {
+    if (cooldownSeconds > 0) return;
+    await exclusive(resend);
+  }, [cooldownSeconds, exclusive, resend]);
 
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.value = filterDigits(e.target.value, VERIFICATION_CODE_LENGTH);

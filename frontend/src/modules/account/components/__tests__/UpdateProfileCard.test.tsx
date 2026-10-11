@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
 import { AuthGuard } from '@/components/providers/AuthGuard';
+import { directionOf } from '@/tests/direction';
 import {
   SERVER_TEXT,
   descriptions,
@@ -13,6 +14,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { submitTwiceInOneTick } from '@/modules/auth/__tests__/submitTwice';
 import { UpdateProfileCard } from '../UpdateProfileCard';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -66,6 +68,27 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('UpdateProfileCard in %s', (locale) => {
+  it('shows the account address left to right in an rtl page', async () => {
+    stubNetwork(() => success(user(STORED_NAME)));
+    const { message } = await renderForm(
+      locale,
+      <div dir="rtl">
+        <AuthGuard>
+          <UpdateProfileCard />
+        </AuthGuard>
+      </div>,
+    );
+
+    const email = await screen.findByRole('textbox', { name: message('settings.profile.email') });
+    await waitFor(() => {
+      expect(email.getAttribute('value')).toBe('layla@example.com');
+    });
+    expect({
+      email: directionOf(email),
+      name: directionOf(screen.getByRole('textbox', { name: message('settings.profile.name') })),
+    }).toEqual({ email: 'ltr', name: 'rtl' });
+  });
+
   it('sends a person whose session ended to sign in, without a toast', async () => {
     let reads = 0;
     const requests = stubNetwork((request) => {
@@ -130,6 +153,26 @@ describe.each([
     expect(name.getAttribute('value')).toBe(TYPED_NAME);
     expect(errorToasts()).toEqual([generalMessage]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
+  });
+
+  it('saves once when the form is submitted twice in one tick', async () => {
+    let reads = 0;
+    const requests = stubNetwork((request) => {
+      if (request.method !== 'GET') return success(user(TYPED_NAME));
+      reads += 1;
+      return success(user(reads === 1 ? STORED_NAME : TYPED_NAME));
+    });
+    const { message, successToasts } = await renderForm(locale, <UpdateProfileCard />);
+    const name = await screen.findByRole('textbox', { name: message('settings.profile.name') });
+    await waitFor(() => expect(name.getAttribute('value')).toBe(STORED_NAME));
+    fireEvent.change(name, { target: { value: TYPED_NAME } });
+
+    submitTwiceInOneTick(screen.getByTestId('update-profile-form'));
+
+    await waitFor(() => expect(successToasts()).toEqual([message('settings.profile.success')]));
+    expect(requests.filter((request) => request.startsWith('PATCH'))).toEqual([
+      'PATCH /api/user/profile',
+    ]);
   });
 
   it('refetches once after a successful update and keeps the form on the page', async () => {

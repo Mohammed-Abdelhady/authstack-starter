@@ -8,6 +8,7 @@ import { useCreatePasskeyOptionsMutation, useRegisterPasskeyMutation } from '../
 import type { PasskeySummary } from '../types';
 import { currentDeviceLabelKey } from '../utils/deviceLabel';
 import { createPasskey, webAuthnMessageKey } from '../utils/webauthn';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 export interface RegisterPasskeyState {
   /** Runs the ceremony and stores the credential. Null when it did not finish. */
@@ -35,7 +36,7 @@ export function useRegisterPasskey(): RegisterPasskeyState {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const register = useCallback(async () => {
+  const runCeremony = useCallback(async () => {
     setError(null);
     setIsBusy(true);
 
@@ -62,6 +63,10 @@ export function useRegisterPasskey(): RegisterPasskeyState {
       setIsBusy(false);
     }
   }, [createOptions, handleFeatureDisabled, storePasskey, t, tCodes, tDevices]);
+
+  // Held through the browser prompt, so a second click cannot open another.
+  const guarded = useSingleFlight(runCeremony);
+  const register = useCallback(async () => (await guarded()) ?? null, [guarded]);
 
   return { register, isBusy, error };
 }

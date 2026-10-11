@@ -8,6 +8,8 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
+    // One instant per request, handed to the client, so both render the same year.
+    now: new Date(),
     messages: await loadMessages(locale),
   };
 });

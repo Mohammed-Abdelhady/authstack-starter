@@ -27,6 +27,7 @@ import {
 import { getRedirectPath } from '@/modules/auth/utils/authHelpers';
 import { authPagePath } from '@/modules/auth/utils/signInRouting';
 import { toast } from '@/lib/toast';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { AuthDivider } from '@/components/ui/auth-divider'; // feature:oauth-core
 import { OAuthButtons } from '@/modules/oauth'; // feature:oauth-core
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods'; // feature:oauth-core
@@ -83,17 +84,14 @@ export function RegisterForm() {
     setError,
   } = form;
   const formRef = useRef<HTMLFormElement>(null);
-  const inFlight = useRef(false);
   const applyServerFieldErrors = useServerFieldErrors(
     useFormFieldTarget(setError, formRef),
     isLoading,
   );
 
   // Memoize submit handler to prevent recreating on every render
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: RegisterFormData) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
       try {
         const result = await register({
           email: data.email,
@@ -114,12 +112,11 @@ export function RegisterForm() {
           type: 'manual',
           message: errorMessage,
         });
-      } finally {
-        inFlight.current = false;
       }
     },
     [applyServerFieldErrors, dispatch, redirect, register, router, setError, t, tCodes, tToast],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <section className="mt-12 flex flex-col items-center" aria-labelledby="register-heading">

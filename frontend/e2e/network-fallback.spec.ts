@@ -6,6 +6,12 @@ const messages = {
   ar: 'خطأ في الشبكة. يرجى التحقق من اتصالك',
 };
 
+/** The toast region is named in the page's language. */
+const toastRegions = {
+  en: 'Notifications',
+  ar: 'الإشعارات',
+};
+
 test.use({ authenticate: false });
 for (const locale of ['en', 'ar'] as const) {
   test(`${locale} actual refused connection renders a localized fallback and follows locale changes`, async ({
@@ -21,7 +27,7 @@ for (const locale of ['en', 'ar'] as const) {
     await apiAvailability(false);
     try {
       await page.reload();
-      const notifications = page.getByRole('region', { name: 'Notifications' });
+      const notifications = page.getByRole('region', { name: toastRegions[locale] });
       await expect(notifications.getByRole('listitem').first()).toContainText(messages[locale]);
       await expect(notifications).not.toContainText('toast.error');
       await expect(notifications).not.toContainText('getCurrentUser');
@@ -34,7 +40,8 @@ for (const locale of ['en', 'ar'] as const) {
       await page.getByTestId(`language-switcher-${other}`).click();
       await expect(page.locator('html')).toHaveAttribute('lang', other);
       await expect(page.locator('html')).toHaveAttribute('dir', other === 'ar' ? 'rtl' : 'ltr');
-      await expect(notifications.getByRole('listitem').first()).toContainText(messages[other]);
+      const translated = page.getByRole('region', { name: toastRegions[other] });
+      await expect(translated.getByRole('listitem').first()).toContainText(messages[other]);
       await settleAnimations(page);
       await info.attach(`${locale}-to-${other}-network-fallback`, {
         body: await page.screenshot({ fullPage: true }),

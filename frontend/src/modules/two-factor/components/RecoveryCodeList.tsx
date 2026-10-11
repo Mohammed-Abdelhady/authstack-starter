@@ -31,7 +31,7 @@ export function RecoveryCodeList({ codes }: RecoveryCodeListProps) {
         data-testid="two-factor-recovery-codes"
       >
         {codes.map((code) => (
-          <li key={code} className="text-center tracking-widest">
+          <li key={code} dir="ltr" className="text-center tracking-widest">
             {code}
           </li>
         ))}

@@ -10,9 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FormPassword, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
 import type { ChangePasswordFormData } from '@app/core';
 import { createChangePasswordSchema } from './changePasswordSchema';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Password change, for the settings page.
@@ -43,7 +45,7 @@ export function ChangePasswordCard() {
     isLoading,
   );
 
-  const onSubmit = async (data: ChangePasswordFormData) => {
+  const submit = async (data: ChangePasswordFormData) => {
     try {
       await changePassword({
         currentPassword: data.currentPassword,
@@ -57,6 +59,7 @@ export function ChangePasswordCard() {
       reportUnlessHandled(error);
     }
   };
+  const onSubmit = useSingleFlight(submit);
 
   if (methods !== undefined && !methods.password) {
     return null;
@@ -76,6 +79,7 @@ export function ChangePasswordCard() {
             className="space-y-4"
             data-testid="change-password-form"
           >
+            <HiddenUsernameField />
             <FormPassword<ChangePasswordFormData>
               name="currentPassword"
               label={t('currentPassword')}

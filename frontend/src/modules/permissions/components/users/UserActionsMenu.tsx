@@ -10,16 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Settings,
-  MoreHorizontal,
-  UserCheck,
-  UserX,
-  Trash2,
-  Loader2,
-  Pencil,
-  Mail,
-} from 'lucide-react';
+import { Settings, MoreHorizontal, UserCheck, UserX, Loader2, Pencil, Mail } from 'lucide-react';
 import { USER_PERMISSIONS } from '@app/core';
 import { cn } from '@/lib/utils';
 import { useUserActions } from '../../hooks/useUserActions';
@@ -51,8 +42,8 @@ export interface UserActionsMenuProps {
  * UserActionsMenu - Dropdown menu with user actions and co-located dialogs.
  *
  * Features:
- * - Edit, Manage Permissions, Activate/Deactivate, Delete actions
- * - Co-located confirmation dialogs for destructive actions
+ * - Edit, Manage Permissions, Activate/Deactivate actions
+ * - Co-located confirmation dialog for activate and deactivate
  * - Co-located edit dialog
  * - Loading states for async operations
  * - Role-based action visibility
@@ -74,7 +65,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   const t = useTranslations('users.actions');
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { handleStatusChange, handleDelete, handleResendEmailChange, isLoading } = useUserActions();
+  const { handleStatusChange, handleResendEmailChange, isLoading } = useUserActions();
 
   const isNormalUser = user.role === 'user';
 
@@ -86,14 +77,12 @@ export const UserActionsMenu = memo(function UserActionsMenu({
       success = await handleStatusChange(user._id, true, user.name);
     } else if (confirmAction === 'deactivate') {
       success = await handleStatusChange(user._id, false, user.name);
-    } else if (confirmAction === 'delete') {
-      success = await handleDelete(user._id, user.name);
     }
 
     if (success) {
       setConfirmAction(null);
     }
-  }, [confirmAction, handleStatusChange, handleDelete, user._id, user.name]);
+  }, [confirmAction, handleStatusChange, user._id, user.name]);
 
   const handleCancelConfirm = useCallback(() => setConfirmAction(null), []);
   const handleResend = useCallback(() => {
@@ -182,21 +171,6 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               />
               <span>{t('deactivateUser')}</span>
             </DropdownMenuItem>
-          )}
-
-          {/* Delete - only for non-user roles */}
-          {!isNormalUser && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setConfirmAction('delete')}
-                className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                data-testid={`delete-user-${user._id}`}
-              >
-                <Trash2 className="me-2 h-4 w-4" aria-hidden="true" />
-                <span>{t('deleteUser')}</span>
-              </DropdownMenuItem>
-            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

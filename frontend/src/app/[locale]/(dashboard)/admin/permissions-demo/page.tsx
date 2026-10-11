@@ -222,7 +222,7 @@ export default function PermissionsDemoPage() {
 import { USER_PERMISSIONS } from '@app/core';
 
 <PermissionGuard permission={USER_PERMISSIONS.DELETE_ALL}>
-  <Button variant="destructive">{t('users.actions.deleteUser')}</Button>
+  <Button variant="destructive">{t('common.delete')}</Button>
 </PermissionGuard>`}
               </CodeBlock>
             </div>

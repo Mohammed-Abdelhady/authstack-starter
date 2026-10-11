@@ -163,6 +163,7 @@ function EditUserForm({
         <Input
           id={fieldId('email')}
           type="email"
+          dir="ltr"
           placeholder={t('emailPlaceholder')}
           value={email}
           onChange={(e) => {

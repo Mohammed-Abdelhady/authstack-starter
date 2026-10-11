@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Heading, StatusBadge } from '@/components/design-system';
 import { UserRoleSelector } from './UserRoleSelector';
 import { UserActionsMenu } from './UserActionsMenu';
+import { TruncatedText } from '../shared/TruncatedText';
 import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 import { HOVER_REVEAL_CLASSES } from '@/constants/focusStyles';
@@ -87,21 +88,23 @@ export const UserCard = memo(
         )}
       >
         {/* Header: Avatar + Name/Email + Status Badge */}
-        <header className="flex items-start gap-3 mb-3">
+        <header className="flex flex-wrap items-start gap-3 mb-3">
           <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-transparent group-hover:ring-primary/20 transition-all">
             <AvatarFallback className="bg-secondary text-primary text-sm font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex-1 min-w-0">
-            <Heading level={3} variant="subsectionTitle" className="truncate">
-              {user.name}
+          <div className="min-w-0 grow basis-28">
+            <Heading level={3} variant="subsectionTitle" className="flex min-w-0">
+              <TruncatedText value={user.name} dir="auto" testId="user-card-name" />
             </Heading>
-            <p className="text-xs text-tertiary tracking-wide truncate">{user.email}</p>
+            <p className="flex min-w-0 text-xs text-tertiary tracking-wide">
+              <TruncatedText value={user.email} dir="ltr" reveal testId="user-card-email" />
+            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
             {user.isDeleted && (
               <StatusBadge
                 status="inactive"
@@ -126,18 +129,25 @@ export const UserCard = memo(
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
                 <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                  {t('role')}{' '}
+                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
+                    {user.role}
+                  </span>
                 </div>
               }
             >
               {isProtectedRole || user.isDeleted ? (
                 <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                  {t('role')}{' '}
+                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
+                    {user.role}
+                  </span>
                 </div>
               ) : (
                 <UserRoleSelector
                   userId={user._id}
                   currentRole={user.role}
+                  userName={user.name}
                   onRoleChange={onRoleChange}
                 />
               )}
