@@ -10,6 +10,7 @@ import {
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { AuthenticatedUserSummary } from '../../../interfaces/authenticated-user.interface';
 import { singleStatement } from '../../../../common/persistence/mongo/mongo-unique-conflict';
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
   PasskeyAccount,
@@ -98,6 +99,10 @@ export class MongoPasskeySignIn extends PasskeySignIn {
     account: PasskeyAccount,
     response: Response,
   ): Promise<PasskeySignInOutcome> {
-    return this.signInService.completeSignIn(documentOf(account), response);
+    return this.signInService.completeSignIn(
+      documentOf(account),
+      response,
+      FIRST_FACTOR.PASSKEY, // feature:totp
+    );
   }
 }

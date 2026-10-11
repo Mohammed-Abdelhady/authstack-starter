@@ -9,6 +9,7 @@ import {
   createResponseMock,
 } from '../../../common/testing/test-doubles.harness-spec';
 import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
+import { FirstFactor } from '../../services/sessions/first-factor';
 import {
   TOTP_DIGITS,
   TOTP_STEP_SECONDS,
@@ -288,8 +289,9 @@ export async function seedEnabled(
 export async function challengedBrowser(
   services: TwoFactorServices,
   userId: string,
+  firstFactor: FirstFactor = 'password',
 ): Promise<Browser> {
   const holder = browser();
-  await services.challenge.issue(userId, holder.response);
+  await services.challenge.issue(userId, holder.response, firstFactor);
   return holder;
 }

@@ -12,6 +12,7 @@ import {
 } from '../../pending-codes/activation-accounts';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
+import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../utils/authenticated-user.util';
 import { SIGN_IN_COLUMNS, toSignInAccount } from './postgres-sign-in-accounts';
@@ -195,6 +196,7 @@ export class PostgresActivationSignIn extends ActivationSignIn {
     return this.completion.completeSignIn(
       activatedSignInAccountOf(account),
       response,
+      FIRST_FACTOR.EMAIL_CODE, // feature:totp
     );
   }
 }

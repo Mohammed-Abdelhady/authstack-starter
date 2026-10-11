@@ -103,6 +103,7 @@ describe('SignInService', () => {
       const outcome = await harness.service.completeSignIn(
         plainUser(),
         MOCK_RESPONSE,
+        'password', // feature:totp
       );
 
       expect(outcome).toEqual({

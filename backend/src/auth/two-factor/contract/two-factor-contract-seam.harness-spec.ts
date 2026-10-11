@@ -64,6 +64,7 @@ export function seamCases(
       expect(await services.challenge.claim(holder.request)).toEqual({
         challengeId: stored.id,
         userId: ownerId,
+        firstFactor: 'password',
       });
     },
   );

@@ -14,6 +14,7 @@ import { AuthMailService } from './services/mail/auth-mail.service';
 import { Sessions } from './services/sessions/sessions';
 import { PasswordResetCodeService } from './services/codes/password-reset-code.service';
 import { MailCounterService } from './services/mail/mail-counter.service';
+import { FIRST_FACTOR } from './services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from './services/sessions/sign-in-completion';
 import { IdFormat } from '../common/persistence/id-format';
 import { assertValidId } from '../user/utils/user-lookup.util';
@@ -69,7 +70,11 @@ export class AuthService {
     }
 
     const user = candidate.account;
-    const outcome = await this.signInService.completeSignIn(user, response);
+    const outcome = await this.signInService.completeSignIn(
+      user,
+      response,
+      FIRST_FACTOR.PASSWORD, // feature:totp
+    );
 
     if (outcome.requiresTwoFactor) {
       this.logger.log(

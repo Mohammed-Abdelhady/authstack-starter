@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { toStoredAccount } from '../../../user/persistence/mongo/mongo-account-records';
 import { UserDocument } from '../../../user/persistence/mongo/schemas/user.schema';
+import { FirstFactor } from '../../services/sessions/first-factor'; // feature:totp
 import {
   SignInCompletion,
   SignInOutcome,
@@ -22,8 +23,13 @@ export class SignInService {
   completeSignIn(
     user: UserDocument,
     response: Response,
+    firstFactor: FirstFactor, // feature:totp
   ): Promise<SignInOutcome> {
-    return this.completion.completeSignIn(toStoredAccount(user), response);
+    return this.completion.completeSignIn(
+      toStoredAccount(user),
+      response,
+      firstFactor, // feature:totp
+    );
   }
 
   issueSession(

@@ -46,7 +46,7 @@ export function challengeCases(
   fixture: () => TwoFactorFixture,
 ): void {
   twoFactorCase(
-    'opens a challenge under the hash of its nonce with five minutes to live',
+    'opens a challenge under the hash of its nonce and first factor with five minutes to live',
     async () => {
       const { ownerId } = fixture();
       const services = twoFactorServices(harness());
@@ -61,6 +61,7 @@ export function challengeCases(
         sub: ownerId,
         nonce: expect.stringMatching(/^[\w-]{43}$/) as string,
         expiresAt: NOW_MS + CHALLENGE_LIFETIME_MS,
+        firstFactor: 'password',
       });
       const { nonce } = payload as { nonce: string };
       const stored = await harness().storedChallenges();
@@ -68,7 +69,9 @@ export function challengeCases(
         {
           id: stored[0].id,
           userId: ownerId,
-          nonceHash: createHash('sha256').update(nonce).digest('hex'),
+          nonceHash: createHash('sha256')
+            .update(`${nonce}.password`)
+            .digest('hex'),
           attempts: 0,
           claimed: false,
           expiresAt: at(CHALLENGE_LIFETIME_MS),
@@ -88,6 +91,7 @@ export function challengeCases(
       expect(await services.challenge.claim(holder.request)).toEqual({
         challengeId,
         userId: ownerId,
+        firstFactor: 'password',
       });
       expect((await harness().storedChallenges())[0].claimed).toBe(true);
       expect(await refusalOf(services.challenge.claim(holder.request))).toEqual(
@@ -145,6 +149,7 @@ export function challengeCases(
       expect(await services.challenge.claim(holder.request)).toEqual({
         challengeId,
         userId: ownerId,
+        firstFactor: 'password',
       });
     },
   );
@@ -212,6 +217,7 @@ export function challengeCases(
       expect(await services.challenge.read(lapsing.request)).toEqual({
         challengeId: lapsingId,
         userId: ownerId,
+        firstFactor: 'password',
       });
       await harness().alterChallenge(lapsingId, { expiresAt: at(0) });
       expect(await refusalOf(services.challenge.read(lapsing.request))).toEqual(

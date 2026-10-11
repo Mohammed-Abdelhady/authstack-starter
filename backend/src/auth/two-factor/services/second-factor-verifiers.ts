@@ -1,9 +1,16 @@
 import { Request, Response } from 'express';
 import { SecondFactorAccount } from '../stores/second-factor-account';
 import { VerifyTwoFactorDto } from '../dto/verify-two-factor.dto';
+import { FirstFactor } from '../../services/sessions/first-factor';
 
 /** Multi-provider injection token holding every registered verifier. */
 export const SECOND_FACTOR_VERIFIERS = 'SECOND_FACTOR_VERIFIERS';
+
+/** The held sign-in an answer is given to. */
+export interface SecondFactorAttempt {
+  /** What its first step proved. */
+  readonly firstFactor: FirstFactor;
+}
 
 /**
  * A way of answering a two-factor challenge that is not a code from the
@@ -18,13 +25,14 @@ export interface SecondFactorVerifier {
   supports(dto: VerifyTwoFactorDto): boolean;
 
   /**
-   * @throws AppException when the credential does not answer the challenge, or
-   * belongs to another account
+   * @throws AppException when the credential does not answer the challenge,
+   * belongs to another account, or proves nothing the first step did not
    */
   verify(
     dto: VerifyTwoFactorDto,
     user: SecondFactorAccount,
     request: Request,
     response: Response,
+    attempt: SecondFactorAttempt,
   ): Promise<void>;
 }
