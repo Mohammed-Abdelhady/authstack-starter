@@ -6,7 +6,7 @@ import { useRefusalText } from '@/hooks/useRefusalText';
 import { showsOwnRefusal } from '@/lib/refusal';
 import { useTranslations } from 'next-intl';
 import { LogOut, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, DESTRUCTIVE_FILL_CLASSES } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,7 +124,7 @@ export function RevokeAllSessionsButton({
             busy={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-logout-all"
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={DESTRUCTIVE_FILL_CLASSES}
           >
             {isLoading ? (
               <>

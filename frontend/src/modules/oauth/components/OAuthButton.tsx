@@ -49,7 +49,7 @@ export function OAuthButton({ provider, redirect, disabled = false }: OAuthButto
               'group relative inline-flex h-14 w-14 items-center justify-center rounded-full',
               'transition-all duration-200 ease-in-out',
               FOCUS_RING_CLASSES,
-              'disabled:pointer-events-none aria-disabled:pointer-events-none',
+              'disabled:pointer-events-none',
               buttonClassName,
               isBusy ? 'cursor-not-allowed opacity-50' : `cursor-pointer ${hoverClassName}`,
             )}

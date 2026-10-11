@@ -6,7 +6,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { TEXT_CONTROL_FONT_SIZE } from '@/lib/config/form-styles';
-import { HELD_ATTRIBUTES } from './busy';
+import { BUSY_FIELD_CLASSES, HELD_ATTRIBUTES } from './busy';
 
 interface SelectState {
   busy: boolean;
@@ -75,7 +75,8 @@ const SelectTrigger = React.forwardRef<
       ref={ref}
       className={cn(
         // The gap keeps the chevron off the text when a name is cut at the chevron's side.
-        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        BUSY_FIELD_CLASSES,
         TEXT_CONTROL_FONT_SIZE,
         className,
       )}

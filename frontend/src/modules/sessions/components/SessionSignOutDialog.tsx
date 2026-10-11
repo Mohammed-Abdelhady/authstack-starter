@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DESTRUCTIVE_FILL_CLASSES } from '@/components/ui/button';
 import { FormRootError } from '@/components/forms';
 import { useRefusalText } from '@/hooks/useRefusalText';
 import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
@@ -123,7 +124,7 @@ export function SessionSignOutDialog({
               }}
               aria-busy={isLoading}
               data-testid="confirm-logout-button"
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={DESTRUCTIVE_FILL_CLASSES}
             >
               {isLoading && (
                 <Loader2 className="me-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />

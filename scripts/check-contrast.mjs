@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { loadBusyPairs } from './check-contrast.busy.mjs';
 import { compositeOver, contrastRatio, hslToRgb, pairRatio } from './contrast-math.mjs';
 
 export { compositeOver, contrastRatio, hslToRgb, pairRatio };
@@ -78,6 +79,8 @@ export const CONTRAST_PAIRS = [
   { token: 'input', background: 'background', target: 3.0 },
   { token: 'input', background: 'card', target: 3.0 },
   { token: 'ring', background: 'background', target: 3.0 },
+  // A heading that takes focus from code shows the ring on a page or on a card.
+  { token: 'ring', background: 'card', target: 3.0 },
   // Admin screens: text on the muted panels, error text in a dialog, status icons.
   { token: 'muted-foreground', background: 'muted', target: 4.5 },
   { token: 'foreground', background: 'muted', target: 4.5 },
@@ -277,6 +280,7 @@ function run() {
     ...TINTED_BOX_PAIRS,
     ...loadControlPairs(known),
     ...loadTintedPairs(known),
+    ...loadBusyPairs(),
   ];
 
   let failedCount = 0;

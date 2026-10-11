@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { DESTRUCTIVE_FILL_CLASSES } from '@/components/ui/button';
 import { FormRootError } from '@/components/forms';
 import { toast } from '@/lib/toast';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
@@ -98,7 +99,7 @@ export function PasskeyDeleteDialog({ open, passkey, onClose, landing }: Passkey
             }}
             busy={isLoading}
             aria-busy={isLoading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={DESTRUCTIVE_FILL_CLASSES}
             data-testid="passkey-delete-confirm"
           >
             {isLoading && (
