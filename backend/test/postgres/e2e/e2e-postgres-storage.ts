@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import type { TestingModuleBuilder } from '@nestjs/testing';
-import type { Pool } from 'pg';
+import type { Client, Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { commitCheckedPool } from '../../../src/common/persistence/postgres/postgres-commit-tag';
 import {
@@ -10,6 +10,7 @@ import {
   type PostgresDatabase,
 } from '../../../src/common/persistence/postgres/postgres-connection';
 import { openPostgresDatabase } from '../../../src/common/persistence/postgres/postgres-database';
+import { sqlStateOf } from '../../../src/common/utils/sql-state.util';
 import { POSTGRES_HEALTH_POOL } from '../../../src/health/persistence/postgres/postgres-health-persistence';
 import { ApplicationRegistry } from '../../../src/session/applications/application-registry';
 import type { AttachedE2eStorage, E2eStorage } from '../../utils/e2e-storage';
@@ -23,6 +24,7 @@ import {
 import { CommitFaultDialect } from '../postgres-commit-faults';
 import { emptyEveryTable } from '../postgres-connection';
 import { postgresNativeState } from '../e2e-postgres-state-native';
+import { noteSessionsLeftOpen } from './postgres-fixture-connections';
 import {
   connectionUrl,
   E2E_TEMPLATE_DATABASE,
@@ -30,6 +32,36 @@ import {
   quotedName,
   sharedPostgresServer,
 } from './postgres-e2e-server';
+
+/** The server refuses to drop a database a session is still connected to. */
+const DATABASE_IN_USE = '55006';
+
+/**
+ * Drops the fixture's database. Its pools were ended first, so no session
+ * should be on it, and the server waits five seconds for the last ones to go
+ * before it refuses. A session that is still there was left open by something:
+ * it is counted for the connection watch, and only then ended by force.
+ */
+async function dropFixtureDatabase(
+  client: Client,
+  name: string,
+): Promise<void> {
+  try {
+    await client.query(`DROP DATABASE IF EXISTS ${quotedName(name)}`);
+  } catch (error) {
+    if (sqlStateOf(error) !== DATABASE_IN_USE) {
+      throw error;
+    }
+    const open = await client.query<{ sessions: number }>(
+      'SELECT count(*)::int AS sessions FROM pg_stat_activity WHERE datname = $1',
+      [name],
+    );
+    noteSessionsLeftOpen(open.rows[0].sessions);
+    await client.query(
+      `DROP DATABASE IF EXISTS ${quotedName(name)} WITH (FORCE)`,
+    );
+  }
+}
 
 /**
  * A database of its own on the run's shared server, copied from the migrated
@@ -99,11 +131,7 @@ export async function startPostgresE2eStorage(): Promise<E2eStorage> {
           await owned.end();
         }
       }
-      await onServer(server, async (client) => {
-        await client.query(
-          `DROP DATABASE IF EXISTS ${quotedName(name)} WITH (FORCE)`,
-        );
-      });
+      await onServer(server, (client) => dropFixtureDatabase(client, name));
     },
   };
 }
