@@ -214,7 +214,7 @@
       "submit": "Send the link",
       "error": "The link could not be sent. Try again.",
       "sentTitle": "Check your inbox",
-      "sentBody": "If {email} has an account, a sign-in link is on its way. The link works once and expires shortly.",
+      "sentBody": "If ⁦{email}⁩ has an account, a sign-in link is on its way. The link works once and expires shortly.",
       "resend": "Send another link",
       "resendCooldown": "Send another link ({seconds}s)",
       "errors": {
