@@ -494,7 +494,8 @@
         "backend/src/common/persistence/postgres/migrations/0013_magic_links.sql",
         "backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql",
         "frontend/src/modules/auth/methods/magic-link/**",
-        "frontend/src/app/[locale]/(auth)/auth/magic-link/**"
+        "frontend/src/app/[locale]/(auth)/auth/magic-link/**",
+        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts"
       ],
       "envVars": [
         "MAGIC_LINK_ENABLED",
