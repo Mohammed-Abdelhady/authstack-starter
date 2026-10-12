@@ -19,6 +19,7 @@ import { BrowserIssuanceStore } from '../../../session/issuance/browser-issuance
 import { NativeAuthorizeService } from '../../../session/native/authorize/native-authorize.service';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
 import { AuthFeature } from '../../enums/auth-feature.enum';
+import { PasskeyStore } from '../../passkeys/stores/passkey.store'; // feature:passkeys
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -62,6 +63,7 @@ export class NativeAttemptService {
     private readonly epoch: AuthEpochService,
     private readonly runner: UnitOfWorkRunner,
     private readonly views: NativeAttemptViewService,
+    private readonly passkeys: PasskeyStore, // feature:passkeys
   ) {}
 
   async start(input: NativeAttemptStart): Promise<NativeAttemptStartResult> {
@@ -292,6 +294,14 @@ export class NativeAttemptService {
     const phase = owesMfa
       ? NATIVE_ATTEMPT_PHASE.SECOND_FACTOR_REQUIRED
       : NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED;
+    const methods = owesMfa
+      ? await this.methods.forClient(claimed.clientId)
+      : null;
+    const passkeyEligible =
+      owesMfa &&
+      principal.firstFactor !== NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
+      methods?.capabilities.passkeys === true &&
+      (await this.passkeys.listDescriptors(account.id, unitOfWork)).length > 0;
     const completed = await this.attempts.transitionIn(
       unitOfWork,
       operationGuardOf(claimed),
@@ -309,18 +319,20 @@ export class NativeAttemptService {
             firstFactor: principal.firstFactor,
             verifiedAt: this.clock.now(),
           },
-          secondFactors: owesMfa ? ['totp', 'recoveryCode'] : undefined,
+          secondFactors: owesMfa
+            ? passkeyEligible
+              ? ['totp', 'recoveryCode', 'passkey']
+              : ['totp', 'recoveryCode']
+            : undefined,
         },
       },
     );
     if (!completed) throw wrongStage();
     return completed;
   }
-
   async view(attempt: NativeAttempt): Promise<NativeAttemptView> {
     return this.views.view(attempt);
   }
-
   async cancel(attemptId: string, secret: string): Promise<NativeAttemptView> {
     const attempt = await this.authenticate(attemptId, secret);
     if (!(await this.attempts.cancel(guardOf(attempt)))) throw wrongStage();
