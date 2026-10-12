@@ -176,7 +176,7 @@ export function useNativeSignIn() {
 
   const web = useCallback(
     (flow: NativeFlow = NATIVE_AUTH_FLOW.SIGN_IN, providerId?: string) => {
-      if (lock.current || methods?.nativeEnabled === false) return;
+      if (lock.current) return;
       const epoch = ++generation.current;
       lock.current = true;
       setPending(true);
@@ -196,7 +196,7 @@ export function useNativeSignIn() {
         () => finish({ kind: 'apiFailure' }, epoch),
       );
     },
-    [engine, finish, locale, methods],
+    [engine, finish, locale],
   );
 
   const startFactor = useCallback(
