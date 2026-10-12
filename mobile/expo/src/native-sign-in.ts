@@ -67,7 +67,8 @@ function createModules(): NativeSignInModules {
     google: {
       isAvailable: async () => {
         try {
-          await loadGoogleModule();
+          const { GoogleOneTapSignIn } = await loadGoogleModule();
+          if (Platform.OS === 'android') await GoogleOneTapSignIn.checkPlayServices(false);
           return true;
         } catch {
           return false;
