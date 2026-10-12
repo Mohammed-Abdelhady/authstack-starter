@@ -27,17 +27,17 @@ A PostgreSQL project needs PostgreSQL 18 or newer, because new ids come from the
 
 The tables of an optional method are created by a migration file of their own, and that file belongs to the method in the manifest.
 
-| Method     | Tables                                                            | Migration              |
-| ---------- | ----------------------------------------------------------------- | ---------------------- |
-| Two-factor | `user_two_factor`, `user_recovery_codes`, `two_factor_challenges` | `0008_two_factor.sql`  |
-| Passkeys   | `passkeys`, `passkey_challenges`                                  | `0009_passkeys.sql`    |
-| Magic link | `pending_magic_links`                                             | `0013_magic_links.sql` |
+| Method     | Tables                                                            | Migration                                                   |
+| ---------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| Two-factor | `user_two_factor`, `user_recovery_codes`, `two_factor_challenges` | `0008_two_factor.sql`                                       |
+| Passkeys   | `passkeys`, `passkey_challenges`                                  | `0009_passkeys.sql`                                         |
+| Magic link | `pending_magic_links`                                             | `0013_magic_links.sql`, `0015_magic_link_request_nonce.sql` |
 
 A project without the method does not carry the file, the table map entries, the retention rule or the queries that read the tables. The migration list is read from the folder and applied in name order, so a list with gaps is still in order, and the start-up check and `migration:status` compare the same list. `user_linked_accounts` stays in every project, as the linked accounts of a user document do on MongoDB.
 
 `0013_magic_links.sql` holds what `0003_pending_codes.sql` used to create for magic links. The full set of files produces the same schema as before the split. A database that an earlier build of this repository migrated with the old `0003` already has the table and no record of `0013`. The statements in `0013` create only what is missing, so `migration:up` records the file on that database and changes nothing in it. No released project had PostgreSQL before this change.
 
-A feature file can be applied after files that are higher in number, when a project gains the feature later. For that reason `0008`, `0009` and `0013` may depend only on files every project carries that are lower in number, and no file that every project carries may depend on them.
+A feature file can be applied after files that are higher in number, when a project gains the feature later. For that reason `0008`, `0009` and `0013` may depend only on files every project carries that are lower in number, and no file that every project carries may depend on them. `0015` adds a column to the table `0013` creates, so it depends on that file of its own feature and on nothing else.
 
 ### What a generated project was run through
 
