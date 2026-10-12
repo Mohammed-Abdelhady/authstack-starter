@@ -15,6 +15,16 @@ const PROFILE = {
   updatedAt: '2026-01-16T08:00:00.000Z',
 };
 
+const IDENTITY_PROFILE = {
+  ...PROFILE,
+  // feature:totp:start
+  twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
+  passkeyCount: 0,
+  // feature:passkeys:end
+};
+
 const TOKEN_BODY = {
   access_token: 'at-1',
   token_type: 'Bearer',
@@ -48,12 +58,12 @@ describe('createApiClient routes', () => {
   it('reads an authenticated identity', async () => {
     const transport = answering(200, {
       success: true,
-      data: { authenticated: true, user: { ...PROFILE, twoFactorEnabled: false, passkeyCount: 0 } },
+      data: { authenticated: true, user: IDENTITY_PROFILE },
     });
 
     expect(await createApiClient(transport).auth.identity()).toEqual({
       authenticated: true,
-      user: { ...PROFILE, twoFactorEnabled: false, passkeyCount: 0 },
+      user: IDENTITY_PROFILE,
     });
   });
 
