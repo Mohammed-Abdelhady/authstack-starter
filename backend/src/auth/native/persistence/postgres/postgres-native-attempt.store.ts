@@ -243,6 +243,7 @@ export class PostgresNativeAttemptStore extends NativeAttemptStore {
         revision: guard.revision + 1,
       })
       .where('active_operation_id', '=', guard.operationId)
+      .where('expires_at', '>=', next.expiresAt)
       .returningAll()
       .executeTakeFirst();
     return row ? toAttempt(row) : null;

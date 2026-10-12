@@ -191,10 +191,12 @@ export class MongoNativeAttemptStore extends NativeAttemptStore {
     next: NativeAttemptTransition,
     unitOfWork?: UnitOfWork,
   ): Promise<NativeAttempt | null> {
-    if (next.expiresAt.getTime() <= this.clock.now().getTime()) return null;
+    const now = this.clock.now();
+    if (next.expiresAt.getTime() <= now.getTime()) return null;
     const found = await this.collection.findOneAndUpdate(
       {
         ...this.mutable(guard),
+        expiresAt: { $gt: now, $gte: next.expiresAt },
         revision: guard.revision,
         activeOperationId: guard.operationId,
       },
