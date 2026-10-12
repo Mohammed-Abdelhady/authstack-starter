@@ -9,6 +9,13 @@ import type {
   NativePasskeyAssertion,
   NativeProviderCredential,
 } from '../types/native-auth';
+import { normalizeNativeName } from './name';
+
+export function requireNativeName(value: string): string {
+  const name = normalizeNativeName(value);
+  if (name === undefined) throw new TypeError('name is outside its bounds');
+  return name;
+}
 
 export function requireBoundedString(value: string, field: string, limit: number): void {
   if (value.length === 0 || value.trim().length === 0 || value.length > limit) {

@@ -12,6 +12,7 @@ import {
   requireBoundedString,
   requireEmail,
   requireKeys,
+  requireNativeName,
   requirePassword,
   validatePasskeyAssertion,
   validateProviderCredential,
@@ -189,8 +190,11 @@ export function createNativeAuthClient<TSignal extends TransportSignal>(
       if (!NATIVE_AUTH_PATTERN.ACTIVATION_CODE.test(input.code))
         throw new TypeError('activation code has an invalid format');
       requirePassword(input.password);
-      requireBoundedString(input.name, 'name', NATIVE_AUTH_LIMITS.NAME);
-      return attemptCall(HTTP_METHOD.POST, NATIVE_AUTH_PATHS.activate, attempt, options, input);
+      const name = requireNativeName(input.name);
+      return attemptCall(HTTP_METHOD.POST, NATIVE_AUTH_PATHS.activate, attempt, options, {
+        ...input,
+        name,
+      });
     },
     requestRecovery: async (attempt, email, options) => {
       requireEmail(email);

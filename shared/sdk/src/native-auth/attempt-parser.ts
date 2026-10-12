@@ -6,6 +6,7 @@ import {
   NATIVE_AUTH_STAGE,
 } from '@app/core';
 import { requireArray, requireObject } from '../shapes';
+import { normalizeNativeName } from './name';
 import type {
   NativeAccountSummary,
   NativeApplicationSummary,
@@ -58,10 +59,12 @@ function parseFactors<T extends string>(
 function parseAccount(value: unknown, status: number): NativeAccountSummary {
   const account = requireObject(value, 'account', status);
   exactKeys(account, ['id', 'email', 'name'], 'account', status);
+  const name = normalizeNativeName(account.name);
+  if (name === undefined) fail(status, 'account.name', 'is outside its character bounds');
   return {
     id: boundedString(account.id, 'account.id', NATIVE_AUTH_LIMITS.ATTEMPT_ID, status),
     email: email(account.email, 'account.email', status),
-    name: boundedString(account.name, 'account.name', NATIVE_AUTH_LIMITS.NAME, status),
+    name,
   };
 }
 
