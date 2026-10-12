@@ -15,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { UserModule } from './user/user.module';
 import { SessionModule } from './session/session.module';
 import { NativeOAuthModule } from './session/native/oauth/native-oauth.module';
+import { NativeAuthModule } from './auth/native/native-auth.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthMethodsController } from './auth/auth-methods.controller';
 import { MagicLinkModule } from './auth/magic-link/magic-link.module'; // feature:magic-link
@@ -62,6 +63,7 @@ import { STORAGE_CONNECTION_IMPORTS } from './common/persistence/common-persiste
     UserModule,
     SessionModule,
     NativeOAuthModule,
+    NativeAuthModule,
     RoleModule,
     AuthModule,
     // feature:oauth-core:start

@@ -18,6 +18,7 @@ import {
   USER_PERSISTENCE_PROVIDERS,
 } from './persistence/user-persistence';
 import { AccountSessions } from './stores/account-sessions';
+import { AccountProfileStore } from './stores/account-profile.store';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AccountSessions } from './stores/account-sessions';
   exports: [
     ...USER_PERSISTENCE_IMPORTS,
     AccountSessions,
+    AccountProfileStore,
     UserProfileService,
     SecurityNoticeService,
     UserSessionsService,
