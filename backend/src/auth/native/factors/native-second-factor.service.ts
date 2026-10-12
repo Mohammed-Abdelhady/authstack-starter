@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { NativeAttemptView, NativeSecondFactorInput } from '@app/sdk';
+import { NATIVE_FACTOR_INPUT_PATTERN } from './constants/native-factor-input';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
@@ -63,6 +64,10 @@ export class NativeSecondFactorService {
       );
       if (!account || account.isDeleted || !account.twoFactor.enabled)
         throw wrongStage();
+      const verify = await this.verification.prepareNativeSecondFactor(
+        account,
+        input,
+      );
       const completed = await runLeavingFailuresAsRaised(
         this.runner,
         async (work) => {
@@ -82,7 +87,7 @@ export class NativeSecondFactorService {
             current.sessionVersion !== principal.userVersion
           )
             throw wrongStage();
-          await this.verification.verifySecondFactor(account, input, work);
+          await verify(work);
           const result = await this.stores.transitionIn(
             work,
             operationGuardOf(claimed),
@@ -123,11 +128,14 @@ function isInput(input: unknown): input is NativeSecondFactorInput {
   if (names.length !== 1) return false;
   const name = names[0];
   if (name === 'code')
-    return typeof record.code === 'string' && record.code.length <= 12;
+    return (
+      typeof record.code === 'string' &&
+      NATIVE_FACTOR_INPUT_PATTERN.CODE.test(record.code)
+    );
   if (name === 'recoveryCode')
     return (
       typeof record.recoveryCode === 'string' &&
-      record.recoveryCode.length <= 64
+      NATIVE_FACTOR_INPUT_PATTERN.RECOVERY_CODE.test(record.recoveryCode)
     );
   return (
     name === 'passkeyResponse' &&

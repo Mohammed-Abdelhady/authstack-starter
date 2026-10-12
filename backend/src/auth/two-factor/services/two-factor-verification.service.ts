@@ -66,6 +66,30 @@ export class TwoFactorVerificationService {
     throw this.invalidCode('neither a code nor a recovery code was sent');
   }
 
+  /** Count before opening the native unit of work, then spend within it. */
+  async prepareNativeSecondFactor(
+    user: SecondFactorAccount,
+    input: SecondFactorInput,
+  ): Promise<(unitOfWork: UnitOfWork) => Promise<void>> {
+    const plaintext =
+      input.code && user.twoFactor.secret
+        ? await this.readSecret(user, user.twoFactor.secret)
+        : null;
+    await this.reserve(user);
+    return async (unitOfWork) => {
+      if (input.code && plaintext) {
+        await this.spendCode(user, plaintext, input.code, unitOfWork);
+      } else if (input.recoveryCode) {
+        await this.spendRecovery(user, input.recoveryCode, unitOfWork);
+      } else {
+        throw this.invalidCode(
+          'neither a usable code nor a recovery code was sent',
+        );
+      }
+      await this.accounts.clearFailedAttemptsIn(unitOfWork, user);
+    };
+  }
+
   /**
    * Checks a code against the secret on the account, whether or not the second
    * factor is confirmed yet, and marks the step as spent.
@@ -121,6 +145,13 @@ export class TwoFactorVerificationService {
     check: () => Promise<void>,
     unitOfWork?: UnitOfWork,
   ): Promise<void> {
+    await this.reserve(user);
+    await check();
+    if (unitOfWork) await this.accounts.clearFailedAttemptsIn(unitOfWork, user);
+    else await this.accounts.clearFailedAttempts(user);
+  }
+
+  private async reserve(user: SecondFactorAccount): Promise<void> {
     const now = Date.now();
     const { failedAttempts, lockedUntil } = user.twoFactor;
     if (lockedUntil && lockedUntil.getTime() > now) {
@@ -136,10 +167,6 @@ export class TwoFactorVerificationService {
     if (reservation !== ATTEMPT_RESERVATION.RESERVED) {
       throw this.invalidCode('another answer was counted for the account');
     }
-
-    await check();
-    if (unitOfWork) await this.accounts.clearFailedAttemptsIn(unitOfWork, user);
-    else await this.accounts.clearFailedAttempts(user);
   }
 
   private async spendCode(
