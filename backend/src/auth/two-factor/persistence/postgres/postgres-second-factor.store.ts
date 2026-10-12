@@ -1,4 +1,3 @@
-import { Response } from 'express';
 import { Kysely, Transaction } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
@@ -15,15 +14,13 @@ import {
   SPEND_OUTCOME,
   SpendOutcome,
 } from '../../stores/second-factor.store';
-import { SecondFactorSignIn } from '../../stores/second-factor-sign-in';
-import { AuthenticatedUserSummary } from '../../../interfaces/authenticated-user.interface';
 import {
   rememberSignInAccount,
-  signInAccountOf,
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
-import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { confirmSecondFactorIn } from './postgres-second-factor-confirmation';
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 
@@ -107,6 +104,14 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
         .execute();
       await this.replaceCodes(work, id, confirmation.recoveryCodeHashes);
     });
+  }
+
+  async saveConfirmationIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+    confirmation: SecondFactorConfirmation,
+  ): Promise<boolean> {
+    return confirmSecondFactorIn(unitOfWork, account, confirmation);
   }
 
   replaceRecoveryCodes(
@@ -325,19 +330,5 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     return autocommit(NO_CONSTRAINTS, () =>
       this.database.transaction().execute(write),
     );
-  }
-}
-
-/** Issues the session an account is owed once its second factor checked out. */
-export class PostgresSecondFactorSignIn extends SecondFactorSignIn {
-  constructor(private readonly completion: SignInCompletion) {
-    super();
-  }
-
-  issueSession(
-    account: SecondFactorAccount,
-    response: Response,
-  ): Promise<AuthenticatedUserSummary> {
-    return this.completion.issueSession(signInAccountOf(account), response);
   }
 }

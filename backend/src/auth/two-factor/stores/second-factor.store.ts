@@ -1,4 +1,5 @@
 import { SecondFactorAccount, StoredTotpSecret } from './second-factor-account';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 
 export const SPEND_OUTCOME = {
   SPENT: 'spent',
@@ -62,6 +63,12 @@ export abstract class SecondFactorStore {
     account: SecondFactorAccount,
     confirmation: SecondFactorConfirmation,
   ): Promise<void>;
+  /** Confirm the pending secret exactly once inside the caller's transaction. */
+  abstract saveConfirmationIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+    confirmation: SecondFactorConfirmation,
+  ): Promise<boolean>;
   /** Replaces every recovery code, spent or not. */
   abstract replaceRecoveryCodes(
     account: SecondFactorAccount,

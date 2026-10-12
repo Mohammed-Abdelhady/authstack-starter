@@ -13,6 +13,7 @@ import {
 } from './services/second-factor-verifiers';
 import { TWO_FACTOR_PERSISTENCE_PROVIDERS } from './persistence/two-factor-persistence';
 import { CommonModule } from '../../common/common.module';
+import { SessionModule } from '../../session/session.module';
 
 /**
  * Routes for the TOTP second factor.
@@ -29,6 +30,7 @@ import { CommonModule } from '../../common/common.module';
   imports: [
     ConfigModule,
     CommonModule,
+    SessionModule,
     AuthModule,
     PasskeysModule, // feature:passkeys
   ],
