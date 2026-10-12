@@ -24,6 +24,7 @@ import { AuthFeature } from '../enums/auth-feature.enum';
 import { RequestWithUser } from '../guards/auth.guard';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
 import { THROTTLE_TWO_FACTOR_VERIFY } from '../../common/constants/throttle';
+import { requestSessionId } from '../../session/utils/request/request-session';
 
 /**
  * TOTP second factor.
@@ -89,8 +90,13 @@ export class TwoFactorController {
   async confirm(
     @CurrentUser('id') userId: string,
     @Body() dto: TwoFactorCodeDto,
+    @Req() request: RequestWithUser,
   ) {
-    return this.twoFactorService.confirm(userId, dto);
+    return this.twoFactorService.confirmWithSession(
+      userId,
+      dto,
+      requestSessionId(request),
+    );
   }
 
   /**

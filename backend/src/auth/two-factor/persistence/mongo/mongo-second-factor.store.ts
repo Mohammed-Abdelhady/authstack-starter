@@ -7,6 +7,8 @@ import {
   UserDocument,
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { singleStatement } from '../../../../common/persistence/mongo/mongo-unique-conflict';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   SecondFactorAccount,
   StoredTotpSecret,
@@ -137,6 +139,37 @@ export class MongoSecondFactorStore extends SecondFactorStore {
     user.twoFactor.enabled = true;
     user.twoFactor.confirmedAt = confirmation.confirmedAt;
     await singleStatement(() => user.save());
+  }
+
+  async saveConfirmationIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+    confirmation: SecondFactorConfirmation,
+  ): Promise<boolean> {
+    const secret = account.twoFactor.secret;
+    if (!secret) return false;
+    const result = await this.userModel.updateOne(
+      {
+        _id: account.id,
+        isDeleted: { $ne: true },
+        'twoFactor.enabled': false,
+        'twoFactor.secret.ciphertext': secret.ciphertext,
+      },
+      {
+        $set: {
+          'twoFactor.enabled': true,
+          'twoFactor.confirmedAt': confirmation.confirmedAt,
+          'twoFactor.recoveryCodes': confirmation.recoveryCodeHashes.map(
+            (hash) => ({
+              hash,
+              usedAt: null,
+            }),
+          ),
+        },
+      },
+      { session: mongoSessionOf(unitOfWork) },
+    );
+    return result.modifiedCount === 1;
   }
 
   async replaceRecoveryCodes(

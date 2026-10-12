@@ -14,6 +14,10 @@ import { PasskeyCreationOptions, WebAuthnAdapter } from './webauthn.adapter';
 import { PASSKEY_DEFAULT_NAME } from '../constants/passkeys.constants';
 import { PasskeyAccounts } from '../stores/passkey-accounts';
 import { PasskeyStore } from '../stores/passkey.store';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from '../../../user/services/security-notice.service';
 
 /** A request as the guard left it. The session it arrived on is all that is read. */
 export type SignedInRequest = Request & {
@@ -41,6 +45,7 @@ export class PasskeyRegistrationService {
     private readonly config: PasskeyConfigService,
     private readonly challenges: PasskeyChallengeService,
     private readonly reauth: PasskeyRegistrationReauth,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -153,6 +158,7 @@ export class PasskeyRegistrationService {
     });
 
     this.logger.log(`Passkey registered for user ${userId}`);
+    this.notices?.defer(userId, SECURITY_NOTICE.PASSKEY_ADDED);
     return ApiResponse.success(toPasskeySummary(passkey), 'Passkey added');
   }
 

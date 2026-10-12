@@ -1,4 +1,5 @@
 import { unwrapAuthMethods } from './auth-methods';
+import { unwrapIdentity } from './identity';
 import { HTTP_METHOD, OAUTH_GRANT_TYPE, TRANSPORT_FAILURE } from './constants';
 import { unwrapOAuth } from './envelope';
 import { isSdkError } from './errors';
@@ -17,6 +18,7 @@ import {
 } from './transport';
 import type {
   AuthMethods,
+  Identity,
   ExchangeCodeInput,
   MessageResult,
   OAuthRevokeRequest,
@@ -62,6 +64,7 @@ export interface ApiClient<TSignal extends TransportSignal = TransportSignal> {
     revokeOthers(options?: CallOptions<TSignal>): Promise<RevokeOtherSessionsResult>;
   };
   auth: {
+    identity(options?: CallOptions<TSignal>): Promise<Identity>;
     methods(options?: CallOptions<TSignal>): Promise<AuthMethods>;
     /**
      * Signs out the session making the call: the cookie session in the
@@ -144,6 +147,10 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
         sendObject({ method: HTTP_METHOD.POST, path: API_PATHS.user.revokeOtherSessions }, options),
     },
     auth: {
+      identity: async (options) =>
+        unwrapIdentity(
+          await send({ method: HTTP_METHOD.GET, path: API_PATHS.auth.identity }, options),
+        ),
       methods: async (options) =>
         unwrapAuthMethods(
           await send({ method: HTTP_METHOD.GET, path: API_PATHS.auth.methods }, options),

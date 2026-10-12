@@ -15,6 +15,10 @@ import {
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
 import { HashService } from '../../common/services/hash.service';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from './security-notice.service';
 import { AccountProfileStore } from '../stores/account-profile.store';
 import { AccountSessions } from '../stores/account-sessions';
 import { StoredAccount } from '../stores/stored-account';
@@ -37,6 +41,7 @@ export class UserProfileService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly hashService: HashService,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -145,6 +150,7 @@ export class UserProfileService {
     });
 
     this.logger.log(`Password changed: userId=${user.id}`);
+    this.notices?.defer(user.id, SECURITY_NOTICE.PASSWORD_CHANGED);
     return ApiResponse.success({
       message:
         'Password changed successfully. Other sessions have been logged out.',

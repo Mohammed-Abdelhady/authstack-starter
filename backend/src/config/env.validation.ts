@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
 import { EnvironmentVariables } from './env.schema';
+import { PASSKEY_CHALLENGE_TTL_MS } from '../auth/passkeys/constants/passkeys.constants';
 
 function formatValidationErrors(errors: ValidationError[]): string[] {
   const messages: string[] = [];
@@ -35,6 +36,53 @@ export function validateEnvironment(
     throw new Error(
       `Environment validation failed for variables:\n${errorMessages.join('\n')}`,
     );
+  }
+
+  if (
+    validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS &&
+    !validatedConfig.PASSKEY_CHALLENGE_SECRET
+  ) {
+    throw new Error(
+      'PASSKEY_CHALLENGE_SECRET_PREVIOUS requires PASSKEY_CHALLENGE_SECRET',
+    );
+  }
+  if (
+    validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS &&
+    validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS ===
+      validatedConfig.PASSKEY_CHALLENGE_SECRET
+  ) {
+    throw new Error(
+      'PASSKEY_CHALLENGE_SECRET_PREVIOUS must differ from PASSKEY_CHALLENGE_SECRET',
+    );
+  }
+  if (
+    validatedConfig.PASSKEY_CHALLENGE_SECRET &&
+    validatedConfig.PASSKEY_CHALLENGE_SECRET ===
+      validatedConfig.OAUTH_STATE_SECRET
+  ) {
+    throw new Error(
+      'PASSKEY_CHALLENGE_SECRET must differ from OAUTH_STATE_SECRET',
+    );
+  }
+  if (
+    validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS &&
+    validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS ===
+      validatedConfig.OAUTH_STATE_SECRET
+  ) {
+    throw new Error(
+      'PASSKEY_CHALLENGE_SECRET_PREVIOUS must differ from OAUTH_STATE_SECRET',
+    );
+  }
+  if (validatedConfig.PASSKEY_CHALLENGE_LEGACY_UNTIL) {
+    const until = Date.parse(validatedConfig.PASSKEY_CHALLENGE_LEGACY_UNTIL);
+    if (
+      !validatedConfig.PASSKEY_CHALLENGE_SECRET ||
+      until > Date.now() + PASSKEY_CHALLENGE_TTL_MS
+    ) {
+      throw new Error(
+        'PASSKEY_CHALLENGE_LEGACY_UNTIL requires a dedicated secret and at most five minutes of fallback',
+      );
+    }
   }
 
   return validatedConfig;

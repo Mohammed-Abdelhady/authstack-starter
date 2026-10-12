@@ -297,7 +297,10 @@ describe('two-step sign-in over HTTP (e2e)', () => {
 
       const replaced = await owner
         .post('/api/auth/2fa/recovery-codes/regenerate')
-        .send({ code: totpCodeAt(secret, STEP_TWO) });
+        .send({
+          code: totpCodeAt(secret, STEP_TWO),
+          password: SEED_USER.password,
+        });
 
       expect(replaced.status).toBe(200);
       const fresh = (replaced.body as { data: { recoveryCodes: string[] } })
@@ -322,7 +325,10 @@ describe('two-step sign-in over HTTP (e2e)', () => {
 
       const refused = await owner
         .post('/api/auth/2fa/recovery-codes/regenerate')
-        .send({ code: totpCodeAt(secret, STEP_ONE) });
+        .send({
+          code: totpCodeAt(secret, STEP_ONE),
+          password: SEED_USER.password,
+        });
 
       expect(refused.status).toBe(401);
       expect((refused.body as ErrorBody).error.code).toBe(

@@ -4,11 +4,7 @@ import {
   checkTotpDelta,
   generateTotpSecret,
 } from './totp.util';
-import {
-  TOTP_DIGITS,
-  TOTP_STEP_SECONDS,
-  TWO_FACTOR_ISSUER,
-} from '../constants/two-factor.constants';
+import { TOTP_STEP_SECONDS } from '../constants/two-factor.constants';
 
 /**
  * Runs against the real library. It is the one place that would catch otplib
@@ -61,21 +57,27 @@ describe('totp adapter', () => {
       expect(url.protocol).toBe('otpauth:');
       expect(url.host).toBe('totp');
       expect(decodeURIComponent(url.pathname)).toBe(
-        `/${TWO_FACTOR_ISSUER}:user@example.com`,
+        '/Auth App:user@example.com',
       );
       expect(url.searchParams.get('secret')).toBe(secret);
-      expect(url.searchParams.get('issuer')).toBe(TWO_FACTOR_ISSUER);
+      expect(url.searchParams.get('issuer')).toBe('Auth App');
     });
 
-    it('should leave out the step and the digits, which are the defaults', () => {
+    it('issues an authenticator-compatible step and digits', () => {
       const url = new URL(buildOtpauthUrl('user@example.com', secret));
-
-      // otplib only writes parameters that differ from the TOTP defaults, and
-      // an app reading this URI falls back to the same 30 seconds and 6 digits.
-      expect(TOTP_STEP_SECONDS).toBe(30);
-      expect(TOTP_DIGITS).toBe(6);
-      expect(url.searchParams.get('period')).toBeNull();
-      expect(url.searchParams.get('digits')).toBeNull();
+      const period = Number.parseInt(
+        url.searchParams.get('period') ?? '30',
+        10,
+      );
+      const digits = Number.parseInt(url.searchParams.get('digits') ?? '6', 10);
+      expect({ period, digits }).toEqual({ period: 30, digits: 6 });
+      const code = generateSync({
+        secret: url.searchParams.get('secret') ?? '',
+        epoch: FIXED_EPOCH_SECONDS,
+        period,
+        digits: 6,
+      });
+      expect(checkTotpDelta(code, secret)).toBe(0);
     });
   });
 

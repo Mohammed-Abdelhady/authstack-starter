@@ -19,6 +19,10 @@ import {
 import { LinkedAccountStore } from '../stores/linked-account.store';
 import { StoredAccount } from '../stores/stored-account';
 import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from './security-notice.service';
+import {
   emailSignInAnswer,
   emailWayIn,
   NOT_LINKED,
@@ -58,6 +62,7 @@ export class AccountLinkingService {
     private readonly links: LinkedAccountStore,
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -112,6 +117,7 @@ export class AccountLinkingService {
     }
 
     this.logger.log(`User ${userId} linked a ${provider} account`);
+    this.notices?.defer(userId, SECURITY_NOTICE.PROVIDER_ADDED);
     return linked;
   }
 

@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
 import {
   SignInCompletion,
@@ -17,41 +17,20 @@ import { storeFailureCause } from '../../common/persistence/store-failure';
 import { readBearerToken } from '../../session/native/access/native-access.service';
 import { hasBothCredentials } from '../../session/utils/request/request-credential';
 import {
-  OAuthCallbackParams,
   OAuthProfile,
   OAuthProviderStrategy,
 } from './oauth-provider.interface';
 import { ProviderSignInStore } from './stores/provider-sign-in.store';
-
-export interface OAuthLoginParams {
-  strategy: OAuthProviderStrategy;
-  code: string;
-  redirectUri: string;
-  codeVerifier?: string;
-  nonce?: string;
-  /** Raw callback parameters, for providers that ship profile data with them. */
-  callbackParams?: OAuthCallbackParams;
-  response: Response;
-}
-
-export interface OAuthLinkParams extends OAuthLoginParams {
-  /** The account that asked for the link, from the signed state. */
-  linkUserId: string;
-  /** The session it asked with, from the signed state. */
-  linkSessionId: string;
-}
-
-/** The session a link start was asked with. */
-export interface LinkingSession {
-  userId: string;
-  sessionId: string;
-}
-
-/** What decides whether a first sign-in may attach to an existing account. */
-export type LinkingProvider = Pick<
-  OAuthProviderStrategy,
-  'id' | 'autoLinksByEmail'
->;
+import {
+  LinkingProvider,
+  LinkingSession,
+  OAuthLinkParams,
+  OAuthLoginParams,
+} from './types/oauth-service.types';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from '../../user/services/security-notice.service';
 
 const DEFAULT_ROLE = 'user';
 
@@ -70,6 +49,7 @@ export class OAuthService {
     private readonly accountLinkingService: AccountLinkingService,
     private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -246,6 +226,7 @@ export class OAuthService {
   ): Promise<StoredAccount> {
     try {
       const linked = await this.accounts.linkFirstSignIn(user, identity);
+      this.notices?.defer(linked.id, SECURITY_NOTICE.PROVIDER_ADDED);
       this.logger.log(
         `Linked ${identity.provider} account to an existing user`,
       );

@@ -22,6 +22,7 @@ export const API_PATHS = {
     revokeOtherSessions: '/api/user/sessions/revoke-others',
   },
   auth: {
+    identity: '/api/auth/identity',
     methods: '/api/auth/methods',
     logout: '/api/auth/logout',
   },

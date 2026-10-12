@@ -25,6 +25,13 @@ import {
 } from './utils/recovery-code.util';
 import { SecondFactorAccount } from './stores/second-factor-account';
 import { SecondFactorStore } from './stores/second-factor.store';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from '../../user/services/security-notice.service';
+import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
+import { SessionRevoker } from '../../session/revocation/session-revoker';
+import { runLeavingFailuresAsRaised } from '../../common/persistence/store-failure';
 
 /**
  * Managing the second factor on an account that is already signed in: turning
@@ -39,6 +46,9 @@ export class TwoFactorService {
     private readonly cryptoService: TotpSecretCryptoService,
     private readonly verificationService: TwoFactorVerificationService,
     private readonly reauthService: TwoFactorReauthService,
+    private readonly notices?: SecurityNoticeService,
+    private readonly runner?: UnitOfWorkRunner,
+    private readonly revoker?: SessionRevoker,
   ) {}
 
   /**
@@ -106,6 +116,63 @@ export class TwoFactorService {
     );
   }
 
+  /** Confirms setup and ends other sessions in one commit. */
+  async confirmWithSession(
+    userId: string,
+    dto: TwoFactorCodeDto,
+    currentSessionId: string | null,
+  ): Promise<ApiResponse<RecoveryCodesResponseDto>> {
+    if (!currentSessionId) {
+      throw new AppException(
+        ErrorCode.SESSION_INVALID,
+        'Current session is no longer active',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    if (!this.runner || !this.revoker) {
+      throw new Error('Two-factor confirmation transaction is unavailable');
+    }
+    const revoker = this.revoker;
+    const user = await this.loadUser(userId);
+    this.assertNotEnabled(user);
+    if (!user.twoFactor.secret) {
+      throw new AppException(
+        ErrorCode.TWO_FACTOR_SETUP_REQUIRED,
+        'Start setup before confirming a code',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    await this.verificationService.verifyTotpCode(user, dto.code);
+    const codes = generateRecoveryCodes();
+    await runLeavingFailuresAsRaised(this.runner, async (unitOfWork) => {
+      const confirmed = await this.accounts.saveConfirmationIn(
+        unitOfWork,
+        user,
+        {
+          recoveryCodeHashes: codes.map(hashRecoveryCode),
+          confirmedAt: new Date(Date.now()),
+        },
+      );
+      if (!confirmed) {
+        throw new AppException(
+          ErrorCode.TWO_FACTOR_ALREADY_ENABLED,
+          'Two-factor setup changed. Start again.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      await revoker.revokeAllOthersExceptSessionIn(
+        unitOfWork,
+        userId,
+        currentSessionId,
+      );
+    });
+    this.logger.log(`Two-factor enabled: userId=${user.id}`);
+    return RecoveryCodesResponseDto.success(
+      codes,
+      'Store these codes somewhere safe. They are not shown again.',
+    );
+  }
+
   /**
    * Turn the second factor off. Needs a code or a recovery code, and the
    * password as well when the account has one and password sign-in is on.
@@ -120,6 +187,7 @@ export class TwoFactorService {
     await this.verificationService.verifySecondFactor(user, dto);
 
     await this.accounts.clear(user);
+    this.notices?.defer(user.id, SECURITY_NOTICE.TWO_FACTOR_DISABLED);
 
     this.logger.log(`Two-factor disabled: userId=${user.id}`);
     return ApiResponse.success({
