@@ -122,6 +122,59 @@ function rememberIssuedProof(response: Response | undefined, data: unknown, url:
   }
 }
 
+type IdentityProofFence =
+  | { kind: 'legacy' }
+  | { kind: 'inactive' }
+  | { kind: 'request'; requestId: string; sessionGeneration: number };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function identityProofFence(state: unknown): IdentityProofFence {
+  if (!isRecord(state) || !('auth' in state) || !isRecord(state.auth)) {
+    return { kind: 'legacy' };
+  }
+
+  const auth = state.auth;
+  if (
+    !('sessionGeneration' in auth) ||
+    !('identityRequest' in auth) ||
+    typeof auth.sessionGeneration !== 'number'
+  ) {
+    return { kind: 'legacy' };
+  }
+
+  if (!isRecord(auth.identityRequest)) {
+    return { kind: 'inactive' };
+  }
+
+  const { requestId, sessionGeneration } = auth.identityRequest;
+  if (
+    typeof requestId !== 'string' ||
+    requestId.length === 0 ||
+    typeof sessionGeneration !== 'number' ||
+    sessionGeneration !== auth.sessionGeneration
+  ) {
+    return { kind: 'inactive' };
+  }
+
+  return { kind: 'request', requestId, sessionGeneration };
+}
+
+function identityProofFenceIsCurrent(state: unknown, started: IdentityProofFence): boolean {
+  const current = identityProofFence(state);
+  if (started.kind === 'legacy') {
+    return current.kind === 'legacy';
+  }
+  return (
+    started.kind === 'request' &&
+    current.kind === 'request' &&
+    started.requestId === current.requestId &&
+    started.sessionGeneration === current.sessionGeneration
+  );
+}
+
 function updateIdentityProofHint(result: Awaited<ReturnType<typeof rawBaseQuery>>): void {
   try {
     const identity = unwrapIdentityBody(result.data);
@@ -196,6 +249,8 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 ) => {
   const url = requestUrl(args);
   const unsafe = methodNeedsBrowserProof(requestMethod(args));
+  const identityFence =
+    url === API_PATHS.auth.identity ? identityProofFence(api.getState()) : undefined;
 
   let proof = unsafe ? takeBrowserProof() : '';
   if (unsafe && !proof) {
@@ -205,10 +260,13 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
   }
 
   let result = await rawBaseQuery(proof ? withBrowserProof(args, proof) : args, api, extra);
-  rememberIssuedProof(result.meta?.response, result.data, url);
-
-  if (url === API_PATHS.auth.identity) {
-    updateIdentityProofHint(result);
+  if (identityFence) {
+    if (identityProofFenceIsCurrent(api.getState(), identityFence)) {
+      rememberIssuedProof(result.meta?.response, result.data, url);
+      updateIdentityProofHint(result);
+    }
+  } else {
+    rememberIssuedProof(result.meta?.response, result.data, url);
   }
 
   // A spent or stale proof must be replaced and the request retried exactly
