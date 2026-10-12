@@ -533,7 +533,8 @@
         "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts",
         "backend/test/auth/two-factor-http.e2e-spec.ts",
         "backend/test/utils/auth/two-factor-enrolment.ts",
-        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx"
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx",
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.ts"
       ],
       "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
