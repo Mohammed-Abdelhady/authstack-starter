@@ -45,6 +45,7 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'two_factor_challenges', column: 'expires_at', keepForMs: 0 }, // feature:totp
   { table: 'passkey_challenges', column: 'expires_at', keepForMs: 0 }, // feature:passkeys
   { table: 'authorization_transactions', column: 'expires_at', keepForMs: 0 },
+  { table: 'native_attempts', column: 'expires_at', keepForMs: 0 },
   { table: 'native_credentials', column: 'expires_at', keepForMs: 0 },
   { table: 'native_dpop_proof_ids', column: 'expires_at', keepForMs: 0 },
   { table: 'sessions', column: 'expires_at', keepForMs: 0 },
