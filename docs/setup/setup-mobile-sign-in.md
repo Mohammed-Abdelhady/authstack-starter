@@ -58,14 +58,18 @@ The bare shell reads its development and production API origins from
 `mobile/cli/src/constants.ts`. Replace the production placeholder before building
 for release. Physical devices need a reachable HTTPS API address.
 
+<!-- feature:oauth-core:start -->
+
 ## Native provider SDKs
 
 | Provider                | iOS                                           | Android                          | Required native configuration                        |
 | ----------------------- | --------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| Google                  | Fresh interactive ID token                    | Fresh interactive ID token       | Web client ID; iOS client ID and reversed URL scheme |
-| Apple                   | Identity token and one-use authorization code | System OAuth                     | iOS bundle ID and Sign in with Apple capability      |
-| Facebook                | Limited Login authentication JWT              | App-validated Graph access token | Facebook app ID and public client token              |
+| Google                  | Fresh interactive ID token                    | Fresh interactive ID token       | Web client ID; iOS client ID and reversed URL scheme | <!-- feature:google -->   |
+| Apple                   | Identity token and one-use authorization code | System OAuth                     | iOS bundle ID and Sign in with Apple capability      | <!-- feature:apple -->    |
+| Facebook                | Limited Login authentication JWT              | App-validated Graph access token | Facebook app ID and public client token              | <!-- feature:facebook --> |
 | Other enabled providers | System OAuth                                  | System OAuth                     | Existing backend provider configuration              |
+
+<!-- feature:google:start -->
 
 Google uses `react-native-nitro-google-signin`. Set
 `MOBILE_GOOGLE_IOS_URL_SCHEME` to the reversed iOS client ID, such as
@@ -74,6 +78,9 @@ and signing certificate in the Google project. The backend verifies the token's
 server audience and the nonce of the current attempt. A previously cached token
 cannot complete a new attempt. See the [selected SDK's setup guide](https://github.com/react-native-nitro-google-sign-in/google-signin)
 and the [backend Google setup](setup-google-oauth.md).
+<!-- feature:google:end -->
+
+<!-- feature:apple:start -->
 
 Set `MOBILE_APPLE_SIGN_IN_ENABLED=true` for iOS and enable Sign in with Apple for
 the registered bundle ID. The native `appId` is that bundle ID. The backend uses
@@ -81,6 +88,9 @@ its existing Apple credentials to exchange the code and checks that both tokens
 refer to the same subject. Apple on Android uses the existing browser route.
 See [Expo Apple authentication](https://docs.expo.dev/versions/latest/sdk/apple-authentication/)
 and the [backend Apple setup](setup-apple-oauth.md).
+<!-- feature:apple:end -->
+
+<!-- feature:facebook:start -->
 
 Set `MOBILE_FACEBOOK_APP_ID`, `MOBILE_FACEBOOK_CLIENT_TOKEN` and, optionally,
 `MOBILE_FACEBOOK_DISPLAY_NAME`. The first two must be supplied together. The
@@ -90,12 +100,16 @@ Automatic event logging and advertiser tracking are disabled by the build plugin
 Facebook identities retain the existing restriction against automatic email
 linking. See the [native wrapper configuration](https://github.com/thebergamo/react-native-fbsdk-next)
 and the [backend Facebook setup](setup-facebook-oauth.md).
+<!-- feature:facebook:end -->
 
 Unconfigured or unavailable SDKs offer the provider's system OAuth option. All
 other enabled providers are discovered from the backend and use system sheets.
 No provider registration or production credential is created by the generator.
+<!-- feature:oauth-core:end -->
 
-## Passkeys and app links
+<!-- feature:passkeys:start -->
+
+## Passkeys
 
 Native passkeys use the existing relying party and enrolled credentials. Set
 `signIn.passkeys=true`, `signIn.rpId` and `signIn.origins` on the registered native
@@ -109,6 +123,9 @@ file and Android Digital Asset Links for the installed application and signing
 certificate. Existing credentials remain bound to their original RP ID.
 See [passkey setup and enrollment](setup-passkeys.md) and the
 [native passkey bridge](https://github.com/peterferguson/react-native-passkeys).
+<!-- feature:passkeys:end -->
+
+## App links
 
 For HTTPS callbacks, set `MOBILE_APP_LINK_HOST` and optionally
 `MOBILE_APP_LINK_PATH`, which defaults to `/oauth/callback`. The build adds the
