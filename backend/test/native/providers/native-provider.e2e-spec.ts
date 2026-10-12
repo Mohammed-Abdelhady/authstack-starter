@@ -1,12 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
-import { exportPKCS8 } from 'jose';
+import { exportPKCS8 } from 'jose'; // feature:apple
 import request from 'supertest';
 import { unwrapNativeAttemptResult, unwrapNativeAttemptStart } from '@app/sdk';
 import { GoogleOAuthStrategy } from '../../../src/auth/oauth/strategies/google-oauth.strategy'; // feature:google
 import { AppleOAuthStrategy } from '../../../src/auth/oauth/strategies/apple-oauth.strategy'; // feature:apple
 import { FacebookOAuthStrategy } from '../../../src/auth/oauth/strategies/facebook-oauth.strategy'; // feature:facebook
 import type { OAuthProviderStrategy } from '../../../src/auth/oauth/oauth-provider.interface';
+import type { NativeProviderSignInConfiguration } from '../../../src/config/types/native-application.type';
 import {
   configFor,
   mockFetch,
@@ -33,7 +34,12 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../utils/hook-timeouts';
 
-const PROVIDERS = [
+const PROVIDERS: ReadonlyArray<
+  Pick<NativeProviderSignInConfiguration, 'id' | 'mode'> & {
+    issuer: string;
+    jwks: string;
+  }
+> = [
   {
     id: 'google',
     mode: 'googleIdentityToken',
@@ -52,7 +58,7 @@ const PROVIDERS = [
     issuer: 'https://www.facebook.com',
     jwks: 'https://www.facebook.com/.well-known/oauth/openid/jwks/',
   }, // feature:facebook
-] as const;
+];
 const FETCH = global.fetch;
 const ONLY_THE_CALENDAR = [
   'hrtime',
