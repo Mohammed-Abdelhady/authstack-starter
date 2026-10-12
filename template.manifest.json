@@ -408,7 +408,9 @@
         "frontend/src/modules/auth/methods/password/**",
         "frontend/src/app/[locale]/(auth)/auth/register/**",
         "frontend/src/app/[locale]/(auth)/auth/forgot-password/**",
-        "frontend/src/app/[locale]/(auth)/auth/reset-password/**"
+        "frontend/src/app/[locale]/(auth)/auth/reset-password/**",
+        "backend/test/auth/security-notices.e2e-spec.ts",
+        "backend/test/auth/identity.e2e-spec.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
@@ -523,9 +525,10 @@
         "backend/test/auth/two-factor-route-limits.e2e-spec.ts",
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
-        "frontend/src/app/[locale]/(auth)/auth/2fa/**"
+        "frontend/src/app/[locale]/(auth)/auth/2fa/**",
+        "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts"
       ],
-      "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY"],
+      "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
       "docs": ["docs/setup/setup-two-factor.md"]
     },
@@ -544,14 +547,19 @@
         "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/postgres/postgres-passkeys-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0009_passkeys.sql",
-        "frontend/src/modules/passkeys/**"
+        "frontend/src/modules/passkeys/**",
+        "backend/src/config/passkey-env.validation.spec.ts",
+        "backend/src/config/passkey-name.spec.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
         "WEBAUTHN_RP_ID",
         "WEBAUTHN_RP_NAME",
         "WEBAUTHN_ORIGIN",
-        "OAUTH_STATE_SECRET"
+        "OAUTH_STATE_SECRET",
+        "PASSKEY_CHALLENGE_SECRET",
+        "PASSKEY_CHALLENGE_SECRET_PREVIOUS",
+        "PASSKEY_CHALLENGE_LEGACY_UNTIL"
       ],
       "requires": [],
       "docs": ["docs/setup/setup-passkeys.md"]
