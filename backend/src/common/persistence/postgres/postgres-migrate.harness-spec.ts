@@ -35,6 +35,7 @@ export const EVERY_MIGRATION = [
   '0015_magic_link_request_nonce.sql', // feature:magic-link
   '0016_pending_email.sql',
   '0017_two_factor_lockout.sql', // feature:totp
+  '0018_native_attempts.sql',
 ];
 
 export interface MigrateDatabases {
