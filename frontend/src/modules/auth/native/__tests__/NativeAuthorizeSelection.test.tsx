@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
-import { API_BASE_URL } from '@/constants/api';
+import { waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react'; // feature:oauth-core
+import { API_BASE_URL } from '@/constants/api'; // feature:oauth-core
 import { renderForm, stubNetwork, success } from '@/tests/serverRejectionHarness';
 import { NativeAuthorizePanel } from '../NativeAuthorizePanel';
 import { TEST_USER, transactionPayload } from './harness';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { API_BASE_URL } from '@/constants/api';
+import { API_BASE_URL } from '@/constants/api'; // feature:oauth-core
 import { readNativeBrowserSelectors } from '../../utils/nativeBrowserSelectors';
 import { nativeBrowserSignInTarget } from '../../utils/nativeBrowserSignIn';
 
