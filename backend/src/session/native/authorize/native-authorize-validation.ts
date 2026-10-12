@@ -14,6 +14,7 @@ import {
   isAcceptableRedirectUri,
   matchesRegisteredRedirectUri,
 } from '../../utils/oauth/redirect-uri.util';
+import type { RedirectUriPolicy } from '../../utils/oauth/redirect-uri.util';
 import {
   OAUTH_ERROR,
   OauthFailure,
@@ -37,10 +38,7 @@ export function rejectNativeClient(
     );
   }
   if (
-    !isAcceptableRedirectUri(redirectUri, {
-      nodeEnv: authEpoch.environment(),
-      allowCustomScheme: authEpoch.nativeCustomSchemeAllowed(),
-    }) ||
+    !isAcceptableRedirectUri(redirectUri, nativeRedirectPolicy(authEpoch)) ||
     !application.redirectUris.some((registered) =>
       matchesRegisteredRedirectUri(registered, redirectUri),
     )
@@ -48,6 +46,15 @@ export function rejectNativeClient(
     return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_REQUEST);
   }
   return null;
+}
+
+export function nativeRedirectPolicy(
+  authEpoch: AuthEpochService,
+): RedirectUriPolicy {
+  return {
+    nodeEnv: authEpoch.environment(),
+    allowCustomScheme: authEpoch.nativeCustomSchemeAllowed(),
+  };
 }
 
 export function resolveNativeScopes(

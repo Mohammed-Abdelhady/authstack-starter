@@ -26,7 +26,6 @@ import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
 import { addMs } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
 import { isAcceptableRedirectUri } from '../../utils/oauth/redirect-uri.util';
-import type { RedirectUriPolicy } from '../../utils/oauth/redirect-uri.util';
 import { matchesRegisteredRedirectUri } from '../../utils/oauth/redirect-uri.util';
 import { AuthorizeBegin, OauthFailure } from '../oauth/native-oauth.types';
 import {
@@ -34,7 +33,11 @@ import {
   GRANT_VERSION_CAPTURE,
   NativeAuthorizationStore,
 } from './native-authorization.store';
-import { validateNativeAuthorizationRequest } from './native-authorize-validation';
+import {
+  nativeRedirectPolicy,
+  validateNativeAuthorizationRequest,
+} from './native-authorize-validation';
+import { assertNativeVerifiedAuthority } from './native-verified-authority';
 import type { ValidatedNativeAuthorization } from '../types/native-authorization';
 import {
   appendAuthorizationCode,
@@ -50,6 +53,7 @@ interface ApprovedAuthorization {
   redirectUri: string;
   state: string;
   code: string;
+  grantVersion: number;
 }
 
 @Injectable()
@@ -141,7 +145,7 @@ export class NativeAuthorizeService {
     unitOfWork: UnitOfWork,
     attempt: NativeAttempt,
     principal: VerifiedNativeAccount,
-  ): Promise<{ redirectUri: string; expiresAt: Date }> {
+  ): Promise<{ redirectUri: string; expiresAt: Date; grantVersion: number }> {
     const now = this.clock.now();
     if (
       attempt.authEpoch !== this.authEpoch.current() ||
@@ -176,6 +180,7 @@ export class NativeAuthorizeService {
         approved.state,
       ),
       expiresAt: addMs(now, AUTHORIZATION_CODE_LIFETIME_MS),
+      grantVersion: approved.grantVersion,
     };
   }
 
@@ -184,45 +189,15 @@ export class NativeAuthorizeService {
     attempt: NativeAttempt,
     principal: VerifiedNativeAccount,
   ): Promise<void> {
-    if (attempt.authEpoch !== this.authEpoch.current())
-      throw expiredTransaction();
-    const account = await this.issuance.readAccountForIssuance(
+    return assertNativeVerifiedAuthority({
       unitOfWork,
-      principal.userId,
-    );
-    if (
-      !account ||
-      account.isDeleted ||
-      account.sessionVersion !== principal.userVersion
-    )
-      throw expiredTransaction();
-    const application = await this.registry.findClientIn(
-      unitOfWork,
-      attempt.clientId,
-    );
-    if (
-      !application ||
-      !application.enabled ||
-      application.platform !== APPLICATION_PLATFORM.NATIVE ||
-      application.clientType !== APPLICATION_CLIENT_TYPE.PUBLIC ||
-      application.sessionVersion !== principal.clientVersion ||
-      !isAcceptableRedirectUri(attempt.redirectUri, this.redirectPolicy()) ||
-      !application.redirectUris.some((registered) =>
-        matchesRegisteredRedirectUri(registered, attempt.redirectUri),
-      )
-    ) {
-      throw expiredTransaction();
-    }
-    const grant = await this.grants.takeGrantForChange(
-      unitOfWork,
-      principal.userId,
-      attempt.clientId,
-    );
-    if (
-      (grant?.sessionVersion ?? null) !== principal.grantVersion ||
-      grant?.allowed === false
-    )
-      throw expiredTransaction();
+      attempt,
+      principal,
+      authEpoch: this.authEpoch,
+      issuance: this.issuance,
+      registry: this.registry,
+      grants: this.grants,
+    });
   }
 
   private async approveIn(
@@ -251,7 +226,12 @@ export class NativeAuthorizeService {
     if (!pending) {
       throw expiredTransaction();
     }
-    if (!isAcceptableRedirectUri(pending.redirectUri, this.redirectPolicy())) {
+    if (
+      !isAcceptableRedirectUri(
+        pending.redirectUri,
+        nativeRedirectPolicy(this.authEpoch),
+      )
+    ) {
       throw expiredTransaction();
     }
     const application = await this.registry.findClientIn(
@@ -302,13 +282,11 @@ export class NativeAuthorizeService {
     if (captured !== GRANT_VERSION_CAPTURE.CAPTURED) {
       throw expiredTransaction();
     }
-    return { redirectUri: pending.redirectUri, state: pending.state, code };
-  }
-
-  private redirectPolicy(): RedirectUriPolicy {
     return {
-      nodeEnv: this.authEpoch.environment(),
-      allowCustomScheme: this.authEpoch.nativeCustomSchemeAllowed(),
+      redirectUri: pending.redirectUri,
+      state: pending.state,
+      code,
+      grantVersion: grant.sessionVersion,
     };
   }
 

@@ -69,7 +69,14 @@ export class NativeConsentService {
           {
             phase: NATIVE_ATTEMPT_PHASE.CODE_READY,
             expiresAt: claimed.expiresAt,
-            details: { ...claimed.details, codeReply: reply },
+            details: {
+              ...claimed.details,
+              verifiedAccount: {
+                ...claimed.details.verifiedAccount,
+                grantVersion: approved.grantVersion,
+              },
+              codeReply: reply,
+            },
           },
         );
         if (!result) throw wrongStage();

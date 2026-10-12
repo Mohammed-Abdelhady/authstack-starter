@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { NativeAttemptView, NativeFirstFactor } from '@app/sdk';
+import type { NativeAttemptView } from '@app/sdk';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ApplicationRegistry } from '../../../session/applications/application-registry';
@@ -7,6 +7,7 @@ import { ApplicationAccessStore } from '../../../session/applications/applicatio
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
 import type { NativeAttempt } from '../types/native-attempt';
 import { NativeMethodsService } from './native-methods.service';
+import { nativeFirstFactors } from '../utils/native-first-factors';
 
 @Injectable()
 export class NativeAttemptViewService {
@@ -25,13 +26,11 @@ export class NativeAttemptViewService {
     switch (attempt.phase) {
       case 'firstFactorRequired': {
         const methods = await this.methods.forClient(attempt.clientId);
-        const factors: NativeFirstFactor[] = [];
-        if (methods.capabilities.password) factors.push('password');
-        if (methods.capabilities.emailLink) factors.push('emailLink');
-        if (methods.capabilities.passkeys) factors.push('passkey');
-        if (methods.providers.some(({ mode }) => mode !== 'system'))
-          factors.push('provider');
-        return { ...base, stage: 'firstFactorRequired', factors };
+        return {
+          ...base,
+          stage: 'firstFactorRequired',
+          factors: nativeFirstFactors(methods),
+        };
       }
       case 'emailLinkSent':
         return {
@@ -52,12 +51,15 @@ export class NativeAttemptViewService {
           stage: 'recoveryCodeRequired',
           email: attempt.details.email?.address ?? '',
         };
-      case 'secondFactorRequired':
-        return {
+      case 'secondFactorRequired': {
+        const secondFactorView = {
           ...base,
-          stage: 'secondFactorRequired',
+          stage: 'secondFactorRequired' as const,
           factors: attempt.details.secondFactors ?? [],
+          activationCompleted: attempt.details.activationCompleted,
         };
+        return secondFactorView;
+      }
       case 'consentRequired': {
         const verified = attempt.details.verifiedAccount;
         if (!verified) throw wrongStage();
