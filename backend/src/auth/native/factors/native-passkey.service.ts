@@ -199,7 +199,7 @@ export class NativePasskeyService {
           if (
             !current ||
             current.isDeleted ||
-            !current.twoFactorEnabled ||
+            !current.twoFactorEnabled || // feature:totp
             current.sessionVersion !== account.sessionVersion
           )
             throw wrongStage();
