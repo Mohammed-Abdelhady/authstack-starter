@@ -3,6 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Response } from 'express';
 import { Model } from 'mongoose';
 import { AuthProvider } from '../../../../user/enums/auth-provider.enum';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { UniqueConflictError } from '../../../../common/persistence/persistence-errors';
+import { isMongoDuplicateKeyError } from '../../../../common/persistence/mongo/mongo-error.util';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   User,
   UserDocument,
@@ -66,6 +70,16 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
     return user ? new MongoMagicLinkAccount(user) : null;
   }
 
+  async findByEmailIn(
+    unitOfWork: UnitOfWork,
+    email: string,
+  ): Promise<MagicLinkAccount | null> {
+    const user = await this.userModel
+      .findOne({ email: { $eq: email } })
+      .session(mongoSessionOf(unitOfWork));
+    return user ? new MongoMagicLinkAccount(user) : null;
+  }
+
   async hasDeletedAccount(email: string): Promise<boolean> {
     const deleted = await singleStatement(() =>
       this.userModel.exists({ email: { $eq: email }, isDeleted: true }),
@@ -77,6 +91,18 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
     const user = documentOf(account);
     user.isVerified = true;
     await singleStatement(() => user.save());
+  }
+
+  async markVerifiedIn(
+    unitOfWork: UnitOfWork,
+    account: MagicLinkAccount,
+  ): Promise<boolean> {
+    const updated = await this.userModel.updateOne(
+      { _id: documentOf(account)._id, isDeleted: { $ne: true } },
+      { $set: { isVerified: true } },
+      { session: mongoSessionOf(unitOfWork) },
+    );
+    return updated.matchedCount > 0;
   }
 
   async createPasswordless(
@@ -92,6 +118,38 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
       }),
     );
     return new MongoMagicLinkAccount(user);
+  }
+
+  async createPasswordlessIn(
+    unitOfWork: UnitOfWork,
+    account: NewPasswordlessAccount,
+  ): Promise<MagicLinkAccount> {
+    try {
+      const user = await this.userModel.create(
+        [
+          {
+            email: account.email,
+            name: account.name,
+            isVerified: true,
+            authProvider: AuthProvider.EMAIL,
+            primaryProvider: AuthProvider.EMAIL,
+          },
+        ],
+        { session: mongoSessionOf(unitOfWork) },
+      );
+      const created = user[0];
+      if (!created)
+        throw new Error('Passwordless account insert returned none');
+      return new MongoMagicLinkAccount(created);
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        throw new UniqueConflictError(
+          MAGIC_LINK_ACCOUNT_CONSTRAINT.ADDRESS,
+          error,
+        );
+      }
+      throw error;
+    }
   }
 }
 

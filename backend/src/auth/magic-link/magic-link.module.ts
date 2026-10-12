@@ -4,6 +4,8 @@ import { AuthModule } from '../auth.module';
 import { MagicLinkController } from './magic-link.controller';
 import { MagicLinkService } from './magic-link.service';
 import { MagicLinkBrowserService } from './magic-link-browser.service';
+import { MagicLinkAccounts } from './stores/magic-link-accounts';
+import { MagicLinkStore } from './stores/magic-link.store';
 import { CommonModule } from '../../common/common.module';
 import { MailModule } from '../../mail/mail.module';
 import {
@@ -30,6 +32,6 @@ import {
     MagicLinkBrowserService,
     ...MAGIC_LINK_PERSISTENCE_PROVIDERS,
   ],
-  exports: [MagicLinkService],
+  exports: [MagicLinkService, MagicLinkAccounts, MagicLinkStore],
 })
 export class MagicLinkModule {}

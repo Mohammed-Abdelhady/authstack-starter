@@ -27,6 +27,9 @@ export const MAGIC_LINK_SENT_MESSAGE =
 /** Reply to a link that has to be confirmed before it signs anyone in. */
 export const MAGIC_LINK_CONFIRM_MESSAGE = 'Confirm this sign-in to continue';
 
+export const MAGIC_LINK_INVALID_MESSAGE =
+  'This sign-in link is no longer valid. Request a new one.';
+
 /** Cookie that holds the nonce of the browser a link was asked from. */
 export const MAGIC_LINK_NONCE_COOKIE = 'ml_nonce';
 export const MAGIC_LINK_NONCE_HOST_COOKIE = '__Host-ml_nonce';
