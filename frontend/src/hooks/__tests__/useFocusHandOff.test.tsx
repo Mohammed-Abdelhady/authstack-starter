@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useRef, useState } from 'react';
+import { Heading } from '@/components/design-system/Heading';
 import { useRetryHandOff } from '../useFocusHandOff';
 
 interface PageProps {
@@ -17,7 +18,7 @@ function Page({ keepsRetry = false }: PageProps) {
   return (
     <>
       {(hasFailed || keepsRetry) && <button data-testid="retry" onClick={retry} />}
-      <h1 ref={headingRef} tabIndex={-1} data-testid="heading" />
+      <Heading level={1} variant="pageTitle" ref={headingRef} tabIndex={-1} data-testid="heading" />
       <input data-testid="elsewhere" />
       <button data-testid="recover" onClick={() => setHasFailed(false)} />
     </>
