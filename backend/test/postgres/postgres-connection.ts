@@ -33,6 +33,7 @@ const SESSION_END_WAIT_MS = 30_000;
 const EVERY_TABLE: Record<keyof PostgresTables, true> = {
   security_events: true,
   native_dpop_proof_ids: true,
+  native_attempts: true,
   native_credentials: true,
   authorization_transactions: true,
   browser_proofs: true,
