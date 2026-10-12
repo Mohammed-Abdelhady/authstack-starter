@@ -23,6 +23,7 @@ import { generateVerificationCode } from './utils/verification-code.util';
 import { MAIL_COUNTER_PURPOSE } from './constants/registration';
 import { SecurityNoticeService } from '../user/services/security-notice.service';
 import { SECURITY_NOTICE } from '../user/constants/security-notice.constants';
+import { verifyPasswordCredentials } from './services/password/password-credentials';
 
 /**
  * Password sign-in and the password lifecycle. The sign-up code flows live in
@@ -49,33 +50,11 @@ export class AuthService {
     dto: LoginDto,
     response: Response,
   ): Promise<ApiResponse<LoginResponseDto>> {
-    const candidate = await this.accounts.findForPasswordCheck(dto.email);
-
-    if (!candidate || !candidate.passwordHash) {
-      // The same one comparison a stored password costs, so the answer does
-      // not arrive sooner for an address with no account or no password.
-      await this.hashService.spendComparison(dto.password);
-      throw new AppException(
-        ErrorCode.INVALID_CREDENTIALS,
-        'Invalid email or password',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    const isPasswordValid = await this.hashService.compare(
-      dto.password,
-      candidate.passwordHash,
+    const user = await verifyPasswordCredentials(
+      this.accounts,
+      this.hashService,
+      dto,
     );
-
-    if (!isPasswordValid) {
-      throw new AppException(
-        ErrorCode.INVALID_CREDENTIALS,
-        'Invalid email or password',
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-
-    const user = candidate.account;
     const outcome = await this.signInService.completeSignIn(
       user,
       response,
