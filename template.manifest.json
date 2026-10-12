@@ -427,6 +427,9 @@
         "backend/src/auth/native/lifecycle/native-registration.service.ts",
         "backend/src/auth/native/lifecycle/native-recovery.controller.ts",
         "backend/src/auth/native/lifecycle/native-recovery.service.ts",
+        "backend/test/native/lifecycle/native-registration.e2e-spec.ts",
+        "backend/test/native/lifecycle/native-recovery.e2e-spec.ts",
+        "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
       ],
@@ -517,6 +520,7 @@
         "backend/src/auth/native/lifecycle/native-email-link.service.ts",
         "backend/src/auth/native/lifecycle/native-email-link-mail.service.ts",
         "backend/src/auth/native/lifecycle/dto/native-email-link-verify.dto.ts",
+        "backend/test/native/lifecycle/native-email-link.e2e-spec.ts",
         "backend/test/auth/magic-link-browser.e2e-spec.ts",
         "backend/test/auth/magic-link-continuation.e2e-spec.ts",
         "backend/test/auth/magic-link-expiry.e2e-spec.ts",
