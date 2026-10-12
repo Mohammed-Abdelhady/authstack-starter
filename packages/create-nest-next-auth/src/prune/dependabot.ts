@@ -1,10 +1,11 @@
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { isMap, isSeq, parseDocument } from 'yaml';
+import { join, posix } from 'node:path';
+import { isMap, isScalar, isSeq, parseDocument } from 'yaml';
 import { readFileIfExists } from '../utils/fs.js';
 
-/** Dependabot config whose docker entries follow the files they track. */
+/** Dependabot entries track files kept by the generated project. */
 export const DEPENDABOT_FILE = '.github/dependabot.yml';
+const GLOB_MARKERS = ['*', '?', '[', ']', '{', '}', '!', '(', ')', '\\'];
 
 function entryUsesDeletedDockerfile(entry: unknown, deleted: Set<string>): boolean {
   if (!isMap(entry)) return false;
@@ -16,10 +17,40 @@ function entryUsesDeletedDockerfile(entry: unknown, deleted: Set<string>): boole
   return deleted.has(dockerfile);
 }
 
+function isLiteralFilePath(path: string): boolean {
+  return (
+    path.length > 0 && !path.endsWith('/') && !GLOB_MARKERS.some((marker) => path.includes(marker))
+  );
+}
+
+function pruneDeletedNpmExclusions(entry: unknown, deleted: Set<string>): boolean {
+  if (!isMap(entry)) return false;
+  const plain = entry.toJSON() as Record<string, unknown>;
+  if (plain['package-ecosystem'] !== 'npm' || typeof plain.directory !== 'string') return false;
+
+  const exclusions = entry.get('exclude-paths', true);
+  if (!isSeq(exclusions)) return false;
+
+  const directory = posix.normalize(plain.directory).replace(/^\/+/, '').replace(/\/+$/, '');
+  const kept = exclusions.items.filter((item) => {
+    if (!isScalar(item) || typeof item.value !== 'string' || !isLiteralFilePath(item.value)) {
+      return true;
+    }
+
+    const target = posix.normalize(posix.join(directory, item.value)).replace(/^\/+/, '');
+    return target.startsWith('../') || target === '..' || !deleted.has(target);
+  });
+  if (kept.length === exclusions.items.length) return false;
+
+  if (kept.length === 0) entry.delete('exclude-paths');
+  else exclusions.items = kept;
+  return true;
+}
+
 /**
- * Drops a docker update entry whose directory no longer has a Dockerfile. It
- * edits the parsed document in place, so untouched text, quotes and blank lines
- * are preserved. Returns false when nothing changed.
+ * Drops update entries and exact manifest exclusions for files removed by the
+ * selected project. Untouched text, quotes and blank lines stay in place.
+ * Returns false when nothing changed.
  */
 export async function pruneDependabot(
   root: string,
@@ -37,8 +68,16 @@ export async function pruneDependabot(
   if (!isSeq(updates)) return false;
 
   const deleted = new Set(deletedFiles);
-  const kept = updates.items.filter((entry) => !entryUsesDeletedDockerfile(entry, deleted));
-  if (kept.length === updates.items.length) return false;
+  let changed = false;
+  const kept = updates.items.filter((entry) => {
+    if (entryUsesDeletedDockerfile(entry, deleted)) {
+      changed = true;
+      return false;
+    }
+    if (pruneDeletedNpmExclusions(entry, deleted)) changed = true;
+    return true;
+  });
+  if (!changed) return false;
 
   updates.items = kept;
   await writeFile(path, document.toString(), 'utf8');
