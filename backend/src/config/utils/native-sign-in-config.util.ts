@@ -45,13 +45,15 @@ export function parseSignIn(
       origins.length === 0 ||
       origins.some(
         (origin: unknown) =>
-          typeof origin !== 'string' || !/^https:\/\/[^/]+$/u.test(origin),
+          typeof origin !== 'string' ||
+          (!/^https:\/\/[^/]+$/u.test(origin) &&
+            !/^android:apk-key-hash:[A-Za-z0-9_-]{43}$/u.test(origin)),
       ))
   ) {
     throw entryError(
       index,
       clientId,
-      'signIn.origins must contain exact HTTPS origins',
+      'signIn.origins must contain exact HTTPS or Android app origins',
     );
   }
   const rpId = value.rpId;
