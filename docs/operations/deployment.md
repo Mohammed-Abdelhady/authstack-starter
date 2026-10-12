@@ -171,6 +171,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml up -d --scale backend=2
 ```
 
+Rate limits are counted inside each backend process, so two instances allow each client twice every limit. Read [rate limits count per server process](production-security.md#rate-limits-count-per-server-process) before you scale the backend.
+
 ### Security Best Practices
 
 1. **Use strong passwords** for MongoDB authentication
@@ -186,6 +188,11 @@ docker compose -f docker-compose.prod.yml up -d --scale backend=2
    those directives and `trust proxy` must change together, and the backend must stay
    unreachable except through nginx - a client that connects to it directly sets
    `X-Forwarded-For` itself and picks its own throttle bucket.
+8. **Let the backend check its own settings.** With `NODE_ENV=production` it refuses to
+   start on an `http` or localhost `CLIENT_URL`, on Swagger without a second switch,
+   and on seed settings. See [production security settings](production-security.md).
+9. **Send each security header from one layer.** nginx adds none. The frontend and the
+   backend send their own, listed in the same guide.
 
 ### Resource Limits
 
@@ -284,7 +291,6 @@ The [`vercel.json`](../../frontend/vercel.json) file includes:
 - **Framework**: Next.js (optimized)
 - **Build Command**: `corepack pnpm run build`
 - **Output Directory**: `.next`
-- **Security Headers**: X-Content-Type-Options, X-Frame-Options, etc.
 - **Caching**: Optimized for static assets
 
 ### Automatic Deployments

@@ -4,10 +4,9 @@ USER root
 
 RUN apk add --no-cache curl ca-certificates openssl
 
-RUN mkdir -p /etc/nginx/ssl /etc/nginx/snippets /var/www/certbot && \
-    chown -R 101:101 /etc/nginx/ssl /etc/nginx/snippets /var/www/certbot
+RUN mkdir -p /etc/nginx/ssl /var/www/certbot && \
+    chown -R 101:101 /etc/nginx/ssl /var/www/certbot
 
-COPY snippets/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY nginx.conf /etc/nginx/nginx.conf
 
 RUN rm -f /etc/nginx/conf.d/default.conf

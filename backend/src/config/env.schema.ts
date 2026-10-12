@@ -11,9 +11,15 @@ import {
   Matches,
   Max,
   Min,
+  Validate,
 } from 'class-validator';
 import { OAuthEnvironmentConfig } from './env.oauth.schema';
-import { NativeEnvironmentVariables } from './env.native.schema';
+import {
+  ProductionPublicUrlConstraint,
+  ProductionSwaggerConstraint,
+  ProductionThrottleConstraint,
+} from './env.production.constraints';
+import { ProductionGuardEnvironmentVariables } from './env.production.schema';
 import {
   transformBoolean,
   transformOptionalString,
@@ -82,11 +88,12 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
   WEBAUTHN_ORIGIN?: string;
 
   SWAGGER_ENABLED?: boolean;
+  SWAGGER_ALLOW_IN_PRODUCTION?: boolean;
   PROFILE_SYNC_ENABLED?: boolean;
   PROFILE_SYNC_FIELDS?: string;
 }
 
-export class EnvironmentVariables extends NativeEnvironmentVariables {
+export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @IsEnum(['development', 'production', 'test'])
   @IsOptional()
   NODE_ENV: 'development' | 'production' | 'test' = 'development';
@@ -101,6 +108,7 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   @IsUrl({ require_protocol: true, require_tld: false })
+  @Validate(ProductionPublicUrlConstraint)
   @IsOptional()
   CLIENT_URL: string = 'http://localhost:3000';
 
@@ -115,6 +123,7 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   @IsInt()
   @Min(1)
   @Max(1000)
+  @Validate(ProductionThrottleConstraint)
   @IsOptional()
   THROTTLE_LIMIT: number = 60;
 
@@ -282,6 +291,7 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
 
   @Transform(transformBoolean(false))
   @IsBoolean()
+  @Validate(ProductionSwaggerConstraint)
   @IsOptional()
   SWAGGER_ENABLED: boolean = false;
 

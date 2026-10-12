@@ -63,6 +63,7 @@ describe('API_URL with native sign-in enabled', () => {
     const result = validateEnvironment({
       ...nativeEnv,
       NODE_ENV: 'production',
+      CLIENT_URL: 'https://app.example.com',
       API_URL: 'https://api.example.com',
     });
 

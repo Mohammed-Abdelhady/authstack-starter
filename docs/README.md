@@ -20,6 +20,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 - [Code quality](reference/code-quality.md): Local lint, format, hard-ban hooks, and tests on push.
 - [Deployment](operations/deployment.md): Docker Compose and cloud deployment instructions.
 - [Custom domains and deployment troubleshooting](operations/deployment-custom-domain.md)
+- [Production security settings](operations/production-security.md): Start checks, cookie rules, rate limit counters, and the security headers each layer sends.
 
 ## Authentication setup guides
 

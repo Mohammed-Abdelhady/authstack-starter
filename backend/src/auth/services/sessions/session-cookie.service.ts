@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response, CookieOptions } from 'express';
+import {
+  defaultSessionCookieName,
+  usesSecureCookies,
+} from '../../../config/utils/production-environment.util';
 
 export function resolveSessionCookieName(
   nodeEnv: string | undefined,
   configuredName: string | undefined,
+  clientUrl?: string,
 ): string {
   if (configuredName) {
     return configuredName;
   }
-  return nodeEnv === 'production' ? '__Host-sid' : 'sid';
+  return defaultSessionCookieName(nodeEnv, clientUrl);
 }
 
 @Injectable()
@@ -20,12 +25,19 @@ export class SessionCookieService {
     return resolveSessionCookieName(
       this.configService.get<string>('NODE_ENV'),
       this.configService.get<string>('session.cookieName'),
+      this.configService.get<string>('CLIENT_URL'),
+    );
+  }
+
+  /** Secure in production, and wherever the browser reaches the app over https. */
+  private get secure(): boolean {
+    return usesSecureCookies(
+      this.configService.get<string>('NODE_ENV'),
+      this.configService.get<string>('CLIENT_URL'),
     );
   }
 
   get options(): CookieOptions {
-    const isProduction =
-      this.configService.get<string>('NODE_ENV') === 'production';
     const maxAge = this.configService.get<number>(
       'session.cookieMaxAge',
       604800000,
@@ -33,7 +45,7 @@ export class SessionCookieService {
 
     return {
       httpOnly: true,
-      secure: isProduction,
+      secure: this.secure,
       sameSite: 'strict',
       path: '/',
       maxAge,
@@ -45,11 +57,9 @@ export class SessionCookieService {
   }
 
   clear(res: Response): void {
-    const isProduction =
-      this.configService.get<string>('NODE_ENV') === 'production';
     res.clearCookie(this.name, {
       httpOnly: true,
-      secure: isProduction,
+      secure: this.secure,
       sameSite: 'strict',
       path: '/',
     });
