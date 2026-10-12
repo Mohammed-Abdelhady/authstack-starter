@@ -597,7 +597,8 @@
         "backend/src/config/passkey-name.spec.ts",
         "backend/test/auth/passkey-rename.e2e-spec.ts",
         "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
-        "backend/test/auth/passkey-first-account.e2e-spec.ts"
+        "backend/test/auth/passkey-first-account.e2e-spec.ts",
+        "mobile/adapters/test/passkey-readiness.test.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
