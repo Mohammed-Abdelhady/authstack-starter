@@ -11,7 +11,7 @@ import { RoleSidebarNav } from '@/modules/permissions/components/roles/RoleSideb
 import { RoleDetailPanel } from '@/modules/permissions/components/roles/RoleDetailPanel';
 import { RoleSplitViewSkeleton, RoleDialogs } from '@/modules/roles/components';
 import { RoutePermissionGuard } from '@/modules/permissions';
-import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
 import { MAX_ADMIN_SEARCH_LENGTH } from '@/modules/permissions/constants/search';
 import { ROLE_PERMISSIONS } from '@app/core';
 import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';

@@ -5,7 +5,3 @@
  * first strong character. Do not set `dir` on a field that takes these.
  */
 export const FREE_TEXT_FIELD_CLASSES = '[unicode-bidi:plaintext] ltr:text-left rtl:text-right';
-
-/** The same for a `SearchBar`, whose `className` lands on the wrapper of the input. */
-export const FREE_TEXT_SEARCH_CLASSES =
-  '[&_input]:[unicode-bidi:plaintext] [&_input]:ltr:text-left [&_input]:rtl:text-right';

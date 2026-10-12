@@ -150,3 +150,48 @@ it('stops when a database rule finds nothing to change and nothing was left out'
     recorded: existsSync(join(target, ANSWERS_FILE_NAME)),
   }).toEqual({ planErrors: [], result: undefined, namesTheRule: true, recorded: false });
 });
+
+it.each(['strict', 'standard'] as const)(
+  'reports a surviving stale database rewrite in a partial %s project',
+  async (rules) => {
+    const target = join(TEMPLATE_FIXTURE.path, 'app');
+    const real = await loadManifest(TEMPLATE_FIXTURE.path);
+    const plan = resolvePlan(real, { features: ['email-password'], rules });
+    const chosen = real.databases[plan.database];
+    const manifest = {
+      ...real,
+      databases: {
+        ...real.databases,
+        [plan.database]: {
+          ...chosen,
+          rewrites: [
+            ...chosen.rewrites,
+            { files: ['docs/README.md'], from: 'stale text', to: 'new text' },
+          ],
+        },
+      },
+    };
+    const options = parseCliOptions([target, '--yes', '--no-git', '--no-install']);
+    const written = vi.mocked(process.stdout.write);
+
+    const result = await scaffoldProject(
+      target,
+      manifest,
+      plan,
+      options,
+      answersRecord(
+        { name: 'create-nest-next-auth', version: '0.1.0' },
+        { sha256: TEMPLATE_SHA },
+        plan,
+      ),
+    );
+    const printed = written.mock.calls.map(([chunk]) => String(chunk)).join('');
+
+    expect({
+      succeeded: result?.exitCode === 0,
+      namesRule: printed.includes('stale text'),
+      targetRetained: existsSync(join(target, 'docs/README.md')),
+      recorded: existsSync(join(target, ANSWERS_FILE_NAME)),
+    }).toEqual({ succeeded: true, namesRule: true, targetRetained: true, recorded: true });
+  },
+);

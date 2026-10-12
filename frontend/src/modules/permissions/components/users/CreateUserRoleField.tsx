@@ -14,7 +14,7 @@ import {
 import { RoleListError } from '@/modules/roles/components/RoleListError';
 import { RoleRefusalBadge } from '@/modules/roles/components/RoleRefusalBadge';
 import type { AllRoles } from '@/modules/roles/hooks/useAllRoles';
-import { TruncatedText } from '../shared/TruncatedText';
+import { TruncatedText } from '@/components/design-system';
 
 export interface CreateUserRoleFieldProps {
   id: string;
