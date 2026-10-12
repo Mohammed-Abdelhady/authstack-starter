@@ -80,7 +80,7 @@ export class NativeAttemptService {
     if (!methods.nativeEnabled) throw featureDisabled();
     const factors = nativeFirstFactors(methods);
     if (
-      factors.length === 0 ||
+      (input.flow === NATIVE_ATTEMPT_FLOW.SIGN_IN && factors.length === 0) ||
       (input.flow === NATIVE_ATTEMPT_FLOW.REGISTRATION &&
         !methods.capabilities.registration) ||
       (input.flow === NATIVE_ATTEMPT_FLOW.RECOVERY &&

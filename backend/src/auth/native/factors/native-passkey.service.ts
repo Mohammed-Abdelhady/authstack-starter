@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type {
   NativeAttemptView,
   NativePasskeyAssertion,
@@ -23,9 +23,16 @@ import {
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
+  NATIVE_ATTEMPT_FLOW,
   NATIVE_ATTEMPT_PHASE,
 } from '../constants/native-attempt';
 import type { NativeAttempt } from '../types/native-attempt';
+import {
+  digest,
+  safeEqual,
+  assertHandle,
+  isAssertion,
+} from './utils/native-passkey-assertion';
 import {
   featureDisabled,
   invalidRequest,
@@ -84,7 +91,8 @@ export class NativePasskeyService {
         challenge,
         rpId: config.rpId,
         timeout: options.timeout,
-        userVerification: options.userVerification,
+        userVerification:
+          purpose === 'secondFactor' ? 'required' : options.userVerification,
         allowCredentials: descriptors.map((item) => ({
           type: 'public-key',
           id: item.credentialId,
@@ -119,6 +127,8 @@ export class NativePasskeyService {
       if (!passkey || (userId && passkey.userId !== userId)) throw wrongStage();
       if (!assertHandle(assertion.response.userHandle, passkey.userId, purpose))
         throw wrongStage();
+      const account = await this.accounts.findProfile(passkey.userId);
+      if (!account || account.isDeleted) throw wrongStage();
       const verification = await this.adapter.verifyNativeAssertion(
         assertion,
         {
@@ -139,8 +149,6 @@ export class NativePasskeyService {
         (passkey.counter > 0 && verification.newCounter <= passkey.counter)
       )
         throw wrongStage();
-      const account = await this.accounts.findProfile(passkey.userId);
-      if (!account || account.isDeleted) throw wrongStage();
       const result = await runLeavingFailuresAsRaised(
         this.runner,
         async (work) => {
@@ -228,7 +236,10 @@ export class NativePasskeyService {
   }
 
   private purpose(attempt: NativeAttempt): 'firstFactor' | 'secondFactor' {
-    if (attempt.phase === NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED)
+    if (
+      attempt.phase === NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED &&
+      attempt.flow === NATIVE_ATTEMPT_FLOW.SIGN_IN
+    )
       return 'firstFactor';
     if (
       attempt.phase === NATIVE_ATTEMPT_PHASE.SECOND_FACTOR_REQUIRED &&
@@ -251,54 +262,4 @@ export class NativePasskeyService {
     if (!signIn?.rpId || !signIn.origins?.length) throw featureDisabled();
     return { rpId: signIn.rpId, origins: signIn.origins };
   }
-}
-
-function digest(
-  attempt: NativeAttempt,
-  purpose: string,
-  userId: string,
-  challenge: string,
-): string {
-  return createHash('sha256')
-    .update(
-      [attempt.secretHash, attempt.attemptId, purpose, userId, challenge].join(
-        ':',
-      ),
-    )
-    .digest('hex');
-}
-
-function safeEqual(left: string, right: string): boolean {
-  const a = Buffer.from(left, 'hex');
-  const b = Buffer.from(right, 'hex');
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function assertHandle(
-  handle: string | null | undefined,
-  userId: string,
-  purpose: string,
-): boolean {
-  if (!handle) return purpose === 'secondFactor';
-  return Buffer.from(handle, 'base64url').toString('utf8') === userId;
-}
-
-function isAssertion(input: unknown): input is NativePasskeyAssertion {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
-  const value = input as Record<string, unknown>;
-  if (
-    typeof value.id !== 'string' ||
-    value.id.length > 1024 ||
-    typeof value.rawId !== 'string' ||
-    value.rawId.length > 1024 ||
-    value.type !== 'public-key' ||
-    !value.response ||
-    typeof value.response !== 'object'
-  )
-    return false;
-  const response = value.response as Record<string, unknown>;
-  return ['clientDataJSON', 'authenticatorData', 'signature'].every(
-    (name) =>
-      typeof response[name] === 'string' && response[name].length <= 8192,
-  );
 }

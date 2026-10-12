@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import type { NativeAttemptView, NativePasswordInput } from '@app/sdk';
+import {
+  NATIVE_FACTOR_INPUT_LIMIT,
+  NATIVE_FACTOR_INPUT_PATTERN,
+} from './constants/native-factor-input';
 import { HashService } from '../../../common/services/hash.service';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
@@ -9,11 +13,13 @@ import { NativeAttemptService } from '../services/native-attempt.service';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
+  NATIVE_ATTEMPT_FLOW,
   NATIVE_ATTEMPT_PHASE,
 } from '../constants/native-attempt';
 import {
   featureDisabled,
   invalidRequest,
+  wrongStage,
 } from '../utils/native-attempt-errors';
 
 @Injectable()
@@ -33,10 +39,14 @@ export class NativePasswordService {
   ): Promise<NativeAttemptView> {
     if (
       !input ||
+      Object.keys(input).some((key) => !['email', 'password'].includes(key)) ||
       typeof input.email !== 'string' ||
       typeof input.password !== 'string' ||
-      input.email.length > 320 ||
-      input.password.length > 1024
+      !NATIVE_FACTOR_INPUT_PATTERN.EMAIL.test(input.email) ||
+      input.email.length > NATIVE_FACTOR_INPUT_LIMIT.EMAIL ||
+      input.password.length === 0 ||
+      Buffer.byteLength(input.password, 'utf8') >
+        NATIVE_FACTOR_INPUT_LIMIT.PASSWORD_BYTES
     )
       throw invalidRequest();
     const claimed = await this.attempts.claim(
@@ -45,6 +55,7 @@ export class NativePasswordService {
       NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
     );
     try {
+      if (claimed.flow !== NATIVE_ATTEMPT_FLOW.SIGN_IN) throw wrongStage();
       const methods = await this.methods.forClient(claimed.clientId);
       if (!methods.capabilities.password) throw featureDisabled();
       const user = await verifyPasswordCredentials(
