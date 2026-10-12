@@ -41,6 +41,7 @@ export interface VerifyIdTokenOptions {
   clockToleranceSeconds?: number;
   /** Signing algorithms to accept. Defaults to RS256. */
   algorithms?: string[];
+  requiredClaims?: string[];
 }
 
 const JWKS_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -128,6 +129,7 @@ export async function verifyIdToken(
     audience: options.audience,
     issuer: options.issuerTemplate ? undefined : options.issuers,
     algorithms: options.algorithms ?? DEFAULT_ALGORITHMS,
+    requiredClaims: options.requiredClaims,
     clockTolerance:
       options.clockToleranceSeconds ?? DEFAULT_CLOCK_TOLERANCE_SECONDS,
   });
