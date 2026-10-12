@@ -6,6 +6,15 @@ import type {
   TransportSignal,
   User,
 } from '@app/sdk';
+import type {
+  BrowserSignInOptions,
+  NativeSafeAttemptView,
+  NativeSignInAction,
+  NativeSignInOutcome,
+  PasskeyPort,
+  ProviderSignInPort,
+} from './native-sign-in';
+import type { NativeMethods } from '@app/sdk';
 
 export type SessionStatus =
   'restoring' | 'signedOut' | 'signedIn' | 'reauthRequired' | 'storageBlocked';
@@ -120,6 +129,8 @@ export interface AuthPorts {
 export interface AuthDependencies extends AuthPorts {
   makeTransport(baseAddress: string): Transport<AbortSignalPort>;
   deviceKey?: DeviceKeyPort;
+  providerSignIn?: ProviderSignInPort;
+  passkeys?: PasskeyPort;
 }
 
 export interface AuthSnapshot {
@@ -128,6 +139,7 @@ export interface AuthSnapshot {
   readonly reason?: AuthReason;
   readonly warning?: 'storageBlocked';
   readonly profile?: AuthProfile;
+  readonly nativeAttempt?: NativeSafeAttemptView;
 }
 
 export type AuthProfile = Omit<Readonly<User>, 'permissions' | 'linkedProviders'> & {
@@ -193,7 +205,10 @@ export interface AuthEngine {
   readonly transport: Transport<AbortSignalPort>;
   subscribe(listener: (snapshot: AuthSnapshot) => void): Unsubscribe;
   restore(): Promise<RestoreOutcome>;
-  signIn(): Promise<SignInOutcome>;
+  signIn(options?: BrowserSignInOptions): Promise<SignInOutcome>;
+  methods(): Promise<NativeMethods>;
+  nativeSignIn(action: NativeSignInAction): Promise<NativeSignInOutcome>;
+  cancelNativeSignIn(): Promise<NativeSignInOutcome>;
   signOut(): Promise<SignOutOutcome>;
   /** Refreshes now, sharing any refresh already running. */
   refresh(): Promise<RefreshOutcome>;

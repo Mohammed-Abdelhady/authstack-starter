@@ -1,7 +1,6 @@
 import { CALLBACK_READ_TIMEOUT_MS, LAUNCH_ADDRESS, PORT_OPERATION } from '../constants';
 import { withPortDeadline } from '../runtime/deadlines';
 import type { AuthRuntime } from '../runtime/runtime';
-import type { SignInController } from './sign-in';
 import type { LaunchAddressResult, RestoreOutcome } from '../types/auth';
 
 const UNAVAILABLE: LaunchAddressResult = { kind: LAUNCH_ADDRESS.UNAVAILABLE };
@@ -9,7 +8,7 @@ const UNAVAILABLE: LaunchAddressResult = { kind: LAUNCH_ADDRESS.UNAVAILABLE };
 /** Ends a restore: hands the launch address to sign-in, then reports where the engine stands. */
 export async function finishRestoreWithLaunchAddress(
   runtime: AuthRuntime,
-  signIn: SignInController,
+  signIn: { processInitialAddress(address?: string): Promise<void> },
 ): Promise<RestoreOutcome> {
   const epoch = runtime.epoch;
   const address = await readLaunchAddress(runtime, epoch);

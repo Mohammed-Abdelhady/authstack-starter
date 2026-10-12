@@ -12,7 +12,17 @@ import type {
 } from '@app/sdk';
 import type { AbortSignalPort, AuthProfile } from './auth';
 
-export type NativeSafeAttemptView = Exclude<NativeAttemptView, { stage: 'codeReady' }>;
+type ReadonlyNativeView<V> = V extends { factors: infer F extends unknown[] }
+  ? Omit<V, 'factors'> & { readonly factors: Readonly<F> }
+  : V extends { application: infer A extends { scopes: string[] } }
+    ? Omit<V, 'application'> & {
+        readonly application: Omit<A, 'scopes'> & { readonly scopes: readonly string[] };
+      }
+    : V;
+
+export type NativeSafeAttemptView = ReadonlyNativeView<
+  Exclude<NativeAttemptView, { stage: 'codeReady' }>
+>;
 
 export interface BrowserSignInOptions {
   providerId?: string;
@@ -71,6 +81,16 @@ export interface PasskeyPort {
     options: NativePasskeyOptions,
     signal: AbortSignalPort,
   ): Promise<NativePromptResult<NativePasskeyAssertion>>;
+}
+
+export interface NativeController {
+  needsCancellation(): boolean;
+  methods(): Promise<NativeMethods>;
+  nativeSignIn(action: NativeSignInAction): Promise<NativeSignInOutcome>;
+  cancelNativeSignIn(): Promise<NativeSignInOutcome>;
+  handleAddress(address: string): Promise<boolean>;
+  processInitialAddress(address?: string): Promise<void>;
+  restore(epoch: number): Promise<void>;
 }
 
 export type { NativeMethods };
