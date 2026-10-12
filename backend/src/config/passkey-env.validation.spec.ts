@@ -3,8 +3,8 @@ import { validateEnvironment } from './env.validation';
 describe('passkey challenge environment', () => {
   const baseEnv: Record<string, unknown> = {
     NODE_ENV: 'test',
-    MONGO_URI: 'mongodb://localhost:27017/authboiler',
-    POSTGRES_URL: 'postgres://app:placeholder@localhost:5432/authboiler',
+    MONGO_URI: 'mongodb://localhost:27017/authboiler', // feature:mongodb
+    POSTGRES_URL: 'postgres://app:placeholder@localhost:5432/authboiler', // feature:postgres
     CLIENT_URL: 'http://localhost:3000',
     OAUTH_STATE_SECRET: 'a'.repeat(32),
   };
