@@ -36,7 +36,7 @@ export function UserGroupedList({
           onCollapse={() => onToggleSection('verified')}
         >
           {verifiedUsers.map((user, index) => (
-            <div
+            <li
               key={user._id}
               className={cn(
                 shouldAnimate && 'motion-safe:animate-slide-up motion-safe:stagger-animation',
@@ -44,7 +44,7 @@ export function UserGroupedList({
               style={{ '--index': index } as React.CSSProperties}
             >
               <UserCard user={user} onManagePermissions={onManagePermissions} />
-            </div>
+            </li>
           ))}
         </UserListSection>
       )}
@@ -58,7 +58,7 @@ export function UserGroupedList({
           onCollapse={() => onToggleSection('pending')}
         >
           {pendingUsers.map((user, index) => (
-            <div
+            <li
               key={user._id}
               className={cn(
                 shouldAnimate && 'motion-safe:animate-slide-up motion-safe:stagger-animation',
@@ -66,7 +66,7 @@ export function UserGroupedList({
               style={{ '--index': index } as React.CSSProperties}
             >
               <UserCard user={user} onManagePermissions={onManagePermissions} />
-            </div>
+            </li>
           ))}
         </UserListSection>
       )}
