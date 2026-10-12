@@ -8,6 +8,7 @@ import { AuthFeaturesService } from '../../services/features/auth-features.servi
 import { OAuthRegistryService } from '../../oauth/oauth-registry.service'; // feature:oauth-core
 import type { NativeProviderSignInConfiguration } from '../../../config/types/native-application.type';
 import { ApplicationRegistry } from '../../../session/applications/application-registry';
+import { nativeDisplayLabel } from '../utils/native-display-label'; // feature:oauth-core
 import {
   APPLICATION_CLIENT_TYPE,
   APPLICATION_PLATFORM,
@@ -103,7 +104,11 @@ export class NativeMethodsService {
   private oauthMethods(): NativeMethods['methods']['oauth'] {
     // feature:oauth-core:start
     const registry = this.registry();
-    if (registry) return registry.listEnabled();
+    if (registry)
+      return registry.listEnabled().map((provider) => ({
+        ...provider,
+        displayName: nativeDisplayLabel(provider.displayName, provider.id),
+      }));
     // feature:oauth-core:end
     return [];
   }

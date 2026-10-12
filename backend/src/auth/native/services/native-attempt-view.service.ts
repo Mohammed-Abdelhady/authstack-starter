@@ -9,6 +9,7 @@ import { AccountProfileStore } from '../../../user/stores/account-profile.store'
 import type { NativeAttempt } from '../types/native-attempt';
 import { NativeMethodsService } from './native-methods.service';
 import { nativeFirstFactors } from '../utils/native-first-factors';
+import { nativeDisplayLabel } from '../utils/native-display-label';
 
 @Injectable()
 export class NativeAttemptViewService {
@@ -78,7 +79,10 @@ export class NativeAttemptViewService {
           },
           application: {
             clientId: client.clientId,
-            displayName: client.displayName,
+            displayName: nativeDisplayLabel(
+              client.displayName,
+              client.clientId,
+            ),
             scopes: attempt.requestedScopes,
             alreadyGranted: grant?.allowed === true,
           },
