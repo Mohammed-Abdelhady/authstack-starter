@@ -72,6 +72,9 @@ export function RoleFilter({
         <Button
           variant="outline"
           className="w-full sm:w-50 justify-between"
+          aria-label={t('roleFilterTriggerLabel', {
+            role: value === 'all' ? t('allRoles') : (pickedName ?? value),
+          })}
           data-testid="role-filter"
         >
           {value === 'all' ? (

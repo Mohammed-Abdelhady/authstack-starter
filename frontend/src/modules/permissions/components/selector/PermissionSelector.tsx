@@ -182,6 +182,9 @@ export const PermissionSelector = memo(function PermissionSelector({
                     <button
                       type="button"
                       {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
+                      aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                        group: t(`groups.${group.id}`),
+                      })}
                       className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                       data-testid={`permission-group-select-all-${group.id}`}
                     >
@@ -214,6 +217,9 @@ export const PermissionSelector = memo(function PermissionSelector({
                   <button
                     type="button"
                     {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
+                    aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                      group: t(`groups.${group.id}`),
+                    })}
                     className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`permission-group-select-all-tab-${group.id}`}
                   >
