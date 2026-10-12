@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { PropsWithChildren } from 'react';
 import { Provider } from 'react-redux';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   makeStore,
@@ -9,7 +9,8 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
-import { setUser } from '../store/authSlice';
+import { logout, setUser } from '../store/authSlice';
+import { authApi } from '../store/authApi';
 import { useCompleteSignIn } from './useCompleteSignIn';
 
 const { replaceMock, pushMock } = vi.hoisted(() => ({
@@ -64,7 +65,11 @@ describe('useCompleteSignIn identity fallback', () => {
 
     expect(requests).toEqual([`GET ${IDENTITY_PATH}`]);
     expect(replaceMock).toHaveBeenCalledWith('/account');
-    expect(store.getState().auth.isAuthenticated).toBe(true);
+    expect(store.getState().auth).toMatchObject({
+      user: { id: USER.id },
+      isAuthenticated: true,
+      validationStatus: 'succeeded',
+    });
   });
 
   it('does not navigate when a successful response says the browser is signed out', async () => {
@@ -114,6 +119,33 @@ describe('useCompleteSignIn identity fallback', () => {
     });
   });
 
+  it('does not navigate from an identity reply held across logout', async () => {
+    const identityReplies: Array<(response: Response) => void> = [];
+    stubNetwork((_request, path) => {
+      if (path === IDENTITY_PATH) {
+        return new Promise<Response>((resolve) => identityReplies.push(resolve));
+      }
+      return success({});
+    });
+    const store = makeStore();
+    const { result } = renderHook(() => useCompleteSignIn(), { wrapper: wrapperFor(store) });
+    const completion = result.current({ requiresTwoFactor: false, user: null }, '/account');
+    await waitFor(() => expect(identityReplies).toHaveLength(1));
+    await act(async () => store.dispatch(logout()));
+
+    await act(async () => {
+      identityReplies[0](identityEnvelope(true));
+      await expect(completion).rejects.toMatchObject({ status: 401 });
+    });
+
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(store.getState().auth).toMatchObject({
+      user: null,
+      isAuthenticated: false,
+      validationStatus: 'idle',
+    });
+  });
+
   it('uses the sign-in account directly without another identity read', async () => {
     const requests = stubNetwork(() => success({}));
     const store = makeStore();
@@ -125,5 +157,60 @@ describe('useCompleteSignIn identity fallback', () => {
 
     expect(requests).toEqual([]);
     expect(replaceMock).toHaveBeenCalledWith('/account');
+    expect(store.getState().auth).toMatchObject({
+      user: { id: USER.id },
+      isAuthenticated: true,
+      validationStatus: 'succeeded',
+    });
+    expect(store.getState().auth.sessionGeneration).toBeGreaterThan(0);
+  });
+
+  it('keeps a confirmed direct-user sign-in when an earlier signed-out identity finishes later', async () => {
+    const identityReplies: Array<(response: Response) => void> = [];
+    stubNetwork((_request, path) => {
+      if (path === IDENTITY_PATH) {
+        return new Promise<Response>((resolve) => identityReplies.push(resolve));
+      }
+      return success({});
+    });
+    const store = makeStore();
+    const { result } = renderHook(() => useCompleteSignIn(), { wrapper: wrapperFor(store) });
+    const identityRead = store.dispatch(
+      authApi.endpoints.getIdentity.initiate(undefined, { forceRefetch: true }),
+    );
+    await waitFor(() => expect(identityReplies).toHaveLength(1));
+
+    await act(async () => {
+      await result.current({ requiresTwoFactor: false, user: USER }, '/account');
+    });
+    const generationAfterSignIn = store.getState().auth.sessionGeneration;
+    await act(async () => {
+      identityReplies[0](identityEnvelope(false));
+      await identityRead.unwrap();
+    });
+
+    expect(store.getState().auth).toMatchObject({
+      user: { id: USER.id },
+      isAuthenticated: true,
+      validationStatus: 'succeeded',
+    });
+    expect(generationAfterSignIn).toBeGreaterThan(0);
+    expect(replaceMock).toHaveBeenCalledWith('/account');
+  });
+
+  it('does not advance the session generation for a provisional second-factor reply', async () => {
+    const requests = stubNetwork(() => success({}));
+    const store = makeStore();
+    const { result } = renderHook(() => useCompleteSignIn(), { wrapper: wrapperFor(store) });
+    const initialGeneration = store.getState().auth.sessionGeneration;
+
+    await act(async () => {
+      await result.current({ requiresTwoFactor: true, user: null }, '/account');
+    });
+
+    expect(requests).toEqual([]);
+    expect(store.getState().auth.sessionGeneration).toBe(initialGeneration);
+    expect(store.getState().auth.isAuthenticated).toBe(false);
+    expect(pushMock).toHaveBeenCalledWith('/auth/2fa?redirect=%2Faccount');
   });
 });
