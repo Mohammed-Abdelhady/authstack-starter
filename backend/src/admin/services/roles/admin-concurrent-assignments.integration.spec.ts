@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { UserRole } from '../../../user/enums/user-role.enum';
-import { RaceGate } from '../../../../test/utils/race-gate';
+import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
 import {
   EDITOR_SLUG,
   useAdminRoundFour,
@@ -18,15 +18,7 @@ describe('admin role assignment reconciliation under contention', () => {
       ),
     );
     const writes = new RaceGate();
-    const original = h.users.collection.updateOne.bind(h.users.collection);
-    jest
-      .spyOn(h.users.collection, 'updateOne')
-      .mockImplementation(async (...args) => {
-        if (!Array.isArray(args[1]) && args[1]?.$set?.role === EDITOR_SLUG) {
-          await writes.hold();
-        }
-        return original(...args);
-      });
+    const restore = holdBefore(h.service, 'updateUserRole', () => writes);
     const log = jest.spyOn(Logger.prototype, 'error');
     const requests = users.map((user) => fixture.assign(user._id.toString()));
     const settled = Promise.allSettled(requests);
@@ -42,6 +34,7 @@ describe('admin role assignment reconciliation under contention', () => {
       ]);
     } finally {
       writes.release();
+      restore();
     }
     const results = await settled;
     const rejected = [];
