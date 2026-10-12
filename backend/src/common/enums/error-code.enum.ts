@@ -177,6 +177,8 @@ export enum ErrorCode {
   OAUTH_CODE_INVALID = 'OAUTH_CODE_INVALID',
   /** Provider did not confirm the email address */
   OAUTH_EMAIL_UNVERIFIED = 'OAUTH_EMAIL_UNVERIFIED',
+  /** The address has an account this sign-in may not attach to by itself */
+  OAUTH_ACCOUNT_EXISTS = 'OAUTH_ACCOUNT_EXISTS',
   /** Provider account is already linked to another user */
   OAUTH_ACCOUNT_LINKED_ELSEWHERE = 'OAUTH_ACCOUNT_LINKED_ELSEWHERE',
   /** OAuth authentication failed for any other reason */

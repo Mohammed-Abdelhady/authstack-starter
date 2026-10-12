@@ -63,6 +63,7 @@ export class XOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = true;
   readonly usesOidc = false;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   constructor(configService: ConfigService) {
     super(configService);
