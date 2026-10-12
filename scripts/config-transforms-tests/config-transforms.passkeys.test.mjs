@@ -8,6 +8,7 @@ const CONFIG = {
     backendPort: 5001,
     frontendPort: 3000,
     mongoUri: 'mongodb://localhost/test', // feature:mongodb
+    postgresUrl: 'postgres://localhost/test', // feature:postgres
   },
   smtp: { host: '', port: '587', secure: 'false', user: '', pass: '', from: '' },
   oauth: {
