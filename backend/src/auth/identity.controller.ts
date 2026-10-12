@@ -10,15 +10,10 @@ import {
 } from '../session/native/access/native-access.service';
 import { hasBothCredentials } from '../session/utils/request/request-credential';
 import { UserProfileService } from '../user/services/user-profile.service';
-import type { UserProfileDto } from '../user/dto/user-profile.dto';
+import type { IdentityData } from './types/identity-response.type';
 import { Public } from './decorators/public.decorator';
 import { SessionCookieService } from './services/sessions/session-cookie.service';
 import { Sessions } from './services/sessions/sessions';
-
-interface IdentityData {
-  authenticated: boolean;
-  user: UserProfileDto | null;
-}
 
 @ApiTags('auth')
 @Controller('auth')

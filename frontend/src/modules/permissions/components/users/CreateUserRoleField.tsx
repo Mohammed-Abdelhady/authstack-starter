@@ -61,10 +61,11 @@ export function CreateUserRoleField({
   }
 
   return (
-    <Select value={value} onValueChange={onChange} disabled={isLoadingRoles} busy={busy}>
+    <Select value={value} onValueChange={onChange} disabled={isLoadingRoles} busy={busy} required>
       <SelectTrigger
         ref={triggerRef}
         id={id}
+        aria-required="true"
         aria-invalid={errorId !== undefined}
         aria-describedby={errorId}
         className={errorId ? 'border-destructive' : ''}

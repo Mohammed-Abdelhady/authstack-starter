@@ -2,6 +2,9 @@
 import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import type { SafeMarkupProps } from '@/types/markup';
 
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
+
 import * as React from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 

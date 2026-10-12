@@ -16,7 +16,7 @@ import {
 import { useResetPasswordMutation } from '@/modules/auth/store/authApi';
 import { ErrorCode, parseApiError } from '@app/core';
 import { KeyRound } from 'lucide-react';
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
@@ -85,6 +85,16 @@ export function ResetPasswordForm() {
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
   const refusalText = useRefusalText();
   const [showRequestNew, setShowRequestNew] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (redirectTimer.current !== null) {
+        clearTimeout(redirectTimer.current);
+      }
+    },
+    [],
+  );
 
   // Get email from URL params (passed from forgot password page)
   const emailFromUrl = searchParams.get('email') || '';
@@ -140,7 +150,8 @@ export function ResetPasswordForm() {
         toast.success(tToast('success.passwordReset'));
 
         // Redirect to login after short delay
-        setTimeout(() => {
+        redirectTimer.current = setTimeout(() => {
+          redirectTimer.current = null;
           router.push('/auth/login');
         }, 1500);
       } catch (err: unknown) {
@@ -212,6 +223,7 @@ export function ResetPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="username"
+              required
               busy={isLoading}
               readOnly
               className="bg-muted"
@@ -227,8 +239,8 @@ export function ResetPasswordForm() {
               label={t('code')}
               placeholder={tCommon('codePlaceholder')}
               autoComplete="one-time-code"
+              required
               busy={isLoading}
-              maxLength={6}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus
               onChange={handleCodeChange}
@@ -241,6 +253,7 @@ export function ResetPasswordForm() {
               label={t('password')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
+              required
               busy={isLoading}
               className={FORM_STYLES.authField}
             />
@@ -254,6 +267,7 @@ export function ResetPasswordForm() {
               label={t('confirmPassword')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
+              required
               busy={isLoading}
               className={FORM_STYLES.authField}
             />

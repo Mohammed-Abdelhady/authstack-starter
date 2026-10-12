@@ -15,10 +15,8 @@ import {
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
 import { HashService } from '../../common/services/hash.service';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from './security-notice.service';
+import { SecurityNoticeService } from './security-notice.service';
+import { SECURITY_NOTICE } from '../constants/security-notice.constants';
 import { AccountProfileStore } from '../stores/account-profile.store';
 import { AccountSessions } from '../stores/account-sessions';
 import { StoredAccount } from '../stores/stored-account';

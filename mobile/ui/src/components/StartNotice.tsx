@@ -13,12 +13,13 @@ const styles = StyleSheet.create({
 interface StartNoticeProps {
   text: string;
   direction: Direction;
+  alert?: boolean;
   /** The safe area at the top, from the shell's own source. */
   topInset: number;
 }
 
 /** Shown before the screens exist, so it paints the whole window in the scheme's colours itself. */
-export function StartNotice({ text, direction, topInset }: StartNoticeProps) {
+export function StartNotice({ text, direction, alert = false, topInset }: StartNoticeProps) {
   const { colors, statusBarStyle } = useTheme();
   return (
     <ShellPaint direction={direction}>
@@ -29,7 +30,11 @@ export function StartNotice({ text, direction, topInset }: StartNoticeProps) {
         ]}
       >
         <StatusBar barStyle={statusBarStyle} />
-        <View style={styles.notice}>
+        <View
+          accessible={alert}
+          accessibilityRole={alert ? 'alert' : undefined}
+          style={styles.notice}
+        >
           <Body>{text}</Body>
         </View>
       </View>

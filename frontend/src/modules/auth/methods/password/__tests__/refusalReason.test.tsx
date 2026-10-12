@@ -17,6 +17,8 @@ import { ResetPasswordForm } from '../ResetPasswordForm';
 registerFormTestLifecycle();
 beforeEach(() => {
   navigation.search = '';
+  navigation.push.mockClear();
+  navigation.replace.mockClear();
 });
 
 const FORMS = {
@@ -81,6 +83,7 @@ describe.each([
         expect(alert.textContent).toBe(view.message(key));
         expect(view.errorToasts()).toEqual([]);
         expect(document.body.textContent).not.toContain(SERVER_TEXT);
+        expect(navigation.push).not.toHaveBeenCalled();
       },
     );
   });

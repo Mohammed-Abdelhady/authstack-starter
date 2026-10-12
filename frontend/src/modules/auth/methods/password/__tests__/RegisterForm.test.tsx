@@ -38,6 +38,13 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('RegisterForm refused by the server in %s', (locale) => {
+  it('exposes its email requirement through the native input', async () => {
+    stubNetwork(() => success(AUTH_METHODS));
+    await renderForm(locale, <RegisterForm />);
+
+    expect(screen.getByTestId('register-email-input').hasAttribute('required')).toBe(true);
+  });
+
   it('marks and focuses the rejected field and shows the localized general message once', async () => {
     const requests = refuseWrites(['email', 'nickname'], AUTH_METHODS);
 

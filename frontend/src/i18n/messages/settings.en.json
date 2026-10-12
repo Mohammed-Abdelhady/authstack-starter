@@ -68,6 +68,7 @@
       "setup": {
         "open": "Set up",
         "title": "Set up two-step verification",
+        "stepProgress": "Step {current} of {total}.",
         "reauth": {
           "description": "Confirm it is you before changing how you sign in.",
           "passwordBody": "Enter your current password to continue.",
@@ -81,7 +82,9 @@
           "qrLabel": "QR code for your authenticator app",
           "secretLabel": "Setup key",
           "copySecret": "Copy the setup key",
-          "continue": "I have added it"
+          "continue": "I have added it",
+          "copySecretSuccess": "Setup key copied.",
+          "copySecretFailure": "Could not copy the setup key."
         },
         "confirm": {
           "description": "Enter the first code your app shows.",
@@ -101,7 +104,9 @@
       "recoveryCodes": {
         "copy": "Copy",
         "copied": "Copied",
-        "download": "Download"
+        "download": "Download",
+        "copySuccess": "Recovery codes copied.",
+        "copyFailure": "Could not copy the recovery codes."
       },
       "disable": {
         "open": "Turn off",
@@ -117,7 +122,9 @@
         "description": "The old codes stop working, used or not.",
         "submit": "Replace codes",
         "done": "Here are your new codes. The old ones no longer work.",
-        "close": "Done"
+        "close": "Done",
+        "locked": "Too many incorrect codes. Try again later.",
+        "lockedCountdown": "Too many incorrect codes. Try again in {seconds} seconds."
       }
     },
     "passkeys": {
@@ -167,6 +174,19 @@
       "errors": {
         "nameRequired": "Enter a name",
         "nameTooLong": "A name can be at most {max} characters"
+      },
+      "registration": {
+        "password": "Current password",
+        "code": "Authentication code",
+        "recoveryCode": "Recovery code",
+        "useRecoveryCode": "Use a recovery code",
+        "useCode": "Use an authenticator code",
+        "passwordRequired": "Enter your current password to add a passkey.",
+        "secondFactorRequired": "Enter a code or recovery code to add a passkey.",
+        "recentSignInRequired": "Your sign-in is too old. Sign out, sign in again, then retry.",
+        "locked": "Too many incorrect codes. Try again later.",
+        "lockedCountdown": "Too many incorrect codes. Try again in {seconds} seconds.",
+        "submit": "Continue"
       }
     },
     "profile": {

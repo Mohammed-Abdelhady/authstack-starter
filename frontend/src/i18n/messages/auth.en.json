@@ -170,7 +170,13 @@
         "pending": "Checking your link.",
         "errorTitle": "This link did not work",
         "requestNew": "Request a new link",
-        "backToSignIn": "Back to sign in"
+        "backToSignIn": "Back to sign in",
+        "confirmation": {
+          "title": "Confirm this sign-in link",
+          "linkTarget": "This link is for {email}. Continue only if you asked for it.",
+          "currentAccount": "You are currently signed in as {email}. Continuing switches to the account for this link.",
+          "continue": "Continue with this link"
+        }
       }
     },
     "twoFactor": {
@@ -184,7 +190,9 @@
       "backToSignIn": "Back to sign in",
       "answerRequired": "Enter a code to continue",
       "codeLength": "The code is six digits",
-      "recoveryCodeLength": "A recovery code is ten characters"
+      "recoveryCodeLength": "A recovery code is ten characters",
+      "locked": "Too many incorrect codes. Try again later.",
+      "lockedCountdown": "Too many incorrect codes. Try again in {seconds} seconds."
     },
     "passkeys": {
       "description": "Use the passkey saved on this device.",

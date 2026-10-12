@@ -1,8 +1,9 @@
+import { useId } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { PermissionNode } from './PermissionNode';
-import { PERMISSION_GROUPS } from '../search/SearchPermissionTabs';
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 import { Shield } from 'lucide-react';
 
 export interface PermissionTreeViewProps {
@@ -73,6 +74,7 @@ export function PermissionTreeView({
   const t = useTranslations('permissions.tree');
   const tSelector = useTranslations('permissions.selector');
   const groupedPermissions = groupPermissions(permissions);
+  const treeId = useId();
 
   // Check for wildcard
   const hasWildcard = permissions.includes('*');
@@ -99,7 +101,12 @@ export function PermissionTreeView({
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
             {showHeaders && resource !== 'wildcard' && (
-              <Heading level={4} variant="eyebrow" data-testid={`permission-group-${resource}`}>
+              <Heading
+                id={`${treeId}-group-${resource}`}
+                level={4}
+                variant="eyebrow"
+                data-testid={`permission-group-${resource}`}
+              >
                 {PERMISSION_GROUPS.some((group) => group.id === resource) ? (
                   tSelector(`groups.${resource}`)
                 ) : (
@@ -109,16 +116,19 @@ export function PermissionTreeView({
             )}
 
             {/* Permission Nodes */}
-            <div className="space-y-1">
+            <ul
+              aria-labelledby={
+                showHeaders && resource !== 'wildcard' ? `${treeId}-group-${resource}` : undefined
+              }
+              className="m-0 list-none space-y-1 p-0"
+              data-testid={`permission-list-${resource}`}
+            >
               {perms.map((perm) => (
-                <PermissionNode
-                  key={perm}
-                  permission={perm}
-                  level={resource === 'wildcard' ? 0 : 0}
-                  variant={variant}
-                />
+                <li key={perm}>
+                  <PermissionNode permission={perm} level={0} variant={variant} />
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ))}
       </div>

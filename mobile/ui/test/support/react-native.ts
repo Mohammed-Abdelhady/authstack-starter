@@ -1,4 +1,4 @@
-import { createElement, type ReactElement, type ReactNode } from 'react';
+import { Component, createElement, type ReactElement, type ReactNode } from 'react';
 
 /**
  * Stands in for `react-native`, which only a device can load. Each view is a
@@ -38,6 +38,8 @@ export interface AlertCall {
   options: { cancelable?: boolean; onDismiss?: () => void };
 }
 
+type PlatformName = 'android' | 'ios';
+
 const appState = createEmitter();
 const backHandler = createEmitter();
 const accessibility = createEmitter();
@@ -45,8 +47,12 @@ const accessibility = createEmitter();
 /** What a test sets up and reads back. `reset` returns it to a fresh device. */
 export const device = {
   scheme: null as string | null,
+  platform: 'android' as PlatformName,
   reduceMotion: false,
   alerts: [] as AlertCall[],
+  accessibilityAnnouncements: [] as string[],
+  accessibilityFocusTags: [] as number[],
+  nativeNodes: [] as unknown[],
   /** The app moved to this state, as the system reports it. */
   appStateChanged(state: string): void {
     for (const listener of appState.of('change')) (listener as (state: string) => void)(state);
@@ -65,8 +71,12 @@ export const device = {
     accessibility.of('reduceMotionChanged').length,
   reset(): void {
     device.scheme = null;
+    device.platform = 'android';
     device.reduceMotion = false;
     device.alerts.length = 0;
+    device.accessibilityAnnouncements.length = 0;
+    device.accessibilityFocusTags.length = 0;
+    device.nativeNodes.length = 0;
     appState.clear();
     backHandler.clear();
     accessibility.clear();
@@ -85,10 +95,27 @@ export const HOST = {
 } as const;
 
 export const View = HOST.VIEW;
-export const Text = HOST.TEXT;
+interface TextProps {
+  children?: ReactNode;
+  [name: string]: unknown;
+}
+
+class NativeText extends Component<TextProps> {
+  render(): ReactElement {
+    const { children, ...props } = this.props;
+    return createElement(HOST.TEXT, props, children);
+  }
+}
+
+export const Text = NativeText;
 export const ScrollView = HOST.SCROLL_VIEW;
 export const StatusBar = HOST.STATUS_BAR;
 export const RefreshControl = HOST.REFRESH_CONTROL;
+export const Platform = {
+  get OS() {
+    return device.platform;
+  },
+};
 
 interface PressableProps {
   style?: unknown;
@@ -166,9 +193,21 @@ export const BackHandler = {
 
 export const AccessibilityInfo = {
   isReduceMotionEnabled: (): Promise<boolean> => Promise.resolve(device.reduceMotion),
+  announceForAccessibility(announcement: string): void {
+    device.accessibilityAnnouncements.push(announcement);
+  },
+  setAccessibilityFocus(tag: number): void {
+    device.accessibilityFocusTags.push(tag);
+  },
   addEventListener: (event: string, listener: Listener): Subscription =>
     accessibility.add(event, listener),
 };
+
+export function findNodeHandle(node: unknown): number | null {
+  if (node === null || node === undefined) return null;
+  device.nativeNodes.push(node);
+  return device.nativeNodes.length;
+}
 
 export const Alert = {
   alert(

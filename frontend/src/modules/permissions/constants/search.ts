@@ -1,0 +1,1 @@
+export const MAX_ADMIN_SEARCH_LENGTH = 100;

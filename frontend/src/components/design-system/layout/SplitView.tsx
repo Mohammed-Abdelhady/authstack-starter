@@ -1,27 +1,8 @@
-import { forwardRef, HTMLAttributes, ReactNode } from 'react';
+import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
-
-export interface SplitViewProps extends Omit<HTMLAttributes<HTMLDivElement>, 'content'> {
-  /**
-   * Sidebar content (left side)
-   */
-  sidebar: ReactNode;
-
-  /**
-   * Main content (right side)
-   */
-  content: ReactNode;
-
-  /**
-   * Sidebar width as percentage or pixels
-   */
-  sidebarWidth?: string;
-
-  /**
-   * Make sidebar sticky
-   */
-  stickySidebar?: boolean;
-}
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SplitViewProps } from '@/types/splitView';
+export type { SplitViewProps } from '@/types/splitView';
 
 /**
  * SplitView - Responsive sidebar + content layout
@@ -44,16 +25,28 @@ export interface SplitViewProps extends Omit<HTMLAttributes<HTMLDivElement>, 'co
  * ```
  */
 export const SplitView = forwardRef<HTMLDivElement, SplitViewProps>(
-  ({ sidebar, content, sidebarWidth = '25%', stickySidebar = true, className, ...props }, ref) => {
+  (
+    {
+      sidebar,
+      content,
+      sidebarLabel,
+      sidebarWidth = '25%',
+      stickySidebar = true,
+      className,
+      ...props
+    },
+    ref,
+  ) => {
     return (
       <div
         ref={ref}
         data-testid="split-view"
         className={cn('flex flex-col md:flex-row gap-6', className)}
-        {...props}
+        {...withoutUnsafeMarkup(props)}
       >
         {/* Sidebar */}
         <aside
+          aria-label={sidebarLabel}
           className={cn(
             'md:w-[var(--sidebar-width)]',
             stickySidebar && 'md:sticky md:top-0 md:self-start md:max-h-screen md:overflow-y-auto',

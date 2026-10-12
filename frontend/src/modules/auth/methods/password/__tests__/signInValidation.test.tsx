@@ -54,6 +54,13 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('password sign-in validation in %s', (locale) => {
+  it('exposes both schema-required fields through native input semantics', async () => {
+    const { email, password } = await renderBesideAnotherControl(locale);
+
+    expect(email.hasAttribute('required')).toBe(true);
+    expect(password.hasAttribute('required')).toBe(true);
+  });
+
   it('says nothing when the focus leaves an empty field for another form', async () => {
     const { email, password } = await renderBesideAnotherControl(locale);
 

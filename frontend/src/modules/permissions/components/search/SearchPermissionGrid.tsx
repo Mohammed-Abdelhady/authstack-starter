@@ -36,9 +36,15 @@ export function SearchPermissionGrid({
               className="cursor-pointer text-sm leading-tight"
             >
               {formatPermissionLabel(permission)}
+              <span className="sr-only">
+                {' '}
+                <span dir="ltr">{permission}</span>
+              </span>
             </Label>
             <p className="mt-0.5 text-xs text-tertiary font-mono">
-              <span dir="ltr">{permission}</span>
+              <span dir="ltr" data-testid={`permission-code-${permission}`}>
+                {permission}
+              </span>
             </p>
           </div>
         </div>

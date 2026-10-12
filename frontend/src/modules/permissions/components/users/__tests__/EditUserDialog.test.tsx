@@ -41,6 +41,27 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('EditUserDialog refused by the server in %s', (locale) => {
+  it('focuses the first invalid field when the required email is empty', async () => {
+    stubNetwork(() => success({}));
+    const form = await renderForm(
+      locale,
+      <EditUserDialog
+        userId="user-1"
+        currentName="Layla Haddad"
+        currentEmail="layla@example.com"
+        open
+        onOpenChange={vi.fn()}
+      />,
+    );
+    const email = screen.getByRole('textbox', { name: form.message('users.editUser.email') });
+    fireEvent.change(email, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: form.message('users.editUser.save') }));
+
+    await waitFor(() => expect(email.getAttribute('aria-invalid')).toBe('true'));
+    expect(document.activeElement).toBe(email);
+    expect(email.hasAttribute('required')).toBe(true);
+  });
+
   it('marks and focuses the rejected field and raises no toast', async () => {
     refuseWrites(['email', 'nickname']);
 

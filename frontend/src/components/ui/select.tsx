@@ -2,6 +2,9 @@
 import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import type { SafeMarkupProps } from '@/types/markup';
 
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
+
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
@@ -21,7 +24,7 @@ const SelectStateContext = React.createContext<SelectState | null>(null);
 /** The keys the library chooses an option with. */
 const CHOOSING_KEYS = new Set(['Enter', ' ']);
 
-interface SelectProps extends React.ComponentProps<typeof SelectPrimitive.Root> {
+interface SelectProps extends SafeMarkupProps<React.ComponentProps<typeof SelectPrimitive.Root>> {
   /**
    * A request that depends on it is running: the trigger keeps focus, the list
    * does not open and the value does not change.

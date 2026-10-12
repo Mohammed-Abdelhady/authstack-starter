@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
+import type { User } from '@app/sdk';
 import type { AppLocale } from '@/i18n/load-messages';
 import {
   descriptions,
@@ -19,6 +20,18 @@ import type { SignedInUser } from '@/modules/auth/types/auth.types';
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const DISABLE = 'POST /api/auth/2fa/disable';
+const IDENTITY_USER: User = {
+  id: 'user-1',
+  email: 'layla@example.com',
+  name: 'Layla Haddad',
+  role: 'user',
+  permissions: [],
+  authProvider: 'email',
+  isVerified: true,
+  twoFactorEnabled: true,
+  passkeyCount: 0,
+  linkedProviders: ['email'],
+};
 const USER: SignedInUser = {
   id: 'user-1',
   email: 'layla@example.com',
@@ -33,7 +46,9 @@ registerFormTestLifecycle();
 function recordDisable(respond: () => Response = () => success({ message: 'off' })) {
   const bodies: unknown[] = [];
   const requests = stubNetwork(async (request, path) => {
-    if (path === '/api/user/profile') return success(USER);
+    if (path === '/api/auth/identity') {
+      return success({ authenticated: true, user: IDENTITY_USER });
+    }
     if (path !== '/api/auth/2fa/disable') throw new Error(`Unexpected path: ${path}`);
     bodies.push(await request.json());
     return respond();
@@ -213,7 +228,7 @@ describe('a refused turn-off names the field that was wrong', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(dialog.onOpenChange.mock.calls).toEqual([]);
     if (status === 401) {
-      await waitFor(() => expect(requests).toContain('GET /api/user/profile'));
+      await waitFor(() => expect(requests).toContain('GET /api/auth/identity'));
       expect(dialog.store.getState().auth.isAuthenticated).toBe(true);
     }
   });

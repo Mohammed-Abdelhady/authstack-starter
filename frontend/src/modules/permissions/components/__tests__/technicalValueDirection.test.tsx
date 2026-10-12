@@ -88,7 +88,7 @@ describe.each([
       />,
     );
 
-    expect(valueAndLine(screen.getByText(PERMISSION))).toEqual({
+    expect(valueAndLine(screen.getByTestId(`permission-code-${PERMISSION}`))).toEqual({
       text: PERMISSION,
       value: 'ltr',
       line: 'rtl',

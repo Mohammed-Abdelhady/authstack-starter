@@ -89,6 +89,7 @@ export function useNativeAuthorize(transaction: string): NativeAuthorizeControll
   const [leaving, setLeaving] = useState(false);
   const {
     account,
+    accountSignedOut,
     transactionData,
     isTransactionLoading,
     accountError,
@@ -127,9 +128,11 @@ export function useNativeAuthorize(transaction: string): NativeAuthorizeControll
   const accountFailure = accountError === undefined ? null : toFailure(accountError);
   const failure = actionFailure ?? transactionFailure ?? accountFailure;
   // A refused session outranks whatever else failed beside it.
-  const signInRequired = [actionFailure, transactionFailure, accountFailure].some(
-    (candidate) => candidate?.signInRequired === true,
-  );
+  const signInRequired =
+    accountSignedOut ||
+    [actionFailure, transactionFailure, accountFailure].some(
+      (candidate) => candidate?.signInRequired === true,
+    );
 
   // A refused session and "Not you?" both end here. Flagging it during render
   // stops the reads before anything below can ask the server again.
@@ -186,9 +189,16 @@ export function useNativeAuthorize(transaction: string): NativeAuthorizeControll
       const shownUserId = account.id;
       try {
         // Another tab may have changed the session since the card was drawn.
-        if (kind === 'approve' && (await readAccount()).id !== shownUserId) {
-          showChangedAccount();
-          return;
+        if (kind === 'approve') {
+          const identity = await readAccount();
+          if (!identity.authenticated) {
+            setLeaving(true);
+            return;
+          }
+          if (identity.user.id !== shownUserId) {
+            showChangedAccount();
+            return;
+          }
         }
         const call = kind === 'approve' ? approve : deny;
         const result = await call({
@@ -215,7 +225,16 @@ export function useNativeAuthorize(transaction: string): NativeAuthorizeControll
           failAction(error);
           return;
         }
-        await readAccount().then(showChangedAccount, failAction);
+        try {
+          const identity = await readAccount();
+          if (!identity.authenticated) {
+            setLeaving(true);
+            return;
+          }
+          showChangedAccount();
+        } catch (readError) {
+          failAction(readError);
+        }
       }
     },
     [account, approve, deny, failAction, readAccount, showChangedAccount, t, transaction],

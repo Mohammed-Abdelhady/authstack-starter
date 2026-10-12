@@ -8,10 +8,10 @@ import { FIXED_PUBLIC_JWK } from '../support/software-device-key';
 /**
  * Builds the proof vectors the server's verifier is fed. Run it with
  * `UPDATE_DPOP_VECTOR=1 pnpm --filter @app/native-auth exec vitest run test/proof/dpop-vector.test.ts`
- * to write `dpop-vector.json` again. Only the signatures change between runs.
+ * to write the shared proof fixture again. Only the signatures change between runs.
  */
 export const VECTOR_FORMAT = 1;
-export const VECTOR_PATH = 'test/proof/dpop-vector.json';
+export const VECTOR_PATH = '../../shared/sdk/test/fixtures/native-dpop-vector.json';
 
 /** The instant, origin and nonce secret the server's own proof tests use. */
 export const SERVER = {

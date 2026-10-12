@@ -137,6 +137,7 @@ export function ForgotPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="email"
+              required
               busy={isLoading}
               autoFocus
             />

@@ -32,7 +32,18 @@ export function csrfLookupHint(): CsrfLookup {
 }
 
 export function rememberNoSession(): void {
+  if (heldProof?.kind === 'session') {
+    heldProof = null;
+  }
   csrfLookup = 'no-session';
+}
+
+/** A validated session invalidates only the signed-out hint and pre-session proof. */
+export function rememberSessionPresent(): void {
+  if (heldProof?.kind === 'pre-session') {
+    heldProof = null;
+  }
+  csrfLookup = 'unknown';
 }
 
 export function rememberBrowserProof(

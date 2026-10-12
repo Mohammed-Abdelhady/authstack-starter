@@ -16,10 +16,10 @@ interface RecoveryCodeListProps {
  */
 export function RecoveryCodeList({ codes }: RecoveryCodeListProps) {
   const t = useTranslations('settings.twoFactor.recoveryCodes');
-  const [copied, setCopied] = useState(false);
+  const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
 
   const onCopy = useCallback(async () => {
-    setCopied(await copyText(formatRecoveryCodes(codes)));
+    setCopyResult((await copyText(formatRecoveryCodes(codes))) ? 'copied' : 'failed');
   }, [codes]);
 
   const onDownload = useCallback(() => downloadRecoveryCodes(codes), [codes]);
@@ -45,12 +45,12 @@ export function RecoveryCodeList({ codes }: RecoveryCodeListProps) {
           onClick={onCopy}
           data-testid="two-factor-copy-recovery-codes"
         >
-          {copied ? (
+          {copyResult === 'copied' ? (
             <Check className="me-2 h-4 w-4" aria-hidden="true" />
           ) : (
             <Copy className="me-2 h-4 w-4" aria-hidden="true" />
           )}
-          {copied ? t('copied') : t('copy')}
+          {copyResult === 'copied' ? t('copied') : t('copy')}
         </Button>
         <Button
           type="button"
@@ -63,6 +63,14 @@ export function RecoveryCodeList({ codes }: RecoveryCodeListProps) {
           {t('download')}
         </Button>
       </div>
+      {copyResult !== null && (
+        <p
+          role={copyResult === 'failed' ? 'alert' : 'status'}
+          data-testid="two-factor-recovery-copy-status"
+        >
+          {copyResult === 'copied' ? t('copySuccess') : t('copyFailure')}
+        </p>
+      )}
     </div>
   );
 }

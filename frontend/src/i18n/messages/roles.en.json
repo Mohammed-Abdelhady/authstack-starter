@@ -4,6 +4,7 @@
     "count": "{count} {count, plural, =1 {role} other {roles}} defined",
     "createRole": "Create Role",
     "searchPlaceholder": "Search roles by name, slug, or description...",
+    "searchLabel": "Search roles",
     "loading": "Loading roles...",
     "loadError": "Failed to load roles.",
     "noRoles": "No roles found",
@@ -48,6 +49,7 @@
       "baseRoleDescriptionImmutable": "Base role descriptions cannot be changed"
     },
     "sidebar": {
+      "navigationLabel": "Role list",
       "systemRoles": "System Roles",
       "customRoles": "{count, plural, =1 {Custom Role ({count})} other {Custom Roles ({count})}}",
       "noRoles": "No roles available"

@@ -1,6 +1,7 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
+import { ErrorCode } from '@app/core';
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
@@ -16,6 +17,7 @@ import { useVerifyTwoFactorMutation } from '../api';
 import { createAnswerSchema, toAnswer, type AnswerFormData } from '../utils/answerSchema';
 import { TwoFactorAnswerFields } from './TwoFactorAnswerFields';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useTwoFactorLockCountdown } from '@/modules/auth/hooks/useTwoFactorLockCountdown';
 
 interface TwoFactorChallengePanelProps {
   redirect: string | null;
@@ -33,6 +35,7 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
   const [verify, { isLoading }] = useVerifyTwoFactorMutation();
   const completeSignIn = useCompleteSignIn();
   const handleFeatureDisabled = useFeatureDisabledHandler();
+  const { isCooling, secondsLeft, startForError } = useTwoFactorLockCountdown();
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
   const schema = useMemo(() => createAnswerSchema(t), [t]);
@@ -57,15 +60,28 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
 
   const submit = useCallback(
     async (data: AnswerFormData) => {
+      if (isCooling) return;
       try {
         const response = await verify(toAnswer(data)).unwrap();
         await completeSignIn(response, redirect);
       } catch (err) {
-        handleFeatureDisabled(err);
-        setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
+        if (handleFeatureDisabled(err) || startForError(err)) return;
+        const code = translatableErrorCode(err);
+        const message = code === ErrorCode.TWO_FACTOR_LOCKED ? t('locked') : tCodes(code);
+        setError('root', { type: 'manual', message });
       }
     },
-    [completeSignIn, handleFeatureDisabled, redirect, setError, tCodes, verify],
+    [
+      completeSignIn,
+      handleFeatureDisabled,
+      isCooling,
+      startForError,
+      redirect,
+      setError,
+      t,
+      tCodes,
+      verify,
+    ],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -94,7 +110,9 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
         >
           <FormRootError
             id="two-factor-error"
-            error={errors.root?.message}
+            error={
+              isCooling ? t('lockedCountdown', { seconds: secondsLeft }) : errors.root?.message
+            }
             testId="two-factor-error"
           />
 
@@ -104,7 +122,12 @@ export function TwoFactorChallengePanel({ redirect }: TwoFactorChallengePanelPro
             isBusy={isLoading}
           />
 
-          <SubmitButton isLoading={isLoading} icon={ShieldCheck} testId="two-factor-submit">
+          <SubmitButton
+            isLoading={isLoading}
+            disabled={isCooling}
+            icon={ShieldCheck}
+            testId="two-factor-submit"
+          >
             {t('submit')}
           </SubmitButton>
         </form>

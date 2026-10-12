@@ -8,17 +8,10 @@ import { busyPressProps } from '@/components/ui/busy';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  PROFILE_PERMISSIONS,
-  USER_PERMISSIONS,
-  ROLE_PERMISSIONS,
-  PERMISSION_PERMISSIONS,
-  SESSION_PERMISSIONS,
-  REPORT_PERMISSIONS,
-  WILDCARD_PERMISSION,
-} from '@app/core';
+import { WILDCARD_PERMISSION } from '@app/core';
 
 import { PermissionGroupGrid } from './PermissionGroupGrid';
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 
 export interface PermissionSelectorProps {
   /**
@@ -43,21 +36,6 @@ export interface PermissionSelectorProps {
    */
   showWildcard?: boolean;
 }
-
-interface PermissionGroup {
-  /** Tab value and key of the group name under permissions.selector.groups */
-  id: string;
-  permissions: Record<string, string>;
-}
-
-const PERMISSION_GROUPS: PermissionGroup[] = [
-  { id: 'profile', permissions: PROFILE_PERMISSIONS },
-  { id: 'users', permissions: USER_PERMISSIONS },
-  { id: 'roles', permissions: ROLE_PERMISSIONS },
-  { id: 'permissions', permissions: PERMISSION_PERMISSIONS },
-  { id: 'sessions', permissions: SESSION_PERMISSIONS },
-  { id: 'reports', permissions: REPORT_PERMISSIONS },
-];
 
 /**
  * Component for selecting permissions.
@@ -204,7 +182,10 @@ export const PermissionSelector = memo(function PermissionSelector({
                     <button
                       type="button"
                       {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
-                      className="text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
+                      aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                        group: t(`groups.${group.id}`),
+                      })}
+                      className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                       data-testid={`permission-group-select-all-${group.id}`}
                     >
                       {allSelected ? t('deselectAll') : t('selectAll')}
@@ -236,7 +217,10 @@ export const PermissionSelector = memo(function PermissionSelector({
                   <button
                     type="button"
                     {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
-                    className="text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
+                    aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                      group: t(`groups.${group.id}`),
+                    })}
+                    className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`permission-group-select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}

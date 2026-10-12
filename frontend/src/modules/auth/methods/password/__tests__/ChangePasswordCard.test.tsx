@@ -87,19 +87,22 @@ describe.each([
     },
   );
 
-  it('says a refusal about no field in the alert of the form, once', async () => {
+  it.each([
+    [429, ErrorCode.RATE_LIMIT_EXCEEDED],
+    [401, ErrorCode.SESSION_INVALID],
+  ] as const)('says a refusal with no field in the form alert for %s', async (status, code) => {
     stubNetwork((request) =>
-      request.method === 'GET'
-        ? success(AUTH_METHODS)
-        : refusalWith(429, ErrorCode.RATE_LIMIT_EXCEEDED),
+      request.method === 'GET' ? success(AUTH_METHODS) : refusalWith(status, code),
     );
 
     const form = await submitPasswordChange(locale);
 
     const alert = await screen.findByTestId('change-password-error');
-    expect(alert.textContent).toBe(form.message('errors.codes.RATE_LIMIT_EXCEEDED'));
+    expect(alert.textContent).toBe(form.message(`errors.codes.${code}`));
     expect(form.currentPassword.getAttribute('aria-invalid')).toBe('false');
+    expect(form.newPassword.getAttribute('aria-invalid')).toBe('false');
     expect(form.errorToasts()).toEqual([]);
+    expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 
   it('tells the browser which password each field holds', async () => {
