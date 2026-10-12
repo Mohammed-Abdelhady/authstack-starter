@@ -5,6 +5,7 @@
     "count": "{count, plural, zero {لا توجد أدوار معرّفة} one {دور واحد معرّف} two {دوران معرّفان} few {{count} أدوار معرّفة} many {{count} دوراً معرّفاً} other {{count} دور معرّف}}",
     "createRole": "إنشاء دور",
     "searchPlaceholder": "البحث في الأدوار بالاسم أو الرمز أو الوصف...",
+    "searchLabel": "البحث عن الأدوار",
     "loading": "جارٍ تحميل الأدوار...",
     "noRoles": "لم يتم العثور على أدوار",
     "noRolesYet": "لم يتم إنشاء أدوار بعد",

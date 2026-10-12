@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -64,6 +64,7 @@ function EditUserForm({
   const [name, setName] = useState(initialName || '');
   const [email, setEmail] = useState(initialEmail || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
   const uid = useId();
   const fieldId = (field: keyof EditUserFormValues) => fieldElementId(uid, field);
   const errorId = (field: keyof EditUserFormValues) => `${fieldId(field)}-error`;
@@ -97,38 +98,44 @@ function EditUserForm({
     }
 
     setErrors(newErrors);
+    const firstInvalid = (['name', 'email'] as const).find((field) => Boolean(newErrors[field]));
+    if (firstInvalid) document.getElementById(fieldId(firstInvalid))?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || submissionInFlight.current) return;
 
     if (!validateForm()) {
       return;
     }
 
+    submissionInFlight.current = true;
     const nameChanged = name !== initialName;
     refusal.clear();
-    const success = await onSubmit(
-      {
-        email: email.trim(),
-        ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
-      },
-      refusal.show,
-    );
-    if (success) {
-      onClose();
+    try {
+      const success = await onSubmit(
+        {
+          email: email.trim(),
+          ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
+        },
+        refusal.show,
+      );
+      if (success) onClose();
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <FormRootError error={refusal.alert} className="mb-0" testId="edit-user-error" />
       {/* Name Field */}
       <div className="space-y-2">
         <Label
           htmlFor={fieldId('name')}
-          className="text-xs uppercase tracking-widest text-muted-foreground"
+          className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
         >
           {t('name')}
         </Label>
@@ -158,7 +165,7 @@ function EditUserForm({
       <div className="space-y-2">
         <Label
           htmlFor={fieldId('email')}
-          className="text-xs uppercase tracking-widest text-muted-foreground"
+          className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
         >
           {t('email')}
         </Label>
@@ -167,6 +174,7 @@ function EditUserForm({
           type="email"
           dir="ltr"
           placeholder={t('emailPlaceholder')}
+          required
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
@@ -199,6 +207,7 @@ function EditUserForm({
           type="submit"
           busy={isLoading}
           aria-busy={isLoading}
+          className="rtl:tracking-normal"
           data-testid="submit-edit-user-button"
         >
           {isLoading ? (

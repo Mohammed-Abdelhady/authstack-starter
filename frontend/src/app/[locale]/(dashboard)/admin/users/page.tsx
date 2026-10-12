@@ -33,6 +33,7 @@ export default function AdminUsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserName, setSelectedUserName] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [shouldAnimate, setShouldAnimate] = useState(true);
 
@@ -43,6 +44,15 @@ export default function AdminUsersPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  const listParams = {
+    page,
+    limit: 20,
+    search: debouncedSearch.trim() || undefined,
+    role: roleFilter !== 'all' ? roleFilter : undefined,
+  };
+  const requestedPage = useGetUsersQuery(listParams);
+  const lastAvailablePage = Math.max(1, requestedPage.currentData?.totalPages ?? page);
+  const effectivePage = Math.min(page, lastAvailablePage);
   const {
     data: usersData,
     currentData,
@@ -50,12 +60,7 @@ export default function AdminUsersPage() {
     isFetching,
     error,
     refetch,
-  } = useGetUsersQuery({
-    page,
-    limit: 20,
-    search: debouncedSearch.trim() || undefined,
-    role: roleFilter !== 'all' ? roleFilter : undefined,
-  });
+  } = useGetUsersQuery({ ...listParams, page: effectivePage });
 
   const titleRef = useRef<HTMLHeadingElement>(null);
   // A list already on screen stays when a later read of it fails.
@@ -77,15 +82,19 @@ export default function AdminUsersPage() {
   // The menu button the permissions dialog was opened from, to return focus to.
   const [permissionsOpenerRef, returnFocusToOpener] = useReturnFocus();
   const handleManagePermissions = useCallback(
-    (userId: string, opener: HTMLElement | null) => {
+    (userId: string, opener: HTMLElement | null, userName: string) => {
       permissionsOpenerRef.current = opener;
       setSelectedUserId(userId);
+      setSelectedUserName(userName);
     },
     [permissionsOpenerRef],
   );
 
   const handleClosePermissionsDialog = useCallback((open: boolean) => {
-    if (!open) setSelectedUserId(null);
+    if (!open) {
+      setSelectedUserId(null);
+      setSelectedUserName(null);
+    }
   }, []);
 
   const toggleSection = useCallback((sectionId: string) => {
@@ -123,7 +132,9 @@ export default function AdminUsersPage() {
               <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
                 {t('title')}
               </Heading>
-              <Description className="mt-1">{t('count', { count: totalCount })}</Description>
+              <Description className="mt-1" role="status">
+                {t('count', { count: totalCount })}
+              </Description>
             </div>
             <div className="flex gap-2">
               <Button
@@ -167,7 +178,7 @@ export default function AdminUsersPage() {
 
         {/* State 1: Skeleton Loading */}
         <Activity mode={showSkeleton ? 'visible' : 'hidden'}>
-          <UserListSkeleton />
+          <UserListSkeleton label={t('loading')} />
         </Activity>
 
         {/* State 2: Error, nothing loaded for this view */}
@@ -235,13 +246,13 @@ export default function AdminUsersPage() {
           />
 
           <PaginationControl
-            currentPage={page}
+            currentPage={effectivePage}
             totalPages={totalPages}
             onPageChange={setPage}
             isLoading={isLoading || isFetching}
           />
 
-          <div className="mt-2 text-xs text-tertiary">
+          <div className="mt-2 text-xs text-tertiary" role="status">
             {t('showingCount', { filtered: users.length, total: totalCount })}
           </div>
         </Activity>
@@ -253,6 +264,7 @@ export default function AdminUsersPage() {
           >
             <UserPermissionsDialog
               userId={selectedUserId || ''}
+              userName={selectedUserName ?? undefined}
               open={!!selectedUserId}
               onOpenChange={handleClosePermissionsDialog}
               onCloseAutoFocus={returnFocusToOpener}
