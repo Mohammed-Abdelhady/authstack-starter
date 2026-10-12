@@ -475,10 +475,12 @@
       "default": false,
       "files": [
         "backend/src/auth/magic-link/**",
+        "backend/test/auth/magic-link-browser.e2e-spec.ts",
         "backend/test/auth/magic-link-continuation.e2e-spec.ts",
         "backend/test/auth/magic-link-expiry.e2e-spec.ts",
         "backend/test/postgres/postgres-magic-link-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0013_magic_links.sql",
+        "backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql",
         "frontend/src/modules/auth/methods/magic-link/**",
         "frontend/src/app/[locale]/(auth)/auth/magic-link/**"
       ],
