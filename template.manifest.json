@@ -303,6 +303,8 @@
         "frontend/src/components/LanguageSwitcher.test.tsx",
         "frontend/src/i18n/messages/ar.json",
         "frontend/src/i18n/messages/*.ar.json",
+        "frontend/src/app/fonts/NotoSansArabic.woff2",
+        "frontend/src/app/fonts/OFL-NotoSansArabic.txt",
         "mobile/ui/src/i18n/ar.ts",
         "mobile/expo/src/i18n/ar.ts",
         "frontend/src/app/arabic-font.css"
