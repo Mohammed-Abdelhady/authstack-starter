@@ -59,6 +59,7 @@ export async function startLocalOAuth(): Promise<LocalOAuthFixture> {
       supportsPkce: true,
       usesOidc: false,
       emailAlwaysVerified: true,
+      autoLinksByEmail: true,
       callbackMethod: 'GET',
       isEnabled: () => true,
       getAuthorizationUrl: ({ state }) =>
