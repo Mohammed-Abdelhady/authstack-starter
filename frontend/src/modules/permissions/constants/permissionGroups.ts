@@ -6,12 +6,7 @@ import {
   SESSION_PERMISSIONS,
   REPORT_PERMISSIONS,
 } from '@app/core';
-
-export interface PermissionGroup {
-  /** Tab value and key of the group name under permissions.selector.groups */
-  id: string;
-  permissions: Record<string, string>;
-}
+import type { PermissionGroup } from '../types/permissionGroup.types';
 
 export const PERMISSION_GROUPS: PermissionGroup[] = [
   { id: 'profile', permissions: PROFILE_PERMISSIONS },
