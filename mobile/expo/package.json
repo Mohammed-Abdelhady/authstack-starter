@@ -19,29 +19,29 @@
     "@app/native-auth": "workspace:*",
     "@app/native-ui": "workspace:*",
     "@app/sdk": "workspace:*",
-    "expo": "57.0.26",
+    "expo": "57.0.27",
     "expo-crypto": "57.0.3",
     "expo-file-system": "57.0.7",
-    "expo-linking": "57.0.11",
+    "expo-linking": "57.0.12",
     "expo-secure-store": "57.0.4",
     "expo-web-browser": "57.0.3",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.86.3",
-    "react-native-safe-area-context": "5.7.0"
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.87.1",
+    "react-native-safe-area-context": "5.10.1"
   },
   "devDependencies": {
     "@app/metro-config": "workspace:*",
     "@babel/core": "^7.25.2",
     "@eslint/js": "^9.39.5",
-    "@types/react": "~19.2.0",
+    "@types/react": "~19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.6",
     "globals": "^16.5.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.2"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   },
   "expo": {
     "install": {
