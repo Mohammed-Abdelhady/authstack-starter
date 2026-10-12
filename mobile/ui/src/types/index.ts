@@ -54,7 +54,15 @@ export interface NativeAppProps {
 /** The subset of the engine the screens call. */
 export type EnginePort = Pick<
   AuthEngine,
-  'snapshot' | 'subscribe' | 'signIn' | 'signOut' | 'restore' | 'transport'
+  | 'snapshot'
+  | 'subscribe'
+  | 'signIn'
+  | 'signOut'
+  | 'restore'
+  | 'transport'
+  | 'methods'
+  | 'nativeSignIn'
+  | 'cancelNativeSignIn'
 >;
 
 export interface SignInAttempt {

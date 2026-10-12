@@ -124,6 +124,7 @@ describe('the engine snapshot hook', () => {
     const fake = createFakeEngine(createFakeServer().transport, SIGNED_OUT);
     let listening = 0;
     const engine: EnginePort = {
+      ...fake.engine,
       get snapshot() {
         return fake.engine.snapshot;
       },
