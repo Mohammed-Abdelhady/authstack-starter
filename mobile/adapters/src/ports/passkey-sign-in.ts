@@ -52,7 +52,7 @@ function assertion(value: unknown): NativePasskeyAssertion | undefined {
     return undefined;
   }
 
-  const attachment = value.authenticatorAttachment;
+  const attachment = value.authenticatorAttachment ?? undefined;
   if (attachment !== undefined && attachment !== 'platform' && attachment !== 'cross-platform') {
     return undefined;
   }
@@ -60,7 +60,7 @@ function assertion(value: unknown): NativePasskeyAssertion | undefined {
   if (userHandle !== undefined && userHandle !== null && typeof userHandle !== 'string') {
     return undefined;
   }
-  const extensionResults = value.clientExtensionResults;
+  const extensionResults = value.clientExtensionResults ?? undefined;
   if (extensionResults !== undefined && !isRecord(extensionResults)) return undefined;
 
   return {
