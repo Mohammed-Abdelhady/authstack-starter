@@ -446,7 +446,9 @@
       "default": true,
       "files": [
         "backend/src/auth/oauth/strategies/google-oauth.strategy.ts",
-        "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts"
+        "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts",
+        "mobile/expo/test/native-sign-in-readiness.test.ts",
+        "mobile/cli/test/native-sign-in-readiness.test.ts"
       ],
       "packages": ["react-native-nitro-google-signin", "react-native-nitro-modules"],
       "envVars": [
