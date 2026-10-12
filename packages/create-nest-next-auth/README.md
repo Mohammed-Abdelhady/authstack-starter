@@ -52,6 +52,8 @@ providers `google`, `github`, `facebook`, `microsoft`, `apple`, `discord`,
 `linkedin`, `gitlab`, `x`, `slack`, `twitch`, `oidc`. Picking any provider pulls
 in `oauth-core`, which is not offered on its own.
 
+For a fresh database, select a method that can create and sign in to the first account. Passkeys need an existing signed-in account for enrollment; a new Facebook identity needs to be linked in settings from another signed-in method. Projects using an existing database can keep enrolled passkeys and linked Facebook identities. Keep the same passkey RP ID and origin.
+
 ```bash
 pnpm dlx create-nest-next-auth my-app --features email-password,google --no-install
 ```
@@ -91,8 +93,7 @@ copying, pruning, installing or committing anything.
 
 ## Generated instructions
 
-Each project gets an `AGENTS.md` with its code rules, commit types and scopes,
-check list, and package manager. `CLAUDE.md` points to it. The generated
+Each project gets an `AGENTS.md` with its code rules, commit types and scopes, check list, and package manager. `CLAUDE.md` points to it. The generated
 `.gitignore` tracks both files.
 
 Generated projects use pnpm 12.6.0 with an isolated dependency layout. On Node 22,
@@ -346,5 +347,4 @@ Run `create-nest-next-auth add rules --rules strict --dry-run` at the project ro
 | No manager evidence, conflicting lockfiles, invalid manifest or workspace document | Refused with the reason, rules not active, nothing written      |
 | Nested directory inside another Git repository without its own Git root            | Refused to prevent activating hooks in the enclosing repository |
 
-See [Add rules to an existing project](docs/add-rules.md) for supported projects, safety,
-blockers, dependencies, activation and running it again.
+See [Add rules to an existing project](docs/add-rules.md) for supported projects, safety, blockers, dependencies, activation and running it again.
