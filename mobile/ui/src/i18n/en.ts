@@ -95,7 +95,7 @@ export const EN = {
   'native.loading': 'Loading sign-in options',
   'native.methodsFailed': 'Sign-in options could not be loaded',
   'native.methodsFailedHint': 'Try again or continue in your browser.',
-  'native.empty': 'No sign-in methods are available',
+  'native.empty': 'In-app sign-in methods are unavailable. Continue in your browser.',
   'native.passwordChoice': 'Sign in with email and password',
   'native.emailLinkChoice': 'Email me a sign-in link',
   'native.passkeyChoice': 'Sign in with a passkey',
