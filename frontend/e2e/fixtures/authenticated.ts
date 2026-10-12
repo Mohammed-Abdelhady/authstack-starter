@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { fork, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
+import { CSRF_HEADER, publicBrowserProof, sessionBrowserProof } from '../utils/browser-proof';
 
 const backendDirectory = resolve(__dirname, '../../../backend');
 export const API = 'http://127.0.0.1:5107/api';
@@ -112,7 +113,6 @@ export const test = base.extend<
       });
       await run();
       const expected = [
-        { path: '/api/user/profile', status: 401 },
         ...testInfo.annotations
           .filter((item) => item.type === 'expected-api-error')
           .map((item) => JSON.parse(item.description!) as { path: string; status: number }),
@@ -207,6 +207,7 @@ export const test = base.extend<
         return;
       }
       const other = await request.post(`${API}/auth/login`, {
+        headers: { [CSRF_HEADER]: await publicBrowserProof(request, API) },
         data: { email: actor.email, password: actor.password },
       });
       expect(other.status()).toBe(200);
@@ -223,6 +224,7 @@ export const test = base.extend<
       await expect(page.getByTestId('dashboard-main')).toBeVisible();
       if (actor.email === admin.email) {
         const role = await page.request.post(`${API}/roles`, {
+          headers: { [CSRF_HEADER]: await sessionBrowserProof(page.request, API) },
           data: {
             name: 'Fixture Editor',
             permissions: ['users:read:all'],
