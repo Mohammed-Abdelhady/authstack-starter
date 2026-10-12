@@ -18,6 +18,7 @@ import { applyNativeResult } from './native-result';
 import { parseNativeEmailCallback } from './native-email-callback';
 import { performNativeAction } from './native-actions';
 import { createNativeMethodsReader } from './native-methods-reader';
+import { createNativeInteractivePrompt } from './native-interactive-prompt';
 
 const NATIVE_CALL_TIMEOUT_MS = 15_000;
 const NATIVE_CALLBACK_QUEUE_LIMIT = 16;
@@ -35,6 +36,7 @@ export function createNativeController(
   runtime.onEpochChange(() => active?.abort());
 
   const methods = createNativeMethodsReader(runtime, client, NATIVE_CALL_TIMEOUT_MS);
+  const prompt = createNativeInteractivePrompt(runtime);
 
   const nativeSignIn = async (action: NativeSignInAction): Promise<NativeSignInOutcome> => {
     if (runtime.disposed) return { kind: 'disposed' };
@@ -85,21 +87,37 @@ export function createNativeController(
         return { kind: 'expired' };
       }
       const epoch = runtime.epoch;
-      const answer = await withPortDeadline(
-        runtime.dependencies.timer,
-        NATIVE_CALL_TIMEOUT_MS,
-        () =>
-          performNativeAction(
-            { runtime, client, methods, cancel: cancelNativeSignIn, browserSignIn },
-            action,
-            controller,
-          ),
-        'native.action',
-        () => controller.abort(),
-      );
+      const perform = () =>
+        performNativeAction(
+          {
+            runtime,
+            client,
+            methods,
+            cancel: cancelNativeSignIn,
+            browserSignIn,
+            prompt,
+            requestTimeoutMs: NATIVE_CALL_TIMEOUT_MS,
+          },
+          action,
+          controller,
+        );
+      const answer =
+        action.kind === 'provider' || action.kind === 'passkey'
+          ? await perform()
+          : await withPortDeadline(
+              runtime.dependencies.timer,
+              NATIVE_CALL_TIMEOUT_MS,
+              perform,
+              'native.action',
+              () => controller.abort(),
+            );
       if (runtime.disposed) return { kind: 'disposed' };
       if (!runtime.isEpochCurrent(epoch)) {
         return answer.kind === 'outcome' ? answer.outcome : { kind: 'signedOut' };
+      }
+      if (answer.kind === 'outcome' && answer.outcome.kind === 'expired') {
+        const cancelled = await cancelNativeSignIn();
+        return cancelled.kind === 'storageFailure' ? cancelled : answer.outcome;
       }
       if (answer.kind === 'outcome') return answer.outcome;
       const outcome = await applyNativeResult(runtime, callbacks, answer.result, epoch);
