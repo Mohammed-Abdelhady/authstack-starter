@@ -1,4 +1,5 @@
 import { StoredAccount } from '../../user/stores/stored-account';
+import { UnitOfWork } from '../../common/persistence/unit-of-work';
 
 /** An account a password is about to be checked against. */
 export interface PasswordCandidate {
@@ -29,4 +30,12 @@ export abstract class PasswordSignInStore {
     account: StoredAccount,
     passwordHash: string,
   ): Promise<void>;
+
+  /** Stores only while the account still holds the version the proof read. */
+  abstract storeNewPasswordIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    expectedSessionVersion: number,
+    passwordHash: string,
+  ): Promise<boolean>;
 }

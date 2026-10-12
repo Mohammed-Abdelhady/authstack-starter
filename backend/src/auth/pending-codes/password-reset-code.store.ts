@@ -3,6 +3,7 @@ import {
   CodeClaim,
   CodeRotation,
 } from './pending-registration.store';
+import { UnitOfWork } from '../../common/persistence/unit-of-work';
 
 /** Shared names of the unique rules a password reset record can run into. */
 export const PASSWORD_RESET_CONSTRAINT = {
@@ -67,6 +68,12 @@ export abstract class PasswordResetCodeStore {
    * the address's wrong codes and locks are forgotten.
    */
   abstract claimCode(claim: PasswordResetClaim): Promise<CodeClaim>;
+
+  /** Removes this exact reset generation in the caller's transaction. */
+  abstract claimCodeIn(
+    unitOfWork: UnitOfWork,
+    claim: PasswordResetClaim,
+  ): Promise<CodeClaim>;
 
   /** Removes the address's record when it has expired. */
   abstract dropExpiredRecord(email: string, now: Date): Promise<void>;

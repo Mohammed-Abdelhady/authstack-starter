@@ -11,6 +11,7 @@ import {
   IssuedBrowserSession,
 } from '../../../session/services/session-issuance.service';
 import { NativeSessionRevocationService } from '../../../session/services/native-session-revocation.service';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 
 // Log lines keep the context they were written under before this class existed.
 const LOG_CONTEXT = 'SessionService';
@@ -71,6 +72,18 @@ export class Sessions {
       `All sessions invalidated for user ${userId}: ${count} document(s)`,
     );
     return count;
+  }
+
+  invalidateAllSessionsFromIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    return this.revoker.revokeAllForUserFromIn(
+      unitOfWork,
+      userId,
+      expectedVersion,
+    );
   }
 
   async getUserSessions(userId: string): Promise<StoredSession[]> {
