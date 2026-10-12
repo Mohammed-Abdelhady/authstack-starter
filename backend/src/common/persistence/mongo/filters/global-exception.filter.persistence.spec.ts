@@ -127,6 +127,12 @@ describe('GlobalExceptionFilter shared persistence errors', () => {
     message: 'An unexpected error occurred',
     requestId: REQUEST_ID,
   };
+  const unavailable = {
+    status: 503,
+    code: 'INTERNAL_ERROR',
+    message: 'Service temporarily unavailable',
+    requestId: REQUEST_ID,
+  };
 
   describe('a refused unique rule', () => {
     it('answers a taken address like the duplicate key it wraps', () => {
@@ -253,7 +259,7 @@ describe('GlobalExceptionFilter shared persistence errors', () => {
       expect({
         driver: answerTo(driver),
         shared: answerTo(new PersistenceUnavailableError(driver)),
-      }).toEqual({ driver: unexpected, shared: unexpected });
+      }).toEqual({ driver: unexpected, shared: unavailable });
     });
 
     it('answers a timeout like the expired operation it wraps', () => {

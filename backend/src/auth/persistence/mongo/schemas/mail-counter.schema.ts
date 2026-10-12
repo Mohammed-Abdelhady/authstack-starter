@@ -13,7 +13,7 @@ export class MailCounter {
   @Prop({ required: true, lowercase: true, trim: true })
   email!: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   purpose!: MailCounterPurpose;
 
   @Prop({ required: true, default: 1 })
@@ -22,9 +22,27 @@ export class MailCounter {
   @Prop({ required: true })
   windowStartedAt!: Date;
 
-  /** The end of the window. A deleted counter counts like a rolled-over one. */
+  /**
+   * The end of the window, or of what is remembered about wrong codes when
+   * that is later. A deleted counter counts like a rolled-over one.
+   */
   @Prop({ required: true, index: { expireAfterSeconds: 0 } })
   expiresAt!: Date;
+
+  /** Wrong codes since the last lock, the last right code or the last lapse. */
+  @Prop({ default: 0 })
+  failedGuesses?: number;
+
+  /** Locks in a row. Each one doubles the next. */
+  @Prop({ default: 0 })
+  guessLockLevel?: number;
+
+  @Prop()
+  guessLockedUntil?: Date;
+
+  /** Until when the three fields above mean anything. */
+  @Prop()
+  guessStateExpiresAt?: Date;
 
   createdAt!: Date;
   updatedAt!: Date;

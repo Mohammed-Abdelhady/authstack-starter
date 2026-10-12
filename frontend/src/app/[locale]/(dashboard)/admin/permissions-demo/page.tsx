@@ -1,4 +1,6 @@
+import type { Metadata } from 'next';
 import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CodeBlock } from '@/components/ui/code-block';
 import { Description, Heading } from '@/components/design-system';
@@ -12,6 +14,17 @@ import {
 } from '@app/core';
 import { Button } from '@/components/ui/button';
 import { Shield, Lock, Unlock, Users, Settings, Trash2, Edit, Eye } from 'lucide-react';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'permissions.demo' });
+
+  return { title: t('title'), description: t('description') };
+}
 
 /**
  * Permissions Demo Page

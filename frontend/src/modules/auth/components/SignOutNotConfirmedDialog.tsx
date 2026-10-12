@@ -39,7 +39,11 @@ export function SignOutNotConfirmedDialog({
   const t = useTranslations('auth.signOut');
 
   return (
-    <AlertDialog open={failedTries > 0} onOpenChange={(next) => !next && onClose()}>
+    <AlertDialog
+      busy={isRetrying}
+      open={failedTries > 0}
+      onOpenChange={(next) => !next && onClose()}
+    >
       <AlertDialogContent
         data-testid="sign-out-not-confirmed-dialog"
         onCloseAutoFocus={(event) => {

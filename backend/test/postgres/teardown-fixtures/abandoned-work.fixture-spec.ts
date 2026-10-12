@@ -5,13 +5,15 @@ import {
 import { openTestConnectionOn, TestConnection } from '../postgres-connection';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../server/postgres-test-server';
 import {
+  ABANDONED_WORK,
   abandonWorkOnAnAccount,
   FAILED_ON_PURPOSE,
   interruptAReset,
+  openWorkOn,
+  PLANNED_FAILURE_BUDGET_MS,
   StepBeforeNextStatement,
   storedAccounts,
 } from './abandoned-work';
@@ -29,28 +31,41 @@ describe('a suite whose cases abandon open work', () => {
     await harness?.close();
   }, POSTGRES_TEARDOWN_TIMEOUT_MS);
 
-  it('fails with an account held and a second writer waiting', async () => {
-    await abandonWorkOnAnAccount(harness);
+  it(
+    'fails with an account held and a second writer waiting',
+    async () => {
+      await abandonWorkOnAnAccount(harness);
+      expect(await openWorkOn(harness)).toEqual(ABANDONED_WORK);
 
-    throw new Error(FAILED_ON_PURPOSE);
+      throw new Error(FAILED_ON_PURPOSE);
+    },
+    PLANNED_FAILURE_BUDGET_MS,
+  );
+
+  it('starts the next case on empty tables', async () => {
+    // The failed case's work is still open when this one starts.
+    expect(await openWorkOn(harness)).toEqual(ABANDONED_WORK);
+
+    await harness.reset();
+    await harness.seedAccount();
+
+    expect(await storedAccounts(harness)).toBe(1);
   });
 
   it(
-    'starts the next case on empty tables',
+    'fails again as the last case, so teardown meets the open work',
     async () => {
-      await harness.reset();
-      await harness.seedAccount();
+      await abandonWorkOnAnAccount(harness);
+      // The account the case before stored, and this one's.
+      expect(await openWorkOn(harness)).toEqual({
+        ...ABANDONED_WORK,
+        accounts: 2,
+      });
 
-      expect(await storedAccounts(harness)).toBe(1);
+      throw new Error(FAILED_ON_PURPOSE);
     },
-    POSTGRES_RESET_TIMEOUT_MS,
+    PLANNED_FAILURE_BUDGET_MS,
   );
-
-  it('fails again as the last case, so teardown meets the open work', async () => {
-    await abandonWorkOnAnAccount(harness);
-
-    throw new Error(FAILED_ON_PURPOSE);
-  });
 });
 
 // Boots its own server after the first suite's teardown, in the same process.
@@ -65,16 +80,12 @@ describe('the suite that runs next', () => {
     await harness?.close();
   }, POSTGRES_TEARDOWN_TIMEOUT_MS);
 
-  it(
-    'starts on empty tables and stores its own account',
-    async () => {
-      await harness.reset();
-      await harness.seedAccount();
+  it('starts on empty tables and stores its own account', async () => {
+    await harness.reset();
+    await harness.seedAccount();
 
-      expect(await storedAccounts(harness)).toBe(1);
-    },
-    POSTGRES_RESET_TIMEOUT_MS,
-  );
+    expect(await storedAccounts(harness)).toBe(1);
+  });
 });
 
 // The first case ends with its reset still running, as a reset that ran out
@@ -93,29 +104,33 @@ describe('a suite whose reset is cut short', () => {
     await connection?.close();
   }, POSTGRES_TEARDOWN_TIMEOUT_MS);
 
-  it('fails with its reset still waiting on an account taken after it began', async () => {
-    cutShort = (await interruptAReset(connection)).settled;
-
-    throw new Error(FAILED_ON_PURPOSE);
-  });
-
   it(
-    'starts the next case on empty tables and keeps what it stores',
+    'fails with its reset still waiting on an account taken after it began',
     async () => {
-      await connection.reset();
-      await connection.database
-        .insertInto('users')
-        .values({ is_deleted: false })
-        .execute();
+      cutShort = (await interruptAReset(connection)).settled;
+      expect(await openWorkOn(connection)).toEqual(ABANDONED_WORK);
 
-      // Whether the earlier reset finished or was ended, it is over by now
-      // and has not emptied what this case stored.
-      await cutShort;
-
-      expect(await storedAccounts(connection)).toBe(1);
+      throw new Error(FAILED_ON_PURPOSE);
     },
-    POSTGRES_RESET_TIMEOUT_MS,
+    PLANNED_FAILURE_BUDGET_MS,
   );
+
+  it('starts the next case on empty tables and keeps what it stores', async () => {
+    // The reset that was cut short is still waiting when this case starts.
+    expect(await openWorkOn(connection)).toEqual(ABANDONED_WORK);
+
+    await connection.reset();
+    await connection.database
+      .insertInto('users')
+      .values({ is_deleted: false })
+      .execute();
+
+    // Whether the earlier reset finished or was ended, it is over by now
+    // and has not emptied what this case stored.
+    await cutShort;
+
+    expect(await storedAccounts(connection)).toBe(1);
+  });
 });
 
 // Its boot fails after the server is up, so no harness exists to close.

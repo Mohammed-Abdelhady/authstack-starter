@@ -15,6 +15,7 @@ import { TwoFactorLoginService } from './two-factor-login.service';
 import { SetupTwoFactorDto } from './dto/setup-two-factor.dto';
 import { TwoFactorCodeDto } from './dto/two-factor-code.dto';
 import { DisableTwoFactorDto } from './dto/disable-two-factor.dto';
+import { RegenerateRecoveryCodesDto } from './dto/regenerate-recovery-codes.dto';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { Public } from '../decorators/public.decorator';
 import { CurrentUser } from '../decorators/current-user.decorator';
@@ -23,6 +24,7 @@ import { AuthFeature } from '../enums/auth-feature.enum';
 import { RequestWithUser } from '../guards/auth.guard';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
 import { THROTTLE_TWO_FACTOR_VERIFY } from '../../common/constants/throttle';
+import { requestSessionId } from '../../session/utils/request/request-session';
 
 /**
  * TOTP second factor.
@@ -30,6 +32,11 @@ import { THROTTLE_TWO_FACTOR_VERIFY } from '../../common/constants/throttle';
  * Four of the routes manage the factor on an account that is already signed
  * in. The fifth, verify, finishes a sign-in that was held for a code, so it
  * runs without a session and reads the challenge cookie instead.
+ *
+ * Every route checks a password or a code, so each carries the limit of the
+ * verify route. Wrong codes are also counted on the account itself: every
+ * fifth in a row locks it, and the routes answer TWO_FACTOR_LOCKED with the
+ * seconds left until the lock ends.
  */
 @ApiTags('auth')
 @Controller('auth/2fa')
@@ -44,6 +51,7 @@ export class TwoFactorController {
    * Start two-factor setup
    * POST /api/auth/2fa/setup
    */
+  @Throttle(THROTTLE_TWO_FACTOR_VERIFY)
   @Post('setup')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
@@ -68,6 +76,7 @@ export class TwoFactorController {
    * Confirm the secret and turn the second factor on
    * POST /api/auth/2fa/confirm
    */
+  @Throttle(THROTTLE_TWO_FACTOR_VERIFY)
   @Post('confirm')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
@@ -81,14 +90,20 @@ export class TwoFactorController {
   async confirm(
     @CurrentUser('id') userId: string,
     @Body() dto: TwoFactorCodeDto,
+    @Req() request: RequestWithUser,
   ) {
-    return this.twoFactorService.confirm(userId, dto);
+    return this.twoFactorService.confirmWithSession(
+      userId,
+      dto,
+      requestSessionId(request),
+    );
   }
 
   /**
    * Turn the second factor off
    * POST /api/auth/2fa/disable
    */
+  @Throttle(THROTTLE_TWO_FACTOR_VERIFY)
   @Post('disable')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
@@ -111,18 +126,21 @@ export class TwoFactorController {
    * Replace the recovery codes
    * POST /api/auth/2fa/recovery-codes/regenerate
    */
+  @Throttle(THROTTLE_TWO_FACTOR_VERIFY)
   @Post('recovery-codes/regenerate')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
   @ApiOperation({
     summary: 'Replace the recovery codes',
     description:
-      'Issues ten new recovery codes and drops the old batch, used or not.',
+      'Issues ten new recovery codes and drops the old batch, used or not. ' +
+      'Needs a code, plus the password when the account has one and password ' +
+      'sign-in is on.',
   })
-  @ApiBody({ type: TwoFactorCodeDto })
+  @ApiBody({ type: RegenerateRecoveryCodesDto })
   async regenerateRecoveryCodes(
     @CurrentUser('id') userId: string,
-    @Body() dto: TwoFactorCodeDto,
+    @Body() dto: RegenerateRecoveryCodesDto,
   ) {
     return this.twoFactorService.regenerateRecoveryCodes(userId, dto);
   }
@@ -147,7 +165,10 @@ export class TwoFactorController {
       'first step was also a passkey that did not verify its user, because ' +
       'holding one key would then answer both steps. A passkey that verified ' +
       'its user is accepted after any first step. Five wrong answers end the ' +
-      'challenge.',
+      'challenge. Wrong codes are also counted on the account across ' +
+      'challenges: every fifth in a row locks its codes, one minute the first ' +
+      'time and twice as long each time after, up to an hour, and the answer ' +
+      'is 429 TWO_FACTOR_LOCKED with details.retryAfter in seconds.',
   })
   @ApiBody({ type: VerifyTwoFactorDto })
   async verify(

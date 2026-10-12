@@ -22,6 +22,14 @@ export interface OAuthProviderStrategy {
   readonly emailAlwaysVerified: boolean;
 
   /**
+   * A first sign-in may attach to an account that already has the address.
+   * Only for a provider that states, per address, that it verified it. One
+   * that sends no such statement creates accounts and signs in its own, and
+   * its user links it to an existing account from the settings instead.
+   */
+  readonly autoLinksByEmail: boolean;
+
+  /**
    * HTTP method the provider uses for the callback. Apple posts a form when
    * scopes are requested; everyone else redirects with a GET. A POST arrives
    * cross site, so the state cookie for those providers needs SameSite=None.

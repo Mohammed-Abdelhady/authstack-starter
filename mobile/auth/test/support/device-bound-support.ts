@@ -2,7 +2,44 @@ import { HTTP_METHOD } from '@app/sdk';
 import { Buffer } from 'node:buffer';
 import { createAuthEngine } from './engine';
 import { SoftwareDeviceKey } from './software-device-key';
-import { CONFIG, ScriptedTransport, acceptCode, successUserReply, testPorts } from './support';
+import {
+  CONFIG,
+  ScriptedTransport,
+  acceptCode,
+  successUserReply,
+  testPorts,
+  type TransportStep,
+} from './support';
+import { allowRefreshReplayAfterDpopNonce } from './tracking';
+
+export const CHALLENGE_NONCE = 'server-nonce-0';
+
+/** What the server answers to a proof whose nonce it does not accept. */
+export function dpopChallenge(nonce = CHALLENGE_NONCE) {
+  return { status: 400, body: { error: 'use_dpop_nonce' }, headers: { 'DPoP-Nonce': nonce } };
+}
+
+/**
+ * The engine's first proof carries an empty nonce, so the server answers every
+ * bound exchange, refresh and revoke with a challenge before anything else.
+ */
+export function challengeThen(...steps: TransportStep[]): TransportStep[] {
+  return [dpopChallenge(), ...steps];
+}
+
+/** Scripts one bound refresh of `token`: the challenge, then what follows it. */
+export function enqueueBoundRefresh(
+  transport: ScriptedTransport,
+  token: string,
+  ...steps: TransportStep[]
+): void {
+  allowRefreshReplayAfterDpopNonce(token);
+  transport.enqueue(...challengeThen(...steps));
+}
+
+export function proofNonces(requests: readonly { headers?: Readonly<Record<string, string>> }[]) {
+  return requests.map(({ headers }) => requestPayload(headers?.DPoP ?? '').nonce);
+}
 
 export function requestPayload(proof: string): Record<string, unknown> {
   const payload = proof.split('.')[1] ?? '';
@@ -18,7 +55,7 @@ export function dpopTokenReply(
     status: 200,
     body: {
       access_token: accessToken,
-      token_type: 'DPoP',
+      token_type: 'Bearer',
       expires_in: expiresIn,
       refresh_token: refreshToken,
       scope: 'api',
@@ -36,7 +73,7 @@ export function refreshRequests(transport: ScriptedTransport) {
 export async function establishBoundSession(transport = new ScriptedTransport()) {
   const deviceKey = new SoftwareDeviceKey();
   const ports = testPorts(transport, deviceKey);
-  transport.enqueue(dpopTokenReply(), successUserReply());
+  transport.enqueue(...challengeThen(dpopTokenReply()), successUserReply());
   acceptCode(ports.authBrowser, 'bound-code');
   const engine = createAuthEngine(CONFIG, ports);
   await engine.restore();

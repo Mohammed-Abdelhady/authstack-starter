@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
-import { useUi } from '../context/ui-context';
+import { usePaint } from '../context/paint-context';
 import { usePressMotion } from '../hooks/use-press-motion';
 import { OPACITY, RADIUS, SIZE, SPACE, TRANSPARENT, type Palette } from '../theme/tokens';
 import { Label, type LabelTone } from './Typography';
@@ -63,7 +63,7 @@ export function Button({
   accessibilityHint,
   testID,
 }: ButtonProps) {
-  const { colors } = useUi();
+  const { colors } = usePaint();
   const { scale, onPressIn, onPressOut } = usePressMotion();
   const [focused, setFocused] = useState(false);
   const onFocus = useCallback(() => setFocused(true), []);

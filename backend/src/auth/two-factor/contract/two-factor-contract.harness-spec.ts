@@ -26,14 +26,12 @@ import { TwoFactorLoginService } from '../two-factor-login.service';
 import { TwoFactorService } from '../two-factor.service';
 
 import {
+  StoredFailureFacts,
   StoredSecondFactorFacts,
   TwoFactorContractHarness,
 } from './two-factor-contract-database.harness-spec';
 
 export * from './two-factor-contract-database.harness-spec';
-
-/** Jest budget for a contract case, the one the sign-in contract established. */
-export const TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS = 60000;
 
 /** Written out, so a changed constant cannot agree with itself. */
 export const CHALLENGE_LIFETIME_MS = 300_000;
@@ -57,11 +55,6 @@ export const OTHER_RECOVERY_HASH =
 export const CHALLENGE_COOKIE = 'mfa_challenge';
 
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
-
-/** A contract case with the budget a database case gets. */
-export function twoFactorCase(name: string, body: () => Promise<void>): void {
-  it(name, body, TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS);
-}
 
 const SUMMARY = {
   email: 'signed-in@example.test',
@@ -127,9 +120,13 @@ function recorded<Store extends object>(
 export function twoFactorServices(
   harness: TwoFactorContractHarness,
   verifiers: SecondFactorVerifier[] = [],
+  keys: { current?: string; previous?: string } = {},
 ): TwoFactorServices {
   const config = new ConfigService({
-    twoFactor: { encryptionKey: ENCRYPTION_KEY },
+    twoFactor: {
+      encryptionKey: keys.current ?? ENCRYPTION_KEY,
+      previousEncryptionKey: keys.previous,
+    },
     bcrypt: { rounds: BCRYPT_ROUNDS },
     NODE_ENV: 'test',
   });
@@ -264,6 +261,12 @@ export const NO_SECOND_FACTOR: StoredSecondFactorFacts = {
   confirmedAt: null,
   recoveryCodes: [],
   lastUsedStep: null,
+};
+
+/** An account no wrong answer is counted on. */
+export const NO_FAILURES: StoredFailureFacts = {
+  failedAttempts: 0,
+  lockedUntil: null,
 };
 
 /** Turns the factor on around the adapters, with two unspent recovery codes. */

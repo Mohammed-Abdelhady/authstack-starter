@@ -46,6 +46,21 @@ Every incoming request to the NestJS backend passes through the following layers
 9. **Response transform interceptor (`TransformInterceptor`).** Wraps standard return values in a uniform envelope: `{ success: true, data: ... }`.
 10. **Global exception filter (`AllExceptionsFilter`).** Catches unhandled exceptions, maps them to standard HTTP status codes, and formats errors as `{ success: false, error: { code, message, details } }`.
 
+## Permission grant transactions
+
+Role and permission grants reread the actor and relevant roles inside their write transaction. Authority changes cannot commit between this check and the grant.
+
+<!-- feature:postgres:start -->
+
+PostgreSQL holds shared row locks with `NOWAIT`.
+<!-- feature:postgres:end -->
+
+<!-- feature:mongodb:start -->
+
+MongoDB writes hidden authority fences without changing business timestamps.
+On MongoDB, grant operations from one actor are serialized before opening a transaction. Each process admits at most 32 active or waiting operations per actor and 256 in total. Overflow returns the existing database-unavailable response with HTTP 503. Success and failure release admission. Other processes and actors sharing a role may still encounter transaction contention, which uses the existing bounded retry policy and can return 503.
+<!-- feature:mongodb:end -->
+
 ## Cookie session model
 
 The application uses stateful, cookie-backed sessions instead of stateless JWTs.

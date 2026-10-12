@@ -2,8 +2,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { ServerCrash } from 'lucide-react';
 import { afterEach, expect, it } from 'vitest';
-import en from '@/i18n/messages/en.json';
-import ar from '@/i18n/messages/ar.json'; // feature:locale-ar
+import en from '@/i18n/messages/errors.en.json';
+import ar from '@/i18n/messages/errors.ar.json'; // feature:locale-ar
 import { directionOf, registerRtlDocument } from '@/tests/direction';
 import { ErrorPageLayout } from './ErrorPageLayout';
 

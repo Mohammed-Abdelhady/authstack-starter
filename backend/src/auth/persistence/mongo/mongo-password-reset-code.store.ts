@@ -24,16 +24,25 @@ import {
   insertOrConflict,
   singleStatement,
 } from '../../../common/persistence/mongo/mongo-unique-conflict';
+import { MAIL_COUNTER_PURPOSE } from '../../constants/registration';
+import {
+  MailCounter,
+  MailCounterDocument,
+} from './schemas/mail-counter.schema';
+import { clearMongoGuesses, reserveMongoGuess } from './mongo-code-guesses';
 
 const PASSWORD_RESET_INDEX_CONSTRAINTS = {
   email_1: PASSWORD_RESET_CONSTRAINT.ADDRESS,
 } as const;
+const PURPOSE = MAIL_COUNTER_PURPOSE.PASSWORD_RESET;
 
 @Injectable()
 export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
   constructor(
     @InjectModel(PendingPasswordReset.name)
     private readonly pendingPasswordResetModel: Model<PendingPasswordResetDocument>,
+    @InjectModel(MailCounter.name)
+    private readonly mailCounterModel: Model<MailCounterDocument>,
   ) {
     super();
   }
@@ -88,7 +97,16 @@ export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
         { new: true, select: '+hashedCode' },
       ),
     );
-    return reserved
+    if (!reserved) {
+      return null;
+    }
+    const counted = await reserveMongoGuess(
+      this.mailCounterModel,
+      { email, purpose: PURPOSE },
+      rule.now,
+      rule.guesses,
+    );
+    return counted
       ? { id: reserved._id.toString(), hashedCode: reserved.hashedCode }
       : null;
   }
@@ -101,7 +119,16 @@ export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
         expiresAt: { $gt: claim.now },
       }),
     );
-    return deleted !== null ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
+    if (deleted === null) {
+      return CODE_CLAIM.NOT_CLAIMABLE;
+    }
+    await singleStatement(() =>
+      clearMongoGuesses(this.mailCounterModel, {
+        email: deleted.email,
+        purpose: PURPOSE,
+      }),
+    );
+    return CODE_CLAIM.CLAIMED;
   }
 
   async dropExpiredRecord(email: string, now: Date): Promise<void> {
@@ -111,14 +138,5 @@ export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
         expiresAt: { $lte: now },
       }),
     );
-  }
-
-  async deleteExpiredBefore(cutoff: Date): Promise<number> {
-    const deleted = await singleStatement(() =>
-      this.pendingPasswordResetModel.deleteMany({
-        expiresAt: { $lte: cutoff },
-      }),
-    );
-    return deleted.deletedCount;
   }
 }

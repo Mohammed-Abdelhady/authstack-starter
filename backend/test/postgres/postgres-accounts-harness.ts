@@ -117,6 +117,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         .insertInto('users')
         .values({
           email: account.email,
+          pending_email: account.pendingEmail ?? null,
           name: account.name ?? 'Contract Tester',
           role: account.role,
           permissions: account.permissions ?? [],
@@ -180,6 +181,9 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
           ...(change.verified === undefined
             ? {}
             : { is_verified: change.verified }),
+          ...(change.permissions === undefined
+            ? {}
+            : { permissions: change.permissions }),
         })
         .where('id', '=', userId)
         .execute();
@@ -197,6 +201,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
       if (!row) return null;
       return {
         email: row.email ?? '',
+        pendingEmail: row.pending_email,
         name: row.name ?? '',
         role: row.role,
         permissions: row.permissions,

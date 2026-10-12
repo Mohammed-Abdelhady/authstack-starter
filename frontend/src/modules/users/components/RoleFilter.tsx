@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,12 +40,17 @@ export function RoleFilter({
   const [picked, setPicked] = useState<Pick<Role, 'slug' | 'name'> | null>(null);
   const { roles: allRoles } = useAllRoles();
   const query = useDebounce(search, 300);
-  const { currentData, isFetching, isError, refetch } = useListRolesQuery(
+  const { currentData, isFetching, isError, error, refetch } = useListRolesQuery(
     { page, limit: 20, search: query.trim() || undefined },
     { skip: !open },
   );
   const lastPage = Math.max(1, currentData?.totalPages ?? page);
   if (!isFetching && !isError && page > lastPage) setPage(lastPage);
+
+  // The failure stays while a retry runs, and Retry hands the focus to the search field.
+  const hasFailed = error !== undefined;
+  const searchRef = useRef<HTMLInputElement>(null);
+  const retry = useRetryHandOff(hasFailed, refetch, searchRef);
 
   function choose(role: Pick<Role, 'slug' | 'name'> | null) {
     setPicked(role);
@@ -66,6 +72,9 @@ export function RoleFilter({
         <Button
           variant="outline"
           className="w-full sm:w-50 justify-between"
+          aria-label={t('roleFilterTriggerLabel', {
+            role: value === 'all' ? t('allRoles') : (pickedName ?? value),
+          })}
           data-testid="role-filter"
         >
           {value === 'all' ? (
@@ -88,6 +97,7 @@ export function RoleFilter({
           <DialogDescription>{t('roleFilterHint')}</DialogDescription>
         </DialogHeader>
         <SearchBar
+          ref={searchRef}
           className={FREE_TEXT_SEARCH_CLASSES}
           value={search}
           onChange={(event) => changeSearch(event.target.value)}
@@ -109,11 +119,11 @@ export function RoleFilter({
         </Button>
         <div aria-busy={isFetching}>
           {isFetching && <p role="status">{rolesText('loading')}</p>}
-          {isError ? (
+          {hasFailed ? (
             <div role="alert" className="space-y-2">
               <p>{t('roleFilterError')}</p>
               <Button
-                onClick={() => refetch()}
+                onClick={retry}
                 busy={isFetching}
                 aria-busy={isFetching}
                 data-testid="role-filter-retry"

@@ -87,6 +87,42 @@ describe('SessionCookieService (X-13, D-29)', () => {
     });
   });
 
+  describe('by environment and client address', () => {
+    it.each([
+      ['development', 'http://localhost:3000', 'sid', false],
+      ['development', 'https://app.example.com', '__Host-sid', true],
+      ['production', 'https://app.example.com', '__Host-sid', true],
+      ['production', 'http://app.example.com', '__Host-sid', true],
+    ])(
+      'NODE_ENV %s with CLIENT_URL %s',
+      async (nodeEnv, clientUrl, name, secure) => {
+        service = await createService({
+          NODE_ENV: nodeEnv,
+          CLIENT_URL: clientUrl,
+        });
+        const cookieMock = jest.fn();
+        const clearCookieMock = jest.fn();
+        const response = createResponseMock({
+          cookie: cookieMock,
+          clearCookie: clearCookieMock,
+        });
+
+        service.set(response, 'token-abc');
+        service.clear(response);
+
+        expect(cookieMock).toHaveBeenCalledWith(
+          name,
+          'token-abc',
+          expect.objectContaining({ secure, httpOnly: true, path: '/' }),
+        );
+        expect(clearCookieMock).toHaveBeenCalledWith(
+          name,
+          expect.objectContaining({ secure, httpOnly: true, path: '/' }),
+        );
+      },
+    );
+  });
+
   describe('set', () => {
     it('should set cookie on response with configured options', async () => {
       service = await createService({

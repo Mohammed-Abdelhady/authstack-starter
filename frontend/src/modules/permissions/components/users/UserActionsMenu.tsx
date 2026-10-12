@@ -17,7 +17,7 @@ import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useUserActions } from '../../hooks/useUserActions';
 import { EditUserDialog } from './EditUserDialog';
 import { UserActionConfirmDialog, type UserConfirmAction } from './UserActionConfirmDialog';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
 import { PermissionGuard } from '../guards/PermissionGuard';
 
 export interface UserActionsMenuUser {
@@ -68,7 +68,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   className,
 }: UserActionsMenuProps) {
   const t = useTranslations('users.actions');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   // Why the last attempt was refused, said in the confirmation, which stays open.
   const [refusal, setRefusal] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
@@ -95,13 +95,13 @@ export const UserActionsMenu = memo(function UserActionsMenu({
       user._id,
       confirmAction === 'activate',
       user.name,
-      (error) => setRefusal(tCodes(translatableErrorCode(error))),
+      (error) => setRefusal(refusalText(error)),
     );
 
     if (success) {
       setConfirmAction(null);
     }
-  }, [confirmAction, handleStatusChange, tCodes, user._id, user.name]);
+  }, [confirmAction, handleStatusChange, refusalText, user._id, user.name]);
 
   const handleCancelConfirm = useCallback(() => {
     setConfirmAction(null);
@@ -127,6 +127,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
             )}
             disabled={disabled}
             busy={isBusy}
+            aria-label={t('menuLabelForUser', { name: user.name })}
             aria-busy={isLoading}
             data-testid={`user-actions-menu-${user._id}`}
           >

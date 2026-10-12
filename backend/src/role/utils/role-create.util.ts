@@ -28,7 +28,7 @@ export function createRoleWithinCeiling(
   slug: string,
   actorId: string,
 ): Promise<StoredRole> {
-  return runner.run(async (unitOfWork) => {
+  return runner.runForAuthority(actorId, async (unitOfWork) => {
     const actor = await assertFreshRolePermission(
       store,
       unitOfWork,

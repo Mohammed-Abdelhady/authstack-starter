@@ -10,6 +10,14 @@ export interface MagicLinkRequestResult {
   email: string;
 }
 
+/** The server asks before spending a forwarded link in another browser session. */
+export interface MagicLinkConfirmationRequired {
+  requiresConfirmation: true;
+  email: string;
+}
+
+export type MagicLinkVerifyResponse = LoginResponse | MagicLinkConfirmationRequired;
+
 /**
  * Passwordless sign-in by mailed link.
  *
@@ -28,10 +36,14 @@ export const magicLinkApi = baseApi.injectEndpoints({
         response.data,
     }),
 
-    verifyMagicLink: builder.mutation<LoginResponse, { token: string }>({
+    verifyMagicLink: builder.mutation<MagicLinkVerifyResponse, { token: string; confirm?: true }>({
       query: (body) => ({ url: VERIFY_PATH, method: 'POST', body }),
-      transformResponse: (response: { success: boolean; data: LoginResponse }) => response.data,
-      invalidatesTags: invalidateOnSuccess(['Auth', 'User']),
+      transformResponse: (response: { success: boolean; data: MagicLinkVerifyResponse }) =>
+        response.data,
+      invalidatesTags: (result, error, arg) =>
+        result && 'user' in result && result.user !== null
+          ? invalidateOnSuccess(['Auth', 'User'])(result, error, arg)
+          : [],
     }),
   }),
 });

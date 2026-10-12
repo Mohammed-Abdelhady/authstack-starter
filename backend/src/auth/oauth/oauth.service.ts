@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
 import {
   SignInCompletion,
@@ -17,27 +17,18 @@ import { storeFailureCause } from '../../common/persistence/store-failure';
 import { readBearerToken } from '../../session/native/access/native-access.service';
 import { hasBothCredentials } from '../../session/utils/request/request-credential';
 import {
-  OAuthCallbackParams,
   OAuthProfile,
   OAuthProviderStrategy,
 } from './oauth-provider.interface';
 import { ProviderSignInStore } from './stores/provider-sign-in.store';
-
-export interface OAuthLoginParams {
-  strategy: OAuthProviderStrategy;
-  code: string;
-  redirectUri: string;
-  codeVerifier?: string;
-  nonce?: string;
-  /** Raw callback parameters, for providers that ship profile data with them. */
-  callbackParams?: OAuthCallbackParams;
-  response: Response;
-}
-
-export interface OAuthLinkParams extends OAuthLoginParams {
-  request: Request;
-  linkUserId: string;
-}
+import {
+  LinkingProvider,
+  LinkingSession,
+  OAuthLinkParams,
+  OAuthLoginParams,
+} from './types/oauth-service.types';
+import { SecurityNoticeService } from '../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../user/constants/security-notice.constants';
 
 const DEFAULT_ROLE = 'user';
 
@@ -56,6 +47,7 @@ export class OAuthService {
     private readonly accountLinkingService: AccountLinkingService,
     private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -65,7 +57,7 @@ export class OAuthService {
   async login(params: OAuthLoginParams): Promise<SignInOutcome> {
     const { strategy } = params;
     const profile = await this.loadVerifiedProfile(params);
-    const user = await this.findOrCreateUser(strategy.id, profile);
+    const user = await this.findOrCreateUser(strategy, profile);
     await this.profileSyncService.syncProfileFromProvider(
       user.id,
       strategy.id,
@@ -87,35 +79,56 @@ export class OAuthService {
   }
 
   /**
-   * Attaches the provider identity to the signed-in user. The existing
-   * session is left alone; a second factor is not started.
+   * Attaches the provider identity to the account that started the link. The
+   * callback is a navigation the provider's site started, and a browser sends
+   * no `SameSite=Strict` cookie with it, so the session cookie cannot be asked
+   * for here. The signed state names the account and the session that asked,
+   * and that session must still be live. No session is issued and a second
+   * factor is not started.
    */
   async link(params: OAuthLinkParams): Promise<void> {
-    const sessionUserId = await this.requireSessionUserId(params.request);
-    if (sessionUserId !== params.linkUserId) {
-      throw new AppException(
-        ErrorCode.OAUTH_STATE_INVALID,
-        'OAuth link intent does not match the signed-in user',
-        HttpStatus.UNAUTHORIZED,
-        { provider: params.strategy.id },
-      );
-    }
+    await this.assertLinkingSessionLive(params);
 
     const profile = await this.loadVerifiedProfile(params);
     await this.accountLinkingService.linkProvider(
-      sessionUserId,
+      params.linkUserId,
       params.strategy.id,
       profile,
     );
     await this.profileSyncService.syncProfileFromProvider(
-      sessionUserId,
+      params.linkUserId,
       params.strategy.id,
       profile,
     );
     this.logger.log(`Linked ${params.strategy.id} to the signed-in user`);
   }
 
+  /**
+   * The session that asked for the link is one of the account's live ones.
+   * A session that was ended, has lapsed, or belongs to an account that was
+   * deactivated since is not, and neither is a session of another account.
+   */
+  private async assertLinkingSessionLive(
+    params: OAuthLinkParams,
+  ): Promise<void> {
+    const live = await this.sessionService.getUserSessions(params.linkUserId);
+    if (live.some((session) => session.id === params.linkSessionId)) {
+      return;
+    }
+    throw new AppException(
+      ErrorCode.SESSION_INVALID,
+      'Invalid or expired session',
+      HttpStatus.UNAUTHORIZED,
+      { provider: params.strategy.id },
+    );
+  }
+
   async requireSessionUserId(request: Request): Promise<string> {
+    return (await this.requireSession(request)).userId;
+  }
+
+  /** The signed-in session of a request, for the start of a link. */
+  async requireSession(request: Request): Promise<LinkingSession> {
     if (
       hasBothCredentials(
         readBearerToken(request) !== null,
@@ -147,7 +160,7 @@ export class OAuthService {
       );
     }
 
-    return user.id;
+    return { userId: user.id, sessionId: session.id };
   }
 
   private async loadVerifiedProfile(
@@ -170,11 +183,14 @@ export class OAuthService {
   /**
    * Resolves the account for a provider profile: existing link, existing email,
    * or a new user. The account email is never overwritten from the provider.
+   * An account that has the address is only attached to when the provider
+   * vouches for each address and this server verified the account's own.
    */
   async findOrCreateUser(
-    provider: string,
+    strategy: LinkingProvider,
     profile: OAuthProfile,
   ): Promise<StoredAccount> {
+    const provider = strategy.id;
     const identity = { provider, providerId: profile.providerId };
     const linked = await this.accounts.findByIdentity(identity);
 
@@ -186,7 +202,17 @@ export class OAuthService {
     const byEmail = await this.accounts.findByAddress(profile.email);
     if (byEmail) {
       this.assertActive(byEmail, provider);
+      this.assertMayLinkByEmail(strategy, byEmail);
       return this.linkToExistingUser(byEmail, identity);
+    }
+
+    if (!strategy.autoLinksByEmail) {
+      throw new AppException(
+        ErrorCode.OAUTH_EMAIL_UNVERIFIED,
+        'This provider cannot verify the email address. Sign in another way, then link the provider in settings',
+        HttpStatus.FORBIDDEN,
+        { provider },
+      );
     }
 
     return this.createUser(identity, profile);
@@ -198,6 +224,7 @@ export class OAuthService {
   ): Promise<StoredAccount> {
     try {
       const linked = await this.accounts.linkFirstSignIn(user, identity);
+      this.notices?.defer(linked.id, SECURITY_NOTICE.PROVIDER_ADDED);
       this.logger.log(
         `Linked ${identity.provider} account to an existing user`,
       );
@@ -239,6 +266,31 @@ export class OAuthService {
       ErrorCode.OAUTH_EMAIL_UNVERIFIED,
       `The email address on this ${strategy.displayName} account is not verified`,
       HttpStatus.FORBIDDEN,
+      { provider: strategy.id },
+    );
+  }
+
+  /**
+   * Attaching by address alone hands the account to whoever the provider says
+   * owns the address. That is refused when the provider states nothing about
+   * the address, and when the account's own address was never verified here,
+   * because such an account may not belong to the address's owner.
+   */
+  private assertMayLinkByEmail(
+    strategy: LinkingProvider,
+    account: StoredAccount,
+  ): void {
+    if (strategy.autoLinksByEmail && account.isVerified) {
+      return;
+    }
+
+    this.logger.warn(
+      `First ${strategy.id} sign-in not attached to an existing account`,
+    );
+    throw new AppException(
+      ErrorCode.OAUTH_ACCOUNT_EXISTS,
+      'An account with this address already exists. Sign in another way, then link this provider in the settings',
+      HttpStatus.CONFLICT,
       { provider: strategy.id },
     );
   }

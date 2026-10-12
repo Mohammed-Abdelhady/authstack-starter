@@ -57,7 +57,6 @@ Create `frontend/.env.local`:
 ```bash
 # Backend origin without /api suffix
 NEXT_PUBLIC_API_URL=http://localhost:5000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 The frontend discovers enabled OAuth providers and active auth options dynamically from the backend via `GET /api/auth/methods` and `GET /api/auth/oauth/providers`.

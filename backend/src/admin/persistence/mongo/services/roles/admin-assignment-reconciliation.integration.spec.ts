@@ -1,4 +1,4 @@
-import { ClientSessionOptions, SaveOptions, Types } from 'mongoose';
+import { ClientSessionOptions, Types } from 'mongoose';
 import { AdminUsersService } from '../../../../services/users/admin-users.service';
 import { AdminUserCreateService } from '../../../../services/users/admin-user-create.service';
 import { ErrorCode } from '../../../../../common/enums/error-code.enum';
@@ -11,6 +11,7 @@ import { UserDocument } from '../../../../../user/persistence/mongo/schemas/user
 import { RoleDocument } from '../../../../../role/persistence/mongo/schemas/role.schema';
 import { startMemoryReplSet } from '../../../../../../test/utils/memory-replset';
 import { TEST_NOW } from '../../../../../../test/utils/frozen-clock';
+import { RaceGate } from '../../../../../../test/utils/race-gate';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -120,27 +121,39 @@ describe('admin role assignment reconciliation', () => {
     return harness.roleModel.findOne({ slug: EDITOR_ROLE }).exec();
   }
 
-  function beforeNextUserSave(before: () => Promise<void>): jest.SpyInstance {
-    const original: (options?: SaveOptions) => Promise<UserDocument> =
-      harness.users.prototype.save;
-    let calls = 0;
+  function holdReconcile(
+    roleId: Types.ObjectId,
+    gate: RaceGate,
+  ): jest.SpyInstance {
+    const original = harness.roleModel.collection.findOne.bind(
+      harness.roleModel.collection,
+    );
+    let held = false;
     return jest
-      .spyOn(harness.users.prototype, 'save')
-      .mockImplementation(function (this: UserDocument, ...args: unknown[]) {
-        calls += 1;
-        const run = async (): Promise<UserDocument> => {
-          if (calls === 1) {
-            await before();
-          }
-          const saved: Promise<UserDocument> = Reflect.apply(
-            original,
-            this,
-            args,
-          );
-          return saved;
-        };
-        return run();
+      .spyOn(harness.roleModel.collection, 'findOne')
+      .mockImplementation(async (...args) => {
+        if (
+          !held &&
+          !args[1]?.session &&
+          args[0]?._id instanceof Types.ObjectId &&
+          args[0]._id.equals(roleId)
+        ) {
+          held = true;
+          await gate.hold();
+        }
+        return original(...args);
       });
+  }
+
+  async function reachReconcile(gate: RaceGate, request: Promise<unknown>) {
+    const reached = await Promise.race([
+      gate.reached().then(() => true),
+      request.then(
+        () => false,
+        () => false,
+      ),
+    ]);
+    if (!reached) throw new Error('request did not reach reconciliation');
   }
 
   function beforeNextTransaction(
@@ -161,23 +174,27 @@ describe('admin role assignment reconciliation', () => {
     if (!role) {
       throw new Error('expected the content-editor role');
     }
-    const spy = beforeNextUserSave(async () => {
+    const gate = new RaceGate();
+    const spy = holdReconcile(role._id, gate);
+    const request = service.updateUserRole(
+      idOf(target),
+      { role: EDITOR_ROLE },
+      adminActorId,
+      ADMIN_ROLE,
+    );
+
+    try {
+      await reachReconcile(gate, request);
       await harness.roleModel.collection.updateOne(
         { _id: role._id },
         { $set: { slug: RENAMED_SLUG } },
       );
-    });
-
-    try {
-      await service.updateUserRole(
-        idOf(target),
-        { role: EDITOR_ROLE },
-        adminActorId,
-        ADMIN_ROLE,
-      );
     } finally {
+      gate.release();
+      await Promise.allSettled([request]);
       spy.mockRestore();
     }
+    await request;
 
     expect((await storedUser(target._id))?.role).toBe(RENAMED_SLUG);
     expect(
@@ -191,22 +208,26 @@ describe('admin role assignment reconciliation', () => {
     if (!role) {
       throw new Error('expected the content-editor role');
     }
-    const spy = beforeNextUserSave(async () => {
-      await harness.roleModel.collection.deleteOne({ _id: role._id });
-    });
+    const gate = new RaceGate();
+    const spy = holdReconcile(role._id, gate);
+    const request = service.updateUserRole(
+      idOf(target),
+      { role: EDITOR_ROLE },
+      adminActorId,
+      ADMIN_ROLE,
+    );
 
     try {
-      await expect(
-        service.updateUserRole(
-          idOf(target),
-          { role: EDITOR_ROLE },
-          adminActorId,
-          ADMIN_ROLE,
-        ),
-      ).rejects.toMatchObject({ code: ErrorCode.ROLE_NOT_FOUND });
+      await reachReconcile(gate, request);
+      await harness.roleModel.collection.deleteOne({ _id: role._id });
     } finally {
+      gate.release();
+      await Promise.allSettled([request]);
       spy.mockRestore();
     }
+    await expect(request).rejects.toMatchObject({
+      code: ErrorCode.ROLE_NOT_FOUND,
+    });
 
     expect((await storedUser(target._id))?.role).toBe(USER_ROLE);
     expect(await harness.roleModel.findOne({ slug: USER_ROLE })).not.toBeNull();
@@ -217,27 +238,31 @@ describe('admin role assignment reconciliation', () => {
     if (!role) {
       throw new Error('expected the content-editor role');
     }
-    const spy = beforeNextUserSave(async () => {
+    const gate = new RaceGate();
+    const spy = holdReconcile(role._id, gate);
+    const request = createService.createUser(
+      {
+        email: 'created-mid-rename@example.test',
+        name: 'Created',
+        password: 'SecureP@ssw0rd',
+        role: EDITOR_ROLE,
+      },
+      ADMIN_ROLE,
+      adminActorId,
+    );
+
+    try {
+      await reachReconcile(gate, request);
       await harness.roleModel.collection.updateOne(
         { _id: role._id },
         { $set: { slug: RENAMED_SLUG } },
       );
-    });
-
-    try {
-      await createService.createUser(
-        {
-          email: 'created-mid-rename@example.test',
-          name: 'Created',
-          password: 'SecureP@ssw0rd',
-          role: EDITOR_ROLE,
-        },
-        ADMIN_ROLE,
-        adminActorId,
-      );
     } finally {
+      gate.release();
+      await Promise.allSettled([request]);
       spy.mockRestore();
     }
+    await request;
 
     const created = await harness.users
       .findOne({ email: 'created-mid-rename@example.test' })

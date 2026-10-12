@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { Kysely } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import {
   MAGIC_LINK_ACCOUNT_CONSTRAINT,
   MagicLinkAccount,
@@ -13,11 +13,13 @@ import {
   MAGIC_LINK_CONSTRAINT,
   MagicLinkStore,
   NewMagicLink,
+  UnspentMagicLink,
 } from '../../stores/magic-link.store';
+import { MAIL_COUNTER_PURPOSE } from '../../../constants/registration';
+import { MailWindowRule } from '../../../pending-codes/mail-counter.store';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import {
   autocommit,
-  removedRows,
   storedAddress,
 } from '../../../persistence/postgres/postgres-pending-codes-database';
 
@@ -46,15 +48,34 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
     super();
   }
 
-  countRequestedSince(email: string, since: Date): Promise<number> {
+  /**
+   * One upsert. A second writer waits on the row and counts on its new
+   * version.
+   */
+  takeRequestSlot(email: string, rule: MailWindowRule): Promise<boolean> {
+    const windowEnd = new Date(rule.now.getTime() + rule.windowMs);
+    const rolledOverBefore = new Date(rule.now.getTime() - rule.windowMs);
+    const rolledOver = sql<boolean>`mail_counters.window_started_at <= ${rolledOverBefore}`;
     return autocommit(NONE, async () => {
-      const row = await this.database
-        .selectFrom('pending_magic_links')
-        .select((select) => select.fn.countAll<string>().as('links'))
-        .where('email', '=', storedAddress(email))
-        .where('created_at', '>=', since)
+      const counter = await this.database
+        .insertInto('mail_counters')
+        .values({
+          email: storedAddress(email),
+          purpose: MAIL_COUNTER_PURPOSE.MAGIC_LINK,
+          mailed_codes: 1,
+          window_started_at: rule.now,
+          expires_at: windowEnd,
+        })
+        .onConflict((conflict) =>
+          conflict.columns(['email', 'purpose']).doUpdateSet({
+            mailed_codes: sql<number>`CASE WHEN ${rolledOver} THEN 1 ELSE mail_counters.mailed_codes + 1 END`,
+            window_started_at: sql<Date>`CASE WHEN ${rolledOver} THEN ${rule.now}::timestamptz ELSE mail_counters.window_started_at END`,
+            expires_at: sql<Date>`CASE WHEN ${rolledOver} THEN ${windowEnd}::timestamptz ELSE mail_counters.expires_at END`,
+          }),
+        )
+        .returning('mailed_codes')
         .executeTakeFirstOrThrow();
-      return Number(row.links);
+      return counter.mailed_codes <= rule.limit;
     });
   }
 
@@ -66,13 +87,32 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
           email: storedAddress(link.email),
           token_hash: link.tokenHash,
           expires_at: link.expiresAt,
-          consumed_at: null,
+          consumed_at: link.consumedAt ?? null,
           request_ip: link.requestIp ?? null,
           user_agent: link.userAgent ?? null,
           redirect: link.redirect ?? null,
+          request_nonce_hash: link.requestNonceHash ?? null,
         })
         .execute(),
     );
+  }
+
+  findUnspentLink(tokenHash: string): Promise<UnspentMagicLink | null> {
+    return autocommit(NONE, async () => {
+      const row = await this.database
+        .selectFrom('pending_magic_links')
+        .select(['email', 'expires_at', 'request_nonce_hash'])
+        .where('token_hash', '=', tokenHash)
+        .where('consumed_at', 'is', null)
+        .executeTakeFirst();
+      return row
+        ? {
+            email: row.email,
+            expiresAt: row.expires_at,
+            requestNonceHash: row.request_nonce_hash,
+          }
+        : null;
+    });
   }
 
   claimLink(tokenHash: string, now: Date): Promise<ClaimedMagicLink | null> {
@@ -93,17 +133,6 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
         ...(row.redirect ? { redirect: row.redirect } : {}),
       };
     });
-  }
-
-  deleteExpiredBefore(cutoff: Date): Promise<number> {
-    return autocommit(NONE, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('pending_magic_links')
-          .where('expires_at', '<=', cutoff)
-          .executeTakeFirstOrThrow(),
-      ),
-    );
   }
 }
 
@@ -152,6 +181,17 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
             row.is_deleted,
           )
         : null;
+    });
+  }
+
+  hasDeletedAccount(email: string): Promise<boolean> {
+    return autocommit(NONE, async () => {
+      const row = await this.database
+        .selectFrom('users')
+        .select('is_deleted')
+        .where('email', '=', storedAddress(email))
+        .executeTakeFirst();
+      return row?.is_deleted === true;
     });
   }
 

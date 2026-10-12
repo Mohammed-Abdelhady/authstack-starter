@@ -59,6 +59,8 @@ export class GitHubOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = false;
   readonly emailAlwaysVerified = true;
+  // Only an address the emails API marks verified is ever returned.
+  readonly autoLinksByEmail = true;
 
   constructor(configService: ConfigService) {
     super(configService);

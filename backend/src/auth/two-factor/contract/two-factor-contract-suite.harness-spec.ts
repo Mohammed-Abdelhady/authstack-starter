@@ -4,7 +4,12 @@ import { challengeStoreCases } from './two-factor-contract-challenge-store.harne
 import { challengeCases } from './two-factor-contract-challenge.harness-spec';
 import { enrolmentCases } from './two-factor-contract-enrolment.harness-spec';
 import { firstFactorCases } from './two-factor-contract-first-factor.harness-spec';
+import { keyRotationCases } from './two-factor-contract-key-rotation.harness-spec';
+import { lockoutCases } from './two-factor-contract-lockout.harness-spec';
+import { lockoutRaceCases } from './two-factor-contract-lockout-races.harness-spec';
+import { lockoutRouteCases } from './two-factor-contract-lockout-routes.harness-spec';
 import { passwordOffCases } from './two-factor-contract-password-off.harness-spec';
+import { passkeyRegistrationCases } from './two-factor-contract-passkey-registration.harness-spec'; // feature:passkeys
 import { passkeyStepCases } from './two-factor-contract-passkey-steps.harness-spec'; // feature:passkeys
 import { seamCases } from './two-factor-contract-seam.harness-spec';
 import { secondStepRefusalCases } from './two-factor-contract-second-step-refusals.harness-spec';
@@ -86,6 +91,11 @@ export function describeTwoFactorContract(
     secondStepRefusalCases(current, seeded);
     firstFactorCases(current, seeded);
     passkeyStepCases(current, seeded); // feature:passkeys
+    passkeyRegistrationCases(current, seeded); // feature:passkeys
     seamCases(current, seeded);
+    keyRotationCases(current, seeded);
+    lockoutCases(current, seeded);
+    lockoutRaceCases(current, seeded);
+    lockoutRouteCases(current, seeded);
   });
 }

@@ -141,7 +141,7 @@ export class AuthController {
   }
 
   /**
-   * Confirm the new address an admin moved an account to
+   * Confirm the address an admin asked an account to move to
    * POST /auth/confirm-email-change
    */
   @Public()
@@ -151,9 +151,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Confirm an admin-initiated email change',
     description:
-      'Marks the new address verified on the account an admin moved. It needs ' +
-      'no password and issues no session, so a deployment without password ' +
-      'sign-in still confirms addresses.',
+      'Moves the account to the address an admin asked for and ends its ' +
+      'sessions. It needs no password and issues no session, so a deployment ' +
+      'without password sign-in still confirms addresses.',
   })
   @ApiBody({ type: ConfirmEmailChangeDto })
   async confirmEmailChange(@Body() dto: ConfirmEmailChangeDto) {

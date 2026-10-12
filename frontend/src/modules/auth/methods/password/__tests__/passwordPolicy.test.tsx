@@ -52,6 +52,7 @@ describe.each([
           : success({});
       });
       const form = await renderForm(locale, <Component />);
+      if (id === 'change') await screen.findByTestId('change-password-form');
       if (id === 'reset') change('reset-password-code-input', '000000');
       else change('current-password-input', 'old-password');
       change(inputId, password);

@@ -5,6 +5,7 @@ import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { ChangePasswordDto } from '../dto/change-password.dto';
 import { UserProfileDto } from '../dto/user-profile.dto';
 import { AppException } from '../../common/exceptions/app.exception';
+import { effectivePermissions } from '../../auth/utils/permissions.util';
 import { Clock } from '../../common/services/clock';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { ApiResponse } from '../../common/dto/api-response.dto';
@@ -13,7 +14,9 @@ import {
   UnitOfWork,
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
-import { PASSWORD_SALT_ROUNDS } from '../constants/user.constants';
+import { HashService } from '../../common/services/hash.service';
+import { SecurityNoticeService } from './security-notice.service';
+import { SECURITY_NOTICE } from '../constants/security-notice.constants';
 import { AccountProfileStore } from '../stores/account-profile.store';
 import { AccountSessions } from '../stores/account-sessions';
 import { StoredAccount } from '../stores/stored-account';
@@ -35,6 +38,8 @@ export class UserProfileService {
     private readonly sessions: AccountSessions,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly hashService: HashService,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -129,10 +134,7 @@ export class UserProfileService {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(
-      dto.newPassword,
-      PASSWORD_SALT_ROUNDS,
-    );
+    const hashedPassword = await this.hashService.hash(dto.newPassword);
 
     // The password save and the revocation of the other sessions share one
     // unit of work: a revocation failure leaves the old password in place.
@@ -146,6 +148,7 @@ export class UserProfileService {
     });
 
     this.logger.log(`Password changed: userId=${user.id}`);
+    this.notices?.defer(user.id, SECURITY_NOTICE.PASSWORD_CHANGED);
     return ApiResponse.success({
       message:
         'Password changed successfully. Other sessions have been logged out.',
@@ -223,13 +226,11 @@ export class UserProfileService {
    * Map a stored account to the profile DTO.
    */
   private async mapToProfileDto(user: StoredAccount): Promise<UserProfileDto> {
-    // Effective permissions are the role's and the account's own.
-    const rolePermissions = user.role
-      ? ((await this.accounts.findRolePermissions(user.role)) ?? [])
-      : [];
-    const effectivePermissions = [
-      ...new Set([...rolePermissions, ...(user.permissions || [])]),
-    ];
+    // Resolved the way the guard resolves them for a request.
+    const permissions = effectivePermissions(
+      user.role ? await this.accounts.findRolePermissions(user.role) : null,
+      user.permissions,
+    );
     const passkeyCount = await this.accounts.countPasskeys(user.id); // feature:passkeys
 
     return {
@@ -237,7 +238,7 @@ export class UserProfileService {
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: effectivePermissions,
+      permissions,
       authProvider: user.authProvider,
       isVerified: user.isVerified,
       twoFactorEnabled: user.twoFactorEnabled, // feature:totp

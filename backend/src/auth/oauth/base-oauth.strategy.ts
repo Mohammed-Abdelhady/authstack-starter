@@ -54,6 +54,7 @@ export abstract class BaseOAuthStrategy implements OAuthProviderStrategy {
   abstract readonly supportsPkce: boolean;
   abstract readonly usesOidc: boolean;
   abstract readonly emailAlwaysVerified: boolean;
+  abstract readonly autoLinksByEmail: boolean;
 
   /** Providers that post their callback override this with 'POST'. */
   readonly callbackMethod: OAuthCallbackMethod = 'GET';

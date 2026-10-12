@@ -63,6 +63,7 @@ describe('CI workflow contract', () => {
       'installer',
       'installer-postgres',
       'installer-mongodb',
+      'browser',
     ]);
     for (const job of Object.values(jobs)) {
       const steps = stepsOf(job);
@@ -72,7 +73,7 @@ describe('CI workflow contract', () => {
         if (step.uses === PNPM_SETUP_ACTION) expect(step.with).toEqual(PNPM_SETUP_WITH);
         if (typeof step.run !== 'string') continue;
         expect(step.run).toMatch(
-          /^node scripts\/ci\.mjs --(range|cache|install|quality|api|installer|installer-postgres|installer-mongodb)$/,
+          /^node scripts\/ci\.mjs --(range|cache|install|quality|api|installer|installer-postgres|installer-mongodb|browser)$/,
         );
       }
     }
@@ -114,6 +115,10 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --api',
     ]);
+    expect(runsOf(jobs.browser)).toEqual([
+      'node scripts/ci.mjs --install',
+      'node scripts/ci.mjs --browser',
+    ]);
     // The PostgreSQL projects start the server their own dependency carries.
     expect(runsOf(jobs['installer-postgres'])).toEqual([
       'node scripts/ci.mjs --install',
@@ -124,7 +129,7 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --installer-mongodb',
     ]);
-    for (const id of ['api', 'installer', 'installer-postgres', 'installer-mongodb']) {
+    for (const id of ['api', 'installer', 'installer-postgres', 'installer-mongodb', 'browser']) {
       const job = jobs[id];
       expect(job).toMatchObject({ if: 'github.event.deleted != true' });
       expect(isRecord(job) && job.needs).toBeUndefined();
@@ -200,6 +205,7 @@ it('bounds jobs and caches runtime Mongo binaries in the jobs that need them', (
     ['installer', 55],
     ['installer-postgres', 50],
     ['installer-mongodb', 80],
+    ['browser', 30],
   ] as const) {
     expect(jobs[id]).toMatchObject({ 'runs-on': 'ubuntu-24.04', 'timeout-minutes': timeout });
   }

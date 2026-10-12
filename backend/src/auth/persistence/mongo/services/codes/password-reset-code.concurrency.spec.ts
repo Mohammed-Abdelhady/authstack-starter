@@ -23,12 +23,17 @@ import {
   TEST_NOW,
 } from '../../../../../../test/utils/frozen-clock';
 import { MONGO_PASSWORD_RESET_CODE_STORE } from '../../mongo-pending-code-stores';
+import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../schemas/mail-counter.schema';
 
 const ROUNDS = 4;
 
 describe('PasswordResetCodeService concurrency', () => {
   let mongo: MemoryReplSet;
   let connection: Connection;
+  let guessCounters: Model<MailCounter>;
   let model: Model<PendingPasswordReset>;
   let service: PasswordResetCodeService;
 
@@ -41,6 +46,8 @@ describe('PasswordResetCodeService concurrency', () => {
     );
     await model.init();
     const config = new ConfigService({ bcrypt: { rounds: ROUNDS } });
+    guessCounters = connection.model(MailCounter.name, MailCounterSchema);
+    await guessCounters.init();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MONGO_PASSWORD_RESET_CODE_STORE,
@@ -52,6 +59,7 @@ describe('PasswordResetCodeService concurrency', () => {
           provide: getModelToken(PendingPasswordReset.name),
           useValue: model,
         },
+        { provide: getModelToken(MailCounter.name), useValue: guessCounters },
       ],
     }).compile();
     service = module.get<PasswordResetCodeService>(PasswordResetCodeService);
@@ -64,6 +72,7 @@ describe('PasswordResetCodeService concurrency', () => {
 
   beforeEach(async () => {
     await model.deleteMany({});
+    await guessCounters.deleteMany({});
   });
 
   it('should let only one of two concurrent valid consumes change the password', async () => {

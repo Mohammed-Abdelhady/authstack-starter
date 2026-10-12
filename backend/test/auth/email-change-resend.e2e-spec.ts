@@ -20,6 +20,8 @@ import {
 } from '../utils/hook-timeouts';
 
 const MAX_ATTEMPTS = 5;
+/** The first lock after the allowed wrong codes, written out. */
+const GUESS_LOCK_MS = 900_000;
 
 describe('Admin email change confirmation (e2e)', () => {
   let e2e: E2eApp;
@@ -73,10 +75,11 @@ describe('Admin email change confirmation (e2e)', () => {
     await move(id, 'y@example.test');
     await move(id, 'x@example.test');
 
+    // The account stays on its own address until the code is confirmed.
     const stored = await e2e.state.accounts.accountWithId(target._id);
-    expect(stored?.email).toBe('x@example.test');
+    expect(stored?.email).toBe('orig@example.test');
     expect(stored?.addressGeneration).toBe(3);
-    expect(stored?.isVerified).toBe(false);
+    expect(stored?.isVerified).toBe(true);
 
     const record =
       await e2e.state.auth.pendingRegistrationFor('x@example.test');
@@ -88,10 +91,11 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(response.status).toBe(200);
 
     const confirmed = await e2e.state.accounts.accountWithId(target._id);
+    expect(confirmed?.email).toBe('x@example.test');
     expect(confirmed?.isVerified).toBe(true);
   });
 
-  it('re-sends a confirmation after the attempts are exhausted, resetting them', async () => {
+  it('re-sends a confirmation after the attempts are exhausted, and accepts the new code once the address is no longer locked', async () => {
     const target = await createTarget();
     const id = target._id.toString();
     await move(id, 'moved@example.test');
@@ -118,11 +122,21 @@ describe('Admin email change confirmation (e2e)', () => {
 
     const freshCode = await latestCode();
     expect(freshCode).not.toBe(code);
-    const response = await confirm('moved@example.test', freshCode);
+    // A new code does not buy new guesses: the address stays locked.
+    const duringLock = await confirm('moved@example.test', freshCode);
+    expect(duringLock.status).toBe(400);
+
+    e2e.clock.advance(GUESS_LOCK_MS);
+    await adminAgent
+      .post(`/api/admin/users/${id}/resend-email-change`)
+      .send({})
+      .expect(200);
+    await e2e.captureMail();
+    const response = await confirm('moved@example.test', await latestCode());
     expect(response.status).toBe(200);
-    expect(
-      (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
-    ).toBe(true);
+    expect((await e2e.state.accounts.accountWithId(target._id))?.email).toBe(
+      'moved@example.test',
+    );
   });
 
   it('names the change and links to the confirmation page in the mail', async () => {
@@ -138,7 +152,7 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(mail?.text).not.toContain('registering');
   });
 
-  it('refuses to re-send for a verified address', async () => {
+  it('refuses to re-send for an account with no address waiting', async () => {
     const target = await createTarget();
 
     const response = await adminAgent

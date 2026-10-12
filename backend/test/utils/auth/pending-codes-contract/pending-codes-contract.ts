@@ -1,6 +1,8 @@
 import { TEST_NOW } from '../../frozen-clock';
 import { PendingCodesContractHarness } from './pending-codes-contract-harness';
 import { registrationClaimCases } from './pending-codes-contract-claim';
+import { guessAndMailCases } from './pending-codes-contract-guess-mail';
+import { codeGuessCases } from './pending-codes-contract-guesses';
 import { registrationIssueCases } from './pending-codes-contract-issue';
 import { mailCounterCases } from './pending-codes-contract-mail';
 import { registrationRecordCases } from './pending-codes-contract-records';
@@ -49,5 +51,7 @@ export function describePendingCodesContract(
     describe('claiming a sign-up code', () => registrationClaimCases(current));
     describe('password reset codes', () => passwordResetCases(current));
     describe('the seam', () => pendingCodeSeamCases(current));
+    describe('guessing a code', () => codeGuessCases(current));
+    describe('guesses and mail', () => guessAndMailCases(current));
   });
 }

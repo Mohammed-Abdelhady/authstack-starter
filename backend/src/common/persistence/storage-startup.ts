@@ -1,7 +1,7 @@
 /** The store is not what this build needs. The message says what to do. */
 export class StorageNotReadyError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, cause?: unknown) {
+    super(message, cause === undefined ? undefined : { cause });
     this.name = 'StorageNotReadyError';
   }
 }

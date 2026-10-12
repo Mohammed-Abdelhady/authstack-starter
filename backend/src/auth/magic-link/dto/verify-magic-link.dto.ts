@@ -1,5 +1,12 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MAGIC_LINK_MAX_TOKEN_LENGTH } from '../constants/magic-link.constants';
 
 /**
@@ -17,4 +24,16 @@ export class VerifyMagicLinkDto {
   @IsNotEmpty({ message: 'Token is required' })
   @MaxLength(MAGIC_LINK_MAX_TOKEN_LENGTH)
   token!: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Sent as true only after the person confirmed the sign-in on screen. ' +
+      'Without it a link opened in another browser, or over another ' +
+      "account's session, answers requiresConfirmation and is not spent.",
+  })
+  // The value as it was sent: text is refused, never read as a yes.
+  @Transform(({ obj }: { obj: { confirm?: unknown } }) => obj.confirm)
+  @IsOptional()
+  @IsBoolean()
+  confirm?: boolean;
 }

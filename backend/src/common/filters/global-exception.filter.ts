@@ -16,6 +16,7 @@ import { ErrorResponse } from '../dto/api-response.dto';
 import { RequestWithId } from '../interfaces/request-with-id.interface';
 import {
   MalformedIdError,
+  PersistenceUnavailableError,
   UniqueConflictError,
 } from '../persistence/persistence-errors';
 import { sharedErrorOfSqlFailure } from '../persistence/sql-failure'; // feature:postgres
@@ -164,6 +165,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       );
       this.logger.error(
         `Unknown transaction outcome: ${describeDriverError(exception)}${tag}`,
+        stackFrames(exception),
+      );
+    } else if (exception instanceof PersistenceUnavailableError) {
+      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+      errorResponse = ErrorResponse.error(
+        ErrorCode.INTERNAL_ERROR,
+        'Service temporarily unavailable',
+      );
+      this.logger.error(
+        `Persistence unavailable: ${describeDriverError(exception)}${tag}`,
         stackFrames(exception),
       );
     } else if (exception instanceof ThrottlerException) {

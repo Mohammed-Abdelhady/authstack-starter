@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { availability, heldAnswer, HELD } from '@/tests/busyControls';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -36,10 +37,10 @@ describe.each([
 ] as const)('focus after two-step verification is turned off in %s', (locale) => {
   it('goes to the heading of its card once the button that turned it off is gone', async () => {
     let enabled = true;
+    const held = heldAnswer();
     stubNetwork((request, path) => {
       if (request.method === 'POST') {
-        enabled = false;
-        return success({ message: 'off' });
+        return held.answer;
       }
       return success(
         path === '/api/auth/methods' ? METHODS : { ...USER, twoFactorEnabled: enabled },
@@ -54,6 +55,15 @@ describe.each([
     fireEvent.change(code, { target: { value: '123456' } });
 
     fireEvent.submit(screen.getByTestId('two-factor-disable-form'));
+
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('two-factor-disable-submit'))).toEqual(HELD),
+    );
+    expect(screen.getByTestId('two-factor-disable-dialog').contains(document.activeElement)).toBe(
+      true,
+    );
+    enabled = false;
+    held.settle(() => success({ message: 'off' }));
 
     await waitFor(() => expect(screen.queryByTestId('two-factor-disable-dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(title));

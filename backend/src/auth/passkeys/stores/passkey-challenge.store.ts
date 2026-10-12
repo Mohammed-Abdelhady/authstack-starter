@@ -46,6 +46,4 @@ export abstract class PasskeyChallengeStore {
    * refused. Of two requests that arrive together, one spends it.
    */
   abstract consume(key: PasskeyChallengeKey, now: Date): Promise<ChallengeUse>;
-  /** Removes challenges whose expiry is at or before `now`. Answers how many. */
-  abstract deleteExpired(now: Date): Promise<number>;
 }

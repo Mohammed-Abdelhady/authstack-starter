@@ -5,6 +5,7 @@ import { currentRequestId } from '../../../common/context/request-context';
 import {
   ACTIVATION_EMAIL_FAILED_MESSAGE,
   EMAIL_CHANGE_EMAIL_FAILED_MESSAGE,
+  EMAIL_CHANGE_NOTICE_FAILED_MESSAGE,
   PASSWORD_RESET_EMAIL_FAILED_MESSAGE,
   REGISTRATION_NOTICE_EMAIL_FAILED_MESSAGE,
   SIGN_IN_LINK_EMAIL_FAILED_MESSAGE,
@@ -95,6 +96,14 @@ export class AuthMailService {
     return this.send(
       () => this.mailService.sendEmailChangeCode(email, code),
       EMAIL_CHANGE_EMAIL_FAILED_MESSAGE,
+    );
+  }
+
+  /** Queue notice mail to the address that remains active during confirmation. */
+  deferEmailChangeNotice(email: string): void {
+    this.dispatcher.dispatch(
+      () => this.mailService.sendEmailChangeNotice(email),
+      EMAIL_CHANGE_NOTICE_FAILED_MESSAGE,
     );
   }
 

@@ -2,9 +2,6 @@ import { SeedStore } from '../../../src/database/seeds/seed.store';
 import { ApplicationRegistry } from '../../../src/session/applications/application-registry';
 import { FrozenClock } from '../frozen-clock';
 
-/** The budget a contract case that talks to a database gets. */
-export const SEED_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 export interface StoredSeedRole {
   name: string;
   slug: string;

@@ -52,10 +52,17 @@ describe('MailService', () => {
     return sendMail.mock.calls[0][0] as SentMail;
   }
 
-  async function buildService(codeExpiresIn: number): Promise<MailService> {
+  async function buildService(
+    codeExpiresIn: number,
+    smtp: { from?: string; secure?: boolean; nodeEnv?: string } = {
+      from: 'noreply@example.com',
+    },
+  ): Promise<MailService> {
     const configService = {
       get: jest.fn((key: string, defaultValue?: unknown) => {
-        if (key === 'smtp.from') return 'noreply@example.com';
+        if (key === 'smtp.from') return smtp.from;
+        if (key === 'smtp.secure') return smtp.secure ?? defaultValue;
+        if (key === 'NODE_ENV') return smtp.nodeEnv ?? defaultValue;
         if (key === 'smtp.host') return 'smtp.example.com';
         if (key === 'smtp.port') return 587;
         if (key === 'cors.clientUrl') return CLIENT_URL;
@@ -96,6 +103,50 @@ describe('MailService', () => {
           greetingTimeout: MAIL_GREETING_TIMEOUT_MS,
           socketTimeout: MAIL_SOCKET_TIMEOUT_MS,
         }),
+      );
+    });
+  });
+
+  describe('transport encryption', () => {
+    it.each([
+      [
+        'production without implicit TLS refuses a relay that offers no STARTTLS',
+        { nodeEnv: 'production', secure: false },
+        { secure: false, requireTLS: true },
+      ],
+      [
+        'production with implicit TLS is encrypted from the first byte',
+        { nodeEnv: 'production', secure: true },
+        { secure: true, requireTLS: false },
+      ],
+      [
+        'production with the secure setting left out is treated as off',
+        { nodeEnv: 'production' },
+        { secure: false, requireTLS: true },
+      ],
+      [
+        'development keeps a plain local mail catcher working',
+        { nodeEnv: 'development', secure: false },
+        { secure: false, requireTLS: false },
+      ],
+      [
+        'test keeps a plain local mail catcher working',
+        { nodeEnv: 'test', secure: false },
+        { secure: false, requireTLS: false },
+      ],
+      [
+        'an unset environment is not production',
+        { secure: false },
+        { secure: false, requireTLS: false },
+      ],
+    ])('%s', async (_label, settings, expected) => {
+      createTransport.mockClear();
+
+      await buildService(CODE_LIFETIME_MS, settings);
+
+      expect(createTransport).toHaveBeenCalledTimes(1);
+      expect(createTransport).toHaveBeenCalledWith(
+        expect.objectContaining(expected),
       );
     });
   });
@@ -279,6 +330,19 @@ describe('MailService', () => {
       await expect(
         service.sendActivationCode('user@example.com', '123456'),
       ).rejects.toThrow('Failed to send email: connection refused');
+    });
+
+    it('names the setting that holds the sender when none is configured, and sends nothing', async () => {
+      const unconfigured = await buildService(CODE_LIFETIME_MS, {});
+
+      const refusal: unknown = await unconfigured
+        .sendMail({ to: 'user@example.com', subject: 'subject', text: 'text' })
+        .catch((error: unknown) => error);
+
+      const message = refusal instanceof Error ? refusal.message : '';
+      expect(message).toContain('EMAIL_FROM');
+      expect(message).not.toContain('SMTP_FROM');
+      expect(sendMail).not.toHaveBeenCalled();
     });
   });
 });

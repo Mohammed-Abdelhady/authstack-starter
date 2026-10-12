@@ -1,6 +1,5 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { WEB_CLIENT } from '../../session/issuance-contract/issuance-contract-support';
-import { NATIVE_CONTRACT_CASE_TIMEOUT_MS } from './native-contract-harness';
 import {
   begin,
   NATIVE_CLIENT,
@@ -14,8 +13,6 @@ const ONE_MS_BEFORE_EXPIRY = new Date('2099-01-01T12:04:59.999Z');
 
 /** What stops a decision: the request's expiry and the application's state. */
 export function authorizationGuardCases(harness: NativeHarnessSource): void {
-  const budget = NATIVE_CONTRACT_CASE_TIMEOUT_MS;
-
   it.each([
     {
       decision: 'approve',
@@ -54,7 +51,6 @@ export function authorizationGuardCases(harness: NativeHarnessSource): void {
         lateStillStored: false,
       });
     },
-    budget,
   );
 
   it.each([
@@ -91,38 +87,33 @@ export function authorizationGuardCases(harness: NativeHarnessSource): void {
         grants: [],
       });
     },
-    budget,
   );
 
-  it(
-    'begins nothing for a client that is not a registered mobile application',
-    async () => {
-      const query = (clientId: string, redirect = 'myapp://callback') => ({
-        response_type: 'code',
-        client_id: clientId,
-        redirect_uri: redirect,
-        code_challenge: 'c'.repeat(43),
-        code_challenge_method: 'S256',
-        state: 's',
-      });
-      const authorize = harness().services().authorize;
-      const answers = [
-        await authorize.begin(query('unregistered')),
-        await authorize.begin(query(WEB_CLIENT)),
-        await authorize.begin(query(NATIVE_CLIENT, 'otherapp://callback')),
-        await harness()
-          .services({ nativeEnabled: false })
-          .authorize.begin(query(NATIVE_CLIENT)),
-      ];
-      expect(
-        answers.map((answer) => (answer.ok ? 'begun' : answer.error)),
-      ).toEqual([
-        'unauthorized_client',
-        'unauthorized_client',
-        'invalid_request',
-        'unauthorized_client',
-      ]);
-    },
-    budget,
-  );
+  it('begins nothing for a client that is not a registered mobile application', async () => {
+    const query = (clientId: string, redirect = 'myapp://callback') => ({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirect,
+      code_challenge: 'c'.repeat(43),
+      code_challenge_method: 'S256',
+      state: 's',
+    });
+    const authorize = harness().services().authorize;
+    const answers = [
+      await authorize.begin(query('unregistered')),
+      await authorize.begin(query(WEB_CLIENT)),
+      await authorize.begin(query(NATIVE_CLIENT, 'otherapp://callback')),
+      await harness()
+        .services({ nativeEnabled: false })
+        .authorize.begin(query(NATIVE_CLIENT)),
+    ];
+    expect(
+      answers.map((answer) => (answer.ok ? 'begun' : answer.error)),
+    ).toEqual([
+      'unauthorized_client',
+      'unauthorized_client',
+      'invalid_request',
+      'unauthorized_client',
+    ]);
+  });
 }

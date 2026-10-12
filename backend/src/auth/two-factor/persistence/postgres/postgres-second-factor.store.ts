@@ -1,4 +1,3 @@
-import { Response } from 'express';
 import { Kysely, Transaction } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
@@ -7,20 +6,21 @@ import {
   StoredTotpSecret,
 } from '../../stores/second-factor-account';
 import {
+  ATTEMPT_RESERVATION,
+  AttemptReservation,
+  CountedAttempt,
   SecondFactorConfirmation,
   SecondFactorStore,
   SPEND_OUTCOME,
   SpendOutcome,
 } from '../../stores/second-factor.store';
-import { SecondFactorSignIn } from '../../stores/second-factor-sign-in';
-import { AuthenticatedUserSummary } from '../../../interfaces/authenticated-user.interface';
 import {
   rememberSignInAccount,
-  signInAccountOf,
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
-import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { confirmSecondFactorIn } from './postgres-second-factor-confirmation';
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 
@@ -70,6 +70,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
       secret_tag: secret.tag,
       confirmed_at: null,
       last_used_step: null,
+      failed_attempts: 0,
+      locked_until: null,
     };
     return this.change(async (work) => {
       await work
@@ -104,6 +106,14 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     });
   }
 
+  async saveConfirmationIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+    confirmation: SecondFactorConfirmation,
+  ): Promise<boolean> {
+    return confirmSecondFactorIn(unitOfWork, account, confirmation);
+  }
+
   replaceRecoveryCodes(
     account: SecondFactorAccount,
     recoveryCodeHashes: string[],
@@ -112,6 +122,27 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     return this.change((work) =>
       this.replaceCodes(work, id, recoveryCodeHashes),
     );
+  }
+
+  replaceSecret(
+    account: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<void> {
+    const id = toUuid(account.id);
+    const readWith = account.twoFactor.secret;
+    if (!readWith) return Promise.resolve();
+    return autocommit(NO_CONSTRAINTS, async () => {
+      await this.database
+        .updateTable('user_two_factor')
+        .set({
+          secret_ciphertext: secret.ciphertext,
+          secret_iv: secret.iv,
+          secret_tag: secret.tag,
+        })
+        .where('user_id', '=', id)
+        .where('secret_ciphertext', '=', readWith.ciphertext)
+        .execute();
+    });
   }
 
   clear(account: SecondFactorAccount): Promise<void> {
@@ -168,6 +199,38 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     });
   }
 
+  reserveAttempt(
+    account: SecondFactorAccount,
+    attempt: CountedAttempt,
+  ): Promise<AttemptReservation> {
+    const id = toUuid(account.id);
+    return autocommit(NO_CONSTRAINTS, async () => {
+      const counted = await this.database
+        .updateTable('user_two_factor')
+        .set({
+          failed_attempts: attempt.failedAttempts,
+          locked_until: attempt.lockedUntil,
+        })
+        .where('user_id', '=', id)
+        .where('failed_attempts', '=', account.twoFactor.failedAttempts)
+        .executeTakeFirst();
+      return counted.numUpdatedRows === 1n
+        ? ATTEMPT_RESERVATION.RESERVED
+        : ATTEMPT_RESERVATION.REFUSED;
+    });
+  }
+
+  clearFailedAttempts(account: SecondFactorAccount): Promise<void> {
+    const id = toUuid(account.id);
+    return autocommit(NO_CONSTRAINTS, async () => {
+      await this.database
+        .updateTable('user_two_factor')
+        .set({ failed_attempts: 0, locked_until: null })
+        .where('user_id', '=', id)
+        .execute();
+    });
+  }
+
   /** One statement, so the state and its codes come from one snapshot. */
   private read(
     userId: string,
@@ -193,6 +256,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
           'state.secret_tag',
           'state.confirmed_at',
           'state.last_used_step',
+          'state.failed_attempts',
+          'state.locked_until',
           jsonArrayFrom(
             select
               .selectFrom('user_recovery_codes as code')
@@ -232,6 +297,8 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
             usedAt: code.used_at === null ? null : new Date(code.used_at),
           })),
           lastUsedStep: row.last_used_step,
+          failedAttempts: row.failed_attempts ?? 0,
+          lockedUntil: row.locked_until,
         },
       };
       return rememberSignInAccount(
@@ -263,19 +330,5 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     return autocommit(NO_CONSTRAINTS, () =>
       this.database.transaction().execute(write),
     );
-  }
-}
-
-/** Issues the session an account is owed once its second factor checked out. */
-export class PostgresSecondFactorSignIn extends SecondFactorSignIn {
-  constructor(private readonly completion: SignInCompletion) {
-    super();
-  }
-
-  issueSession(
-    account: SecondFactorAccount,
-    response: Response,
-  ): Promise<AuthenticatedUserSummary> {
-    return this.completion.issueSession(signInAccountOf(account), response);
   }
 }

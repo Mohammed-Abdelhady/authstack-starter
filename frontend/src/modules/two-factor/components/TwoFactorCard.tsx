@@ -119,6 +119,7 @@ export function TwoFactorCard() {
         open={dialog === 'setup'}
         onOpenChange={(open) => setDialog(open ? 'setup' : null)}
         hasPassword={hasPassword}
+        landing={titleRef}
       />
       <TwoFactorDisableDialog
         open={dialog === 'disable'}
@@ -129,6 +130,7 @@ export function TwoFactorCard() {
       <RegenerateCodesDialog
         open={dialog === 'regenerate'}
         onOpenChange={(open) => setDialog(open ? 'regenerate' : null)}
+        hasPassword={hasPassword}
       />
     </Card>
   );

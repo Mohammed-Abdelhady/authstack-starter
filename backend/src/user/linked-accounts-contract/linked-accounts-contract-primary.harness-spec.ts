@@ -1,6 +1,5 @@
 import { AppException } from '../../common/exceptions/app.exception';
 import {
-  linkedCase,
   LinkedHarnessSource,
   linkedServicesOn,
   profileOf,
@@ -84,59 +83,56 @@ async function answerOf(choice: Promise<unknown>): Promise<string> {
 
 /** The hint a page reads says what choosing a primary would answer. */
 export function primaryHintCases(harness: LinkedHarnessSource): void {
-  linkedCase(
-    'tells the page a sign-in method can be primary exactly when choosing it would go through',
-    async () => {
-      const observed: Record<string, Observed> = {};
-      for (const [name, account] of Object.entries(ACCOUNTS)) {
-        const email = `${name.replaceAll(' ', '-')}@example.test`;
-        const userId = await harness().seedAccount({ email, role: 'user' });
-        const { linking } = linkedServicesOn(harness());
-        for (const provider of account.providers) {
-          await linking.linkProvider(
-            userId,
-            provider,
-            profileOf(`${provider}-${name}`, { email }),
-          );
-        }
-        if (account.madeByProvider) {
-          await harness().setAuthProvider(userId, account.providers[0]);
-        }
-
-        // Asked first, the way a page reads it before it offers the action.
-        const hints = linking.primaryHints(
-          await linking.getLinkedProviders(userId),
+  it('tells the page a sign-in method can be primary exactly when choosing it would go through', async () => {
+    const observed: Record<string, Observed> = {};
+    for (const [name, account] of Object.entries(ACCOUNTS)) {
+      const email = `${name.replaceAll(' ', '-')}@example.test`;
+      const userId = await harness().seedAccount({ email, role: 'user' });
+      const { linking } = linkedServicesOn(harness());
+      for (const provider of account.providers) {
+        await linking.linkProvider(
+          userId,
+          provider,
+          profileOf(`${provider}-${name}`, { email }),
         );
-        const answers: Record<string, string> = {};
-        for (const choice of account.choices) {
-          answers[choice] = await answerOf(
-            linking.setPrimaryProvider(userId, choice),
-          );
-        }
-        observed[name] = {
-          hints,
-          answers,
-          stored: (await harness().syncFacts(userId))?.primaryProvider ?? null,
-        };
+      }
+      if (account.madeByProvider) {
+        await harness().setAuthProvider(userId, account.providers[0]);
       }
 
-      for (const [name, seen] of Object.entries(observed)) {
-        for (const [choice, answer] of Object.entries(seen.answers)) {
-          expect({
-            name,
-            choice,
-            hinted: seen.hints[choice] === 'allowed',
-          }).toEqual({ name, choice, hinted: answer === CHOSEN });
-        }
-      }
-      expect(observed).toEqual(
-        Object.fromEntries(
-          Object.entries(ACCOUNTS).map(([name, { expected }]) => [
-            name,
-            expected,
-          ]),
-        ),
+      // Asked first, the way a page reads it before it offers the action.
+      const hints = linking.primaryHints(
+        await linking.getLinkedProviders(userId),
       );
-    },
-  );
+      const answers: Record<string, string> = {};
+      for (const choice of account.choices) {
+        answers[choice] = await answerOf(
+          linking.setPrimaryProvider(userId, choice),
+        );
+      }
+      observed[name] = {
+        hints,
+        answers,
+        stored: (await harness().syncFacts(userId))?.primaryProvider ?? null,
+      };
+    }
+
+    for (const [name, seen] of Object.entries(observed)) {
+      for (const [choice, answer] of Object.entries(seen.answers)) {
+        expect({
+          name,
+          choice,
+          hinted: seen.hints[choice] === 'allowed',
+        }).toEqual({ name, choice, hinted: answer === CHOSEN });
+      }
+    }
+    expect(observed).toEqual(
+      Object.fromEntries(
+        Object.entries(ACCOUNTS).map(([name, { expected }]) => [
+          name,
+          expected,
+        ]),
+      ),
+    );
+  });
 }

@@ -66,6 +66,19 @@ export interface SessionDeviceLabel {
   name?: string;
 }
 
+/**
+ * The label and nothing else a caller's object carries. An adapter stores and
+ * hands back this, so a parsed user agent leaves its derived parts behind.
+ */
+export function deviceLabelOf(device: SessionDeviceLabel): SessionDeviceLabel {
+  return {
+    type: device.type,
+    browser: device.browser,
+    os: device.os,
+    name: device.name,
+  };
+}
+
 export interface NewBrowserSession {
   userId: string;
   tokenHash: string;

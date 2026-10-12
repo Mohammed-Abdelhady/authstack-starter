@@ -51,6 +51,7 @@ describe('RoleService delete', () => {
   let service: RoleService;
 
   const mockRoleModel = {
+    findOneAndUpdate: jest.fn(),
     findOne: jest.fn(),
     findById: jest.fn(),
     deleteOne: jest
@@ -59,6 +60,7 @@ describe('RoleService delete', () => {
   };
 
   const mockUserModel = {
+    updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
     findById: jest.fn().mockReturnValue(
       createChainableQueryMock({
         role: 'admin',
@@ -75,6 +77,10 @@ describe('RoleService delete', () => {
   };
 
   beforeEach(async () => {
+    mockRoleModel.findOneAndUpdate.mockResolvedValue(
+      buildRole({ slug: 'admin', permissions: ['*'] }),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoleService,

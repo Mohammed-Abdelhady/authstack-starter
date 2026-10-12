@@ -58,10 +58,16 @@ export class MongoMailCounterStore extends MailCounterStore {
               windowStartedAt: {
                 $cond: [windowRolledOver, now, '$windowStartedAt'],
               },
+              // Never earlier than the guess count here is still needed.
               expiresAt: {
-                $add: [
-                  { $cond: [windowRolledOver, now, '$windowStartedAt'] },
-                  windowMs,
+                $max: [
+                  {
+                    $add: [
+                      { $cond: [windowRolledOver, now, '$windowStartedAt'] },
+                      windowMs,
+                    ],
+                  },
+                  '$guessStateExpiresAt',
                 ],
               },
             },

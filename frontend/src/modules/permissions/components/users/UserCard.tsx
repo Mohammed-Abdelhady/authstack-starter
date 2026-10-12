@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Heading, StatusBadge } from '@/components/design-system';
@@ -21,6 +21,7 @@ export interface User {
   role: string;
   isVerified: boolean;
   isDeleted: boolean;
+  pendingEmail?: string | null;
   createdAt: string;
 }
 
@@ -28,9 +29,16 @@ export interface UserCardProps {
   /** User data */
   user: User;
   /** Callback when manage permissions is clicked */
-  onManagePermissions?: (userId: string, opener: HTMLElement | null) => void;
+  onManagePermissions?: (userId: string, opener: HTMLElement | null, userName: string) => void;
   /** Optional className */
   className?: string;
+}
+
+function focusRoleRegionIfOwned(region: HTMLDivElement | null) {
+  const activeElement = document.activeElement;
+  if (region && (activeElement === document.body || region.contains(activeElement))) {
+    region.focus();
+  }
 }
 
 /**
@@ -56,20 +64,48 @@ export const UserCard = memo(
     const locale = useLocale();
     const t = useTranslations('users.card');
     const { handleRoleChange, isUpdatingRole } = useUserActions();
+    const roleRegionRef = useRef<HTMLDivElement>(null);
+    const previousUser = useRef({ id: user._id, role: user.role });
+    const confirmedRoleFocus = useRef<{ userId: string; role: string } | null>(null);
+
+    useEffect(() => {
+      const previous = previousUser.current;
+      previousUser.current = { id: user._id, role: user.role };
+      const intent = confirmedRoleFocus.current;
+      confirmedRoleFocus.current = null;
+      if (
+        previous.id !== user._id ||
+        previous.role === user.role ||
+        intent?.userId !== user._id ||
+        intent.role !== user.role ||
+        (user.role !== 'user' && user.role !== 'admin')
+      ) {
+        return;
+      }
+      focusRoleRegionIfOwned(roleRegionRef.current);
+    }, [user._id, user.role]);
 
     const initials = getInitials(user.name);
     const joinedDate = formatDateShort(user.createdAt, locale);
 
     const handleManageClick = useCallback(
       (opener: HTMLElement | null) => {
-        onManagePermissions?.(user._id, opener);
+        onManagePermissions?.(user._id, opener, user.name);
       },
-      [onManagePermissions, user._id],
+      [onManagePermissions, user._id, user.name],
     );
 
     const onRoleChange = useCallback(
       async (newRole: string) => {
+        confirmedRoleFocus.current = null;
         await handleRoleChange(user._id, newRole);
+        confirmedRoleFocus.current = { userId: user._id, role: newRole };
+        if (previousUser.current.id === user._id && previousUser.current.role === newRole) {
+          confirmedRoleFocus.current = null;
+          if (newRole === 'user' || newRole === 'admin') {
+            focusRoleRegionIfOwned(roleRegionRef.current);
+          }
+        }
       },
       [handleRoleChange, user._id],
     );
@@ -111,6 +147,11 @@ export const UserCard = memo(
                 {user.email}
               </span>
             </p>
+            {user.pendingEmail && (
+              <p className="text-xs text-status-warning" data-testid="user-card-pending-email">
+                {t('pendingEmail', { email: user.pendingEmail })}
+              </p>
+            )}
           </div>
 
           <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
@@ -119,6 +160,7 @@ export const UserCard = memo(
                 status="inactive"
                 size="sm"
                 variant="soft"
+                className="rtl:tracking-normal"
                 data-testid="user-inactive-badge"
               />
             )}
@@ -126,6 +168,7 @@ export const UserCard = memo(
               status={user.isVerified ? 'verified' : 'pending'}
               size="sm"
               variant="soft"
+              className="rtl:tracking-normal"
               data-testid="user-verification-badge"
             />
           </div>
@@ -133,7 +176,14 @@ export const UserCard = memo(
 
         {/* Role Selector + Actions Row */}
         <div className="mb-3 min-h-[32px] flex items-center justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div
+            ref={roleRegionRef}
+            role="group"
+            aria-label={t('role')}
+            tabIndex={-1}
+            className="flex-1 min-w-0"
+            data-testid="user-card-role-region"
+          >
             <PermissionGuard
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
@@ -194,6 +244,7 @@ export const UserCard = memo(
       prevProps.user.role === nextProps.user.role &&
       prevProps.user.isVerified === nextProps.user.isVerified &&
       prevProps.user.isDeleted === nextProps.user.isDeleted &&
+      prevProps.user.pendingEmail === nextProps.user.pendingEmail &&
       prevProps.onManagePermissions === nextProps.onManagePermissions
     );
   },

@@ -12,7 +12,7 @@ import {
   PendingRegistrationStore,
 } from '../../pending-codes/pending-registration.store';
 import { MailCounterService } from '../mail/mail-counter.service';
-import { PendingPurpose } from '../../constants/registration';
+import { CODE_GUESS_RULE, PendingPurpose } from '../../constants/registration';
 import {
   IssuedCode,
   RegistrationDetails,
@@ -113,7 +113,7 @@ export class VerificationCodeService {
     const now = this.clock.now();
     const reserved = await this.store.reserveAttempt(
       { email, purpose },
-      { now, maxAttempts: this.maxAttempts },
+      { now, maxAttempts: this.maxAttempts, guesses: CODE_GUESS_RULE },
     );
 
     if (!reserved) {

@@ -11,6 +11,7 @@ import {
   ACCOUNT_ISSUANCE_MARK,
   AccountIssuanceMark,
   BrowserIssuanceStore,
+  deviceLabelOf,
   IssuanceAccount,
   IssuanceApplication,
   IssuanceGrant,
@@ -199,7 +200,14 @@ export class MongoBrowserIssuanceStore extends BrowserIssuanceStore {
   ): Promise<string> {
     const { userId, ...fields } = session;
     const [created] = await this.sessionModel.create(
-      [{ ...fields, user: toObjectId(userId), isValid: true }],
+      [
+        {
+          ...fields,
+          device: deviceLabelOf(fields.device),
+          user: toObjectId(userId),
+          isValid: true,
+        },
+      ],
       { session: mongoSessionOf(unitOfWork) },
     );
     return created._id.toString();

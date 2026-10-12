@@ -111,6 +111,28 @@ export async function bootPostgresTwoFactorHarness(): Promise<TwoFactorContractH
       };
     },
 
+    seedFailures: async (userId, failures) => {
+      await database
+        .updateTable('user_two_factor')
+        .set({
+          failed_attempts: failures.failedAttempts,
+          locked_until: failures.lockedUntil,
+        })
+        .where('user_id', '=', userId)
+        .execute();
+    },
+    failures: async (userId) => {
+      const state = await database
+        .selectFrom('user_two_factor')
+        .select(['failed_attempts', 'locked_until'])
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+      return {
+        failedAttempts: state?.failed_attempts ?? 0,
+        lockedUntil: state?.locked_until ?? null,
+      };
+    },
+
     seedChallenge: async (challenge) => {
       const row = await database
         .insertInto('two_factor_challenges')

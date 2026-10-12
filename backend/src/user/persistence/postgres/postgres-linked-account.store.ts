@@ -49,7 +49,6 @@ export class PostgresLinkedAccountStore extends LinkedAccountStore {
         .executeTakeFirst();
       if (!row) return null;
       return {
-        isDeleted: false,
         linkedProviders: linkedProvidersOf({
           authProvider: row.auth_provider ?? EMAIL_PROVIDER,
           linkedAccounts: await linkedAccountsOf(this.database, row.id),

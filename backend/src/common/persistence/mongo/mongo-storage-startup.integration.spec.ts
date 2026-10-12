@@ -8,6 +8,8 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/utils/session-authority-harness';
 import { MongoStorageStartup } from './mongo-storage-startup';
+import { PersistenceUnavailableError } from '../persistence-errors';
+import { StorageNotReadyError } from '../storage-startup';
 
 const DUPLICATE_KEY = 11000;
 
@@ -19,7 +21,8 @@ async function preparedOn(
   try {
     await new MongoStorageStartup(connection).prepare();
   } catch (error) {
-    const code: unknown = Reflect.get(Object(error), 'code');
+    const failure = error instanceof StorageNotReadyError ? error.cause : error;
+    const code: unknown = Reflect.get(Object(failure), 'code');
     return {
       code,
       namesTheCollection:
@@ -75,4 +78,31 @@ describe('MongoStorageStartup with an index that cannot be built', () => {
       });
     },
   );
+
+  it('builds real indexes after one transient connection failure', async () => {
+    if (!connection) throw new Error('the MongoDB connection did not open');
+    const models = connection.useDb('startup_retry', { useCache: false });
+    const model = models.model(
+      'startup_retry',
+      new Schema(
+        { serial: { type: String, unique: true } },
+        { collection: 'startup_retry', autoIndex: false },
+      ),
+    );
+    const indexes = jest
+      .spyOn(model, 'createIndexes')
+      .mockRejectedValueOnce(new PersistenceUnavailableError());
+    try {
+      await expect(
+        new MongoStorageStartup(models).prepare(),
+      ).resolves.toBeUndefined();
+      expect(indexes).toHaveBeenCalledTimes(2);
+      const names = (await models.collection('startup_retry').indexes()).map(
+        (index) => index.name,
+      );
+      expect(names).toContain('serial_1');
+    } finally {
+      indexes.mockRestore();
+    }
+  });
 });

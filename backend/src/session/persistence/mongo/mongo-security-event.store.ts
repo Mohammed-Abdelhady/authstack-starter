@@ -94,11 +94,4 @@ export class MongoSecurityEventStore extends SecurityEventStore {
     );
     return events.map(toStoredEvent);
   }
-
-  async deleteExpired(now: Date): Promise<number> {
-    const removed = await singleStatement(() =>
-      this.eventModel.deleteMany({ purgeAfter: { $lte: now } }).exec(),
-    );
-    return removed.deletedCount;
-  }
 }

@@ -49,7 +49,6 @@ export class AdminUserQueriesService {
     });
 
     this.logger.log(`Listed ${users.length} users (page ${page}, ${total})`);
-
     return ApiResponse.success({
       data: users.map((user) => mapToAdminUserDto(user)),
       pagination: {

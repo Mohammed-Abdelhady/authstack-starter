@@ -1,5 +1,6 @@
 import { auditAccessibility } from './utils/accessibility';
 import { test, expect, API } from './fixtures/authenticated';
+import { message } from './utils/messages';
 
 test.describe('User administration through real API state', () => {
   test('admin creates, edits and deactivates a custom-role user', async ({ page }) => {
@@ -29,7 +30,7 @@ test.describe('User administration through real API state', () => {
       'Edited User',
     );
     await page.getByTestId(`user-actions-menu-${id}`).click();
-    await expect(page.getByTestId(`delete-user-${id}`)).toHaveCount(0);
+    await expect(page.getByTestId(`deactivate-user-${id}`)).toBeVisible();
     await page.getByTestId(`deactivate-user-${id}`).click();
     const deactivated = page.waitForResponse(
       (response) =>
@@ -38,11 +39,15 @@ test.describe('User administration through real API state', () => {
     );
     await page.getByTestId('confirm-user-action-button').click();
     expect((await deactivated).status()).toBe(200);
-    await expect(page.getByTestId(`user-card-${id}`)).toContainText('Inactive');
+    // The confirmation stays open until the server has answered.
+    await expect(page.getByTestId('user-action-confirm-dialog')).toBeHidden();
+    await expect(
+      page.getByTestId(`user-card-${id}`).getByTestId('user-inactive-badge'),
+    ).toBeVisible();
     // The name is wrapped in a first-strong isolate so it keeps its own direction.
-    await expect(page.getByRole('region', { name: 'Notifications' })).toContainText(
-      '\u2068Edited User\u2069 deactivated successfully',
-    );
+    await expect(
+      page.getByRole('region', { name: message('en', 'common.toastRegion') }),
+    ).toContainText(message('en', 'users.actions.deactivateSuccess', { name: 'Edited User' }));
   });
 
   test('session confirmation and role dialog have no automated WCAG A/AA violations', async ({

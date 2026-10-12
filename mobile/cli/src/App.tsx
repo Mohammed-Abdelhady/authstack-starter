@@ -1,5 +1,5 @@
-import { NativeApp } from '@app/native-ui';
-import { deviceLocale, hostProps, logicalInsets } from '@app/native-ui/host';
+import { NativeApp, StartNotice } from '@app/native-ui';
+import { deviceLocale, hostProps, logicalInsets, startingNotice } from '@app/native-ui/host';
 import { useEffect, useState } from 'react';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APP_NAME } from './config';
@@ -15,6 +15,12 @@ function Hosted({ auth }: { auth: StartedShellAuth }) {
   );
 }
 
+/** Fills the window while the key answers, so the native window colour never shows through. */
+function Starting() {
+  const { top } = useSafeAreaInsets();
+  return <StartNotice {...startingNotice(LOCALE)} topInset={top} />;
+}
+
 function Started() {
   const [start, setStart] = useState<Start>();
 
@@ -28,8 +34,7 @@ function Started() {
     };
   }, []);
 
-  // The launch screen's background shows for the moment the key takes to answer.
-  if (start === undefined) return null;
+  if (start === undefined) return <Starting />;
   // Only a build without the key module linked gets here. It must not run unbound in silence.
   if ('failure' in start) throw start.failure;
   return <Hosted auth={start.auth} />;

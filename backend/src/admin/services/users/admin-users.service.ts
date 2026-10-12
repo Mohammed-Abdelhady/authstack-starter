@@ -4,10 +4,7 @@ import { RoleChangeStore } from '../../../role/stores/role-change.store';
 import { RoleSweepStore } from '../../../role/stores/role-sweep.store';
 import { AccountSessions } from '../../../user/stores/account-sessions';
 import { RoleSweepStores } from '../../../role/sweeps/role-holder-sweep';
-import {
-  AddressMove,
-  AdminAccountStore,
-} from '../../stores/admin-account.store';
+import { AdminAccountStore } from '../../stores/admin-account.store';
 import {
   loadAuthorizedUser,
   logSessionRevocation,
@@ -27,6 +24,8 @@ import { ADMIN_ROLE_CHANGED } from '../../constants/admin-user.constants';
 import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { AdminEmailChangeService } from './admin-email-change.service';
+import { USER_PERMISSIONS } from '../../../common/constants/permissions';
+import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
 /**
  * Mutating user operations for the admin area.
@@ -46,7 +45,7 @@ export class AdminUsersService {
     private readonly emailChangeService: AdminEmailChangeService,
   ) {}
 
-  /** Update name and email; an admin email edit requires verification again. */
+  /** Update the name, or ask for an address the new mailbox must confirm. */
   async updateUser(
     id: string,
     dto: UpdateUserDto,
@@ -65,12 +64,13 @@ export class AdminUsersService {
 
     const previousEmail = targetUser.email;
     const previousGeneration = targetUser.addressGeneration;
-    let moved: AddressMove | undefined;
-    if (email && email !== targetUser.email) {
-      const actorLevel = await this.accessService.getActorLevel(actorRole);
-      moved = await this.emailChangeService.apply(
-        targetUser,
-        email,
+    const pendingEmail =
+      email && email !== targetUser.email ? email : undefined;
+    let actorLevel: number | undefined;
+    if (pendingEmail !== undefined) {
+      actorLevel = await this.accessService.getActorLevel(actorRole);
+      await this.emailChangeService.assertAddressAvailable(
+        pendingEmail,
         actorLevel,
       );
     }
@@ -80,8 +80,19 @@ export class AdminUsersService {
         this.runner,
         this.accounts,
         this.accessService,
-        { id, actorId, name, moved, previousEmail, previousGeneration },
+        {
+          id,
+          actorId,
+          name,
+          pendingEmail,
+          previousEmail,
+          previousGeneration,
+        },
       );
+      if (pendingEmail !== undefined && actorLevel !== undefined) {
+        this.emailChangeService.notifyPreviousAddress(previousEmail);
+        await this.emailChangeService.sendConfirmation(saved, actorLevel);
+      }
 
       this.logger.log(`User ${id} updated by ${actorId}`);
       return ApiResponse.success(
@@ -182,9 +193,6 @@ export class AdminUsersService {
     }
   }
 
-  /**
-   * Move a user to another role, system or custom.
-   */
   async updateUserRole(
     id: string,
     dto: UpdateUserRoleDto,
@@ -202,55 +210,63 @@ export class AdminUsersService {
     await this.accessService.assertCanAssignRole(actorRole, newRole);
 
     try {
-      const outcome = await this.runner.run(async (unitOfWork) => {
-        const current = await loadAuthorizedUser(
-          this.accounts,
-          this.accessService,
-          unitOfWork,
-          id,
-          actorId,
-        );
-
-        const assignedRole = await this.accounts.readRoleBySlug(
-          unitOfWork,
-          newRole,
-        );
-        if (!assignedRole) {
-          throw new AppException(
-            ErrorCode.ROLE_NOT_FOUND,
-            `Role "${newRole}" does not exist`,
-            HttpStatus.NOT_FOUND,
+      const outcome = await this.runner.runForAuthority(
+        actorId,
+        async (unitOfWork) => {
+          const current = await loadAuthorizedUser(
+            this.accounts,
+            this.accessService,
+            unitOfWork,
+            id,
+            actorId,
           );
-        }
 
-        await this.accessService.assertFreshActorCanModify(
-          actorId,
-          assignedRole.slug,
-          unitOfWork,
-        );
-        const previousRole = await this.accounts.readRoleBySlug(
-          unitOfWork,
-          current.role,
-        );
-        await this.accounts.saveRole(unitOfWork, current, newRole);
+          const assignedRole = await this.accounts.readRoleBySlug(
+            unitOfWork,
+            newRole,
+          );
+          if (!assignedRole) {
+            throw new AppException(
+              ErrorCode.ROLE_NOT_FOUND,
+              `Role "${newRole}" does not exist`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
 
-        // Permissions travel with the role, so existing sessions must be
-        // rebuilt in the same unit of work as the change.
-        const revoked = await this.sessions.revokeAll(unitOfWork, id, {
-          actorId,
-          reasonCode: REVOKED_REASON.ADMIN_FORCED,
-          roleAssignment: {
-            assignedRoleId: assignedRole.id,
-            sessionVersion: current.sessionVersion + 1,
+          await this.accessService.assertFreshActorCanModify(
+            actorId,
+            assignedRole.slug,
+            unitOfWork,
+          );
+          await assertActorHoldsRole(
+            this.roleChanges,
+            unitOfWork,
+            actorId,
+            USER_PERMISSIONS.UPDATE_ALL,
+            assignedRole.slug,
+          );
+          const previousRole = await this.accounts.readRoleBySlug(
+            unitOfWork,
+            current.role,
+          );
+          await this.accounts.saveRole(unitOfWork, current, newRole);
+
+          const revoked = await this.sessions.revokeAll(unitOfWork, id, {
+            actorId,
+            reasonCode: REVOKED_REASON.ADMIN_FORCED,
+            roleAssignment: {
+              assignedRoleId: assignedRole.id,
+              sessionVersion: current.sessionVersion + 1,
+              previousRoleId: previousRole?.id,
+            },
+          });
+          return {
+            revoked,
+            roleId: assignedRole.id,
             previousRoleId: previousRole?.id,
-          },
-        });
-        return {
-          revoked,
-          roleId: assignedRole.id,
-          previousRoleId: previousRole?.id,
-        };
-      });
+          };
+        },
+      );
 
       const liveSlug = await reconcileAssignedRole({
         accounts: this.accounts,

@@ -121,7 +121,7 @@ export const SectionHeader = forwardRef<HTMLDivElement, SectionHeaderProps>(
                   aria-hidden="true"
                   className={cn(
                     'h-3 w-3 motion-safe:transition-transform motion-safe:duration-200',
-                    collapsed && '-rotate-90',
+                    collapsed && 'ltr:-rotate-90 rtl:rotate-90',
                   )}
                   data-testid="collapse-icon"
                 />

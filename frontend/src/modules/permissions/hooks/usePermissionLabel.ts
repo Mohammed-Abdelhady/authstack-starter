@@ -35,7 +35,7 @@ export function usePermissionLabel(): PermissionLabelFormatter {
       if (!scope) return actionLabel;
 
       const scopeLabel = SCOPES.includes(scope) ? t(`scopes.${scope}`) : scope;
-      return `${actionLabel} (${scopeLabel})`;
+      return t('permissionLabelWithScope', { action: actionLabel, scope: scopeLabel });
     },
     [t],
   );

@@ -53,6 +53,8 @@ export interface E2eApp {
 
 /** Optional overrides for a booted fixture. A feature's option never shifts another. */
 export interface BootE2eAppOptions {
+  /** Start with application records but no seeded account. */
+  seedUsers?: boolean;
   nodeEnv?: string;
   browserStrategy?: OAuthProviderStrategy; // feature:oauth-core
   magicLinkEnabled?: boolean; // feature:magic-link
@@ -87,7 +89,8 @@ export async function bootE2eApp(
     CLIENT_URL: E2E_CLIENT_URL,
     API_URL: 'http://127.0.0.1:5107',
     PORT: '5107',
-    BCRYPT_ROUNDS: '4',
+    // The cheapest cost is accepted in a test run only.
+    BCRYPT_ROUNDS: nodeEnv === 'test' ? '4' : '10',
     THROTTLE_TTL: String(options.throttleTtl ?? 60),
     THROTTLE_LIMIT: String(options.throttleLimit ?? 1000),
     AUTH_PASSWORD_ENABLED: 'true',
@@ -243,7 +246,7 @@ export async function bootE2eApp(
       await roleSeed.seed();
       await stored.seedApplications();
       await reconcileStartupApplications(nestApp);
-      await stored.seedAccounts(fixtures);
+      if (options.seedUsers !== false) await stored.seedAccounts(fixtures);
       mail.length = 0;
     };
     await reset();

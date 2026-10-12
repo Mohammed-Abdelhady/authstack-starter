@@ -13,10 +13,12 @@ import { PasskeyChallengeService } from './services/passkey-challenge.service';
 import { PasskeyConfigService } from './services/passkey-config.service';
 import { PasskeyLoginService } from './services/passkey-login.service';
 import { PasskeyManagementService } from './services/passkey-management.service';
+import { PasskeyRegistrationReauth } from './services/passkey-registration-reauth.service';
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { WebAuthnAdapter } from './services/webauthn.adapter';
 import { UserModule } from '../../user/user.module';
+import { CommonModule } from '../../common/common.module';
 
 /**
  * WebAuthn sign-in and passkey management. Sessions and the feature switch
@@ -30,6 +32,8 @@ import { UserModule } from '../../user/user.module';
 @Module({
   imports: [
     ConfigModule,
+    // The password check a passkey is added behind.
+    CommonModule,
     ...PASSKEYS_PERSISTENCE_IMPORTS,
     AuthModule,
     // The unit of work a passkey removal runs in.
@@ -42,6 +46,7 @@ import { UserModule } from '../../user/user.module';
     WebAuthnAdapter,
     PasskeyConfigService,
     PasskeyChallengeService,
+    PasskeyRegistrationReauth,
     PasskeyRegistrationService,
     PasskeyAssertionService,
     PasskeyLoginService,

@@ -65,7 +65,23 @@ describe.each([
     expect(shown()).toEqual({ read: true, create: false });
   });
 
-  // feature:locale-ar:start
+  it('labels the search field and bounds pasted text', async () => {
+    const { message } = await openSearch(locale);
+    const input = screen.getByRole('textbox', {
+      name: message('permissions.searchDialog.searchLabel'),
+    });
+
+    expect(input).toHaveProperty('maxLength', 100);
+    fireEvent.change(input, { target: { value: 'x'.repeat(101) } });
+
+    expect(input).toHaveProperty('value', 'x'.repeat(100));
+  });
+});
+
+// feature:locale-ar:start
+describe('permission search in Arabic', () => {
+  const locale: AppLocale = 'ar';
+
   it('finds permissions by an Arabic word only where the labels are Arabic', async () => {
     const { box, shown } = await openSearch(locale);
 
@@ -74,5 +90,5 @@ describe.each([
     expect(box.getAttribute('dir')).toBeNull();
     expect(shown()).toEqual({ read: locale === 'ar', create: false });
   });
-  // feature:locale-ar:end
 });
+// feature:locale-ar:end

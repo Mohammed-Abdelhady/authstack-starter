@@ -1,7 +1,7 @@
 import { baseApi } from '@/store/api/baseApi';
-import { API_PATHS, unwrapObjectBody } from '@app/sdk';
+import { API_PATHS, unwrapIdentityBody, unwrapObjectBody } from '@app/sdk';
 import { invalidateOnSuccess } from '@/store/api/invalidateOnSuccess';
-import type { MessageResult, UpdateProfileRequest, User } from '@app/sdk';
+import type { Identity, MessageResult, UpdateProfileRequest, User } from '@app/sdk';
 import {
   NATIVE_AUTHORIZE_APPROVE_ENDPOINT,
   NATIVE_AUTHORIZE_DENY_ENDPOINT,
@@ -60,22 +60,33 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
       }),
       transformResponse: (response: unknown) => unwrapObjectBody<MessageResult>(response),
-      // A refused sign-out leaves the session's fate unknown, so the reads are
-      // asked again. A confirmed one clears the slice and the caller drops the
-      // cache, and a refetch would only ask a closed session for its profile
-      // and collect a 401. A server that could not be reached would fail every
-      // one of those reads too, so they wait for the next request that gets through.
+      // An unconfirmed sign-out leaves the session's fate unknown, so the reads
+      // are asked again. A confirmed one clears the slice and the caller drops
+      // the cache, so a refetch would only ask a closed session for its profile.
       invalidatesTags: (_result, error) =>
-        error && error.status !== 'FETCH_ERROR'
+        error
           ? [
               'Auth',
               'User',
               'LinkedProviders', // feature:oauth-core
               'ProfileSync', // feature:oauth-core
+              'AuthMethods',
               'Roles',
               'Permissions',
+              'Sessions',
+              'Passkeys', // feature:passkeys
             ]
           : [],
+    }),
+
+    /**
+     * Optional session bootstrap. A missing session is a successful identity
+     * answer with a null user, not a refused profile request.
+     */
+    getIdentity: builder.query<Identity, void>({
+      query: () => API_PATHS.auth.identity,
+      transformResponse: (response: unknown) => unwrapIdentityBody(response),
+      providesTags: ['Auth', 'User'],
     }),
 
     /**
@@ -240,6 +251,7 @@ export const authApi = baseApi.injectEndpoints({
 export const {
   useLoginMutation,
   useLogoutMutation,
+  useGetIdentityQuery,
   useGetCurrentUserQuery,
   useRegisterMutation,
   useActivateMutation,

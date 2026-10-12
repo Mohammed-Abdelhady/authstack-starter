@@ -6,6 +6,7 @@ import { KeyRound, Pencil, Trash2 } from 'lucide-react';
 import { Description } from '@/components/design-system';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { BLOCKED_PRESS_CLASSES } from '@/components/ui/busy';
 import { formatDateLong } from '@/lib/formatters';
 import { PASSKEY_DEVICE_TYPE, type PasskeyDeviceType } from '../constants';
 import type { PasskeySummary } from '../types';
@@ -43,7 +44,11 @@ export function PasskeyRow({ passkey, canRemove, onRename, onDelete }: PasskeyRo
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="truncate font-medium" data-testid={`passkey-name-${passkey.id}`}>
+          <span
+            className="truncate font-medium"
+            dir="auto"
+            data-testid={`passkey-name-${passkey.id}`}
+          >
             {passkey.name}
           </span>
         </div>
@@ -99,6 +104,7 @@ export function PasskeyRow({ passkey, canRemove, onRename, onDelete }: PasskeyRo
           aria-label={t('delete.label', { name: passkey.name })}
           // Focusable while blocked, so the reason is read out with it.
           aria-disabled={!canRemove || undefined}
+          className={canRemove ? undefined : BLOCKED_PRESS_CLASSES}
           aria-describedby={canRemove ? undefined : removalBlockedId}
           data-testid={`passkey-delete-${passkey.id}`}
         >

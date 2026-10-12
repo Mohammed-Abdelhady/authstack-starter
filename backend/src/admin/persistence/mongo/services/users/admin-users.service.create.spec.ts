@@ -17,11 +17,17 @@ import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
 import { RoleSweepStore } from '../../../../../role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../mongo-admin-stores';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
+import { HashService } from '../../../../../common/services/hash.service';
 
 interface CreatedDoc extends Record<string, unknown> {
   _id: Types.ObjectId;
   save: jest.Mock;
 }
+
+/** The acting account, read before the new account exists. */
+const ACTING_ACCOUNT = { role: 'admin', permissions: [], isDeleted: false };
 
 describe('AdminUserCreateService.createUser (D-12)', () => {
   let service: AdminUserCreateService;
@@ -59,17 +65,24 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
       }),
       {
         findOne,
+        updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
         findById: jest
           .fn()
-          .mockImplementation(() => createChainableQueryMock(created[0])),
+          .mockImplementation(() =>
+            createChainableQueryMock(created[0] ?? ACTING_ACCOUNT),
+          ),
       },
     );
 
-    const roleQuery = createChainableQueryMock({
+    const authorityRole = {
       _id: new Types.ObjectId(),
       slug: 'user',
-    });
+      // Also answers as the actor's role, so the actor holds what it assigns.
+      permissions: ['users:create:all'],
+    };
+    const roleQuery = createChainableQueryMock(authorityRole);
     const roleModel = {
+      findOneAndUpdate: jest.fn().mockResolvedValue(authorityRole),
       findOne: jest.fn().mockReturnValue(roleQuery),
       findById: jest.fn().mockReturnValue(roleQuery),
     };
@@ -77,6 +90,12 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminUserCreateService,
+        {
+          provide: HashService,
+          useValue: new HashService(
+            new ConfigService({ bcrypt: { rounds: 4 } }),
+          ),
+        },
         MONGO_ADMIN_ACCOUNT_STORE,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: RoleChangeStore, useClass: MongoRoleChangeStore },
@@ -116,6 +135,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
 
     expect(created[0].password).not.toBe(createUserDto.password);
     expect(String(created[0].password)).toMatch(/^\$2[aby]\$/);
+    expect(bcrypt.getRounds(String(created[0].password))).toBe(4);
   });
 
   it('should refuse an address that is already in use', async () => {

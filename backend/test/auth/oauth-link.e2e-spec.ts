@@ -1,12 +1,29 @@
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import type { OAuthProviderStrategy } from '../../src/auth/oauth/oauth-provider.interface';
 import { SEED_USER } from '../constants/seed-users';
-import { bootE2eApp, loginAs, type E2eApp } from '../utils/e2e-app';
+import request, { type Response } from 'supertest';
+import {
+  bootE2eApp,
+  loginAs,
+  type E2eApp,
+  type TestAgent,
+} from '../utils/e2e-app';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import { TEST_NOW } from '../utils/frozen-clock';
+
+/** The state the last start handed to the provider. */
+let offeredState = '';
+
+/** The provider account of the person signed in as the seed user. */
+const PROVIDER_ACCOUNT = {
+  providerId: 'google-seed-user',
+  email: SEED_USER.email,
+  emailVerified: true,
+  name: 'Seed User',
+};
 
 const GOOGLE_STRATEGY: OAuthProviderStrategy = {
   id: 'google',
@@ -15,12 +32,21 @@ const GOOGLE_STRATEGY: OAuthProviderStrategy = {
   supportsPkce: true,
   usesOidc: false,
   emailAlwaysVerified: true,
+  autoLinksByEmail: true,
   callbackMethod: 'GET',
   isEnabled: () => true,
-  getAuthorizationUrl: () => 'https://provider.example/authorize',
-  exchangeCode: () => Promise.reject(new Error('unused in this spec')),
-  fetchProfile: () => Promise.reject(new Error('unused in this spec')),
+  getAuthorizationUrl: ({ state }) => {
+    offeredState = state;
+    return 'https://provider.example/authorize';
+  },
+  exchangeCode: () => Promise.resolve({ accessToken: 'provider-token' }),
+  fetchProfile: () => Promise.resolve(PROVIDER_ACCOUNT),
 };
+
+interface StartedLink {
+  state: string;
+  stateCookie: string;
+}
 
 describe('provider link start with both credentials (e2e)', () => {
   let e2e: E2eApp;
@@ -36,6 +62,101 @@ describe('provider link start with both credentials (e2e)', () => {
   beforeEach(async () => {
     e2e.clock.set(TEST_NOW);
     await e2e.reset();
+  });
+
+  async function startLink(browser: TestAgent): Promise<StartedLink> {
+    const started = await browser
+      .get('/api/auth/oauth/google/start')
+      .query({ intent: 'link' })
+      .redirects(0);
+    const cookies: unknown = started.headers['set-cookie'];
+    const stateCookie = (Array.isArray(cookies) ? cookies : [])
+      .map(String)
+      .find((cookie) => cookie.startsWith('oauth_google='));
+    if (!stateCookie) throw new Error('the start set no state cookie');
+    return { state: offeredState, stateCookie: stateCookie.split(';')[0] };
+  }
+
+  /**
+   * The provider's site sends the browser back. A browser sends no
+   * SameSite=Strict cookie with that navigation, so the session cookie is not
+   * here: only the state cookie, which is Lax.
+   */
+  function providerReturns(link: StartedLink): Promise<Response> {
+    return request(e2e.httpServer)
+      .get('/api/auth/oauth/google/callback')
+      .query({ state: link.state, code: 'provider-code' })
+      .set('Cookie', link.stateCookie)
+      .redirects(0);
+  }
+
+  function answerOf(response: Response): Record<string, string | null> {
+    const location = new URL(String(response.headers.location));
+    return {
+      status: location.searchParams.get('status'),
+      code: location.searchParams.get('code'),
+    };
+  }
+
+  async function googleLinked(browser: TestAgent): Promise<boolean> {
+    const listed = await browser.get('/api/user/linked-providers').expect(200);
+    const { providers } = (listed.body as { data: { providers: string[] } })
+      .data;
+    return providers.includes('google');
+  }
+
+  it('links the provider when the callback arrives without the session cookie', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const link = await startLink(browser);
+
+    const returned = await providerReturns(link);
+
+    expect({
+      answer: answerOf(returned),
+      linked: await googleLinked(browser),
+    }).toEqual({
+      answer: { status: 'ok', code: null },
+      linked: true,
+    });
+    expect(await e2e.captureMail()).toMatchObject([
+      {
+        to: SEED_USER.email,
+        subject: 'A sign-in provider was added',
+      },
+    ]);
+  });
+
+  it('refuses the callback when the session that started the link was signed out since', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const link = await startLink(browser);
+    await browser.post('/api/auth/logout').expect(200);
+
+    const returned = await providerReturns(link);
+
+    expect({
+      answer: answerOf(returned),
+      linked: await googleLinked(await loginAs(e2e.httpServer, SEED_USER)),
+    }).toEqual({
+      answer: { status: 'error', code: 'SESSION_INVALID' },
+      linked: false,
+    });
+  });
+
+  it('refuses the same callback a second time', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const link = await startLink(browser);
+    await providerReturns(link);
+
+    const replayed = await providerReturns(link);
+
+    expect({
+      answer: answerOf(replayed),
+      linked: await googleLinked(browser),
+    }).toEqual({
+      answer: { status: 'error', code: 'PROVIDER_ALREADY_LINKED' },
+      linked: true,
+    });
+    expect(await e2e.captureMail()).toHaveLength(1);
   });
 
   it('refuses a link start carrying both a cookie and a bearer token', async () => {

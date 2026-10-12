@@ -39,7 +39,7 @@ export function ErrorPageLayout({
       <main
         id="main"
         tabIndex={-1}
-        className="max-w-screen-xl m-0 sm:m-20 bg-card shadow sm:rounded-lg flex justify-center flex-1 focus-visible:outline-none"
+        className="max-w-screen-xl m-0 sm:m-20 bg-card shadow sm:rounded-lg flex justify-center flex-1 focus-visible:outline-hidden"
         data-testid="error-page-main"
       >
         {/* Start Side - Error Content */}

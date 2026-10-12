@@ -94,7 +94,10 @@ describe('TwoFactorService and TwoFactorLoginService logging with real repositor
     const log = captureLogs();
     await fixture.module
       .get(TwoFactorService)
-      .regenerateRecoveryCodes(LOGGING_USER_ID, { code: '123456' });
+      .regenerateRecoveryCodes(LOGGING_USER_ID, {
+        code: '123456',
+        password: LOGGING_PASSWORD,
+      });
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });

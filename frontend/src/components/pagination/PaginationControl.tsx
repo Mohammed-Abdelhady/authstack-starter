@@ -32,7 +32,7 @@ export function PaginationControl({
   return (
     <nav
       role="navigation"
-      aria-label={t('page')}
+      aria-label={t('navigation')}
       className={cn('flex items-center justify-between gap-4 py-4', className)}
       data-testid="pagination-controls"
     >

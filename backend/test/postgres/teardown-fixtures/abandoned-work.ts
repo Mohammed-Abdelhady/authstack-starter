@@ -8,6 +8,44 @@ import { rerunAtOnce } from '../../utils/session/issuance-contract/issuance-cont
 export const FAILED_ON_PURPOSE = 'failed on purpose with a transaction open';
 
 /**
+ * Jest budget for a case that fails on purpose. Kept apart from every other
+ * budget in the report: a case that hangs fails by naming this number, not by
+ * the planned failure.
+ */
+export const PLANNED_FAILURE_BUDGET_MS = 2000;
+
+/** What a case left behind on the server, as the server itself reports it. */
+export interface OpenWork {
+  accounts: number;
+  /** Sessions inside a transaction that are running nothing. */
+  holding: number;
+  /** Sessions whose statement waits on a lock. */
+  waiting: number;
+}
+
+/** One account, taken by a session that never ends, and one statement waiting on it. */
+export const ABANDONED_WORK: OpenWork = { accounts: 1, holding: 1, waiting: 1 };
+
+export async function openWorkOn(
+  harness: Pick<TestConnection, 'pool'>,
+): Promise<OpenWork> {
+  const counted = await harness.pool.query<Record<keyof OpenWork, string>>(
+    `SELECT (SELECT count(*) FROM users) AS accounts,
+            count(*) FILTER (WHERE state = 'idle in transaction') AS holding,
+            count(*) FILTER (WHERE wait_event_type = 'Lock') AS waiting
+       FROM pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()`,
+  );
+  const [row] = counted.rows;
+  return {
+    accounts: Number.parseInt(row.accounts, 10),
+    holding: Number.parseInt(row.holding, 10),
+    waiting: Number.parseInt(row.waiting, 10),
+  };
+}
+
+/**
  * Leaves what a case that fails or runs out of its budget leaves: one unit of
  * work that holds an account and never ends, and a second one whose statement
  * waits on that account. Resolves once the server reports the second waiting.

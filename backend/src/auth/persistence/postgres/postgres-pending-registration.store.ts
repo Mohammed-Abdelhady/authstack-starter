@@ -1,5 +1,6 @@
-import { Kysely } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { PENDING_PURPOSE } from '../../constants/registration';
 import {
   AttemptRule,
   CODE_CLAIM,
@@ -17,12 +18,12 @@ import {
 } from '../../pending-codes/pending-registration.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
-import {
-  autocommit,
-  removedRows,
-  storedAddress,
-} from './postgres-pending-codes-database';
+import { autocommit, storedAddress } from './postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import {
+  clearPostgresGuesses,
+  reservePostgresGuess,
+} from './postgres-code-guesses';
 
 const CONSTRAINTS = {
   pending_registration_email_purpose_unique:
@@ -77,14 +78,23 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
     now: Date,
   ): Promise<CodeRotation> {
     return autocommit(NONE, async () => {
-      const rotated = await this.database
+      let update = this.database
         .updateTable('pending_registrations')
         .set(generationColumns(generation))
         .where('email', '=', storedAddress(key.email))
         .where('purpose', '=', key.purpose)
-        .where('expires_at', expiry, now)
-        .returning('id')
-        .executeTakeFirst();
+        .where('expires_at', expiry, now);
+      if (
+        key.purpose === PENDING_PURPOSE.EMAIL_CHANGE &&
+        generation.userId !== undefined &&
+        generation.addressGeneration !== undefined
+      ) {
+        const userId = toUuid(generation.userId);
+        update = update.where(
+          sql<boolean>`(user_id IS DISTINCT FROM ${userId} OR address_generation <= ${generation.addressGeneration})`,
+        );
+      }
+      const rotated = await update.returning('id').executeTakeFirst();
       return rotated ? CODE_ROTATION.ROTATED : CODE_ROTATION.NO_MATCHING_RECORD;
     });
   }
@@ -168,6 +178,15 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
       if (!row) {
         return null;
       }
+      const counted = await reservePostgresGuess(
+        this.database,
+        key,
+        rule.now,
+        rule.guesses,
+      );
+      if (!counted) {
+        return null;
+      }
       return {
         id: row.id,
         email: row.email,
@@ -182,25 +201,22 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
     unitOfWork: UnitOfWork,
     claim: RegistrationCodeClaim,
   ): Promise<CodeClaim> {
-    const claimed = await postgresTransactionOf(unitOfWork)
+    const transaction = postgresTransactionOf(unitOfWork);
+    const claimed = await transaction
       .deleteFrom('pending_registrations')
       .where('id', '=', toUuid(claim.id))
       .where('purpose', '=', claim.purpose)
       .where('hashed_code', '=', claim.hashedCode)
       .where('expires_at', '>', claim.now)
-      .returning('id')
+      .returning('email')
       .executeTakeFirst();
-    return claimed ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
-  }
-
-  deleteExpiredBefore(cutoff: Date): Promise<number> {
-    return autocommit(NONE, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('pending_registrations')
-          .where('expires_at', '<=', cutoff)
-          .executeTakeFirstOrThrow(),
-      ),
-    );
+    if (!claimed) {
+      return CODE_CLAIM.NOT_CLAIMABLE;
+    }
+    await clearPostgresGuesses(transaction, {
+      email: claimed.email,
+      purpose: claim.purpose,
+    });
+    return CODE_CLAIM.CLAIMED;
   }
 }

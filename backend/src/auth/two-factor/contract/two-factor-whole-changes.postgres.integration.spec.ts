@@ -12,7 +12,6 @@ import {
   RECOVERY_HASH,
   rejectionOf,
   StoredSecondFactorFacts,
-  TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS,
   TwoFactorContractHarness,
 } from './two-factor-contract.harness-spec';
 
@@ -57,32 +56,24 @@ describe('second factor changes on PostgreSQL are whole', () => {
     account = read;
   }, POSTGRES_RESET_TIMEOUT_MS);
 
-  it(
-    'leaves the factor off and the old codes in place when a confirmation is refused part way',
-    async () => {
-      const refused = await rejectionOf(
-        harness.accounts.saveConfirmation(account, {
-          recoveryCodeHashes: TWICE,
-          confirmedAt: NOW,
-        }),
-      );
+  it('leaves the factor off and the old codes in place when a confirmation is refused part way', async () => {
+    const refused = await rejectionOf(
+      harness.accounts.saveConfirmation(account, {
+        recoveryCodeHashes: TWICE,
+        confirmedAt: NOW,
+      }),
+    );
 
-      expect(refused).toBeInstanceOf(UniqueConflictError);
-      expect(await harness.secondFactor(account.id)).toEqual(PENDING);
-    },
-    TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect(refused).toBeInstanceOf(UniqueConflictError);
+    expect(await harness.secondFactor(account.id)).toEqual(PENDING);
+  });
 
-  it(
-    'keeps the old recovery codes when their replacement is refused part way',
-    async () => {
-      const refused = await rejectionOf(
-        harness.accounts.replaceRecoveryCodes(account, TWICE),
-      );
+  it('keeps the old recovery codes when their replacement is refused part way', async () => {
+    const refused = await rejectionOf(
+      harness.accounts.replaceRecoveryCodes(account, TWICE),
+    );
 
-      expect(refused).toBeInstanceOf(UniqueConflictError);
-      expect(await harness.secondFactor(account.id)).toEqual(PENDING);
-    },
-    TWO_FACTOR_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect(refused).toBeInstanceOf(UniqueConflictError);
+    expect(await harness.secondFactor(account.id)).toEqual(PENDING);
+  });
 });

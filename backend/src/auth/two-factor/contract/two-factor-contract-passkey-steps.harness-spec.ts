@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
 import { RolePermissions } from '../../../role/stores/role-permissions';
 import { PasskeyCredentialDto } from '../../passkeys/dto/passkey-credential.dto';
@@ -24,7 +25,6 @@ import {
   refusalOf,
   seedEnabled,
   TOTP_SECRET,
-  twoFactorCase,
   TwoFactorFixture,
   TwoFactorHarnessSource,
   TwoFactorServices,
@@ -174,104 +174,108 @@ export function passkeyStepCases(
   harness: TwoFactorHarnessSource,
   fixture: () => TwoFactorFixture,
 ): void {
-  twoFactorCase(
-    'refuses a key touched without user verification as the second step after one, whichever key it is',
-    async () => {
-      const { ownerId } = fixture();
-      const steps = stepsFor(harness, ownerId);
-      await seedEnabled(harness(), steps.services.crypto, ownerId);
-      const holder = browser();
+  it('refuses a key touched without user verification as the second step after one, whichever key it is', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const holder = browser();
 
-      expect(await steps.passkeyFirst(holder, KEY, false)).toEqual(HELD);
-      expect(await refusalOf(steps.passkeySecond(holder, KEY, false))).toEqual(
-        VERIFICATION_FAILED,
-      );
-      expect(
-        await refusalOf(steps.passkeySecond(holder, OTHER_KEY, false)),
-      ).toEqual(VERIFICATION_FAILED);
+    expect(await steps.passkeyFirst(holder, KEY, false)).toEqual(HELD);
+    expect(await refusalOf(steps.passkeySecond(holder, KEY, false))).toEqual(
+      VERIFICATION_FAILED,
+    );
+    expect(
+      await refusalOf(steps.passkeySecond(holder, OTHER_KEY, false)),
+    ).toEqual(VERIFICATION_FAILED);
 
-      expect(steps.services.signIn.accountIds).toEqual([]);
-      expect(steps.issuedAtOnce).toEqual([]);
-      expect(await harness().storedChallenges()).toMatchObject([
-        { userId: ownerId, attempts: 2, claimed: false },
-      ]);
-    },
-  );
+    expect(steps.services.signIn.accountIds).toEqual([]);
+    expect(steps.issuedAtOnce).toEqual([]);
+    expect(await harness().storedChallenges()).toMatchObject([
+      { userId: ownerId, attempts: 2, claimed: false },
+    ]);
+  });
 
-  twoFactorCase(
-    'signs in once when the same key answers again with user verification',
-    async () => {
-      const { ownerId } = fixture();
-      const steps = stepsFor(harness, ownerId);
-      await seedEnabled(harness(), steps.services.crypto, ownerId);
-      const holder = browser();
-      await steps.passkeyFirst(holder, KEY, false);
-      const copy = browser(holder.cookies);
+  it('signs in once when the same key answers again with user verification', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const holder = browser();
+    await steps.passkeyFirst(holder, KEY, false);
+    const copy = browser(holder.cookies);
 
-      await steps.passkeySecond(holder, KEY, true);
+    await steps.passkeySecond(holder, KEY, true);
 
-      expect(steps.services.signIn.accountIds).toEqual([ownerId]);
-      expect(await harness().storedChallenges()).toEqual([]);
-      expect(await refusalOf(steps.passkeySecond(copy, KEY, true))).toEqual(
-        CHALLENGE_INVALID,
-      );
-      expect(steps.services.signIn.accountIds).toEqual([ownerId]);
-    },
-  );
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+    expect(await harness().storedChallenges()).toEqual([]);
+    expect(await refusalOf(steps.passkeySecond(copy, KEY, true))).toEqual(
+      CHALLENGE_INVALID,
+    );
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+  });
 
-  twoFactorCase(
-    'takes a code from the app as the second step after a passkey',
-    async () => {
-      const { ownerId } = fixture();
-      const steps = stepsFor(harness, ownerId);
-      await seedEnabled(harness(), steps.services.crypto, ownerId);
-      const holder = browser();
-      await steps.passkeyFirst(holder, KEY, false);
+  it('takes a code from the app as the second step after a passkey', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const holder = browser();
+    await steps.passkeyFirst(holder, KEY, false);
 
-      await steps.services.login.verify(
-        { code: codeAt(harness().clock, TOTP_SECRET) },
-        holder.request,
-        holder.response,
-      );
+    await steps.services.login.verify(
+      { code: codeAt(harness().clock, TOTP_SECRET) },
+      holder.request,
+      holder.response,
+    );
 
-      expect(steps.services.signIn.accountIds).toEqual([ownerId]);
-    },
-  );
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+  });
 
-  twoFactorCase(
-    'still takes a key touched without user verification as the second step after a password',
-    async () => {
-      const { ownerId } = fixture();
-      const steps = stepsFor(harness, ownerId);
-      await seedEnabled(harness(), steps.services.crypto, ownerId);
-      const holder = browser();
+  it('still takes a key touched without user verification as the second step after a password', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const holder = browser();
 
-      expect(await steps.passwordFirst(holder)).toEqual({
-        requiresTwoFactor: true,
-      });
-      await steps.passkeySecond(holder, KEY, false);
+    expect(await steps.passwordFirst(holder)).toEqual({
+      requiresTwoFactor: true,
+    });
+    await steps.passkeySecond(holder, KEY, false);
 
-      expect(steps.services.signIn.accountIds).toEqual([ownerId]);
-      expect(await harness().storedChallenges()).toEqual([]);
-    },
-  );
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+    expect(await harness().storedChallenges()).toEqual([]);
+  });
 
-  twoFactorCase(
-    'holds nothing for a passkey that verified its user at the first step',
-    async () => {
-      const { ownerId } = fixture();
-      const steps = stepsFor(harness, ownerId);
-      await seedEnabled(harness(), steps.services.crypto, ownerId);
-      const holder = browser();
+  it('holds nothing for a passkey that verified its user at the first step', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const holder = browser();
 
-      expect(await steps.passkeyFirst(holder, KEY, true)).toMatchObject({
-        requiresTwoFactor: false,
-        user: { id: ownerId },
-      });
+    expect(await steps.passkeyFirst(holder, KEY, true)).toMatchObject({
+      requiresTwoFactor: false,
+      user: { id: ownerId },
+    });
 
-      expect(steps.issuedAtOnce).toEqual([ownerId]);
-      expect(holder.cookies[CHALLENGE_COOKIE]).toBeUndefined();
-      expect(await harness().storedChallenges()).toEqual([]);
-    },
-  );
+    expect(steps.issuedAtOnce).toEqual([ownerId]);
+    expect(holder.cookies[CHALLENGE_COOKIE]).toBeUndefined();
+    expect(await harness().storedChallenges()).toEqual([]);
+  });
+
+  it('takes a passkey as the second step while the codes of the account are locked, and leaves the lock as it is', async () => {
+    const { ownerId } = fixture();
+    const steps = stepsFor(harness, ownerId);
+    await seedEnabled(harness(), steps.services.crypto, ownerId);
+    const locked = {
+      failedAttempts: 5,
+      lockedUntil: new Date(TEST_NOW.getTime() + 60_000),
+    };
+    await harness().seedFailures(ownerId, locked);
+    const holder = browser();
+    await steps.passwordFirst(holder);
+
+    await steps.passkeySecond(holder, KEY, false);
+
+    // A key cannot be guessed, so the lock on codes does not close it.
+    expect(steps.services.signIn.accountIds).toEqual([ownerId]);
+    expect(await harness().failures(ownerId)).toEqual(locked);
+  });
 }

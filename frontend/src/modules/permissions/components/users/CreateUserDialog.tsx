@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -13,22 +13,24 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FieldError, PasswordVisibilityToggle, SubmitButton } from '@/components/forms';
+import {
+  FieldError,
+  FormRootError,
+  PasswordVisibilityToggle,
+  SubmitButton,
+} from '@/components/forms';
 import { useCreateUserMutation } from '@/store/api/userApi';
 import { DEFAULT_ROLE_SLUG } from '@/modules/roles/constants';
 import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
 import { CreateUserRoleField } from './CreateUserRoleField';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -67,15 +69,12 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [role, setRole] = useState(DEFAULT_ROLE_SLUG);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
 
   const [createUser, { isLoading }] = useCreateUserMutation();
-  const refusalToast = useRefusalToast(open);
   const allRoles = useAllRoles();
 
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const validateForm = (): boolean => {
     const newErrors = validateCreateUserForm(
@@ -84,33 +83,41 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       tPassword,
     );
     setErrors(newErrors);
+    const firstInvalid = (['email', 'name', 'password', 'role'] as const).find((field) =>
+      Boolean(newErrors[field]),
+    );
+    if (firstInvalid) document.getElementById(fieldId(firstInvalid))?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || submissionInFlight.current) return;
 
     if (!validateForm()) {
       return;
     }
 
-    refusalToast.clearStale();
+    submissionInFlight.current = true;
+    refusal.clear();
     try {
-      await createUser({
-        email: email.trim(),
-        name: name.trim(),
-        password,
-        role,
-      }).unwrap();
+      await showsOwnRefusal(
+        createUser({
+          email: email.trim(),
+          name: name.trim(),
+          password,
+          role,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       handleClose();
       onSuccess?.();
     } catch (error) {
-      refusalToast.noteRefusal();
-      // A dialog that was closed in the meantime has no fields left to mark.
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
@@ -121,11 +128,16 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     setRole(DEFAULT_ROLE_SLUG);
     setShowPassword(false);
     setErrors({});
+    refusal.clear();
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}>
+    <Dialog
+      open={open}
+      busy={isLoading}
+      onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}
+    >
       <DialogContent className="sm:max-w-[500px]" data-testid="create-user-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
@@ -133,11 +145,12 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
         </DialogHeader>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <FormRootError error={refusal.alert} className="mb-0" testId="create-user-error" />
           {/* Email Field */}
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('email')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('email')}
             </Label>
@@ -152,6 +165,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
               }}
               busy={isLoading}
+              required
               aria-invalid={Boolean(errors.email)}
               aria-describedby={errors.email ? errorId('email') : undefined}
               className={errors.email ? 'border-destructive' : ''}
@@ -164,7 +178,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('name')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('name')}
             </Label>
@@ -178,6 +192,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
               }}
               busy={isLoading}
+              required
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? errorId('name') : undefined}
               className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
@@ -190,13 +205,14 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('password')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('password')}
             </Label>
             <div className="relative">
               <Input
                 id={fieldId('password')}
+                dir="ltr"
                 type={showPassword ? 'text' : 'password'}
                 placeholder={tCommon('passwordPlaceholder')}
                 value={password}
@@ -205,9 +221,11 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                   if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                 }}
                 busy={isLoading}
+                required
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? errorId('password') : undefined}
                 className={errors.password ? 'border-destructive pe-10' : 'pe-10'}
+                autoComplete="new-password"
                 data-testid="create-user-password-input"
               />
               <PasswordVisibilityToggle
@@ -227,7 +245,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('role')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('role')}
             </Label>
@@ -259,7 +277,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
               isLoading={isLoading}
               disabled={allRoles.isError}
               loadingText={t('creating')}
-              className="h-10 mt-0 w-auto py-2"
+              className="h-10 mt-0 w-auto py-2 rtl:tracking-normal"
               testId="submit-create-user-button"
             >
               {t('submit')}

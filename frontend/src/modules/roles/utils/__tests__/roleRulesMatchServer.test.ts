@@ -30,4 +30,25 @@ describe('the role rule the forms share and the one the server applies', () => {
   it('holds a role description to the same length', () => {
     expect(descriptionRule.includes(`@MaxLength(${ROLE_DESCRIPTION_MAX_LENGTH})`)).toBe(true);
   });
+
+  it('makes the code of a role from its name by the same steps', () => {
+    const read = (path: string) =>
+      readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8');
+    /** The chain of string steps a function returns, with its line breaks taken out. */
+    const steps = (source: string, name: string) => {
+      const body = source.slice(source.indexOf(`export function ${name}(`));
+      return body.slice(body.indexOf('return name'), body.indexOf(';')).replace(/\s+/g, '');
+    };
+
+    const server = steps(
+      read('../../../../../../backend/src/role/utils/role.util.ts'),
+      'generateSlug',
+    );
+    const shared = steps(read('../../../../../../shared/core/src/role-rules.ts'), 'roleSlug');
+
+    expect(server).toBe(
+      String.raw`returnname.toLowerCase().trim().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-')`,
+    );
+    expect(shared).toBe(server);
+  });
 });

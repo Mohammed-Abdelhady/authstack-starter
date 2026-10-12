@@ -8,6 +8,7 @@ import { UniqueConflictError } from '../../../common/persistence/persistence-err
 import { generateVerificationCode } from '../../utils/verification-code.util';
 import { INVALID_PASSWORD_RESET_CODE_MESSAGE } from '../../constants/auth-messages';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
+import { CODE_GUESS_RULE } from '../../constants/registration';
 import { currentRequestId } from '../../../common/context/request-context';
 import { IdSource } from '../../interfaces/pending-code.interface';
 import { PasswordResetCodeStore } from '../../pending-codes/password-reset-code.store';
@@ -107,6 +108,7 @@ export class PasswordResetCodeService {
     const reserved = await this.store.reserveAttempt(email, {
       now: this.clock.now(),
       maxAttempts: this.maxAttempts,
+      guesses: CODE_GUESS_RULE,
     });
 
     if (!reserved) {

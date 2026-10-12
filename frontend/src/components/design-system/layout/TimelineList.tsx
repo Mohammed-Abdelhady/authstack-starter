@@ -8,6 +8,12 @@ export interface TimelineListProps<T> extends Omit<HTMLAttributes<HTMLDivElement
   items: T[];
 
   /**
+   * What identifies an item. An item keeps its own state, an open dialog
+   * included, when the list is re-ordered or loses a neighbour.
+   */
+  itemKey: (item: T) => string | number;
+
+  /**
    * Render function for each item
    */
   renderItem: (item: T, index: number) => ReactNode;
@@ -40,6 +46,7 @@ export interface TimelineListProps<T> extends Omit<HTMLAttributes<HTMLDivElement
  *   renderItem={(session, index) => (
  *     <SessionCardTimeline session={session} isCurrent={session.isCurrent} />
  *   )}
+ *   itemKey={(session) => session.id}
  *   highlightIndex={sessions.findIndex(s => s.isCurrent)}
  *   stagger
  * />
@@ -49,6 +56,7 @@ export const TimelineList = forwardRef(
   <T,>(
     {
       items,
+      itemKey,
       renderItem,
       highlightIndex,
       stagger = false,
@@ -60,6 +68,7 @@ export const TimelineList = forwardRef(
     return (
       <div
         ref={ref}
+        role="list"
         data-testid="timeline-list"
         className={cn('flex flex-col space-y-4', className)}
         {...props}
@@ -69,7 +78,8 @@ export const TimelineList = forwardRef(
 
           return (
             <div
-              key={index}
+              role="listitem"
+              key={itemKey(item)}
               data-testid={`timeline-item-${index}`}
               data-highlighted={isHighlighted ? 'true' : undefined}
               className={cn(

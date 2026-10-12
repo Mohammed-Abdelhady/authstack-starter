@@ -4,8 +4,9 @@ import { AppProviders } from './AppProviders';
 
 describe('AppProviders on the server', () => {
   it('sends the theme script with the page while the store gate still holds the page back', () => {
+    const nonce = 'request-nonce-123';
     const html = renderToString(
-      <AppProviders loadingLabel="Loading the page">
+      <AppProviders loadingLabel="Loading the page" nonce={nonce}>
         <main>page content</main>
       </AppProviders>,
     );
@@ -15,5 +16,6 @@ describe('AppProviders on the server', () => {
     expect(html).not.toContain('page content');
     expect(html.match(/<script/g)).toHaveLength(1);
     expect(html).toContain('prefers-color-scheme');
+    expect(html).toContain(`nonce="${nonce}"`);
   });
 });

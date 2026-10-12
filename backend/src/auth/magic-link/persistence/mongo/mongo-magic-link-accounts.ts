@@ -66,6 +66,13 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
     return user ? new MongoMagicLinkAccount(user) : null;
   }
 
+  async hasDeletedAccount(email: string): Promise<boolean> {
+    const deleted = await singleStatement(() =>
+      this.userModel.exists({ email: { $eq: email }, isDeleted: true }),
+    );
+    return deleted !== null;
+  }
+
   async markVerified(account: MagicLinkAccount): Promise<void> {
     const user = documentOf(account);
     user.isVerified = true;

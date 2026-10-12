@@ -40,6 +40,7 @@ test('every job has a time limit and runs the gate group written here', () => {
       ['installer', ['--installer']],
       ['installer-postgres', ['--installer-postgres']],
       ['installer-mongodb', ['--installer-mongodb']],
+      ['browser', ['--browser']],
     ],
   );
   assert.deepEqual(

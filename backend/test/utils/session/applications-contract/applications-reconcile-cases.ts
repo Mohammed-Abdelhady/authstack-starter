@@ -1,7 +1,6 @@
 import type { NativeApplicationConfiguration } from '../../../../src/config/types/native-application.type';
 import { failAfter } from '../authority-contract/authority-contract-support';
 import { rejectionOf } from '../issuance-contract/issuance-contract-support';
-import { APPLICATIONS_CONTRACT_CASE_TIMEOUT_MS } from './applications-contract-harness';
 import {
   ApplicationsHarnessSource,
   MOBILE,
@@ -23,7 +22,6 @@ const SECOND_MOBILE: NativeApplicationConfiguration = {
 };
 
 export function reconciliationCases(harness: ApplicationsHarnessSource): void {
-  const budget = APPLICATIONS_CONTRACT_CASE_TIMEOUT_MS;
   let restores: Array<() => void> = [];
 
   afterEach(() => {
@@ -31,42 +29,34 @@ export function reconciliationCases(harness: ApplicationsHarnessSource): void {
     restores = [];
   });
 
-  it(
-    'creates a listed application, enabled and at version 0',
-    async () => {
-      await reconcile(harness(), [MOBILE]);
+  it('creates a listed application, enabled and at version 0', async () => {
+    await reconcile(harness(), [MOBILE]);
 
-      expect(await storedApplication(harness(), 'configured-mobile')).toEqual(
-        MOBILE_STORED,
-      );
-    },
-    budget,
-  );
+    expect(await storedApplication(harness(), 'configured-mobile')).toEqual(
+      MOBILE_STORED,
+    );
+  });
 
-  it(
-    'updates the name, scopes and redirect addresses of a stored application',
-    async () => {
-      await reconcile(harness(), [MOBILE]);
+  it('updates the name, scopes and redirect addresses of a stored application', async () => {
+    await reconcile(harness(), [MOBILE]);
 
-      await reconcile(harness(), [
-        {
-          clientId: 'configured-mobile',
-          displayName: 'Updated Mobile',
-          redirectUris: ['example-native://new-callback'],
-          allowedScopes: ['api', 'profile:read'],
-        },
-      ]);
-
-      expect(await storedApplication(harness(), 'configured-mobile')).toEqual({
-        ...MOBILE_STORED,
+    await reconcile(harness(), [
+      {
+        clientId: 'configured-mobile',
         displayName: 'Updated Mobile',
         redirectUris: ['example-native://new-callback'],
         allowedScopes: ['api', 'profile:read'],
-        sessionVersion: 1,
-      });
-    },
-    budget,
-  );
+      },
+    ]);
+
+    expect(await storedApplication(harness(), 'configured-mobile')).toEqual({
+      ...MOBILE_STORED,
+      displayName: 'Updated Mobile',
+      redirectUris: ['example-native://new-callback'],
+      allowedScopes: ['api', 'profile:read'],
+      sessionVersion: 1,
+    });
+  });
 
   it.each([
     {
@@ -116,133 +106,112 @@ export function reconciliationCases(harness: ApplicationsHarnessSource): void {
         },
       ]);
     },
-    budget,
   );
 
-  it(
-    'enables a listed application that was switched off, and advances its version',
-    async () => {
-      await harness().seedStoredApplication(
-        nativeApplication({ enabled: false, sessionVersion: 4 }),
+  it('enables a listed application that was switched off, and advances its version', async () => {
+    await harness().seedStoredApplication(
+      nativeApplication({ enabled: false, sessionVersion: 4 }),
+    );
+
+    await reconcile(harness(), [MOBILE]);
+
+    expect(await storedNatives(harness())).toEqual([
+      {
+        clientId: 'configured-mobile',
+        environment: 'test',
+        enabled: true,
+        sessionVersion: 5,
+      },
+    ]);
+  });
+
+  it('switches off the native applications that are no longer listed, and nothing else', async () => {
+    await harness().seedStoredApplication(
+      nativeApplication({ clientId: 'manual-mobile', sessionVersion: 2 }),
+    );
+    await harness().seedStoredApplication(
+      nativeApplication({
+        clientId: 'manual-mobile',
+        environment: OTHER_ENVIRONMENT,
+        sessionVersion: 2,
+      }),
+    );
+
+    await reconcile(harness(), [MOBILE]);
+    const once = await harness().storedApplications();
+    await reconcile(harness(), [MOBILE]);
+
+    const summary = (applications: typeof once) =>
+      applications.map(
+        ({ clientId, environment, enabled, sessionVersion }) =>
+          `${environment}/${clientId} ${enabled ? 'on' : 'off'} v${sessionVersion}`,
       );
+    const expected = [
+      'staging/manual-mobile on v2',
+      'test/admin on v0',
+      'test/configured-mobile on v0',
+      'test/manual-mobile off v3',
+      'test/web on v0',
+    ];
+    expect({
+      once: summary(once),
+      twice: summary(await harness().storedApplications()),
+    }).toEqual({ once: expected, twice: expected });
+  });
 
-      await reconcile(harness(), [MOBILE]);
+  it('writes nothing when native sign-in is off', async () => {
+    await harness().seedStoredApplication(
+      nativeApplication({ clientId: 'manual-mobile', sessionVersion: 2 }),
+    );
 
-      expect(await storedNatives(harness())).toEqual([
-        {
-          clientId: 'configured-mobile',
-          environment: 'test',
-          enabled: true,
-          sessionVersion: 5,
-        },
-      ]);
-    },
-    budget,
-  );
+    await registryOn(harness(), {
+      nativeEnabled: false,
+      nativeApplications: [MOBILE],
+    }).reconcileNativeApplications();
 
-  it(
-    'switches off the native applications that are no longer listed, and nothing else',
-    async () => {
-      await harness().seedStoredApplication(
-        nativeApplication({ clientId: 'manual-mobile', sessionVersion: 2 }),
-      );
-      await harness().seedStoredApplication(
-        nativeApplication({
-          clientId: 'manual-mobile',
-          environment: OTHER_ENVIRONMENT,
-          sessionVersion: 2,
+    expect(await storedNatives(harness())).toEqual([
+      {
+        clientId: 'manual-mobile',
+        environment: 'test',
+        enabled: true,
+        sessionVersion: 2,
+      },
+    ]);
+  });
+
+  it('does nothing for an empty list when no native application is stored', async () => {
+    await reconcile(harness(), []);
+
+    expect(
+      (await harness().storedApplications()).map(
+        ({ clientId, enabled, sessionVersion }) => ({
+          clientId,
+          enabled,
+          sessionVersion,
         }),
-      );
+      ),
+    ).toEqual([
+      { clientId: 'admin', enabled: true, sessionVersion: 0 },
+      { clientId: 'web', enabled: true, sessionVersion: 0 },
+    ]);
+  });
 
-      await reconcile(harness(), [MOBILE]);
-      const once = await harness().storedApplications();
-      await reconcile(harness(), [MOBILE]);
+  it('refuses a listed client id that belongs to another kind of application, and stores nothing of that start', async () => {
+    const failure = await rejectionOf(
+      reconcile(harness(), [MOBILE, { ...SECOND_MOBILE, clientId: 'web' }]),
+    );
 
-      const summary = (applications: typeof once) =>
-        applications.map(
-          ({ clientId, environment, enabled, sessionVersion }) =>
-            `${environment}/${clientId} ${enabled ? 'on' : 'off'} v${sessionVersion}`,
-        );
-      const expected = [
-        'staging/manual-mobile on v2',
-        'test/admin on v0',
-        'test/configured-mobile on v0',
-        'test/manual-mobile off v3',
-        'test/web on v0',
-      ];
-      expect({
-        once: summary(once),
-        twice: summary(await harness().storedApplications()),
-      }).toEqual({ once: expected, twice: expected });
-    },
-    budget,
-  );
-
-  it(
-    'writes nothing when native sign-in is off',
-    async () => {
-      await harness().seedStoredApplication(
-        nativeApplication({ clientId: 'manual-mobile', sessionVersion: 2 }),
-      );
-
-      await registryOn(harness(), {
-        nativeEnabled: false,
-        nativeApplications: [MOBILE],
-      }).reconcileNativeApplications();
-
-      expect(await storedNatives(harness())).toEqual([
-        {
-          clientId: 'manual-mobile',
-          environment: 'test',
-          enabled: true,
-          sessionVersion: 2,
-        },
-      ]);
-    },
-    budget,
-  );
-
-  it(
-    'does nothing for an empty list when no native application is stored',
-    async () => {
-      await reconcile(harness(), []);
-
-      expect(
-        (await harness().storedApplications()).map(
-          ({ clientId, enabled, sessionVersion }) => ({
-            clientId,
-            enabled,
-            sessionVersion,
-          }),
-        ),
-      ).toEqual([
-        { clientId: 'admin', enabled: true, sessionVersion: 0 },
-        { clientId: 'web', enabled: true, sessionVersion: 0 },
-      ]);
-    },
-    budget,
-  );
-
-  it(
-    'refuses a listed client id that belongs to another kind of application, and stores nothing of that start',
-    async () => {
-      const failure = await rejectionOf(
-        reconcile(harness(), [MOBILE, { ...SECOND_MOBILE, clientId: 'web' }]),
-      );
-
-      expect({
-        message: failure instanceof Error ? failure.message : failure,
-        natives: await storedNatives(harness()),
-        web: (await storedApplication(harness(), 'web'))?.platform,
-      }).toEqual({
-        message:
-          'AUTH_NATIVE_APPLICATIONS entry "web": client id belongs to an application of another kind.',
-        natives: [],
-        web: 'web',
-      });
-    },
-    budget,
-  );
+    expect({
+      message: failure instanceof Error ? failure.message : failure,
+      natives: await storedNatives(harness()),
+      web: (await storedApplication(harness(), 'web'))?.platform,
+    }).toEqual({
+      message:
+        'AUTH_NATIVE_APPLICATIONS entry "web": client id belongs to an application of another kind.',
+      natives: [],
+      web: 'web',
+    });
+  });
 
   it.each([
     {
@@ -309,6 +278,5 @@ export function reconciliationCases(harness: ApplicationsHarnessSource): void {
         ],
       });
     },
-    budget,
   );
 }

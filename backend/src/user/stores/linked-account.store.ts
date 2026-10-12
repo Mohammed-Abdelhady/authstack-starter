@@ -3,10 +3,10 @@ import { StoredAccount } from './stored-account';
 
 /**
  * The sign-in methods of an account. The read does not ask for the
- * deactivation, so `isDeleted` is false for every stored account.
+ * deactivation: a caller that must refuse a deactivated account reads the
+ * account.
  */
 export interface LinkedProviders {
-  isDeleted: boolean;
   linkedProviders: string[];
 }
 

@@ -7,7 +7,6 @@ import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-s
 import { rejectionOf } from '../../session/issuance-contract/issuance-contract-support';
 import { StoredAccountEvent } from './accounts-contract-harness';
 import {
-  accountCase,
   AccountsFixture,
   AccountsHarnessSource,
   DEFAULT_SLUG,
@@ -33,61 +32,55 @@ export function accountSeamCases(
       SIGN_OUT_ACTIONS.includes(event.action),
     );
 
-  accountCase(
-    'hands ids out and takes them back as the same strings',
-    async () => {
-      const { userId, managerId } = fixture();
-      const stores = harness();
+  it('hands ids out and takes them back as the same strings', async () => {
+    const { userId, managerId } = fixture();
+    const stores = harness();
 
-      const committed = await stores.admin.findAccount(userId);
-      const taken = await inWork((work) =>
-        stores.admin.takeAccountForChange(work, userId),
-      );
-      const own = await inWork((work) =>
-        stores.profiles.readAccount(work, userId),
-      );
-      const listed = await stores.admin.listAccounts({
-        viewableRoles: [DEFAULT_SLUG, 'manager'],
-        page: 1,
-        limit: 10,
-        sortBy: 'createdAt',
-        sortOrder: 'asc',
-      });
+    const committed = await stores.admin.findAccount(userId);
+    const taken = await inWork((work) =>
+      stores.admin.takeAccountForChange(work, userId),
+    );
+    const own = await inWork((work) =>
+      stores.profiles.readAccount(work, userId),
+    );
+    const listed = await stores.admin.listAccounts({
+      viewableRoles: [DEFAULT_SLUG, 'manager'],
+      page: 1,
+      limit: 10,
+      sortBy: 'createdAt',
+      sortOrder: 'asc',
+    });
 
-      expect([committed?.id, taken?.id, own?.id]).toEqual([
-        userId,
-        userId,
-        userId,
-      ]);
-      expect(listed.accounts.map((account) => account.id)).toEqual([
-        managerId,
-        userId,
-      ]);
-      expect((await stores.permissions.findGrants(userId))?.id).toBe(userId);
-      expect((await stores.profiles.findPassword(userId))?.id).toBe(userId);
-    },
-  );
+    expect([committed?.id, taken?.id, own?.id]).toEqual([
+      userId,
+      userId,
+      userId,
+    ]);
+    expect(listed.accounts.map((account) => account.id)).toEqual([
+      managerId,
+      userId,
+    ]);
+    expect((await stores.permissions.findGrants(userId))?.id).toBe(userId);
+    expect((await stores.profiles.findPassword(userId))?.id).toBe(userId);
+  });
 
-  accountCase(
-    'answers null for a well-formed id that names nothing',
-    async () => {
-      const stores = harness();
-      const absent = stores.absentId();
+  it('answers null for a well-formed id that names nothing', async () => {
+    const stores = harness();
+    const absent = stores.absentId();
 
-      expect(await stores.admin.findAccount(absent)).toBeNull();
-      expect(await stores.profiles.findProfile(absent)).toBeNull();
-      expect(await stores.permissions.findGrants(absent)).toBeNull();
-      expect(
-        await inWork((work) => stores.admin.takeAccountForChange(work, absent)),
-      ).toBeNull();
-      expect(
-        await inWork((work) => stores.sessions.revokeAll(work, absent)),
-      ).toBe(0);
-      expect(await stores.activation.isStored(absent)).toBe(false);
-    },
-  );
+    expect(await stores.admin.findAccount(absent)).toBeNull();
+    expect(await stores.profiles.findProfile(absent)).toBeNull();
+    expect(await stores.permissions.findGrants(absent)).toBeNull();
+    expect(
+      await inWork((work) => stores.admin.takeAccountForChange(work, absent)),
+    ).toBeNull();
+    expect(
+      await inWork((work) => stores.sessions.revokeAll(work, absent)),
+    ).toBe(0);
+    expect(await stores.activation.isStored(absent)).toBe(false);
+  });
 
-  accountCase('refuses a malformed id inside a unit of work', async () => {
+  it('refuses a malformed id inside a unit of work', async () => {
     const stores = harness();
 
     for (const id of ['word', '', stores.foreignId()]) {
@@ -108,120 +101,114 @@ export function accountSeamCases(
     }
   });
 
-  accountCase(
-    'names the address rule when a second account takes an address',
-    async () => {
-      const { userId } = fixture();
-      const stores = harness();
+  it('keeps the active address unique and stores admin moves as pending', async () => {
+    const { userId } = fixture();
+    const stores = harness();
 
-      const inserted = await rejectionOf(
-        inWork((work) =>
-          stores.admin.insertAccount(work, {
-            email: 'Person@Example.Test',
-            name: 'Second',
-            passwordHash: 'hash',
-            role: DEFAULT_SLUG,
-          }),
-        ),
-      );
-      const moved = await rejectionOf(
-        inWork(async (work) => {
-          const account = await stores.admin.takeAccountForChange(work, userId);
-          if (!account) throw new Error('the account is not stored');
-          return stores.admin.saveIdentity(work, account, {
-            address: {
-              email: 'manager@example.test',
-              addressGeneration: 1,
-              isVerified: false,
-            },
-          });
+    const inserted = await rejectionOf(
+      inWork((work) =>
+        stores.admin.insertAccount(work, {
+          email: 'Person@Example.Test',
+          name: 'Second',
+          passwordHash: 'hash',
+          role: DEFAULT_SLUG,
         }),
-      );
-      const activated = await rejectionOf(
-        inWork((work) =>
-          stores.activation.insertActivated(work, {
-            id: stores.activation.newAccountId(),
-            email: 'person@example.test',
-            passwordHash: 'hash',
-            name: 'Third',
-          }),
-        ),
-      );
-
-      for (const refused of [inserted, moved, activated]) {
-        expect(refused).toBeInstanceOf(UniqueConflictError);
-        expect(refused).toMatchObject({ constraint: ADDRESS_RULE });
-      }
-      expect(await storedAccount(stores, userId)).toMatchObject({
-        email: 'person@example.test',
-        addressGeneration: 0,
+      ),
+    );
+    const moved = await inWork(async (work) => {
+      const account = await stores.admin.takeAccountForChange(work, userId);
+      if (!account) throw new Error('the account is not stored');
+      return stores.admin.saveIdentity(work, account, {
+        address: {
+          email: 'manager@example.test',
+          addressGeneration: 1,
+        },
       });
-    },
-  );
-
-  accountCase(
-    'stores an address trimmed and in lower case, and finds it by either form',
-    async () => {
-      const stores = harness();
-
-      const created = await inWork((work) =>
-        stores.admin.insertAccount(work, {
-          email: '  Mixed.Case@Example.Test ',
-          name: 'Mixed',
+    });
+    const activated = await rejectionOf(
+      inWork((work) =>
+        stores.activation.insertActivated(work, {
+          id: stores.activation.newAccountId(),
+          email: 'person@example.test',
           passwordHash: 'hash',
-          role: DEFAULT_SLUG,
+          name: 'Third',
         }),
-      );
+      ),
+    );
 
-      expect(created.email).toBe('mixed.case@example.test');
-      expect(await stores.admin.isAddressTaken('MIXED.case@example.test')).toBe(
-        true,
-      );
-      expect(
-        await stores.admin.isAddressTaken(' mixed.case@example.test '),
-      ).toBe(true);
-      expect(
-        await stores.activation.findAddressOwner('Mixed.Case@Example.Test'),
-      ).toEqual({ name: 'Mixed', isDeleted: false });
-      expect(await stores.admin.isAddressTaken('nobody@example.test')).toBe(
-        false,
-      );
-    },
-  );
+    for (const refused of [inserted, activated]) {
+      expect(refused).toBeInstanceOf(UniqueConflictError);
+      expect(refused).toMatchObject({ constraint: ADDRESS_RULE });
+    }
+    expect(moved).toMatchObject({
+      email: 'person@example.test',
+      pendingEmail: 'manager@example.test',
+      addressGeneration: 1,
+    });
+    expect(await storedAccount(stores, userId)).toMatchObject({
+      email: 'person@example.test',
+      pendingEmail: 'manager@example.test',
+      addressGeneration: 1,
+    });
+  });
 
-  accountCase(
-    'removes a created account only while it is as it was created',
-    async () => {
-      const stores = harness();
-      const created = await inWork((work) =>
-        stores.admin.insertAccount(work, {
-          email: 'created@example.test',
-          name: 'Created',
-          passwordHash: 'hash',
-          role: DEFAULT_SLUG,
-        }),
-      );
-      const mark = {
-        id: created.id,
-        role: created.role,
-        updatedAt: created.updatedAt,
-        sessionVersion: created.sessionVersion,
-      };
+  it('stores an address trimmed and in lower case, and finds it by either form', async () => {
+    const stores = harness();
 
-      await inWork((work) =>
-        stores.admin.removeCreatedAccount(work, { ...mark, sessionVersion: 1 }),
-      );
-      await inWork((work) =>
-        stores.admin.removeCreatedAccount(work, { ...mark, role: 'manager' }),
-      );
-      expect(await stores.account(created.id)).not.toBeNull();
+    const created = await inWork((work) =>
+      stores.admin.insertAccount(work, {
+        email: '  Mixed.Case@Example.Test ',
+        name: 'Mixed',
+        passwordHash: 'hash',
+        role: DEFAULT_SLUG,
+      }),
+    );
 
-      await inWork((work) => stores.admin.removeCreatedAccount(work, mark));
-      expect(await stores.account(created.id)).toBeNull();
-    },
-  );
+    expect(created.email).toBe('mixed.case@example.test');
+    expect(await stores.admin.isAddressTaken('MIXED.case@example.test')).toBe(
+      true,
+    );
+    expect(await stores.admin.isAddressTaken(' mixed.case@example.test ')).toBe(
+      true,
+    );
+    expect(
+      await stores.activation.findAddressOwner('Mixed.Case@Example.Test'),
+    ).toEqual({ name: 'Mixed', isDeleted: false });
+    expect(await stores.admin.isAddressTaken('nobody@example.test')).toBe(
+      false,
+    );
+  });
 
-  accountCase('keeps one session and reports how many it ended', async () => {
+  it('removes a created account only while it is as it was created', async () => {
+    const stores = harness();
+    const created = await inWork((work) =>
+      stores.admin.insertAccount(work, {
+        email: 'created@example.test',
+        name: 'Created',
+        passwordHash: 'hash',
+        role: DEFAULT_SLUG,
+      }),
+    );
+    const mark = {
+      id: created.id,
+      role: created.role,
+      updatedAt: created.updatedAt,
+      sessionVersion: created.sessionVersion,
+    };
+
+    await inWork((work) =>
+      stores.admin.removeCreatedAccount(work, { ...mark, sessionVersion: 1 }),
+    );
+    await inWork((work) =>
+      stores.admin.removeCreatedAccount(work, { ...mark, role: 'manager' }),
+    );
+    expect(await stores.account(created.id)).not.toBeNull();
+
+    await inWork((work) => stores.admin.removeCreatedAccount(work, mark));
+    expect(await stores.account(created.id)).toBeNull();
+  });
+
+  it('keeps one session and reports how many it ended', async () => {
     const { userId } = fixture();
     const stores = harness();
     const kept = await stores.seedSession(userId);
@@ -241,7 +228,7 @@ export function accountSeamCases(
     expect((await storedAccount(stores, userId)).sessionVersion).toBe(2);
   });
 
-  accountCase('names the kept session on the sign-out event', async () => {
+  it('names the kept session on the sign-out event', async () => {
     const { userId } = fixture();
     const stores = harness();
     const kept = await stores.seedSession(userId);
@@ -263,31 +250,28 @@ export function accountSeamCases(
     ]);
   });
 
-  accountCase(
-    'stores no sign-out event when the work fails after recording it',
-    async () => {
-      const { userId } = fixture();
-      const stores = harness();
-      const kept = await stores.seedSession(userId);
-      const failure = new Error(FAILED_AFTER_THE_EVENT);
+  it('stores no sign-out event when the work fails after recording it', async () => {
+    const { userId } = fixture();
+    const stores = harness();
+    const kept = await stores.seedSession(userId);
+    const failure = new Error(FAILED_AFTER_THE_EVENT);
 
-      const afterAll = await rejectionOf(
-        inWork(async (work) => {
-          await stores.sessions.revokeAll(work, userId);
-          throw failure;
-        }),
-      );
-      const afterOthers = await rejectionOf(
-        inWork(async (work) => {
-          await stores.sessions.revokeAllExcept(work, userId, kept);
-          throw failure;
-        }),
-      );
+    const afterAll = await rejectionOf(
+      inWork(async (work) => {
+        await stores.sessions.revokeAll(work, userId);
+        throw failure;
+      }),
+    );
+    const afterOthers = await rejectionOf(
+      inWork(async (work) => {
+        await stores.sessions.revokeAllExcept(work, userId, kept);
+        throw failure;
+      }),
+    );
 
-      expect([afterAll, afterOthers]).toEqual([failure, failure]);
-      expect(await signOutEvents()).toEqual([]);
-      expect(await stores.liveSessionIds(userId)).toEqual([kept]);
-      expect((await storedAccount(stores, userId)).sessionVersion).toBe(0);
-    },
-  );
+    expect([afterAll, afterOthers]).toEqual([failure, failure]);
+    expect(await signOutEvents()).toEqual([]);
+    expect(await stores.liveSessionIds(userId)).toEqual([kept]);
+    expect((await storedAccount(stores, userId)).sessionVersion).toBe(0);
+  });
 }

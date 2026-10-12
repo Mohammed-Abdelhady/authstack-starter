@@ -97,9 +97,11 @@ export function UpdateProfileCard() {
           >
             <FormInput<UpdateProfileFormData>
               name="name"
+              required
               label={t('name')}
               placeholder={t('namePlaceholder')}
               busy={isLoading}
+              dir="auto"
               data-testid="profile-name-input"
             />
 
@@ -111,11 +113,14 @@ export function UpdateProfileCard() {
                 id="profile-email"
                 dir="ltr"
                 value={user?.email || ''}
-                disabled
+                readOnly
+                aria-describedby="profile-email-hint"
                 className="bg-muted"
                 data-testid="profile-email-input"
               />
-              <p className="text-xs text-muted-foreground">{t('emailHint')}</p>
+              <p id="profile-email-hint" className="text-xs text-muted-foreground">
+                {t('emailHint')}
+              </p>
             </div>
 
             <SubmitButton

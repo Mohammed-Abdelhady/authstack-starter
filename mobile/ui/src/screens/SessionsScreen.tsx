@@ -9,6 +9,7 @@ import { Description, Heading } from '../components/Typography';
 import { LIST_VIEW, TEST_ID } from '../constants';
 import { useUi } from '../context/ui-context';
 import { useSessions } from '../hooks/use-sessions';
+import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
 import { SIZE, SPACE } from '../theme/tokens';
 import type { SessionRow } from '../types';
 
@@ -39,21 +40,43 @@ function SessionsSkeleton({ label }: { label: string }) {
 
 export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
   const { t, colors } = useUi();
+  const titleRef = useScreenTitleFocus();
   const sessions = useSessions();
-  const { view, current, others, problem, refreshing, refresh, revoke, revokeOthers } = sessions;
+  const {
+    view,
+    current,
+    others,
+    problem,
+    refreshing,
+    refreshPending,
+    refresh,
+    revoke,
+    revokeOthers,
+  } = sessions;
+  const { writingRow, writingOthers } = sessions;
 
   const renderRow = useCallback(
-    ({ item }: { item: SessionRow }) => <SessionCard row={item} onRevoke={revoke} />,
-    [revoke],
+    ({ item }: { item: SessionRow }) => (
+      <SessionCard row={item} onRevoke={revoke} busy={item.id === writingRow} />
+    ),
+    [revoke, writingRow],
   );
 
   const head = (
     <View style={styles.head}>
       <Button testID={TEST_ID.SESSIONS_BACK} label={t('sessions.back')} onPress={onBack} />
       <View style={styles.intro}>
-        <Heading level="screen">{t('sessions.title')}</Heading>
+        <Heading level="screen" nativeRef={titleRef}>
+          {t('sessions.title')}
+        </Heading>
         <Description>{t('sessions.description')}</Description>
       </View>
+      <Button
+        testID={TEST_ID.SESSIONS_REFRESH}
+        label={t('sessions.refresh')}
+        busy={refreshPending}
+        onPress={refresh}
+      />
       {problem === undefined ? null : (
         <Notice
           testID={TEST_ID.SESSIONS_NOTICE}
@@ -70,13 +93,12 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
             title={t('sessions.error.title')}
             description={sessions.failureText}
           />
-          <Button testID={TEST_ID.SESSIONS_RETRY} label={t('common.tryAgain')} onPress={refresh} />
         </View>
       ) : null}
       {current === undefined ? null : (
         <View style={styles.group}>
           <Heading level="section">{t('sessions.thisDevice')}</Heading>
-          <SessionCard row={current} onRevoke={revoke} />
+          <SessionCard row={current} onRevoke={revoke} busy={current.id === writingRow} />
         </View>
       )}
       {view === LIST_VIEW.EMPTY ? (
@@ -94,6 +116,7 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
         testID={TEST_ID.SESSIONS_REVOKE_OTHERS}
         stretch
         label={t('sessions.revokeOthers')}
+        busy={writingOthers}
         onPress={revokeOthers}
       />
     ) : null;
@@ -105,6 +128,7 @@ export function SessionsScreen({ arrival, onBack }: SessionsScreenProps) {
         data={others}
         keyExtractor={keyOf}
         renderItem={renderRow}
+        extraData={writingRow}
         ListHeaderComponent={head}
         ListFooterComponent={foot}
         contentContainerStyle={styles.list}

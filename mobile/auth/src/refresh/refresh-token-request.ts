@@ -2,7 +2,12 @@ import { ApiError, API_PATHS, TransportError, TRANSPORT_FAILURE } from '@app/sdk
 import type { ApiClient, TokenSet } from '@app/sdk';
 import { OAUTH_REFRESH_TIMEOUT_MS, SESSION_STATUS } from '../constants';
 import { withNetworkDeadline } from '../runtime/deadlines';
-import { requestWithDpopNonceRetry } from '../proof/dpop-requests';
+import { DpopChallengeLimitError } from '../errors/errors';
+import {
+  isNonceChallenge,
+  requestWithDpopNonceRetry,
+  type ChallengeCount,
+} from '../proof/dpop-requests';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort } from '../types/auth';
 import type { RuntimeTokens } from '../types/record';
@@ -37,6 +42,7 @@ async function refreshBoundToken(
   signal: AbortSignalPort,
 ): Promise<TokenSet> {
   let nonce: string | undefined;
+  const challenges: ChallengeCount = { answered: 0 };
   const send = async (): Promise<TokenSet> => {
     const result = await requestWithDpopNonceRetry(
       {
@@ -49,6 +55,7 @@ async function refreshBoundToken(
         nonce,
         signal,
         mayRetryChallenge: () => runtime.isEpochCurrent(epoch) && !runtime.disposed,
+        challenges,
         onNonce: (value) => {
           nonce = value;
         },
@@ -64,7 +71,10 @@ async function refreshBoundToken(
   try {
     return await send();
   } catch (error) {
+    // Only challenges came back, so the server never read the token.
+    if (isNonceChallenge(error)) throw new DpopChallengeLimitError(error);
     if (!mayRetryUnknownRefresh(runtime, epoch, signal, error)) throw error;
+    // An answer is unknown from here on: a challenge that ends the replay stays an unknown outcome.
     return send();
   }
 }

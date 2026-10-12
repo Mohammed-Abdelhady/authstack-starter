@@ -70,7 +70,4 @@ export abstract class SecurityEventStore {
     userId: string,
     limit: number,
   ): Promise<StoredSecurityEvent[]>;
-
-  /** Removes events whose retention ended at or before `now`. Returns how many. */
-  abstract deleteExpired(now: Date): Promise<number>;
 }

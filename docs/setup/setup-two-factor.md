@@ -79,7 +79,7 @@ Needs a session, and proof that the person at the keyboard is the account holder
 
 Render `otpauthUrl` as a QR code in the client, and show `secret` for people typing it in by hand. The backend does not draw the QR code: turning a URL into an image is a client concern, and shipping an image library for it is not worth the dependency.
 
-Authenticator apps list the account under `Auth Boilerplate`. That is the `TWO_FACTOR_ISSUER` constant in `backend/src/auth/two-factor/constants/two-factor.constants.ts`, and no setting changes it. The web app shows `Auth App` in its header, so edit the constant if the two should match.
+Authenticator apps list newly enrolled accounts under `Auth App`. Existing enrollments keep their stored label and their codes remain valid.
 
 Nothing about the account changes yet. The secret is stored unconfirmed, so a setup abandoned halfway leaves sign-in exactly as it was. Calling setup again replaces the pending secret.
 

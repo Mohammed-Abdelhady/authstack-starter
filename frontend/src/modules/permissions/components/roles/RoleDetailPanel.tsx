@@ -8,8 +8,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PermissionTreeView } from '../permission-tree/PermissionTreeView';
 import { Pencil, Trash2, Shield, Lock } from 'lucide-react';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { cn } from '@/lib/utils';
 import type { Role } from '../../api/rolesApi';
+
+const BASE_ROLE_NOTICE_ID = 'base-role-notice';
+const PROTECTED_ROLE_NOTICE_ID = 'protected-role-notice';
 
 export interface RoleDetailPanelProps {
   /**
@@ -93,6 +97,11 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
   // Check if role is user or admin (cannot be edited)
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
+  const deleteReasonId = isBaseRole
+    ? BASE_ROLE_NOTICE_ID
+    : role.isProtected
+      ? PROTECTED_ROLE_NOTICE_ID
+      : undefined;
 
   return (
     <article className={cn('space-y-6', className)} data-testid="role-detail-panel">
@@ -100,12 +109,12 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       <header className="pb-4 border-b border-border">
         <div className="flex items-start justify-between mb-2">
           <div className="min-w-0 flex-1">
-            <Heading level={2} variant="sectionTitle" className="break-words">
+            <Heading level={2} variant="sectionTitle" className={WRAP_ANYWHERE_CLASSES}>
               <span dir="auto" data-testid="role-detail-name">
                 {role.name}
               </span>
             </Heading>
-            <Description className="mt-1">
+            <Description className={cn('mt-1', WRAP_ANYWHERE_CLASSES)}>
               <span dir="ltr" data-testid="role-detail-slug">
                 {role.slug}
               </span>
@@ -130,8 +139,8 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Description */}
       {role.description && (
-        <section>
-          <Description>
+        <section className="min-w-0">
+          <Description className={WRAP_ANYWHERE_CLASSES}>
             <span dir="auto" data-testid="role-detail-description">
               {role.description}
             </span>
@@ -164,6 +173,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
           size="sm"
           onClick={() => onEdit?.(role)}
           disabled={isBaseRole}
+          aria-describedby={isBaseRole ? BASE_ROLE_NOTICE_ID : undefined}
           data-testid="edit-role-button"
         >
           <Pencil className="h-3 w-3 me-2" aria-hidden="true" />
@@ -174,6 +184,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
           size="sm"
           onClick={() => onDelete?.(role)}
           disabled={role.isProtected}
+          aria-describedby={deleteReasonId}
           data-testid="delete-role-button"
         >
           <Trash2 className="h-3 w-3 me-2" aria-hidden="true" />
@@ -184,7 +195,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       {/* Base Role Notice */}
       {isBaseRole && (
         <Alert variant="infoSoft" role="note" className="p-3">
-          <AlertDescription className="text-xs">
+          <AlertDescription id={BASE_ROLE_NOTICE_ID} className="text-xs">
             <strong>{t('baseRoleNoticeTitle')}</strong> {t('baseRoleNotice')}
           </AlertDescription>
         </Alert>
@@ -193,7 +204,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
       {/* Protected Notice */}
       {role.isProtected && !isBaseRole && (
         <Alert variant="warningSoft" role="note" className="p-3">
-          <AlertDescription className="text-xs">
+          <AlertDescription id={PROTECTED_ROLE_NOTICE_ID} className="text-xs">
             <strong>{t('protectedRoleNoticeTitle')}</strong> {t('protectedRoleNotice')}
           </AlertDescription>
         </Alert>

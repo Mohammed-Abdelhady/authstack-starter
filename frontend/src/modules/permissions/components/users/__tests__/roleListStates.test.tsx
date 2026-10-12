@@ -18,7 +18,9 @@ import { UserRoleLabel } from '../UserRoleLabel';
 import { UserRoleSelector } from '../UserRoleSelector';
 import { stubListLayout } from './roleSelectorHarness';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 /** Three pages of roles: the admin role, then "Role 1" to "Role 249". */
 const THREE_PAGES = [ADMIN_LISTED, ...manyRoles(249)];
@@ -75,7 +77,9 @@ describe.each([
     await waitFor(() => expect(trigger.matches(':disabled')).toBe(false));
 
     fireEvent.keyDown(trigger, { key: 'Enter' });
-    fireEvent.keyDown(await screen.findByRole('option', { name: LAST.name }), { key: 'Enter' });
+    const lastOption = await screen.findByTestId(`role-option-${LAST.slug}`);
+    expect(lastOption.textContent).toBe(LAST.name);
+    fireEvent.keyDown(lastOption, { key: 'Enter' });
 
     await waitFor(() => expect(trigger.textContent).toBe(LAST.name));
   });

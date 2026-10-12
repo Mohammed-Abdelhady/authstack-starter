@@ -94,7 +94,7 @@ describe.each([
     await expectFocusKeptThroughRequest(submit, () => settle(unreachable));
     await waitFor(() =>
       expect(screen.getByTestId('reset-password-error').textContent).toBe(
-        message('auth.resetPassword.errors.networkError'),
+        message('toast.error.networkError'),
       ),
     );
     expect(code).toHaveProperty('value', CODE);

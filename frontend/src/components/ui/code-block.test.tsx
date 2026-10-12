@@ -3,8 +3,12 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it } from 'vitest';
-import en from '@/i18n/messages/en.json';
-import ar from '@/i18n/messages/ar.json'; // feature:locale-ar
+import enCommon from '@/i18n/messages/en.json';
+import enPermissions from '@/i18n/messages/permissions.en.json';
+const en = { ...enCommon, ...enPermissions };
+import arCommon from '@/i18n/messages/ar.json'; // feature:locale-ar
+import arPermissions from '@/i18n/messages/permissions.ar.json'; // feature:locale-ar
+const ar = { ...arCommon, ...arPermissions }; // feature:locale-ar
 import { CodeBlock } from './code-block';
 
 afterEach(cleanup);

@@ -37,7 +37,6 @@ export class PostgresAccountPermissionStore extends AccountPermissionStore {
       if (!row) return null;
       return {
         id: row.id,
-        isDeleted: false,
         role: row.role,
         permissions: row.permissions,
       };

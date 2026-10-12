@@ -40,6 +40,8 @@ function roles(name: string) {
   };
 }
 
+const EMPTY_ROLES = { roles: [], total: 0, page: 1, pages: 1 };
+
 /** The page that owns the filter value, as the users page does. */
 function Host({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
@@ -63,10 +65,16 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('the role filter in an rtl page in %s', (locale) => {
   it('shows the translated label, not a role value, while every role is listed', async () => {
-    const { message } = await renderForm(locale, <Host initial="all" />);
+    stubNetwork(() => success(EMPTY_ROLES));
+    const { message, format } = await renderForm(locale, <Host initial="all" />);
 
     expect(screen.queryByTestId('role-filter-value')).toBeNull();
     expect(screen.getByTestId('role-filter').textContent).toBe(message('users.allRoles'));
+    expect(
+      screen.getByRole('button', {
+        name: format('users.roleFilterTriggerLabel', { role: message('users.allRoles') }),
+      }),
+    ).not.toBeNull();
   });
 
   it('names its search field in full and shows one word as its placeholder', async () => {
@@ -84,6 +92,7 @@ describe.each([
   it.each([SLUG, 'support-team'])(
     'shows the slug %s it has no name for as it is, left to right',
     async (slug) => {
+      stubNetwork(() => success(EMPTY_ROLES));
       await renderForm(locale, <Host initial={slug} />);
 
       expect(shownValue()).toEqual({ text: slug, value: 'ltr', line: 'rtl' });
@@ -103,12 +112,17 @@ describe.each([
 
     it('shows the name of the picked role in its own direction, then the label again', async () => {
       stubNetwork(() => success(roles(name)));
-      const { message } = await renderForm(locale, <Host initial="all" />);
+      const { message, format } = await renderForm(locale, <Host initial="all" />);
 
       fireEvent.click(screen.getByTestId('role-filter'));
       fireEvent.click(await screen.findByRole('button', { name }));
 
       expect(shownValue()).toEqual({ text: name, value: 'auto', line: 'rtl' });
+      expect(
+        screen.getByRole('button', {
+          name: format('users.roleFilterTriggerLabel', { role: name }),
+        }),
+      ).not.toBeNull();
 
       fireEvent.click(screen.getByTestId('role-filter'));
       fireEvent.click(await screen.findByTestId('role-filter-all'));

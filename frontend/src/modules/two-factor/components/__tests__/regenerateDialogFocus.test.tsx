@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { focusAfterOpenAndEscape } from '@/tests/dialogFocus';
+import { availability, heldAnswer, HELD } from '@/tests/busyControls';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -42,16 +43,35 @@ describe('focus when the new recovery codes dialog closes', () => {
     expect(await focusAfterOpenAndEscape(OPENER, DIALOG)).toBe(OPENER);
   });
 
-  it('returns to the button that opened it once the new codes are dismissed', async () => {
-    stubNetwork(answer);
-    await renderForm('en', <TwoFactorCard />);
+  it('requires a password, then returns to the opener after the new codes are dismissed', async () => {
+    const held = heldAnswer();
+    const bodies: unknown[] = [];
+    stubNetwork(async (request, path) => {
+      if (request.method === 'POST') {
+        bodies.push(await request.json());
+        return held.answer;
+      }
+      return answer(request, path);
+    });
+    const view = await renderForm('en', <TwoFactorCard />);
     const opener = await screen.findByTestId(OPENER);
     opener.focus();
     fireEvent.click(opener);
-    const code = await screen.findByTestId('two-factor-regenerate-code');
-    await waitFor(() => expect(document.activeElement).toBe(code));
+    const password = await screen.findByLabelText(
+      view.message('settings.password.currentPassword'),
+    );
+    await waitFor(() => expect(document.activeElement).toBe(password));
+    fireEvent.change(password, { target: { value: 'Passw0rdLayla' } });
+    const code = await screen.findByLabelText(view.message('auth.twoFactor.code'));
     fireEvent.change(code, { target: { value: '123456' } });
     fireEvent.submit(screen.getByTestId('two-factor-regenerate-form'));
+
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('two-factor-regenerate-submit'))).toEqual(HELD),
+    );
+    expect(bodies).toEqual([{ code: '123456', password: 'Passw0rdLayla' }]);
+    expect(screen.getByTestId(DIALOG).contains(document.activeElement)).toBe(true);
+    held.settle(() => success({ recoveryCodes: ['aaaa-bbbb'] }));
 
     fireEvent.click(await screen.findByTestId('two-factor-regenerate-done'));
 

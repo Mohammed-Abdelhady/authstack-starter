@@ -45,19 +45,25 @@ function runScore(line: readonly boolean[]): number {
 /** Counts the finder lookalike with its four light modules on either side. */
 function lookalikeScore(line: readonly boolean[]): number {
   let score = 0;
+  const extended = [
+    ...Array.from({ length: 4 }, () => false),
+    ...line,
+    ...Array.from({ length: 4 }, () => false),
+  ];
 
-  for (let start = 0; start + FINDER_LOOKALIKE.length <= line.length; start++) {
-    const matches = FINDER_LOOKALIKE.every((dark, offset) => line[start + offset] === dark);
+  for (let start = 4; start + FINDER_LOOKALIKE.length <= line.length + 4; start++) {
+    const matches = FINDER_LOOKALIKE.every((dark, offset) => extended[start + offset] === dark);
     if (!matches) {
       continue;
     }
-    const beforeIsLight = line.slice(Math.max(0, start - 4), start).every((dark) => !dark);
+    const beforeIsLight = extended.slice(start - 4, start).every((dark) => !dark);
     const afterStart = start + FINDER_LOOKALIKE.length;
-    const afterIsLight = line.slice(afterStart, afterStart + 4).every((dark) => !dark);
-    const hasRoomBefore = start >= 4;
-    const hasRoomAfter = afterStart + 4 <= line.length;
+    const afterIsLight = extended.slice(afterStart, afterStart + 4).every((dark) => !dark);
 
-    if ((hasRoomBefore && beforeIsLight) || (hasRoomAfter && afterIsLight)) {
+    if (beforeIsLight) {
+      score += LOOKALIKE_PENALTY;
+    }
+    if (afterIsLight) {
       score += LOOKALIKE_PENALTY;
     }
   }

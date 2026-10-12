@@ -52,6 +52,7 @@ function Started() {
       <StartNotice
         direction={DIRECTION[LOCALE]}
         text={translate(LOCALE, 'startFailed', render(LOCALE, start.failure))}
+        alert
       />
     );
   }

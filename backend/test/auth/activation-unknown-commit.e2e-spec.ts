@@ -7,6 +7,7 @@ import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import type { E2eRestore } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
 import { RaceGate } from '../utils/race-gate';
+import { seedPendingEmailChange } from '../utils/auth/pending-email-change-seed';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -74,26 +75,13 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     });
   }
 
-  async function seedEmailChange(
-    email: string,
-    generation: number,
-  ): Promise<{ _id: string }> {
-    const target = await e2e.state.accounts.createAccount({
+  async function seedEmailChange(email: string, generation: number) {
+    return seedPendingEmailChange(e2e, {
       email,
-      name: 'Target',
-      isVerified: false,
-      addressGeneration: generation,
-    });
-    await e2e.state.auth.storePendingRegistration({
-      email,
-      purpose: PENDING_PURPOSE.EMAIL_CHANGE,
-      hashedCode: await bcrypt.hash(CODE, 4),
-      attempts: 0,
+      code: CODE,
       expiresAt: LIVE_EXPIRY,
-      userId: target._id,
       addressGeneration: generation,
     });
-    return target;
   }
 
   /** Inject an ambiguous commit answer, optionally after the actual commit. */
@@ -111,7 +99,6 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     const email = 'unknown-commit-landed@example.test';
     await seedSignup(email);
     const restore = unknownCommit(true);
-
     const response = await post(
       '/api/auth/activate',
       activationBody(email, CODE, PASSWORD),
@@ -132,7 +119,6 @@ describe('Activation unknown commit outcomes (e2e)', () => {
   it('does not answer sign-in-required when the commit did not land and a foreign account exists', async () => {
     const email = 'unknown-commit-foreign@example.test';
     await seedSignup(email);
-
     const gate = new RaceGate();
     // The commit releases the transaction's write locks, then lets the test
     // insert a foreign account for the same address before it reports its
@@ -188,7 +174,6 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     await seedSignup(email);
     const read = e2e.state.auth.watchAccountLookupsAfterCommit();
     const restore = unknownCommit(false, true);
-
     const response = await post(
       '/api/auth/activate',
       activationBody(email, CODE, PASSWORD),
@@ -206,7 +191,6 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     const email = 'commit-lost@example.test';
     await seedSignup(email);
     const restore = unknownCommit(false);
-
     const first = await post(
       '/api/auth/activate',
       activationBody(email, CODE, PASSWORD),
@@ -265,6 +249,12 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     expect(
       (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
     ).toBe(true);
+    expect(await e2e.state.accounts.accountWithAddress(email)).toMatchObject({
+      _id: target._id,
+      email,
+      isVerified: true,
+      pendingEmail: undefined,
+    });
   });
 
   it('answers unknown when the email-change commit did not land', async () => {
@@ -281,7 +271,14 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     expectUnknownOutcome(response);
     expect(
       (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
-    ).toBe(false);
+    ).toBe(true);
+    expect(await e2e.state.accounts.accountWithId(target._id)).toMatchObject({
+      _id: target._id,
+      email: target.previousEmail,
+      isVerified: true,
+      pendingEmail: email,
+      addressGeneration: 4,
+    });
   });
 
   it('confirms the change when an unlabelled network error follows a landed commit', async () => {
@@ -299,6 +296,12 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     expect(
       (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
     ).toBe(true);
+    expect(await e2e.state.accounts.accountWithAddress(email)).toMatchObject({
+      _id: target._id,
+      email,
+      isVerified: true,
+      pendingEmail: undefined,
+    });
   });
 
   it('does not confirm the change when an unlabelled network error follows a commit that did not land', async () => {
@@ -314,9 +317,19 @@ describe('Activation unknown commit outcomes (e2e)', () => {
     restore();
 
     expectUnknownOutcome(response);
-    expect(read).toHaveBeenCalledTimes(1);
+    const outcomeReads = read.mock.calls.filter(
+      (call: unknown) => Array.isArray(call) && typeof call[0] === 'string',
+    );
+    expect(outcomeReads).toEqual([[target._id]]);
     expect(
       (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
-    ).toBe(false);
+    ).toBe(true);
+    expect(await e2e.state.accounts.accountWithId(target._id)).toMatchObject({
+      _id: target._id,
+      email: target.previousEmail,
+      isVerified: true,
+      pendingEmail: email,
+      addressGeneration: 4,
+    });
   });
 });

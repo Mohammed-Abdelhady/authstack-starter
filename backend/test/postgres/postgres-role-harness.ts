@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { sql } from 'kysely';
 import { FrozenClock, TEST_NOW } from '../utils/frozen-clock';
 import {
   issueOnlyTheRefusedEventId,
@@ -62,6 +63,19 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
         .returning('id')
         .executeTakeFirstOrThrow();
       return row.id;
+    },
+    seedAccounts: async (count, role) => {
+      const rows = await database
+        .insertInto('users')
+        .columns(['role'])
+        .expression(
+          sql<{
+            role: string;
+          }>`SELECT ${role} FROM generate_series(1, ${count}::integer)`,
+        )
+        .returning('id')
+        .execute();
+      return rows.map((row) => row.id).sort();
     },
     interruptRename: async (roleId, rename) => {
       await database

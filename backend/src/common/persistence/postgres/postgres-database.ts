@@ -25,6 +25,7 @@ export interface UsersTable {
   role: Generated<string>;
   permissions: Generated<string[]>;
   email: string | null;
+  pending_email: string | null;
   name: string | null;
   is_verified: Generated<boolean>;
   auth_provider: string | null;
@@ -60,6 +61,8 @@ export interface UserTwoFactorTable {
   secret_tag: string | null;
   confirmed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
   last_used_step: number | null;
+  failed_attempts: Generated<number>;
+  locked_until: ColumnType<Date | null, Date | null | undefined, Date | null>;
 }
 
 export interface UserRecoveryCodesTable {
@@ -233,6 +236,10 @@ export interface MailCountersTable {
   mailed_codes: Generated<number>;
   window_started_at: Timestamp;
   expires_at: Timestamp;
+  failed_guesses: Generated<number>;
+  guess_lock_level: Generated<number>;
+  guess_locked_until: Timestamp | null;
+  guess_state_expires_at: Timestamp | null;
 }
 
 export interface PendingRegistrationsTable {
@@ -264,6 +271,7 @@ export interface PendingMagicLinksTable {
   request_ip: string | null;
   user_agent: string | null;
   redirect: string | null;
+  request_nonce_hash: string | null;
   created_at: ColumnType<Date, Date | undefined, never>;
 }
 // feature:magic-link:end

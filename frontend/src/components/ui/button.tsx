@@ -1,19 +1,33 @@
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@/lib/utils';
-import { busyPressProps } from './busy';
+import { BUSY_PRESS_CLASSES, busyPressProps } from './busy';
+
+/**
+ * The fill of a button that removes or ends something. A busy button does not
+ * answer the pointer, so its fill does not change under it.
+ */
+export const DESTRUCTIVE_FILL_CLASSES =
+  'bg-destructive text-destructive-foreground [&:not([aria-disabled=true])]:hover:bg-destructive/90';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  [
+    BUSY_PRESS_CLASSES,
+    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
+  ],
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+        default:
+          'bg-primary text-primary-foreground [&:not([aria-disabled=true])]:hover:bg-primary/90',
+        destructive: DESTRUCTIVE_FILL_CLASSES,
         outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        secondary:
+          'bg-secondary text-secondary-foreground [&:not([aria-disabled=true])]:hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
@@ -32,7 +46,9 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  extends
+    SafeMarkupProps<React.ButtonHTMLAttributes<HTMLButtonElement>>,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   /** Its own request is running: it keeps focus and ignores presses. */
   busy?: boolean;
@@ -45,7 +61,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        {...props}
+        {...withoutUnsafeMarkup(props)}
         {...busyPressProps(busy, onClick)}
       />
     );

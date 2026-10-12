@@ -34,6 +34,12 @@ export const PKCE_VERIFIER_BYTES = 32;
 export const OAUTH_STATE_BYTES = 16;
 export const SESSION_LINEAGE_BYTES = 16;
 export const DPOP_JTI_BYTES = 16;
+/**
+ * Nonce challenges answered in one exchange, refresh or revoke. The server sends a
+ * challenge before it reads the token, so answering one spends nothing. The limit
+ * only ends a server that never stops challenging.
+ */
+export const DPOP_CHALLENGES_ANSWERED_MAX = 2;
 export const MIN_OAUTH_STATE_CHARACTERS = Math.ceil((OAUTH_STATE_BYTES * 8) / 6);
 export const AUTHORIZATION_CODE_LIFETIME_MS = 60_000;
 export const PENDING_AUTHORIZATION_LIFETIME_MS = 5 * 60_000;
@@ -59,6 +65,8 @@ export const SIGN_OUT_REVOKE_TIMEOUT_MS = 5000;
 export const MAX_CALLBACK_LENGTH = 4096;
 export const AUTHORIZE_PATH = '/api/oauth/authorize';
 export const DISABLED_OAUTH_DESCRIPTION = 'NATIVE_AUTH_DISABLED';
+/** The same switch, as an API route spells it in a 403. */
+export const NATIVE_AUTH_DISABLED_CODE = 'NATIVE_AUTH_DISABLED';
 export const AUTHORITY_UNAVAILABLE_CODE = 'AUTHORITY_UNAVAILABLE';
 export const RATE_LIMIT_EXCEEDED_CODE = 'RATE_LIMIT_EXCEEDED';
 export const MAX_QUEUED_CALLBACKS = 16;

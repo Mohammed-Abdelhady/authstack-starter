@@ -9,6 +9,10 @@ import {
   UserSchema,
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../../persistence/mongo/schemas/mail-counter.schema';
+import {
   PendingMagicLink,
   PendingMagicLinkSchema,
 } from './schemas/pending-magic-link.schema';
@@ -26,6 +30,7 @@ import { MongoMagicLinkStore } from './mongo-magic-link.store';
 export const MONGO_MAGIC_LINK_MODELS: DynamicModule = MongooseModule.forFeature(
   [
     { name: PendingMagicLink.name, schema: PendingMagicLinkSchema },
+    { name: MailCounter.name, schema: MailCounterSchema },
     { name: User.name, schema: UserSchema },
     { name: Role.name, schema: RoleSchema },
   ],

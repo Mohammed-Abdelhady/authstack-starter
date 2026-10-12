@@ -25,6 +25,9 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email!: string;
 
+  @Prop({ lowercase: true, trim: true })
+  pendingEmail?: string;
+
   @Prop({ select: false })
   password?: string;
 
@@ -61,6 +64,10 @@ export class User {
 
   @Prop({ type: Number, default: 0 })
   issuanceFence!: number;
+
+  /** A grant writes this so a concurrent loss of authority conflicts. */
+  @Prop({ type: Number, select: false })
+  grantAuthorityFence?: number;
 
   /**
    * Bumped each time an admin moves this account to a new address. An

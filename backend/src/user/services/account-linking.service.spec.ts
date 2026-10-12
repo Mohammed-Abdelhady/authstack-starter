@@ -13,11 +13,17 @@ import {
 describe('AccountLinkingService link and unlink', () => {
   let service: AccountLinkingService;
   let resolveUser: (user: MockUser | null) => void;
+  let closeHarness: (() => Promise<void>) | undefined;
 
   beforeEach(async () => {
     const harness = await createHarness();
     service = harness.service;
     resolveUser = harness.resolveUser;
+    closeHarness = harness.close;
+  });
+
+  afterEach(async () => {
+    await closeHarness?.();
   });
 
   describe('linkProvider', () => {

@@ -109,6 +109,25 @@ export async function bootMongoTwoFactorHarness(): Promise<TwoFactorContractHarn
       };
     },
 
+    seedFailures: async (userId, failures) => {
+      await users.updateOne(
+        { _id: new Types.ObjectId(userId) },
+        {
+          $set: {
+            'twoFactor.failedAttempts': failures.failedAttempts,
+            'twoFactor.lockedUntil': failures.lockedUntil,
+          },
+        },
+      );
+    },
+    failures: async (userId) => {
+      const user = await users.findById(userId).lean().exec();
+      return {
+        failedAttempts: user?.twoFactor?.failedAttempts ?? 0,
+        lockedUntil: user?.twoFactor?.lockedUntil ?? null,
+      };
+    },
+
     seedChallenge: async (challenge) => {
       const created = await challenges.create({
         user: new Types.ObjectId(challenge.userId),

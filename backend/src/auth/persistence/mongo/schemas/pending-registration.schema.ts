@@ -16,7 +16,7 @@ export class PendingRegistration {
   @Prop({ required: true, lowercase: true, trim: true })
   email!: string;
 
-  @Prop({ required: true, enum: Object.values(PENDING_PURPOSE) })
+  @Prop({ type: String, required: true, enum: Object.values(PENDING_PURPOSE) })
   purpose!: PendingPurpose;
 
   /** Target account of an email-change record; absent for sign-up. */

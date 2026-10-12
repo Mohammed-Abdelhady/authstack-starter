@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import { AccountsContractHarness } from '../../../test/utils/user/accounts-contract/accounts-contract-harness';
-import { ACCOUNTS_CONTRACT_CASE_TIMEOUT_MS } from '../../../test/utils/user/accounts-contract/accounts-contract-harness';
 import { rerunAtOnce } from '../../../test/utils/session/issuance-contract/issuance-contract-support';
 import { OAuthProfile } from '../../auth/oauth/oauth-provider.interface';
 import { ProviderSignInStore } from '../../auth/oauth/stores/provider-sign-in.store';
@@ -126,9 +125,4 @@ export async function seedLinkedFixture(
       role: 'user',
     }),
   };
-}
-
-/** A contract case with the budget a database case gets. */
-export function linkedCase(name: string, body: () => Promise<void>): void {
-  it(name, body, ACCOUNTS_CONTRACT_CASE_TIMEOUT_MS);
 }

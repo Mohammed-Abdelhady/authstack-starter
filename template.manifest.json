@@ -290,7 +290,8 @@
       "docs": [
         "docs/operations/deployment.md",
         "docs/operations/deployment-custom-domain.md",
-        "docs/operations/PRODUCTION-SETUP.md"
+        "docs/operations/PRODUCTION-SETUP.md",
+        "docs/operations/production-security.md"
       ],
       "catalogueKeys": []
     },
@@ -302,8 +303,11 @@
         "frontend/src/components/LanguageSwitcher.test.tsx",
         "frontend/src/i18n/messages/ar.json",
         "frontend/src/i18n/messages/*.ar.json",
+        "frontend/src/app/fonts/NotoSansArabic.woff2",
+        "frontend/src/app/fonts/OFL-NotoSansArabic.txt",
         "mobile/ui/src/i18n/ar.ts",
-        "mobile/expo/src/i18n/ar.ts"
+        "mobile/expo/src/i18n/ar.ts",
+        "frontend/src/app/arabic-font.css"
       ],
       "docs": [],
       "catalogueKeys": [
@@ -361,6 +365,7 @@
         "backend/src/user/dto/account-linking.dto.ts",
         "backend/test/constants/oauth-boot-env.ts",
         "backend/test/auth/oauth-link.e2e-spec.ts",
+        "backend/test/auth/oauth-pending-address.e2e-spec.ts",
         "backend/src/auth/passkeys/contract/passkeys-contract-unlink-race.harness-spec.ts",
         "frontend/src/modules/oauth/**",
         "frontend/src/modules/account/api/accountLinkingApi.ts",
@@ -373,7 +378,9 @@
         "frontend/src/modules/account/components/LinkedAccountCard.tsx",
         "frontend/src/modules/account/components/LinkProviderButton.tsx",
         "frontend/src/modules/account/components/ProfileSyncStatus.tsx",
-        "frontend/src/app/[locale]/(auth)/auth/oauth/**"
+        "frontend/src/app/[locale]/(auth)/auth/oauth/**",
+        "backend/test/auth/oauth-unlink-refused.e2e-spec.ts",
+        "backend/test/auth/oauth-auto-link-notice.e2e-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -400,11 +407,16 @@
         "backend/test/auth/registration-takeover.e2e-spec.ts",
         "backend/test/auth/sign-in-cookie-order.e2e-spec.ts",
         "backend/test/auth/user-password.e2e-spec.ts",
+        "backend/src/auth/passkeys/contract/passkeys-contract-reauth-password.harness-spec.ts",
         "backend/test/utils/stable-answer.ts",
         "frontend/src/modules/auth/methods/password/**",
         "frontend/src/app/[locale]/(auth)/auth/register/**",
         "frontend/src/app/[locale]/(auth)/auth/forgot-password/**",
-        "frontend/src/app/[locale]/(auth)/auth/reset-password/**"
+        "frontend/src/app/[locale]/(auth)/auth/reset-password/**",
+        "backend/test/auth/security-notices.e2e-spec.ts",
+        "backend/test/auth/identity.e2e-spec.ts",
+        "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
+        "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
@@ -456,7 +468,7 @@
     },
     "facebook": {
       "label": "Facebook",
-      "description": "Sign in with a Facebook account.",
+      "description": "Sign in with an already linked Facebook identity. A fresh database needs another sign-in method to create an account before linking Facebook in settings.",
       "kind": "oauth",
       "default": true,
       "files": ["backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts"],
@@ -481,12 +493,15 @@
       "default": false,
       "files": [
         "backend/src/auth/magic-link/**",
+        "backend/test/auth/magic-link-browser.e2e-spec.ts",
         "backend/test/auth/magic-link-continuation.e2e-spec.ts",
         "backend/test/auth/magic-link-expiry.e2e-spec.ts",
         "backend/test/postgres/postgres-magic-link-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0013_magic_links.sql",
+        "backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql",
         "frontend/src/modules/auth/methods/magic-link/**",
-        "frontend/src/app/[locale]/(auth)/auth/magic-link/**"
+        "frontend/src/app/[locale]/(auth)/auth/magic-link/**",
+        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts"
       ],
       "envVars": [
         "MAGIC_LINK_ENABLED",
@@ -513,35 +528,54 @@
         "backend/src/user/persistence/mongo/schemas/two-factor.schema.ts",
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
+        "backend/src/common/persistence/postgres/migrations/0017_two_factor_lockout.sql",
+        "backend/test/auth/two-factor-route-limits.e2e-spec.ts",
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
-        "frontend/src/app/[locale]/(auth)/auth/2fa/**"
+        "frontend/src/app/[locale]/(auth)/auth/2fa/**",
+        "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts",
+        "backend/test/auth/two-factor-http.e2e-spec.ts",
+        "backend/test/utils/auth/two-factor-enrolment.ts",
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx",
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.ts",
+        "frontend/src/modules/auth/utils/twoFactorLock.ts",
+        "frontend/src/modules/auth/utils/__tests__/twoFactorLock.test.ts"
       ],
-      "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY"],
+      "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
       "docs": ["docs/setup/setup-two-factor.md"]
     },
     "passkeys": {
       "status": "available",
       "label": "Passkeys",
-      "description": "WebAuthn sign-in with platform authenticators, and a passkey as an alternative second factor. Works on its own or next to email and password. When TOTP two-factor is also selected, its verify route accepts a passkey.",
+      "description": "Sign in with previously enrolled WebAuthn credentials, or use a passkey as a second factor. A fresh database needs another sign-in method to create its first account before enrollment.",
       "kind": "passwordless",
       "default": false,
       "files": [
         "backend/src/auth/passkeys/**",
         "backend/src/auth/passkeys/persistence/mongo/schemas/passkey.schema.ts",
+        "backend/src/auth/two-factor/contract/two-factor-contract-passkey-registration.harness-spec.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-steps.harness-spec.ts",
         "backend/test/auth/passkey-removal.e2e-spec.ts",
+        "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/postgres/postgres-passkeys-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0009_passkeys.sql",
-        "frontend/src/modules/passkeys/**"
+        "frontend/src/modules/passkeys/**",
+        "backend/src/config/passkey-env.validation.spec.ts",
+        "backend/src/config/passkey-name.spec.ts",
+        "backend/test/auth/passkey-rename.e2e-spec.ts",
+        "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
+        "backend/test/auth/passkey-first-account.e2e-spec.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
         "WEBAUTHN_RP_ID",
         "WEBAUTHN_RP_NAME",
         "WEBAUTHN_ORIGIN",
-        "OAUTH_STATE_SECRET"
+        "OAUTH_STATE_SECRET",
+        "PASSKEY_CHALLENGE_SECRET",
+        "PASSKEY_CHALLENGE_SECRET_PREVIOUS",
+        "PASSKEY_CHALLENGE_LEGACY_UNTIL"
       ],
       "requires": [],
       "docs": ["docs/setup/setup-passkeys.md"]
@@ -745,7 +779,12 @@
       "template.rewrites.json",
       "scripts/ci/*.test.mjs",
       ".hyperflow/**",
-      "openspec/**"
+      "openspec/**",
+      "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
+      "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
+      "backend/test/auth/passkey-first-account.e2e-spec.ts",
+      "backend/test/native/engine/native-auth-engine-consent.e2e-spec.ts",
+      "backend/test/utils/native/native-auth-engine-consent.ts"
     ]
   }
 }

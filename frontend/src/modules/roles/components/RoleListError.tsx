@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 
 export interface RoleListErrorProps {
   onRetry: () => void;
+  /** The retry is running: the button says so and keeps the focus. */
+  isRetrying?: boolean;
   /** Read out as it appears. Leave it off where many of these show at once. */
   announce?: boolean;
   className?: string;
@@ -18,6 +20,7 @@ export interface RoleListErrorProps {
  */
 export function RoleListError({
   onRetry,
+  isRetrying = false,
   announce = false,
   className,
   testId,
@@ -32,7 +35,15 @@ export function RoleListError({
       data-testid={testId}
     >
       <span>{t('roleFilterError')}</span>
-      <Button type="button" variant="outline" size="sm" onClick={onRetry}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onRetry}
+        busy={isRetrying}
+        aria-busy={isRetrying}
+        data-testid={testId ? `${testId}-retry` : undefined}
+      >
         {tCommon('retry')}
       </Button>
     </div>

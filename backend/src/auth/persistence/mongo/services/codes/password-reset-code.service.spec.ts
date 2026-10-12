@@ -14,6 +14,7 @@ import {
   TEST_NOW,
 } from '../../../../../../test/utils/frozen-clock';
 import { MONGO_PASSWORD_RESET_CODE_STORE } from '../../mongo-pending-code-stores';
+import { MailCounter } from '../../schemas/mail-counter.schema';
 
 const RESET_ID = new Types.ObjectId('507f1f77bcf86cd799439011');
 
@@ -57,6 +58,16 @@ describe('PasswordResetCodeService', () => {
         {
           provide: getModelToken(PendingPasswordReset.name),
           useValue: pendingPasswordResetModel,
+        },
+        {
+          // No guess was counted at the address yet, so none is refused.
+          provide: getModelToken(MailCounter.name),
+          useValue: {
+            findOneAndUpdate: () => ({
+              lean: () => ({ exec: () => Promise.resolve(null) }),
+            }),
+            updateOne: () => Promise.resolve(undefined),
+          },
         },
         { provide: HashService, useValue: hashService },
         { provide: ConfigService, useValue: configService },

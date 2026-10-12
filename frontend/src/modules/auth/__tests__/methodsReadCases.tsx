@@ -2,7 +2,9 @@ import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
+import { availability, heldAnswer, IDLE } from '@/tests/busyControls';
 import { refusalWith, renderForm, stubNetwork, success } from '@/tests/serverRejectionHarness';
+import { authMethodsApi } from '@/modules/auth/api/authMethodsApi';
 
 const METHODS_PATH = '/api/auth/methods';
 const ALL_OFF = { password: false, magicLink: false, twoFactor: false, passkeys: false, oauth: [] };
@@ -25,7 +27,10 @@ function unreachable(): Response {
 }
 
 /** Answers each methods read with the next entry, repeating the last. */
-function answerMethods(subject: MethodsReadSubject, ...answers: Array<() => Response>) {
+function answerMethods(
+  subject: MethodsReadSubject,
+  ...answers: Array<() => Response | Promise<Response>>
+) {
   let reads = 0;
   stubNetwork((_request, path) => {
     if (path !== METHODS_PATH) return success(subject.otherReads(path));
@@ -77,6 +82,22 @@ export function describeMethodsRead(name: string, subject: MethodsReadSubject) {
       expect(screen.queryByRole('button')).toBeNull();
     });
 
+    it('keeps a usable card during a held background methods refresh', async () => {
+      const held = heldAnswer();
+      const reads = answerMethods(subject, on, () => held.answer);
+      const card = await renderCard();
+      await waitFor(() => expect(card.workingButton()).not.toBeNull());
+
+      const refresh = card.store.dispatch(
+        authMethodsApi.endpoints.getAuthMethods.initiate(undefined, { forceRefetch: true }),
+      );
+      await waitFor(() => expect(reads()).toBe(2));
+      expect(card.workingButton()).not.toBeNull();
+      held.settle(on);
+      await refresh;
+      expect(card.workingButton()).not.toBeNull();
+    });
+
     it.each([
       ['cannot be reached', unreachable],
       ['fails', () => refusalWith(500, ErrorCode.INTERNAL_ERROR)],
@@ -89,7 +110,7 @@ export function describeMethodsRead(name: string, subject: MethodsReadSubject) {
         const alert = await screen.findByRole('alert');
         expect(alert.textContent).toBe(card.message('auth.methods.loadFailed'));
         expect(card.title()).not.toBeNull();
-        expect(card.retryButton()).toHaveProperty('disabled', false);
+        expect(availability(card.retryButton())).toEqual(IDLE);
         expect(card.workingButton()).toBeNull();
       },
     );
@@ -119,7 +140,8 @@ export function describeMethodsRead(name: string, subject: MethodsReadSubject) {
     });
 
     it('keeps the failure and the focus on the retry when the read fails again', async () => {
-      const reads = answerMethods(subject, unreachable);
+      const held = heldAnswer();
+      const reads = answerMethods(subject, unreachable, () => held.answer);
       const card = await renderCard();
       await screen.findByRole('alert');
       card.retryButton().focus();
@@ -127,6 +149,8 @@ export function describeMethodsRead(name: string, subject: MethodsReadSubject) {
       fireEvent.click(card.retryButton());
 
       await waitFor(() => expect(reads()).toBe(2));
+      expect(card.workingButton()).toBeNull();
+      held.settle(unreachable);
       const alert = await screen.findByRole('alert');
       expect(alert.textContent).toBe(card.message('auth.methods.loadFailed'));
       await waitFor(() => expect(document.activeElement).toBe(card.retryButton()));

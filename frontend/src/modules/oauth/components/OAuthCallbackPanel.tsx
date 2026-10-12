@@ -4,6 +4,7 @@ import { Description, Heading } from '@/components/design-system';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { ErrorCode } from '@app/core';
 import { Button } from '@/components/ui/button';
 import { Link, useRouter } from '@/i18n/navigation';
 import { authApi } from '@/modules/auth/store/authApi';
@@ -24,9 +25,8 @@ interface OAuthCallbackPanelProps {
 /**
  * Landing panel for the backend OAuth redirect.
  *
- * On success the session cookie is already set, so the panel only refetches
- * the profile and moves on to the requested page. On failure it shows the
- * message for the error code and waits for the user.
+ * On success the session cookie is already set. The panel confirms the
+ * optional identity before moving on. On failure it shows the error code.
  */
 export function OAuthCallbackPanel({
   status,
@@ -52,9 +52,15 @@ export function OAuthCallbackPanel({
     }
     hasStarted.current = true;
 
-    dispatch(authApi.endpoints.getCurrentUser.initiate(undefined, { forceRefetch: true }))
+    dispatch(authApi.endpoints.getIdentity.initiate(undefined, { forceRefetch: true }))
       .unwrap()
-      .then(() => router.replace(redirect))
+      .then((identity) => {
+        if (!identity.authenticated) {
+          setFailureCode(ErrorCode.SESSION_REQUIRED);
+          return;
+        }
+        router.replace(redirect);
+      })
       .catch((error: unknown) =>
         setFailureCode(translatableErrorCode(error, OAUTH_DEFAULT_ERROR_CODE)),
       );
@@ -63,8 +69,11 @@ export function OAuthCallbackPanel({
   if (failureCode === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="text-center" data-testid="oauth-callback-pending">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" aria-hidden="true" />
+        <div className="text-center" data-testid="oauth-callback-pending" role="status">
+          <Loader2
+            className="mx-auto h-12 w-12 motion-safe:animate-spin text-primary"
+            aria-hidden="true"
+          />
           <Heading level={1} variant="display" className="mt-4">
             {t('title')}
           </Heading>
@@ -90,7 +99,7 @@ export function OAuthCallbackPanel({
         <Heading level={1} variant="display" className="mb-2">
           {t('errorTitle')}
         </Heading>
-        <Description variant="lead" className="mb-8">
+        <Description variant="lead" className="mb-8" role="alert">
           {message}
         </Description>
 

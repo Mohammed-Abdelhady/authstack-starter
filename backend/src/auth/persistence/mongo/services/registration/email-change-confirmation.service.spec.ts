@@ -7,6 +7,7 @@ import { ErrorCode } from '../../../../../common/enums/error-code.enum';
 import { ReservedCode } from '../../../../interfaces/pending-code.interface';
 import { partialMock } from '../../../../../common/testing/test-doubles.harness-spec';
 import { mongoEmailChangeConfirmation } from '../../../../../../test/utils/auth/mongo-activation';
+import { AccountSessions } from '../../../../../user/stores/account-sessions';
 import { VerificationCodeService } from '../../../../services/codes/verification-code.service';
 
 describe('EmailChangeConfirmationService', () => {
@@ -27,6 +28,7 @@ describe('EmailChangeConfirmationService', () => {
     };
     const user = partialMock<UserDocument>({
       email: reserved.email,
+      pendingEmail: reserved.email,
       addressGeneration: 4,
       isVerified: false,
       save: jest.fn().mockResolvedValue(undefined),
@@ -48,6 +50,7 @@ describe('EmailChangeConfirmationService', () => {
       model,
       connection,
       verification,
+      partialMock<AccountSessions>({ revokeAll: jest.fn() }),
     );
 
     try {

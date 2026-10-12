@@ -7,9 +7,6 @@ import { SessionRevocationStore } from '../../../../src/session/revocation/sessi
 import { SessionRevoker } from '../../../../src/session/revocation/session-revoker';
 import { IssuanceContractHarness } from '../issuance-contract/issuance-contract-harness';
 
-/** Jest budget for one contract case, the budget the sign-in contract set. */
-export const AUTHORITY_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 /**
  * Where an adapter takes the account for a unit of work. Both are allowed by
  * the store ports. It decides which of two concurrent units of work is the one

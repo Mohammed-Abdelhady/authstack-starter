@@ -24,6 +24,7 @@ import {
 } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_ADMIN, SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
+import { seedUserId } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -114,7 +115,7 @@ describe('native access (e2e)', () => {
 
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: pending });
+      .send({ transactionId: pending, expectedUserId: await seedUserId(e2e) });
     expect(approval.status).toBe(403);
     expect((approval.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_AUTH_DISABLED,

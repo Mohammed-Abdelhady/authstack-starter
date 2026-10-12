@@ -7,7 +7,9 @@ import { FormProvider } from 'react-hook-form';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { useForgotPasswordMutation } from '@/modules/auth/store/authApi';
-import { NETWORK_ERROR_CODE, zodEmail, parseApiError } from '@app/core';
+import { zodEmail } from '@app/core';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { Mail } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 import { toast } from '@/lib/toast';
@@ -42,6 +44,7 @@ export function ForgotPasswordForm() {
   const t = useTranslations('auth.forgotPassword');
   const tCommon = useTranslations('common');
   const tToast = useTranslations('toast');
+  const refusalText = useRefusalText();
   const router = useRouter();
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
 
@@ -68,9 +71,11 @@ export function ForgotPasswordForm() {
   const submit = useCallback(
     async (data: ForgotPasswordFormData) => {
       try {
-        await forgotPassword({
-          email: data.email,
-        }).unwrap();
+        await showsOwnRefusal(
+          forgotPassword({
+            email: data.email,
+          }),
+        ).unwrap();
 
         // Show success toast
         toast.success(tToast('success.resetLinkSent'));
@@ -78,22 +83,14 @@ export function ForgotPasswordForm() {
         // Redirect to reset password page with email
         router.push(`/auth/reset-password?email=${encodeURIComponent(data.email)}`);
       } catch (err: unknown) {
-        const parsed = parseApiError(err);
-        let errorMessage = t('errors.serverError');
-
-        if (parsed.code === NETWORK_ERROR_CODE) {
-          errorMessage = t('errors.networkError');
-        } else if (parsed.message) {
-          errorMessage = parsed.message;
-        }
-
+        // The reason is said once, here, in the page's language.
         setError('root', {
           type: 'manual',
-          message: errorMessage,
+          message: refusalText(err),
         });
       }
     },
-    [forgotPassword, router, setError, t, tToast],
+    [forgotPassword, refusalText, router, setError, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -140,6 +137,7 @@ export function ForgotPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="email"
+              required
               busy={isLoading}
               autoFocus
             />

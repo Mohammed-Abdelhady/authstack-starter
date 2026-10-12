@@ -12,7 +12,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
-import { sendRefusedThenAgain, toastOrder } from '@/tests/staleToast';
+import { sendRefusedInPlaceThenAgain, toastOrder } from '@/tests/staleToast';
 import { TwoFactorDisableDialog } from '../TwoFactorDisableDialog';
 
 vi.mock('sonner', () => ({
@@ -58,13 +58,13 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the toast of a refused turn-off in %s', (locale) => {
-  it('is gone once the password is right and the answer is about the code', async () => {
+  it('is never raised: the password and then the code are each refused on their field', async () => {
     checkPasswordThenCode();
     const dialog = await openDialog(locale);
 
     dialog.send('WrongPassw0rd', '000000')();
     await waitFor(() => {
-      expect(dialog.errorToasts()).toEqual([
+      expect(descriptions(dialog.password())).toEqual([
         dialog.message('errors.codes.INVALID_CURRENT_PASSWORD'),
       ]);
     });
@@ -78,10 +78,11 @@ describe.each([
         dialog.message('errors.codes.TWO_FACTOR_CODE_INVALID'),
       ]);
     });
-    expect(toastOrder()).toEqual(['error', 'dismiss']);
+    // Each refusal was said on its field. No toast said it a second time.
+    expect(toastOrder()).toEqual([]);
   });
 
-  it('is taken down once, before the success is announced', async () => {
+  it('is never raised, and the success is announced alone', async () => {
     checkPasswordThenCode();
     const dialog = await openDialog(locale);
     let attempt = 0;
@@ -90,14 +91,18 @@ describe.each([
       dialog.send(attempt === 1 ? 'WrongPassw0rd' : RIGHT_PASSWORD, RIGHT_CODE)();
     };
 
-    await sendRefusedThenAgain(wrongThenRight, dialog.isIdle);
+    await sendRefusedInPlaceThenAgain(
+      wrongThenRight,
+      () => dialog.password().getAttribute('aria-invalid') === 'true',
+      dialog.isIdle,
+    );
 
     await waitFor(() => {
       expect(dialog.successToasts()).toEqual([
         dialog.message('settings.twoFactor.disable.success'),
       ]);
     });
-    expect(toastOrder()).toEqual(['error', 'dismiss', 'success']);
+    expect(toastOrder()).toEqual(['success']);
   });
 
   it('dismisses nothing when the first answer is accepted', async () => {

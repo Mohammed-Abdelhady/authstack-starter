@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
 import { StorageNotReadyError, StorageStartup } from '../storage-startup';
+import { retryStorageStartup } from '../storage-startup-retry';
+import { mapPostgresError } from './postgres-persistence-errors';
 import {
   listPostgresMigrations,
   readMigrationStatus,
@@ -20,10 +22,13 @@ export class PostgresStorageStartup extends StorageStartup {
   }
 
   async prepare(): Promise<void> {
-    const { pending, unknown } = await readMigrationStatus(
-      this.pool,
-      this.expected,
-    );
+    const { pending, unknown } = await retryStorageStartup(async () => {
+      try {
+        return await readMigrationStatus(this.pool, this.expected);
+      } catch (error) {
+        throw mapPostgresError(error);
+      }
+    });
     if (pending.length > 0) {
       throw new StorageNotReadyError(
         `The database is behind this build. Apply these migrations in order, then start again: ${pending.join(', ')}`,

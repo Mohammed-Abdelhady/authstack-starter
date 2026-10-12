@@ -25,6 +25,9 @@ export interface User {
   updatedAt?: string;
 }
 
+/** Public session bootstrap result. A signed-out request has no account data. */
+export type Identity = { authenticated: false; user: null } | { authenticated: true; user: User };
+
 export interface UpdateProfileRequest {
   name?: string;
 }

@@ -63,6 +63,4 @@ export abstract class SecondFactorChallengeStore {
     challengeId: string,
   ): Promise<{ attempts: number } | null>;
   abstract discard(challengeId: string): Promise<void>;
-  /** Removes challenges whose expiry is at or before `now`. Answers how many. */
-  abstract deleteExpired(now: Date): Promise<number>;
 }

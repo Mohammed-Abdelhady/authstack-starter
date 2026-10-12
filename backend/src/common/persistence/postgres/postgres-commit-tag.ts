@@ -4,7 +4,7 @@ import {
   PostgresPoolClient,
   PostgresQueryResult,
 } from 'kysely';
-import { SQLSTATE } from './postgres-persistence-errors';
+import { endsSession, SQLSTATE } from './postgres-persistence-errors';
 
 const COMMIT_STATEMENT = 'commit';
 const COMMITTED_TAG = 'COMMIT';
@@ -25,8 +25,25 @@ export class RolledBackAtCommitError extends Error {
   }
 }
 
+/** A pooled client the pool closes, instead of keeping, when told to. */
+export interface DroppablePoolClient extends PostgresPoolClient {
+  release(drop?: boolean): void;
+}
+
+export interface DroppingPool {
+  connect(): Promise<DroppablePoolClient>;
+  end(): Promise<void>;
+}
+
 class CommitCheckedClient implements PostgresPoolClient {
-  constructor(private readonly client: PostgresPoolClient) {}
+  /**
+   * Set when a statement went unanswered or the server ended the session.
+   * What the session still holds is then not known, an open transaction
+   * included.
+   */
+  private spent = false;
+
+  constructor(private readonly client: DroppablePoolClient) {}
 
   query<R>(
     sql: string,
@@ -40,12 +57,24 @@ class CommitCheckedClient implements PostgresPoolClient {
     if (typeof statement !== 'string') {
       return this.client.query(statement);
     }
-    const answer = this.client.query<R>(statement, parameters);
+    const answer = this.answered(this.client.query<R>(statement, parameters));
     return isCommit(statement) ? committed(answer) : answer;
   }
 
+  /** Closes the connection when its session is not known to be clean. */
   release(): void {
-    this.client.release();
+    this.client.release(this.spent);
+  }
+
+  private async answered<Answer>(answer: Promise<Answer>): Promise<Answer> {
+    try {
+      return await answer;
+    } catch (error) {
+      if (endsSession(error)) {
+        this.spent = true;
+      }
+      throw error;
+    }
   }
 }
 
@@ -68,10 +97,14 @@ async function committed<R>(
  * The pool the query builder is given. Every COMMIT it sends has its command
  * tag read, so a commit that stored nothing is a failure and never a normal
  * return. One round trip, where a probe statement before COMMIT took two.
+ *
+ * A connection is kept for the next caller only while every statement on it
+ * was answered by a session that goes on. After one that was not, a ROLLBACK
+ * or BEGIN among them, it is closed when it is handed back.
  */
-export function commitCheckedPool(pool: PostgresPool): PostgresPool {
+export function commitCheckedPool(pool: DroppingPool): PostgresPool {
   // The query builder keys its own connection state by client object.
-  const checked = new WeakMap<PostgresPoolClient, CommitCheckedClient>();
+  const checked = new WeakMap<DroppablePoolClient, CommitCheckedClient>();
   return {
     connect: async () => {
       const client = await pool.connect();

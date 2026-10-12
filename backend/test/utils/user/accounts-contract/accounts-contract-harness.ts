@@ -19,11 +19,6 @@ import { AccountPermissionStore } from '../../../../src/user/stores/account-perm
 import { AccountProfileStore } from '../../../../src/user/stores/account-profile.store';
 import { AccountSessions } from '../../../../src/user/stores/account-sessions';
 import { FrozenClock } from '../../frozen-clock';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from '../../session/issuance-contract/issuance-contract-harness';
-
-/** The budget step 1 set for a contract case that talks to a database. */
-export const ACCOUNTS_CONTRACT_CASE_TIMEOUT_MS =
-  ISSUANCE_CONTRACT_CASE_TIMEOUT_MS;
 
 export interface SeedRole {
   name: string;
@@ -34,6 +29,7 @@ export interface SeedRole {
 
 export interface SeedAccount {
   email: string;
+  pendingEmail?: string;
   name?: string;
   role: string;
   permissions?: string[];
@@ -47,6 +43,7 @@ export interface SeedAccount {
 
 export interface StoredAccountFacts {
   email: string;
+  pendingEmail: string | null;
   name: string;
   role: string;
   permissions: string[];
@@ -108,6 +105,7 @@ export interface AccountsContractHarness {
       deleted?: boolean;
       email?: string;
       verified?: boolean;
+      permissions?: string[];
     },
   ): Promise<void>;
   removeRole(slug: string): Promise<void>;

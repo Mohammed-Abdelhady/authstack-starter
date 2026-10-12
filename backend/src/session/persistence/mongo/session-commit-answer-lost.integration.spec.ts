@@ -154,63 +154,54 @@ describe('a commit whose answer was lost', () => {
     });
   });
 
-  it(
-    'stores one session, not one per attempt, when a sign-in loses every answer',
-    async () => {
-      const user = await createTestUser(
-        harness.users,
-        'lost-answer@example.test',
-      );
-      lost = loseCommitAnswers(harness.connection, { lands: true, times: 3 });
+  it('stores one session, not one per attempt, when a sign-in loses every answer', async () => {
+    const user = await createTestUser(
+      harness.users,
+      'lost-answer@example.test',
+    );
+    lost = loseCommitAnswers(harness.connection, { lands: true, times: 3 });
 
-      await expect(
-        harness.sessionService.createSession(
-          user._id,
-          'Mozilla/5.0',
-          '127.0.0.1',
-        ),
-      ).rejects.toMatchObject({
-        code: ErrorCode.TRANSACTION_OUTCOME_UNKNOWN,
-      });
-
-      expect({
-        sessions: await harness.sessions.countDocuments({ user: user._id }),
-        issuedEvents: await events.countDocuments({
-          action: SECURITY_EVENT_ACTION.SESSION_ISSUED,
-        }),
-        issuanceFence: (await harness.users.findById(user._id))?.issuanceFence,
-      }).toEqual({ sessions: 1, issuedEvents: 1, issuanceFence: 1 });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
-
-  it(
-    'signs the user in once when a single answer is lost',
-    async () => {
-      const user = await createTestUser(
-        harness.users,
-        'one-lost-answer@example.test',
-      );
-      lost = loseCommitAnswers(harness.connection, { lands: true, times: 1 });
-
-      const issued = await harness.sessionService.createSession(
+    await expect(
+      harness.sessionService.createSession(
         user._id,
         'Mozilla/5.0',
         '127.0.0.1',
-      );
-      lost.restore();
+      ),
+    ).rejects.toMatchObject({
+      code: ErrorCode.TRANSACTION_OUTCOME_UNKNOWN,
+    });
 
-      expect({
-        validated:
-          (await harness.sessionService.validateSession(
-            issued.sessionToken,
-          )) !== null,
-        sessions: await harness.sessions.countDocuments({ user: user._id }),
-        issuedEvents: await events.countDocuments({
-          action: SECURITY_EVENT_ACTION.SESSION_ISSUED,
-        }),
-      }).toEqual({ validated: true, sessions: 1, issuedEvents: 1 });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    expect({
+      sessions: await harness.sessions.countDocuments({ user: user._id }),
+      issuedEvents: await events.countDocuments({
+        action: SECURITY_EVENT_ACTION.SESSION_ISSUED,
+      }),
+      issuanceFence: (await harness.users.findById(user._id))?.issuanceFence,
+    }).toEqual({ sessions: 1, issuedEvents: 1, issuanceFence: 1 });
+  });
+
+  it('signs the user in once when a single answer is lost', async () => {
+    const user = await createTestUser(
+      harness.users,
+      'one-lost-answer@example.test',
+    );
+    lost = loseCommitAnswers(harness.connection, { lands: true, times: 1 });
+
+    const issued = await harness.sessionService.createSession(
+      user._id,
+      'Mozilla/5.0',
+      '127.0.0.1',
+    );
+    lost.restore();
+
+    expect({
+      validated:
+        (await harness.sessionService.validateSession(issued.sessionToken)) !==
+        null,
+      sessions: await harness.sessions.countDocuments({ user: user._id }),
+      issuedEvents: await events.countDocuments({
+        action: SECURITY_EVENT_ACTION.SESSION_ISSUED,
+      }),
+    }).toEqual({ validated: true, sessions: 1, issuedEvents: 1 });
+  });
 });
