@@ -7,6 +7,7 @@ import {
   type MemoryReplSet,
 } from '../../../../../../test/utils/memory-replset';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'node:crypto';
 import { VerificationCodeService } from '../../../../services/codes/verification-code.service';
 import { MailCounterService } from '../../../../services/mail/mail-counter.service';
 import {
@@ -182,6 +183,38 @@ describe('VerificationCodeService pending registration', () => {
     ).toBe(1);
   });
 
+  it('returns only the commitment for the stored native code generation', async () => {
+    const first = await service.createOrUpdatePendingRegistrationWithGeneration(
+      'native-generation@example.test',
+      PENDING_PURPOSE.SIGNUP,
+    );
+    const firstRecord = await stored('native-generation@example.test');
+
+    expect(first).not.toBeNull();
+    expect(first?.generationHash).toBe(
+      createHash('sha256').update(firstRecord.hashedCode).digest('hex'),
+    );
+    expect(first?.generationHash).not.toBe(first?.code);
+    expect(
+      await bcrypt.compare(first?.code ?? '', firstRecord.hashedCode),
+    ).toBe(true);
+
+    const second =
+      await service.createOrUpdatePendingRegistrationWithGeneration(
+        'native-generation@example.test',
+        PENDING_PURPOSE.SIGNUP,
+      );
+    const secondRecord = await stored('native-generation@example.test');
+
+    expect(second?.generationHash).toBe(
+      createHash('sha256').update(secondRecord.hashedCode).digest('hex'),
+    );
+    expect(second?.generationHash).not.toBe(first?.generationHash);
+    expect(
+      await bcrypt.compare(second?.code ?? '', secondRecord.hashedCode),
+    ).toBe(true);
+  });
+
   it('refuses to mail once the address is over its cap and keeps the old code', async () => {
     const email = 'capped@example.test';
     await seed({ email, hashedCode: 'still-valid-code' });
@@ -199,6 +232,25 @@ describe('VerificationCodeService pending registration', () => {
     expect(result).toBeNull();
     const record = await stored(email);
     expect(record.hashedCode).toBe('still-valid-code');
+  });
+
+  it('returns no native generation when the code was not mailed', async () => {
+    const email = 'native-capped@example.test';
+    await seed({ email, hashedCode: 'still-valid-code' });
+    await seedMailCounter(counters, {
+      email,
+      purpose: MAIL_COUNTER_PURPOSE.SIGNUP,
+      mailedCodes: MAILED_CODE_LIMIT_PER_ADDRESS,
+    });
+
+    const result =
+      await service.createOrUpdatePendingRegistrationWithGeneration(
+        email,
+        PENDING_PURPOSE.SIGNUP,
+      );
+
+    expect(result).toBeNull();
+    expect((await stored(email)).hashedCode).toBe('still-valid-code');
   });
 
   it('resets the cap when the window has rolled over', async () => {

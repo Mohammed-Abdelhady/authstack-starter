@@ -13,6 +13,7 @@ import { ErrorCode } from '../common/enums/error-code.enum';
 import { AuthMailService } from './services/mail/auth-mail.service';
 import { Sessions } from './services/sessions/sessions';
 import { PasswordResetCodeService } from './services/codes/password-reset-code.service';
+import type { IssuedCodeWithGeneration } from './interfaces/pending-code.interface';
 import { MailCounterService } from './services/mail/mail-counter.service';
 import { FIRST_FACTOR } from './services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from './services/sessions/sign-in-completion';
@@ -121,32 +122,45 @@ export class AuthService {
   async forgotPassword(
     dto: ForgotPasswordDto,
   ): Promise<ApiResponse<ForgotPasswordResponseDto>> {
-    const user = await this.accounts.findActiveByAddress(dto.email);
+    await this.issuePasswordReset(dto.email);
+    return ForgotPasswordResponseDto.success(dto.email);
+  }
+
+  /** Same generic request path with a generation commitment for native use. */
+  async forgotPasswordForNative(email: string): Promise<string | null> {
+    const issued = await this.issuePasswordReset(email);
+    return issued?.generationHash ?? null;
+  }
+
+  private async issuePasswordReset(
+    email: string,
+  ): Promise<IssuedCodeWithGeneration | null> {
+    const user = await this.accounts.findActiveByAddress(email);
 
     if (!user) {
       await this.spendCodeHashingTime();
-      return ForgotPasswordResponseDto.success(dto.email);
+      return null;
     }
 
     const underCap = await this.mailCounterService.tryRecord(
-      dto.email,
+      email,
       MAIL_COUNTER_PURPOSE.PASSWORD_RESET,
     );
     if (!underCap) {
       // Same reply and the same bcrypt cost as an uncapped request, so the cap
       // cannot be told apart from a missing account.
       await this.spendCodeHashingTime();
-      return ForgotPasswordResponseDto.success(dto.email);
+      return null;
     }
 
-    const code =
-      await this.passwordResetCodeService.createOrUpdatePasswordReset(
-        dto.email,
+    const issued =
+      await this.passwordResetCodeService.createOrUpdatePasswordResetWithGeneration(
+        email,
       );
 
-    this.authMailService.deferPasswordResetCode(dto.email, code, user.name);
+    this.authMailService.deferPasswordResetCode(email, issued.code, user.name);
 
-    return ForgotPasswordResponseDto.success(dto.email);
+    return issued;
   }
 
   async resetPassword(

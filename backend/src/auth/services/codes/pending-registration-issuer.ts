@@ -13,8 +13,10 @@ import {
 } from '../../constants/registration';
 import {
   IssuedCode,
+  IssuedCodeWithGeneration,
   RegistrationDetails,
 } from '../../interfaces/pending-code.interface';
+import { hashPendingCodeGeneration } from '../../utils/pending-code-generation.util';
 import {
   CODE_ROTATION,
   LEGACY_BLOCKER,
@@ -63,6 +65,19 @@ export class PendingRegistrationIssuer {
     purpose: PendingPurpose,
     details: RegistrationDetails = {},
   ): Promise<IssuedCode | null> {
+    const issued = await this.createOrUpdateWithGeneration(
+      email,
+      purpose,
+      details,
+    );
+    return issued ? { code: issued.code } : null;
+  }
+
+  async createOrUpdateWithGeneration(
+    email: string,
+    purpose: PendingPurpose,
+    details: RegistrationDetails = {},
+  ): Promise<IssuedCodeWithGeneration | null> {
     return this.issue(
       await this.newGeneration(email, purpose, details, {
         includeExpired: true,
@@ -81,6 +96,15 @@ export class PendingRegistrationIssuer {
     purpose: PendingPurpose,
     details: RegistrationDetails = {},
   ): Promise<IssuedCode | null> {
+    const issued = await this.resendWithGeneration(email, purpose, details);
+    return issued ? { code: issued.code } : null;
+  }
+
+  async resendWithGeneration(
+    email: string,
+    purpose: PendingPurpose,
+    details: RegistrationDetails = {},
+  ): Promise<IssuedCodeWithGeneration | null> {
     return this.issue(
       await this.newGeneration(email, purpose, details, {
         includeExpired: false,
@@ -118,11 +142,13 @@ export class PendingRegistrationIssuer {
    * created when the caller allows it. A legacy address confirmation under the
    * old unique email index answers null.
    */
-  private async issue(input: IssueInput): Promise<IssuedCode | null> {
+  private async issue(
+    input: IssueInput,
+  ): Promise<IssuedCodeWithGeneration | null> {
     const { key, generation, now } = input;
     for (let pass = 0; pass < PENDING_STORE_PASSES; pass += 1) {
       const refreshed = await this.store.rotateLiveCode(key, now, generation);
-      if (refreshed === CODE_ROTATION.ROTATED) return { code: input.code };
+      if (refreshed === CODE_ROTATION.ROTATED) return this.issued(input);
 
       if (input.includeExpired) {
         const replaced = await this.store.replaceExpiredCode(
@@ -130,7 +156,7 @@ export class PendingRegistrationIssuer {
           now,
           generation,
         );
-        if (replaced === CODE_ROTATION.ROTATED) return { code: input.code };
+        if (replaced === CODE_ROTATION.ROTATED) return this.issued(input);
       }
 
       // A record that is left is expired. A resend drops it; a create path
@@ -148,7 +174,7 @@ export class PendingRegistrationIssuer {
 
       try {
         await this.store.insertRecord(key, generation);
-        return { code: input.code };
+        return this.issued(input);
       } catch (error) {
         if (!(error instanceof UniqueConflictError)) throw error;
         // A concurrent same-purpose insert is not legacy, so the next pass
@@ -163,5 +189,12 @@ export class PendingRegistrationIssuer {
       'Could not store the pending registration',
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
+  }
+
+  private issued(input: IssueInput): IssuedCodeWithGeneration {
+    return {
+      code: input.code,
+      generationHash: hashPendingCodeGeneration(input.generation.hashedCode),
+    };
   }
 }
