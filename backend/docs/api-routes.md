@@ -18,19 +18,19 @@ How to read the tables:
 
 ## Sign-in and account (`/api/auth`)
 
-| Method | Path                             | Who may call it | Closed by               | What it does                                                             |
-| ------ | -------------------------------- | --------------- | ----------------------- | ------------------------------------------------------------------------ |
-| GET    | `/api/auth/methods`              | Public          |                         | Lists the sign-in methods this server has turned on                      |
-| GET    | `/api/auth/browser-proof`        | Public          |                         | Issues the short-lived proof a browser sends before it has a session     |
-| GET    | `/api/auth/csrf`                 | Signed in       |                         | Returns the CSRF secret of the current session                           |
-| POST   | `/api/auth/register`             | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                                |
-| POST   | `/api/auth/activate`             | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password                |
-| POST   | `/api/auth/resend-activation`    | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                                 |
-| POST   | `/api/auth/login`                | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                         |
-| POST   | `/api/auth/forgot-password`      | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                      |
-| POST   | `/api/auth/reset-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                                  |
-| POST   | `/api/auth/confirm-email-change` | Public          |                         | Confirms the new address after an administrator changed an account email |
-| POST   | `/api/auth/logout`               | Signed in       |                         | Ends the current session and clears its cookie                           |
+| Method | Path                             | Who may call it | Closed by               | What it does                                                         |
+| ------ | -------------------------------- | --------------- | ----------------------- | -------------------------------------------------------------------- |
+| GET    | `/api/auth/methods`              | Public          |                         | Lists the sign-in methods this server has turned on                  |
+| GET    | `/api/auth/browser-proof`        | Public          |                         | Issues the short-lived proof a browser sends before it has a session |
+| GET    | `/api/auth/csrf`                 | Signed in       |                         | Returns the CSRF secret of the current session                       |
+| POST   | `/api/auth/register`             | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                            |
+| POST   | `/api/auth/activate`             | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password            |
+| POST   | `/api/auth/resend-activation`    | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                             |
+| POST   | `/api/auth/login`                | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                     |
+| POST   | `/api/auth/forgot-password`      | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                  |
+| POST   | `/api/auth/reset-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                              |
+| POST   | `/api/auth/confirm-email-change` | Public          |                         | Moves the account to the address an administrator asked for          |
+| POST   | `/api/auth/logout`               | Signed in       |                         | Ends the current session and clears its cookie                       |
 
 With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `404` along with the other password routes, and so does `POST /api/user/password` further down.
 
@@ -136,8 +136,8 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | GET    | `/api/admin/users`                             | `users:list:all`         |           | Lists accounts, paged, with filters                      |
 | POST   | `/api/admin/users`                             | `users:create:all`       |           | Creates an account                                       |
 | GET    | `/api/admin/users/:id`                         | `users:read:all`         |           | Returns one account                                      |
-| PATCH  | `/api/admin/users/:id`                         | `users:update:all`       |           | Changes the name or the email                            |
-| POST   | `/api/admin/users/:id/resend-email-change`     | `users:update:all`       |           | Mails the confirmation code for a changed email again    |
+| PATCH  | `/api/admin/users/:id`                         | `users:update:all`       |           | Changes the name, or asks for an email                   |
+| POST   | `/api/admin/users/:id/resend-email-change`     | `users:update:all`       |           | Mails the code for the email that waits again            |
 | PATCH  | `/api/admin/users/:id/status`                  | `users:update:all`       |           | Activates or deactivates the account                     |
 | PATCH  | `/api/admin/users/:id/role`                    | `users:update:all`       |           | Assigns a role                                           |
 | DELETE | `/api/admin/users/:id`                         | `users:delete:all`       |           | Deactivates the account and ends its sessions. See below |
@@ -146,6 +146,8 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | DELETE | `/api/admin/users/:id/permissions/:permission` | `permissions:revoke:all` |           | Removes a direct permission                              |
 
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
+
+`PATCH /api/admin/users/:id` with an email does not change the address. Only an `admin` may send one. The account keeps its address, and everything that address can do, until `POST /api/auth/confirm-email-change` is called with the code mailed to the new address. That call moves the address and ends the account's sessions. An account carries `pendingEmail` in the list, in `GET /api/admin/users/:id` and in the answer to the `PATCH` while an address waits.
 
 The permission in the table opens the route. Three routes also hold the caller to what the caller holds itself, the same rule a role edit follows:
 
