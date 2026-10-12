@@ -96,7 +96,7 @@ export const AR: Record<MessageKey, string> = {
   'native.loading': 'جارٍ تحميل خيارات تسجيل الدخول',
   'native.methodsFailed': 'تعذر تحميل خيارات تسجيل الدخول',
   'native.methodsFailedHint': 'أعد المحاولة أو تابع في المتصفح.',
-  'native.empty': 'لا تتوفر طرق لتسجيل الدخول',
+  'native.empty': 'لا تتوفر طرق لتسجيل الدخول داخل التطبيق. تابع في المتصفح.',
   'native.passwordChoice': 'تسجيل الدخول بالبريد الإلكتروني وكلمة المرور',
   'native.emailLinkChoice': 'إرسال رابط تسجيل الدخول إلى بريدي الإلكتروني',
   'native.passkeyChoice': 'تسجيل الدخول بمفتاح مرور',
