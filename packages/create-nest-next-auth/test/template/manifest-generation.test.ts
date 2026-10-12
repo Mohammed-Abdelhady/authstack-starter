@@ -78,10 +78,12 @@ it('keeps the suites that drive the engine against the real server in this repos
   );
 
   expect(repositoryOnly).toEqual([
+    'backend/test/native/engine/native-auth-engine-consent.e2e-spec.ts',
     'backend/test/native/engine/native-auth-engine-dpop-challenge.e2e-spec.ts',
     'backend/test/native/engine/native-auth-engine-dpop-retry.e2e-spec.ts',
     'backend/test/native/engine/native-auth-engine-dpop.e2e-spec.ts',
     'backend/test/native/engine/native-auth-engine.e2e-spec.ts',
+    'backend/test/utils/native/native-auth-engine-consent.ts',
     'backend/test/utils/native/native-auth-engine-dpop-support.ts',
     'backend/test/utils/native/native-auth-engine-harness.ts',
   ]);
