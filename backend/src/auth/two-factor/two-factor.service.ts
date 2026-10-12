@@ -25,6 +25,10 @@ import {
 } from './utils/recovery-code.util';
 import { SecondFactorAccount } from './stores/second-factor-account';
 import { SecondFactorStore } from './stores/second-factor.store';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from '../../user/services/security-notice.service';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { SessionRevoker } from '../../session/revocation/session-revoker';
 import { runLeavingFailuresAsRaised } from '../../common/persistence/store-failure';
@@ -42,6 +46,7 @@ export class TwoFactorService {
     private readonly cryptoService: TotpSecretCryptoService,
     private readonly verificationService: TwoFactorVerificationService,
     private readonly reauthService: TwoFactorReauthService,
+    private readonly notices?: SecurityNoticeService,
     private readonly runner?: UnitOfWorkRunner,
     private readonly revoker?: SessionRevoker,
   ) {}
@@ -182,6 +187,7 @@ export class TwoFactorService {
     await this.verificationService.verifySecondFactor(user, dto);
 
     await this.accounts.clear(user);
+    this.notices?.defer(user.id, SECURITY_NOTICE.TWO_FACTOR_DISABLED);
 
     this.logger.log(`Two-factor disabled: userId=${user.id}`);
     return ApiResponse.success({

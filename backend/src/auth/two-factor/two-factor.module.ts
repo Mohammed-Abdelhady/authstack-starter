@@ -13,6 +13,7 @@ import {
 } from './services/second-factor-verifiers';
 import { TWO_FACTOR_PERSISTENCE_PROVIDERS } from './persistence/two-factor-persistence';
 import { CommonModule } from '../../common/common.module';
+import { UserModule } from '../../user/user.module';
 import { SessionModule } from '../../session/session.module';
 
 /**
@@ -30,6 +31,7 @@ import { SessionModule } from '../../session/session.module';
   imports: [
     ConfigModule,
     CommonModule,
+    UserModule,
     SessionModule,
     AuthModule,
     PasskeysModule, // feature:passkeys
