@@ -173,6 +173,7 @@ export interface NativeAuthClient<TSignal extends TransportSignal = TransportSig
     input: NativeAttemptStart,
     options?: CallOptions<TSignal>,
   ): Promise<NativeAttemptStartResult>;
+  resume(attempt: NativeAttempt, options?: CallOptions<TSignal>): Promise<NativeAttemptResult>;
   password(
     attempt: NativeAttempt,
     input: NativePasswordInput,
@@ -277,7 +278,7 @@ export type NativeAttemptView =
       redirectUri: string;
       activationCompleted?: boolean;
     })
-  | (NativeAttemptViewBase & { stage: 'denied'; reason?: 'cancelled' | 'expired' })
+  | (NativeAttemptViewBase & { stage: 'denied'; reason?: 'cancelled' })
   | (NativeAttemptViewBase & { stage: 'recoveryComplete'; passwordUpdated: true });
 
 export type NativeAttemptResult = NativeAttemptView;

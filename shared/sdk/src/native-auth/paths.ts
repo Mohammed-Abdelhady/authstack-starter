@@ -20,6 +20,7 @@ export const NATIVE_AUTH_PATHS = {
     return `${BASE_PATH}/methods?clientId=${id}`;
   },
   attempts: `${BASE_PATH}/attempts`,
+  resume: (attemptId: string) => attemptPath(attemptId),
   password: (attemptId: string) => `${attemptPath(attemptId)}/password`,
   provider: (attemptId: string) => `${attemptPath(attemptId)}/provider`,
   passkeyOptions: (attemptId: string) => `${attemptPath(attemptId)}/passkey/options`,

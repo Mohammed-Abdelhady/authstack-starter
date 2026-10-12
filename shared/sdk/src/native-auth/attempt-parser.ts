@@ -199,11 +199,7 @@ export function parseAttemptResult(
     }
     case NATIVE_AUTH_STAGE.DENIED:
       exactKeys(record, [...baseKeys, 'reason'], 'data', status);
-      if (
-        record.reason !== undefined &&
-        record.reason !== 'cancelled' &&
-        record.reason !== 'expired'
-      ) {
+      if (record.reason !== undefined && record.reason !== 'cancelled') {
         fail(status, 'reason', 'is not supported');
       }
       return {
