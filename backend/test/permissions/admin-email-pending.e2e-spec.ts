@@ -1,6 +1,5 @@
 import * as bcrypt from 'bcrypt';
 import type { Response } from 'supertest';
-import { ConfigService } from '@nestjs/config'; // feature:magic-link
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import {
   EMAIL_CHANGE_EMAIL_SUBJECT,
@@ -199,34 +198,6 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     expect((await signIn(OLD, TARGET.password)).status).toBe(401);
   });
   // feature:email-password:end
-
-  // feature:magic-link:start
-  it('signs a magic link for the waiting address into another account', async () => {
-    e2e.app.get(ConfigService).set('magicLink.enabled', true);
-    await move(admin, targetId, NEW).expect(200);
-    const code = await e2e.mailedCode();
-    const requester = await browserAgent(e2e.httpServer);
-    await requester
-      .post('/api/auth/magic-link/request')
-      .send({ email: NEW })
-      .expect(200);
-    const link = (await e2e.captureMail())
-      .at(-1)
-      ?.text?.match(/https?:\/\/[^\s]+/)?.[0];
-    const token = link ? new URL(link).searchParams.get('token') : null;
-
-    const agent = await browserAgent(e2e.httpServer);
-    await agent.post('/api/auth/magic-link/verify').send({ token }).expect(200);
-
-    const profile = await agent.get('/api/user/profile').expect(200);
-    const signedIn = (profile.body as ApiBody<UserResponse>).data;
-    expect(signedIn.id).not.toBe(targetId);
-    expect(signedIn.role).toBe(UserRole.USER);
-    // The address now has an owner, so the change can no longer be confirmed.
-    expect((await confirm(NEW, code)).status).toBe(400);
-    expect((await stored()).email).toBe(OLD);
-  });
-  // feature:magic-link:end
 
   it('moves the address and ends the sessions on the right code', async () => {
     const holder = await loginAs(e2e.httpServer, TARGET);

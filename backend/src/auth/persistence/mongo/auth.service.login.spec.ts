@@ -13,6 +13,14 @@ import {
   User,
   UserSchema,
 } from '../../../user/persistence/mongo/schemas/user.schema';
+import {
+  Role,
+  RoleSchema,
+} from '../../../role/persistence/mongo/schemas/role.schema';
+import {
+  Passkey,
+  PasskeySchema,
+} from '../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
 import { HashService } from '../../../common/services/hash.service';
 import { AuthMailService } from '../../services/mail/auth-mail.service';
 import { Sessions } from '../../services/sessions/sessions';
@@ -24,6 +32,12 @@ import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { IdFormat } from '../../../common/persistence/id-format';
 import { MongoIdFormat } from '../../../common/persistence/mongo/mongo-id-format';
 import { MONGO_PASSWORD_SIGN_IN_STORE } from './mongo-password-sign-in.store';
+import { MONGO_ACCOUNT_PROFILE_STORE } from '../../../user/persistence/mongo/mongo-account-stores';
+import { MailDispatcherService } from '../../../mail/mail-dispatcher.service';
+import {
+  securityNoticeProviders,
+  stubSmtpBoundary,
+} from '../../../../test/utils/security-notice-fixture';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -45,17 +59,23 @@ describe('AuthService sign-in and password reset (real database)', () => {
     consumePasswordReset: jest.Mock;
   };
   let compareSpy: jest.SpyInstance;
+  let module: TestingModule | undefined;
+  let restoreSmtp: (() => void) | undefined;
 
   beforeAll(async () => {
+    restoreSmtp = stubSmtpBoundary();
     mongo = await startMemoryReplSet();
     connection = await createConnection(mongo.getUri()).asPromise();
     users = connection.model<User>(User.name, UserSchema);
     await users.init();
 
-    const config = {
-      get: (key: string, fallback?: number) =>
-        key === 'bcrypt.rounds' ? ROUNDS : fallback,
-    };
+    const config = new ConfigService({
+      bcrypt: { rounds: ROUNDS },
+      smtp: { from: 'security-notice@example.test' },
+      mail: { maxPendingSends: 4, drainDeadlineMs: 250 },
+    });
+    const roles = connection.model<Role>(Role.name, RoleSchema);
+    const passkeys = connection.model<Passkey>(Passkey.name, PasskeySchema);
     sessionService = { invalidateAllSessions: jest.fn() };
     signInService = {
       completeSignIn: jest.fn().mockResolvedValue({
@@ -71,13 +91,16 @@ describe('AuthService sign-in and password reset (real database)', () => {
       consumePasswordReset: jest.fn().mockResolvedValue(true),
     };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         AuthService,
         HashService,
         { provide: ConfigService, useValue: config },
         { provide: getConnectionToken(), useValue: connection },
         { provide: getModelToken(User.name), useValue: users },
+        { provide: getModelToken(Role.name), useValue: roles },
+        { provide: getModelToken(Passkey.name), useValue: passkeys },
+        MONGO_ACCOUNT_PROFILE_STORE,
         MONGO_PASSWORD_SIGN_IN_STORE,
         { provide: IdFormat, useClass: MongoIdFormat },
         { provide: AuthMailService, useValue: {} },
@@ -92,6 +115,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
           useValue: passwordResetCodeService,
         },
         { provide: SignInCompletion, useValue: signInService },
+        ...securityNoticeProviders(config),
       ],
     }).compile();
 
@@ -99,10 +123,20 @@ describe('AuthService sign-in and password reset (real database)', () => {
     compareSpy = jest.spyOn(HashService.prototype, 'compare');
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
+  afterEach(async () => {
+    await module?.get(MailDispatcherService).flush();
+  });
+
   afterAll(async () => {
-    compareSpy.mockRestore();
-    await connection.close();
-    await mongo.stop();
+    try {
+      await module?.get(MailDispatcherService).flush();
+      await module?.close();
+      compareSpy.mockRestore();
+      await connection.close();
+    } finally {
+      restoreSmtp?.();
+      await mongo?.stop();
+    }
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   beforeEach(async () => {

@@ -6,6 +6,7 @@ import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import type { E2ePendingRegistrationFields } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { seedPendingEmailChange } from '../utils/auth/pending-email-change-seed';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -66,22 +67,6 @@ describe('Activation contract (e2e)', () => {
       ...pendingFields({ hashedCode, ...overrides }),
     });
     return hashedCode;
-  }
-
-  async function seedEmailChange(
-    email: string,
-    userId: string,
-    addressGeneration: number,
-  ): Promise<void> {
-    await e2e.state.auth.storePendingRegistration({
-      email,
-      ...pendingFields({
-        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
-        hashedCode: await bcrypt.hash(CODE, 4),
-        userId,
-        addressGeneration,
-      }),
-    });
   }
 
   it('refuses an old-shape registration the same way for a free and a taken address', async () => {
@@ -179,13 +164,12 @@ describe('Activation contract (e2e)', () => {
     });
 
     const changeEmail = 'cross-change@example.test';
-    const target = await e2e.state.accounts.createAccount({
+    await seedPendingEmailChange(e2e, {
       email: changeEmail,
-      name: 'Target',
-      isVerified: false,
+      code: CODE,
+      expiresAt: LIVE_EXPIRY,
       addressGeneration: 1,
     });
-    await seedEmailChange(changeEmail, target._id, 1);
     const asActivate = await post('/api/auth/activate', {
       email: changeEmail,
       code: CODE,
@@ -201,13 +185,12 @@ describe('Activation contract (e2e)', () => {
 
   it('confirms an address change without a session, with password sign-in disabled', async () => {
     const email = 'moved@example.test';
-    const target = await e2e.state.accounts.createAccount({
+    const target = await seedPendingEmailChange(e2e, {
       email,
-      name: 'Target',
-      isVerified: false,
+      code: CODE,
+      expiresAt: LIVE_EXPIRY,
       addressGeneration: 3,
     });
-    await seedEmailChange(email, target._id, 3);
     e2e.app.get(ConfigService).set('auth.passwordEnabled', false);
 
     const response = await post('/api/auth/confirm-email-change', {
@@ -219,6 +202,12 @@ describe('Activation contract (e2e)', () => {
     expect(response.headers['set-cookie']).toBeUndefined();
     const stored = await e2e.state.accounts.accountWithId(target._id);
     expect(stored?.isVerified).toBe(true);
+    expect(stored).toMatchObject({
+      email,
+      isVerified: true,
+      addressGeneration: 3,
+    });
+    expect(stored?.pendingEmail).toBeUndefined();
   });
 
   it('leaves the code usable when the account write fails before the commit', async () => {
