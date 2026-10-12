@@ -38,7 +38,7 @@ describe('signing devices out from the devices screen', () => {
     await press(app.root, REVOKE('laptop'));
     await app.confirm.answer(true);
     const notice = [
-      app.t('sessions.revokeFailed.title', { device: 'Work laptop' }),
+      app.t('sessions.revokeFailed.title', { device: '\u2068Work laptop\u2069' }),
       app.t('sessions.revokeFailed.description'),
     ];
 

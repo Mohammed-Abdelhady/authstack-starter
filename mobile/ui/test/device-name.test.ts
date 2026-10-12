@@ -45,7 +45,7 @@ describe.each([
         createTranslate(locale),
         deviceNameOf({ userAgent: 'okhttp/4.12.0', deviceName: 'Legacy phrase' }, true),
       ),
-    ).toBe('\u2066Legacy phrase\u2069');
+    ).toBe('\u2068Legacy phrase\u2069');
   });
 
   it("reads the server's own placeholder in the app's language", () => {
@@ -68,7 +68,7 @@ describe.each([
           false,
         ),
       ),
-    ).toBe('\u2066Android 14\u2069');
+    ).toBe('\u2068Android 14\u2069');
   });
 
   it('isolates complete proper-name and version runs', () => {

@@ -53,9 +53,9 @@ describe.each(LOCALES)('the account screen in %s', (locale) => {
     expect(screenText(app)).toEqual(
       expect.arrayContaining([
         app.t('account.name'),
-        'Ada Lovelace',
+        '\u2068Ada Lovelace\u2069',
         app.t('account.email'),
-        'ada@example.test',
+        '\u2066ada@example.test\u2069',
         app.t('account.role'),
         app.t('role.user'),
       ]),
@@ -81,6 +81,8 @@ describe.each(LOCALES)('the account screen in %s', (locale) => {
       await app.step(() => fail(app));
 
       expect(alerts(app)).toEqual([[app.t('account.error.title'), app.t(description)]]);
+      expect(byRole(app.root, 'alert')[0]?.props.accessibilityLiveRegion).toBe('polite');
+      expect(device.accessibilityAnnouncements).toEqual([]);
       expect(accessibilityOf(byTestId(app.root, TEST_ID.ACCOUNT_RETRY))).toEqual({
         accessibilityRole: 'button',
         accessibilityLabel: app.t('common.tryAgain'),
@@ -94,9 +96,21 @@ describe.each(LOCALES)('the account screen in %s', (locale) => {
       await app.step(() => app.server.answer(ROUTE.PROFILE, ok(PROFILE)));
       expect(alerts(app)).toEqual([]);
       expect(isShown(app.root, TEST_ID.ACCOUNT_RETRY)).toBe(false);
-      expect(screenText(app)).toContain('Ada Lovelace');
+      expect(screenText(app)).toContain('\u2068Ada Lovelace\u2069');
     },
   );
+
+  it('announces a newly mounted notice once on iOS', async () => {
+    device.platform = 'ios';
+    const app = await renderApp(ADA, { strictMode: true });
+
+    await app.step(() => app.server.fail(ROUTE.PROFILE, noResponse()));
+    const expected = `${app.t('account.error.title')}. ${app.t('common.offline')}`;
+    expect(device.accessibilityAnnouncements).toEqual([expected]);
+
+    await app.publish(signedInAs('ada'));
+    expect(device.accessibilityAnnouncements).toEqual([expected]);
+  });
 
   it('tells a screen reader what the two actions do', async () => {
     const app = await renderApp(ADA, { locale });

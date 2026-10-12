@@ -2,8 +2,10 @@ import { ErrorCode } from '@app/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TEST_ID } from '../../src/constants';
 import { LAPTOP, PHONE, TABLET } from '../support/devices';
+import { signedInAs } from '../support/fake-engine';
 import { noResponse, refusal, ROUTE, sessionList } from '../support/fake-server';
 import { LOCALES } from '../support/locales';
+import { device } from '../support/react-native';
 import {
   accessibilityOf,
   byRole,
@@ -11,7 +13,9 @@ import {
   cleanup,
   isShown,
   press,
+  pullToRefresh,
   refreshControl,
+  renderApp,
   textsOf,
   type App,
 } from '../support/render';
@@ -40,6 +44,12 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
         state: node.props.accessibilityState,
       })),
     ).toEqual([{ label: app.t('sessions.loading'), state: { busy: true } }]);
+    expect(accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REFRESH))).toEqual({
+      accessibilityRole: 'button',
+      accessibilityLabel: app.t('sessions.refresh'),
+      accessibilityHint: undefined,
+      accessibilityState: { disabled: true, busy: true },
+    });
     expect(rows(app)).toEqual([]);
   });
 
@@ -62,7 +72,9 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
       },
       {
         accessibilityRole: 'button',
-        accessibilityLabel: app.t('sessions.revokeLabel', { device: 'Work laptop' }),
+        accessibilityLabel: app.t('sessions.revokeLabel', {
+          device: '\u2068Work laptop\u2069',
+        }),
         accessibilityHint: undefined,
         accessibilityState: IDLE,
       },
@@ -87,7 +99,7 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
     await press(app.root, REVOKE('laptop'));
     expect(app.confirm.asked).toEqual([
       {
-        title: app.t('sessions.confirmRevoke.title', { device: 'Work laptop' }),
+        title: app.t('sessions.confirmRevoke.title', { device: '\u2068Work laptop\u2069' }),
         message: app.t('sessions.confirmRevoke.message'),
         confirmLabel: app.t('sessions.revoke'),
         cancelLabel: app.t('common.cancel'),
@@ -109,7 +121,7 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
     await press(app.root, REVOKE('phone'));
     expect(app.confirm.asked).toEqual([
       {
-        title: app.t('sessions.confirmRevoke.title', { device: 'Pocket phone' }),
+        title: app.t('sessions.confirmRevoke.title', { device: '\u2068Pocket phone\u2069' }),
         message: app.t('sessions.confirmRevoke.message'),
         confirmLabel: app.t('sessions.revoke'),
         cancelLabel: app.t('common.cancel'),
@@ -151,7 +163,7 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
       expect(rows(app)).toEqual(['phone', 'laptop', 'tablet']);
       expect(alerts(app)).toEqual([
         [
-          app.t('sessions.revokeFailed.title', { device: 'Work laptop' }),
+          app.t('sessions.revokeFailed.title', { device: '\u2068Work laptop\u2069' }),
           app.t('sessions.revokeFailed.description'),
         ],
       ]);
@@ -208,14 +220,14 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
 
       await app.step(() => fail(app));
       expect(alerts(app)).toEqual([[app.t('sessions.error.title'), app.t(description)]]);
-      expect(accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_RETRY))).toEqual({
+      expect(accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REFRESH))).toEqual({
         accessibilityRole: 'button',
-        accessibilityLabel: app.t('common.tryAgain'),
+        accessibilityLabel: app.t('sessions.refresh'),
         accessibilityHint: undefined,
         accessibilityState: IDLE,
       });
 
-      await press(app.root, TEST_ID.SESSIONS_RETRY);
+      await press(app.root, TEST_ID.SESSIONS_REFRESH);
       await app.step(() => app.server.answer(ROUTE.SESSIONS, sessionList([PHONE, LAPTOP])));
       expect({ alerts: alerts(app), rows: rows(app) }).toEqual({
         alerts: [],
@@ -237,5 +249,68 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
     const app = await listed(locale);
 
     expect(refreshControl(app.root).props.accessibilityLabel).toBe(app.t('sessions.refresh'));
+  });
+
+  it('keeps the refresh button available across list states and blocks overlapping reads', async () => {
+    const app = await opened(locale);
+    await app.step(() =>
+      app.server.answer(ROUTE.SESSIONS, refusal(503, ErrorCode.AUTHORITY_UNAVAILABLE)),
+    );
+    expect(
+      accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REFRESH)).accessibilityState,
+    ).toEqual(IDLE);
+
+    const sentBeforeRefresh = app.server.sent().filter((route) => route === ROUTE.SESSIONS).length;
+    await press(app.root, TEST_ID.SESSIONS_REFRESH);
+    expect(
+      accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REFRESH)).accessibilityState,
+    ).toEqual({
+      disabled: true,
+      busy: true,
+    });
+
+    await press(app.root, TEST_ID.SESSIONS_REFRESH);
+    await pullToRefresh(app.root);
+    expect(app.server.sent().filter((route) => route === ROUTE.SESSIONS).length).toBe(
+      sentBeforeRefresh + 1,
+    );
+
+    await app.step(() => app.server.answer(ROUTE.SESSIONS, sessionList([PHONE])));
+    expect(isShown(app.root, TEST_ID.SESSIONS_REFRESH)).toBe(true);
+    expect(isShown(app.root, TEST_ID.SESSIONS_NOTICE)).toBe(false);
+  });
+
+  it('focuses the destination screen title after each signed-in route change', async () => {
+    const app = await renderApp(signedInAs('ada'));
+    const focusedTitles = () =>
+      device.accessibilityFocusTags.map((tag) => {
+        const nativeNode = device.nativeNodes[tag - 1];
+        if (typeof nativeNode !== 'object' || nativeNode === null)
+          throw new Error('The native title ref did not resolve.');
+        const node = nativeNode as {
+          props: { accessibilityRole?: string; accessible?: boolean; children?: string };
+        };
+        return {
+          role: node.props.accessibilityRole,
+          accessible: node.props.accessible,
+          title: node.props.children,
+        };
+      });
+
+    expect(focusedTitles()).toEqual([
+      {
+        role: 'header',
+        accessible: true,
+        title: app.t('account.title'),
+      },
+    ]);
+
+    await press(app.root, TEST_ID.ACCOUNT_SESSIONS_LINK);
+    await press(app.root, TEST_ID.SESSIONS_BACK);
+    expect(focusedTitles()).toEqual([
+      { role: 'header', accessible: true, title: app.t('account.title') },
+      { role: 'header', accessible: true, title: app.t('sessions.title') },
+      { role: 'header', accessible: true, title: app.t('account.title') },
+    ]);
   });
 });
