@@ -13,7 +13,7 @@ export class MailCounter {
   @Prop({ required: true, lowercase: true, trim: true })
   email!: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   purpose!: MailCounterPurpose;
 
   @Prop({ required: true, default: 1 })

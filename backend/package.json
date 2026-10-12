@@ -110,7 +110,8 @@
         "ts-jest",
         {
           "tsconfig": {
-            "allowJs": true
+            "allowJs": true,
+            "isolatedModules": true
           }
         }
       ]
