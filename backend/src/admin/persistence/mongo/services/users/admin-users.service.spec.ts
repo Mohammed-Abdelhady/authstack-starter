@@ -75,11 +75,13 @@ describe('AdminUsersService', () => {
   let actorUser: MockUser;
 
   const mockUserModel = {
+    updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
     findById: jest.fn(),
     findOne: jest.fn(),
   };
 
   const mockRoleModel = {
+    findOneAndUpdate: jest.fn().mockResolvedValue(STORED_ROLE),
     findOne: jest.fn().mockReturnValue(createChainableQueryMock(STORED_ROLE)),
     findById: jest.fn().mockReturnValue(createChainableQueryMock(STORED_ROLE)),
   };
