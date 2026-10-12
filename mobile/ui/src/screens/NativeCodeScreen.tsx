@@ -14,7 +14,7 @@ import { TextField } from '../components/TextField';
 import { Description, Heading } from '../components/Typography';
 import { NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
 import { useUi } from '../context/ui-context';
-import { validNativePassword } from '../logic/native-form-validation';
+import { validNativeName, validNativePassword } from '../logic/native-form-validation';
 import type { NativeFormActions } from '../types/native-sign-in';
 import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
 
@@ -22,6 +22,8 @@ type CodeView = Extract<
   NativeSafeAttemptView,
   { stage: 'registrationCodeRequired' | 'recoveryCodeRequired' }
 >;
+// TextInput counts UTF-16 units; a permitted code point can use two.
+const NAME_INPUT_CODE_UNITS = NATIVE_AUTH_LIMITS.NAME * 2;
 export function NativeCodeScreen({
   view,
   pending,
@@ -49,7 +51,7 @@ export function NativeCodeScreen({
     if (
       !NATIVE_AUTH_PATTERN.ACTIVATION_CODE.test(code.trim()) ||
       !validNativePassword(password, true) ||
-      (registration && (name.trim().length === 0 || name.trim().length > NATIVE_AUTH_LIMITS.NAME))
+      (registration && !validNativeName(name))
     ) {
       setInvalid(true);
       return;
@@ -58,7 +60,12 @@ export function NativeCodeScreen({
     if (registration)
       submit({
         kind: 'activate',
-        input: { email: view.email, code: code.trim(), name: name.trim(), password },
+        input: {
+          email: view.email,
+          code: code.trim(),
+          name: name.trim().normalize('NFC'),
+          password,
+        },
       });
     else
       submit({
@@ -107,7 +114,7 @@ export function NativeCodeScreen({
           onChangeText={setName}
           disabled={pending}
           autoComplete="name"
-          maxLength={NATIVE_AUTH_LIMITS.NAME}
+          maxLength={NAME_INPUT_CODE_UNITS}
           testID={NATIVE_UI_TEST_ID.NAME}
         />
       ) : null}
