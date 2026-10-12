@@ -1,0 +1,8 @@
+{
+  "pagination": {
+    "previous": "السابق",
+    "next": "التالي",
+    "page": "الصفحة",
+    "pageInfo": "الصفحة {page} من {totalPages}"
+  }
+}

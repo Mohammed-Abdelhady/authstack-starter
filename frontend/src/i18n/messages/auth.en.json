@@ -1,0 +1,227 @@
+{
+  "auth": {
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "sessionCheckFailed": "We could not confirm your session. Try again.",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": {
+      "title": "Forgot Your Password?",
+      "subtitle": "Enter your email address and we'll send you a reset link",
+      "email": "Email Address",
+      "submit": "Send Reset Link",
+      "backToLogin": "Back to Login",
+      "success": "If this email is registered, you'll receive a reset link shortly",
+      "errors": {
+        "emailRequired": "Email is required",
+        "emailInvalid": "Please enter a valid email address",
+        "serverError": "An error occurred. Please try again later",
+        "networkError": "Network error. Please check your connection"
+      }
+    },
+    "rememberMe": "Remember Me",
+    "passwordToggle": {
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "passwordRules": {
+      "title": "Password requirements",
+      "minLength": "At least 8 characters",
+      "uppercase": "At least one uppercase letter",
+      "lowercase": "At least one lowercase letter",
+      "number": "At least one number",
+      "passed": "Passed",
+      "failed": "Not passed"
+    },
+    "login": {
+      "title": "Login to your account",
+      "subtitle": "Welcome back! Please enter your credentials",
+      "email": "Email address",
+      "password": "Password",
+      "rememberMe": "Remember me",
+      "submit": "Sign in",
+      "forgotPassword": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up",
+      "divider": "Or sign in with e-mail",
+      "success": "Login successful! Redirecting...",
+      "errors": {
+        "invalidCredentials": "Invalid email or password",
+        "emailRequired": "Email is required",
+        "emailInvalid": "Please enter a valid email address",
+        "passwordRequired": "Password is required",
+        "passwordMinLength": "Password must be at least 6 characters",
+        "serverError": "An error occurred. Please try again later",
+        "networkError": "Network error. Please check your connection",
+        "tooManyAttempts": "Too many login attempts. Please try again later"
+      }
+    },
+    "register": {
+      "title": "Create Your Account",
+      "subtitle": "Join us today",
+      "name": "Full Name",
+      "namePlaceholder": "Jane Doe",
+      "email": "Email Address",
+      "password": "Password",
+      "submit": "Create Account",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "magicLinkOnlyTitle": "No account to create",
+      "magicLinkOnlyBody": "This site signs you in with a link sent by email. The first link you use creates your account.",
+      "providerOnlyTitle": "No account to create",
+      "providerOnlyBody": "This site signs you in through one of the providers on the sign-in page. Your account is created the first time you use one.",
+      "divider": "Or sign up with e-mail",
+      "errors": {
+        "nameRequired": "Name is required",
+        "nameMinLength": "Name must be at least 2 characters",
+        "emailRequired": "Email is required",
+        "emailInvalid": "Please enter a valid email address",
+        "emailExists": "Email already registered",
+        "passwordRequired": "Password is required",
+        "passwordMinLength": "Password must be at least 8 characters",
+        "passwordWeak": "Password must contain letters and numbers",
+        "serverError": "An error occurred. Please try again later",
+        "networkError": "Network error. Please check your connection",
+        "passwordUppercase": "Password must contain at least one uppercase letter",
+        "passwordLowercase": "Password must contain at least one lowercase letter",
+        "passwordNumber": "Password must contain at least one number"
+      }
+    },
+    "activate": {
+      "title": "Verify Your Email",
+      "description": "Enter the 6-digit code sent to your email",
+      "email": "Email Address",
+      "code": "Verification Code",
+      "submit": "Verify and Continue",
+      "logout": "Logout",
+      "loggingOut": "Logging out...",
+      "resendButton": "Resend Code",
+      "resendSending": "Sending...",
+      "resendCooldown": "Resend Code ({seconds}s)",
+      "didntReceive": "Didn't receive the code?",
+      "errors": {
+        "emailRequired": "Email is required",
+        "emailInvalid": "Please enter a valid email address",
+        "codeRequired": "Verification code is required",
+        "codeInvalid": "Invalid verification code",
+        "codeExpired": "Code has expired. Please register again",
+        "codeLength": "Code must be exactly 6 digits",
+        "serverError": "An error occurred. Please try again later",
+        "networkError": "Network error. Please check your connection"
+      }
+    },
+    "resetPassword": {
+      "title": "Reset Your Password",
+      "subtitle": "Enter the 6-digit code sent to your email",
+      "email": "Email Address",
+      "code": "Verification Code",
+      "password": "New Password",
+      "confirmPassword": "Confirm Password",
+      "submit": "Reset Password",
+      "backToLogin": "Back to Login",
+      "success": "Password updated successfully",
+      "invalidToken": "Invalid or missing reset link",
+      "requestNew": "Request new reset link",
+      "errors": {
+        "emailRequired": "Email is required",
+        "emailInvalid": "Please enter a valid email address",
+        "codeRequired": "Verification code is required",
+        "codeInvalid": "Invalid verification code",
+        "codeExpired": "Code has expired. Please request a new one",
+        "codeLength": "Code must be exactly 6 digits",
+        "passwordRequired": "Password is required",
+        "passwordMinLength": "Password must be at least 8 characters",
+        "passwordWeak": "Password must contain letters and numbers",
+        "passwordUppercase": "Password must contain at least one uppercase letter",
+        "passwordLowercase": "Password must contain at least one lowercase letter",
+        "passwordNumber": "Password must contain at least one number",
+        "confirmRequired": "Please confirm your password",
+        "passwordMismatch": "Passwords don't match",
+        "tokenInvalid": "Invalid reset token",
+        "tokenExpired": "Reset link has expired",
+        "serverError": "An error occurred. Please try again later",
+        "networkError": "Network error. Please check your connection"
+      }
+    },
+    "methods": {
+      "noneEnabled": "No sign-in method is available. Ask an administrator to turn one on.",
+      "loadFailed": "We could not load the sign-in options. Try again."
+    },
+    "signOut": {
+      "notConfirmedTitle": "Sign-out was not confirmed",
+      "notConfirmedBody": "The server did not confirm the sign-out, so you may still be signed in. Try again before you leave this computer.",
+      "retry": "Try again",
+      "retryFailed": "Still not confirmed. Tries that failed: {count}.",
+      "staySignedIn": "Stay signed in"
+    },
+    "magicLink": {
+      "title": "Email me a sign-in link",
+      "description": "We send a link that signs you in. No password needed.",
+      "email": "Email address",
+      "submit": "Send the link",
+      "error": "The link could not be sent. Try again.",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If ⁦{email}⁩ has an account, a sign-in link is on its way. The link works once and expires shortly.",
+      "resend": "Send another link",
+      "resendCooldown": "Send another link ({seconds}s)",
+      "verify": {
+        "title": "Signing you in",
+        "pending": "Checking your link.",
+        "errorTitle": "This link did not work",
+        "requestNew": "Request a new link",
+        "backToSignIn": "Back to sign in"
+      }
+    },
+    "twoFactor": {
+      "title": "Two-step verification",
+      "description": "Enter the six digit code from your authenticator app.",
+      "code": "Authentication code",
+      "recoveryCode": "Recovery code",
+      "useRecoveryCode": "Use a recovery code",
+      "useCode": "Use a code from the app",
+      "submit": "Verify",
+      "backToSignIn": "Back to sign in",
+      "answerRequired": "Enter a code to continue",
+      "codeLength": "The code is six digits",
+      "recoveryCodeLength": "A recovery code is ten characters"
+    },
+    "passkeys": {
+      "description": "Use the passkey saved on this device.",
+      "signIn": "Sign in with a passkey",
+      "useInstead": "Use a passkey instead",
+      "unsupported": "This browser cannot use passkeys.",
+      "errors": {
+        "notAllowed": "The prompt was dismissed or timed out. Try again",
+        "invalidState": "This device already has a passkey for your account",
+        "aborted": "The prompt closed before it finished. Try again",
+        "unsupported": "This browser or device cannot use that passkey",
+        "failed": "The passkey did not work. Try again"
+      }
+    },
+    "oauth": {
+      "signInWith": "Sign in with {provider}",
+      "continue": "Or continue with",
+      "groupLabel": "Other sign-in options",
+      "error": "Failed to sign in with {provider}",
+      "callback": {
+        "title": "Completing sign-in...",
+        "pending": "Setting up your session.",
+        "errorTitle": "Sign-in failed",
+        "backToSignIn": "Back to sign in"
+      },
+      "errorPage": {
+        "title": "OAuth Authentication Failed",
+        "description": "We could not finish signing you in with that provider.",
+        "reasonsTitle": "What might have gone wrong:",
+        "reasonCancelled": "You may have cancelled the authorization",
+        "reasonTimeout": "The authorization may have timed out",
+        "reasonProvider": "There might be a temporary issue with the OAuth provider",
+        "reasonLinked": "Your account may already be linked to another account",
+        "tryAgain": "Try Again",
+        "goHome": "Go to Home",
+        "help": "If the problem persists, <link>return to sign in</link>."
+      }
+    }
+  }
+}
