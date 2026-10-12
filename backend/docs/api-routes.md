@@ -18,19 +18,20 @@ How to read the tables:
 
 ## Sign-in and account (`/api/auth`)
 
-| Method | Path                             | Who may call it | Closed by               | What it does                                                         |
-| ------ | -------------------------------- | --------------- | ----------------------- | -------------------------------------------------------------------- |
-| GET    | `/api/auth/methods`              | Public          |                         | Lists the sign-in methods this server has turned on                  |
-| GET    | `/api/auth/browser-proof`        | Public          |                         | Issues the short-lived proof a browser sends before it has a session |
-| GET    | `/api/auth/csrf`                 | Signed in       |                         | Returns the CSRF secret of the current session                       |
-| POST   | `/api/auth/register`             | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                            |
-| POST   | `/api/auth/activate`             | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password            |
-| POST   | `/api/auth/resend-activation`    | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                             |
-| POST   | `/api/auth/login`                | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                     |
-| POST   | `/api/auth/forgot-password`      | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                  |
-| POST   | `/api/auth/reset-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                              |
-| POST   | `/api/auth/confirm-email-change` | Public          |                         | Moves the account to the address an administrator asked for          |
-| POST   | `/api/auth/logout`               | Signed in       |                         | Ends the current session and clears its cookie                       |
+| Method | Path                             | Who may call it | Closed by               | What it does                                                                                        |
+| ------ | -------------------------------- | --------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
+| GET    | `/api/auth/methods`              | Public          |                         | Lists the sign-in methods this server has turned on                                                 |
+| GET    | `/api/auth/identity`             | Public          |                         | Optional current identity. Signed-out browsers receive 200; invalid native credentials are refused. |
+| GET    | `/api/auth/browser-proof`        | Public          |                         | Issues the short-lived proof a browser sends before it has a session                                |
+| GET    | `/api/auth/csrf`                 | Signed in       |                         | Returns the CSRF secret of the current session                                                      |
+| POST   | `/api/auth/register`             | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                                                           |
+| POST   | `/api/auth/activate`             | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password                                           |
+| POST   | `/api/auth/resend-activation`    | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                                                            |
+| POST   | `/api/auth/login`                | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                                                    |
+| POST   | `/api/auth/forgot-password`      | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                                                 |
+| POST   | `/api/auth/reset-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                                                             |
+| POST   | `/api/auth/confirm-email-change` | Public          |                         | Moves the account to the address an administrator asked for                                         |
+| POST   | `/api/auth/logout`               | Signed in       |                         | Ends the current session and clears its cookie                                                      |
 
 With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `404` along with the other password routes, and so does `POST /api/user/password` further down.
 
