@@ -6,7 +6,7 @@ import {
   validateRoleForm,
 } from '../../utils/roleFormValidation';
 import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -74,6 +74,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
 
   const code = previewedRoleCode(name);
 
@@ -90,6 +91,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionInFlight.current) return;
 
     const nextErrors = validateRoleForm({ name, description, permissions }, t);
 
@@ -101,6 +103,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
       return;
     }
 
+    submissionInFlight.current = true;
     refusal.clear();
     try {
       await showsOwnRefusal(
@@ -113,21 +116,31 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
 
       toast.success(t('createSuccess', { name: name.trim() }));
       resetForm();
+      submissionInFlight.current = false;
       onOpenChange(false);
       onSuccess?.();
     } catch (error) {
       refusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      if (submissionInFlight.current) return;
+      resetForm();
+    }
+    onOpenChange(nextOpen);
+  };
+
   const handleCancel = () => {
-    resetForm();
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   return (
-    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
+    <Dialog open={open} busy={isLoading} onOpenChange={handleOpenChange}>
       <DialogContent
         className="max-h-[90vh] max-w-3xl overflow-y-auto"
         data-testid="create-role-dialog"
