@@ -1,11 +1,11 @@
 import type { OAuthProfile } from '../oauth-provider.interface';
+import { nativeDisplayName } from '../../../common/utils/native-display-name';
 import { verifyIdToken, type VerifyIdTokenOptions } from './id-token.util';
 
 const NATIVE_REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'exp', 'iat', 'nonce'];
 const ISSUED_AT_TOLERANCE_SECONDS = 60;
 const SUBJECT_LIMIT = 255;
 const EMAIL_LIMIT = 255;
-const NAME_LIMIT = 100;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export async function verifyNativeIdToken(options: VerifyIdTokenOptions) {
@@ -44,14 +44,7 @@ export function nativeProfileFromClaims(
     providerId: claims.sub,
     email: claims.email,
     emailVerified,
-    name: Array.from(
-      (typeof claims.name === 'string' && claims.name.trim()
-        ? claims.name.trim()
-        : claims.email
-      ).normalize('NFC'),
-    )
-      .slice(0, NAME_LIMIT)
-      .join(''),
+    name: nativeDisplayName(claims.name, claims.email),
     ...(typeof claims.picture === 'string'
       ? { avatarUrl: claims.picture }
       : {}),
