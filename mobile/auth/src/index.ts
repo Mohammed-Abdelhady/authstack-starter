@@ -7,6 +7,7 @@ import { createRestoreOperation } from './storage/restore';
 import { AuthRuntime } from './runtime/runtime';
 import { createSignInController } from './sign-in/sign-in';
 import { createSignOutOperation } from './sign-out/sign-out';
+import { createNativeController } from './native/native-controller';
 import { validateConfiguration } from './sign-in/redirect';
 import type { AuthConfiguration, AuthDependencies, AuthEngine, AuthSnapshot } from './types/auth';
 
@@ -35,10 +36,15 @@ export function createAuthEngine(
   const refreshCoordinator = createRefreshCoordinator(runtime, client, revocationClient);
   coordinator.current = refreshCoordinator;
   const signIn = createSignInController(runtime, client, revocationClient);
-  const restore = createRestoreOperation(runtime, signIn);
+  const native = createNativeController(runtime, revocationClient, client, (options) =>
+    signIn.signIn(options),
+  );
+  const restore = createRestoreOperation(runtime, signIn, native);
   const signOut = createSignOutOperation(runtime, revocationClient);
   try {
-    runtime.unsubscribeCallbacks = dependencies.callbacks.subscribe(signIn.handleAddress);
+    runtime.unsubscribeCallbacks = dependencies.callbacks.subscribe(async (address) => {
+      if (!(await native.handleAddress(address))) await signIn.handleAddress(address);
+    });
   } catch {
     runtime.unsubscribeCallbacks = undefined;
   }
@@ -50,7 +56,19 @@ export function createAuthEngine(
     transport,
     subscribe: (listener) => runtime.subscribe(listener),
     restore,
-    signIn: signIn.signIn,
+    signIn: (options) =>
+      native.needsCancellation()
+        ? native
+            .cancelNativeSignIn()
+            .then((cancelled) =>
+              cancelled.kind === 'cancelled'
+                ? signIn.signIn(options)
+                : { kind: 'signedOut' as const },
+            )
+        : signIn.signIn(options),
+    methods: native.methods,
+    nativeSignIn: native.nativeSignIn,
+    cancelNativeSignIn: native.cancelNativeSignIn,
     signOut,
     refresh: createRefreshNow(runtime, refreshCoordinator),
     dispose: () => {
