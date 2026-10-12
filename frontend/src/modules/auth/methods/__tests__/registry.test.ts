@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUTH_METHOD_ID } from '../../constants/authMethods';
+import { AUTH_METHOD_ID } from '../../constants/authMethods'; // feature:email-password,magic-link,passkeys
 import type { AuthMethods } from '@app/sdk';
 import { enabledAuthMethods } from '../registry';
 
