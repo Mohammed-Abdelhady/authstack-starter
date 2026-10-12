@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createApiClient } from '../client';
+import { createApiClient } from '../client'; // feature:email-password
 import { ApiError } from '../errors';
-import { answering } from '../test-support';
+import { answering } from '../test-support'; // feature:email-password
 import { unwrapNativeAttemptResult } from './parsers';
 
 const ATTEMPT = { id: 'name-attempt', secret: 'A'.repeat(43) };
@@ -40,6 +40,7 @@ describe('native name character bounds', () => {
     },
   );
 
+  // feature:email-password:start
   it.each([99, 100])('sends %i supplementary letters through activation', async (count) => {
     const name = '\u{10400}'.repeat(count);
     const transport = answering(200, { success: true, data: consent(name) });
@@ -85,4 +86,5 @@ describe('native name character bounds', () => {
     ).rejects.toBeInstanceOf(TypeError);
     expect(transport.sent).toEqual([]);
   });
+  // feature:email-password:end
 });

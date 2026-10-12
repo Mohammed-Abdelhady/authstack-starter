@@ -430,7 +430,8 @@
         "backend/test/native/lifecycle/native-recovery.e2e-spec.ts",
         "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
-        "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
+        "frontend/src/store/api/__tests__/identityProofHintRace.test.ts",
+        "mobile/ui/test/native-name.test.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
