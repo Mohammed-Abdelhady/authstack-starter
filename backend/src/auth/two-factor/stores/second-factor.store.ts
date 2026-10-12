@@ -93,6 +93,7 @@ export abstract class SecondFactorStore {
   abstract spendTotpStep(
     account: SecondFactorAccount,
     step: number,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome>;
   /**
    * Counts an answer before it is checked: stores `attempt`, only while the
@@ -106,11 +107,16 @@ export abstract class SecondFactorStore {
   ): Promise<AttemptReservation>;
   /** Clears the count and the lock after a correct answer. */
   abstract clearFailedAttempts(account: SecondFactorAccount): Promise<void>;
+  abstract clearFailedAttemptsIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+  ): Promise<void>;
 
   /** Marks the unspent recovery code with this hash as used at `usedAt`. */
   abstract spendRecoveryCode(
     account: SecondFactorAccount,
     hash: string,
     usedAt: Date,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome>;
 }

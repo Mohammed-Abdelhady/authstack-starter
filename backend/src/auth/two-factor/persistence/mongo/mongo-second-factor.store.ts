@@ -214,17 +214,19 @@ export class MongoSecondFactorStore extends SecondFactorStore {
   async spendTotpStep(
     account: SecondFactorAccount,
     step: number,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome> {
     const user = secondFactorDocumentOf(account);
-    const updated = await singleStatement(() =>
+    const update = () =>
       this.userModel.updateOne(
         {
           _id: user._id,
           'twoFactor.lastUsedStep': account.twoFactor.lastUsedStep,
         },
         { $set: { 'twoFactor.lastUsedStep': step } },
-      ),
-    );
+        { session: unitOfWork ? mongoSessionOf(unitOfWork) : undefined },
+      );
+    const updated = unitOfWork ? await update() : await singleStatement(update);
 
     if (updated.modifiedCount !== 1) {
       return SPEND_OUTCOME.ALREADY_SPENT;
@@ -279,21 +281,37 @@ export class MongoSecondFactorStore extends SecondFactorStore {
     );
   }
 
+  async clearFailedAttemptsIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+  ): Promise<void> {
+    const user = secondFactorDocumentOf(account);
+    await this.userModel.updateOne(
+      { _id: user._id },
+      {
+        $set: { 'twoFactor.failedAttempts': 0, 'twoFactor.lockedUntil': null },
+      },
+      { session: mongoSessionOf(unitOfWork) },
+    );
+  }
+
   async spendRecoveryCode(
     account: SecondFactorAccount,
     hash: string,
     usedAt: Date,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome> {
     const user = secondFactorDocumentOf(account);
-    const updated = await singleStatement(() =>
+    const update = () =>
       this.userModel.updateOne(
         {
           _id: user._id,
           'twoFactor.recoveryCodes': { $elemMatch: { hash, usedAt: null } },
         },
         { $set: { 'twoFactor.recoveryCodes.$.usedAt': usedAt } },
-      ),
-    );
+        { session: unitOfWork ? mongoSessionOf(unitOfWork) : undefined },
+      );
+    const updated = unitOfWork ? await update() : await singleStatement(update);
 
     if (updated.modifiedCount !== 1) {
       return SPEND_OUTCOME.ALREADY_SPENT;

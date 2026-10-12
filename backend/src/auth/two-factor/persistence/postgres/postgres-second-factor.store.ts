@@ -11,7 +11,6 @@ import {
   CountedAttempt,
   SecondFactorConfirmation,
   SecondFactorStore,
-  SPEND_OUTCOME,
   SpendOutcome,
 } from '../../stores/second-factor.store';
 import {
@@ -20,7 +19,12 @@ import {
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import { confirmSecondFactorIn } from './postgres-second-factor-confirmation';
+import {
+  spendPostgresTotpStep,
+  spendPostgresRecoveryCode,
+} from './postgres-second-factor-spending';
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 
@@ -159,44 +163,24 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
   spendTotpStep(
     account: SecondFactorAccount,
     step: number,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome> {
-    const id = toUuid(account.id);
-    const readWith = account.twoFactor.lastUsedStep;
-    return autocommit(NO_CONSTRAINTS, async () => {
-      const spent = await this.database
-        .updateTable('user_two_factor')
-        .set({ last_used_step: step })
-        .where('user_id', '=', id)
-        .where((state) =>
-          readWith === null
-            ? state('last_used_step', 'is', null)
-            : state('last_used_step', '=', readWith),
-        )
-        .executeTakeFirst();
-      return spent.numUpdatedRows === 1n
-        ? SPEND_OUTCOME.SPENT
-        : SPEND_OUTCOME.ALREADY_SPENT;
-    });
+    return spendPostgresTotpStep(this.database, account, step, unitOfWork);
   }
 
   spendRecoveryCode(
     account: SecondFactorAccount,
     hash: string,
     usedAt: Date,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome> {
-    const id = toUuid(account.id);
-    return autocommit(NO_CONSTRAINTS, async () => {
-      const spent = await this.database
-        .updateTable('user_recovery_codes')
-        .set({ used_at: usedAt })
-        .where('user_id', '=', id)
-        .where('hash', '=', hash)
-        .where('used_at', 'is', null)
-        .executeTakeFirst();
-      return spent.numUpdatedRows === 1n
-        ? SPEND_OUTCOME.SPENT
-        : SPEND_OUTCOME.ALREADY_SPENT;
-    });
+    return spendPostgresRecoveryCode(
+      this.database,
+      account,
+      hash,
+      usedAt,
+      unitOfWork,
+    );
   }
 
   reserveAttempt(
@@ -229,6 +213,17 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
         .where('user_id', '=', id)
         .execute();
     });
+  }
+
+  async clearFailedAttemptsIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+  ): Promise<void> {
+    await postgresTransactionOf(unitOfWork)
+      .updateTable('user_two_factor')
+      .set({ failed_attempts: 0, locked_until: null })
+      .where('user_id', '=', toUuid(account.id))
+      .execute();
   }
 
   /** One statement, so the state and its codes come from one snapshot. */
