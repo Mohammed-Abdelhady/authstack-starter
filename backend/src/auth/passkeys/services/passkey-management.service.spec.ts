@@ -226,7 +226,11 @@ describe('PasskeyManagementService', () => {
     it('should remove the last passkey when the account has a password', async () => {
       const harness = createHarness({ passkeyCount: 1, password: 'hashed' });
 
-      await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
+      await harness.service.remove(USER, ID);
+
+      expect(harness.passkeyModel.deleteOne.mock.calls).toEqual([
+        [{ _id: PASSKEY_ID }],
+      ]);
     });
     // feature:email-password:end
 
@@ -249,7 +253,11 @@ describe('PasskeyManagementService', () => {
         linkedAccounts: [{ provider: 'google', providerId: '1' }],
       });
 
-      await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
+      await harness.service.remove(USER, ID);
+
+      expect(harness.passkeyModel.deleteOne.mock.calls).toEqual([
+        [{ _id: PASSKEY_ID }],
+      ]);
     });
 
     // feature:magic-link:start
@@ -260,7 +268,11 @@ describe('PasskeyManagementService', () => {
         magicLinkEnabled: true,
       });
 
-      await expect(harness.service.remove(USER, ID)).resolves.toBeDefined();
+      await harness.service.remove(USER, ID);
+
+      expect(harness.passkeyModel.deleteOne.mock.calls).toEqual([
+        [{ _id: PASSKEY_ID }],
+      ]);
     });
     // feature:magic-link:end
   });

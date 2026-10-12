@@ -20,6 +20,10 @@ import {
 const KEY = Buffer.alloc(32, 7).toString('base64');
 const USER_ID = new Types.ObjectId('507f1f77bcf86cd799439011');
 const CHALLENGE_ID = new Types.ObjectId('507f1f77bcf86cd799439012');
+/** The frozen clock, and the instant a challenge issued at it runs out. */
+const NOW = new Date('2026-01-02T03:04:05.000Z');
+const LAST_GOOD_INSTANT = new Date('2026-01-02T03:09:04.999Z');
+const EXPIRES_AT = new Date('2026-01-02T03:09:05.000Z');
 
 interface Harness {
   service: TwoFactorChallengeService;
@@ -80,13 +84,11 @@ async function issueToken(harness: Harness): Promise<string> {
 }
 
 /** Record the model returns for a token that is still good. */
-function storedChallenge(attempts = 0): Record<string, unknown> {
-  return {
-    _id: CHALLENGE_ID,
-    user: USER_ID,
-    attempts,
-    expiresAt: new Date(Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS),
-  };
+function storedChallenge(
+  attempts = 0,
+  expiresAt = EXPIRES_AT,
+): Record<string, unknown> {
+  return { _id: CHALLENGE_ID, user: USER_ID, attempts, expiresAt };
 }
 
 async function expectChallengeInvalid(
@@ -99,6 +101,14 @@ async function expectChallengeInvalid(
 }
 
 describe('TwoFactorChallengeService', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe('issue', () => {
     it('should store the nonce hash and set a signed cookie', async () => {
       const harness = createHarness();
@@ -110,6 +120,7 @@ describe('TwoFactorChallengeService', () => {
         expect.objectContaining({
           user: USER_ID,
           attempts: 0,
+          expiresAt: EXPIRES_AT,
           nonceHash: expect.stringMatching(/^[0-9a-f]{64}$/) as string,
         }),
       );
@@ -168,7 +179,7 @@ describe('TwoFactorChallengeService', () => {
         JSON.stringify({
           sub: new Types.ObjectId().toString(),
           nonce: 'anything',
-          expiresAt: Date.now() + 60000,
+          expiresAt: EXPIRES_AT.getTime(),
         }),
       ).toString('base64url');
 
@@ -178,18 +189,43 @@ describe('TwoFactorChallengeService', () => {
       expect(harness.model.findOne).not.toHaveBeenCalled();
     });
 
-    it('should refuse a cookie that has run out of time', async () => {
+    it('should accept a cookie in its last millisecond', async () => {
       const harness = createHarness();
       const token = await issueToken(harness);
-      jest
-        .spyOn(Date, 'now')
-        .mockReturnValue(Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS + 1000);
+      harness.model.findOne.mockResolvedValue(storedChallenge());
+      jest.setSystemTime(LAST_GOOD_INSTANT);
+
+      await expect(
+        harness.service.read(requestWith(token)),
+      ).resolves.toMatchObject({ challengeId: CHALLENGE_ID.toString() });
+    });
+
+    it.each([
+      ['the instant it runs out', EXPIRES_AT],
+      ['a second after it ran out', new Date('2026-01-02T03:09:06.000Z')],
+    ])('should refuse a cookie at %s, unread', async (_label, instant) => {
+      const harness = createHarness();
+      const token = await issueToken(harness);
+      harness.model.findOne.mockResolvedValue(storedChallenge());
+      jest.setSystemTime(instant);
 
       await expectChallengeInvalid(() =>
         harness.service.read(requestWith(token)),
       );
+      expect(harness.model.findOne).not.toHaveBeenCalled();
+    });
 
-      jest.spyOn(Date, 'now').mockRestore();
+    it('should drop a record that ran out before its cookie did', async () => {
+      const harness = createHarness();
+      const token = await issueToken(harness);
+      harness.model.findOne.mockResolvedValue(storedChallenge(0, NOW));
+
+      await expectChallengeInvalid(() =>
+        harness.service.read(requestWith(token)),
+      );
+      expect(harness.model.deleteOne).toHaveBeenCalledWith({
+        _id: CHALLENGE_ID,
+      });
     });
 
     it('should refuse a cookie whose record is gone', async () => {
@@ -236,7 +272,7 @@ describe('TwoFactorChallengeService', () => {
           attempts: { $lt: TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS },
           $or: [{ claimedAt: null }, { claimedAt: { $exists: false } }],
         }),
-        { $set: { claimedAt: expect.any(Date) as Date } },
+        { $set: { claimedAt: NOW } },
         { new: true },
       );
     });
