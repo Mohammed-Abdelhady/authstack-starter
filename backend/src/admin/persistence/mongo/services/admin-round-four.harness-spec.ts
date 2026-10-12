@@ -74,14 +74,24 @@ export function useAdminRoundFour(database: string) {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  function seed(email: string, role: string = UserRole.USER) {
-    return harness.users.create({
+  function seedRecord(email: string, role: string) {
+    return {
       email,
       name: 'Target',
       role,
       isVerified: true,
       sessionVersion: 0,
-    });
+    };
+  }
+
+  function seed(email: string, role: string = UserRole.USER) {
+    return harness.users.create(seedRecord(email, role));
+  }
+
+  function seedMany(emails: readonly string[], role: string = UserRole.USER) {
+    return harness.users.insertMany(
+      emails.map((email) => seedRecord(email, role)),
+    );
   }
   function assign(
     id: string,
@@ -139,6 +149,7 @@ export function useAdminRoundFour(database: string) {
       return actorId;
     },
     seed,
+    seedMany,
     assign,
     create,
     beforeTransaction,
