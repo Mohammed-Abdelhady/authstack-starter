@@ -215,8 +215,6 @@ jobs:
           cache_dependency_path: pnpm-lock.yaml
       - name: Install dependencies
         run: node scripts/ci.mjs --install
-      - name: Install browser
-        run: pnpm --filter frontend exec playwright install chromium
       - name: Run browser journeys
         run: node scripts/ci.mjs --browser
   # repository-only:end

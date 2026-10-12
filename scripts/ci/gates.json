@@ -99,6 +99,13 @@
       "repositoryOnly": true
     },
     {
+      "name": "Install test browser",
+      "group": "browser",
+      "command": "pnpm",
+      "args": ["--filter", "frontend", "exec", "playwright", "install", "chromium"],
+      "repositoryOnly": true
+    },
+    {
       "name": "Browser test frontend build",
       "group": "browser",
       "command": "pnpm",
