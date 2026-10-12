@@ -7,6 +7,7 @@ import { directionOf } from '@/tests/direction';
 import {
   SERVER_TEXT,
   descriptions,
+  identitySuccess,
   refusal,
   refusalWith,
   registerFormTestLifecycle,
@@ -27,6 +28,8 @@ vi.mock('@/i18n/navigation', () => ({
 
 const STORED_NAME = 'Layla Haddad';
 const TYPED_NAME = 'Layla H';
+const IDENTITY_PATH = '/api/auth/identity';
+const PROFILE_PATH = '/api/user/profile';
 
 function user(name: string) {
   return {
@@ -37,8 +40,16 @@ function user(name: string) {
     permissions: [],
     authProvider: 'email',
     isVerified: true,
+    twoFactorEnabled: false,
+    passkeyCount: 0,
     linkedProviders: ['email'],
   };
+}
+
+function profileNetwork(respond: (request: Request, path: string) => Response | Promise<Response>) {
+  return stubNetwork((request, path) =>
+    path === IDENTITY_PATH ? identitySuccess(user(STORED_NAME)) : respond(request, path),
+  );
 }
 
 /** The settings page as the app mounts it: the card under the dashboard's guard. */
@@ -69,7 +80,7 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('UpdateProfileCard in %s', (locale) => {
   it('shows the account address left to right in an rtl page', async () => {
-    stubNetwork(() => success(user(STORED_NAME)));
+    profileNetwork(() => success(user(STORED_NAME)));
     const { message } = await renderForm(
       locale,
       <div dir="rtl">
@@ -90,11 +101,15 @@ describe.each([
   });
 
   it('sends a person whose session ended to sign in, without a toast', async () => {
-    let reads = 0;
+    let identityReads = 0;
     const requests = stubNetwork((request) => {
-      if (request.method !== 'GET') return refusalWith(401, 'SESSION_INVALID');
-      reads += 1;
-      return reads === 1 ? success(user(STORED_NAME)) : refusalWith(401, 'SESSION_INVALID');
+      const path = new URL(request.url).pathname;
+      if (path === IDENTITY_PATH) {
+        identityReads += 1;
+        return identitySuccess(identityReads === 1 ? user(STORED_NAME) : null);
+      }
+      if (request.method === 'PATCH') return refusalWith(401, 'SESSION_INVALID');
+      return success(user(STORED_NAME));
     });
 
     const { store, errorToasts } = await submitProfile(locale);
@@ -103,9 +118,10 @@ describe.each([
       expect(pushMock.mock.calls).toEqual([['/auth/login?redirect=%2Fsettings']]);
     });
     expect(requests).toEqual([
-      'GET /api/user/profile',
-      'PATCH /api/user/profile',
-      'GET /api/user/profile',
+      'GET /api/auth/identity',
+      `GET ${PROFILE_PATH}`,
+      `PATCH ${PROFILE_PATH}`,
+      'GET /api/auth/identity',
     ]);
     expect(store.getState().auth.isAuthenticated).toBe(false);
     expect(screen.queryByRole('textbox')).toBeNull();
@@ -117,7 +133,7 @@ describe.each([
     expectConsoleError(
       /An unhandled error occurred processing a request for the endpoint "updateProfile"/,
     );
-    stubNetwork((request) =>
+    profileNetwork((request) =>
       request.method === 'GET'
         ? success(user(STORED_NAME))
         : Response.json({ success: true, data: 'not a profile' }),
@@ -134,7 +150,7 @@ describe.each([
 
   it('keeps the typed value in a marked, focused field after a rejection, without a refetch', async () => {
     // A refetch would be answered with the stored name.
-    const requests = stubNetwork((request) =>
+    const requests = profileNetwork((request) =>
       request.method === 'GET' ? success(user(STORED_NAME)) : refusal(['name', 'nickname']),
     );
 
@@ -148,7 +164,11 @@ describe.each([
     await waitFor(() => {
       expect(document.activeElement).toBe(name);
     });
-    expect(requests).toEqual(['GET /api/user/profile', 'PATCH /api/user/profile']);
+    expect(requests).toEqual([
+      'GET /api/auth/identity',
+      `GET ${PROFILE_PATH}`,
+      `PATCH ${PROFILE_PATH}`,
+    ]);
     expect(name.isConnected).toBe(true);
     expect(name.getAttribute('value')).toBe(TYPED_NAME);
     expect(errorToasts()).toEqual([generalMessage]);
@@ -157,12 +177,17 @@ describe.each([
 
   it('saves once when the form is submitted twice in one tick', async () => {
     let reads = 0;
-    const requests = stubNetwork((request) => {
+    const requests = profileNetwork((request) => {
       if (request.method !== 'GET') return success(user(TYPED_NAME));
       reads += 1;
       return success(user(reads === 1 ? STORED_NAME : TYPED_NAME));
     });
-    const { message, successToasts } = await renderForm(locale, <UpdateProfileCard />);
+    const { message, successToasts } = await renderForm(
+      locale,
+      <AuthGuard>
+        <UpdateProfileCard />
+      </AuthGuard>,
+    );
     const name = await screen.findByRole('textbox', { name: message('settings.profile.name') });
     await waitFor(() => expect(name.getAttribute('value')).toBe(STORED_NAME));
     fireEvent.change(name, { target: { value: TYPED_NAME } });
@@ -171,7 +196,7 @@ describe.each([
 
     await waitFor(() => expect(successToasts()).toEqual([message('settings.profile.success')]));
     expect(requests.filter((request) => request.startsWith('PATCH'))).toEqual([
-      'PATCH /api/user/profile',
+      `PATCH ${PROFILE_PATH}`,
     ]);
   });
 
@@ -182,19 +207,21 @@ describe.each([
       answerRefetch = resolve;
     });
     let reads = 0;
-    const requests = stubNetwork((request) => {
+    const requests = profileNetwork((request) => {
       if (request.method !== 'GET') return success(user(TYPED_NAME));
       reads += 1;
       return reads === 1 ? success(user(STORED_NAME)) : refetch;
     });
 
-    const { store, name, errorToasts } = await submitProfile(locale);
+    const { name, errorToasts } = await submitProfile(locale);
 
     await waitFor(() => {
       expect(requests).toEqual([
-        'GET /api/user/profile',
-        'PATCH /api/user/profile',
-        'GET /api/user/profile',
+        'GET /api/auth/identity',
+        `GET ${PROFILE_PATH}`,
+        `PATCH ${PROFILE_PATH}`,
+        'GET /api/auth/identity',
+        `GET ${PROFILE_PATH}`,
       ]);
     });
     // The store tells React about the refetch on the next animation frame.
@@ -207,7 +234,7 @@ describe.each([
 
     answerRefetch(success(user(TYPED_NAME)));
     await waitFor(() => {
-      expect(store.getState().auth.user?.name).toBe(TYPED_NAME);
+      expect(name.getAttribute('value')).toBe(TYPED_NAME);
     });
     expect(name.isConnected).toBe(true);
     expect(name.getAttribute('value')).toBe(TYPED_NAME);
