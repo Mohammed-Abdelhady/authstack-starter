@@ -11,7 +11,9 @@ import type {
   NativeSecondFactorInput,
 } from '@app/sdk';
 import type { AbortSignalPort, AuthProfile } from './auth';
-import type { NativeSignInLocale } from '../constants/native-sign-in-locale';
+import type { NATIVE_SIGN_IN_LOCALE } from '../constants/native-sign-in-locale';
+
+type NativeSignInLocale = (typeof NATIVE_SIGN_IN_LOCALE)[keyof typeof NATIVE_SIGN_IN_LOCALE];
 
 type ReadonlyNativeView<V> = V extends { factors: infer F extends unknown[] }
   ? Omit<V, 'factors'> & { readonly factors: Readonly<F> }
