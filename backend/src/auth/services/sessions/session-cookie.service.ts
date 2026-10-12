@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response, CookieOptions } from 'express';
+import { hostCookieName } from '../../utils/cookie-name.util';
 
 export function resolveSessionCookieName(
   nodeEnv: string | undefined,
@@ -9,7 +10,7 @@ export function resolveSessionCookieName(
   if (configuredName) {
     return configuredName;
   }
-  return nodeEnv === 'production' ? '__Host-sid' : 'sid';
+  return hostCookieName(nodeEnv, 'sid');
 }
 
 @Injectable()
