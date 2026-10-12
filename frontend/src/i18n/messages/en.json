@@ -40,6 +40,7 @@
     "switchToDarkMode": "Switch to dark mode",
     "switchToLightMode": "Switch to light mode",
     "switchToEnglish": "Switch to English",
-    "switchToArabic": "Switch to Arabic"
+    "switchToArabic": "Switch to Arabic",
+    "closeToast": "Dismiss notification"
   }
 }

@@ -38,6 +38,9 @@
     },
     "lastActive": "Last active {time}",
     "loggedInAt": "Logged in {time}",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "unknownBrowser": "Unknown browser",
+    "unknownSystem": "Unknown operating system",
+    "signOutDevice": "Sign out ⁨{device}⁩"
   }
 }

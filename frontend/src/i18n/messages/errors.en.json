@@ -86,7 +86,8 @@
       "PASSKEY_LAST_SIGN_IN_METHOD": "This is the only way into your account. Add a password or another passkey first",
       "PASSKEY_NOT_CONFIGURED": "Passkeys are not configured on this server",
       "FEATURE_DISABLED": "This sign-in method is turned off here",
-      "UNKNOWN_ERROR": "An unexpected error occurred. Please try again"
+      "UNKNOWN_ERROR": "An unexpected error occurred. Please try again",
+      "TWO_FACTOR_LOCKED": "Too many incorrect verification attempts. Wait before trying again."
     }
   }
 }

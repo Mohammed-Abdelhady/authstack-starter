@@ -38,6 +38,9 @@
     },
     "lastActive": "آخر نشاط {time}",
     "loggedInAt": "تم تسجيل الدخول {time}",
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "unknownBrowser": "متصفح غير معروف",
+    "unknownSystem": "نظام تشغيل غير معروف",
+    "signOutDevice": "تسجيل الخروج من ⁨{device}⁩"
   }
 }
