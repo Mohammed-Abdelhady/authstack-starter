@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode, ROLE_PERMISSIONS } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
 import RolesPage from '@/app/[locale]/(dashboard)/admin/roles/page';
 import { availability, IDLE, unreachable } from '@/tests/busyControls';
 import { isOnScreen, isOpen } from '@/tests/dialogBusy';
 import { listedRole } from '@/tests/roleList';
+import { baseApi } from '@/store/api/baseApi';
 import {
   SERVER_TEXT,
   refusalWith,
@@ -27,7 +28,7 @@ const ROLES = [
   { ...listedRole('writer', 'Writer'), permissions: ['users:read:all'] },
 ];
 
-type Answer = (request?: Request) => Response;
+type Answer = (request?: Request) => Response | Promise<Response>;
 
 /** The roles page. Each kind of request answers as `server` says now. */
 async function renderPage(locale: AppLocale, firstList?: Answer) {
@@ -74,6 +75,10 @@ describe.each([
   it('labels role search and clamps pasted Arabic text to the supported query length', async () => {
     const page = await renderPage(locale);
     await screen.findByTestId('role-detail-name');
+    expect(
+      screen.getByRole('navigation', { name: page.message('roles.sidebar.navigationLabel') }),
+    ).not.toBeNull();
+    expect(screen.getByRole('complementary', { name: page.message('roles.title') })).not.toBeNull();
     const input = screen.getByRole('textbox', { name: page.message('roles.searchLabel') });
     const overLimit = 'ب'.repeat(101);
 
@@ -108,11 +113,24 @@ describe.each([
     fireEvent.click(screen.getByTestId('pagination-next'));
     await screen.findByTestId('role-nav-item-role-41');
 
+    let releaseShrink: ((response: Response) => void) | undefined;
     page.server.list = (request) => {
       const requestedPage = Number(
         new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
       );
-      if (requestedPage === 3) return success({ roles: [], total: 40, page: 3, pages: 2 });
+      if (requestedPage === 3) {
+        return new Promise<Response>((resolve) => {
+          releaseShrink = resolve;
+        });
+      }
+      if (requestedPage === 2) {
+        return success({
+          roles: [{ ...allRoles[20], name: 'Role 21 after shrink' }],
+          total: 40,
+          page: 2,
+          pages: 2,
+        });
+      }
       return readPage(request, 40, 2);
     };
     page.server.change = () => success(allRoles[40]);
@@ -120,9 +138,58 @@ describe.each([
     await screen.findByTestId('edit-role-name-input');
     fireEvent.click(screen.getByTestId('save-role-button'));
 
-    await screen.findByTestId('role-nav-item-role-21');
-    await waitFor(() => expect(page.askedPages).toContain(2));
+    await waitFor(() => expect(releaseShrink).toBeDefined());
+    await act(async () => releaseShrink?.(success({ roles: [], total: 40, page: 3, pages: 2 })));
+    const shrunkRole = await screen.findByTestId('role-nav-item-role-21');
+    expect(shrunkRole.textContent).toContain('Role 21 after shrink');
+    await waitFor(() => expect(page.askedPages.filter((asked) => asked === 2)).toHaveLength(2));
+    expect(
+      screen.getByText(page.format('pagination.pageInfo', { page: 2, totalPages: 2 })),
+    ).not.toBeNull();
     expect(screen.queryByTestId('role-nav-item-role-41')).toBeNull();
+
+    let releaseGrowth: ((response: Response) => void) | undefined;
+    let pageThreeGrowthReads = 0;
+    const growthStart = page.askedPages.length;
+    page.server.list = (request) => {
+      const requestedPage = Number(
+        new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
+      );
+      if (requestedPage === 2) {
+        return new Promise<Response>((resolve) => {
+          releaseGrowth = resolve;
+        });
+      }
+      if (requestedPage === 3) pageThreeGrowthReads += 1;
+      return success({
+        roles: allRoles.slice((requestedPage - 1) * 20, requestedPage * 20),
+        total: 45,
+        page: requestedPage,
+        pages: 3,
+      });
+    };
+    await act(async () => page.store.dispatch(baseApi.util.invalidateTags(['Roles'])));
+    await waitFor(() => expect(releaseGrowth).toBeDefined());
+    await act(async () =>
+      releaseGrowth?.(
+        success({
+          roles: [{ ...allRoles[20], name: 'Role 21 after growth' }],
+          total: 45,
+          page: 2,
+          pages: 3,
+        }),
+      ),
+    );
+    const grownRole = await screen.findByTestId('role-nav-item-role-21');
+    expect(grownRole.textContent).toContain('Role 21 after growth');
+    await waitFor(() =>
+      expect(
+        screen.getByText(page.format('pagination.pageInfo', { page: 2, totalPages: 3 })),
+      ).not.toBeNull(),
+    );
+
+    expect(pageThreeGrowthReads).toBe(0);
+    expect(page.askedPages.slice(growthStart)).toEqual([2]);
   });
 
   it('says what failed and why in the page language when the first load fails, then recovers', async () => {

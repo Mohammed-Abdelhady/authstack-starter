@@ -66,6 +66,11 @@ describe.each([
 ] as const)('focus after a direct permission is removed in %s', (locale) => {
   it('goes to the heading of the direct permissions once the row and its button are gone', async () => {
     const dialog = await renderDialog(locale);
+    expect(
+      screen.getByRole('button', {
+        name: dialog.format('permissions.dialog.removePermission', { permission: DIRECT }),
+      }),
+    ).toBe(dialog.remove);
     dialog.remove.focus();
 
     fireEvent.click(dialog.remove);
