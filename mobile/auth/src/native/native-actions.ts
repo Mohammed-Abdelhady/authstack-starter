@@ -137,8 +137,9 @@ async function performPasskey(
   attempt: NativeAttempt,
 ): Promise<NativeActionResult> {
   const port = context.runtime.dependencies.passkeys;
-  if (!port || !(await request(context, controller, () => safeAvailable(() => port.available()))))
-    return outcome({ kind: 'unavailable' });
+  if (!port) return outcome({ kind: 'unavailable' });
+  const methods = await context.methods(controller.signal);
+  if (!methods.capabilities.passkeys) return outcome({ kind: 'unavailable' });
   const options = await request(context, controller, () =>
     context.client.nativeAuth.passkeyOptions(attempt, {
       signal: controller.signal,
@@ -210,14 +211,6 @@ function mapBrowserResult(result: SignInOutcome): NativeSignInOutcome {
   if (result.kind === 'storageFailure') return { kind: 'storageFailure' };
   if (result.kind === 'transportFailure') return { kind: 'transportFailure' };
   return { kind: 'apiFailure' };
-}
-
-async function safeAvailable(check: () => Promise<boolean>): Promise<boolean> {
-  try {
-    return await check();
-  } catch {
-    return false;
-  }
 }
 
 function outcome(value: NativeSignInOutcome): NativeActionResult {
