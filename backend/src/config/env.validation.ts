@@ -1,7 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
 import { EnvironmentVariables } from './env.schema';
-import { PASSKEY_CHALLENGE_TTL_MS } from '../auth/passkeys/constants/passkeys.constants';
+import { PASSKEY_CHALLENGE_TTL_MS } from '../auth/passkeys/constants/passkeys.constants'; // feature:passkeys
 
 function formatValidationErrors(errors: ValidationError[]): string[] {
   const messages: string[] = [];
@@ -38,6 +38,7 @@ export function validateEnvironment(
     );
   }
 
+  // feature:passkeys:start
   if (
     validatedConfig.PASSKEY_CHALLENGE_SECRET_PREVIOUS &&
     !validatedConfig.PASSKEY_CHALLENGE_SECRET
@@ -85,5 +86,6 @@ export function validateEnvironment(
     }
   }
 
+  // feature:passkeys:end
   return validatedConfig;
 }

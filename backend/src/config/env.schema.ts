@@ -4,7 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
-  IsISO8601,
+  IsISO8601, // feature:passkeys
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -12,7 +12,7 @@ import {
   Matches,
   Max,
   Min,
-  MinLength,
+  MinLength, // feature:passkeys
   Validate,
 } from 'class-validator';
 import {
@@ -235,6 +235,7 @@ export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @IsOptional()
   PASSKEYS_ENABLED: boolean = true;
 
+  // feature:passkeys:start
   @Transform(transformOptionalString)
   @IsString()
   @MinLength(32)
@@ -251,6 +252,7 @@ export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @IsISO8601()
   @IsOptional()
   PASSKEY_CHALLENGE_LEGACY_UNTIL?: string;
+  // feature:passkeys:end
 
   /**
    * Domain the credentials are bound to. Left unset it follows the hostname of
