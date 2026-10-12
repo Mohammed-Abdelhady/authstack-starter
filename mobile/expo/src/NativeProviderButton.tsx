@@ -1,3 +1,4 @@
+// feature:google,apple:start
 import type { NativeProviderButtonProps } from '@app/native-ui';
 import { RADIUS } from '@app/native-ui'; // feature:apple
 import { SIZE } from '@app/native-ui'; // feature:google,apple
@@ -145,3 +146,4 @@ export function NativeProviderButton(props: NativeProviderButtonProps) {
 
   return null;
 }
+// feature:google,apple:end
