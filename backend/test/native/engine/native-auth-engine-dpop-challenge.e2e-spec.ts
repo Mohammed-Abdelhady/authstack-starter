@@ -27,6 +27,8 @@ import {
 
 const NONCE_SECRET_KEY = 'auth.nativeDpopNonceSecret';
 const OTHER_NONCE_SECRET = 'a-second-nonce-secret-of-48-characters-for-tests';
+const NEXT_NONCE_SECRET = 'a-third-nonce-secret-of-48-characters-for-tests';
+const RETRY_NONCE_SECRETS = [OTHER_NONCE_SECRET, NEXT_NONCE_SECRET] as const;
 const CHALLENGE = { error: OAUTH_ERROR.USE_DPOP_NONCE };
 
 type SentRequest = BoundEngineHarness['requests'][number];
@@ -69,8 +71,19 @@ describe('native auth engine nonce challenge (e2e)', () => {
     };
   }
 
-  function changeNonceSecret(): void {
-    e2e.app.get(ConfigService).set(NONCE_SECRET_KEY, OTHER_NONCE_SECRET);
+  function rotateNonceSecretBeforeRetries(
+    harness: BoundEngineHarness,
+    matches: (request: SentRequest) => boolean,
+  ): void {
+    let seen = 0;
+    harness.ports.beforeTransportRequest = (request) => {
+      if (!matches(request)) return;
+      seen += 1;
+      if (seen === 1) return;
+      const secret = RETRY_NONCE_SECRETS[seen - 2];
+      if (secret === undefined) throw new Error('Nonce secret sequence ended');
+      e2e.app.get(ConfigService).set(NONCE_SECRET_KEY, secret);
+    };
   }
 
   async function codeConsumed(code: string): Promise<boolean | undefined> {
@@ -120,23 +133,19 @@ describe('native auth engine nonce challenge (e2e)', () => {
     expect(harness.engine.snapshot.status).toBe('signedIn');
   });
 
-  it('ends sign-in after a second exchange challenge in a row, with two requests and no more', async () => {
+  it('ends sign-in after the third exchange challenge, with no fourth request', async () => {
     const harness = await openEngineWithDeviceKey(e2e);
-    beforeRepeat(
-      harness,
-      ({ body }) => isCodeExchange(body),
-      changeNonceSecret,
-    );
+    rotateNonceSecretBeforeRetries(harness, ({ body }) => isCodeExchange(body));
 
     const outcome = await harness.engine.signIn();
     const exchanges = tokenEntries(harness).filter(({ request }) =>
       isCodeExchange(request.body),
     );
 
-    expect(outcome.kind).toBe('oauthFailure');
     expect(exchanges.map(({ response }) => response?.status)).toEqual([
-      400, 400,
+      400, 400, 400,
     ]);
+    expect(outcome.kind).toBe('oauthFailure');
     expect(exchanges[1]?.response?.body).toMatchObject(CHALLENGE);
     expect(harness.engine.snapshot.status).toBe('signedOut');
     expect(await readStoredAuthRecord(harness.ports)).toBeUndefined();
@@ -178,35 +187,46 @@ describe('native auth engine nonce challenge (e2e)', () => {
     expect(harness.engine.snapshot.status).toBe('signedIn');
   });
 
-  it('stops a refresh after a second challenge in a row and leaves the token unspent', async () => {
+  it('stops a refresh after the third challenge and leaves the token unspent', async () => {
     const harness = await signedIn();
     const previous = requiredSessionFields(
       await readStoredAuthRecord(harness.ports),
     );
-    beforeRepeat(harness, ({ body }) => isRefreshBody(body), changeNonceSecret);
+    rotateNonceSecretBeforeRetries(harness, ({ body }) => isRefreshBody(body));
     advanceAccessClock(harness, ACCESS_TOKEN_MARGIN_MS);
 
-    await expect(
-      createApiClient(harness.engine.transport).profile.get(),
-    ).rejects.toMatchObject(CHALLENGE);
+    let rejection: unknown;
+    const fulfilled = await createApiClient(harness.engine.transport)
+      .profile.get()
+      .then(
+        () => true,
+        (error: unknown) => {
+          rejection = error;
+          return false;
+        },
+      );
     const refreshes = refreshEntries(harness);
 
     expect(refreshes.map(({ response }) => response?.status)).toEqual([
-      400, 400,
+      400, 400, 400,
     ]);
+    expect(fulfilled).toBe(false);
+    expect(rejection).toMatchObject({
+      name: 'DpopChallengeLimitError',
+      cause: CHALLENGE,
+    });
     expect(await tokenSpent(previous.refreshToken)).toBe(false);
     expect(harness.engine.snapshot).toMatchObject({
-      status: 'reauthRequired',
-      reason: 'refreshInterrupted',
+      status: 'signedIn',
+      operation: 'none',
     });
   });
 
-  it('reports a failed revocation after a second revoke challenge in a row', async () => {
+  it('reports a failed revocation after the third challenge', async () => {
     const harness = await signedIn();
-    beforeRepeat(
+    rotateNonceSecretBeforeRetries(
       harness,
       ({ path }) => path === API_PATHS.oauth.revoke,
-      changeNonceSecret,
     );
 
     const outcome = await harness.engine.signOut();
@@ -214,8 +234,10 @@ describe('native auth engine nonce challenge (e2e)', () => {
       ({ request }) => request.path === API_PATHS.oauth.revoke,
     );
 
+    expect(revokes.map(({ response }) => response?.status)).toEqual([
+      400, 400, 400,
+    ]);
     expect(outcome).toMatchObject({ kind: 'signedOut', revocation: 'failed' });
-    expect(revokes.map(({ response }) => response?.status)).toEqual([400, 400]);
     expect(revokes[1]?.response?.body).toMatchObject(CHALLENGE);
     expect(harness.engine.snapshot.status).toBe('signedOut');
   });
