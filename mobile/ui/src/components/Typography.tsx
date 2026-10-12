@@ -1,5 +1,5 @@
 import type { ComponentRef, ReactNode, Ref } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { usePaint } from '../context/paint-context';
 import { TYPE_ROLE, TYPE_ROLE_NAME, type Palette, type TypeRoleName } from '../theme/tokens';
 
@@ -45,8 +45,11 @@ function RoleText({
   nativeRef,
 }: RoleTextProps) {
   const { colors, direction } = usePaint();
+  const { fontScale } = useWindowDimensions();
   return (
     <Text
+      // A fresh iOS Text node clears stale live Dynamic Type measurements.
+      key={Platform.OS === 'ios' ? fontScale : undefined}
       ref={nativeRef}
       testID={testID}
       accessible={header ? true : undefined}
