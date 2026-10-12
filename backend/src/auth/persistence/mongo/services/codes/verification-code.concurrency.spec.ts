@@ -26,10 +26,15 @@ import {
 } from '../../../../../../test/utils/frozen-clock';
 import { mongoUnitOfWork } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_PENDING_REGISTRATION_STORE } from '../../mongo-pending-code-stores';
+import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../schemas/mail-counter.schema';
 
 describe('VerificationCodeService concurrency', () => {
   let mongo: MemoryReplSet;
   let connection: Connection;
+  let guessCounters: Model<MailCounter>;
   let model: Model<PendingRegistration>;
   let service: VerificationCodeService;
   let hashService: HashService;
@@ -46,6 +51,8 @@ describe('VerificationCodeService concurrency', () => {
     const config = {
       get: (_key: string, fallback?: number) => fallback ?? 4,
     };
+    guessCounters = connection.model(MailCounter.name, MailCounterSchema);
+    await guessCounters.init();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MONGO_PENDING_REGISTRATION_STORE,
@@ -58,6 +65,7 @@ describe('VerificationCodeService concurrency', () => {
           provide: MailCounterService,
           useValue: { tryRecord: jest.fn().mockResolvedValue(true) },
         },
+        { provide: getModelToken(MailCounter.name), useValue: guessCounters },
       ],
     }).compile();
     service = module.get<VerificationCodeService>(VerificationCodeService);
@@ -71,6 +79,7 @@ describe('VerificationCodeService concurrency', () => {
 
   beforeEach(async () => {
     await model.deleteMany({});
+    await guessCounters.deleteMany({});
     sessions = [];
   });
 

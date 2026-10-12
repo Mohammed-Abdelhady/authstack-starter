@@ -62,6 +62,7 @@ export class MicrosoftOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = true;
   readonly usesOidc = true;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   constructor(configService: ConfigService) {
     super(configService);

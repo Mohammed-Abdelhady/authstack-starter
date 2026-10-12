@@ -57,6 +57,7 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = true;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
   readonly callbackMethod: OAuthCallbackMethod = 'POST';
 
   constructor(configService: ConfigService) {

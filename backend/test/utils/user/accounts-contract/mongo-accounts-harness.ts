@@ -138,7 +138,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     roleCatalog: roleStores.catalog,
     roleChanges: roleStores.changes,
     roleSweeps: roleStores.sweeps,
-    registrations: new MongoPendingRegistrationStore(registrations),
+    registrations: new MongoPendingRegistrationStore(registrations, counters),
     mailCounters: new MongoMailCounterStore(counters),
     passwords: new MongoPasswordSignInStore(users),
     rolePermissions: new MongoRolePermissions(roles),

@@ -22,7 +22,14 @@ const LINKED_ELSEWHERE = {
   status: 409,
 };
 const REFUSED = { code: 'OAUTH_AUTHENTICATION_FAILED', status: 401 };
+const ACCOUNT_EXISTS = { code: 'OAUTH_ACCOUNT_EXISTS', status: 409 };
+const UNVERIFIED_PROVIDER = { code: 'OAUTH_EMAIL_UNVERIFIED', status: 403 };
 const NEW_ADDRESS = 'newcomer@example.test';
+/** Providers that state, per address, that they verified it. */
+const GOOGLE = { id: 'google', autoLinksByEmail: true };
+const GITHUB = { id: 'github', autoLinksByEmail: true };
+/** A provider that states nothing about the address it returns. */
+const FACEBOOK = { id: 'facebook', autoLinksByEmail: false };
 
 /**
  * The real service on this database's store. Nothing here signs anybody in,
@@ -51,17 +58,17 @@ export function providerSignInServiceCases(
     const { ownerId, otherId } = fixture();
     const service = providerSignInOn(harness());
     const first = await service.findOrCreateUser(
-      'google',
+      GOOGLE,
       profileOf('google-owner'),
     );
 
     // The provider now reports another account's address for that identity.
     const again = await service.findOrCreateUser(
-      'google',
+      GOOGLE,
       profileOf('google-owner', { email: 'other@example.test' }),
     );
     const newcomer = await service.findOrCreateUser(
-      'google',
+      GOOGLE,
       profileOf('google-new', { email: NEW_ADDRESS, name: 'New Comer' }),
     );
 
@@ -85,22 +92,85 @@ export function providerSignInServiceCases(
   it('refuses a provider sign-in for a deactivated account, linked or not', async () => {
     const { ownerId, otherId } = fixture();
     const service = providerSignInOn(harness());
-    await service.findOrCreateUser('google', profileOf('google-owner'));
+    await service.findOrCreateUser(GOOGLE, profileOf('google-owner'));
     await harness().alterAccount(ownerId, { deleted: true });
     await harness().alterAccount(otherId, { deleted: true });
 
     expect({
       linked: await refusalOf(
-        service.findOrCreateUser('google', profileOf('google-owner')),
+        service.findOrCreateUser(GOOGLE, profileOf('google-owner')),
       ),
       byAddress: await refusalOf(
         service.findOrCreateUser(
-          'github',
+          GITHUB,
           profileOf('github-other', { email: 'other@example.test' }),
         ),
       ),
       otherLinks: await harness().storedLinks(otherId),
     }).toEqual({ linked: REFUSED, byAddress: REFUSED, otherLinks: [] });
+  });
+
+  it('does not attach a provider that states nothing about the address to an account that has it', async () => {
+    const { ownerId } = fixture();
+    const service = providerSignInOn(harness());
+
+    expect({
+      answer: await refusalOf(
+        service.findOrCreateUser(FACEBOOK, profileOf('facebook-owner')),
+      ),
+      links: await harness().storedLinks(ownerId),
+    }).toEqual({ answer: ACCOUNT_EXISTS, links: [] });
+  });
+
+  it('does not create an account from an address the provider cannot prove', async () => {
+    const service = providerSignInOn(harness());
+    const profile = profileOf('facebook-new', { email: NEW_ADDRESS });
+
+    expect({
+      answer: await refusalOf(service.findOrCreateUser(FACEBOOK, profile)),
+      stored: await harness().accountIdByEmail(NEW_ADDRESS),
+    }).toEqual({
+      answer: UNVERIFIED_PROVIDER,
+      stored: null,
+    });
+  });
+
+  it('leaves the address for a provider that proves its owner', async () => {
+    const service = providerSignInOn(harness());
+    const facebook = await refusalOf(
+      service.findOrCreateUser(
+        FACEBOOK,
+        profileOf('facebook-new', { email: NEW_ADDRESS }),
+      ),
+    );
+    const google = await service.findOrCreateUser(
+      GOOGLE,
+      profileOf('google-new', { email: NEW_ADDRESS }),
+    );
+
+    expect({
+      facebook,
+      verified: (await harness().account(google.id))?.isVerified,
+      links: await harness().storedLinks(google.id),
+    }).toEqual({
+      facebook: UNVERIFIED_PROVIDER,
+      verified: true,
+      links: [{ provider: 'google', providerId: 'google-new' }],
+    });
+  });
+
+  it('does not attach any provider to an account whose address was never verified here', async () => {
+    const { ownerId } = fixture();
+    await harness().alterAccount(ownerId, { verified: false });
+    const service = providerSignInOn(harness());
+
+    expect({
+      answer: await refusalOf(
+        service.findOrCreateUser(GOOGLE, profileOf('google-owner')),
+      ),
+      links: await harness().storedLinks(ownerId),
+      verified: (await harness().account(ownerId))?.isVerified,
+    }).toEqual({ answer: ACCOUNT_EXISTS, links: [], verified: false });
   });
 
   it('stores one account when two first sign-ins of one identity meet', async () => {
@@ -116,8 +186,8 @@ export function providerSignInServiceCases(
       name: 'New Comer',
     });
     const racers = Promise.allSettled([
-      service.findOrCreateUser('google', profile),
-      service.findOrCreateUser('google', profile),
+      service.findOrCreateUser(GOOGLE, profile),
+      service.findOrCreateUser(GOOGLE, profile),
     ]);
     try {
       // Both found no identity and no address, and neither has written.

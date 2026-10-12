@@ -51,8 +51,10 @@ export abstract class PasswordResetCodeStore {
   ): Promise<void>;
 
   /**
-   * Counts one attempt on a live record that is under the cap, and returns the
-   * record. Null when there is no record, it has expired, or it is at the cap.
+   * Counts one attempt on a live record that is under the cap, then one guess
+   * at the address, and returns the record. Null when there is no record, it
+   * has expired, it is at the cap, or the address is locked. A guess with no
+   * live record is not counted.
    */
   abstract reserveAttempt(
     email: string,
@@ -61,7 +63,8 @@ export abstract class PasswordResetCodeStore {
 
   /**
    * Removes exactly the generation that was compared, when it has not expired.
-   * Of two callers that claim one generation, one is answered `claimed`.
+   * Of two callers that claim one generation, one is answered `claimed`, and
+   * the address's wrong codes and locks are forgotten.
    */
   abstract claimCode(claim: PasswordResetClaim): Promise<CodeClaim>;
 

@@ -97,7 +97,7 @@ export function pendingCodeSeamCases(harness: HarnessSource): void {
         reservedEmail: storedForm,
         counter: 1,
         reset: true,
-        rows: [1, 1, 1],
+        rows: [1, 2, 1],
       });
     } finally {
       services.restore();

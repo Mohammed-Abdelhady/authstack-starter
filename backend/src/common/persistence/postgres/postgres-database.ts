@@ -233,6 +233,10 @@ export interface MailCountersTable {
   mailed_codes: Generated<number>;
   window_started_at: Timestamp;
   expires_at: Timestamp;
+  failed_guesses: Generated<number>;
+  guess_lock_level: Generated<number>;
+  guess_locked_until: Timestamp | null;
+  guess_state_expires_at: Timestamp | null;
 }
 
 export interface PendingRegistrationsTable {

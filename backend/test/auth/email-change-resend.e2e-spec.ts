@@ -20,6 +20,8 @@ import {
 } from '../utils/hook-timeouts';
 
 const MAX_ATTEMPTS = 5;
+/** The first lock after the allowed wrong codes, written out. */
+const GUESS_LOCK_MS = 900_000;
 
 describe('Admin email change confirmation (e2e)', () => {
   let e2e: E2eApp;
@@ -91,7 +93,7 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(confirmed?.isVerified).toBe(true);
   });
 
-  it('re-sends a confirmation after the attempts are exhausted, resetting them', async () => {
+  it('re-sends a confirmation after the attempts are exhausted, and accepts the new code once the address is no longer locked', async () => {
     const target = await createTarget();
     const id = target._id.toString();
     await move(id, 'moved@example.test');
@@ -118,7 +120,17 @@ describe('Admin email change confirmation (e2e)', () => {
 
     const freshCode = await latestCode();
     expect(freshCode).not.toBe(code);
-    const response = await confirm('moved@example.test', freshCode);
+    // A new code does not buy new guesses: the address stays locked.
+    const duringLock = await confirm('moved@example.test', freshCode);
+    expect(duringLock.status).toBe(400);
+
+    e2e.clock.advance(GUESS_LOCK_MS);
+    await adminAgent
+      .post(`/api/admin/users/${id}/resend-email-change`)
+      .send({})
+      .expect(200);
+    await e2e.captureMail();
+    const response = await confirm('moved@example.test', await latestCode());
     expect(response.status).toBe(200);
     expect(
       (await e2e.state.accounts.accountWithId(target._id))?.isVerified,

@@ -1,6 +1,11 @@
+import { hostCookieName } from '../../utils/cookie-name.util';
+
 /** Which ceremony a challenge was handed out for. */
 export type PasskeyChallengePurpose = 'register' | 'login';
-export const PASSKEY_CHALLENGE_COOKIE = 'pk_challenge';
+export const PASSKEY_CHALLENGE_COOKIE = hostCookieName(
+  process.env.NODE_ENV,
+  'pk_challenge',
+);
 
 /** How long a challenge stays usable, in milliseconds. */
 export const PASSKEY_CHALLENGE_TTL_MS = 300000;

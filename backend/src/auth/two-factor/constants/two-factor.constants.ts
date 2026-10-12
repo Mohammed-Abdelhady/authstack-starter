@@ -1,3 +1,5 @@
+import { hostCookieName } from '../../utils/cookie-name.util';
+
 /** Name shown next to the account in an authenticator app. */
 export const TWO_FACTOR_ISSUER = 'Auth Boilerplate';
 
@@ -14,7 +16,10 @@ export const TOTP_STEP_SECONDS = 30;
 export const TOTP_STEP_MS = TOTP_STEP_SECONDS * 1000;
 
 /** Cookie carrying the signed login challenge between sign-in and verify. */
-export const TWO_FACTOR_CHALLENGE_COOKIE = 'mfa_challenge';
+export const TWO_FACTOR_CHALLENGE_COOKIE = hostCookieName(
+  process.env.NODE_ENV,
+  'mfa_challenge',
+);
 
 /** How long a login challenge stays usable, in milliseconds. */
 export const TWO_FACTOR_CHALLENGE_TTL_MS = 300000;

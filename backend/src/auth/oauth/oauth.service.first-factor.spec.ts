@@ -29,6 +29,7 @@ function strategy(): OAuthProviderStrategy {
     supportsPkce: true,
     usesOidc: true,
     emailAlwaysVerified: true,
+    autoLinksByEmail: true,
     callbackMethod: 'GET',
     isEnabled: () => true,
     getAuthorizationUrl: () => 'https://example.test',

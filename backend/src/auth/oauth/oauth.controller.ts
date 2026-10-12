@@ -86,15 +86,18 @@ export class OAuthController {
       const strategy = this.registry.getEnabled(providerId);
       const linking = intent === 'link';
       const payloadIntent = linking ? 'link' : 'login';
-      const linkUserId = linking
-        ? await this.oauthService.requireSessionUserId(request)
+      // The start is a same-site request, so the session cookie is here. The
+      // callback is not, so the session is bound into the signed state now.
+      const linkingSession = linking
+        ? await this.oauthService.requireSession(request)
         : undefined;
       const { payload, codeChallenge } = this.stateService.create({
         redirect: sanitizeRedirectPath(redirect),
         supportsPkce: strategy.supportsPkce,
         usesOidc: strategy.usesOidc,
         intent: payloadIntent,
-        linkUserId,
+        linkUserId: linkingSession?.userId,
+        linkSessionId: linkingSession?.sessionId,
       });
 
       const authorizationUrl = strategy.getAuthorizationUrl({
@@ -213,7 +216,7 @@ export class OAuthController {
       };
 
       if (payload.intent === 'link') {
-        if (!payload.linkUserId) {
+        if (!payload.linkUserId || !payload.linkSessionId) {
           throw new AppException(
             ErrorCode.OAUTH_STATE_INVALID,
             'OAuth link intent is missing the signed-in user',
@@ -223,8 +226,8 @@ export class OAuthController {
         }
         await this.oauthService.link({
           ...shared,
-          request,
           linkUserId: payload.linkUserId,
+          linkSessionId: payload.linkSessionId,
         });
         this.stateService.clear(response, strategy.id);
         this.redirectService.toClientSuccess(response, payload.redirect);

@@ -42,6 +42,16 @@ function serverError(code: number, label?: string): MongoServerError {
 
 const away = (): jest.Mock => jest.fn().mockRejectedValue(OUTAGE);
 
+function counterModel(): Model<MailCounterDocument> {
+  return createModelMock<Model<MailCounterDocument>>({
+    findOneAndUpdate: away(),
+    exists: away(),
+    create: away(),
+    deleteMany: away(),
+    updateOne: away(),
+  });
+}
+
 function registrationStore(
   findOneAndDelete: jest.Mock = away(),
 ): MongoPendingRegistrationStore {
@@ -54,6 +64,7 @@ function registrationStore(
       deleteMany: away(),
       findOneAndDelete,
     }),
+    counterModel(),
   );
 }
 
@@ -132,6 +143,7 @@ describe('MongoDB statements that commit by themselves', () => {
           deleteOne: away(),
           deleteMany: away(),
         }),
+        counterModel(),
       ),
     };
 
