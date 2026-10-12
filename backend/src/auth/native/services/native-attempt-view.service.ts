@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { NativeAttemptView } from '@app/sdk';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { nativeDisplayName } from '../../../common/utils/native-display-name';
 import { ApplicationRegistry } from '../../../session/applications/application-registry';
 import { ApplicationAccessStore } from '../../../session/applications/application-access.store';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
@@ -70,7 +71,11 @@ export class NativeAttemptViewService {
         return {
           ...base,
           stage: 'consentRequired',
-          account: { id: account.id, email: account.email, name: account.name },
+          account: {
+            id: account.id,
+            email: account.email,
+            name: nativeDisplayName(account.name, account.email),
+          },
           application: {
             clientId: client.clientId,
             displayName: client.displayName,
