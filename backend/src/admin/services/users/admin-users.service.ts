@@ -210,62 +210,63 @@ export class AdminUsersService {
     await this.accessService.assertCanAssignRole(actorRole, newRole);
 
     try {
-      const outcome = await this.runner.run(async (unitOfWork) => {
-        const current = await loadAuthorizedUser(
-          this.accounts,
-          this.accessService,
-          unitOfWork,
-          id,
-          actorId,
-        );
-
-        const assignedRole = await this.accounts.readRoleBySlug(
-          unitOfWork,
-          newRole,
-        );
-        if (!assignedRole) {
-          throw new AppException(
-            ErrorCode.ROLE_NOT_FOUND,
-            `Role "${newRole}" does not exist`,
-            HttpStatus.NOT_FOUND,
+      const outcome = await this.runner.runForAuthority(
+        actorId,
+        async (unitOfWork) => {
+          const current = await loadAuthorizedUser(
+            this.accounts,
+            this.accessService,
+            unitOfWork,
+            id,
+            actorId,
           );
-        }
 
-        await this.accessService.assertFreshActorCanModify(
-          actorId,
-          assignedRole.slug,
-          unitOfWork,
-        );
-        await assertActorHoldsRole(
-          this.roleChanges,
-          unitOfWork,
-          actorId,
-          USER_PERMISSIONS.UPDATE_ALL,
-          assignedRole.slug,
-        );
-        const previousRole = await this.accounts.readRoleBySlug(
-          unitOfWork,
-          current.role,
-        );
-        await this.accounts.saveRole(unitOfWork, current, newRole);
+          const assignedRole = await this.accounts.readRoleBySlug(
+            unitOfWork,
+            newRole,
+          );
+          if (!assignedRole) {
+            throw new AppException(
+              ErrorCode.ROLE_NOT_FOUND,
+              `Role "${newRole}" does not exist`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
 
-        // Permissions travel with the role, so existing sessions must be
-        // rebuilt in the same unit of work as the change.
-        const revoked = await this.sessions.revokeAll(unitOfWork, id, {
-          actorId,
-          reasonCode: REVOKED_REASON.ADMIN_FORCED,
-          roleAssignment: {
-            assignedRoleId: assignedRole.id,
-            sessionVersion: current.sessionVersion + 1,
+          await this.accessService.assertFreshActorCanModify(
+            actorId,
+            assignedRole.slug,
+            unitOfWork,
+          );
+          await assertActorHoldsRole(
+            this.roleChanges,
+            unitOfWork,
+            actorId,
+            USER_PERMISSIONS.UPDATE_ALL,
+            assignedRole.slug,
+          );
+          const previousRole = await this.accounts.readRoleBySlug(
+            unitOfWork,
+            current.role,
+          );
+          await this.accounts.saveRole(unitOfWork, current, newRole);
+
+          const revoked = await this.sessions.revokeAll(unitOfWork, id, {
+            actorId,
+            reasonCode: REVOKED_REASON.ADMIN_FORCED,
+            roleAssignment: {
+              assignedRoleId: assignedRole.id,
+              sessionVersion: current.sessionVersion + 1,
+              previousRoleId: previousRole?.id,
+            },
+          });
+          return {
+            revoked,
+            roleId: assignedRole.id,
             previousRoleId: previousRole?.id,
-          },
-        });
-        return {
-          revoked,
-          roleId: assignedRole.id,
-          previousRoleId: previousRole?.id,
-        };
-      });
+          };
+        },
+      );
 
       const liveSlug = await reconcileAssignedRole({
         accounts: this.accounts,
