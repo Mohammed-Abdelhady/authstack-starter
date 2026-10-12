@@ -4,9 +4,9 @@ import {
 } from './persistence-errors';
 import { StorageNotReadyError } from './storage-startup';
 import { retryStorageStartup } from './storage-startup-retry';
-import { ConfigService } from '@nestjs/config';
-import { buildMongooseOptions } from './mongo/mongo-connection';
-import { STORAGE_STARTUP_ATTEMPTS } from './storage-startup-retry';
+import { ConfigService } from '@nestjs/config'; // feature:mongodb
+import { buildMongooseOptions } from './mongo/mongo-connection'; // feature:mongodb
+import { STORAGE_STARTUP_ATTEMPTS } from './storage-startup-retry'; // feature:mongodb
 
 describe('retryStorageStartup', () => {
   const unavailable = () =>
@@ -51,9 +51,11 @@ describe('retryStorageStartup', () => {
   });
 });
 
+// feature:mongodb:start
 it('gives the initial Mongo connection the same total attempt bound', () => {
   const options = buildMongooseOptions(
     new ConfigService({ MONGO_URI: 'mongodb://127.0.0.1:27017/test' }),
   );
   expect(options.retryAttempts).toBe(STORAGE_STARTUP_ATTEMPTS);
 });
+// feature:mongodb:end
