@@ -8,6 +8,7 @@ import { transactionExpired } from '../storage/persistence';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort, SignInOutcome } from '../types/auth';
 import type {
+  BrowserSignInOptions,
   NativeController,
   NativeSignInAction,
   NativeSignInOutcome,
@@ -24,7 +25,7 @@ export function createNativeController(
   runtime: AuthRuntime,
   client: ApiClient<AbortSignalPort>,
   tokenClient: ApiClient<AbortSignalPort>,
-  browserSignIn: (options: { providerId: string }) => Promise<SignInOutcome>,
+  browserSignIn: (options: BrowserSignInOptions) => Promise<SignInOutcome>,
 ): NativeController {
   const callbacks = createCallbackProcessor(runtime, tokenClient, client);
   const queuedAddresses: string[] = [];

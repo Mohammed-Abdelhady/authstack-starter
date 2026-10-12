@@ -8,7 +8,11 @@ import type {
 import { PortAbortController } from '../runtime/abort-controller';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort, SignInOutcome } from '../types/auth';
-import type { NativeSignInAction, NativeSignInOutcome } from '../types/native-sign-in';
+import type {
+  BrowserSignInOptions,
+  NativeSignInAction,
+  NativeSignInOutcome,
+} from '../types/native-sign-in';
 import { constantTimeEqual } from '../storage/persistence';
 
 type NativeActionResult =
@@ -20,7 +24,7 @@ interface NativeActionContext {
   client: ApiClient<AbortSignalPort>;
   methods: () => Promise<NativeMethods>;
   cancel: () => Promise<NativeSignInOutcome>;
-  browserSignIn: (options: { providerId: string }) => Promise<SignInOutcome>;
+  browserSignIn: (options: BrowserSignInOptions) => Promise<SignInOutcome>;
 }
 
 export async function performNativeAction(
@@ -43,7 +47,7 @@ export async function performNativeAction(
         ),
       );
     case 'provider':
-      return performProvider(context, action.providerId, controller, attempt);
+      return performProvider(context, action, controller, attempt);
     case 'passkey':
       return performPasskey(context, controller, attempt);
     case 'secondFactor':
@@ -73,17 +77,20 @@ export async function performNativeAction(
 
 async function performProvider(
   context: NativeActionContext,
-  providerId: string,
+  action: Extract<NativeSignInAction, { kind: 'provider' }>,
   controller: PortAbortController,
   attempt: NativeAttempt,
 ): Promise<NativeActionResult> {
   const methods = await context.methods();
-  const method = methods.providers.find((candidate) => candidate.id === providerId);
+  const method = methods.providers.find((candidate) => candidate.id === action.providerId);
   if (!method || !methods.nativeEnabled) return outcome({ kind: 'unavailable' });
   if (method.mode === 'system') {
     const cancelled = await context.cancel();
     if (cancelled.kind !== 'cancelled') return outcome(cancelled);
-    const result = await context.browserSignIn({ providerId });
+    const result = await context.browserSignIn({
+      providerId: action.providerId,
+      locale: action.locale,
+    });
     return outcome(mapBrowserResult(result));
   }
   const port = context.runtime.dependencies.providerSignIn;
