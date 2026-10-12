@@ -4,7 +4,11 @@ import { createSetupSecrets, generateBackendEnv } from '../lib/init-environment.
 
 const CONFIG = {
   appTitle: 'Test Application',
-  env: { backendPort: 5001, frontendPort: 3000, mongoUri: 'mongodb://localhost/test' },
+  env: {
+    backendPort: 5001,
+    frontendPort: 3000,
+    mongoUri: 'mongodb://localhost/test', // feature:mongodb
+  },
   smtp: { host: '', port: '587', secure: 'false', user: '', pass: '', from: '' },
   oauth: {
     google: { clientId: '', clientSecret: '' },
