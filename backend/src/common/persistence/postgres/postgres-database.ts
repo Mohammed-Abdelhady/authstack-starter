@@ -25,6 +25,7 @@ export interface UsersTable {
   role: Generated<string>;
   permissions: Generated<string[]>;
   email: string | null;
+  pending_email: string | null;
   name: string | null;
   is_verified: Generated<boolean>;
   auth_provider: string | null;

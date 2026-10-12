@@ -1,5 +1,6 @@
-import { Kysely } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { PENDING_PURPOSE } from '../../constants/registration';
 import {
   AttemptRule,
   CODE_CLAIM,
@@ -77,14 +78,23 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
     now: Date,
   ): Promise<CodeRotation> {
     return autocommit(NONE, async () => {
-      const rotated = await this.database
+      let update = this.database
         .updateTable('pending_registrations')
         .set(generationColumns(generation))
         .where('email', '=', storedAddress(key.email))
         .where('purpose', '=', key.purpose)
-        .where('expires_at', expiry, now)
-        .returning('id')
-        .executeTakeFirst();
+        .where('expires_at', expiry, now);
+      if (
+        key.purpose === PENDING_PURPOSE.EMAIL_CHANGE &&
+        generation.userId !== undefined &&
+        generation.addressGeneration !== undefined
+      ) {
+        const userId = toUuid(generation.userId);
+        update = update.where(
+          sql<boolean>`(user_id IS DISTINCT FROM ${userId} OR address_generation <= ${generation.addressGeneration})`,
+        );
+      }
+      const rotated = await update.returning('id').executeTakeFirst();
       return rotated ? CODE_ROTATION.ROTATED : CODE_ROTATION.NO_MATCHING_RECORD;
     });
   }

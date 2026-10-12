@@ -20,6 +20,7 @@ export type AccountReader =
 export const ACCOUNT_COLUMNS = [
   'id',
   'email',
+  'pending_email',
   'name',
   'avatar_url',
   'role',
@@ -40,6 +41,7 @@ export const ACCOUNT_COLUMNS = [
 export interface AccountRow {
   id: string;
   email: string | null;
+  pending_email: string | null;
   name: string | null;
   avatar_url: string | null;
   role: string;
@@ -130,6 +132,7 @@ export function toStoredAccount(
   return {
     id: row.id,
     email: row.email ?? '',
+    pendingEmail: row.pending_email ?? undefined,
     name: row.name ?? '',
     avatarUrl: row.avatar_url ?? undefined,
     role: row.role,

@@ -30,6 +30,8 @@ export const EMAIL_CHANGE_CONFIRM_PATH = '/auth/confirm-email-change';
 /** Subjects, shared by the mailer and the specs that assert on them. */
 export const ACTIVATION_EMAIL_SUBJECT = 'Verify Your Email Address';
 export const EMAIL_CHANGE_EMAIL_SUBJECT = 'Confirm your new email address';
+export const EMAIL_CHANGE_NOTICE_SUBJECT =
+  'A pending email change was requested';
 export const PASSWORD_RESET_EMAIL_SUBJECT = 'Reset Your Password';
 export const MAGIC_LINK_EMAIL_SUBJECT = 'Your Sign-In Link';
 export const REGISTRATION_NOTICE_EMAIL_SUBJECT =
@@ -45,6 +47,8 @@ export const ACTIVATION_BODY_TEXT =
 /** Email-change body sentence, shared with the specs instead of copied. */
 export const EMAIL_CHANGE_BODY_TEXT =
   'An administrator changed the email address on your account. Open the confirmation page and enter this code to finish the change:';
+export const EMAIL_CHANGE_NOTICE_BODY_TEXT =
+  'An administrator requested to change the email address on your account. Your existing address remains active until the new address is confirmed. If you did not expect this request, contact your administrator.';
 
 /** Prefix of the shutdown log line, shared with the specs. */
 export const MAIL_DRAIN_DEADLINE_LOG = 'Mail drain deadline reached';

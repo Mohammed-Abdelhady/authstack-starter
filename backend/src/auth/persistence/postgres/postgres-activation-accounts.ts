@@ -50,6 +50,7 @@ class PostgresMovedAccount extends MovedAccount {
   constructor(
     readonly id: string,
     readonly email: string,
+    readonly pendingEmail: string | undefined,
     readonly addressGeneration: number,
   ) {
     super();
@@ -94,11 +95,13 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('users')
-        .select(['is_verified', 'address_generation'])
+        .select(['email', 'pending_email', 'is_verified', 'address_generation'])
         .where('id', '=', toUuid(userId))
         .executeTakeFirst();
       return row
         ? {
+            email: row.email ?? '',
+            pendingEmail: row.pending_email ?? undefined,
             isVerified: row.is_verified,
             addressGeneration: row.address_generation,
           }
@@ -153,7 +156,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
   ): Promise<MovedAccount | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('users')
-      .select(['id', 'email', 'address_generation'])
+      .select(['id', 'email', 'pending_email', 'address_generation'])
       .where('id', '=', toUuid(userId))
       .where('is_deleted', '=', false)
       .forNoKeyUpdate()
@@ -163,23 +166,34 @@ export class PostgresActivationAccounts extends ActivationAccounts {
       ? new PostgresMovedAccount(
           row.id,
           row.email ?? '',
+          row.pending_email ?? undefined,
           row.address_generation,
         )
       : null;
   }
 
-  async markAddressVerified(
+  async confirmAddress(
     unitOfWork: UnitOfWork,
     account: MovedAccount,
+    email: string,
   ): Promise<void> {
     if (!(account instanceof PostgresMovedAccount)) {
       throw new Error('This account was not read from PostgreSQL');
     }
-    await postgresTransactionOf(unitOfWork)
-      .updateTable('users')
-      .set({ is_verified: true, updated_at: this.clock.now() })
-      .where('id', '=', account.id)
-      .execute();
+    try {
+      await postgresTransactionOf(unitOfWork)
+        .updateTable('users')
+        .set({
+          email: storedAddress(email),
+          pending_email: null,
+          is_verified: true,
+          updated_at: this.clock.now(),
+        })
+        .where('id', '=', account.id)
+        .execute();
+    } catch (error) {
+      throw accountFailure(error);
+    }
   }
 }
 

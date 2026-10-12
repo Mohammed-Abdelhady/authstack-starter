@@ -170,8 +170,8 @@ export class AdminUsersController {
     description:
       'Updates user name and/or email. Cannot modify users at or above the ' +
       "actor's role level, and cannot modify the actor's own account. " +
-      'Changing the email requires an admin actor and marks the account ' +
-      'unverified until the new address confirms a fresh code.',
+      'Changing the email requires an admin actor. The account keeps its ' +
+      'address until the new one confirms the code mailed to it.',
   })
   @ApiParam({
     name: 'id',
@@ -189,7 +189,7 @@ export class AdminUsersController {
   }
 
   /**
-   * Re-send the confirmation code for a user's current unverified address.
+   * Re-send the confirmation code for the address a user waits to confirm.
    *
    * @example POST /admin/users/:id/resend-email-change
    */
@@ -199,8 +199,8 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Resend an email change confirmation',
     description:
-      'Re-sends the confirmation code for the account current unverified ' +
-      'address. The address and its generation are unchanged; a fresh code ' +
+      'Re-sends the confirmation code to the address the account waits to ' +
+      'confirm. The address and its generation are unchanged; a fresh code ' +
       'is issued up to the per-address mail cap.',
   })
   @ApiParam({
