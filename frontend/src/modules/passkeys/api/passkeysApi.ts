@@ -5,6 +5,7 @@ import { PASSKEY_PATHS, passkeyPath } from '../constants';
 import type {
   PasskeyListResponse,
   PasskeyLoginRequest,
+  PasskeyRegistrationProof,
   PasskeySummary,
   PasskeyTwoFactorRequest,
   RegisterPasskeyRequest,
@@ -33,8 +34,11 @@ export const passkeysApi = baseApi.injectEndpoints({
       providesTags: ['Passkeys'],
     }),
 
-    createPasskeyOptions: builder.mutation<PublicKeyCredentialCreationOptionsJSON, void>({
-      query: () => ({ url: PASSKEY_PATHS.REGISTER_OPTIONS, method: 'POST' }),
+    createPasskeyOptions: builder.mutation<
+      PublicKeyCredentialCreationOptionsJSON,
+      PasskeyRegistrationProof
+    >({
+      query: (body) => ({ url: PASSKEY_PATHS.REGISTER_OPTIONS, method: 'POST', body }),
       transformResponse: (response: {
         success: boolean;
         data: PublicKeyCredentialCreationOptionsJSON;
