@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { FOCUS_LANDING_CLASSES } from '@/constants/focusStyles';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -22,6 +23,8 @@ interface TwoFactorSetupDialogProps {
   onOpenChange: (open: boolean) => void;
   /** True when the account signs in with a password and re-enters it here. */
   hasPassword: boolean;
+  /** The section heading takes focus after setup replaces its opener. */
+  landing?: RemovalLanding;
 }
 
 /** Turns the second factor on, one step at a time. */
@@ -29,16 +32,24 @@ export function TwoFactorSetupDialog({
   open,
   onOpenChange,
   hasPassword,
+  landing,
 }: TwoFactorSetupDialogProps) {
   const t = useTranslations('settings.twoFactor.setup');
   const flow = useTwoFactorSetup();
   const { reset } = flow;
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
 
   useEffect(() => {
     if (!open) {
       reset();
     }
   }, [open, reset]);
+
+  useEffect(() => {
+    if (landing !== undefined && flow.step === SETUP_STEP.RECOVERY_CODES) {
+      noteRemoved();
+    }
+  }, [flow.step, landing, noteRemoved]);
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -70,13 +81,25 @@ export function TwoFactorSetupDialog({
 
   return (
     <Dialog open={open} busy={flow.isBusy} onOpenChange={onDialogOpenChange}>
-      <DialogContent ref={contentRef} className="sm:max-w-md" data-testid="two-factor-setup-dialog">
+      <DialogContent
+        ref={contentRef}
+        className="sm:max-w-md"
+        data-testid="two-factor-setup-dialog"
+        showCloseButton={flow.step !== SETUP_STEP.RECOVERY_CODES}
+        onCloseAutoFocus={focusLanding}
+      >
         <DialogHeader>
           <DialogTitle ref={titleRef} tabIndex={-1} className={FOCUS_LANDING_CLASSES}>
             {t('title')}
           </DialogTitle>
-          {/* Read out when the step changes. */}
-          <DialogDescription aria-live="polite">{t(`${flow.step}.description`)}</DialogDescription>
+          {/* Announce both the position and instructions when the step changes. */}
+          <DialogDescription aria-live="polite">
+            {t('stepProgress', {
+              current: Object.values(SETUP_STEP).indexOf(flow.step) + 1,
+              total: Object.values(SETUP_STEP).length,
+            })}{' '}
+            {t(`${flow.step}.description`)}
+          </DialogDescription>
         </DialogHeader>
 
         {flow.error !== null && (
