@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
-import { LIST_VIEW } from '../constants';
+import { useCallback, useState } from 'react';
+import { LIST_VIEW, SIGN_OUT_STATE, type SignOutState } from '../constants';
 import { useUi } from '../context/ui-context';
 import { isApiFailure } from '../logic/request-failure';
 import { failureText, profileText } from '../logic/session-text';
@@ -13,7 +13,14 @@ export function useAccount() {
   const { data, error, refetch } = useGetProfileQuery();
   const failure = isApiFailure(error) ? error : undefined;
   const retry = useCallback(() => void refetch(), [refetch]);
-  const signOut = useCallback(() => void engine.signOut().catch(() => undefined), [engine]);
+  const [signOutState, setSignOutState] = useState<SignOutState>(SIGN_OUT_STATE.IDLE);
+  const signOut = useCallback(() => {
+    setSignOutState(SIGN_OUT_STATE.PENDING);
+    void engine.signOut().then(
+      () => setSignOutState(SIGN_OUT_STATE.IDLE),
+      () => setSignOutState(SIGN_OUT_STATE.FAILED),
+    );
+  }, [engine]);
 
   const view = data !== undefined ? LIST_VIEW.READY : failure ? LIST_VIEW.ERROR : LIST_VIEW.LOADING;
   return {
@@ -23,5 +30,6 @@ export function useAccount() {
     sessionNotSaved: snapshot.warning === 'storageBlocked',
     retry,
     signOut,
+    signOutState,
   };
 }

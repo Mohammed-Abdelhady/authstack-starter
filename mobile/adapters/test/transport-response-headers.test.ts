@@ -16,6 +16,7 @@ import {
 } from './support/fake-modules';
 import {
   AUTHORIZATION_CODE,
+  SERVER_ACCESS_LIFETIME_SECONDS,
   SERVER_CLIENT_ID,
   SERVER_ORIGIN,
   SERVER_RETURN_ADDRESS,
@@ -26,6 +27,8 @@ import { FakeSecureStore } from './support/fake-store';
 const DEADLINE_MS = 20_000;
 const SERVER_NONCE = 'nonce-1';
 const CHALLENGE = { error: 'use_dpop_nonce', error_description: 'NATIVE_DPOP_NONCE_INVALID' };
+/** `{}` as a header and `{"nonce":"nonce-1"}` as a payload, base64url, with an empty signature. */
+const PROOF_WITH_SERVER_NONCE = 'e30.eyJub25jZSI6Im5vbmNlLTEifQ.';
 
 interface Signal {
   aborted: boolean;
@@ -44,7 +47,19 @@ function reply(status: number, body: unknown, headers: Record<string, string> = 
   return response;
 }
 
-/** Answers the first token request with a nonce challenge, then issues a bound pair. */
+declare function atob(data: string): string;
+
+/** The `nonce` claim of a proof, or nothing when the request carried no proof. */
+function nonceOf(proof: string | undefined): unknown {
+  const part = proof?.split('.')[1];
+  if (part === undefined) return undefined;
+  const payload: unknown = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+  return typeof payload === 'object' && payload !== null && 'nonce' in payload
+    ? payload.nonce
+    : undefined;
+}
+
+/** Challenges every token request whose proof lacks its nonce, then issues a bound pair. */
 class ChallengingServer implements HttpApi<Signal> {
   readonly tokenRequests: { code: unknown; proof: string | undefined }[] = [];
   nonceHeaderName = 'dpop-nonce';
@@ -59,15 +74,17 @@ class ChallengingServer implements HttpApi<Signal> {
     if (path === '/api/user/profile') return reply(200, { success: true, data: SERVER_USER });
     const body: unknown = init.body === undefined ? {} : JSON.parse(init.body);
     const code = typeof body === 'object' && body !== null && 'code' in body ? body.code : null;
-    this.tokenRequests.push({ code, proof: init.headers.DPoP });
-    if (this.tokenRequests.length === 1) {
+    const proof = init.headers.DPoP;
+    this.tokenRequests.push({ code, proof });
+    // As the server does: a proof without the nonce it handed out is challenged again.
+    if (nonceOf(proof) !== SERVER_NONCE) {
       return reply(400, CHALLENGE, { [this.nonceHeaderName]: SERVER_NONCE });
     }
     return reply(200, {
       access_token: 'access-1',
       refresh_token: 'refresh-1',
-      expires_in: 900,
-      token_type: 'DPoP',
+      expires_in: SERVER_ACCESS_LIFETIME_SECONDS,
+      token_type: 'Bearer',
       scope: 'api',
     });
   }
@@ -109,12 +126,12 @@ describe('fetch transport response headers', () => {
   it('carries no headers for a response without a nonce', async () => {
     const server = new ChallengingServer();
     const transport = transportOver(server);
-    await transport.request({ method: 'POST', path: '/api/oauth/token', body: {} });
 
     const response = await transport.request({
       method: 'POST',
       path: '/api/oauth/token',
       body: {},
+      headers: { DPoP: PROOF_WITH_SERVER_NONCE },
     });
 
     expect(response.status).toBe(200);
@@ -178,7 +195,7 @@ describe('fetch transport response headers', () => {
     expect(outcome.kind).toBe('signedIn');
     expect(engine.snapshot.status).toBe('signedIn');
     expect(server.tokenRequests.map(({ code }) => code)).toEqual(['code-1', 'code-1']);
-    expect(server.tokenRequests[0]?.proof).not.toBe(server.tokenRequests[1]?.proof);
+    expect(server.tokenRequests.map(({ proof }) => nonceOf(proof))).toEqual(['', 'nonce-1']);
     expect(time.pendingTimers).toBe(0);
     engine.dispose();
   });

@@ -95,6 +95,7 @@ describe('which message a state asks for', () => {
     action: 'signIn',
     canAct: true,
     sessionEnded: false,
+    switchedOff: false,
     ...overrides,
   });
 

@@ -5,7 +5,7 @@ import { Notice, NOTICE_TONE } from '../components/Notice';
 import { Screen, type Arrival } from '../components/Screen';
 import { SkeletonGroup, SkeletonLine } from '../components/Skeleton';
 import { Description, Heading } from '../components/Typography';
-import { LIST_VIEW, TEST_ID } from '../constants';
+import { LIST_VIEW, SIGN_OUT_STATE, TEST_ID } from '../constants';
 import { useUi } from '../context/ui-context';
 import { useAccount } from '../hooks/use-account';
 import { SIZE, SPACE } from '../theme/tokens';
@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
   group: { gap: SPACE.LG },
   intro: { gap: SPACE.SM },
   // Sign out stays at the foot of the screen, apart from the links above it.
-  foot: { flexGrow: 1, justifyContent: 'flex-end' },
+  foot: { flexGrow: 1, justifyContent: 'flex-end', gap: SPACE.LG },
 });
 
 interface AccountScreenProps {
@@ -35,7 +35,8 @@ function AccountSkeleton({ label }: { label: string }) {
 
 export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
   const { t } = useUi();
-  const { view, profile, failureText, sessionNotSaved, retry, signOut } = useAccount();
+  const { view, profile, failureText, sessionNotSaved, retry, signOut, signOutState } =
+    useAccount();
 
   return (
     <Screen testID={TEST_ID.ACCOUNT_SCREEN} arrival={arrival}>
@@ -80,12 +81,29 @@ export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
           />
         </View>
         <View style={styles.foot}>
+          {signOutState === SIGN_OUT_STATE.FAILED ? (
+            <View style={styles.group}>
+              <Notice
+                testID={TEST_ID.ACCOUNT_NOTICE}
+                tone={NOTICE_TONE.PROBLEM}
+                title={t('account.signOutFailed.title')}
+                description={t('account.signOutFailed.description')}
+              />
+              <Button
+                testID={TEST_ID.ACCOUNT_SIGN_OUT_RETRY}
+                label={t('common.tryAgain')}
+                accessibilityHint={t('account.signOutHint')}
+                onPress={signOut}
+              />
+            </View>
+          ) : null}
           <Button
             testID={TEST_ID.ACCOUNT_SIGN_OUT}
             variant={BUTTON_VARIANT.DANGER}
             stretch
             label={t('account.signOut')}
             accessibilityHint={t('account.signOutHint')}
+            busy={signOutState === SIGN_OUT_STATE.PENDING}
             onPress={signOut}
           />
         </View>

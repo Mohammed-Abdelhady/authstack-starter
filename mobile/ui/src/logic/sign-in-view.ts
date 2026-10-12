@@ -1,4 +1,5 @@
 import { CredentialStoreError, type AuthReason, type SignInOutcome } from '@app/native-auth';
+import { OAUTH_ERROR } from '@app/sdk';
 import {
   ROOT_VIEW,
   SIGN_IN_ACTION,
@@ -62,15 +63,26 @@ function storeIsLocked(outcome: SignInOutcome): boolean {
   );
 }
 
+/** The token route answers `access_denied` only when the account holds its limit of sessions. */
+function sessionLimitReached(outcome: SignInOutcome): boolean {
+  return outcome.kind === 'oauthFailure' && outcome.error.error === OAUTH_ERROR.ACCESS_DENIED;
+}
+
 function outcomeView(outcome: SignInOutcome | undefined): Shown | undefined {
   if (outcome === undefined) return undefined;
   if (storeIsLocked(outcome)) return { state: SIGN_IN_STATE.STORAGE_LOCKED };
+  if (sessionLimitReached(outcome)) return failed(SIGN_IN_FAILURE.SESSION_LIMIT);
   return OUTCOME_VIEW[outcome.kind];
 }
 
 /** The one screen state for what the engine reports and how the last attempt ended. */
 export function signInView(snapshot: SnapshotInput, attempt: SignInAttempt): SignInView {
-  const base = { action: SIGN_IN_ACTION.SIGN_IN, canAct: true, sessionEnded: false };
+  const base = {
+    action: SIGN_IN_ACTION.SIGN_IN,
+    canAct: true,
+    sessionEnded: false,
+    switchedOff: false,
+  };
   if (
     snapshot.status === 'restoring' ||
     (attempt.pending && attempt.action === SIGN_IN_ACTION.RESTORE)
@@ -96,7 +108,12 @@ export function signInView(snapshot: SnapshotInput, attempt: SignInAttempt): Sig
   if (attempt.failure !== undefined) return { ...base, ...failed(attempt.failure) };
   const shown = outcomeView(attempt.outcome);
   if (shown !== undefined) return { ...base, ...shown };
-  return { ...base, state: SIGN_IN_STATE.IDLE, sessionEnded: snapshot.status === 'reauthRequired' };
+  return {
+    ...base,
+    state: SIGN_IN_STATE.IDLE,
+    sessionEnded: snapshot.status === 'reauthRequired',
+    switchedOff: snapshot.status === 'signedOut' && snapshot.reason === 'disabled',
+  };
 }
 
 /** A session that is being signed out no longer shows the signed-in screens. */

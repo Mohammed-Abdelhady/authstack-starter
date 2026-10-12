@@ -26,12 +26,17 @@ export const AR: Record<MessageKey, string> = {
   'signIn.failed.denied': 'رُفض تسجيل الدخول.',
   'signIn.failed.disabled': 'تسجيل الدخول من هذا التطبيق معطل على الخادم.',
   'signIn.failed.throttled': 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.',
+  'signIn.failed.sessionLimit':
+    'بلغ حسابك الحد الأقصى لعدد الأجهزة المسجَّل دخولها. سجّل الخروج من جهاز آخر ثم أعد المحاولة.',
   'signIn.failed.deviceKey': 'تعذر على هذا الجهاز إثبات هويته. أعد المحاولة.',
   'signIn.failed.browser': 'تعذر فتح المتصفح.',
   'signIn.failed.storage': 'تعذَّر على التطبيق قراءة تسجيل الدخول أو حفظه على هذا الجهاز.',
   'signIn.failed.generic': 'حدث خطأ. أعد المحاولة.',
   'signIn.reauth.title': 'انتهت جلستك',
   'signIn.reauth.description': 'سجّل الدخول مجددًا للمتابعة.',
+  'signIn.switchedOff.title': 'تسجيل الدخول من هذا التطبيق متوقف',
+  'signIn.switchedOff.description':
+    'أوقفت الخدمة تسجيل الدخول من تطبيقات الجوال مؤقتًا. أعد المحاولة لاحقًا.',
 
   'account.title': 'الحساب',
   'account.description': 'البيانات التي يحتفظ بها الخادم عنك.',
@@ -48,6 +53,8 @@ export const AR: Record<MessageKey, string> = {
   'account.sessions.action': 'إدارة الأجهزة',
   'account.signOut': 'تسجيل الخروج',
   'account.signOutHint': 'يسجّل خروجك من هذا الجهاز',
+  'account.signOutFailed.title': 'ما زلت مسجَّل الدخول',
+  'account.signOutFailed.description': 'تعذَّر تسجيل الخروج من هذا الجهاز. أعد المحاولة.',
 
   'role.user': 'مستخدم',
   'role.support': 'دعم',
