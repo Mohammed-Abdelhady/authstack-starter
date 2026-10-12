@@ -77,7 +77,9 @@ describe.each([
     await waitFor(() => expect(trigger.matches(':disabled')).toBe(false));
 
     fireEvent.keyDown(trigger, { key: 'Enter' });
-    fireEvent.keyDown(await screen.findByRole('option', { name: LAST.name }), { key: 'Enter' });
+    const lastOption = await screen.findByTestId(`role-option-${LAST.slug}`);
+    expect(lastOption.textContent).toBe(LAST.name);
+    fireEvent.keyDown(lastOption, { key: 'Enter' });
 
     await waitFor(() => expect(trigger.textContent).toBe(LAST.name));
   });
