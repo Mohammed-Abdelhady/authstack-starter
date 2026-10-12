@@ -77,11 +77,12 @@ Returns the list of OAuth providers that have credentials configured in backend 
 
 **Endpoint:** `GET /api/auth/oauth/:provider/start?redirect={path}`
 
-Initiates the OAuth handshake. Generates a random state token and PKCE code verifier (if supported by the provider), sets a signed `oauth_state` HTTP-only cookie, and issues an HTTP 302 redirect to the provider's authorization URL.
+Initiates the OAuth handshake. Generates a random state token and PKCE code verifier (if supported by the provider), sets a signed HTTP-only state cookie, and issues an HTTP 302 redirect to the provider's authorization URL. The cookie is named `oauth_<provider>` in development and `__Host-oauth_<provider>` in production, where it is `Secure` and on path `/`.
 
 **Query parameters:**
 
 - `redirect` (optional): Frontend path to redirect to after successful login (for example `/dashboard`). Paths must be relative to prevent open-redirect vulnerabilities.
+- `intent` (optional): `link` attaches the provider to the signed-in account and needs the session cookie on this request. The account and the session are written into the signed state here, because the callback is a navigation the provider's site starts and a browser sends no `SameSite=Strict` cookie with it. The callback completes the link from the state when that session is still live, and answers `SESSION_INVALID` when it was ended since.
 
 ### 3. Handle provider callback
 
@@ -94,6 +95,7 @@ Receives the authorization code and state parameter from the third-party provide
 3. Retrieves the normalized user profile from the provider.
 4. Finds an existing account by provider account ID or verified email address.
 5. If an account is found, records the provider identity in `linkedAccounts`. If no account exists, creates a new user.
+   An account found by its address alone is attached to only when the provider states, for each address, that it verified it, and when the account's own address was verified by this server. Facebook sends no such statement, so a first Facebook sign-in cannot create an account or join one by address. The person signs in another way and links Facebook in the settings. An already linked Facebook identity can still sign in.
 6. Clears the `oauth_state` cookie, issues a session cookie (`sid` in development, `__Host-sid` in production), and redirects the browser to the destination path.
 
 **Endpoint:** `POST /api/auth/oauth/:provider/callback`
