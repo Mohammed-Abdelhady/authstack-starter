@@ -180,6 +180,14 @@ export class OAuthService {
     return profile;
   }
 
+  async resolveVerifiedProfile(
+    strategy: OAuthProviderStrategy,
+    profile: OAuthProfile,
+  ): Promise<StoredAccount> {
+    this.assertEmailVerified(strategy, profile);
+    return this.findOrCreateUser(strategy, profile);
+  }
+
   /**
    * Resolves the account for a provider profile: existing link, existing email,
    * or a new user. The account email is never overwritten from the provider.
