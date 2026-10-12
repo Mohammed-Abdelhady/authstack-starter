@@ -10,9 +10,16 @@ import { NativeAttemptService } from './services/native-attempt.service';
 import { NativeAttemptViewService } from './services/native-attempt-view.service';
 import { NativeConsentService } from './services/native-consent.service';
 import { NativeMethodsService } from './services/native-methods.service';
+import { PasskeysModule } from '../passkeys/passkeys.module'; // feature:passkeys
 
 @Module({
-  imports: [AuthModule, UserModule, SessionModule, NativeOAuthModule],
+  imports: [
+    AuthModule,
+    UserModule,
+    SessionModule,
+    NativeOAuthModule,
+    PasskeysModule, // feature:passkeys
+  ],
   controllers: [NativeAuthController],
   providers: [
     ...NATIVE_AUTH_PERSISTENCE_PROVIDERS,
