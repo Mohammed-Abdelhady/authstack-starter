@@ -25,7 +25,13 @@ export const MONGO_WORDS = [
  * request collection, a schematics collection, a collection of validation
  * schemas, a statement that PostgreSQL has no such index.
  */
+const FONT_LICENSE_COLLECTION =
+  '"Original Version" refers to the collection of Font Software components as';
+
 export const MONGO_SURVIVING_LINES: Record<string, string[]> = {
+  'frontend/src/app/fonts/OFL-Geist.txt': [FONT_LICENSE_COLLECTION],
+  'frontend/src/app/fonts/OFL-GeistMono.txt': [FONT_LICENSE_COLLECTION],
+  'frontend/src/app/fonts/OFL-NotoSansArabic.txt': [FONT_LICENSE_COLLECTION],
   'backend/README.md': ['- [Postman collection](docs/postman/README.md)'],
   'backend/docs/postman/FULL-MERN-AUTH-Boilerplate-API.postman_collection.json': [
     '"description": "API collection for NestJS backend with cookie sessions, dynamic RBAC, TOTP 2FA, passkeys, and OAuth.",',
