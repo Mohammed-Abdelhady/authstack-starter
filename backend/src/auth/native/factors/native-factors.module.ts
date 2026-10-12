@@ -3,6 +3,7 @@ import { AuthModule } from '../../auth.module';
 import { PasskeysModule } from '../../passkeys/passkeys.module'; // feature:passkeys
 import { CommonModule } from '../../../common/common.module';
 import { UserModule } from '../../../user/user.module';
+import { SessionModule } from '../../../session/session.module';
 import { NativeAuthModule } from '../native-auth.module';
 import { NativeFactorsController } from './native-factors.controller';
 import { NativePasswordService } from './native-password.service';
@@ -15,6 +16,7 @@ import { NativePasskeyService } from './native-passkey.service';
     PasskeysModule, // feature:passkeys
     CommonModule,
     UserModule,
+    SessionModule,
     NativeAuthModule,
   ],
   controllers: [NativeFactorsController],
