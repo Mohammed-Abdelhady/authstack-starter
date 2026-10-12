@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/authenticated';
+import { message } from './utils/messages';
 
 const cards = /^session-card-timeline-/;
 
@@ -39,7 +40,7 @@ test.describe('Session Management', () => {
     await page.getByTestId('logout-session-button').click();
     const dialog = page.getByTestId('logout-session-confirm-dialog');
     await expect(dialog).toHaveRole('alertdialog');
-    await expect(dialog).toHaveAccessibleName(/log\s?out/i);
+    await expect(dialog).toHaveAccessibleName(message('en', 'sessions.logoutConfirmTitle'));
     await expect(dialog.getByTestId('cancel-logout-button')).toBeVisible();
     await expect(dialog.getByTestId('confirm-logout-button')).toBeVisible();
   });
@@ -67,7 +68,7 @@ test.describe('Session Management', () => {
     await page.getByTestId('logout-all-sessions-button').click();
     const dialog = page.getByTestId('revoke-all-confirm-dialog');
     await expect(dialog).toHaveRole('alertdialog');
-    await expect(dialog).toHaveAccessibleName(/log\s?out/i);
+    await expect(dialog).toHaveAccessibleName(message('en', 'sessions.logoutAllConfirmTitle'));
     await expect(dialog.getByTestId('cancel-logout-all')).toBeVisible();
     await expect(dialog.getByTestId('confirm-logout-all')).toBeVisible();
   });
