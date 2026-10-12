@@ -12,7 +12,7 @@ import {
   type ProofVector,
   type VectorFile,
 } from './dpop-vector.generate';
-import stored from './dpop-vector.json?raw';
+import stored from '../../../../shared/sdk/test/fixtures/native-dpop-vector.json?raw';
 
 declare const process: { env: Record<string, string | undefined> };
 
