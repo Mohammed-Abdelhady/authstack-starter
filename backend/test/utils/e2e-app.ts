@@ -53,6 +53,8 @@ export interface E2eApp {
 
 /** Optional overrides for a booted fixture. A feature's option never shifts another. */
 export interface BootE2eAppOptions {
+  /** Start with application records but no seeded account. */
+  seedUsers?: boolean;
   nodeEnv?: string;
   browserStrategy?: OAuthProviderStrategy; // feature:oauth-core
   magicLinkEnabled?: boolean; // feature:magic-link
@@ -244,7 +246,7 @@ export async function bootE2eApp(
       await roleSeed.seed();
       await stored.seedApplications();
       await reconcileStartupApplications(nestApp);
-      await stored.seedAccounts(fixtures);
+      if (options.seedUsers !== false) await stored.seedAccounts(fixtures);
       mail.length = 0;
     };
     await reset();
