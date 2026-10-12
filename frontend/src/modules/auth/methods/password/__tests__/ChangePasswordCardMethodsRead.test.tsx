@@ -4,7 +4,9 @@ import { describeMethodsRead } from '@/modules/auth/__tests__/methodsReadCases';
 import { registerFormTestLifecycle } from '@/tests/serverRejectionHarness';
 import { ChangePasswordCard } from '../ChangePasswordCard';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 registerFormTestLifecycle();
 
