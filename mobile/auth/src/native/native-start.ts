@@ -3,8 +3,9 @@ import type { ApiClient, NativeAttemptStartResult, NativeFlow } from '@app/sdk';
 import { AUTH_OPERATION, NATIVE_ATTEMPT_LIFETIME_MS, SESSION_STATUS } from '../constants';
 import { prepareSignIn } from '../sign-in/sign-in-transaction';
 import { transactionExpired } from '../storage/persistence';
+import { revokeQuietly } from '../sign-out/revocation';
 import type { AuthRuntime } from '../runtime/runtime';
-import type { AbortSignalPort } from '../types/auth';
+import type { AbortSignalPort, SessionStatus } from '../types/auth';
 import type { PendingAuthRecord } from '../types/record';
 import type { NativeSignInOutcome } from '../types/native-sign-in';
 
@@ -12,10 +13,29 @@ export async function beginNativeAttempt(
   runtime: AuthRuntime,
   client: ApiClient<AbortSignalPort>,
   flow: NativeFlow,
+  previousStatus: SessionStatus,
   epoch: number,
   signal: AbortSignalPort,
 ): Promise<NativeSignInOutcome> {
-  const prepared = await prepareSignIn(runtime, epoch, SESSION_STATUS.SIGNED_OUT);
+  const oldRefreshToken =
+    previousStatus === SESSION_STATUS.REAUTH_REQUIRED
+      ? runtime.record?.tokens?.refreshToken
+      : undefined;
+  if (oldRefreshToken) {
+    void revokeQuietly(
+      client,
+      runtime.dependencies,
+      oldRefreshToken,
+      runtime.config.clientId,
+      runtime.record?.proofKeyThumbprint === undefined
+        ? undefined
+        : {
+            serverBaseAddress: runtime.config.serverBaseAddress,
+            proofKeyThumbprint: runtime.record.proofKeyThumbprint,
+          },
+    ).catch(() => undefined);
+  }
+  const prepared = await prepareSignIn(runtime, epoch, previousStatus);
   if (prepared.kind === 'outcome') {
     return prepared.outcome.kind === 'storageFailure'
       ? { kind: 'storageFailure' }
@@ -44,11 +64,19 @@ export async function beginNativeAttempt(
     return { kind: 'apiFailure' };
   }
   if (!runtime.isEpochCurrent(epoch)) return { kind: 'signedOut' };
-  const now = runtime.wallTime();
+  let now: number;
+  try {
+    now = runtime.wallTime();
+  } catch {
+    await discardPrepared(runtime, epoch);
+    return { kind: 'apiFailure' };
+  }
   const serverExpiry = Date.parse(started.expiresAt);
   if (
     !Number.isFinite(serverExpiry) ||
     serverExpiry <= now ||
+    started.attemptId === '.' ||
+    started.attemptId === '..' ||
     !/^[A-Za-z0-9_-]{43}$/.test(started.attemptSecret) ||
     !/^[a-f0-9]{64}$/.test(started.providerNonceDigest)
   ) {
