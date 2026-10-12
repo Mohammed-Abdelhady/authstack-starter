@@ -52,7 +52,7 @@
     "redux-persist": "^6.0.0",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
-    "zod": "^3.25.76",
+    "zod": "^4.6.5",
     "@radix-ui/react-tooltip": "1.3.0"
   },
   "devDependencies": {

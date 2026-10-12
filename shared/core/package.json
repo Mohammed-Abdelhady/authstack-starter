@@ -26,7 +26,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "peerDependenciesMeta": {
     "zod": {
@@ -41,7 +41,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.3",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "engines": {
     "node": ">=22.12.0 <23",
