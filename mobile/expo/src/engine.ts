@@ -8,6 +8,7 @@ import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { startShellAuth, type StartedShellAuth } from './shell';
+import { createShellNativeSignIn } from './native-sign-in';
 
 /** The only file that imports the native modules. The shared adapters receive them from here. */
 export function createNativeShellAuth(
@@ -37,6 +38,7 @@ export function createNativeShellAuth(
           setTimeout(handler, milliseconds),
         clearTimeout: (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle),
       },
+      nativeSignIn: createShellNativeSignIn(),
       http: {
         fetch: (address, init) => fetch(address, init),
         createAbort: () => new AbortController(),

@@ -1,5 +1,5 @@
 import { NATIVE_MODULE_NAME, type DeviceKeyNativeApi, type KeyProtection } from '@app/device-key';
-import { INSTALL_MARKER_FILE, recordMarkerFile, type NativeModules } from '@app/native-adapters';
+import { INSTALL_MARKER_FILE, recordMarkerFile } from '@app/native-adapters';
 import type { AuthConfiguration } from '@app/native-auth';
 import { requireNativeModule } from 'expo';
 import * as Crypto from 'expo-crypto';
@@ -8,11 +8,12 @@ import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import { startShellAuth, type StartedShellAuth } from './shell';
+import { createShellNativeSignIn } from './native-sign-in';
+
+type ShellTimerHandle = ReturnType<typeof setTimeout>;
 
 /** React Native provides the monotonic clock at run time. */
 declare const performance: { now(): number };
-
-type ShellTimerHandle = ReturnType<typeof setTimeout>;
 
 /** Passes this shell's Expo module instances once to the shared adapter factory. */
 export function createNativeShellAuth(
@@ -20,7 +21,7 @@ export function createNativeShellAuth(
   ephemeralBrowserSession: boolean,
   keyProtection: KeyProtection,
 ): Promise<StartedShellAuth> {
-  const modules: NativeModules<typeof Crypto.CryptoDigestAlgorithm.SHA256, ShellTimerHandle> = {
+  const modules = {
     secureStore: SecureStore,
     keychainOptions: {
       keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
@@ -37,9 +38,10 @@ export function createNativeShellAuth(
     uuid: Crypto,
     clock: { date: Date, performance },
     timers: {
-      setTimeout: (handler, milliseconds) => setTimeout(handler, milliseconds),
-      clearTimeout: (handle) => clearTimeout(handle),
+      setTimeout: (handler: () => void, milliseconds: number) => setTimeout(handler, milliseconds),
+      clearTimeout: (handle: ShellTimerHandle) => clearTimeout(handle),
     },
+    nativeSignIn: createShellNativeSignIn(),
   };
   return startShellAuth(
     {
