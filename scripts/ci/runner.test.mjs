@@ -89,6 +89,7 @@ test('the repository gate list has separate quality, install and installer selec
       'Installer combinations',
       'Installer PostgreSQL projects',
       'Installer MongoDB projects',
+      'Install test browser',
       'Browser test frontend build',
       'Frontend browser checks',
       'Complete authentication browser journeys',
@@ -111,6 +112,7 @@ test('the repository gate list has separate quality, install and installer selec
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+      ['pnpm', ['--filter', 'frontend', 'exec', 'playwright', 'install', 'chromium']],
       ['pnpm', ['--filter', 'frontend', 'run', 'build']],
       [
         'pnpm',
@@ -132,8 +134,8 @@ test('the repository gate list has separate quality, install and installer selec
     [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
   );
   const browser = selectGates(config, '--browser');
-  assert.equal(browser.length, 3);
-  assert.deepEqual(browser[0].env, { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:5107' });
+  assert.equal(browser.length, 4);
+  assert.deepEqual(browser[1].env, { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:5107' });
   assert.equal(
     browser.every((gate) => gate.repositoryOnly === true),
     true,
