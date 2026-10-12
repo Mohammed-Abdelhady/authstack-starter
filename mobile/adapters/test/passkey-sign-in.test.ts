@@ -1,4 +1,4 @@
-import type { NativePasskeyOptions } from '@app/sdk';
+import { createNativeAuthClient, type NativePasskeyOptions } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { createNativeSignInPorts } from '../src/native-sign-in-ports';
 import { TestAbort } from './support/abort';
@@ -51,6 +51,112 @@ describe('native passkey sign-in port', () => {
       userVerification: 'required',
     });
     expect(result).toEqual({ kind: 'success', value: ASSERTION });
+  });
+
+  it.each([
+    {
+      name: 'platform credential',
+      native: { ...ASSERTION, authenticatorAttachment: null },
+      expected: {
+        id: 'credential-id',
+        rawId: 'credential-id',
+        type: 'public-key',
+        response: ASSERTION.response,
+        clientExtensionResults: { credProps: { rk: true } },
+      },
+    },
+    {
+      name: 'security key',
+      native: { ...ASSERTION, authenticatorAttachment: null, clientExtensionResults: null },
+      expected: {
+        id: 'credential-id',
+        rawId: 'credential-id',
+        type: 'public-key',
+        response: ASSERTION.response,
+      },
+    },
+    {
+      name: 'null extensions only',
+      native: { ...ASSERTION, clientExtensionResults: null },
+      expected: {
+        id: 'credential-id',
+        rawId: 'credential-id',
+        type: 'public-key',
+        authenticatorAttachment: 'platform',
+        response: ASSERTION.response,
+      },
+    },
+  ])('normalizes nullable iOS $name output for the SDK request', async ({ native, expected }) => {
+    const fixture = createNativeSignInFixture('ios');
+    fixture.calls.passkeyResult = async () => native;
+    const ports = createNativeSignInPorts(fixture.modules, createNativeSignInSettings());
+    const original = { ...native };
+    const result = await ports.passkeys.authenticate(OPTIONS, new TestAbort().signal);
+
+    expect(result).toEqual({ kind: 'success', value: expected });
+    expect(native).toEqual(original);
+    if (result.kind !== 'success') throw new Error('Expected a passkey assertion');
+
+    const requests: { body?: unknown }[] = [];
+    const client = createNativeAuthClient(async (call) => {
+      requests.push(call);
+      return {
+        status: 200,
+        body: {
+          success: true,
+          data: {
+            attemptId: 'attempt-1',
+            stage: 'firstFactorRequired',
+            expiresAt: '2030-01-01T00:00:00.000Z',
+            factors: ['password'],
+          },
+        },
+      };
+    });
+    await client.passkeyVerify({ id: 'attempt-1', secret: 'a'.repeat(43) }, result.value);
+    expect(requests[0]?.body).toEqual({ response: expected });
+  });
+
+  it('omits absent optionals and retains valid attachment and extensions', async () => {
+    const fixture = createNativeSignInFixture('ios');
+    const ports = createNativeSignInPorts(fixture.modules, createNativeSignInSettings());
+    const required = {
+      id: 'credential-id',
+      rawId: 'credential-id',
+      type: 'public-key',
+      response: ASSERTION.response,
+    };
+    fixture.calls.passkeyResult = async () => required;
+    expect(await ports.passkeys.authenticate(OPTIONS, new TestAbort().signal)).toEqual({
+      kind: 'success',
+      value: required,
+    });
+
+    fixture.calls.passkeyResult = async () => ({
+      ...ASSERTION,
+      authenticatorAttachment: 'cross-platform',
+    });
+    expect(await ports.passkeys.authenticate(OPTIONS, new TestAbort().signal)).toEqual({
+      kind: 'success',
+      value: { ...ASSERTION, authenticatorAttachment: 'cross-platform' },
+    });
+  });
+
+  it.each([
+    { authenticatorAttachment: 'other' },
+    { authenticatorAttachment: 1 },
+    { clientExtensionResults: [] },
+    { clientExtensionResults: 'unexpected' },
+    { response: { ...ASSERTION.response, signature: null } },
+    { id: null },
+  ])('rejects malformed assertion output %#', async (change) => {
+    const fixture = createNativeSignInFixture('ios');
+    fixture.calls.passkeyResult = async () => ({ ...ASSERTION, ...change });
+    const ports = createNativeSignInPorts(fixture.modules, createNativeSignInSettings());
+    expect(await ports.passkeys.authenticate(OPTIONS, new TestAbort().signal)).toEqual({
+      kind: 'failed',
+      reason: 'invalidResponse',
+    });
   });
 
   it('does not prompt when unsupported or when the server rpId differs from the app setting', async () => {
