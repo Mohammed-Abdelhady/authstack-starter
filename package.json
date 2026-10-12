@@ -20,7 +20,7 @@
     "lint:fix": "pnpm -r --if-present run lint:fix",
     "typecheck": "pnpm -r --if-present run typecheck",
     "build": "pnpm -r --if-present run build",
-    "test": "pnpm -r --if-present run test && pnpm run test:config",
+    "test": "pnpm -r --workspace-concurrency=1 --if-present run test && pnpm run test:config",
     "check:bans": "node scripts/check-hard-bans.mjs --staged",
     "check": "pnpm run check:bans && pnpm run lint && pnpm run typecheck",
     "check:contrast": "node scripts/check-contrast.mjs",

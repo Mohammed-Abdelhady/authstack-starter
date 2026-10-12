@@ -92,7 +92,7 @@ test('recursive gates omit the root and chain root config tests once', () => {
   }, {
     lint: 'pnpm -r --if-present run lint', fix: 'pnpm -r --if-present run lint:fix',
     typecheck: 'pnpm -r --if-present run typecheck', build: 'pnpm -r --if-present run build',
-    test: 'pnpm -r --if-present run test && pnpm run test:config',
+    test: 'pnpm -r --workspace-concurrency=1 --if-present run test && pnpm run test:config',
     check: 'pnpm run check:bans && pnpm run lint && pnpm run typecheck',
   });
   assert.equal(readManifest('backend/package.json').scripts.ci, 'pnpm run lint && pnpm run build && pnpm run test');
