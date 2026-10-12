@@ -29,6 +29,7 @@ import {
 
 export interface RoleEditHarness extends SessionAuthorityHarness {
   service: RoleService;
+  edit: RoleEditService;
   roleModel: Model<Role>;
   events: Model<SecurityEventDocument>;
 }
@@ -69,6 +70,7 @@ export async function bootRoleEdit(mongoUri: string): Promise<RoleEditHarness> {
 
   return Object.assign(harness, {
     service: module.get(RoleService),
+    edit: module.get(RoleEditService),
     roleModel,
     events: harness.app.get<Model<SecurityEventDocument>>(
       getModelToken(SecurityEvent.name),
