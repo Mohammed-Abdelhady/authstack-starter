@@ -78,7 +78,7 @@ describe.each(LOCALES)('values from outside in %s', (locale) => {
     ] as const) {
       const message = translate(locale, key, { device });
       expect(message).toContain(device);
-      if (locale === 'ar') expect(message).toContain(`${FIRST_STRONG}${device}${CLOSE}`);
+      if (locale === 'ar') expect(message).toContain(`${FIRST_STRONG}${device}${CLOSE}`); // feature:locale-ar
     }
   });
 });
