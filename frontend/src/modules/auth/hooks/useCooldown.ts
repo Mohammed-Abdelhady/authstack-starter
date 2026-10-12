@@ -15,17 +15,35 @@ export interface Cooldown {
  */
 export function useCooldown(seconds: number): Cooldown {
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [deadline, setDeadline] = useState<number | null>(null);
 
   useEffect(() => {
-    if (secondsLeft <= 0) {
-      return;
-    }
-    const timer = setTimeout(() => setSecondsLeft((left) => left - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [secondsLeft]);
+    if (deadline === null) return;
+
+    const synchronize = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining === 0) setDeadline(null);
+    };
+
+    const timer = window.setInterval(synchronize, 1000);
+    window.addEventListener('focus', synchronize);
+    document.addEventListener('visibilitychange', synchronize);
+    synchronize();
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', synchronize);
+      document.removeEventListener('visibilitychange', synchronize);
+    };
+  }, [deadline]);
 
   const start = useCallback(
-    (durationSeconds = seconds) => setSecondsLeft(durationSeconds),
+    (durationSeconds = seconds) => {
+      const duration = Number.isFinite(durationSeconds) ? Math.max(0, durationSeconds) : 0;
+      setSecondsLeft(Math.ceil(duration));
+      setDeadline(duration > 0 ? Date.now() + duration * 1000 : null);
+    },
     [seconds],
   );
 
