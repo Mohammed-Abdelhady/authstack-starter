@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import en from '@/i18n/messages/settings.en.json';
 import ar from '@/i18n/messages/settings.ar.json'; // feature:locale-ar
 import { directionOf, registerRtlDocument } from '@/tests/direction';
@@ -41,3 +41,24 @@ it.each(LOCALES)(
     });
   },
 );
+
+it('announces copy success and reports a denied copy without claiming it worked', async () => {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+  });
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RecoveryCodeList codes={CODES} />
+    </NextIntlClientProvider>,
+  );
+
+  fireEvent.click(screen.getByTestId('two-factor-copy-recovery-codes'));
+
+  const failure = await screen.findByTestId('two-factor-recovery-copy-status');
+  expect(failure.getAttribute('role')).toBe('alert');
+  expect(failure.textContent).toBe(en.settings.twoFactor.recoveryCodes.copyFailure);
+  expect(screen.getByTestId('two-factor-copy-recovery-codes').textContent).toBe(
+    en.settings.twoFactor.recoveryCodes.copy,
+  );
+});

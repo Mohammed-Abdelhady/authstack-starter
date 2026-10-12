@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import * as React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
 import {
@@ -14,11 +14,12 @@ import {
 } from '@/tests/serverRejectionHarness';
 import { ResetPasswordForm } from '../ResetPasswordForm';
 
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams('email=layla@example.com'),
 }));
 vi.mock('@/i18n/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => navigation,
   Link: ({ children, ...props }: { children?: React.ReactNode }) =>
     React.createElement('a', props, children),
 }));
@@ -27,6 +28,10 @@ vi.mock('sonner', () => ({
 }));
 
 registerFormTestLifecycle();
+afterEach(() => {
+  vi.useRealTimers();
+  navigation.push.mockClear();
+});
 
 /** Answers the reset write with the one code the server now sends. */
 function rejectResetCode(): string[] {
@@ -37,10 +42,10 @@ function rejectResetCode(): string[] {
   );
 }
 
-async function submitReset(locale: AppLocale) {
+async function submitReset(locale: AppLocale, code = '000000') {
   const form = await renderForm(locale, <ResetPasswordForm />);
   fireEvent.change(await screen.findByTestId('reset-password-code-input'), {
-    target: { value: '000000' },
+    target: { value: code },
   });
   fireEvent.change(screen.getByTestId('reset-password-password-input'), {
     target: { value: 'Passw0rdLayla' },
@@ -56,6 +61,19 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('ResetPasswordForm rejected code in %s', (locale) => {
+  it('marks the reset values required in the browser', async () => {
+    await renderForm(locale, <ResetPasswordForm />);
+
+    for (const testId of [
+      'reset-password-email-input',
+      'reset-password-code-input',
+      'reset-password-password-input',
+      'reset-password-confirmPassword-input',
+    ]) {
+      expect(screen.getByTestId(testId).hasAttribute('required')).toBe(true);
+    }
+  });
+
   it('shows the catalogue generic message and offers a new code, never the server text', async () => {
     rejectResetCode();
 
@@ -87,5 +105,71 @@ describe.each([
       );
     });
     expect(screen.queryByTestId('request-new-code-link')).toBeNull();
+  });
+});
+
+it('accepts a formatted password reset code pasted from a message', async () => {
+  let body: unknown;
+  stubNetwork(async (request) => {
+    if (request.method === 'POST') body = await request.json();
+    return success({ message: 'reset' });
+  });
+  await submitReset('en', '123 456');
+
+  await waitFor(() => expect(body).toMatchObject({ code: '123456' }));
+});
+
+async function fillAcceptedResetForm() {
+  const form = await renderForm('en', <ResetPasswordForm />);
+  fireEvent.change(await screen.findByTestId('reset-password-code-input'), {
+    target: { value: '123456' },
+  });
+  fireEvent.change(screen.getByTestId('reset-password-password-input'), {
+    target: { value: 'NewPassw0rdLayla' },
+  });
+  fireEvent.change(screen.getByTestId('reset-password-confirmPassword-input'), {
+    target: { value: 'NewPassw0rdLayla' },
+  });
+  return form;
+}
+
+async function submitAcceptedReset() {
+  await act(async () => {
+    fireEvent.submit(screen.getByTestId('reset-password-form'));
+    for (let turn = 0; turn < 12; turn++) await Promise.resolve();
+  });
+}
+
+describe('reset password success navigation', () => {
+  it('moves to sign-in after the displayed delay', async () => {
+    stubNetwork((request) =>
+      request.method === 'POST' ? success({ message: 'reset' }) : success({}),
+    );
+    const form = await fillAcceptedResetForm();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    await submitAcceptedReset();
+    expect(form.successToasts()).toEqual([form.message('toast.success.passwordReset')]);
+    expect(navigation.push).not.toHaveBeenCalled();
+
+    await act(async () => vi.advanceTimersByTime(1499));
+    expect(navigation.push).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(1));
+    expect(navigation.push).toHaveBeenCalledExactlyOnceWith('/auth/login');
+  });
+
+  it('cancels the pending sign-in redirect when the form unmounts', async () => {
+    stubNetwork((request) =>
+      request.method === 'POST' ? success({ message: 'reset' }) : success({}),
+    );
+    const form = await fillAcceptedResetForm();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+
+    await submitAcceptedReset();
+    expect(form.successToasts()).toEqual([form.message('toast.success.passwordReset')]);
+    form.unmount();
+    await act(async () => vi.advanceTimersByTime(1500));
+
+    expect(navigation.push).not.toHaveBeenCalled();
   });
 });

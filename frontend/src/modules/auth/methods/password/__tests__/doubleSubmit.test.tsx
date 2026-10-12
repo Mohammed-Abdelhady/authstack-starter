@@ -52,12 +52,15 @@ describe('two submissions in one tick send one request', () => {
         ? refusalWith(401, ErrorCode.INVALID_CREDENTIALS)
         : success({ requiresTwoFactor: false, user: SIGNED_IN_USER });
     });
-    await renderForm('en', <PasswordSignInForm redirect={null} isOnlyMethod />);
+    const form = await renderForm('en', <PasswordSignInForm redirect={null} isOnlyMethod />);
     change('login-email-input', EMAIL);
     change('login-password-input', PASSWORD);
 
     submitTwiceInOneTick(screen.getByTestId('login-form'));
-    await screen.findByTestId('login-error');
+    expect(await screen.findByTestId('login-error')).toHaveProperty(
+      'textContent',
+      form.message('errors.codes.INVALID_CREDENTIALS'),
+    );
     submitTwiceInOneTick(screen.getByTestId('login-form'));
 
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/dashboard'));

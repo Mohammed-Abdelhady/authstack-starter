@@ -102,6 +102,7 @@ export function ConfirmEmailChangeForm() {
               label={tFields('email')}
               placeholder={tFields('emailPlaceholder')}
               autoComplete="email"
+              required
               autoFocus
               busy={isLoading}
               data-testid="confirm-email-input"
@@ -113,8 +114,8 @@ export function ConfirmEmailChangeForm() {
               label={tFields('code')}
               placeholder={tFields('codePlaceholder')}
               autoComplete="one-time-code"
+              required
               inputMode="numeric"
-              maxLength={VERIFICATION_CODE_LENGTH}
               onChange={onCodeChange}
               busy={isLoading}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}

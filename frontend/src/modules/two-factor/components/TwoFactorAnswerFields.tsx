@@ -37,6 +37,7 @@ export function TwoFactorAnswerFields({
           label={t('recoveryCode')}
           placeholder={tCommon('recoveryCodePlaceholder')}
           autoComplete="one-time-code"
+          required
           busy={isBusy}
           autoFocus={autoFocus}
           className={cn('text-center uppercase tracking-widest', RECOVERY_CODE_FONT_SIZE)}
@@ -55,7 +56,7 @@ export function TwoFactorAnswerFields({
       <Button
         type="button"
         variant="link"
-        className="h-auto p-0 text-sm"
+        className="min-h-6 h-auto p-0 text-sm"
         onClick={onToggle}
         data-testid="two-factor-toggle-recovery"
       >

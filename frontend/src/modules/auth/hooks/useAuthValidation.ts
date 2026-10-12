@@ -2,12 +2,12 @@
 
 import { useEffect } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { useGetCurrentUserQuery } from '../store/authApi';
+import { useGetIdentityQuery } from '../store/authApi';
 
 /**
  * Hook to validate authentication state on app load
- * Checks if user has valid session cookie by calling getCurrentUser API
- * - 401: slice records a failed unauthenticated session; AuthGuard redirects
+ * Checks whether a session exists using the optional identity endpoint.
+ * - signed out: the slice records a completed unauthenticated session; AuthGuard redirects
  * - 403: Redirects to forbidden page (valid session, insufficient permissions)
  *
  * @returns Loading state while validating
@@ -26,9 +26,8 @@ import { useGetCurrentUserQuery } from '../store/authApi';
 export function useAuthValidation() {
   const router = useRouter();
 
-  // Always call getCurrentUser on mount to check for valid session cookie
-  // The backend will return 401 if no valid session exists
-  const { isLoading, isError, error } = useGetCurrentUserQuery(undefined, {
+  // Always check the optional identity on mount. Signed-out is a successful read.
+  const { isLoading, isError, error } = useGetIdentityQuery(undefined, {
     refetchOnMountOrArgChange: true, // Always validate on mount
   });
 

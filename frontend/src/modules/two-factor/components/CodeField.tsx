@@ -41,8 +41,8 @@ export function CodeField<TFieldValues extends FieldValues>({
       type="text"
       inputMode="numeric"
       autoComplete="one-time-code"
+      required
       placeholder={tCommon('codePlaceholder')}
-      maxLength={TOTP_CODE_LENGTH}
       busy={busy}
       autoFocus={autoFocus}
       onChange={onChange}

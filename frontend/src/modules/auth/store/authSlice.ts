@@ -4,6 +4,12 @@ import { HTTP_STATUS } from '@/constants/httpStatus';
 import type { AuthState, SignedInUser } from '../types/auth.types';
 import { authApi } from './authApi';
 
+function httpStatusOf(value: unknown): number {
+  if (typeof value !== 'object' || value === null || !('status' in value)) return 0;
+  const status = Number(value.status);
+  return Number.isFinite(status) ? status : 0;
+}
+
 /**
  * Initial authentication state
  * Note: Session managed via httpOnly cookies, no token in state
@@ -120,34 +126,30 @@ export const authSlice = createSlice({
       state.validationErrorStatus = null;
     });
 
-    // Handle getCurrentUser query lifecycle
-    builder.addMatcher(authApi.endpoints.getCurrentUser.matchPending, (state) => {
+    // Optional identity is the authoritative source for session state.
+    builder.addMatcher(authApi.endpoints.getIdentity.matchPending, (state) => {
       state.isLoading = true;
-      // A refetch of a session that is already validated keeps its status, so
-      // the guards do not swap the page for a loader and unmount what is on it.
+      // Keep a validated session visible while a background identity refresh runs.
       if (state.validationStatus === 'succeeded') return;
       state.validationStatus = 'pending';
       state.validationErrorStatus = null;
     });
-    builder.addMatcher(authApi.endpoints.getCurrentUser.matchFulfilled, (state, action) => {
-      state.user = action.payload;
-      state.isAuthenticated = true;
+    builder.addMatcher(authApi.endpoints.getIdentity.matchFulfilled, (state, action) => {
       state.isLoading = false;
       state.error = null;
+      state.user = action.payload.authenticated ? action.payload.user : null;
+      state.isAuthenticated = action.payload.authenticated;
       state.validationStatus = 'succeeded';
       state.validationErrorStatus = null;
     });
-    builder.addMatcher(authApi.endpoints.getCurrentUser.matchRejected, (state, action) => {
+    builder.addMatcher(authApi.endpoints.getIdentity.matchRejected, (state, action) => {
       state.isLoading = false;
-      const status =
-        typeof action.payload === 'object' && action.payload !== null && 'status' in action.payload
-          ? Number((action.payload as { status?: number }).status)
-          : 0;
-      // Once a session is validated, only the server saying it is gone ends it. A
-      // refetch that fails for any other reason keeps the page and the last known user.
+      const status = httpStatusOf(action.payload);
+      // A failed refresh is unknown, not signed out. Only a completed identity
+      // reply can replace a previously validated account.
       if (state.validationStatus === 'succeeded' && status !== HTTP_STATUS.UNAUTHORIZED) return;
       state.validationStatus = 'failed';
-      state.validationErrorStatus = Number.isFinite(status) ? status : 0;
+      state.validationErrorStatus = status;
       if (status === HTTP_STATUS.UNAUTHORIZED) {
         state.user = null;
         state.isAuthenticated = false;

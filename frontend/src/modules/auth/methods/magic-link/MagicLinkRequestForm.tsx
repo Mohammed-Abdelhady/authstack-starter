@@ -106,18 +106,20 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
 
   if (sentTo !== null) {
     return (
-      <div className="mx-auto max-w-xs text-center" role="status" data-testid="magic-link-sent">
-        <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
-        <Heading
-          level={3}
-          variant="sectionTitle"
-          className="mt-3"
-          ref={sentHeadingRef}
-          tabIndex={-1}
-        >
-          {t('sentTitle')}
-        </Heading>
-        <Description className="mt-2">{t('sentBody', { email: sentTo })}</Description>
+      <div className="mx-auto max-w-xs text-center" data-testid="magic-link-sent">
+        <div role="status">
+          <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
+          <Heading
+            level={2}
+            variant="sectionTitle"
+            className="mt-3"
+            ref={sentHeadingRef}
+            tabIndex={-1}
+          >
+            {t('sentTitle')}
+          </Heading>
+          <Description className="mt-2">{t('sentBody', { email: sentTo })}</Description>
+        </div>
         <Button
           type="button"
           variant="ghost"
@@ -158,6 +160,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
           autoComplete="email"
+          required
           busy={isLoading}
           autoFocus={isOnlyMethod}
           onBlur={onEmailBlur}

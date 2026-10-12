@@ -27,17 +27,33 @@ const USER = {
   role: 'user',
   permissions: [],
 };
+const AUTHENTICATION = {
+  id: 'credential-1',
+  rawId: 'credential-1',
+  type: 'public-key',
+  response: {
+    authenticatorData: 'auth-data',
+    clientDataJSON: 'client-data',
+    signature: 'signature',
+    userHandle: null,
+  },
+  clientExtensionResults: {},
+};
 
 registerFormTestLifecycle();
 
 describe('passkey sign-in', () => {
   it('starts one ceremony when the button is activated twice in one tick', async () => {
-    browser.startAuthentication.mockResolvedValue({ id: 'credential-1' });
-    const requests = stubNetwork((_request, path) =>
-      path === '/api/auth/passkeys/login/options'
-        ? success({ challenge: 'challenge-1' })
-        : success({ requiresTwoFactor: false, user: USER }),
-    );
+    browser.startAuthentication.mockResolvedValue(AUTHENTICATION);
+    let verificationBody: unknown;
+    const requests = stubNetwork(async (request, path) => {
+      if (path === '/api/auth/passkeys/login/options') return success({ challenge: 'challenge-1' });
+      if (path === '/api/auth/passkeys/login/verify') {
+        verificationBody = await request.json();
+        return success({ requiresTwoFactor: false, user: USER });
+      }
+      return success({ methods: { passkeys: true } });
+    });
     const { message } = await renderForm(
       'en',
       <PasskeySignInButton redirect={null} isOnlyMethod />,
@@ -49,6 +65,20 @@ describe('passkey sign-in', () => {
 
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/dashboard'));
     expect(browser.startAuthentication).toHaveBeenCalledTimes(1);
+    expect(verificationBody).toEqual({
+      response: {
+        id: 'credential-1',
+        rawId: 'credential-1',
+        type: 'public-key',
+        response: {
+          authenticatorData: 'auth-data',
+          clientDataJSON: 'client-data',
+          signature: 'signature',
+          userHandle: null,
+        },
+        clientExtensionResults: {},
+      },
+    });
     expect(requests).toEqual([
       'POST /api/auth/passkeys/login/options',
       'POST /api/auth/passkeys/login/verify',

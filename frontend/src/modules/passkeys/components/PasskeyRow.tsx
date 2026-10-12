@@ -44,7 +44,11 @@ export function PasskeyRow({ passkey, canRemove, onRename, onDelete }: PasskeyRo
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="truncate font-medium" data-testid={`passkey-name-${passkey.id}`}>
+          <span
+            className="truncate font-medium"
+            dir="auto"
+            data-testid={`passkey-name-${passkey.id}`}
+          >
             {passkey.name}
           </span>
         </div>
