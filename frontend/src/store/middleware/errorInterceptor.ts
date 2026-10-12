@@ -10,6 +10,7 @@
 import { createElement } from 'react';
 import {
   isRejected,
+  isFulfilled,
   type Middleware,
   type ThunkDispatch,
   type UnknownAction,
@@ -44,6 +45,8 @@ interface RejectionMeta {
   rejectedWithValue: boolean;
   endpointName?: string;
   requestId?: string;
+  queryCacheKey?: string;
+  type?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -59,11 +62,21 @@ function readMeta(meta: unknown): RejectionMeta {
     rejectedWithValue: record.rejectedWithValue === true,
     endpointName: typeof arg.endpointName === 'string' ? arg.endpointName : undefined,
     requestId: typeof record.requestId === 'string' ? record.requestId : undefined,
+    queryCacheKey: typeof arg.queryCacheKey === 'string' ? arg.queryCacheKey : undefined,
+    type: typeof arg.type === 'string' ? arg.type : undefined,
   };
 }
 
 function isSignedIn(state: unknown): boolean {
   return isRecord(state) && isRecord(state.auth) && state.auth.isAuthenticated === true;
+}
+
+function queryHadError(state: unknown, key: string): boolean {
+  if (!isRecord(state)) return false;
+  const api = state[authApi.reducerPath];
+  if (!isRecord(api) || !isRecord(api.queries)) return false;
+  const query = api.queries[key];
+  return isRecord(query) && query.error !== undefined;
 }
 
 function isSuccessStatus(status: number | undefined): boolean {
@@ -117,6 +130,17 @@ export const errorInterceptor: Middleware<object, unknown, InterceptorDispatch> 
   ({ dispatch, getState }) =>
   (next) =>
   (action) => {
+    if (isFulfilled(action)) {
+      const meta = readMeta(action.meta);
+      if (
+        meta.type === 'query' &&
+        meta.queryCacheKey &&
+        queryHadError(getState(), meta.queryCacheKey)
+      ) {
+        toast.dismiss(`query-error:${meta.queryCacheKey}`);
+      }
+      return next(action);
+    }
     if (!isRejected(action)) {
       return next(action);
     }
@@ -156,7 +180,12 @@ export const errorInterceptor: Middleware<object, unknown, InterceptorDispatch> 
 
     const announcement = isQuiet ? null : announcementFor(error);
     if (announcement) {
-      announce(announcement);
+      const id =
+        announcement.id ??
+        (meta.type === 'query' && meta.queryCacheKey
+          ? `query-error:${meta.queryCacheKey}`
+          : undefined);
+      announce({ ...announcement, id });
     }
     return next(action);
   };
