@@ -9,6 +9,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { unreachable } from '@/tests/busyControls';
 import { MagicLinkRequestForm } from '../MagicLinkRequestForm';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -68,8 +69,31 @@ describe.each([
     },
   );
 
-  it('shows the catalogue message for a refused request in the form, once, and not the server text', async () => {
-    stubNetwork(() => refusalWith(429, 'SOMETHING_NEW'));
+  it.each([
+    [429, 'SOMETHING_NEW', 'toast.error.tooManyRequests'],
+    [500, 'INTERNAL_ERROR', 'errors.codes.INTERNAL_ERROR'],
+  ] as const)(
+    'shows the catalogue message for HTTP %s, once, and not the server text',
+    async (status, code, key) => {
+      stubNetwork(() => refusalWith(status, code));
+      const view = await renderForm(locale, <MagicLinkRequestForm redirect={null} isOnlyMethod />);
+      fireEvent.change(
+        screen.getByRole('textbox', { name: view.message('auth.magicLink.email') }),
+        { target: { value: EMAIL } },
+      );
+
+      fireEvent.submit(screen.getByTestId('magic-link-form'));
+
+      const alert = await screen.findByTestId('magic-link-error');
+      expect(alert.textContent).toBe(view.message(key));
+      expect(view.errorToasts()).toEqual([]);
+      expect(document.body.textContent).not.toContain(SERVER_TEXT);
+      expect(screen.queryByTestId('magic-link-sent')).toBeNull();
+    },
+  );
+
+  it('shows a translated network refusal without changing to the sent state', async () => {
+    stubNetwork(unreachable);
     const view = await renderForm(locale, <MagicLinkRequestForm redirect={null} isOnlyMethod />);
     fireEvent.change(screen.getByRole('textbox', { name: view.message('auth.magicLink.email') }), {
       target: { value: EMAIL },
@@ -78,8 +102,7 @@ describe.each([
     fireEvent.submit(screen.getByTestId('magic-link-form'));
 
     const alert = await screen.findByTestId('magic-link-error');
-    expect(alert.textContent).toBe(view.message('toast.error.tooManyRequests'));
-    expect(view.errorToasts()).toEqual([]);
-    expect(document.body.textContent).not.toContain(SERVER_TEXT);
+    expect(alert.textContent).toBe(view.message('toast.error.networkError'));
+    expect(screen.queryByTestId('magic-link-sent')).toBeNull();
   });
 });

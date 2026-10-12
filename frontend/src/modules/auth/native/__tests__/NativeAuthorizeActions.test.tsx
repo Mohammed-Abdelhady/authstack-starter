@@ -50,7 +50,9 @@ function readResponse(): Response {
 
 async function renderReady(store: TestStore) {
   await seedReady(store);
-  return renderPanel({ locale: 'en', messages, store });
+  const view = renderPanel({ locale: 'en', messages, store });
+  screen.getByTestId('native-authorize-ready');
+  return view;
 }
 
 describe('NativeAuthorizePanel actions', () => {

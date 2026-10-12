@@ -8,10 +8,12 @@ import { loadMessages } from '@/i18n/load-messages';
 import {
   makeStore,
   registerFormTestLifecycle,
+  refusalWith,
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
 import type { SignedInUser } from '@/modules/auth/types/auth.types';
+import { loginFulfilled } from '@/modules/auth/store/authSlice';
 import { MagicLinkRequestForm } from '../MagicLinkRequestForm';
 import { MagicLinkVerifyPanel } from '../MagicLinkVerifyPanel';
 
@@ -130,6 +132,70 @@ describe('magic link continuation', () => {
       'GET /api/auth/browser-proof',
       'POST /api/auth/magic-link/verify',
     ]);
+  });
+
+  it('asks before switching accounts and completes sign-in only after confirmation', async () => {
+    const bodies: unknown[] = [];
+    const requests = stubNetwork(async (request, path) => {
+      if (path !== '/api/auth/magic-link/verify') throw new Error(`Unexpected path: ${path}`);
+      bodies.push(await request.json());
+      if (bodies.length === 1) {
+        return success({ requiresConfirmation: true, email: 'u***@example.test' });
+      }
+      return success({ requiresTwoFactor: false, user: USER, redirect: NATIVE_ROUTE });
+    });
+    const store = makeStore();
+    store.dispatch(loginFulfilled({ ...USER, email: 'current@example.com' }));
+
+    renderWithIntl(<MagicLinkVerifyPanel token="link-token" redirect={null} />, store);
+
+    const confirmation = await screen.findByTestId('magic-link-verify-confirmation');
+    expect(confirmation.textContent).toContain('u***@example.test');
+    expect(screen.getByTestId('magic-link-current-account').textContent).toContain(
+      'current@example.com',
+    );
+    const status = screen.getByRole('status');
+    expect(status.contains(screen.getByTestId('magic-link-confirm-forwarded'))).toBe(false);
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(bodies).toEqual([{ token: 'link-token' }]);
+    expect(store.getState().auth.user?.email).toBe('current@example.com');
+    expect(requests.allRequests).toEqual([
+      'GET /api/auth/csrf',
+      'GET /api/auth/browser-proof',
+      'POST /api/auth/magic-link/verify',
+    ]);
+
+    fireEvent.click(screen.getByTestId('magic-link-confirm-forwarded'));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(NATIVE_ROUTE));
+    expect(store.getState().auth.user?.email).toBe('current@example.com');
+    expect(bodies).toEqual([{ token: 'link-token' }, { token: 'link-token', confirm: true }]);
+    expect(
+      requests.filter((request) => request === 'POST /api/auth/magic-link/verify'),
+    ).toHaveLength(2);
+  });
+
+  it('does not complete sign-in when the explicit confirmation request is refused', async () => {
+    let verifications = 0;
+    const requests = stubNetwork((request, path) => {
+      if (path !== '/api/auth/magic-link/verify') throw new Error(`Unexpected path: ${path}`);
+      verifications += 1;
+      if (verifications === 1) {
+        return success({ requiresConfirmation: true, email: 'u***@example.test' });
+      }
+      return refusalWith(410, 'MAGIC_LINK_INVALID');
+    });
+    const store = makeStore();
+    renderWithIntl(<MagicLinkVerifyPanel token="link-token" redirect={null} />, store);
+
+    fireEvent.click(await screen.findByTestId('magic-link-confirm-forwarded'));
+
+    await screen.findByTestId('magic-link-verify-error');
+    expect(replaceMock).not.toHaveBeenCalled();
+    expect(store.getState().auth.user).toBeNull();
+    expect(
+      requests.filter((request) => request === 'POST /api/auth/magic-link/verify'),
+    ).toHaveLength(2);
   });
 
   it('rejects an off-site continuation returned by the verify step', async () => {

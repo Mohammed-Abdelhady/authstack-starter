@@ -36,7 +36,7 @@ export const twoFactorApi = baseApi.injectEndpoints({
       invalidatesTags: invalidateOnSuccess(['User']),
     }),
 
-    regenerateRecoveryCodes: builder.mutation<RecoveryCodes, { code: string }>({
+    regenerateRecoveryCodes: builder.mutation<RecoveryCodes, { code: string; password?: string }>({
       query: (body) => ({ url: TWO_FACTOR_PATHS.REGENERATE, method: 'POST', body }),
       transformResponse: (response: { success: boolean; data: RecoveryCodes }) => response.data,
     }),

@@ -66,6 +66,7 @@ export function ReauthStep({ hasPassword, isBusy, onContinue }: ReauthStepProps)
           label={t('password')}
           placeholder={tCommon('passwordPlaceholder')}
           autoComplete="current-password"
+          required
           busy={isBusy}
           data-testid="two-factor-reauth-password"
         />

@@ -6,7 +6,7 @@ export interface Cooldown {
   /** Seconds left, zero when the action is available again. */
   secondsLeft: number;
   isCooling: boolean;
-  start: () => void;
+  start: (durationSeconds?: number) => void;
 }
 
 /**
@@ -24,7 +24,10 @@ export function useCooldown(seconds: number): Cooldown {
     return () => clearTimeout(timer);
   }, [secondsLeft]);
 
-  const start = useCallback(() => setSecondsLeft(seconds), [seconds]);
+  const start = useCallback(
+    (durationSeconds = seconds) => setSecondsLeft(durationSeconds),
+    [seconds],
+  );
 
   return { secondsLeft, isCooling: secondsLeft > 0, start };
 }

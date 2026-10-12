@@ -31,6 +31,10 @@ const KNOWN_DISABLED: Record<string, string[]> = {
   'modules/permissions/components/users/UserActionsMenu.tsx': ['disabled', 'isLoading'],
   'modules/permissions/components/users/UserCard.tsx': ['isAdminRole'],
   'modules/permissions/components/users/UserRoleSelector.tsx': ['disabled || isLoadingRoles'],
+  // Server lock deadlines disable submission after the request has finished.
+  'modules/passkeys/components/PasskeyRegistrationProofForm.tsx': ['isCooling'],
+  'modules/two-factor/components/RegenerateCodesDialog.tsx': ['isCooling'],
+  'modules/two-factor/components/TwoFactorChallengePanel.tsx': ['isCooling'],
   'modules/two-factor/components/steps/RecoveryCodesStep.tsx': ['!acknowledged'],
 };
 
