@@ -50,6 +50,10 @@ export class Role {
   @Prop({ type: [String], default: [] })
   permissions!: string[];
 
+  /** A grant writes this so a concurrent role edit conflicts. */
+  @Prop({ type: Number, select: false })
+  grantAuthorityFence?: number;
+
   @Prop({ type: [PendingRoleSweepSchema], default: [] })
   pendingHolderSweeps!: PendingRoleSweep[];
 

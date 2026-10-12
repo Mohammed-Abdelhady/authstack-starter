@@ -81,6 +81,8 @@ export class PostgresRoleChangeStore extends RoleChangeStore {
       .selectFrom('users')
       .select(['is_deleted', 'role', 'permissions'])
       .where('id', '=', toUuid(actorId))
+      .forShare()
+      .noWait()
       .executeTakeFirst();
     if (!row) return null;
     return {
@@ -112,6 +114,21 @@ export class PostgresRoleChangeStore extends RoleChangeStore {
       .selectFrom('roles')
       .select(ROLE_COLUMNS)
       .where('slug', '=', slug)
+      .executeTakeFirst();
+    return toStoredRoleOrNull(work, row);
+  }
+
+  async readRoleAuthorityBySlug(
+    unitOfWork: UnitOfWork,
+    slug: string,
+  ): Promise<StoredRole | null> {
+    const work = postgresTransactionOf(unitOfWork);
+    const row = await work
+      .selectFrom('roles')
+      .select(ROLE_COLUMNS)
+      .where('slug', '=', slug)
+      .forShare()
+      .noWait()
       .executeTakeFirst();
     return toStoredRoleOrNull(work, row);
   }
