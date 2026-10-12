@@ -254,12 +254,12 @@
       "to": "Store in the `pending_registrations` table with the"
     },
     {
-      "files": ["backend/docs/authentication-flow.md"],
+      "files": ["backend/docs/authentication-access.md"],
       "from": "Sessions are stored in MongoDB with:",
       "to": "Sessions are stored in PostgreSQL with:"
     },
     {
-      "files": ["backend/docs/authentication-flow.md"],
+      "files": ["backend/docs/authentication-access.md"],
       "from": "- Expiry time (TTL index for auto-cleanup)",
       "to": "- Expiry time (checked on every request; a retention job removes expired rows)"
     },
