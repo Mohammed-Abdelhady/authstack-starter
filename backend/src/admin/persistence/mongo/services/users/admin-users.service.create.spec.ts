@@ -65,6 +65,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
       }),
       {
         findOne,
+        updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
         findById: jest
           .fn()
           .mockImplementation(() =>
@@ -73,13 +74,15 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
       },
     );
 
-    const roleQuery = createChainableQueryMock({
+    const authorityRole = {
       _id: new Types.ObjectId(),
       slug: 'user',
       // Also answers as the actor's role, so the actor holds what it assigns.
       permissions: ['users:create:all'],
-    });
+    };
+    const roleQuery = createChainableQueryMock(authorityRole);
     const roleModel = {
+      findOneAndUpdate: jest.fn().mockResolvedValue(authorityRole),
       findOne: jest.fn().mockReturnValue(roleQuery),
       findById: jest.fn().mockReturnValue(roleQuery),
     };
