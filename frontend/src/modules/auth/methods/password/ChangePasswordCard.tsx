@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { FormPassword, FormRootError, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
 import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
@@ -30,7 +31,13 @@ export function ChangePasswordCard() {
   const t = useTranslations('settings.password');
   const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
-  const { methods, isError: methodsFailed, retry, hasRetried } = useAuthMethods();
+  const {
+    methods,
+    isLoading: isLoadingMethods,
+    isError: methodsFailed,
+    retry,
+    hasRetried,
+  } = useAuthMethods();
   const [changePassword, { isLoading }] = useChangePasswordMutation();
 
   const schema = useMemo(() => createChangePasswordSchema(t, tPassword), [t, tPassword]);
@@ -64,6 +71,10 @@ export function ChangePasswordCard() {
     }
   };
   const onSubmit = useSingleFlight(submit);
+
+  if (isLoadingMethods || methods === undefined) {
+    return <Skeleton className="h-48 w-full" data-testid="change-password-card-loading" />;
+  }
 
   if (methodsFailed) {
     return (
