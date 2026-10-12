@@ -13,6 +13,7 @@ import {
   MAGIC_LINK_CONSTRAINT,
   MagicLinkStore,
   NewMagicLink,
+  UnspentMagicLink,
 } from '../../stores/magic-link.store';
 import { MAIL_COUNTER_PURPOSE } from '../../../constants/registration';
 import { MailWindowRule } from '../../../pending-codes/mail-counter.store';
@@ -91,9 +92,28 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
           request_ip: link.requestIp ?? null,
           user_agent: link.userAgent ?? null,
           redirect: link.redirect ?? null,
+          request_nonce_hash: link.requestNonceHash ?? null,
         })
         .execute(),
     );
+  }
+
+  findUnspentLink(tokenHash: string): Promise<UnspentMagicLink | null> {
+    return autocommit(NONE, async () => {
+      const row = await this.database
+        .selectFrom('pending_magic_links')
+        .select(['email', 'expires_at', 'request_nonce_hash'])
+        .where('token_hash', '=', tokenHash)
+        .where('consumed_at', 'is', null)
+        .executeTakeFirst();
+      return row
+        ? {
+            email: row.email,
+            expiresAt: row.expires_at,
+            requestNonceHash: row.request_nonce_hash,
+          }
+        : null;
+    });
   }
 
   claimLink(tokenHash: string, now: Date): Promise<ClaimedMagicLink | null> {

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth.module';
 import { MagicLinkController } from './magic-link.controller';
 import { MagicLinkService } from './magic-link.service';
+import { MagicLinkBrowserService } from './magic-link-browser.service';
 import { CommonModule } from '../../common/common.module';
 import { MailModule } from '../../mail/mail.module';
 import {
@@ -24,7 +25,11 @@ import {
     MailModule,
   ],
   controllers: [MagicLinkController],
-  providers: [MagicLinkService, ...MAGIC_LINK_PERSISTENCE_PROVIDERS],
+  providers: [
+    MagicLinkService,
+    MagicLinkBrowserService,
+    ...MAGIC_LINK_PERSISTENCE_PROVIDERS,
+  ],
   exports: [MagicLinkService],
 })
 export class MagicLinkModule {}

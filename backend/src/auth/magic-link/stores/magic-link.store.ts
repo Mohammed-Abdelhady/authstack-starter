@@ -12,6 +12,8 @@ export interface NewMagicLink {
   requestIp?: string;
   userAgent?: string;
   redirect?: string;
+  /** Hash of the nonce left with the browser that asked for the link. */
+  requestNonceHash?: string;
   /** Set on a link nobody is mailed, so it is stored already spent. */
   consumedAt?: Date;
 }
@@ -21,6 +23,14 @@ export interface ClaimedMagicLink {
   email: string;
   expiresAt: Date;
   redirect?: string;
+}
+
+/** A link nobody has spent yet, read without spending it. */
+export interface UnspentMagicLink {
+  email: string;
+  expiresAt: Date;
+  /** Null on a link stored before links were tied to a browser. */
+  requestNonceHash: string | null;
 }
 
 /**
@@ -46,6 +56,9 @@ export abstract class MagicLinkStore {
 
   /** Stores a link, unspent unless it says otherwise, created at the database's own clock. */
   abstract insertLink(link: NewMagicLink): Promise<void>;
+
+  /** The unspent link with this token hash, expired or not. Spends nothing. */
+  abstract findUnspentLink(tokenHash: string): Promise<UnspentMagicLink | null>;
 
   /**
    * Marks the unspent link with this token hash as spent at `now` and returns

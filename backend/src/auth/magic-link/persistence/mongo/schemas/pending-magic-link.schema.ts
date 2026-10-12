@@ -38,6 +38,10 @@ export class PendingMagicLink {
   @Prop()
   redirect?: string;
 
+  /** sha256 of the nonce left with the browser that asked, hex encoded. */
+  @Prop()
+  requestNonceHash?: string;
+
   // Timestamp fields (automatically managed by Mongoose with timestamps: true)
   createdAt!: Date;
   updatedAt!: Date;

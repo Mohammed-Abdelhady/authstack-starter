@@ -23,3 +23,13 @@ export const MAGIC_LINK_CLIENT_PATH = '/auth/magic-link/verify';
  */
 export const MAGIC_LINK_SENT_MESSAGE =
   'If the address can sign in, a link has been sent';
+
+/** Reply to a link that has to be confirmed before it signs anyone in. */
+export const MAGIC_LINK_CONFIRM_MESSAGE = 'Confirm this sign-in to continue';
+
+/** Cookie that holds the nonce of the browser a link was asked from. */
+export const MAGIC_LINK_NONCE_COOKIE = 'ml_nonce';
+export const MAGIC_LINK_NONCE_HOST_COOKIE = '__Host-ml_nonce';
+
+/** A nonce as this server makes one: 32 random bytes in base64url. */
+export const MAGIC_LINK_NONCE_PATTERN = /^[A-Za-z0-9_-]{43}$/;

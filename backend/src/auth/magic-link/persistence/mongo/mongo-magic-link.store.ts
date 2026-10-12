@@ -20,6 +20,7 @@ import {
   MAGIC_LINK_CONSTRAINT,
   MagicLinkStore,
   NewMagicLink,
+  UnspentMagicLink,
 } from '../../stores/magic-link.store';
 
 const MAGIC_LINK_INDEX_CONSTRAINTS = {
@@ -83,8 +84,27 @@ export class MongoMagicLinkStore extends MagicLinkStore {
         requestIp: link.requestIp,
         userAgent: link.userAgent,
         ...(link.redirect ? { redirect: link.redirect } : {}),
+        ...(link.requestNonceHash
+          ? { requestNonceHash: link.requestNonceHash }
+          : {}),
       }),
     );
+  }
+
+  async findUnspentLink(tokenHash: string): Promise<UnspentMagicLink | null> {
+    const link = await singleStatement(() =>
+      this.pendingMagicLinkModel
+        .findOne({ tokenHash: { $eq: tokenHash }, consumedAt: null })
+        .select('email expiresAt requestNonceHash')
+        .lean(),
+    );
+    return link
+      ? {
+          email: link.email,
+          expiresAt: link.expiresAt,
+          requestNonceHash: link.requestNonceHash ?? null,
+        }
+      : null;
   }
 
   async claimLink(
