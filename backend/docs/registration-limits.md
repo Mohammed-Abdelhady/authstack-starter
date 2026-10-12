@@ -26,6 +26,7 @@ resend, or the TTL index on the record — cannot reset the count.
 | Registration-attempt notices mailed per address | 5 per window                       | same cap, purpose `notice`                        |
 | Password-reset codes mailed per address         | 5 per window                       | same cap, purpose `password-reset`                |
 | Attempts on one activation code                 | 5                                  | `activation.maxAttempts`                          |
+| Wrong codes per address and purpose             | 5, then a lock                     | `CODE_GUESS_LIMIT`, `CODE_GUESS_RULE`             |
 | Per-caller route throttles                      | see `common/constants/throttle.ts` | `@Throttle`                                       |
 
 The four counters are independent, so one address can receive at most 20 mails
@@ -43,11 +44,25 @@ Knowing only an address, an attacker can:
 2. Submit five wrong activation codes against the latest code, spending the
    attempt limit and locking it.
 
-Five codes per window times five attempts per code is 25 guesses per window per
-address against a 6-digit code (1,000,000 values), which is negligible.
+A new code does not buy new guesses. Wrong codes are counted at the address and
+purpose, across every code the address was mailed, for sign-up, email-change
+and password-reset codes alike. The fifth guess is the last one. After it no
+code for that address and purpose is accepted for 15 minutes, a right one
+included, and the answer is the same as for a wrong code. Each lock that
+follows doubles: 30 minutes, an hour, and so on up to a day. A right code
+forgets the count and the locks. So do 24 hours without a wrong code or a lock.
+
+That leaves an attacker 35 guesses in the first day and 5 a day after that,
+against 900,000 possible codes. Before this rule it was 25 guesses per mail
+window, 2,400 a day.
+
+A guess at an address that has no live code is not counted. The count sits on
+the address's mail counter row and is independent of the mail cap: a locked
+address is still mailed, and a full mail cap does not lock guessing.
 
 After that the owner's own register and resend for that address mail nothing
-until the mail window rolls over. The code stays locked. The attacker cannot
+until the mail window rolls over. The code stays locked, and so does the
+address until its lock ends. The attacker cannot
 choose, learn or set the password or name, and cannot sign in; the damage is a
 delay, repeatable once per window. The plan accepts this residual denial of
 service. The route throttles are per client IP, but a single IP is enough to
