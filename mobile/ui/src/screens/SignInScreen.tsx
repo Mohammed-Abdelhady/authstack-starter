@@ -85,7 +85,7 @@ export function SignInScreen() {
           ) : null}
           {flow.discovery !== NATIVE_DISCOVERY.FAILED && flow.methods?.nativeEnabled === false ? (
             <Notice
-              title={t('signIn.failed.disabled')}
+              title={t('native.empty')}
               testID={NATIVE_UI_TEST_ID.METHODS_NOTICE}
               tone={NOTICE_TONE.PROBLEM}
             />
@@ -129,7 +129,7 @@ export function SignInScreen() {
             label={actionLabel}
             accessibilityHint={t('signIn.actionHint')}
             busy={!canAct}
-            disabled={flow.pending || flow.methods?.nativeEnabled === false}
+            disabled={flow.pending}
             onPress={act}
           />
         </View>

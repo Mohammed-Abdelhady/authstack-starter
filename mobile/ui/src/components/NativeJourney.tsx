@@ -109,7 +109,7 @@ export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignI
         <Button
           label={t('signIn.action')}
           onPress={openBrowser}
-          disabled={pending || flow.methods?.nativeEnabled === false}
+          disabled={pending}
           testID={NATIVE_UI_TEST_ID.WEB}
           stretch
         />
