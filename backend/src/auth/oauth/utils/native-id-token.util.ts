@@ -1,12 +1,11 @@
 import type { OAuthProfile } from '../oauth-provider.interface';
 import { nativeDisplayName } from '../../../common/utils/native-display-name';
+import { isNativeEmail } from '../../../common/utils/native-email';
 import { verifyIdToken, type VerifyIdTokenOptions } from './id-token.util';
 
 const NATIVE_REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'exp', 'iat', 'nonce'];
 const ISSUED_AT_TOLERANCE_SECONDS = 60;
 const SUBJECT_LIMIT = 255;
-const EMAIL_LIMIT = 255;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 
 export async function verifyNativeIdToken(options: VerifyIdTokenOptions) {
   const claims = await verifyIdToken({
@@ -33,11 +32,7 @@ export function nativeProfileFromClaims(
   emailVerified = claims.email_verified === true ||
     claims.email_verified === 'true',
 ): OAuthProfile {
-  if (
-    typeof claims.email !== 'string' ||
-    claims.email.length > EMAIL_LIMIT ||
-    !EMAIL_PATTERN.test(claims.email)
-  ) {
+  if (!isNativeEmail(claims.email)) {
     throw new Error('Native identity has no email');
   }
   return {
