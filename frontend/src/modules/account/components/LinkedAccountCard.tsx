@@ -1,5 +1,6 @@
 'use client';
 
+import { cn } from '@/lib/utils';
 import { Description, Heading } from '@/components/design-system';
 import { useId, useState } from 'react';
 import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
@@ -7,7 +8,8 @@ import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { Loader2, CheckCircle2, Link as LinkIcon, Mail, Unlink } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, DESTRUCTIVE_FILL_CLASSES } from '@/components/ui/button';
+import { BLOCKED_PRESS_CLASSES } from '@/components/ui/busy';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -185,7 +187,10 @@ export function LinkedAccountCard({
                     busy={isUnlinking || isSettingPrimary}
                     aria-busy={isUnlinking}
                     aria-describedby={isUnlinkBlocked ? unlinkBlockedId : undefined}
-                    className="w-full whitespace-nowrap lg:w-auto"
+                    className={cn(
+                      'w-full whitespace-nowrap lg:w-auto',
+                      isUnlinkBlocked && BLOCKED_PRESS_CLASSES,
+                    )}
                     data-testid={`unlink-${providerId}`}
                   >
                     {isUnlinking ? (
@@ -217,8 +222,11 @@ export function LinkedAccountCard({
         </CardContent>
       </Card>
 
-      <AlertDialog open={showUnlinkDialog} onOpenChange={setShowUnlinkDialog}>
-        <AlertDialogContent onCloseAutoFocus={focusLanding}>
+      <AlertDialog open={showUnlinkDialog} busy={isUnlinking} onOpenChange={setShowUnlinkDialog}>
+        <AlertDialogContent
+          data-testid={`unlink-dialog-${providerId}`}
+          onCloseAutoFocus={focusLanding}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>{t('unlinkConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -237,7 +245,7 @@ export function LinkedAccountCard({
               }}
               busy={isUnlinking}
               aria-busy={isUnlinking}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className={DESTRUCTIVE_FILL_CLASSES}
               data-testid={`unlink-confirm-${providerId}`}
             >
               {t('confirmUnlink')}

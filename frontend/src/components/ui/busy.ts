@@ -8,10 +8,35 @@ import type { MouseEvent } from 'react';
  */
 export const HELD_ATTRIBUTES = { 'aria-disabled': true } as const;
 
+/**
+ * How a busy button, checkbox or link-like control looks. It is waiting, not
+ * disabled: its label must stay readable, so the whole control is toned down
+ * only as far as its text keeps 4.5:1. The contrast gate reads this opacity.
+ * It takes the press itself: with `pointer-events: none` a click would land on
+ * whatever is behind it and move the focus there.
+ */
+export const BUSY_PRESS_CLASSES = 'aria-disabled:cursor-progress aria-disabled:opacity-85';
+
+/**
+ * How a busy text field or select looks. What was typed stays readable in the
+ * muted text colour, and the border keeps its full strength: it has no
+ * contrast to spare. The contrast gate reads this colour.
+ */
+export const BUSY_FIELD_CLASSES =
+  'aria-disabled:cursor-progress aria-disabled:text-muted-foreground';
+
+/**
+ * For a control that says `aria-disabled` because it is blocked, not busy: it
+ * stays focusable so its reason is read, and looks unavailable.
+ */
+export const BLOCKED_PRESS_CLASSES = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50';
+
 function ignorePress(event: MouseEvent) {
   // Cancelling the click also stops a submit button from sending its form and
-  // a library control from acting on it.
+  // a library control from acting on it. It goes no further: the control is
+  // the one that was pressed, and nothing around it should act on it either.
   event.preventDefault();
+  event.stopPropagation();
 }
 
 /** Props for a pressable control: while busy, a press does nothing. */

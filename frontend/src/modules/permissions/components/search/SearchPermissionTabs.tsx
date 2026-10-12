@@ -97,7 +97,7 @@ export function SearchPermissionTabs({
                   type="button"
                   disabled={groupPerms.length === 0}
                   {...busyPressProps(isLoading, () => onSelectAll(group.filteredPermissions))}
-                  className="text-xs text-primary hover:underline disabled:opacity-50 aria-disabled:opacity-50"
+                  className="text-xs text-primary hover:underline disabled:opacity-50 aria-disabled:cursor-progress aria-disabled:opacity-85"
                   data-testid={`select-all-${group.id}`}
                 >
                   {allSelected ? t('deselectAll') : t('selectAll')}
@@ -143,7 +143,7 @@ export function SearchPermissionTabs({
                   <button
                     type="button"
                     {...busyPressProps(isLoading, () => onSelectAll(filtered.filteredPermissions))}
-                    className="text-xs text-primary hover:underline aria-disabled:opacity-50"
+                    className="text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}

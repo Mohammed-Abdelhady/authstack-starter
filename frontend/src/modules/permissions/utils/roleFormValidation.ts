@@ -16,6 +16,7 @@ const NAME_PROBLEM_KEYS: Record<RoleNameProblem, string> = {
   [ROLE_NAME_PROBLEM.CHARACTERS]: 'nameCharacters',
   [ROLE_NAME_PROBLEM.TOO_SHORT]: 'nameTooShort',
   [ROLE_NAME_PROBLEM.TOO_LONG]: 'nameTooLong',
+  [ROLE_NAME_PROBLEM.CODE_TOO_SHORT]: 'nameCodeTooShort',
 };
 
 /** The lengths a role name may have, as the arguments of the messages about it. */
@@ -47,4 +48,12 @@ export function validateRoleForm(
   }
   if (permissions.length === 0) errors.permissions = t('permissionsError');
   return errors;
+}
+
+/** The fields of a role form that can take focus, in the order they are on the page. */
+const ROLE_FORM_FIELDS = ['name', 'description'] as const;
+
+/** The first field on the page that has a problem, for the focus to go to. */
+export function firstInvalidRoleField(errors: Record<string, string>): string | undefined {
+  return ROLE_FORM_FIELDS.find((field) => Boolean(errors[field]));
 }

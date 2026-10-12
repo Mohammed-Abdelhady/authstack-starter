@@ -6,9 +6,18 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { TEXT_CONTROL_FONT_SIZE } from '@/lib/config/form-styles';
-import { HELD_ATTRIBUTES } from './busy';
+import { BUSY_FIELD_CLASSES, HELD_ATTRIBUTES } from './busy';
 
-const SelectBusyContext = React.createContext(false);
+interface SelectState {
+  busy: boolean;
+  /** The values of the options that can be reached and not chosen. */
+  unavailable: React.RefObject<Set<string>>;
+}
+
+const SelectStateContext = React.createContext<SelectState | null>(null);
+
+/** The keys the library chooses an option with. */
+const CHOOSING_KEYS = new Set(['Enter', ' ']);
 
 interface SelectProps extends React.ComponentProps<typeof SelectPrimitive.Root> {
   /**
@@ -27,25 +36,28 @@ function Select({
   ...props
 }: SelectProps) {
   const [isOpen, setIsOpen] = React.useState(defaultOpen);
+  const unavailable = React.useRef(new Set<string>());
+  const state = React.useMemo(() => ({ busy, unavailable }), [busy]);
 
   const changeOpen = (next: boolean) => {
     if (busy && next) return;
     setIsOpen(next);
     onOpenChange?.(next);
   };
+  // Typing on the closed trigger reaches a value without going through its option.
   const changeValue = (value: string) => {
-    if (!busy) onValueChange?.(value);
+    if (!busy && !unavailable.current.has(value)) onValueChange?.(value);
   };
 
   return (
-    <SelectBusyContext.Provider value={busy}>
+    <SelectStateContext.Provider value={state}>
       <SelectPrimitive.Root
         {...props}
         open={open ?? isOpen}
         onOpenChange={changeOpen}
         onValueChange={changeValue}
       />
-    </SelectBusyContext.Provider>
+    </SelectStateContext.Provider>
   );
 }
 
@@ -57,13 +69,14 @@ const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
 >(({ className, children, ...props }, ref) => {
-  const busy = React.useContext(SelectBusyContext);
+  const busy = React.useContext(SelectStateContext)?.busy ?? false;
   return (
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
         // The gap keeps the chevron off the text when a name is cut at the chevron's side.
-        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        BUSY_FIELD_CLASSES,
         TEXT_CONTROL_FONT_SIZE,
         className,
       )}
@@ -151,27 +164,74 @@ const SelectLabel = React.forwardRef<
 ));
 SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
-const SelectItem = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Item>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Item
-    ref={ref}
-    className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-      className,
-    )}
-    {...props}
-  >
-    <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
-      <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
-      </SelectPrimitive.ItemIndicator>
-    </span>
+interface SelectItemProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item> {
+  /**
+   * Why this option cannot be chosen. It is shown in the option and read as
+   * its description. The library skips an option given `disabled` with the
+   * arrow keys, Home, End and typing, so nobody on a keyboard or a screen
+   * reader would ever reach the reason: an option given this stays reachable
+   * and only choosing it does nothing.
+   */
+  unavailableReason?: React.ReactNode;
+}
 
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-  </SelectPrimitive.Item>
-));
+function cancel(event: { preventDefault: () => void }) {
+  // The library chooses the option unless the event was cancelled.
+  event.preventDefault();
+}
+
+function cancelChoosingKey(event: React.KeyboardEvent) {
+  if (CHOOSING_KEYS.has(event.key)) event.preventDefault();
+}
+
+const SelectItem = React.forwardRef<React.ElementRef<typeof SelectPrimitive.Item>, SelectItemProps>(
+  ({ className, children, unavailableReason, value, ...props }, ref) => {
+    const reasonId = React.useId();
+    const unavailable = React.useContext(SelectStateContext)?.unavailable;
+    const isUnavailable = unavailableReason !== undefined && unavailableReason !== null;
+
+    React.useEffect(() => {
+      const values = unavailable?.current;
+      if (!isUnavailable || !values) return;
+      values.add(value);
+      return () => {
+        values.delete(value);
+      };
+    }, [isUnavailable, unavailable, value]);
+
+    const held = isUnavailable
+      ? {
+          'aria-disabled': true,
+          'aria-describedby': reasonId,
+          onClick: cancel,
+          onPointerUp: cancel,
+          onKeyDown: cancelChoosingKey,
+        }
+      : undefined;
+
+    return (
+      <SelectPrimitive.Item
+        ref={ref}
+        value={value}
+        className={cn(
+          'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 aria-disabled:cursor-not-allowed',
+          className,
+        )}
+        {...props}
+        {...held}
+      >
+        <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
+          <SelectPrimitive.ItemIndicator>
+            <Check className="h-4 w-4" />
+          </SelectPrimitive.ItemIndicator>
+        </span>
+
+        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+        {isUnavailable && <span id={reasonId}>{unavailableReason}</span>}
+      </SelectPrimitive.Item>
+    );
+  },
+);
 SelectItem.displayName = SelectPrimitive.Item.displayName;
 
 const SelectSeparator = React.forwardRef<

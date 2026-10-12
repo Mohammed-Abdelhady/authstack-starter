@@ -32,15 +32,24 @@ const ROLE: Role = {
 
 const LENGTHS = { min: 2, max: 50 };
 
-/** Names the server always refuses, with the message that says why. */
+/**
+ * Names the forms refuse, with the message that says why and the code shown
+ * under the field. No code is shown for a name with a character the server
+ * refuses, or for no name at all.
+ */
 const REFUSED_NAMES = [
-  ['one character', 'A', 'nameTooShort'],
-  ['fifty-one characters', 'a'.repeat(51), 'nameTooLong'],
-  ['a slash', '24/7 Support', 'nameCharacters'],
-  ['an accented letter', 'Éditeur', 'nameCharacters'],
-  ['only spaces', '   ', 'nameError'],
-  ['an Arabic name', 'محرر المحتوى', 'nameCharacters'], // feature:locale-ar
+  ['one character', 'A', 'nameTooShort', 'a'],
+  ['fifty-one characters', 'a'.repeat(51), 'nameTooLong', 'a'.repeat(51)],
+  ['a slash', '24/7 Support', 'nameCharacters', ''],
+  ['an accented letter', 'Éditeur', 'nameCharacters', ''],
+  ['only spaces', '   ', 'nameError', ''],
+  ['only hyphens', '--', 'nameCodeTooShort', '-'],
+  ['hyphens and spaces', '- -', 'nameCodeTooShort', '-'],
+  ['an Arabic name', 'محرر المحتوى', 'nameCharacters', ''], // feature:locale-ar
 ] as const;
+
+/** The code a new role has before a name is typed, and the role being edited has. */
+const INITIAL_CODE = { create: '', edit: 'support-team' } as const;
 
 const FORMS = {
   create: {
@@ -101,8 +110,12 @@ describe.each([
   describe.each(['create', 'edit'] as const)('%s', (formName) => {
     it('says what a name may be, tied to the field before anything is typed', async () => {
       const { name, format, form } = await openForm(locale, formName);
+      const code = INITIAL_CODE[formName];
 
-      expect(descriptions(name)).toEqual([format('roles.form.nameHint', LENGTHS)]);
+      expect(descriptions(name)).toEqual([
+        format('roles.form.nameHint', LENGTHS),
+        ...(code ? [format('roles.form.codePreview', { code })] : []),
+      ]);
       expect(screen.getByTestId(form.hint).textContent).toBe(
         format('roles.form.nameHint', LENGTHS),
       );
@@ -110,7 +123,7 @@ describe.each([
 
     it.each(REFUSED_NAMES)(
       'refuses a name of %s itself, with the message for it, and sends nothing',
-      async (_what, value, messageKey) => {
+      async (_what, value, messageKey, code) => {
         const { name, send, requests, format } = await openForm(locale, formName);
         fireEvent.change(name, { target: { value } });
 
@@ -119,8 +132,10 @@ describe.each([
         await waitFor(() => expect(name.getAttribute('aria-invalid')).toBe('true'));
         expect(descriptions(name)).toEqual([
           format('roles.form.nameHint', LENGTHS),
+          ...(code ? [format('roles.form.codePreview', { code })] : []),
           format(`roles.form.${messageKey}`, LENGTHS),
         ]);
+        expect(document.activeElement).toBe(name);
         expect(requests.filter((request) => !request.startsWith('GET'))).toEqual([]);
       },
     );
@@ -164,7 +179,56 @@ describe.each([
       expect(descriptions(description)).toEqual([
         format('roles.form.descriptionTooLong', { max: 200 }),
       ]);
+      // The name is fine, so the focus goes to the field that is not.
+      expect(document.activeElement).toBe(description);
+      expect(name.getAttribute('aria-invalid')).toBe('false');
       expect(requests.filter((request) => !request.startsWith('GET'))).toEqual([]);
+    });
+  });
+
+  describe.each(['create', 'edit'] as const)('%s', (formName) => {
+    it('focuses the name when the name and the description are both refused', async () => {
+      const { name, send, form } = await openForm(locale, formName);
+      const description = screen.getByTestId(form.descriptionField);
+      fireEvent.change(name, { target: { value: 'A' } });
+      fireEvent.change(description, { target: { value: 'a'.repeat(201) } });
+      description.focus();
+
+      send();
+
+      await waitFor(() => expect(description.getAttribute('aria-invalid')).toBe('true'));
+      expect(document.activeElement).toBe(name);
+    });
+
+    it.each([
+      ['24 7 Support', '24-7-support'],
+      ['24-7 Support', '24-7-support'],
+      ['  Night   Shift ', 'night-shift'],
+    ])('shows under the name the code that %j will get, as it is typed', async (value, code) => {
+      const { name, format, form } = await openForm(locale, formName);
+
+      fireEvent.change(name, { target: { value } });
+
+      const preview = screen.getByTestId(
+        form.nameField === 'role-name-input' ? 'role-code-preview' : 'edit-role-code-preview',
+      );
+      expect(preview.textContent).toBe(format('roles.form.codePreview', { code }));
+      expect(descriptions(name)).toEqual([
+        format('roles.form.nameHint', LENGTHS),
+        format('roles.form.codePreview', { code }),
+      ]);
+    });
+
+    it('shows no code while the name holds a character the server refuses', async () => {
+      const { name, form } = await openForm(locale, formName);
+
+      fireEvent.change(name, { target: { value: '24/7 Support' } });
+
+      expect(
+        screen.queryByTestId(
+          form.nameField === 'role-name-input' ? 'role-code-preview' : 'edit-role-code-preview',
+        ),
+      ).toBeNull();
     });
   });
 

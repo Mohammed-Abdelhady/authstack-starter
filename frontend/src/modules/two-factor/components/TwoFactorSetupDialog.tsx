@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { FOCUS_LANDING_CLASSES } from '@/constants/focusStyles';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -41,6 +42,20 @@ export function TwoFactorSetupDialog({
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
+  // A step replaces the control that asked for it. Unless the new step put
+  // the focus on a field of its own, the title takes it.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const shownStep = useRef(flow.step);
+  useEffect(() => {
+    if (shownStep.current === flow.step) return;
+    shownStep.current = flow.step;
+    const content = contentRef.current;
+    const active = document.activeElement;
+    const stepTookFocus = content !== null && active !== content && content.contains(active);
+    if (!stepTookFocus) titleRef.current?.focus();
+  }, [flow.step]);
+
   // The recovery codes are readable here and nowhere else, so Escape and a
   // click on the overlay must not take them away. Only Done closes the dialog.
   const onDialogOpenChange = useCallback(
@@ -54,11 +69,14 @@ export function TwoFactorSetupDialog({
   );
 
   return (
-    <Dialog open={open} onOpenChange={onDialogOpenChange}>
-      <DialogContent className="sm:max-w-md" data-testid="two-factor-setup-dialog">
+    <Dialog open={open} busy={flow.isBusy} onOpenChange={onDialogOpenChange}>
+      <DialogContent ref={contentRef} className="sm:max-w-md" data-testid="two-factor-setup-dialog">
         <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t(`${flow.step}.description`)}</DialogDescription>
+          <DialogTitle ref={titleRef} tabIndex={-1} className={FOCUS_LANDING_CLASSES}>
+            {t('title')}
+          </DialogTitle>
+          {/* Read out when the step changes. */}
+          <DialogDescription aria-live="polite">{t(`${flow.step}.description`)}</DialogDescription>
         </DialogHeader>
 
         {flow.error !== null && (

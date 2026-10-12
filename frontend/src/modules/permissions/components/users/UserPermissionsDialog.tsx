@@ -25,6 +25,11 @@ import { UserPermissionsSummary } from './UserPermissionsSummary';
 import { Loader2, Plus, Trash2, Shield, User } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { useDialogRefusal } from '@/hooks/useFormRefusal';
+import { FormRootError } from '@/components/forms';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
+import { cn } from '@/lib/utils';
 
 export interface UserPermissionsDialogProps {
   open: boolean;
@@ -59,17 +64,26 @@ export function UserPermissionsDialog({
     skip: !data?.role,
   });
 
-  const [addPermission, { isLoading: isAdding }] = useAddPermissionMutation();
-  const [removePermission, { isLoading: isRemoving }] = useRemovePermissionMutation();
+  const [addPermission] = useAddPermissionMutation();
+  const [removePermission] = useRemovePermissionMutation();
+  // One flag for the whole run of additions: the store's own drops between two of them.
+  const [isAdding, setIsAdding] = useState(false);
+  // The permission being removed, so only its own button says so.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const isRemoving = removing !== null;
+  const addRefusal = useDialogRefusal();
+  const removeRefusal = useDialogRefusal();
   const directHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleAddPermissions = async () => {
     if (!userId || availablePermissions.length === 0) return;
 
+    addRefusal.clear();
+    setIsAdding(true);
     try {
       // Add permissions one by one
       for (const permission of availablePermissions) {
-        await addPermission({ userId, permission }).unwrap();
+        await showsOwnRefusal(addPermission({ userId, permission })).unwrap();
       }
 
       toast.success(t('addSuccess', { count: availablePermissions.length }));
@@ -81,15 +95,20 @@ export function UserPermissionsDialog({
       // Refresh data
       refetch();
     } catch (error) {
+      addRefusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      setIsAdding(false);
     }
   };
 
   const handleRemovePermission = async (permission: string) => {
     if (!userId) return;
 
+    removeRefusal.clear();
+    setRemoving(permission);
     try {
-      await removePermission({ userId, permission }).unwrap();
+      await showsOwnRefusal(removePermission({ userId, permission })).unwrap();
 
       toast.success(t('removeSuccess'));
       // The row and its button leave with the permission.
@@ -98,7 +117,10 @@ export function UserPermissionsDialog({
       // Refresh data
       refetch();
     } catch (error) {
+      removeRefusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      setRemoving(null);
     }
   };
 
@@ -118,7 +140,7 @@ export function UserPermissionsDialog({
 
   return (
     <>
-      <Dialog key={userId || 'no-user'} open={open} onOpenChange={onOpenChange}>
+      <Dialog key={userId || 'no-user'} open={open} busy={isRemoving} onOpenChange={onOpenChange}>
         <DialogContent
           className="max-h-[90vh] max-w-3xl overflow-y-auto"
           data-testid="user-permissions-dialog"
@@ -143,6 +165,7 @@ export function UserPermissionsDialog({
               <>
                 <UserPermissionsSummary
                   role={data?.role}
+                  roleName={roleData?.name}
                   totalCount={effectivePermissions.length}
                   inheritedCount={inheritedPermissions.length}
                   directCount={directPermissions.length}
@@ -224,6 +247,11 @@ export function UserPermissionsDialog({
                       {/* Remove Actions Section */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('removePermissions')}</p>
+                        <FormRootError
+                          error={removeRefusal.alert}
+                          className="mb-0"
+                          testId="remove-permission-error"
+                        />
                         <div className="grid grid-cols-1 gap-2">
                           {directPermissions.map((permission) => (
                             <div
@@ -231,7 +259,13 @@ export function UserPermissionsDialog({
                               className="flex items-center justify-between rounded-md border border-border p-2 bg-muted"
                               data-testid={`direct-permission-${permission}`}
                             >
-                              <code dir="ltr" className="text-xs font-mono text-foreground">
+                              <code
+                                dir="ltr"
+                                className={cn(
+                                  'text-xs font-mono text-foreground',
+                                  WRAP_ANYWHERE_CLASSES,
+                                )}
+                              >
                                 {permission}
                               </code>
                               <Button
@@ -239,7 +273,7 @@ export function UserPermissionsDialog({
                                 variant="ghost"
                                 onClick={() => handleRemovePermission(permission)}
                                 busy={isRemoving}
-                                aria-busy={isRemoving}
+                                aria-busy={removing === permission}
                                 className="h-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 data-testid={`remove-permission-${permission}`}
                               >
@@ -262,7 +296,11 @@ export function UserPermissionsDialog({
       {/* Permission Search Dialog */}
       <PermissionSearchDialog
         open={searchDialogOpen}
-        onOpenChange={setSearchDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) addRefusal.clear();
+          setSearchDialogOpen(next);
+        }}
+        refusal={addRefusal.alert}
         selectedPermissions={selectedPermissions}
         onChange={setSelectedPermissions}
         excludedPermissions={effectivePermissions}

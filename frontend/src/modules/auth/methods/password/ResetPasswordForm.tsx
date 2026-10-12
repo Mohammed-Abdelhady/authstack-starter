@@ -14,19 +14,19 @@ import {
   SubmitButton,
 } from '@/components/forms';
 import { useResetPasswordMutation } from '@/modules/auth/store/authApi';
-import { ErrorCode, NETWORK_ERROR_CODE, parseApiError } from '@app/core';
+import { ErrorCode, parseApiError } from '@app/core';
 import { KeyRound } from 'lucide-react';
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { createPasswordSchema } from '@/modules/auth/utils/passwordSchema';
 import { filterDigits } from '@/modules/auth/utils/digitFilter';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 /**
  * Reset password form validation schema
@@ -80,11 +80,10 @@ export function ResetPasswordForm() {
   const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
   const tToast = useTranslations('toast');
-  const tCodes = useTranslations('errors.codes');
   const router = useRouter();
   const searchParams = useSearchParams();
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
-  const refusalToast = useRefusalToast();
+  const refusalText = useRefusalText();
   const [showRequestNew, setShowRequestNew] = useState(false);
 
   // Get email from URL params (passed from forgot password page)
@@ -128,13 +127,14 @@ export function ResetPasswordForm() {
 
   const submit = useCallback(
     async (data: ResetPasswordFormData) => {
-      refusalToast.clearStale();
       try {
-        await resetPassword({
-          email: data.email,
-          code: data.code,
-          newPassword: data.password,
-        }).unwrap();
+        await showsOwnRefusal(
+          resetPassword({
+            email: data.email,
+            code: data.code,
+            newPassword: data.password,
+          }),
+        ).unwrap();
 
         // Show success message
         toast.success(tToast('success.passwordReset'));
@@ -144,18 +144,9 @@ export function ResetPasswordForm() {
           router.push('/auth/login');
         }, 1500);
       } catch (err: unknown) {
-        refusalToast.noteRefusal();
         const parsed = parseApiError(err);
-        const code = translatableErrorCode(err, '');
         // The server answers one code for a wrong, missing, expired or locked
         // code. The person gets one message and can request a new code below.
-        let errorMessage = t('errors.serverError');
-
-        if (parsed.code === NETWORK_ERROR_CODE) {
-          errorMessage = t('errors.networkError');
-        } else if (code) {
-          errorMessage = tCodes(code);
-        }
 
         if (parsed.code === ErrorCode.PASSWORD_RESET_CODE_INVALID) {
           setShowRequestNew(true);
@@ -163,14 +154,14 @@ export function ResetPasswordForm() {
 
         setError('root', {
           type: 'manual',
-          message: errorMessage,
+          message: refusalText(err),
         });
 
         // Any other refusal leaves the code usable, so what was typed stays.
         if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
-    [refusalToast, resetPassword, router, setError, setValue, t, tCodes, tToast],
+    [refusalText, resetPassword, router, setError, setValue, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 

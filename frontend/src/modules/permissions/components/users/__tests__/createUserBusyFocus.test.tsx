@@ -12,6 +12,7 @@ import {
   unreachable,
 } from '@/tests/busyControls';
 import {
+  descriptions,
   refusalWith,
   registerFormTestLifecycle,
   renderForm,
@@ -65,19 +66,37 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('focus in the create user dialog while its request runs in %s', (locale) => {
-  it.each(['refused', 'unreachable'] as const)(
-    'stays on the submit button, pressed to send it, when the request is %s',
-    async (ending) => {
-      const { settle, email } = await filledDialog(locale);
-      const submit = screen.getByTestId('submit-create-user-button');
-      submit.focus();
+  it('stays on the submit button, pressed to send it, when the server cannot be reached', async () => {
+    const { settle, email, message } = await filledDialog(locale);
+    const submit = screen.getByTestId('submit-create-user-button');
+    submit.focus();
 
-      fireEvent.click(submit);
+    fireEvent.click(submit);
 
-      await expectFocusKeptThroughRequest(submit, () => settle(ENDINGS[ending]));
-      expect(email).toHaveProperty('value', 'layla@example.com');
-    },
-  );
+    await expectFocusKeptThroughRequest(submit, () => settle(unreachable));
+    expect(email).toHaveProperty('value', 'layla@example.com');
+    expect(screen.getByTestId('create-user-error').textContent).toBe(
+      message('toast.error.networkError'),
+    );
+  });
+
+  it('moves from the submit button to the address the server says is taken', async () => {
+    const { settle, email, message, errorToasts } = await filledDialog(locale);
+    const submit = screen.getByTestId('submit-create-user-button');
+    submit.focus();
+    fireEvent.click(submit);
+    await waitFor(() => expect(availability(submit)).toEqual(HELD));
+    expect(document.activeElement).toBe(submit);
+
+    settle(ENDINGS.refused);
+
+    await waitFor(() => expect(document.activeElement).toBe(email));
+    expect(email.getAttribute('aria-invalid')).toBe('true');
+    expect(descriptions(email)).toEqual([message('errors.codes.EMAIL_ALREADY_EXISTS')]);
+    expect(email).toHaveProperty('value', 'layla@example.com');
+    expect(screen.queryByTestId('create-user-error')).toBeNull();
+    expect(errorToasts()).toEqual([]);
+  });
 
   it.each(['refused', 'unreachable'] as const)(
     'stays in the field the form was sent from when the request is %s',

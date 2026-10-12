@@ -204,7 +204,7 @@ export const PermissionSelector = memo(function PermissionSelector({
                     <button
                       type="button"
                       {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
-                      className="text-xs text-primary hover:underline aria-disabled:opacity-50"
+                      className="text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                       data-testid={`permission-group-select-all-${group.id}`}
                     >
                       {allSelected ? t('deselectAll') : t('selectAll')}
@@ -236,7 +236,7 @@ export const PermissionSelector = memo(function PermissionSelector({
                   <button
                     type="button"
                     {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
-                    className="text-xs text-primary hover:underline aria-disabled:opacity-50"
+                    className="text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`permission-group-select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}

@@ -38,19 +38,20 @@ test.describe('frontend-only anonymous auth', () => {
     await auth.expectInvalid([s.login.email, s.login.password]);
   });
 
-  test('validates registration fields and lets the keyboard toggle password visibility', async ({
+  test('validates the registration address and lets the keyboard toggle password visibility', async ({
     page,
     auth,
   }) => {
+    // Registration asks for the address alone.
     await auth.open('register');
     await page.getByTestId(s.register.submit).click();
-    await auth.expectInvalid([s.register.name, s.register.email, s.register.password]);
-    await page.getByTestId(s.register.name).fill('A');
+    await auth.expectInvalid([s.register.email]);
     await page.getByTestId(s.register.email).fill('invalid-address');
-    await page.getByTestId(s.register.password).fill('weak');
     await page.getByTestId(s.register.submit).click();
-    await auth.expectInvalid([s.register.name, s.register.email, s.register.password]);
-    const password = page.getByTestId(s.register.password);
+    await auth.expectInvalid([s.register.email]);
+    // The sign-in page is the anonymous page that still has a password field.
+    await auth.open('login');
+    const password = page.getByTestId(s.login.password);
     await password.focus();
     await page.keyboard.press('Tab');
     const toggle = page.getByTestId(s.togglePassword);

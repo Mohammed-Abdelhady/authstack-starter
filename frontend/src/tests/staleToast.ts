@@ -44,3 +44,24 @@ export async function sendRefusedThenAgain(send: () => void, isIdle: () => boole
   });
   send();
 }
+
+/**
+ * For a form that shows a refusal itself. Sends it, waits until the refusal
+ * is on the page and the form takes input again, checks no toast was raised
+ * for it, then sends the form a second time.
+ */
+export async function sendRefusedInPlaceThenAgain(
+  send: () => void,
+  refusalShown: () => boolean,
+  isIdle: () => boolean,
+) {
+  send();
+  await waitFor(() => {
+    expect(refusalShown()).toBe(true);
+  });
+  await waitFor(() => {
+    expect(isIdle()).toBe(true);
+  });
+  expect(toastOrder()).toEqual([]);
+  send();
+}

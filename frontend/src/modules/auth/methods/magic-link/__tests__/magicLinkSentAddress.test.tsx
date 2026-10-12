@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import {
+  SERVER_TEXT,
+  refusalWith,
   registerFormTestLifecycle,
   renderForm,
   stubNetwork,
@@ -41,5 +43,43 @@ describe.each([
     const sent = await screen.findByRole('status');
     const [before, after] = message('auth.magicLink.sentBody').split('⁦{email}⁩');
     expect(sent.textContent).toContain(`${before}${ISOLATED_EMAIL}${after}`);
+  });
+
+  it.each(['the address field', 'the submit button'] as const)(
+    'moves focus from %s to the heading of the confirmation that replaces the form',
+    async (from) => {
+      stubNetwork(() => success({ email: EMAIL }));
+      const { message } = await renderForm(
+        locale,
+        <MagicLinkRequestForm redirect={null} isOnlyMethod />,
+      );
+      const field = screen.getByRole('textbox', { name: message('auth.magicLink.email') });
+      fireEvent.change(field, { target: { value: EMAIL } });
+      (from === 'the address field' ? field : screen.getByTestId('magic-link-submit')).focus();
+
+      fireEvent.submit(screen.getByTestId('magic-link-form'));
+
+      const heading = await screen.findByRole('heading', {
+        name: message('auth.magicLink.sentTitle'),
+      });
+      await waitFor(() => expect(document.activeElement).toBe(heading));
+      // The confirmation is a status, so it is read out as it appears.
+      expect(screen.getByRole('status').contains(heading)).toBe(true);
+    },
+  );
+
+  it('shows the catalogue message for a refused request in the form, once, and not the server text', async () => {
+    stubNetwork(() => refusalWith(429, 'SOMETHING_NEW'));
+    const view = await renderForm(locale, <MagicLinkRequestForm redirect={null} isOnlyMethod />);
+    fireEvent.change(screen.getByRole('textbox', { name: view.message('auth.magicLink.email') }), {
+      target: { value: EMAIL },
+    });
+
+    fireEvent.submit(screen.getByTestId('magic-link-form'));
+
+    const alert = await screen.findByTestId('magic-link-error');
+    expect(alert.textContent).toBe(view.message('toast.error.tooManyRequests'));
+    expect(view.errorToasts()).toEqual([]);
+    expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 });

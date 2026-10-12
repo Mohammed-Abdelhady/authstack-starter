@@ -12,11 +12,18 @@ export const authSelectors = {
   register: {
     title: 'register-title',
     form: 'register-form',
-    name: 'register-name-input',
     email: 'register-email-input',
-    password: 'register-password-input',
     submit: 'register-submit',
     login: 'signin-link',
+  },
+  // The code screen, where a new account gets its name and password.
+  activate: {
+    form: 'activate-form',
+    code: 'activate-code-input',
+    name: 'activate-name-input',
+    password: 'activate-password-input',
+    confirmation: 'activate-confirm-password-input',
+    submit: 'activate-submit',
   },
   forgot: {
     title: 'forgot-password-title',

@@ -109,6 +109,27 @@ describe('a control that turns busy while it holds focus', () => {
 });
 
 describe('a busy button', () => {
+  it('takes a press itself: nothing around it hears the click, and it keeps the focus', async () => {
+    const heardAround = vi.fn();
+    await renderForm(
+      'en',
+      <div onClick={heardAround} data-testid="around">
+        <Button busy data-testid="b" />
+        <Button data-testid="idle" />
+      </div>,
+    );
+    const button = screen.getByTestId('b');
+    button.focus();
+
+    fireEvent.click(button);
+
+    expect(heardAround.mock.calls.length).toBe(0);
+    expect(document.activeElement).toBe(button);
+    // An idle button is heard as before.
+    fireEvent.click(screen.getByTestId('idle'));
+    expect(heardAround.mock.calls.length).toBe(1);
+  });
+
   it('ignores a press, and obeys it again once it is idle', async () => {
     const onClick = vi.fn();
     const { unmount } = await renderForm('en', <Button busy onClick={onClick} data-testid="b" />);

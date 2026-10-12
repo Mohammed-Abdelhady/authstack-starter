@@ -1,7 +1,8 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { FormProvider } from 'react-hook-form';
@@ -9,13 +10,14 @@ import { MailCheck, Send } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { Button } from '@/components/ui/button';
-import { zodEmail, parseApiError } from '@app/core';
+import { zodEmail } from '@app/core';
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
 import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
 import { isNativeAuthorizeContinuation } from '@/modules/auth/constants/nativeAuthorize';
 import { getRedirectPath } from '@/modules/auth/utils';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import type { AuthMethodFormProps } from '../types';
 import { useRequestMagicLinkMutation } from './magicLinkApi';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
@@ -47,7 +49,7 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
   const t = useTranslations('auth.magicLink');
   const tSignIn = useTranslations('auth.login');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const [requestMagicLink, { isLoading }] = useRequestMagicLinkMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -68,6 +70,13 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     getValues,
   } = form;
 
+  // The form gives way to the confirmation, which then takes the focus.
+  const sentHeadingRef = useRef<HTMLHeadingElement>(null);
+  const { arm, handTo } = useFocusHandOff();
+  useEffect(() => {
+    if (sentTo !== null) handTo(sentHeadingRef.current);
+  }, [handTo, sentTo]);
+
   const sendLink = useCallback(
     async (email: string) => {
       // Only the native authorize continuation is worth carrying through the
@@ -75,7 +84,8 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
       const validated = getRedirectPath(redirect, '');
       const continuation = isNativeAuthorizeContinuation(validated) ? validated : undefined;
       try {
-        await requestMagicLink({ email, redirect: continuation }).unwrap();
+        arm();
+        await showsOwnRefusal(requestMagicLink({ email, redirect: continuation })).unwrap();
         setSentTo(email);
         startCooldown();
       } catch (err) {
@@ -83,14 +93,10 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
         if (handleFeatureDisabled(err)) {
           return;
         }
-        const code = translatableErrorCode(err, '');
-        setError('root', {
-          type: 'manual',
-          message: code ? tCodes(code) : parseApiError(err).message || t('error'),
-        });
+        setError('root', { type: 'manual', message: refusalText(err) });
       }
     },
-    [handleFeatureDisabled, redirect, requestMagicLink, setError, startCooldown, t, tCodes],
+    [arm, handleFeatureDisabled, redirect, refusalText, requestMagicLink, setError, startCooldown],
   );
   const send = useSingleFlight(sendLink);
 
@@ -102,7 +108,13 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     return (
       <div className="mx-auto max-w-xs text-center" role="status" data-testid="magic-link-sent">
         <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
-        <Heading level={3} variant="sectionTitle" className="mt-3">
+        <Heading
+          level={3}
+          variant="sectionTitle"
+          className="mt-3"
+          ref={sentHeadingRef}
+          tabIndex={-1}
+        >
           {t('sentTitle')}
         </Heading>
         <Description className="mt-2">{t('sentBody', { email: sentTo })}</Description>

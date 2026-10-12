@@ -16,6 +16,7 @@ import {
   TINTED_SURFACES,
   tintedPairs,
 } from './check-contrast.mjs';
+import './check-contrast.busy.cases.mjs';
 
 const KNOWN_TOKENS = ['primary', 'primary-foreground', 'ring', 'background', 'warning', 'ink'];
 const STOCK_CHECKBOX =
@@ -122,7 +123,10 @@ test('a missing element or a computed className stops the audit', () => {
   );
 });
 
-const SOFT_TINT = { light: { token: 'warning', alpha: 0.15 }, dark: { token: 'warning', alpha: 0.2 } };
+const SOFT_TINT = {
+  light: { token: 'warning', alpha: 0.15 },
+  dark: { token: 'warning', alpha: 0.2 },
+};
 
 test('a control is audited on its surface, its own fill and its ring offset', () => {
   assert.deepEqual(
@@ -265,12 +269,15 @@ test('the colour of a direct icon child is read with the surface', () => {
 test('an icon is audited on every backdrop at 3:1 beside the text at 4.5:1', () => {
   const tint = { light: { token: 'info', alpha: 0.1 }, dark: { token: 'info', alpha: 0.2 } };
 
-  assert.deepEqual(tintedPairs({ text: 'foreground', icon: 'info', tint }, ['background', 'card']), [
-    { token: 'foreground', background: 'background', tint, target: 4.5 },
-    { token: 'info', background: 'background', tint, target: 3 },
-    { token: 'foreground', background: 'card', tint, target: 4.5 },
-    { token: 'info', background: 'card', tint, target: 3 },
-  ]);
+  assert.deepEqual(
+    tintedPairs({ text: 'foreground', icon: 'info', tint }, ['background', 'card']),
+    [
+      { token: 'foreground', background: 'background', tint, target: 4.5 },
+      { token: 'info', background: 'background', tint, target: 3 },
+      { token: 'foreground', background: 'card', tint, target: 4.5 },
+      { token: 'info', background: 'card', tint, target: 3 },
+    ],
+  );
 });
 
 test('every tinted surface keeps its text at 4.5:1 and its icon at 3:1 in both themes', () => {
@@ -296,7 +303,10 @@ test('every tinted surface keeps its text at 4.5:1 and its icon at 3:1 in both t
         'muted-foreground on warning/15/20 at 4.5',
         'status-warning on warning/15/20 at 3',
       ]),
-      ...onPageAndCard(['foreground on success/10/20 at 4.5', 'status-success on success/10/20 at 3']),
+      ...onPageAndCard([
+        'foreground on success/10/20 at 4.5',
+        'status-success on success/10/20 at 3',
+      ]),
       ...onPageAndCard([
         'foreground on destructive/10/20 at 4.5',
         'status-danger on destructive/10/20 at 3',

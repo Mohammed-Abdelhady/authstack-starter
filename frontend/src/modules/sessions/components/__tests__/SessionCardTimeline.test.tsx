@@ -9,7 +9,9 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { useSignOutTarget } from '../../hooks/useSignOutTarget';
 import { SessionCardTimeline } from '../SessionCardTimeline';
+import { SessionSignOutDialog } from '../SessionSignOutDialog';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
@@ -58,6 +60,22 @@ function sessionFromNewerServer(): Session {
     data: { sessions: [{ ...BROWSER_SESSION, credentialPurpose: 'native_refresh' }], total: 1 },
   };
   return unwrapSessionListBody(body).sessions[0];
+}
+
+/** The card with the confirmation its page gives it. */
+function CardWithSignOut({ session }: { readonly session: Session }) {
+  const signOut = useSignOutTarget();
+  return (
+    <>
+      <SessionCardTimeline session={session} onSignOut={signOut.ask} />
+      <SessionSignOutDialog
+        open={signOut.isOpen}
+        target={signOut.target}
+        sessions={[session]}
+        onClose={signOut.close}
+      />
+    </>
+  );
 }
 
 registerFormTestLifecycle();
@@ -232,7 +250,7 @@ describe.each([
     const requests = stubNetwork(() => success({ message: 'Session revoked' }));
     const { message, successToasts } = await renderForm(
       locale,
-      <SessionCardTimeline session={session} />,
+      <CardWithSignOut session={session} />,
     );
 
     const row = screen.getByRole('article');
@@ -256,7 +274,7 @@ describe.each([
   });
 
   it('asks about a mobile session without naming a browser', async () => {
-    const { message } = await renderForm(locale, <SessionCardTimeline session={NATIVE_SESSION} />);
+    const { message } = await renderForm(locale, <CardWithSignOut session={NATIVE_SESSION} />);
 
     fireEvent.click(screen.getByRole('button', { name: message('sessions.logoutThisDevice') }));
 

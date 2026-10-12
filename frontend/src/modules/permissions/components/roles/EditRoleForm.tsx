@@ -1,6 +1,11 @@
 'use client';
 
-import { ROLE_NAME_LENGTHS, validateRoleForm } from '../../utils/roleFormValidation';
+import {
+  ROLE_NAME_LENGTHS,
+  firstInvalidRoleField,
+  validateRoleForm,
+} from '../../utils/roleFormValidation';
+import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -9,15 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FieldError, SubmitButton } from '@/components/forms';
+import { FieldError, FormRootError, SubmitButton } from '@/components/forms';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import type { Role } from '../../api/rolesApi';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface EditRoleFormValues {
   name: string;
@@ -28,14 +30,9 @@ export interface EditRoleFormValues {
 export interface EditRoleFormProps {
   role: Role;
   isLoading: boolean;
-  /** `markRefusedFields` marks the fields a refused save names and focuses the first. */
-  onSubmit: (data: EditRoleFormValues, markRefusedFields: (error: unknown) => boolean) => void;
+  /** `showRefusal` shows a refused save on the field it names, or in the form's alert. */
+  onSubmit: (data: EditRoleFormValues, showRefusal: (error: unknown) => void) => void;
   onCancel: () => void;
-}
-
-/** The ids a field is described by, without the ones that are not on the page. */
-function describedBy(...ids: Array<string | false>): string | undefined {
-  return ids.filter(Boolean).join(' ') || undefined;
 }
 
 /**
@@ -48,6 +45,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const nameId = fieldElementId(uid, 'name');
   const nameErrorId = `${nameId}-error`;
   const nameHintId = `${nameId}-hint`;
+  const nameCodeId = `${nameId}-code`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
@@ -57,14 +55,12 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
   const [description, setDescription] = useState(role.description || '');
   const [permissions, setPermissions] = useState<string[]>(role.permissions || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
   const canRename = !isProtected && !isBaseRole;
+  const code = previewedRoleCode(name);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,10 +72,14 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      // The first field with a problem takes the focus, not whichever had it.
+      const invalid = firstInvalidRoleField(nextErrors);
+      if (invalid) document.getElementById(fieldElementId(uid, invalid))?.focus();
       return;
     }
 
-    onSubmit({ name, description, permissions }, applyServerFieldErrors);
+    refusal.clear();
+    onSubmit({ name, description, permissions }, refusal.show);
   };
 
   return (
@@ -90,6 +90,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
       </DialogHeader>
 
       <div className="space-y-6 py-6">
+        <FormRootError error={refusal.alert} className="mb-0" testId="edit-role-error" />
         {isBaseRole && (
           <Alert variant="infoSoft" role="note" data-testid="base-role-note">
             <AlertDescription>
@@ -122,7 +123,11 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             busy={isLoading}
             required
             aria-invalid={Boolean(errors.name)}
-            aria-describedby={describedBy(canRename && nameHintId, errors.name && nameErrorId)}
+            aria-describedby={describedBy(
+              canRename && nameHintId,
+              canRename && code !== '' && nameCodeId,
+              Boolean(errors.name) && nameErrorId,
+            )}
             className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-name-input"
           />
@@ -130,6 +135,9 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             <p id={nameHintId} className="text-xs text-tertiary" data-testid="edit-role-name-hint">
               {t('nameHint', ROLE_NAME_LENGTHS)}
             </p>
+          )}
+          {canRename && (
+            <RoleCodePreview id={nameCodeId} code={code} testId="edit-role-code-preview" />
           )}
           <FieldError id={nameErrorId} message={errors.name} testId="edit-role-name-error" />
           {(isProtected || isBaseRole) && (

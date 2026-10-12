@@ -1,4 +1,5 @@
 import { forwardRef, type HTMLAttributes } from 'react';
+import { FOCUS_LANDING_CLASSES } from '@/constants/focusStyles';
 import { HEADING_ROLE_CLASSES, type HeadingVariant } from '@/constants/typography';
 import { type UnsafeMarkupProp, withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import { cn } from '@/lib/utils';
@@ -22,7 +23,12 @@ export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(
     return (
       <Tag
         ref={ref}
-        className={cn(HEADING_ROLE_CLASSES[variant], className)}
+        // A heading that can take focus is a landing for it, and shows the app's ring.
+        className={cn(
+          HEADING_ROLE_CLASSES[variant],
+          props.tabIndex !== undefined && FOCUS_LANDING_CLASSES,
+          className,
+        )}
         {...withoutUnsafeMarkup(props)}
       />
     );

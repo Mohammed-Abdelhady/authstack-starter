@@ -6,6 +6,7 @@ import {
   useResendEmailChangeMutation,
 } from '@/modules/users/api/usersApi';
 import { toast } from '@/lib/toast';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 
 /**
@@ -67,12 +68,12 @@ export function useUserActions(): UseUserActionsReturn {
   const t = useTranslations('users.actions');
 
   /**
-   * Update user role. A refusal rejects, so the caller knows it failed and
-   * raises the success message itself.
+   * Update user role. A refusal rejects, so the caller knows it failed, says
+   * why in its confirmation and raises the success message itself.
    */
   const handleRoleChange = useCallback(
     async (userId: string, newRole: string) => {
-      await updateRole({ userId, role: newRole }).unwrap();
+      await showsOwnRefusal(updateRole({ userId, role: newRole })).unwrap();
     },
     [updateRole],
   );
@@ -89,7 +90,9 @@ export function useUserActions(): UseUserActionsReturn {
       onRefused?: (error: unknown) => void,
     ): Promise<boolean> => {
       try {
-        await updateStatus({ userId, isActive }).unwrap();
+        const request = updateStatus({ userId, isActive });
+        // A caller that shows the refusal says it once, in its confirmation.
+        await (onRefused ? showsOwnRefusal(request) : request).unwrap();
         toast.success(
           isActive
             ? t('activateSuccess', { name: userName })

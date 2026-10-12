@@ -1,6 +1,10 @@
 import { auditAccessibility } from './utils/accessibility';
 import { test, expect, API, type FixtureMail } from './fixtures/authenticated';
+import { message } from './utils/messages';
 import { authSelectors as auth } from './utils/selectors';
+
+/** The label of the read-only address on the profile card. */
+const PROFILE_EMAIL_LABEL = 'settings.profile.email';
 
 async function mailCode(
   read: () => Promise<FixtureMail[]>,
@@ -38,26 +42,26 @@ for (const locale of ['en', 'ar'] as const) {
         await expect(page.getByTestId(auth.login.submit)).toBeVisible();
         await auditAccessibility(page, info, 'login');
         await page.getByTestId(auth.login.register).click();
-        await page.getByTestId(auth.register.name).fill('Lifecycle User');
+        // Registration asks for the address alone. The code screen takes the rest.
         await page.getByTestId(auth.register.email).fill(email);
-        await page.getByTestId(auth.register.password).fill('Lifecycle123!');
         await page.getByTestId(auth.register.submit).click();
-        await expect(page.getByTestId('activate-form')).toBeVisible();
+        await expect(page.getByTestId(auth.activate.form)).toBeVisible();
+        await auditAccessibility(page, info, 'activate');
         await page
-          .getByTestId('activate-code-input')
+          .getByTestId(auth.activate.code)
           .fill(await mailCode(fixtureMail, email, 'Verify Your Email Address'));
-        await page.getByTestId('activate-submit').click();
-        await expect(page.getByTestId('welcome-modal')).toBeVisible();
-        await auditAccessibility(page, info, 'welcome');
-        await page.getByTestId('welcome-get-started-button').focus();
-        await page.keyboard.press('Enter');
+        await page.getByTestId(auth.activate.name).fill('Lifecycle User');
+        await page.getByTestId(auth.activate.password).fill('Lifecycle123!');
+        await page.getByTestId(auth.activate.confirmation).fill('Lifecycle123!');
+        await page.getByTestId(auth.activate.submit).click();
+        // Activation signs the person in and goes straight to the dashboard.
         await expect(page).toHaveURL(`http://127.0.0.1:3107/${locale}/dashboard`);
         const profile = await page.request.get(`${API}/user/profile`);
         expect((await profile.json()).data).toMatchObject({ email, name: 'Lifecycle User' });
         await page.goto(`/${locale}/settings`);
         await expect(page.getByTestId('profile-name-input')).toHaveValue('Lifecycle User');
         await expect(page.getByTestId('profile-email-input')).toHaveAccessibleName(
-          locale === 'en' ? 'Email Address' : 'البريد الإلكتروني',
+          message(locale, PROFILE_EMAIL_LABEL),
         );
         await auditAccessibility(page, info, 'settings');
         await page.getByTestId('profile-name-input').fill('Updated Lifecycle');

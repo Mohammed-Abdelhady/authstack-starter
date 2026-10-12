@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { SearchBar } from '@/components/design-system';
 import { Plus, Shield } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
+import { FormRootError } from '@/components/forms';
 import { WILDCARD_PERMISSION } from '@app/core';
 import { FREE_TEXT_SEARCH_CLASSES } from '../../constants/freeText';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
@@ -60,6 +61,11 @@ export interface PermissionSearchDialogProps {
    * Callback when confirm button is clicked
    */
   onConfirm?: () => void;
+
+  /**
+   * Why the last confirm was refused, said above the buttons
+   */
+  refusal?: string | null;
 }
 
 /**
@@ -94,6 +100,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
   showWildcard = true,
   isLoading = false,
   onConfirm,
+  refusal,
 }: PermissionSearchDialogProps) {
   const t = useTranslations('permissions.searchDialog');
   const tSelector = useTranslations('permissions.selector');
@@ -175,8 +182,11 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
   const availableCount = selectedPermissions.filter((p) => !excludedPermissions.includes(p)).length;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-hidden flex flex-col">
+    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-h-[90vh] max-w-4xl overflow-hidden flex flex-col"
+        data-testid="permission-search-dialog"
+      >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>
@@ -243,6 +253,8 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
             </div>
           )}
         </div>
+
+        <FormRootError error={refusal} className="mb-0" testId="add-permissions-error" />
 
         {/* Footer with Selection Summary and Confirm Button */}
         <div className="flex items-center justify-between pt-4 border-t border-border">

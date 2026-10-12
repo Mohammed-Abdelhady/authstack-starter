@@ -15,7 +15,6 @@ import {
   type UnknownAction,
 } from '@reduxjs/toolkit';
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import { getErrorCodeTranslationKey, getStatusCodeTranslationKey, parseApiError } from '@app/core';
 import {
   LocalizedToastMessage,
   type LocalizedToastMessageProps,
@@ -25,11 +24,10 @@ import {
   SUCCESS_STATUS_MAX_EXCLUSIVE,
   SUCCESS_STATUS_MIN,
 } from '@/constants/httpStatus';
-import { ERROR_MESSAGES, STATUS_CODE_MESSAGES, TOAST_DURATION } from '@/constants/toastMessages';
-import { toMessageValues } from '@/i18n/icu-args';
+import { ERROR_MESSAGES, TOAST_DURATION } from '@/constants/toastMessages';
+import { httpStatusOf as httpStatus, isOwnRefusal, refusalMessage } from '@/lib/refusal';
 import { toast } from '@/lib/toast';
 import { authApi } from '@/modules/auth/store/authApi';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 
 /** The query that answers whether the session is still valid. */
 const SESSION_CHECK_ENDPOINT = 'getCurrentUser';
@@ -45,6 +43,7 @@ interface RejectionMeta {
   condition: boolean;
   rejectedWithValue: boolean;
   endpointName?: string;
+  requestId?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -59,20 +58,12 @@ function readMeta(meta: unknown): RejectionMeta {
     condition: record.condition === true,
     rejectedWithValue: record.rejectedWithValue === true,
     endpointName: typeof arg.endpointName === 'string' ? arg.endpointName : undefined,
+    requestId: typeof record.requestId === 'string' ? record.requestId : undefined,
   };
 }
 
 function isSignedIn(state: unknown): boolean {
   return isRecord(state) && isRecord(state.auth) && state.auth.isAuthenticated === true;
-}
-
-/**
- * The HTTP status of a rejection. A proxy answers with HTML the query layer
- * cannot parse, and that rejection still carries the status it came with.
- */
-function httpStatus(error: FetchBaseQueryError): number | undefined {
-  if (typeof error.status === 'number') return error.status;
-  return error.status === 'PARSING_ERROR' ? error.originalStatus : undefined;
 }
 
 function isSuccessStatus(status: number | undefined): boolean {
@@ -81,14 +72,15 @@ function isSuccessStatus(status: number | undefined): boolean {
   );
 }
 
-function statusMessageKey(status: number | undefined): string {
-  return (
-    (status === undefined ? undefined : STATUS_CODE_MESSAGES[status]) ??
-    getStatusCodeTranslationKey(status)
-  );
-}
-
-function durationFor(status: number | undefined): number {
+function durationFor(error: FetchBaseQueryError, status: number | undefined): number {
+  if (error.status === 'FETCH_ERROR') return TOAST_DURATION.NETWORK_ERROR;
+  if (
+    error.status === 'TIMEOUT_ERROR' ||
+    status === HTTP_STATUS.REQUEST_TIMEOUT ||
+    status === HTTP_STATUS.GATEWAY_TIMEOUT
+  ) {
+    return TOAST_DURATION.TIMEOUT_ERROR;
+  }
   const isCritical =
     status === HTTP_STATUS.INTERNAL_SERVER_ERROR || status === HTTP_STATUS.SERVICE_UNAVAILABLE;
   return isCritical ? TOAST_DURATION.CRITICAL_ERROR : TOAST_DURATION.ERROR;
@@ -97,37 +89,14 @@ function durationFor(status: number | undefined): number {
 /** What to tell the person about a rejection the server or the network returned. */
 function announcementFor(error: FetchBaseQueryError): Announcement | null {
   const status = httpStatus(error);
-
   if (error.status === 'PARSING_ERROR' && isSuccessStatus(status)) {
     return null;
   }
-  if (
-    error.status === 'TIMEOUT_ERROR' ||
-    status === HTTP_STATUS.REQUEST_TIMEOUT ||
-    status === HTTP_STATUS.GATEWAY_TIMEOUT
-  ) {
-    return { messageKey: ERROR_MESSAGES.TIMEOUT_ERROR, duration: TOAST_DURATION.TIMEOUT_ERROR };
-  }
-  if (error.status === 'FETCH_ERROR') {
-    // A lost connection fails every request on the page, and it is one thing to say.
-    return {
-      id: ERROR_MESSAGES.NETWORK_ERROR,
-      messageKey: ERROR_MESSAGES.NETWORK_ERROR,
-      duration: TOAST_DURATION.NETWORK_ERROR,
-    };
-  }
-
-  const fallbackKey = statusMessageKey(status);
-  const code = translatableErrorCode(error, '');
-  if (!code) {
-    // The server's own text is English only, so an unknown code shows the status message.
-    return { messageKey: fallbackKey, duration: durationFor(status) };
-  }
   return {
-    messageKey: getErrorCodeTranslationKey(code),
-    fallbackKey,
-    values: toMessageValues(parseApiError(error).details),
-    duration: durationFor(status),
+    ...refusalMessage(error),
+    // A lost connection fails every request on the page, and it is one thing to say.
+    id: error.status === 'FETCH_ERROR' ? ERROR_MESSAGES.NETWORK_ERROR : undefined,
+    duration: durationFor(error, status),
   };
 }
 
@@ -157,9 +126,13 @@ export const errorInterceptor: Middleware<object, unknown, InterceptorDispatch> 
       return next(action);
     }
 
+    // Its caller shows the refusal where the person is looking.
+    const isQuiet = isOwnRefusal(meta.requestId);
+
     if (!meta.rejectedWithValue) {
       // Thrown instead of returned, for example a reply the client could not read.
-      announce({ messageKey: ERROR_MESSAGES.UNKNOWN_ERROR, duration: TOAST_DURATION.ERROR });
+      if (!isQuiet)
+        announce({ messageKey: ERROR_MESSAGES.UNKNOWN_ERROR, duration: TOAST_DURATION.ERROR });
       return next(action);
     }
 
@@ -181,7 +154,7 @@ export const errorInterceptor: Middleware<object, unknown, InterceptorDispatch> 
       return result;
     }
 
-    const announcement = announcementFor(error);
+    const announcement = isQuiet ? null : announcementFor(error);
     if (announcement) {
       announce(announcement);
     }
