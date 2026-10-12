@@ -12,11 +12,11 @@ import {
 const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
 
 // feature:totp,passkeys,magic-link:start
-/** The files a feature owns. A project that gains the feature gets its file late. */
+/** The files a feature owns. A project that gains the feature gets them late. */
 const FEATURE_FILES = [
-  '0008_two_factor.sql', // feature:totp
-  '0009_passkeys.sql', // feature:passkeys
-  '0013_magic_links.sql', // feature:magic-link
+  ['0008_two_factor.sql'], // feature:totp
+  ['0009_passkeys.sql'], // feature:passkeys
+  ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'], // feature:magic-link
 ];
 // feature:totp,passkeys,magic-link:end
 
@@ -85,8 +85,9 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
     'applies a feature file after higher numbers when the project gains the feature, and then serves',
     async () => {
       const seen: Record<string, unknown> = {};
-      for (const file of FEATURE_FILES) {
-        const without = EVERY_MIGRATION.filter((name) => name !== file);
+      for (const files of FEATURE_FILES) {
+        const [file] = files;
+        const without = EVERY_MIGRATION.filter((name) => !files.includes(name));
         const pool = await emptyDatabase();
         await applyPostgresMigrations(pool, MIGRATION_LOCK_WAIT_MS, without);
 
@@ -102,17 +103,22 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
         };
       }
 
-      const gained = (file: string) => ({
+      const gained = (...files: string[]) => ({
         servedWithout: 'serves',
         refusedWith: 'StorageNotReadyError',
-        up: { exit: 0, said: [`Applied: ${file}`] },
+        up: { exit: 0, said: [`Applied: ${files.join(', ')}`] },
         recorded: EVERY_MIGRATION,
         after: 'serves',
       });
       expect(seen).toEqual({
         '0008_two_factor.sql': gained('0008_two_factor.sql'), // feature:totp
         '0009_passkeys.sql': gained('0009_passkeys.sql'), // feature:passkeys
-        '0013_magic_links.sql': gained('0013_magic_links.sql'), // feature:magic-link
+        // feature:magic-link:start
+        '0013_magic_links.sql': gained(
+          '0013_magic_links.sql',
+          '0015_magic_link_request_nonce.sql',
+        ),
+        // feature:magic-link:end
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,
@@ -174,6 +180,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
             'user_agent',
             'redirect',
             'created_at',
+            'request_nonce_hash',
           ],
           indexes: [
             'pending_magic_link_email_created',

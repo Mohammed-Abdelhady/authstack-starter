@@ -27,6 +27,7 @@ export const EVERY_MIGRATION = [
   '0011_session_listing.sql',
   '0012_retention_indexes.sql',
   '0013_magic_links.sql', // feature:magic-link
+  '0015_magic_link_request_nonce.sql', // feature:magic-link
 ];
 
 export interface MigrateDatabases {

@@ -1,6 +1,7 @@
 import { hashMagicLinkToken } from '../utils/magic-link-token.util';
 import {
   LINK_REQUEST,
+  LINK_RESPONSE,
   linkServices,
   LinkServices,
   MAGIC_LINK_CONTRACT_CASE_TIMEOUT_MS,
@@ -24,7 +25,7 @@ export function magicLinkCases(harness: MagicLinkHarnessSource): void {
   });
 
   const request = (email = EMAIL) =>
-    services.service.request({ email }, LINK_REQUEST);
+    services.service.request({ email }, LINK_REQUEST, LINK_RESPONSE);
 
   it(
     'stores the hash of the mailed token, unspent, for one link lifetime',

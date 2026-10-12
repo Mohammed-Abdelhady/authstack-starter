@@ -5,7 +5,7 @@ import {
   PASSWORD_RESET_EMAIL_FAILED_MESSAGE,
 } from '../../src/auth/constants/auth-messages';
 // feature:magic-link:start
-import { randomUUID } from 'node:crypto';
+import { MAIL_COUNTER_PURPOSE } from '../../src/auth/constants/registration';
 import { MAGIC_LINK_MAX_PER_HOUR } from '../../src/auth/magic-link/magic-link-limits.harness-spec';
 import { MAGIC_LINK_SENT_MESSAGE } from '../../src/auth/magic-link/constants/magic-link.constants';
 // feature:magic-link:end
@@ -16,6 +16,7 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
+import { VOLATILE_HEADERS } from '../utils/stable-answer'; // feature:magic-link
 import { expectSameAnswer } from '../utils/stable-answer';
 
 /** Success body every address-request route returns. */
@@ -70,17 +71,37 @@ describe('Address-request routes with a failing mail boundary (e2e)', () => {
   }
 
   // feature:magic-link:start
-  async function seedCappedMagicLinks(email: string): Promise<void> {
-    await e2e.state.auth.storeMagicLinks(
-      Array.from({ length: MAGIC_LINK_MAX_PER_HOUR }, () => ({
-        email,
-        tokenHash: randomUUID(),
-        expiresAt: new Date(TEST_NOW.getTime() + 15 * 60 * 1000),
-        consumedAt: null,
-        createdAt: TEST_NOW,
-        updatedAt: TEST_NOW,
-      })),
-    );
+  /** The address has one link of its hour left. */
+  async function seedLastMagicLinkOfTheHour(email: string): Promise<void> {
+    await e2e.state.auth.storeMailCounter({
+      email,
+      purpose: MAIL_COUNTER_PURPOSE.MAGIC_LINK,
+      mailedCodes: MAGIC_LINK_MAX_PER_HOUR - 1,
+    });
+  }
+
+  /**
+   * A link request always leaves the browser its nonce, so two answers are
+   * the same when that cookie differs in its value and in nothing else.
+   */
+  function expectSameLinkAnswer(actual: Response, expected: Response): void {
+    const seen = (response: Response) => ({
+      status: response.status,
+      text: response.text,
+      cookies: (response.get('Set-Cookie') ?? []).map((cookie) =>
+        cookie.replace(/^([^=]+)=[^;]*/, '$1=').replace(/; Expires=[^;]*/, ''),
+      ),
+      headers: Object.fromEntries(
+        Object.entries(response.headers).filter(
+          ([name]) =>
+            name !== 'set-cookie' && !VOLATILE_HEADERS.has(name.toLowerCase()),
+        ),
+      ),
+    });
+    expect(seen(actual)).toEqual(seen(expected));
+    expect(seen(actual).cookies).toEqual([
+      'ml_nonce=; Max-Age=900; Path=/; HttpOnly; SameSite=Strict',
+    ]);
   }
   // feature:magic-link:end
 
@@ -207,7 +228,7 @@ describe('Address-request routes with a failing mail boundary (e2e)', () => {
     const known = await post('/api/auth/magic-link/request', { email });
     expect((await e2e.captureMail()).length - knownBefore).toBe(1);
 
-    expectSameAnswer(known, unknown);
+    expectSameLinkAnswer(known, unknown);
     expect(unknown.body as AddressRequestResponse).toEqual({
       success: true,
       data: { email },
@@ -232,7 +253,7 @@ describe('Address-request routes with a failing mail boundary (e2e)', () => {
     const deleted = await post('/api/auth/magic-link/request', { email });
     expect((await e2e.captureMail()).length - deletedBefore).toBe(0);
 
-    expectSameAnswer(deleted, mailed);
+    expectSameLinkAnswer(deleted, mailed);
     expect(deleted.body as AddressRequestResponse).toEqual({
       success: true,
       data: { email },
@@ -243,17 +264,17 @@ describe('Address-request routes with a failing mail boundary (e2e)', () => {
   it('answers a magic-link request over the hourly cap the same as a mailed one', async () => {
     const email = 'magic-cap-enum@example.test';
 
+    await seedLastMagicLinkOfTheHour(email);
+
     const mailedBefore = (await e2e.captureMail()).length;
     const mailed = await post('/api/auth/magic-link/request', { email });
     expect((await e2e.captureMail()).length - mailedBefore).toBe(1);
-
-    await seedCappedMagicLinks(email);
 
     const cappedBefore = (await e2e.captureMail()).length;
     const capped = await post('/api/auth/magic-link/request', { email });
     expect((await e2e.captureMail()).length - cappedBefore).toBe(0);
 
-    expectSameAnswer(capped, mailed);
+    expectSameLinkAnswer(capped, mailed);
     expect(capped.body as AddressRequestResponse).toEqual({
       success: true,
       data: { email },

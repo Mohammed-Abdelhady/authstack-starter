@@ -8,6 +8,9 @@ import {
   MAGIC_LINK_MAX_PER_HOUR,
 } from '../../magic-link-limits.harness-spec';
 import { MagicLinkService } from '../../magic-link.service';
+import { MagicLinkBrowserService } from '../../magic-link-browser.service';
+import { SessionCookieService } from '../../../services/sessions/session-cookie.service';
+import { Sessions } from '../../../services/sessions/sessions';
 import { PendingMagicLink } from './schemas/pending-magic-link.schema';
 import { MagicLinkStore } from '../../stores/magic-link.store';
 import {
@@ -87,6 +90,7 @@ export const MOCK_RESPONSE = createResponseMock({
     ip: '127.0.0.1',
   },
   cookie: jest.fn(),
+  clearCookie: jest.fn(),
 });
 
 const CONFIG_VALUES: Record<string, string | number> = {
@@ -146,6 +150,14 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
         ),
       },
       { provide: SignInService, useValue: signInService },
+      MagicLinkBrowserService,
+      SessionCookieService,
+      {
+        provide: Sessions,
+        useValue: partialMock<Sessions>({
+          validateSessionWithoutExtendingIdle: () => Promise.resolve(null),
+        }),
+      },
       { provide: Clock, useValue: clock },
     ],
   }).compile();

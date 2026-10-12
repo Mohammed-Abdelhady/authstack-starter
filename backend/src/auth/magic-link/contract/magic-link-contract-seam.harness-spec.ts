@@ -33,9 +33,13 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
   });
 
   const request = (email = EMAIL) =>
-    services.service.request({ email }, LINK_REQUEST);
+    services.service.request({ email }, LINK_REQUEST, LINK_RESPONSE);
   const verify = (token = TOKEN) =>
-    services.service.verify({ token }, LINK_RESPONSE);
+    services.service.verify(
+      { token, confirm: true },
+      LINK_REQUEST,
+      LINK_RESPONSE,
+    );
   const seedLink = (
     overrides: {
       tokenHash?: string;

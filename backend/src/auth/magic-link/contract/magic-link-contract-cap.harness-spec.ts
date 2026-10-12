@@ -3,6 +3,8 @@ import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
 import { MAGIC_LINK_SENT_MESSAGE } from '../constants/magic-link.constants';
 import {
   LINK_REQUEST,
+  LINK_RESPONSE,
+  linkBrowser,
   linkServices,
   LinkServices,
   MagicLinkHarnessSource,
@@ -29,6 +31,7 @@ interface PathWork {
   mailsStarted: number;
   mailsFinishedBeforeTheAnswer: number;
   linksStored: number;
+  cookiesLeft: string[];
 }
 
 /** The hourly cap, and the work of every request whether or not it mails. */
@@ -40,7 +43,7 @@ export function magicLinkCapCases(harness: MagicLinkHarnessSource): void {
   });
 
   const request = (email = EMAIL) =>
-    services.service.request({ email }, LINK_REQUEST);
+    services.service.request({ email }, LINK_REQUEST, LINK_RESPONSE);
 
   /** One request, with the work it did before it answered. */
   const work = async (email = EMAIL): Promise<PathWork> => {
@@ -50,7 +53,12 @@ export function magicLinkCapCases(harness: MagicLinkHarnessSource): void {
     const finished = services.finishedMail();
     const links = await harness().linkCount();
 
-    const answer = await request(email);
+    const browser = linkBrowser();
+    const answer = await services.service.request(
+      { email },
+      browser.request,
+      browser.response,
+    );
     const mailsFinishedBeforeTheAnswer = services.finishedMail() - finished;
 
     return {
@@ -59,6 +67,7 @@ export function magicLinkCapCases(harness: MagicLinkHarnessSource): void {
       mailsStarted: services.mail.length - mails,
       mailsFinishedBeforeTheAnswer,
       linksStored: (await harness().linkCount()) - links,
+      cookiesLeft: browser.written.map(({ name }) => name),
     };
   };
 
@@ -68,6 +77,7 @@ export function magicLinkCapCases(harness: MagicLinkHarnessSource): void {
     mailsStarted,
     mailsFinishedBeforeTheAnswer: 0,
     linksStored: 1,
+    cookiesLeft: ['ml_nonce'],
   });
 
   /** How many of the links stored so far can still be spent. */

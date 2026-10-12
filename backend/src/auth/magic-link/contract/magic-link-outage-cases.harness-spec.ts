@@ -25,6 +25,7 @@ export function magicLinkStatements(
         tokenHash: 'hash',
         expiresAt: TEST_NOW,
       }),
+    'link.findUnspentLink': () => links.findUnspentLink('hash'),
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
     'link.deleteExpiredBefore': () => links.deleteExpiredBefore(TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
@@ -38,6 +39,7 @@ export function magicLinkStatements(
 export const MAGIC_LINK_OUTAGES: Record<string, string> = {
   'link.takeRequestSlot': UNAVAILABLE,
   'link.insertLink': UNAVAILABLE,
+  'link.findUnspentLink': UNAVAILABLE,
   'link.claimLink': UNAVAILABLE,
   'link.deleteExpiredBefore': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,

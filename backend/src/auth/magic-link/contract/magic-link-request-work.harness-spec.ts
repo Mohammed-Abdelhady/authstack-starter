@@ -1,7 +1,11 @@
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { MagicLinkAccounts } from '../stores/magic-link-accounts';
 import { MagicLinkStore } from '../stores/magic-link.store';
-import { LINK_REQUEST, linkServices } from './magic-link-contract.harness-spec';
+import {
+  LINK_REQUEST,
+  LINK_RESPONSE,
+  linkServices,
+} from './magic-link-contract.harness-spec';
 
 /** One database's adapters, with a count of the statements it was sent. */
 export interface RequestWorkProbe {
@@ -47,7 +51,7 @@ export function describeRequestWork(
       await probe.seedAccount({ email: 'gone@example.test', isDeleted: true });
       const statementsFor = async (email: string): Promise<number> => {
         probe?.takeStatements();
-        await service.request({ email }, LINK_REQUEST);
+        await service.request({ email }, LINK_REQUEST, LINK_RESPONSE);
         return probe?.takeStatements() ?? 0;
       };
 

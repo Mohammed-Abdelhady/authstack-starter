@@ -24,6 +24,9 @@ describe('MongoDB magic link statements that commit by themselves', () => {
     const links = new MongoMagicLinkStore(
       createModelMock<Model<PendingMagicLinkDocument>>({
         create: away(),
+        findOne: jest.fn().mockReturnValue({
+          select: () => ({ lean: away() }),
+        }),
         findOneAndUpdate: away(),
         deleteMany: away(),
       }),

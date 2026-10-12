@@ -48,7 +48,11 @@ describe('MagicLinkService logging with real repositories', () => {
     await runWithRequestContext('req-ml', () =>
       fixture.module
         .get(MagicLinkService)
-        .request({ email: LOGGING_EMAIL }, loggingResponse().request),
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        ),
     );
     await fixture.module.get(MailDispatcherService).flush();
     expect(log).toHaveBeenCalled();
@@ -59,7 +63,11 @@ describe('MagicLinkService logging with real repositories', () => {
     for (let mailed = 0; mailed < 5; mailed += 1) {
       await fixture.module
         .get(MagicLinkService)
-        .request({ email: LOGGING_EMAIL }, loggingResponse().request);
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        );
     }
     const log = captureLogs();
     const warn = jest
@@ -68,7 +76,11 @@ describe('MagicLinkService logging with real repositories', () => {
     await runWithRequestContext('req-cap', () =>
       fixture.module
         .get(MagicLinkService)
-        .request({ email: LOGGING_EMAIL }, loggingResponse().request),
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        ),
     );
     expect(warn).toHaveBeenCalled();
     expect(loggedCalls(log, warn)).toContain('requestId=req-cap');
@@ -88,7 +100,11 @@ describe('MagicLinkService logging with real repositories', () => {
     const log = captureLogs();
     await fixture.module
       .get(MagicLinkService)
-      .verify({ token: MAGIC_LINK_TOKEN }, loggingResponse().response);
+      .verify(
+        { token: MAGIC_LINK_TOKEN, confirm: true },
+        loggingResponse().request,
+        loggingResponse().response,
+      );
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
@@ -110,7 +126,11 @@ describe('MagicLinkService logging with real repositories', () => {
     const log = captureLogs();
     await fixture.module
       .get(MagicLinkService)
-      .verify({ token: MAGIC_LINK_TOKEN }, loggingResponse().response);
+      .verify(
+        { token: MAGIC_LINK_TOKEN, confirm: true },
+        loggingResponse().request,
+        loggingResponse().response,
+      );
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
