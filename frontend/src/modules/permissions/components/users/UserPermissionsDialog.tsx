@@ -31,6 +31,13 @@ import { FormRootError } from '@/components/forms';
 import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { cn } from '@/lib/utils';
 
+const SERVER_ERROR_STATUS_MIN = 500;
+
+function outcomeUnknown(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return true;
+  return typeof error.status !== 'number' || error.status >= SERVER_ERROR_STATUS_MIN;
+}
+
 export interface UserPermissionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,6 +58,7 @@ export function UserPermissionsDialog({
   onCloseAutoFocus,
 }: UserPermissionsDialogProps) {
   const t = useTranslations('permissions.dialog');
+  const tCommon = useTranslations('common');
   // Component will remount when userId changes due to key prop on Dialog
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
@@ -68,22 +76,27 @@ export function UserPermissionsDialog({
   const [removePermission] = useRemovePermissionMutation();
   // One flag for the whole run of additions: the store's own drops between two of them.
   const [isAdding, setIsAdding] = useState(false);
+  const addingPermissions = useRef(false);
   // The permission being removed, so only its own button says so.
   const [removing, setRemoving] = useState<string | null>(null);
+  const removingPermission = useRef<string | null>(null);
   const isRemoving = removing !== null;
   const addRefusal = useDialogRefusal();
   const removeRefusal = useDialogRefusal();
   const directHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleAddPermissions = async () => {
-    if (!userId || availablePermissions.length === 0) return;
+    if (!userId || availablePermissions.length === 0 || addingPermissions.current) return;
 
+    addingPermissions.current = true;
     addRefusal.clear();
     setIsAdding(true);
+    let acceptedCount = 0;
     try {
       // Add permissions one by one
       for (const permission of availablePermissions) {
         await showsOwnRefusal(addPermission({ userId, permission })).unwrap();
+        acceptedCount += 1;
       }
 
       toast.success(t('addSuccess', { count: availablePermissions.length }));
@@ -91,20 +104,20 @@ export function UserPermissionsDialog({
       // Reset state
       setSelectedPermissions([]);
       setSearchDialogOpen(false);
-
-      // Refresh data
-      refetch();
     } catch (error) {
+      if (acceptedCount > 0 || outcomeUnknown(error)) await refetch();
       addRefusal.show(error);
       reportUnlessHandled(error);
     } finally {
+      addingPermissions.current = false;
       setIsAdding(false);
     }
   };
 
   const handleRemovePermission = async (permission: string) => {
-    if (!userId) return;
+    if (!userId || removingPermission.current !== null) return;
 
+    removingPermission.current = permission;
     removeRefusal.clear();
     setRemoving(permission);
     try {
@@ -113,13 +126,12 @@ export function UserPermissionsDialog({
       toast.success(t('removeSuccess'));
       // The row and its button leave with the permission.
       directHeadingRef.current?.focus();
-
-      // Refresh data
-      refetch();
     } catch (error) {
+      if (outcomeUnknown(error)) await refetch();
       removeRefusal.show(error);
       reportUnlessHandled(error);
     } finally {
+      removingPermission.current = null;
       setRemoving(null);
     }
   };
@@ -155,11 +167,12 @@ export function UserPermissionsDialog({
 
           <div className="space-y-6 py-6">
             {isLoading || isLoadingRole ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-12" role="status">
                 <Loader2
                   className="h-8 w-8 motion-safe:animate-spin text-muted-foreground"
                   aria-hidden="true"
                 />
+                <span className="sr-only">{tCommon('loading')}</span>
               </div>
             ) : (
               <>

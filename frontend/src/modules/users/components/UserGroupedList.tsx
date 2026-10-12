@@ -12,7 +12,7 @@ export interface UserGroupedListProps {
   collapsedSections: Set<string>;
   onToggleSection: (sectionId: string) => void;
   shouldAnimate: boolean;
-  onManagePermissions: (userId: string, opener: HTMLElement | null) => void;
+  onManagePermissions: (userId: string, opener: HTMLElement | null, userName: string) => void;
 }
 
 export function UserGroupedList({

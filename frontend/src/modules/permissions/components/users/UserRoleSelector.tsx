@@ -53,6 +53,7 @@ export function UserRoleSelector({
 }: UserRoleSelectorProps) {
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
+  const tRoles = useTranslations('roles.detail');
   const refusalText = useRefusalText();
   // Why the last attempt was refused, said in the confirmation, which stays open.
   const [changeRefusal, setChangeRefusal] = useState<string | null>(null);
@@ -177,9 +178,12 @@ export function UserRoleSelector({
                 data-testid={`role-option-${role.slug}`}
               >
                 <div className="flex items-center gap-2">
-                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
-                  {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
+                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" aria-hidden="true" />}
+                  {role.isProtected && (
+                    <ShieldAlert className="h-3 w-3 text-status-warning" aria-hidden="true" />
+                  )}
                   <span dir="auto">{role.name}</span>
+                  {role.isProtected && <span className="sr-only">{tRoles('protectedBadge')}</span>}
                 </div>
               </SelectItem>
             );
