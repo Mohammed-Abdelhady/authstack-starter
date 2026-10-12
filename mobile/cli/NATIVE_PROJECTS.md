@@ -47,6 +47,19 @@ platform :ios, '16.4'
 Call `use_expo_modules!` as the first line inside `target 'MobileCli' do`,
 before `use_native_modules!`.
 
+The Google SDK needs module maps for its Swift dependencies when CocoaPods uses
+static libraries. Add these declarations inside the app target before installing
+pods:
+
+```ruby
+pod 'AppCheckCore', :modular_headers => true
+pod 'GoogleUtilities', :modular_headers => true
+pod 'RecaptchaInterop', :modular_headers => true
+```
+
+Expo's Google config plugin adds these declarations during prebuild. The bare
+project requires the same setup. See the [Google SDK troubleshooting guide](https://react-native-nitro-google-sign-in.github.io/docs/guide/troubleshooting#ios-pod-install-fails--appcheckcore--recaptchainterop-expo-56).
+
 ### Info.plist
 
 In `mobile/cli/ios/MobileCli/Info.plist`:
