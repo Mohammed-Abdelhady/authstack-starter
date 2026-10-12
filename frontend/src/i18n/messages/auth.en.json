@@ -69,8 +69,8 @@
       "signIn": "Sign in",
       "magicLinkOnlyTitle": "No account to create",
       "magicLinkOnlyBody": "This site signs you in with a link sent by email. The first link you use creates your account.",
-      "providerOnlyTitle": "No account to create",
-      "providerOnlyBody": "This site signs you in through one of the providers on the sign-in page. Your account is created the first time you use one.",
+      "providerOnlyTitle": "Sign in to continue",
+      "providerOnlyBody": "Use an available method on the sign-in page. Passkeys and some providers require an existing account.",
       "divider": "Or sign up with e-mail",
       "errors": {
         "nameRequired": "Name is required",
