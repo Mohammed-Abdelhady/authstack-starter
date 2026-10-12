@@ -1,3 +1,5 @@
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -44,7 +46,9 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
+  extends
+    SafeMarkupProps<React.ButtonHTMLAttributes<HTMLButtonElement>>,
+    VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   /** Its own request is running: it keeps focus and ignores presses. */
   busy?: boolean;
@@ -57,7 +61,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        {...props}
+        {...withoutUnsafeMarkup(props)}
         {...busyPressProps(busy, onClick)}
       />
     );

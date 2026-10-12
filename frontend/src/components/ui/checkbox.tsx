@@ -1,5 +1,8 @@
 'use client';
 
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
+
 import * as React from 'react';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
 import { Check } from 'lucide-react';
@@ -9,7 +12,7 @@ import { BUSY_PRESS_CLASSES, busyPressProps } from './busy';
 
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & {
+  SafeMarkupProps<React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>> & {
     /** The request of its form is running: it keeps focus and cannot be changed. */
     busy?: boolean;
   }
@@ -23,7 +26,7 @@ const Checkbox = React.forwardRef<
       "relative before:absolute before:-inset-1 before:content-['']",
       className,
     )}
-    {...props}
+    {...withoutUnsafeMarkup(props)}
     {...busyPressProps(busy, onClick)}
   >
     <CheckboxPrimitive.Indicator className={cn('grid place-content-center text-current')}>

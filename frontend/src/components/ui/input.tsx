@@ -1,3 +1,5 @@
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { SafeMarkupProps } from '@/types/markup';
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
@@ -10,7 +12,7 @@ export const INPUT_BASE_CLASSES = cn(
   TEXT_CONTROL_FONT_SIZE,
 );
 
-export interface InputProps extends React.ComponentProps<'input'> {
+export interface InputProps extends SafeMarkupProps<React.ComponentProps<'input'>> {
   /** The request of its form is running: it keeps focus and cannot be edited. */
   busy?: boolean;
 }
@@ -22,7 +24,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         className={cn(INPUT_BASE_CLASSES, className)}
         ref={ref}
-        {...props}
+        {...withoutUnsafeMarkup(props)}
         {...busyFieldProps(busy, readOnly)}
       />
     );
