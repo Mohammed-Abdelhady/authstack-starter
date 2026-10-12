@@ -1,0 +1,66 @@
+import { nativeProviderInput } from './native-provider-input';
+
+const NONCE = 'a'.repeat(64);
+describe('native provider request credentials', () => {
+  it.each([
+    {
+      kind: 'googleIdentityToken',
+      identityToken: 'signed-google-token',
+      nonceDigest: NONCE,
+    },
+    {
+      kind: 'appleIdentityTokenAndCode',
+      identityToken: 'signed-apple-token',
+      authorizationCode: 'one-use-code',
+      nonceDigest: NONCE,
+    },
+    {
+      kind: 'facebookLimitedToken',
+      authenticationToken: 'signed-limited-token',
+      nonceDigest: NONCE,
+    },
+    { kind: 'facebookAccessToken', accessToken: 'opaque-access-token' },
+  ])('accepts the supported provider artifact %j', (credential) => {
+    expect(nativeProviderInput(credential)).toEqual(credential);
+  });
+
+  it.each([
+    null,
+    undefined,
+    [],
+    {},
+    { kind: 'system' },
+    { kind: 'googleIdentityToken', identityToken: '', nonceDigest: NONCE },
+    {
+      kind: 'googleIdentityToken',
+      identityToken: 'token',
+      nonceDigest: 'bad-nonce',
+    },
+    {
+      kind: 'googleIdentityToken',
+      identityToken: 'token',
+      nonceDigest: NONCE,
+      email: 'untrusted@example.test',
+    },
+    { kind: 'facebookAccessToken', accessToken: 'token', nonceDigest: NONCE },
+    { kind: 'facebookAccessToken', accessToken: ' '.repeat(4) },
+    { kind: 'facebookAccessToken', accessToken: 't'.repeat(16_385) },
+    {
+      kind: 'appleIdentityTokenAndCode',
+      identityToken: 'token',
+      authorizationCode: 'c'.repeat(65),
+      nonceDigest: NONCE,
+    },
+  ])('rejects malformed or excess input %j', (credential) => {
+    expect(() => nativeProviderInput(credential)).toThrow();
+  });
+
+  it.each([16_383, 16_384])('accepts a token of %i characters', (length) => {
+    expect(
+      nativeProviderInput({
+        kind: 'facebookAccessToken',
+        accessToken: 't'.repeat(length),
+      }),
+    ).toEqual({ kind: 'facebookAccessToken', accessToken: 't'.repeat(length) });
+  });
+});
