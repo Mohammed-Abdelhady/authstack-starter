@@ -15,7 +15,7 @@ import { ErrorCode } from '../../../../common/enums/error-code.enum';
 import { OAuthProviderStrategy } from '../../oauth-provider.interface';
 import { MONGO_PROVIDER_SIGN_IN_STORE } from './mongo-provider-sign-in.store';
 import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
-import { Passkey } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
+import { Passkey } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema'; // feature:passkeys
 import { MONGO_ACCOUNT_PROFILE_STORE } from '../../../../user/persistence/mongo/mongo-account-stores';
 import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
 import {
@@ -97,7 +97,7 @@ describe('OAuthService linking', () => {
         OAuthService,
         { provide: getModelToken(User.name), useValue: userModel },
         { provide: getModelToken(Role.name), useValue: roleModel },
-        { provide: getModelToken(Passkey.name), useValue: {} },
+        { provide: getModelToken(Passkey.name), useValue: {} }, // feature:passkeys
         MONGO_ACCOUNT_PROFILE_STORE,
         MONGO_PROVIDER_SIGN_IN_STORE,
         { provide: SignInCompletion, useValue: signIn },
