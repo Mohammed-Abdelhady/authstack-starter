@@ -114,6 +114,7 @@ describe('validateEnvironment', () => {
       /at least 32 characters/,
     );
   });
+
   // feature:oauth-core,passkeys:end
 
   it('accepts API_URL and OAUTH_CALLBACK_BASE_URL', () => {

@@ -5,10 +5,8 @@ import { SecondFactorChallengeStore } from '../../stores/second-factor-challenge
 import { SecondFactorSignIn } from '../../stores/second-factor-sign-in';
 import { SecondFactorStore } from '../../stores/second-factor.store';
 import { PostgresSecondFactorChallengeStore } from './postgres-second-factor-challenge.store';
-import {
-  PostgresSecondFactorSignIn,
-  PostgresSecondFactorStore,
-} from './postgres-second-factor.store';
+import { PostgresSecondFactorStore } from './postgres-second-factor.store';
+import { PostgresSecondFactorSignIn } from './postgres-second-factor-sign-in';
 
 /** What every sign-in path needs of the second factor, on PostgreSQL. */
 export const POSTGRES_SECOND_FACTOR_STORES: Provider[] = [

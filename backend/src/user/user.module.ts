@@ -1,4 +1,6 @@
 import { CommonModule } from '../common/common.module';
+import { MailModule } from '../mail/mail.module';
+import { SecurityNoticeService } from './services/security-notice.service';
 import { Module, forwardRef } from '@nestjs/common';
 import { UserProfileController } from './user-profile.controller';
 import { UserSessionsController } from './user-sessions.controller';
@@ -20,6 +22,7 @@ import { AccountSessions } from './stores/account-sessions';
 @Module({
   imports: [
     CommonModule,
+    MailModule,
     ...USER_PERSISTENCE_IMPORTS,
     forwardRef(() => AuthModule),
     SessionModule,
@@ -31,6 +34,7 @@ import { AccountSessions } from './stores/account-sessions';
   ],
   providers: [
     UserProfileService,
+    SecurityNoticeService,
     UserSessionsService,
     UserPermissionsService,
     SignInMethodRule,
@@ -42,6 +46,7 @@ import { AccountSessions } from './stores/account-sessions';
     ...USER_PERSISTENCE_IMPORTS,
     AccountSessions,
     UserProfileService,
+    SecurityNoticeService,
     UserSessionsService,
     UserPermissionsService,
     SignInMethodRule,

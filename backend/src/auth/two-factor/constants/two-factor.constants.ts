@@ -1,8 +1,9 @@
 import { hostCookieName } from '../../utils/cookie-name.util';
 import { SENSITIVE_ACTION_WINDOW_MS } from '../../../session/constants/session-policy';
+import { APP_NAME } from '../../../common/constants/app';
 
 /** Name shown next to the account in an authenticator app. */
-export const TWO_FACTOR_ISSUER = 'Auth Boilerplate';
+export const TWO_FACTOR_ISSUER = APP_NAME;
 
 /** Steps either side of the current one that a submitted code may fall in. */
 export const TWO_FACTOR_WINDOW = 1;

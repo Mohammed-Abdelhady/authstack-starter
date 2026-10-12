@@ -118,6 +118,12 @@ describe('provider link start with both credentials (e2e)', () => {
       answer: { status: 'ok', code: null },
       linked: true,
     });
+    expect(await e2e.captureMail()).toMatchObject([
+      {
+        to: SEED_USER.email,
+        subject: 'A sign-in provider was added',
+      },
+    ]);
   });
 
   it('refuses the callback when the session that started the link was signed out since', async () => {
@@ -150,6 +156,7 @@ describe('provider link start with both credentials (e2e)', () => {
       answer: { status: 'error', code: 'PROVIDER_ALREADY_LINKED' },
       linked: true,
     });
+    expect(await e2e.captureMail()).toHaveLength(1);
   });
 
   it('refuses a link start carrying both a cookie and a bearer token', async () => {

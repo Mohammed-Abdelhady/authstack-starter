@@ -73,6 +73,9 @@ export interface Configuration {
   };
   passkeys: {
     enabled: boolean;
+    challengeSecret?: string;
+    previousChallengeSecret?: string;
+    legacyChallengeUntil?: string;
     rpId: string;
     rpName: string;
     origin: string;
@@ -210,6 +213,9 @@ const configuration = (): Configuration => {
     },
     passkeys: {
       enabled: process.env.PASSKEYS_ENABLED !== 'false',
+      challengeSecret: process.env.PASSKEY_CHALLENGE_SECRET,
+      previousChallengeSecret: process.env.PASSKEY_CHALLENGE_SECRET_PREVIOUS,
+      legacyChallengeUntil: process.env.PASSKEY_CHALLENGE_LEGACY_UNTIL,
       rpId: process.env.WEBAUTHN_RP_ID || clientUrlPart(clientUrl, 'hostname'),
       rpName: process.env.WEBAUTHN_RP_NAME || APP_NAME,
       // Through the same reader as the default: a configured origin with a

@@ -7,7 +7,6 @@ import {
 import {
   TOTP_DIGITS,
   TOTP_STEP_SECONDS,
-  TWO_FACTOR_ISSUER,
 } from '../constants/two-factor.constants';
 
 /**
@@ -61,10 +60,10 @@ describe('totp adapter', () => {
       expect(url.protocol).toBe('otpauth:');
       expect(url.host).toBe('totp');
       expect(decodeURIComponent(url.pathname)).toBe(
-        `/${TWO_FACTOR_ISSUER}:user@example.com`,
+        '/Auth App:user@example.com',
       );
       expect(url.searchParams.get('secret')).toBe(secret);
-      expect(url.searchParams.get('issuer')).toBe(TWO_FACTOR_ISSUER);
+      expect(url.searchParams.get('issuer')).toBe('Auth App');
     });
 
     it('should leave out the step and the digits, which are the defaults', () => {

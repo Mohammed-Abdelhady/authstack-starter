@@ -21,6 +21,10 @@ import { assertValidId } from '../user/utils/user-lookup.util';
 import { PasswordSignInStore } from './stores/password-sign-in.store';
 import { generateVerificationCode } from './utils/verification-code.util';
 import { MAIL_COUNTER_PURPOSE } from './constants/registration';
+import {
+  SECURITY_NOTICE,
+  SecurityNoticeService,
+} from '../user/services/security-notice.service';
 
 /**
  * Password sign-in and the password lifecycle. The sign-up code flows live in
@@ -40,6 +44,7 @@ export class AuthService {
     private readonly passwordResetCodeService: PasswordResetCodeService,
     private readonly mailCounterService: MailCounterService,
     private readonly signInService: SignInCompletion,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   async login(
@@ -196,6 +201,7 @@ export class AuthService {
     await this.accounts.storeNewPassword(user, hashedPassword);
 
     await this.sessionService.invalidateAllSessions(user.id);
+    this.notices?.defer(user.id, SECURITY_NOTICE.PASSWORD_RESET);
     this.logger.log(`Password reset successful: userId=${user.id}`);
 
     return ResetPasswordResponseDto.success();
