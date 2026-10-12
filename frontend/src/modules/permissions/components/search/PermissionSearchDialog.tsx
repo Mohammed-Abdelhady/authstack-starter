@@ -18,8 +18,10 @@ import { Alert } from '@/components/ui/alert';
 import { FormRootError } from '@/components/forms';
 import { WILDCARD_PERMISSION } from '@app/core';
 import { FREE_TEXT_SEARCH_CLASSES } from '../../constants/freeText';
+import { MAX_ADMIN_SEARCH_LENGTH } from '../../constants/search';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
-import { SearchPermissionTabs, PERMISSION_GROUPS } from './SearchPermissionTabs';
+import { SearchPermissionTabs } from './SearchPermissionTabs';
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 
 export interface PermissionSearchDialogProps {
   /**
@@ -196,9 +198,11 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
           {/* Search Bar */}
           <SearchBar
             className={FREE_TEXT_SEARCH_CLASSES}
+            aria-label={t('searchLabel')}
             placeholder={t('searchPlaceholder')}
+            maxLength={MAX_ADMIN_SEARCH_LENGTH}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value.slice(0, MAX_ADMIN_SEARCH_LENGTH))}
             onClear={() => setSearchQuery('')}
             showClear={searchQuery.length > 0}
             data-testid="permission-search-input"
