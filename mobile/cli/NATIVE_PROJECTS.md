@@ -232,6 +232,46 @@ A development build prints one warning at start, "process.env.EXPO_OS is not
 defined". The app uses React Native's Babel preset, which does not set that
 value. Expo's modules fall back to React Native's own platform check.
 
+## Native sign-in SDK settings
+
+The Community CLI project does not apply Expo config plugins when installing
+pods. Configure its native project alongside the public settings in
+`mobile/cli/app.config.js`. The API origin, client ID and callback stay in
+`mobile/cli/src/constants.ts`.
+
+For each enabled SDK, apply its settings before rebuilding:
+
+- Google on iOS needs the reversed client URL scheme in `CFBundleURLTypes`,
+  alongside `mobilecli`. Set `MOBILE_GOOGLE_IOS_URL_SCHEME` to that same scheme
+  when resolving app config. The backend native client needs its Google web
+  and iOS client IDs. On Android, register the package and signing certificate
+  with Google. Discovery checks Play Services without opening a repair dialog.
+- Apple on iOS needs the Sign in with Apple capability and the
+  `com.apple.developer.applesignin` entitlement with the `Default` value.
+  Set `MOBILE_APPLE_SIGN_IN_ENABLED=true`, and register this bundle ID as the
+  backend native Apple `appId`. Android uses system OAuth.
+- Facebook needs `FacebookAppID`, `FacebookClientToken` and
+  `FacebookDisplayName` in Info.plist, plus its `fb<app-id>` URL scheme and the
+  wrapper's required query schemes. Set `FacebookAutoInitEnabled`,
+  `FacebookAutoLogAppEventsEnabled` and `FacebookAdvertiserIDCollectionEnabled`
+  to false. Supply the corresponding public `MOBILE_FACEBOOK_*` settings when
+  resolving app config. Keep the app secret on the backend. Apply the wrapper's
+  Android manifest settings for its registered app.
+- Passkeys need the iOS `webcredentials:` associated domain and the matching
+  domain association file. Android needs Digital Asset Links with the correct
+  package and signing certificate. HTTPS callbacks also need the `applinks:`
+  domain or Android verified-link intent filter. The registered callback must
+  match `APP_CALLBACK_URI` exactly.
+
+Expo Constants resolves the public native settings from app config. Supply
+them consistently to native generation/build and Metro; an app config value
+alone does not create an entitlement or URL scheme in a Community CLI project.
+
+The [mobile sign-in guide](../../docs/setup/setup-mobile-sign-in.md) covers the
+backend policy, email journeys, SDK setup links and platform verification.
+SDK settings require a fresh native build. JavaScript typechecks do not establish
+that a provider app or associated domain is registered correctly.
+
 ## Android
 
 Nothing in this section has been built or run.
