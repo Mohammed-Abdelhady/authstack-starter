@@ -40,6 +40,7 @@ const CORE_MIGRATIONS = [
   '0011_session_listing.sql',
   '0012_retention_indexes.sql',
   '0014_code_guess_locks.sql',
+  '0016_pending_email.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -215,8 +216,9 @@ export function databaseCases(getPacked: () => Packed): void {
       '0009_passkeys.sql',
       ...CORE_MIGRATIONS.slice(7, 10),
       '0013_magic_links.sql',
-      ...CORE_MIGRATIONS.slice(10),
+      '0014_code_guess_locks.sql',
       '0015_magic_link_request_nonce.sql',
+      '0016_pending_email.sql',
       '0017_two_factor_lockout.sql',
     ]);
   });

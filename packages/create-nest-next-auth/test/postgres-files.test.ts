@@ -70,6 +70,7 @@ it('removes every PostgreSQL file from a MongoDB project and keeps the shared co
     'backend/src/common/persistence/postgres/migrations/0013_magic_links.sql',
     'backend/src/common/persistence/postgres/migrations/0014_code_guess_locks.sql',
     'backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql',
+    'backend/src/common/persistence/postgres/migrations/0016_pending_email.sql',
     'backend/src/common/persistence/postgres/migrations/0017_two_factor_lockout.sql',
     'backend/src/common/persistence/postgres/owned-schedule.spec.ts',
     'backend/src/common/persistence/postgres/owned-schedule.ts',

@@ -8,6 +8,8 @@ import {
   DEFAULT_SLUG,
   EDITOR_SLUG,
   MANAGER_SLUG,
+  READ_POSTS,
+  READ_USERS,
   refusalOf,
   revocationsOf,
   servicesOn,
@@ -59,6 +61,26 @@ const MANAGER_MUTATIONS: Array<[string, Mutation]> = [
     (services, { userId, managerId }) =>
       services.adminUsers.deleteUser(userId, managerId),
   ],
+  [
+    'a permission grant',
+    (services, { userId, managerId }) =>
+      services.adminPermissions.addPermission(
+        userId,
+        READ_POSTS,
+        managerId,
+        MANAGER_SLUG,
+      ),
+  ],
+  [
+    'a permission revocation',
+    (services, { userId, managerId }) =>
+      services.adminPermissions.removePermission(
+        userId,
+        READ_USERS,
+        managerId,
+        MANAGER_SLUG,
+      ),
+  ],
 ];
 
 /**
@@ -93,6 +115,7 @@ async function expectUntouched(
   expect(await storedAccount(harness, userId)).toMatchObject({
     name: 'Plain Person',
     role: DEFAULT_SLUG,
+    permissions: [READ_USERS],
     isDeleted: false,
     sessionVersion: 0,
   });
@@ -169,7 +192,7 @@ export function accountFreshnessCases(
       });
     });
 
-    it('changes nothing when the sign-out cannot be recorded', async () => {
+    it('does not change session state when security events cannot be recorded', async () => {
       const { userId } = fixture();
       const restore = await harness().refuseSecurityEvents();
       try {
@@ -178,7 +201,7 @@ export function accountFreshnessCases(
         restore();
       }
 
-      // A rename signs nobody out, so it is the one change that still lands.
+      // These account changes do not revoke the target's sessions.
       const stored = await storedAccount(harness(), userId);
       expect({
         role: stored.role,

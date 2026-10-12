@@ -58,21 +58,25 @@ export async function createActivatedAccount(
 }
 
 /**
- * Mark the address verified on the account an admin moved, inside the unit of
- * work that consumed the code. The record must still point at the same user
- * and the same address generation, so a superseded change confirms nothing.
- * No session is issued: the user signs in normally.
+ * Put the account on the address an admin asked for, inside the unit of work
+ * that consumed the code. Until here the account kept its previous address.
+ * The record must still point at the same user and the same address
+ * generation, so a superseded change confirms nothing. No session is issued:
+ * the user signs in normally.
  *
  * @param accounts - The account store
  * @param unitOfWork - The unit of work the update must join
  * @param reserved - The generation verifyCode compared
- * @throws AppException ACTIVATION_CODE_INVALID for a stale or missing target
+ * @returns The address the account left, or null when it was already on the
+ *   confirmed one
+ * @throws AppException ACTIVATION_CODE_INVALID for a stale or missing target,
+ *   or an address another account took meanwhile
  */
 export async function confirmEmailChange(
   accounts: ActivationAccounts,
   unitOfWork: UnitOfWork,
   reserved: ReservedCode,
-): Promise<void> {
+): Promise<string | null> {
   if (!reserved.userId) {
     throw activationCodeInvalid();
   }
@@ -82,16 +86,24 @@ export async function confirmEmailChange(
     reserved.userId.toString(),
   );
 
-  const matchesTarget =
-    user !== null &&
-    user.email === reserved.email &&
-    user.addressGeneration === (reserved.addressGeneration ?? 0);
-
-  if (!user || !matchesTarget) {
+  if (
+    !user ||
+    user.addressGeneration !== (reserved.addressGeneration ?? 0) ||
+    user.pendingEmail !== reserved.email
+  ) {
     throw activationCodeInvalid();
   }
 
-  await accounts.markAddressVerified(unitOfWork, user);
+  const previous = user.email;
+  try {
+    await accounts.confirmAddress(unitOfWork, user, reserved.email);
+  } catch (error) {
+    if (error instanceof UniqueConflictError) {
+      throw activationCodeInvalid();
+    }
+    throw error;
+  }
+  return previous === reserved.email ? null : previous;
 }
 
 /**

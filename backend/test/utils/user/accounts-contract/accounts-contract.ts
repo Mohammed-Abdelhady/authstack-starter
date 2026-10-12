@@ -1,9 +1,12 @@
 import { TEST_NOW } from '../../frozen-clock';
 import { accountAbortCases } from './accounts-contract-abort';
 import { accountActivationCases } from './accounts-contract-activation';
+import { accountEmailConfirmationCases } from './accounts-contract-email-confirmation';
 import { accountAdminCases } from './accounts-contract-admin';
 import { accountFreshnessCases } from './accounts-contract-fresh';
 import { accountGrantCases } from './accounts-contract-grants';
+import { accountPermissionRaceCases } from './accounts-contract-permission-races';
+import { accountPendingEmailCases } from './accounts-contract-pending-email';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import { accountLeavingCases } from './accounts-contract-leaving';
 import { accountPasswordCases } from './accounts-contract-password';
@@ -63,9 +66,12 @@ export function describeAccountStoresContract(
     accountLeavingCases(current, seeded);
     accountAdminCases(current, seeded);
     accountGrantCases(current, seeded);
+    accountPermissionRaceCases(current, seeded);
+    accountPendingEmailCases(current, seeded);
     accountFreshnessCases(current, seeded);
     accountRaceCases(current, seeded);
     accountActivationCases(current, seeded);
+    accountEmailConfirmationCases(current, seeded);
     accountSeamCases(current, seeded);
     accountAbortCases(current, seeded);
     accountRouteIdCases(current, seeded);

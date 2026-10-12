@@ -12,7 +12,7 @@ import {
 import { asAuthorityUnavailable } from '../../session/utils/authority/authority-unavailable';
 import { StoredAccount } from '../../user/stores/stored-account';
 import { AdminUserAccessService } from '../services/users/admin-user-access.service';
-import { AddressMove, AdminAccountStore } from '../stores/admin-account.store';
+import { AdminAccountStore } from '../stores/admin-account.store';
 
 /**
  * Only a genuine database failure is an authority failure; a domain refusal
@@ -75,9 +75,9 @@ export async function loadAuthorizedUser(
 }
 
 /**
- * Write an admin name or address edit onto the target as it is now, after the
- * actor's rank is checked again. The move was prepared, and a code mailed for
- * it, beforehand.
+ * Write an admin name or pending address onto the target as it is now, after
+ * the actor's rank is checked again. The next email generation is allocated
+ * under the account write, before a confirmation code is issued.
  */
 export function saveUserUpdate(
   runner: UnitOfWorkRunner,
@@ -87,7 +87,7 @@ export function saveUserUpdate(
     id: string;
     actorId: string;
     name?: string;
-    moved?: AddressMove;
+    pendingEmail?: string;
     previousEmail: string;
     previousGeneration: number;
   },
@@ -100,10 +100,10 @@ export function saveUserUpdate(
       edit.id,
       edit.actorId,
       undefined,
-      { requireAdmin: Boolean(edit.moved) },
+      { requireAdmin: edit.pendingEmail !== undefined },
     );
     if (
-      edit.moved &&
+      edit.pendingEmail !== undefined &&
       (current.email !== edit.previousEmail ||
         current.addressGeneration !== edit.previousGeneration)
     ) {
@@ -115,7 +115,13 @@ export function saveUserUpdate(
     }
     return accounts.saveIdentity(unitOfWork, current, {
       name: edit.name,
-      address: edit.moved,
+      address:
+        edit.pendingEmail === undefined
+          ? undefined
+          : {
+              email: edit.pendingEmail,
+              addressGeneration: current.addressGeneration + 1,
+            },
     });
   });
 }

@@ -204,11 +204,20 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
       ...(edit.name === undefined ? {} : { name: edit.name.trim() }),
       ...(edit.address
         ? {
-            email: storedAddress(edit.address.email),
+            pending_email: storedAddress(edit.address.email),
             address_generation: edit.address.addressGeneration,
-            is_verified: edit.address.isVerified,
           }
         : {}),
+    });
+  }
+
+  savePermissions(
+    unitOfWork: UnitOfWork,
+    account: StoredAccount,
+    permissions: string[],
+  ): Promise<StoredAccount> {
+    return this.save(postgresTransactionOf(unitOfWork), storedId(account), {
+      permissions,
     });
   }
 
@@ -261,6 +270,8 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
       email?: string;
       role?: string;
       address_generation?: number;
+      pending_email?: string;
+      permissions?: string[];
       is_verified?: boolean;
       is_deleted?: boolean;
       deleted_at?: Date | null;

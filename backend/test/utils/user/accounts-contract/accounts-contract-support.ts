@@ -1,5 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import {
+  PERMISSION_PERMISSIONS,
+  USER_PERMISSIONS,
+} from '../../../../src/common/constants/permissions';
 import { AdminPermissionsService } from '../../../../src/admin/services/roles/admin-permissions.service';
 import { AdminEmailChangeService } from '../../../../src/admin/services/users/admin-email-change.service';
 import { AdminUserAccessService } from '../../../../src/admin/services/users/admin-user-access.service';
@@ -98,6 +102,12 @@ export function servicesOn(
     new RoleHierarchyService(harness.roleCatalog),
   );
   const permissions = new UserPermissionsService(harness.permissions);
+  const emailChanges = new AdminEmailChangeService(
+    harness.admin,
+    verification,
+    authMail,
+    config,
+  );
   return {
     profile: new UserProfileService(
       harness.profiles,
@@ -107,7 +117,13 @@ export function servicesOn(
       hash,
     ),
     permissions,
-    adminPermissions: new AdminPermissionsService(access, permissions),
+    adminPermissions: new AdminPermissionsService(
+      harness.admin,
+      access,
+      permissions,
+      runner,
+      harness.roleChanges,
+    ),
     adminUsers: new AdminUsersService(
       harness.admin,
       harness.sessions,
@@ -115,12 +131,7 @@ export function servicesOn(
       harness.roleChanges,
       harness.roleSweeps,
       access,
-      new AdminEmailChangeService(
-        harness.admin,
-        verification,
-        authMail,
-        config,
-      ),
+      emailChanges,
     ),
     adminCreate: new AdminUserCreateService(
       harness.admin,
@@ -144,6 +155,7 @@ export function servicesOn(
       harness.activation,
       runner,
       verification,
+      harness.sessions,
     ),
     verification,
     mail,
@@ -182,7 +194,14 @@ export async function seedAccountsFixture(
     name: 'Manager',
     slug: MANAGER_SLUG,
     level: 3,
-    permissions: [READ_USERS],
+    // What the admin services ask of an acting manager, and what it hands out.
+    permissions: [
+      READ_USERS,
+      READ_POSTS,
+      USER_PERMISSIONS.UPDATE_ALL,
+      PERMISSION_PERMISSIONS.GRANT_ALL,
+      PERMISSION_PERMISSIONS.REVOKE_ALL,
+    ],
   });
   await harness.seedRole({
     name: 'Support',

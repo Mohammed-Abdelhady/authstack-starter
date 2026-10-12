@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { PENDING_PURPOSE } from '../../constants/registration';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import {
@@ -50,6 +51,27 @@ function boundUser(
     : toObjectId(generation.userId);
 }
 
+function generationFence(
+  purpose: PendingRegistrationKey['purpose'],
+  generation: PendingCodeGeneration,
+): Record<string, unknown> {
+  if (
+    purpose !== PENDING_PURPOSE.EMAIL_CHANGE ||
+    generation.userId === undefined ||
+    generation.addressGeneration === undefined
+  ) {
+    return {};
+  }
+
+  const userId = toObjectId(generation.userId);
+  return {
+    $or: [
+      { userId: { $ne: userId } },
+      { userId, addressGeneration: { $lte: generation.addressGeneration } },
+    ],
+  };
+}
+
 @Injectable()
 export class MongoPendingRegistrationStore extends PendingRegistrationStore {
   constructor(
@@ -68,7 +90,10 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
   ): Promise<CodeRotation> {
     const refreshed = await singleStatement(() =>
       this.pendingRegistrationModel.findOneAndUpdate(
-        buildRefreshFilter(key.email, key.purpose, now),
+        {
+          ...buildRefreshFilter(key.email, key.purpose, now),
+          ...generationFence(key.purpose, generation),
+        },
         buildGenerationPipeline(generation, boundUser(generation)),
         { new: true, select: '_id' },
       ),
@@ -83,7 +108,10 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
   ): Promise<CodeRotation> {
     const replaced = await singleStatement(() =>
       this.pendingRegistrationModel.findOneAndUpdate(
-        buildReplaceFilter(key.email, key.purpose, now),
+        {
+          ...buildReplaceFilter(key.email, key.purpose, now),
+          ...generationFence(key.purpose, generation),
+        },
         buildGenerationPipeline(generation, boundUser(generation)),
         { new: true, select: '_id' },
       ),

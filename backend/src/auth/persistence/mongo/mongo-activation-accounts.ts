@@ -43,6 +43,10 @@ class MongoMovedAccount extends MovedAccount {
     return this.document.email;
   }
 
+  get pendingEmail(): string | undefined {
+    return this.document.pendingEmail;
+  }
+
   get addressGeneration(): number {
     return this.document.addressGeneration ?? 0;
   }
@@ -87,6 +91,8 @@ export class MongoActivationAccounts extends ActivationAccounts {
     const user = await this.userModel.findById(userId);
     if (user === null) return null;
     return {
+      email: user.email,
+      pendingEmail: user.pendingEmail,
       isVerified: user.isVerified === true,
       addressGeneration: user.addressGeneration ?? 0,
     };
@@ -136,15 +142,25 @@ export class MongoActivationAccounts extends ActivationAccounts {
     return user === null ? null : new MongoMovedAccount(user);
   }
 
-  async markAddressVerified(
+  async confirmAddress(
     unitOfWork: UnitOfWork,
     account: MovedAccount,
+    email: string,
   ): Promise<void> {
     if (!(account instanceof MongoMovedAccount)) {
       throw new Error('This account was not read from MongoDB');
     }
+    account.document.email = email;
+    account.document.pendingEmail = undefined;
     account.document.isVerified = true;
-    await account.document.save({ session: mongoSessionOf(unitOfWork) });
+    try {
+      await account.document.save({ session: mongoSessionOf(unitOfWork) });
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        throw new UniqueConflictError(ACTIVATION_CONSTRAINT.ADDRESS, error);
+      }
+      throw error;
+    }
   }
 }
 

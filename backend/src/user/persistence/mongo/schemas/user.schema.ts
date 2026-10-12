@@ -25,6 +25,9 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email!: string;
 
+  @Prop({ lowercase: true, trim: true })
+  pendingEmail?: string;
+
   @Prop({ select: false })
   password?: string;
 

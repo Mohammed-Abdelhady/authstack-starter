@@ -26,6 +26,9 @@ interface CreatedDoc extends Record<string, unknown> {
   save: jest.Mock;
 }
 
+/** The acting account, read before the new account exists. */
+const ACTING_ACCOUNT = { role: 'admin', permissions: [], isDeleted: false };
+
 describe('AdminUserCreateService.createUser (D-12)', () => {
   let service: AdminUserCreateService;
   let created: CreatedDoc[];
@@ -64,13 +67,17 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
         findOne,
         findById: jest
           .fn()
-          .mockImplementation(() => createChainableQueryMock(created[0])),
+          .mockImplementation(() =>
+            createChainableQueryMock(created[0] ?? ACTING_ACCOUNT),
+          ),
       },
     );
 
     const roleQuery = createChainableQueryMock({
       _id: new Types.ObjectId(),
       slug: 'user',
+      // Also answers as the actor's role, so the actor holds what it assigns.
+      permissions: ['users:create:all'],
     });
     const roleModel = {
       findOne: jest.fn().mockReturnValue(roleQuery),

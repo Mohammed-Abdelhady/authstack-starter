@@ -15,6 +15,9 @@ export function mapToAdminUserDto(user: StoredAccount): AdminUserDto {
     permissions: user.permissions || [],
     authProvider: user.authProvider,
     isVerified: user.isVerified,
+    ...(user.pendingEmail === undefined
+      ? {}
+      : { pendingEmail: user.pendingEmail }),
     isDeleted: user.isDeleted,
     avatarUrl: user.avatarUrl,
     linkedProviders: user.linkedProviders,

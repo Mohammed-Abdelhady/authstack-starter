@@ -12,6 +12,8 @@ import {
   EMAIL_CHANGE_BODY_TEXT,
   EMAIL_CHANGE_CONFIRM_PATH,
   EMAIL_CHANGE_EMAIL_SUBJECT,
+  EMAIL_CHANGE_NOTICE_BODY_TEXT,
+  EMAIL_CHANGE_NOTICE_SUBJECT,
   magicLinkExpirySentence,
   MAGIC_LINK_EMAIL_SUBJECT,
   MAIL_CONNECTION_TIMEOUT_MS,
@@ -205,6 +207,18 @@ export class MailService {
     await this.sendMail({
       to: email,
       subject: EMAIL_CHANGE_EMAIL_SUBJECT,
+      html,
+      text,
+    });
+  }
+
+  /** Notify the current mailbox that an admin requested an address change. */
+  async sendEmailChangeNotice(email: string): Promise<void> {
+    const text = `${NEUTRAL_GREETING}\n\n${EMAIL_CHANGE_NOTICE_BODY_TEXT}\n\nBest regards,\nThe Team`;
+    const html = `<!DOCTYPE html><html><body><p>${NEUTRAL_GREETING}</p><p>${EMAIL_CHANGE_NOTICE_BODY_TEXT}</p><p>Best regards,<br>The Team</p></body></html>`;
+    await this.sendMail({
+      to: email,
+      subject: EMAIL_CHANGE_NOTICE_SUBJECT,
       html,
       text,
     });

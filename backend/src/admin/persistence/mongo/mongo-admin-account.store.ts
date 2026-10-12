@@ -164,10 +164,19 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       user.name = edit.name;
     }
     if (edit.address) {
-      user.email = edit.address.email;
+      user.pendingEmail = edit.address.email;
       user.addressGeneration = edit.address.addressGeneration;
-      user.isVerified = edit.address.isVerified;
     }
+    return this.save(user, mongoSessionOf(unitOfWork), account.id);
+  }
+
+  savePermissions(
+    unitOfWork: UnitOfWork,
+    account: StoredAccount,
+    permissions: string[],
+  ): Promise<StoredAccount> {
+    const user = this.read.documentOf(account);
+    user.permissions = permissions;
     return this.save(user, mongoSessionOf(unitOfWork), account.id);
   }
 

@@ -20,6 +20,7 @@ export interface LinkedAccountRecord {
 export interface StoredAccount {
   readonly id: string;
   readonly email: string;
+  readonly pendingEmail?: string;
   readonly name: string;
   readonly avatarUrl?: string;
   readonly role: string;

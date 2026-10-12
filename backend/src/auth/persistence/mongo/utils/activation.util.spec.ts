@@ -102,9 +102,10 @@ describe('activation account writes', () => {
 
   it('verifies the moved address when the record still matches the target', async () => {
     const target = await users.create({
-      email: 'new@example.com',
+      email: 'old@example.com',
+      pendingEmail: 'new@example.com',
       name: 'Target',
-      isVerified: false,
+      isVerified: true,
       addressGeneration: 2,
     });
 
@@ -124,7 +125,40 @@ describe('activation account writes', () => {
     );
 
     const stored = await users.findById(target._id);
+    expect(stored?.email).toBe('new@example.com');
+    expect(stored?.pendingEmail).toBeUndefined();
     expect(stored?.isVerified).toBe(true);
+  });
+
+  it('refuses a code for a different address at the same generation', async () => {
+    const target = await users.create({
+      email: 'old@example.com',
+      pendingEmail: 'current@example.com',
+      name: 'Target',
+      isVerified: true,
+      addressGeneration: 2,
+    });
+
+    await expect(
+      withMajorityTransaction(connection, (session) =>
+        confirmEmailChange(
+          {
+            id: new Types.ObjectId(),
+            email: 'stale@example.com',
+            purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+            hashedCode: 'hashed-code',
+            userId: target._id,
+            addressGeneration: 2,
+          },
+          users,
+          session,
+        ),
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.ACTIVATION_CODE_INVALID });
+
+    const stored = await users.findById(target._id);
+    expect(stored?.email).toBe('old@example.com');
+    expect(stored?.pendingEmail).toBe('current@example.com');
   });
 
   it('refuses a stale address change and confirms nothing', async () => {

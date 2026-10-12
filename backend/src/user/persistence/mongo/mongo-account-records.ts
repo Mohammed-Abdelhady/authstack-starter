@@ -29,6 +29,7 @@ export function toStoredAccount(
   return {
     id: id ?? user._id.toString(),
     email: user.email,
+    pendingEmail: user.pendingEmail,
     name: user.name,
     avatarUrl: user.avatarUrl,
     role: user.role,

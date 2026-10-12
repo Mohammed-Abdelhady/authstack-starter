@@ -17,6 +17,8 @@ import { rethrowOrUnavailable } from '../../utils/admin-transaction.util';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { reconcileAssignedRole } from '../../utils/admin-role-reconcile.util';
 import type { AssignedRoleRef } from '../../types/assigned-role-ref';
+import { USER_PERMISSIONS } from '../../../common/constants/permissions';
+import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
 /**
  * Creating an account from the admin area. The role must exist and sit below
@@ -78,6 +80,13 @@ export class AdminUserCreateService {
           actorId,
           assignedRole.slug,
           unitOfWork,
+        );
+        await assertActorHoldsRole(
+          this.roleChanges,
+          unitOfWork,
+          actorId,
+          USER_PERMISSIONS.CREATE_ALL,
+          assignedRole.slug,
         );
         const newUser = await this.accounts.insertAccount(unitOfWork, {
           email,
