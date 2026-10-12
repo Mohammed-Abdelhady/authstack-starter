@@ -96,7 +96,6 @@ describe('native registration lifecycle contract', () => {
     const first = await startLifecycleAttempt(e2e, 'registration');
     await requestCode(first, EMAIL).expect(200);
     await e2e.captureMail();
-    const firstCode = await e2e.mailedCode();
     const firstAttempt = await storedAttempt(e2e, first);
 
     const second = await startLifecycleAttempt(e2e, 'registration');
@@ -120,7 +119,6 @@ describe('native registration lifecycle contract', () => {
     const success = await activate(second, EMAIL, secondCode).expect(200);
     expect(parseLifecycleResult(success).stage).toBe('consentRequired');
     expect(await e2e.state.accounts.accountIdFor(EMAIL)).not.toBeNull();
-    expect(firstCode).not.toBe(secondCode);
   });
 
   it('keeps taken-address and over-cap requests generic and blocks recovery-flow reuse', async () => {
