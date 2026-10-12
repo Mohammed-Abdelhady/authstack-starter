@@ -9,7 +9,7 @@ import {
   configureNginxDomains,
 } from '../lib/config-transforms.js';
 import { configureDatabase } from '../lib/production-prompts.js';
-import { smokeModel } from '../verify-docker.mjs';
+import { smokeModel } from '../verify-docker.mjs'; // feature:mongodb
 
 const domains = {
   mainDomain: 'example.test',
@@ -146,6 +146,7 @@ for (const file of ['nginx/nginx.conf', 'nginx/production-nginx.conf']) {
   });
 }
 
+// feature:mongodb:start
 test('the smoke backend starts with addresses a production start accepts', () => {
   const service = { healthcheck: { test: ['CMD', 'synthetic'] }, environment: { PORT: '3000' } };
   const model = smokeModel(
@@ -160,6 +161,43 @@ test('the smoke backend starts with addresses a production start accepts', () =>
     assert.doesNotMatch(address.hostname, /^(localhost|127\.|\[::1\]|0\.0\.0\.0)/, name);
   }
 });
+test('smoke does not hide a missing or mismatched frontend PORT', () => {
+  const model = {
+    services: Object.fromEntries(
+      ['mongodb', 'backend', 'frontend', 'nginx'].map((name) => [
+        name,
+        { healthcheck: { test: ['CMD', 'synthetic'] }, environment: {} },
+      ]),
+    ),
+  };
+  for (const port of [undefined, 5000]) {
+    model.services.frontend.environment.PORT = port;
+    assert.throws(() => smokeModel(model, '/synthetic'), /frontend PORT/);
+  }
+  model.services.frontend.environment.PORT = 3000;
+  assert.equal(smokeModel(model, '/synthetic').services.frontend.environment.PORT, '3000');
+});
+
+test('internal smoke network has no incompatible host publications', () => {
+  const original = {
+    services: Object.fromEntries(
+      ['mongodb', 'backend', 'frontend', 'nginx'].map((name) => [
+        name,
+        {
+          healthcheck: { test: ['CMD', 'synthetic'] },
+          environment: { PORT: '3000' },
+        },
+      ]),
+    ),
+  };
+  const model = smokeModel(original, '/synthetic');
+  assert.deepEqual(model.networks, { smoke: { internal: true } });
+  for (const service of Object.values(model.services)) {
+    assert.deepEqual(service.networks, ['smoke']);
+    assert.equal(service.ports, undefined);
+  }
+});
+// feature:mongodb:end
 
 for (const file of ['nginx/nginx.conf', 'nginx/production-nginx.conf']) {
   test(`${file}: current and repeated domain setup`, async () => {
@@ -222,22 +260,6 @@ for (const port of [3000, 5300]) {
 test('invalid ports and unknown config structure fail before writing', () => {
   assert.throws(() => configureNginxDomains('', domains), /virtual host/);
 });
-test('smoke does not hide a missing or mismatched frontend PORT', () => {
-  const model = {
-    services: Object.fromEntries(
-      ['mongodb', 'backend', 'frontend', 'nginx'].map((name) => [
-        name,
-        { healthcheck: { test: ['CMD', 'synthetic'] }, environment: {} },
-      ]),
-    ),
-  };
-  for (const port of [undefined, 5000]) {
-    model.services.frontend.environment.PORT = port;
-    assert.throws(() => smokeModel(model, '/synthetic'), /frontend PORT/);
-  }
-  model.services.frontend.environment.PORT = 3000;
-  assert.equal(smokeModel(model, '/synthetic').services.frontend.environment.PORT, '3000');
-});
 test('manual startup commands exist in their workspaces', async () => {
   const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
   const manual = readme.split('### Start manually')[1].split('Endpoints:')[0];
@@ -291,26 +313,6 @@ test('architecture methods example satisfies the actual frontend response type',
     [],
   );
   assert.ok(errors({ ...payload, data: { methods: { emailPassword: true } } }).length > 0);
-});
-
-test('internal smoke network has no incompatible host publications', () => {
-  const original = {
-    services: Object.fromEntries(
-      ['mongodb', 'backend', 'frontend', 'nginx'].map((name) => [
-        name,
-        {
-          healthcheck: { test: ['CMD', 'synthetic'] },
-          environment: { PORT: '3000' },
-        },
-      ]),
-    ),
-  };
-  const model = smokeModel(original, '/synthetic');
-  assert.deepEqual(model.networks, { smoke: { internal: true } });
-  for (const service of Object.values(model.services)) {
-    assert.deepEqual(service.networks, ['smoke']);
-    assert.equal(service.ports, undefined);
-  }
 });
 
 test('the production prompt asks again until the database user and password fit the address', async () => {
