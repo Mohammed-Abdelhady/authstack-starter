@@ -22,7 +22,21 @@ const initialState: AuthState = {
   error: null,
   validationStatus: 'idle',
   validationErrorStatus: null,
+  sessionGeneration: 0,
+  identityRequest: null,
 };
+
+function advanceSessionGeneration(state: AuthState): void {
+  state.sessionGeneration += 1;
+  state.identityRequest = null;
+}
+
+function isCurrentIdentityResponse(state: AuthState, requestId: string): boolean {
+  return (
+    state.identityRequest?.requestId === requestId &&
+    state.identityRequest.sessionGeneration === state.sessionGeneration
+  );
+}
 
 /**
  * Auth slice managing authentication state
@@ -39,6 +53,7 @@ export const authSlice = createSlice({
      * Set authenticated user and mark as logged in
      */
     loginFulfilled: (state, action: PayloadAction<SignedInUser>) => {
+      advanceSessionGeneration(state);
       state.user = action.payload;
       state.isAuthenticated = true;
       state.isLoading = false;
@@ -52,6 +67,7 @@ export const authSlice = createSlice({
      * Session managed via httpOnly cookie
      */
     setUser: (state, action: PayloadAction<SignedInUser>) => {
+      advanceSessionGeneration(state);
       state.user = action.payload;
       state.isAuthenticated = true;
       state.isLoading = false;
@@ -65,6 +81,7 @@ export const authSlice = createSlice({
      * Backend will clear httpOnly cookie
      */
     logout: (state) => {
+      advanceSessionGeneration(state);
       state.pendingRegistrationEmail = null;
       state.user = null;
       state.isAuthenticated = false;
@@ -105,6 +122,7 @@ export const authSlice = createSlice({
         if (action.payload.user === null) {
           return;
         }
+        advanceSessionGeneration(state);
         state.user = action.payload.user;
         state.isAuthenticated = true;
         state.validationStatus = 'succeeded';
@@ -118,6 +136,7 @@ export const authSlice = createSlice({
 
     // Handle logout mutation lifecycle
     builder.addMatcher(authApi.endpoints.logout.matchFulfilled, (state) => {
+      advanceSessionGeneration(state);
       state.user = null;
       state.isAuthenticated = false;
       state.isLoading = false;
@@ -127,7 +146,11 @@ export const authSlice = createSlice({
     });
 
     // Optional identity is the authoritative source for session state.
-    builder.addMatcher(authApi.endpoints.getIdentity.matchPending, (state) => {
+    builder.addMatcher(authApi.endpoints.getIdentity.matchPending, (state, action) => {
+      state.identityRequest = {
+        requestId: action.meta.requestId,
+        sessionGeneration: state.sessionGeneration,
+      };
       state.isLoading = true;
       // Keep a validated session visible while a background identity refresh runs.
       if (state.validationStatus === 'succeeded') return;
@@ -135,6 +158,8 @@ export const authSlice = createSlice({
       state.validationErrorStatus = null;
     });
     builder.addMatcher(authApi.endpoints.getIdentity.matchFulfilled, (state, action) => {
+      if (!isCurrentIdentityResponse(state, action.meta.requestId)) return;
+      advanceSessionGeneration(state);
       state.isLoading = false;
       state.error = null;
       state.user = action.payload.authenticated ? action.payload.user : null;
@@ -143,6 +168,8 @@ export const authSlice = createSlice({
       state.validationErrorStatus = null;
     });
     builder.addMatcher(authApi.endpoints.getIdentity.matchRejected, (state, action) => {
+      if (!isCurrentIdentityResponse(state, action.meta.requestId)) return;
+      state.identityRequest = null;
       state.isLoading = false;
       const status = httpStatusOf(action.payload);
       // A failed refresh is unknown, not signed out. Only a completed identity
@@ -151,6 +178,7 @@ export const authSlice = createSlice({
       state.validationStatus = 'failed';
       state.validationErrorStatus = status;
       if (status === HTTP_STATUS.UNAUTHORIZED) {
+        advanceSessionGeneration(state);
         state.user = null;
         state.isAuthenticated = false;
       }

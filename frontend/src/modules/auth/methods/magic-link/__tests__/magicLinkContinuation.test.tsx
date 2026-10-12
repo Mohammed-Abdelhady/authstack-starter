@@ -146,6 +146,7 @@ describe('magic link continuation', () => {
     });
     const store = makeStore();
     store.dispatch(loginFulfilled({ ...USER, email: 'current@example.com' }));
+    const currentGeneration = store.getState().auth.sessionGeneration;
 
     renderWithIntl(<MagicLinkVerifyPanel token="link-token" redirect={null} />, store);
 
@@ -159,6 +160,7 @@ describe('magic link continuation', () => {
     expect(replaceMock).not.toHaveBeenCalled();
     expect(bodies).toEqual([{ token: 'link-token' }]);
     expect(store.getState().auth.user?.email).toBe('current@example.com');
+    expect(store.getState().auth.sessionGeneration).toBe(currentGeneration);
     expect(requests.allRequests).toEqual([
       'GET /api/auth/csrf',
       'GET /api/auth/browser-proof',
@@ -168,7 +170,8 @@ describe('magic link continuation', () => {
     fireEvent.click(screen.getByTestId('magic-link-confirm-forwarded'));
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledWith(NATIVE_ROUTE));
-    expect(store.getState().auth.user?.email).toBe('current@example.com');
+    expect(store.getState().auth.user?.email).toBe(USER.email);
+    expect(store.getState().auth.sessionGeneration).toBeGreaterThan(currentGeneration);
     expect(bodies).toEqual([{ token: 'link-token' }, { token: 'link-token', confirm: true }]);
     expect(
       requests.filter((request) => request === 'POST /api/auth/magic-link/verify'),
