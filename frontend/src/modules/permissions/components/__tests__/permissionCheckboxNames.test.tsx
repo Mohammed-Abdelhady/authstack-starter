@@ -42,7 +42,10 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', InertResizeObserver);
 });
 
-describe.each(['en', 'ar'] as const)('permission checkbox names in %s', (locale: AppLocale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('permission checkbox names in %s', (locale: AppLocale) => {
   it.each([
     ['selector', false],
     ['search', true],

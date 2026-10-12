@@ -72,7 +72,7 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the roles page when a read of the list fails in %s', (locale) => {
-  it('labels role search and clamps pasted Arabic text to the supported query length', async () => {
+  it('labels role search and clamps pasted text to the supported query length', async () => {
     const page = await renderPage(locale);
     await screen.findByTestId('role-detail-name');
     expect(
@@ -80,13 +80,13 @@ describe.each([
     ).not.toBeNull();
     expect(screen.getByRole('complementary', { name: page.message('roles.title') })).not.toBeNull();
     const input = screen.getByRole('textbox', { name: page.message('roles.searchLabel') });
-    const overLimit = 'ب'.repeat(101);
+    const overLimit = 'x'.repeat(101);
 
     expect(input).toHaveProperty('maxLength', 100);
     fireEvent.change(input, { target: { value: overLimit } });
 
-    expect(input).toHaveProperty('value', 'ب'.repeat(100));
-    await waitFor(() => expect(page.searchTerms).toEqual(['ب'.repeat(100)]));
+    expect(input).toHaveProperty('value', 'x'.repeat(100));
+    await waitFor(() => expect(page.searchTerms).toEqual(['x'.repeat(100)]));
   });
 
   it('moves back from a now-empty last page when the list count shrinks', async () => {
@@ -238,3 +238,18 @@ describe.each([
     expect(name).toHaveProperty('value', 'Night Desk');
   });
 });
+
+// feature:locale-ar:start
+it('clamps an Arabic role search at the supported query length', async () => {
+  const page = await renderPage('ar');
+  await screen.findByTestId('role-detail-name');
+  const input = screen.getByRole('textbox', { name: page.message('roles.searchLabel') });
+  const query = 'ب'.repeat(101);
+
+  expect(input).toHaveProperty('maxLength', 100);
+  fireEvent.change(input, { target: { value: query } });
+
+  expect(input).toHaveProperty('value', 'ب'.repeat(100));
+  await waitFor(() => expect(page.searchTerms).toEqual(['ب'.repeat(100)]));
+});
+// feature:locale-ar:end

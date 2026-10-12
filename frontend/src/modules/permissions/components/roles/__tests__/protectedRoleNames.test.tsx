@@ -25,7 +25,10 @@ const PROTECTED_ROLE = {
 registerFormTestLifecycle();
 beforeAll(stubListLayout);
 
-describe.each(['en', 'ar'] as const)('protected role names in %s', (locale: AppLocale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('protected role names in %s', (locale: AppLocale) => {
   it('announces the lock icon in the role sidebar item name', async () => {
     const form = await renderForm(
       locale,
