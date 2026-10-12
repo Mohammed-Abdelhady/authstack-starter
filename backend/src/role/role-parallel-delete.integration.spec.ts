@@ -1,5 +1,5 @@
 import { UserRole } from '../user/enums/user-role.enum';
-import { RaceGate } from '../../test/utils/race-gate';
+import { holdBefore, RaceGate } from '../../test/utils/race-gate';
 import { useAdminRoundFour } from '../admin/persistence/mongo/services/admin-round-four.harness-spec';
 
 const PARALLEL_DELETES = 20;
@@ -19,15 +19,7 @@ describe('independent role deletes remain independent', () => {
       .findOne({ slug: UserRole.USER })
       .orFail();
     const gate = new RaceGate();
-    const remove = h.roleModel.collection.deleteOne.bind(
-      h.roleModel.collection,
-    );
-    jest
-      .spyOn(h.roleModel.collection, 'deleteOne')
-      .mockImplementation(async (...args) => {
-        await gate.hold();
-        return remove(...args);
-      });
+    const restore = holdBefore(h.roles, 'delete', () => gate);
     const requests = roles.map((role) =>
       h.roles.delete(role.slug, fixture.roleActorId),
     );
@@ -44,6 +36,7 @@ describe('independent role deletes remain independent', () => {
       ]);
     } finally {
       gate.release();
+      restore();
     }
     const results = await settled;
     expect(results.filter((result) => result.status === 'rejected')).toEqual(
