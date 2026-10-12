@@ -19,11 +19,7 @@ vi.mock('next-intl/server', () => ({
     return createTranslator({ locale, messages: await load(locale), namespace });
   },
 }));
-vi.mock('next/font/google', () => ({
-  Geist: () => ({ variable: '' }),
-  Geist_Mono: () => ({ variable: '' }),
-  Noto_Sans_Arabic: () => ({ variable: '' }), // feature:locale-ar
-}));
+vi.mock('next/font/local', () => ({ default: () => ({ variable: '' }) }));
 vi.mock('../globals.css', () => ({}));
 vi.mock('@/components/providers', () => ({ AppProviders: () => null }));
 vi.mock('@/i18n/navigation', () => ({
