@@ -51,8 +51,6 @@ function googleConfigured(
   if (modules.platform === 'android') return true;
   return (
     modules.platform === 'ios' &&
-    modules.apple !== undefined &&
-    modules.appleScopes !== undefined &&
     nonEmptyString(sdk.iosClientId) &&
     settings.googleIosUrlScheme === googleClientScheme(sdk.iosClientId)
   );
@@ -65,6 +63,8 @@ function appleAvailable(
 ): boolean {
   return (
     modules.platform === 'ios' &&
+    modules.apple !== undefined &&
+    modules.appleScopes !== undefined &&
     settings.appleSignInEnabled &&
     method.id === 'apple' &&
     method.mode === NATIVE_APPLE_MODE &&
