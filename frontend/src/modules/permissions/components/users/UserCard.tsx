@@ -34,6 +34,13 @@ export interface UserCardProps {
   className?: string;
 }
 
+function focusRoleRegionIfOwned(region: HTMLDivElement | null) {
+  const activeElement = document.activeElement;
+  if (region && (activeElement === document.body || region.contains(activeElement))) {
+    region.focus();
+  }
+}
+
 /**
  * UserCard - Minimal user card with refined aesthetic.
  *
@@ -58,15 +65,25 @@ export const UserCard = memo(
     const t = useTranslations('users.card');
     const { handleRoleChange, isUpdatingRole } = useUserActions();
     const roleRegionRef = useRef<HTMLDivElement>(null);
-    const previousRole = useRef(user.role);
+    const previousUser = useRef({ id: user._id, role: user.role });
+    const confirmedRoleFocus = useRef<{ userId: string; role: string } | null>(null);
 
     useEffect(() => {
-      const previous = previousRole.current;
-      previousRole.current = user.role;
-      if (previous !== user.role && (user.role === 'user' || user.role === 'admin')) {
-        roleRegionRef.current?.focus();
+      const previous = previousUser.current;
+      previousUser.current = { id: user._id, role: user.role };
+      const intent = confirmedRoleFocus.current;
+      confirmedRoleFocus.current = null;
+      if (
+        previous.id !== user._id ||
+        previous.role === user.role ||
+        intent?.userId !== user._id ||
+        intent.role !== user.role ||
+        (user.role !== 'user' && user.role !== 'admin')
+      ) {
+        return;
       }
-    }, [user.role]);
+      focusRoleRegionIfOwned(roleRegionRef.current);
+    }, [user._id, user.role]);
 
     const initials = getInitials(user.name);
     const joinedDate = formatDateShort(user.createdAt, locale);
@@ -80,7 +97,15 @@ export const UserCard = memo(
 
     const onRoleChange = useCallback(
       async (newRole: string) => {
+        confirmedRoleFocus.current = null;
         await handleRoleChange(user._id, newRole);
+        confirmedRoleFocus.current = { userId: user._id, role: newRole };
+        if (previousUser.current.id === user._id && previousUser.current.role === newRole) {
+          confirmedRoleFocus.current = null;
+          if (newRole === 'user' || newRole === 'admin') {
+            focusRoleRegionIfOwned(roleRegionRef.current);
+          }
+        }
       },
       [handleRoleChange, user._id],
     );
