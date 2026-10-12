@@ -17,10 +17,12 @@ import {
   Role,
   RoleSchema,
 } from '../../../role/persistence/mongo/schemas/role.schema';
+// feature:passkeys:start
 import {
   Passkey,
   PasskeySchema,
 } from '../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
+// feature:passkeys:end
 import { HashService } from '../../../common/services/hash.service';
 import { AuthMailService } from '../../services/mail/auth-mail.service';
 import { Sessions } from '../../services/sessions/sessions';
@@ -75,7 +77,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
       mail: { maxPendingSends: 4, drainDeadlineMs: 250 },
     });
     const roles = connection.model<Role>(Role.name, RoleSchema);
-    const passkeys = connection.model<Passkey>(Passkey.name, PasskeySchema);
+    const passkeys = connection.model<Passkey>(Passkey.name, PasskeySchema); // feature:passkeys
     sessionService = { invalidateAllSessions: jest.fn() };
     signInService = {
       completeSignIn: jest.fn().mockResolvedValue({
@@ -99,7 +101,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
         { provide: getConnectionToken(), useValue: connection },
         { provide: getModelToken(User.name), useValue: users },
         { provide: getModelToken(Role.name), useValue: roles },
-        { provide: getModelToken(Passkey.name), useValue: passkeys },
+        { provide: getModelToken(Passkey.name), useValue: passkeys }, // feature:passkeys
         MONGO_ACCOUNT_PROFILE_STORE,
         MONGO_PASSWORD_SIGN_IN_STORE,
         { provide: IdFormat, useClass: MongoIdFormat },
