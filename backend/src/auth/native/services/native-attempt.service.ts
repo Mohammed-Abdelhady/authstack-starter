@@ -4,7 +4,6 @@ import type {
   NativeAttemptStart,
   NativeAttemptStartResult,
   NativeAttemptView,
-  NativeFirstFactor,
 } from '@app/sdk';
 import { Clock } from '../../../common/services/clock';
 import {
@@ -21,16 +20,23 @@ import { NativeAuthorizeService } from '../../../session/native/authorize/native
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
-import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
+import {
+  NATIVE_ATTEMPT_FIRST_FACTOR,
+  NATIVE_ATTEMPT_FLOW,
+  NATIVE_ATTEMPT_PHASE,
+} from '../constants/native-attempt';
 import { NativeAttemptStore } from '../stores/native-attempt.store';
 import type {
   NativeAttempt,
-  NativeAttemptGuard,
-  NativeAttemptOperationGuard,
   VerifiedNativePrincipal,
 } from '../types/native-attempt';
 import { NativeMethodsService } from './native-methods.service';
 import { NativeAttemptViewService } from './native-attempt-view.service';
+import { isFirstFactorClaim } from '../utils/native-first-factor-claim';
+import { nativeFirstFactors } from '../utils/native-first-factors';
+import { assertNativePolicy } from '../utils/native-policy.util';
+import { guardOf, operationGuardOf } from '../utils/native-attempt-guards';
+export { guardOf, operationGuardOf } from '../utils/native-attempt-guards';
 import {
   featureDisabled,
   invalidRequest,
@@ -62,7 +68,7 @@ export class NativeAttemptService {
     this.assertEnabled();
     if (
       !input ||
-      !['signIn', 'registration', 'recovery'].includes(input.flow) ||
+      !Object.values(NATIVE_ATTEMPT_FLOW).some((flow) => flow === input.flow) ||
       !Array.isArray(input.scopes) ||
       input.scopes.some((scope) => typeof scope !== 'string')
     ) {
@@ -70,16 +76,13 @@ export class NativeAttemptService {
     }
     const methods = await this.methods.forClient(input.clientId);
     if (!methods.nativeEnabled) throw featureDisabled();
-    const factors: NativeFirstFactor[] = [];
-    if (methods.capabilities.password) factors.push('password');
-    if (methods.capabilities.emailLink) factors.push('emailLink');
-    if (methods.capabilities.passkeys) factors.push('passkey');
-    if (methods.providers.some(({ mode }) => mode !== 'system'))
-      factors.push('provider');
+    const factors = nativeFirstFactors(methods);
     if (
       factors.length === 0 ||
-      (input.flow === 'registration' && !methods.capabilities.registration) ||
-      (input.flow === 'recovery' && !methods.capabilities.recovery)
+      (input.flow === NATIVE_ATTEMPT_FLOW.REGISTRATION &&
+        !methods.capabilities.registration) ||
+      (input.flow === NATIVE_ATTEMPT_FLOW.RECOVERY &&
+        !methods.capabilities.recovery)
     )
       throw featureDisabled();
 
@@ -110,6 +113,7 @@ export class NativeAttemptService {
       createdAt: now,
       expiresAt: new Date(now.getTime() + ATTEMPT_LIFETIME_MS),
       details: {
+        policyHash: this.methods.policyHash(validated.clientId) ?? undefined,
         verifiedAccount: null,
         nonceDigest,
         email: null,
@@ -146,6 +150,11 @@ export class NativeAttemptService {
     if (attempt.expiresAt.getTime() <= this.clock.now().getTime()) {
       throw expiredAttempt();
     }
+    assertNativePolicy(
+      attempt,
+      this.methods.policyHash(attempt.clientId),
+      this.epoch.current(),
+    );
     return attempt;
   }
 
@@ -210,11 +219,12 @@ export class NativeAttemptService {
     const completed = await runLeavingFailuresAsRaised(
       this.runner,
       async (unitOfWork) => {
+        const current = await this.authenticate(attemptId, secret);
         const claimed = await this.claimIn(
           unitOfWork,
           attemptId,
           secret,
-          NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
+          current.phase,
         );
         return this.completeFactorIn(unitOfWork, claimed, principal);
       },
@@ -227,13 +237,15 @@ export class NativeAttemptService {
     claimed: NativeAttempt,
     principal: VerifiedNativePrincipal,
   ): Promise<NativeAttempt> {
+    assertNativePolicy(
+      claimed,
+      this.methods.policyHash(claimed.clientId),
+      this.epoch.current(),
+    );
     if (
-      claimed.phase !== NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED ||
+      !isFirstFactorClaim(claimed, principal) ||
       !claimed.activeOperationId ||
       !principal.userId ||
-      !['password', 'provider', 'passkey', 'emailLink'].includes(
-        principal.firstFactor,
-      ) ||
       !Array.isArray(principal.authenticationMethods) ||
       principal.authenticationMethods.length === 0
     )
@@ -272,7 +284,11 @@ export class NativeAttemptService {
     if (grant && !grant.allowed) throw wrongStage();
     const owesMfa =
       account.twoFactorEnabled &&
-      this.features.isEnabled(AuthFeature.TWO_FACTOR);
+      this.features.isEnabled(AuthFeature.TWO_FACTOR) &&
+      !(
+        principal.firstFactor === NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
+        principal.passkeyUserVerified === true
+      );
     const phase = owesMfa
       ? NATIVE_ATTEMPT_PHASE.SECOND_FACTOR_REQUIRED
       : NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED;
@@ -319,20 +335,4 @@ export class NativeAttemptService {
   private assertEnabled(): void {
     if (!this.epoch.nativeEnabled()) throw featureDisabled();
   }
-}
-
-export function guardOf(attempt: NativeAttempt): NativeAttemptGuard {
-  return {
-    attemptId: attempt.attemptId,
-    clientId: attempt.clientId,
-    secretHash: attempt.secretHash,
-    revision: attempt.revision,
-  };
-}
-
-export function operationGuardOf(
-  attempt: NativeAttempt,
-): NativeAttemptOperationGuard {
-  if (!attempt.activeOperationId) throw wrongStage();
-  return { ...guardOf(attempt), operationId: attempt.activeOperationId };
 }

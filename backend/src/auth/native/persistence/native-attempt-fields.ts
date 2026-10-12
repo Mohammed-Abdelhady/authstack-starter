@@ -8,6 +8,9 @@ export function nativeAttemptDetails(
   const email = details.email;
   const reply = details.codeReply;
   return {
+    ...(details.policyHash !== undefined
+      ? { policyHash: details.policyHash }
+      : {}),
     verifiedAccount: account
       ? {
           userId: account.userId,

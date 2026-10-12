@@ -12,6 +12,14 @@ export const NATIVE_ATTEMPT_PHASE = {
 
 export const NATIVE_ATTEMPT_HEADER = 'X-Native-Attempt';
 
+export const NATIVE_ATTEMPT_FIRST_FACTOR = {
+  PASSWORD: 'password',
+  PROVIDER: 'provider',
+  PASSKEY: 'passkey',
+  EMAIL_LINK: 'emailLink',
+  EMAIL_CODE: 'emailCode',
+} as const;
+
 export const NATIVE_ATTEMPT_FLOW = {
   SIGN_IN: 'signIn',
   REGISTRATION: 'registration',

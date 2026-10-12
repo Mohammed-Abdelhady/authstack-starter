@@ -18,7 +18,11 @@ import { SkipBrowserProof } from '../decorators/skip-browser-proof.decorator';
 import { NativeAttemptService } from './services/native-attempt.service';
 import { NativeConsentService } from './services/native-consent.service';
 import { NativeMethodsService } from './services/native-methods.service';
-import { NATIVE_ATTEMPT_HEADER } from './constants/native-attempt';
+import {
+  NATIVE_ATTEMPT_FLOW,
+  NATIVE_ATTEMPT_HEADER,
+} from './constants/native-attempt';
+import { rejectBrowserContext } from './utils/native-request.util';
 
 @Public()
 @SkipBrowserProof()
@@ -79,19 +83,6 @@ export class NativeAuthController {
   }
 }
 
-function rejectBrowserContext(request: Request): void {
-  if (
-    request.headers.origin !== undefined ||
-    request.headers.cookie !== undefined
-  ) {
-    throw new AppException(
-      ErrorCode.FORBIDDEN,
-      'Browser context not accepted',
-      403,
-    );
-  }
-}
-
 function isStart(input: unknown): input is NativeAttemptStart {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
   const record = input as Record<string, unknown>;
@@ -115,7 +106,7 @@ function isStart(input: unknown): input is NativeAttemptStart {
     Array.isArray(record.scopes) &&
     record.scopes.length <= 64 &&
     record.scopes.every((scope: unknown) => typeof scope === 'string') &&
-    ['signIn', 'registration', 'recovery'].includes(String(record.flow))
+    Object.values(NATIVE_ATTEMPT_FLOW).some((flow) => flow === record.flow)
   );
 }
 

@@ -15,7 +15,7 @@ export interface VerifiedNativeAccount {
   grantVersion: number | null;
   authenticationMethods: string[];
   verifiedAt: Date;
-  firstFactor: 'password' | 'provider' | 'passkey' | 'emailLink';
+  firstFactor: 'password' | 'provider' | 'passkey' | 'emailLink' | 'emailCode';
 }
 
 /** Only a server verifier may supply this after checking its own credential. */
@@ -24,6 +24,8 @@ export interface VerifiedNativePrincipal {
   userVersion: number;
   firstFactor: VerifiedNativeAccount['firstFactor'];
   authenticationMethods: string[];
+  /** Set only by a server passkey verifier after checking the UV flag. */
+  passkeyUserVerified?: boolean;
 }
 
 export interface NativeAttemptEmailState {
@@ -41,6 +43,7 @@ export interface EncryptedNativeCodeReply {
 }
 
 export interface NativeAttemptDetails {
+  policyHash?: string;
   verifiedAccount: VerifiedNativeAccount | null;
   nonceDigest: string | null;
   email: NativeAttemptEmailState | null;
