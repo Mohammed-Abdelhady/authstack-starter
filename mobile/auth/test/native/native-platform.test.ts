@@ -273,31 +273,31 @@ describe('native platform credentials', () => {
     expect(engine.snapshot.nativeAttempt).toBeUndefined();
   });
 
-  it.each(['en', 'ar'] as const)(
-    'keeps %s on a fresh system-browser provider fallback',
-    async (locale) => {
-      const transport = new ScriptedTransport();
-      const ports = testPorts(transport);
-      const expiresAt = new Date(ports.clock.wall + 10 * 60_000).toISOString();
-      transport.respond = async (request) => {
-        if (request.path === '/api/auth/native/attempts') return startReply(expiresAt);
-        if (request.path.startsWith('/api/auth/native/methods')) return methodsReply();
-        return apiReply({ attemptId: ATTEMPT_ID, stage: 'denied', expiresAt, reason: 'cancelled' });
-      };
-      const engine = createAuthEngine(CONFIG, ports);
-      await engine.restore();
-      await engine.nativeSignIn({ kind: 'start', flow: 'signIn' });
-      const firstState = JSON.parse(ports.credentials.value ?? '{}').transaction.state;
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('keeps %s on a fresh system-browser provider fallback', async (locale) => {
+    const transport = new ScriptedTransport();
+    const ports = testPorts(transport);
+    const expiresAt = new Date(ports.clock.wall + 10 * 60_000).toISOString();
+    transport.respond = async (request) => {
+      if (request.path === '/api/auth/native/attempts') return startReply(expiresAt);
+      if (request.path.startsWith('/api/auth/native/methods')) return methodsReply();
+      return apiReply({ attemptId: ATTEMPT_ID, stage: 'denied', expiresAt, reason: 'cancelled' });
+    };
+    const engine = createAuthEngine(CONFIG, ports);
+    await engine.restore();
+    await engine.nativeSignIn({ kind: 'start', flow: 'signIn' });
+    const firstState = JSON.parse(ports.credentials.value ?? '{}').transaction.state;
 
-      const result = await engine.nativeSignIn({ kind: 'provider', providerId: 'google', locale });
+    const result = await engine.nativeSignIn({ kind: 'provider', providerId: 'google', locale });
 
-      expect(result.kind).toBe('cancelled');
-      expect(ports.authBrowser.opened).toHaveLength(1);
-      const query = readQueryValues(ports.authBrowser.opened[0].address);
-      expect(query.get('provider_id')).toBe('google');
-      expect(query.get('locale')).toBe(locale);
-      expect(query.get('state')).not.toBe(firstState);
-      expect(engine.snapshot.nativeAttempt).toBeUndefined();
-    },
-  );
+    expect(result.kind).toBe('cancelled');
+    expect(ports.authBrowser.opened).toHaveLength(1);
+    const query = readQueryValues(ports.authBrowser.opened[0].address);
+    expect(query.get('provider_id')).toBe('google');
+    expect(query.get('locale')).toBe(locale);
+    expect(query.get('state')).not.toBe(firstState);
+    expect(engine.snapshot.nativeAttempt).toBeUndefined();
+  });
 });

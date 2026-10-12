@@ -14,31 +14,35 @@ describe('native SDK build configuration', () => {
     expect(configureNativeSignIn(original, {})).toEqual(original);
   });
 
-  it('publishes only declared public settings for the runtime adapter', () => {
+  // feature:apple:start
+  it('publishes the declared public Apple setting for the runtime adapter', () => {
+    const configured = configureNativeSignIn(
+      original,
+      Object.assign({ appleSignIn: true }, { appSecret: 'must-not-export' }),
+    );
+    expect(configured.extra).toEqual({ nativeSignIn: { appleSignIn: true } });
+  });
+  // feature:apple:end
+
+  // feature:facebook:start
+  it('publishes the declared public Facebook settings for the runtime adapter', () => {
     const configured = configureNativeSignIn(
       original,
       Object.assign(
-        {
-          appleSignIn: true,
-          facebookAppId: '123456',
-          facebookClientToken: 'public-client-token',
-        },
+        { facebookAppId: '123456', facebookClientToken: 'public-client-token' },
         { appSecret: 'must-not-export' },
       ),
     );
     expect(configured.extra).toEqual({
-      nativeSignIn: {
-        appleSignIn: true,
-        facebookAppId: '123456',
-        facebookClientToken: 'public-client-token',
-      },
+      nativeSignIn: { facebookAppId: '123456', facebookClientToken: 'public-client-token' },
     });
   });
+  // feature:facebook:end
 
-  it('configures public Google and Apple SDK settings', () => {
+  // feature:google:start
+  it('configures public Google SDK settings', () => {
     const configured = configureNativeSignIn(original, {
       googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
-      appleSignIn: true,
     });
     expect(configured.plugins).toEqual([
       'expo-secure-store',
@@ -46,12 +50,22 @@ describe('native SDK build configuration', () => {
         'react-native-nitro-google-signin',
         { iosUrlScheme: 'com.googleusercontent.apps.123-example' },
       ],
-      'expo-apple-authentication',
     ]);
+  });
+  // feature:google:end
+
+  // feature:apple:start
+  it('configures public Apple SDK settings', () => {
+    const configured = configureNativeSignIn(original, {
+      appleSignIn: true,
+    });
+    expect(configured.plugins).toEqual(['expo-secure-store', 'expo-apple-authentication']);
     expect(configured.ios?.usesAppleSignIn).toBe(true);
     expect(original.ios).not.toHaveProperty('usesAppleSignIn');
   });
+  // feature:apple:end
 
+  // feature:facebook:start
   it('configures Facebook without automatic SDK initialization or collection', () => {
     const configured = configureNativeSignIn(original, {
       facebookAppId: '123456',
@@ -74,6 +88,7 @@ describe('native SDK build configuration', () => {
       ],
     ]);
   });
+  // feature:facebook:end
 
   it.each([
     { googleIosUrlScheme: 'https://evil.example' },
@@ -86,6 +101,7 @@ describe('native SDK build configuration', () => {
     expect(() => configureNativeSignIn(original, settings)).toThrow();
   });
 
+  // feature:passkeys:start
   it('adds exact associated domains and callback intent without replacing existing settings', () => {
     const configured = configureNativeSignIn(original, {
       passkeyRpId: 'accounts.example.com',
@@ -108,6 +124,7 @@ describe('native SDK build configuration', () => {
       ],
     });
   });
+  // feature:passkeys:end
 
   it.each([
     'https://example.com',

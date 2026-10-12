@@ -58,11 +58,13 @@ describe.each(SCHEMES)('the screens when the system reports %j', (reported, expe
     expect(root?.style.flex).toBe(1);
   });
 
+  // feature:oauth-core:start
   it('paints the sign-in action in the accent of the same scheme', () => {
     const faces = ofKind(painted(), 'View').filter((view) => 'minHeight' in view.style);
 
     expect(faces.map((face) => face.style.backgroundColor)).toEqual([expected.accent]);
   });
+  // feature:oauth-core:end
 
   it.each(SHIPPED)('lays the window out in the direction of $locale', (shown) => {
     const [root] = painted(shown);
