@@ -2,6 +2,7 @@
 
 import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import type { SafeMarkupProps } from '@/types/markup';
+import type { DialogContentProps } from '@/types/dialog';
 
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
@@ -68,12 +69,13 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  SafeMarkupProps<React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>>
+  DialogContentProps
 >(
   (
     {
       className,
       children,
+      showCloseButton = true,
       onCloseAutoFocus,
       onEscapeKeyDown,
       onPointerDownOutside,
@@ -102,16 +104,18 @@ const DialogContent = React.forwardRef<
           onInteractOutside={heldDismiss(busy, onInteractOutside)}
         >
           {children}
-          <DialogClose
-            className={cn(
-              'absolute end-4 top-4 flex h-9 w-9 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 aria-disabled:cursor-progress aria-disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground',
-              FOCUS_RING_CLASSES,
-            )}
-            data-testid="dialog-close-button"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-            <span className="sr-only">{t('close')}</span>
-          </DialogClose>
+          {showCloseButton && (
+            <DialogClose
+              className={cn(
+                'absolute end-4 top-4 flex h-9 w-9 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 aria-disabled:cursor-progress aria-disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground',
+                FOCUS_RING_CLASSES,
+              )}
+              data-testid="dialog-close-button"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">{t('close')}</span>
+            </DialogClose>
+          )}
         </DialogPrimitive.Content>
       </DialogPortal>
     );
