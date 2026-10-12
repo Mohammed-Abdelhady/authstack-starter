@@ -266,8 +266,8 @@ For each enabled SDK, apply its settings before rebuilding:
   backend native Apple `appId`. Android uses system OAuth.
 - Facebook needs `FacebookAppID`, `FacebookClientToken` and
   `FacebookDisplayName` in Info.plist, plus its `fb<app-id>` URL scheme and the
-  wrapper's required query schemes. Set `FacebookAutoInitEnabled`,
-  `FacebookAutoLogAppEventsEnabled` and `FacebookAdvertiserIDCollectionEnabled`
+  wrapper's required query schemes. Set `FacebookAutoLogAppEventsEnabled` and
+  `FacebookAdvertiserIDCollectionEnabled`
   to false. Supply the corresponding public `MOBILE_FACEBOOK_*` settings when
   resolving app config. Keep the app secret on the backend. Apply the wrapper's
   Android manifest settings for its registered app.
