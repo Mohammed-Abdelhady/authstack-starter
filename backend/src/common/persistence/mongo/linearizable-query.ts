@@ -1,5 +1,7 @@
 import { Query } from 'mongoose';
-import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../../session/constants/session-policy';
+
+/** How long a linearizable read may wait for a majority before it is given up. */
+export const LINEARIZABLE_QUERY_MAX_TIME_MS = 5000;
 
 export function linearizable<Result, Doc>(
   query: Query<Result, Doc>,

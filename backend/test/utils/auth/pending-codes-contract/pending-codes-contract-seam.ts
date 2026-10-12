@@ -5,9 +5,7 @@ import {
 } from '../../../../src/common/persistence/persistence-errors';
 import { TEST_NOW } from '../../frozen-clock';
 import {
-  CODE,
   contractServices,
-  hashOf,
   HarnessSource,
   LIVE_EXPIRY,
   rejectionOf,
@@ -16,13 +14,12 @@ import {
 
 const SIGNUP = PENDING_PURPOSE.SIGNUP;
 const MALFORMED_IDS = { word: 'not-an-id', empty: '' } as const;
-const CUTOFF = new Date('2099-01-01T13:00:00.000Z');
 
 function conflictOf(failure: unknown): string | null {
   return failure instanceof UniqueConflictError ? failure.constraint : null;
 }
 
-/** What the ports promise whoever calls them: ids, addresses, shared errors, cleanup. */
+/** Code identifiers, addresses and shared errors. */
 export function pendingCodeSeamCases(harness: HarnessSource): void {
   it('refuses a second record for one address and purpose as a unique conflict', async () => {
     const store = harness().stores.registrations;
@@ -189,51 +186,6 @@ export function pendingCodeSeamCases(harness: HarnessSource): void {
     expect({ registration, reset }).toEqual({
       registration: 'not_claimable',
       reset: 'not_claimable',
-    });
-  });
-
-  it('removes only the code records that expired at or before the cutoff', async () => {
-    const hashedCode = await hashOf(CODE);
-    const expiries: ReadonlyArray<readonly [string, Date]> = [
-      ['before@example.test', new Date(CUTOFF.getTime() - 1)],
-      ['at@example.test', CUTOFF],
-      ['after@example.test', new Date(CUTOFF.getTime() + 1)],
-    ];
-    for (const [email, expiresAt] of expiries) {
-      await harness().seedRegistration({
-        email,
-        purpose: SIGNUP,
-        hashedCode,
-        attempts: 0,
-        expiresAt,
-      });
-      await harness().seedPasswordReset({
-        email,
-        hashedCode,
-        attempts: 0,
-        expiresAt,
-      });
-    }
-
-    const removed = [
-      await harness().stores.registrations.deleteExpiredBefore(CUTOFF),
-      await harness().stores.passwordResets.deleteExpiredBefore(CUTOFF),
-    ];
-
-    expect({
-      removed,
-      registrationsLeft: await harness().registrationCount(),
-      registrationKept: (
-        await harness().registration('after@example.test', SIGNUP)
-      )?.email,
-      resetsLeft: await harness().passwordResetCount(),
-      resetKept: (await harness().passwordReset('after@example.test'))?.email,
-    }).toEqual({
-      removed: [2, 2],
-      registrationsLeft: 1,
-      registrationKept: 'after@example.test',
-      resetsLeft: 1,
-      resetKept: 'after@example.test',
     });
   });
 }

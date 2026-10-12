@@ -17,11 +17,7 @@ import {
 } from '../../pending-codes/pending-registration.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
-import {
-  autocommit,
-  removedRows,
-  storedAddress,
-} from './postgres-pending-codes-database';
+import { autocommit, storedAddress } from './postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
 
 const CONSTRAINTS = {
@@ -191,16 +187,5 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
       .returning('id')
       .executeTakeFirst();
     return claimed ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
-  }
-
-  deleteExpiredBefore(cutoff: Date): Promise<number> {
-    return autocommit(NONE, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('pending_registrations')
-          .where('expires_at', '<=', cutoff)
-          .executeTakeFirstOrThrow(),
-      ),
-    );
   }
 }

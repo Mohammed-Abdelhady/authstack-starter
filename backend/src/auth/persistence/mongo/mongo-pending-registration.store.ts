@@ -197,13 +197,4 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
     );
     return consumed !== null ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
   }
-
-  async deleteExpiredBefore(cutoff: Date): Promise<number> {
-    const deleted = await singleStatement(() =>
-      this.pendingRegistrationModel.deleteMany({
-        expiresAt: { $lte: cutoff },
-      }),
-    );
-    return deleted.deletedCount;
-  }
 }

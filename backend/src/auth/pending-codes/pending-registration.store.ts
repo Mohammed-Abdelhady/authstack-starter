@@ -133,7 +133,4 @@ export abstract class PendingRegistrationStore {
     unitOfWork: UnitOfWork,
     claim: RegistrationCodeClaim,
   ): Promise<CodeClaim>;
-
-  /** Removes records that expired at or before `cutoff`. */
-  abstract deleteExpiredBefore(cutoff: Date): Promise<number>;
 }

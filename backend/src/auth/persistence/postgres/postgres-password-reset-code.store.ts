@@ -15,11 +15,7 @@ import {
 } from '../../pending-codes/pending-registration.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
-import {
-  autocommit,
-  removedRows,
-  storedAddress,
-} from './postgres-pending-codes-database';
+import { autocommit, storedAddress } from './postgres-pending-codes-database';
 
 const CONSTRAINTS = {
   pending_password_reset_email_unique: PASSWORD_RESET_CONSTRAINT.ADDRESS,
@@ -105,17 +101,6 @@ export class PostgresPasswordResetCodeStore extends PasswordResetCodeStore {
         .where('email', '=', storedAddress(email))
         .where('expires_at', '<=', now)
         .execute(),
-    );
-  }
-
-  deleteExpiredBefore(cutoff: Date): Promise<number> {
-    return autocommit(NONE, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('pending_password_resets')
-          .where('expires_at', '<=', cutoff)
-          .executeTakeFirstOrThrow(),
-      ),
     );
   }
 }

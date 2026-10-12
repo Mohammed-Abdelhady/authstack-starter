@@ -112,13 +112,4 @@ export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
       }),
     );
   }
-
-  async deleteExpiredBefore(cutoff: Date): Promise<number> {
-    const deleted = await singleStatement(() =>
-      this.pendingPasswordResetModel.deleteMany({
-        expiresAt: { $lte: cutoff },
-      }),
-    );
-    return deleted.deletedCount;
-  }
 }

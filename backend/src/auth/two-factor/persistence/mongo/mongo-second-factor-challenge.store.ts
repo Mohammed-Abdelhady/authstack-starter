@@ -128,11 +128,4 @@ export class MongoSecondFactorChallengeStore extends SecondFactorChallengeStore 
     const id = toObjectId(challengeId);
     await singleStatement(() => this.challengeModel.deleteOne({ _id: id }));
   }
-
-  async deleteExpired(now: Date): Promise<number> {
-    const removed = await singleStatement(() =>
-      this.challengeModel.deleteMany({ expiresAt: { $lte: now } }),
-    );
-    return removed.deletedCount;
-  }
 }

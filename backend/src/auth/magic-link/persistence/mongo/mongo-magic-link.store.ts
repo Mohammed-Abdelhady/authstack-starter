@@ -72,13 +72,4 @@ export class MongoMagicLinkStore extends MagicLinkStore {
       ...(link.redirect ? { redirect: link.redirect } : {}),
     };
   }
-
-  async deleteExpiredBefore(cutoff: Date): Promise<number> {
-    const deleted = await singleStatement(() =>
-      this.pendingMagicLinkModel.deleteMany({
-        expiresAt: { $lte: cutoff },
-      }),
-    );
-    return deleted.deletedCount;
-  }
 }

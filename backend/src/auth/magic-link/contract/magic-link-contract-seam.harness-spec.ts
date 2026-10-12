@@ -1,4 +1,3 @@
-import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { hashMagicLinkToken } from '../utils/magic-link-token.util';
 import {
@@ -7,7 +6,6 @@ import {
   linkServices,
   LinkServices,
   MagicLinkHarnessSource,
-  ONE_HOUR_MS,
 } from './magic-link-contract.harness-spec';
 
 const EMAIL = 'link@example.test';
@@ -23,7 +21,7 @@ async function conflictOf(attempt: Promise<unknown>): Promise<string | null> {
   return null;
 }
 
-/** What the link ports promise: shared errors, addresses and cleanup. */
+/** Shared link errors and address handling. */
 export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
   let services: LinkServices;
 
@@ -35,22 +33,6 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
     services.service.request({ email }, LINK_REQUEST);
   const verify = (token = TOKEN) =>
     services.service.verify({ token }, LINK_RESPONSE);
-  const seedLink = (
-    overrides: {
-      tokenHash?: string;
-      expiresAt?: Date;
-      createdAt?: Date;
-      consumedAt?: Date;
-      redirect?: string;
-    } = {},
-  ) =>
-    harness().seedLink({
-      email: EMAIL,
-      tokenHash: hashMagicLinkToken(TOKEN),
-      expiresAt: LINK_EXPIRY,
-      createdAt: TEST_NOW,
-      ...overrides,
-    });
 
   it('refuses a second link with one token hash and a second account with one address as unique conflicts', async () => {
     const link = { email: EMAIL, tokenHash: 'same', expiresAt: LINK_EXPIRY };
@@ -87,42 +69,6 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
       link: storedForm,
       account: services.signedIn[0],
       signedIn: 1,
-    });
-  });
-
-  it('removes only the links that expired at or before the cutoff, so the cap still counts a kept one', async () => {
-    const cutoff = new Date(TEST_NOW.getTime() - ONE_HOUR_MS);
-    const created = new Date(TEST_NOW.getTime() - 1000);
-    await seedLink({
-      tokenHash: 'before',
-      expiresAt: new Date(cutoff.getTime() - 1),
-      createdAt: created,
-    });
-    await seedLink({
-      tokenHash: 'at',
-      expiresAt: cutoff,
-      createdAt: created,
-    });
-    await seedLink({
-      tokenHash: 'after',
-      expiresAt: new Date(cutoff.getTime() + 1),
-      createdAt: created,
-    });
-
-    const removed = await harness().links.deleteExpiredBefore(cutoff);
-
-    expect({
-      removed,
-      before: await harness().link('before'),
-      at: await harness().link('at'),
-      after: (await harness().link('after'))?.tokenHash,
-      stillCounted: await harness().links.countRequestedSince(EMAIL, cutoff),
-    }).toEqual({
-      removed: 2,
-      before: null,
-      at: null,
-      after: 'after',
-      stillCounted: 1,
     });
   });
 }

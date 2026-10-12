@@ -20,8 +20,6 @@ export function proofsEventsStatements(
       }),
     'proof.findIssuedBrowserProof': () => proofs.findIssuedBrowserProof(HASH),
     'proof.claimBrowserProof': () => proofs.claimBrowserProof(HASH, TEST_NOW),
-    'proof.deleteExpiredBrowserProofs': () =>
-      proofs.deleteExpiredBrowserProofs(TEST_NOW),
     'event.appendOutsideUnitOfWork': () =>
       events.appendOutsideUnitOfWork({
         eventId: 'event-1',
@@ -30,7 +28,6 @@ export function proofsEventsStatements(
         occurredAt: TEST_NOW,
       }),
     'event.listRecentForUser': () => events.listRecentForUser('user-1', 10),
-    'event.deleteExpired': () => events.deleteExpired(TEST_NOW),
   };
 }
 
@@ -39,8 +36,6 @@ export const PROOFS_EVENTS_OUTAGES: Record<string, string> = {
   'proof.issueBrowserProof': UNAVAILABLE,
   'proof.findIssuedBrowserProof': UNAVAILABLE,
   'proof.claimBrowserProof': UNAVAILABLE,
-  'proof.deleteExpiredBrowserProofs': UNAVAILABLE,
   'event.appendOutsideUnitOfWork': UNAVAILABLE,
   'event.listRecentForUser': UNAVAILABLE,
-  'event.deleteExpired': UNAVAILABLE,
 };

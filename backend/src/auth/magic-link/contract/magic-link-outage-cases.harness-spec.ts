@@ -21,7 +21,6 @@ export function magicLinkStatements(
         expiresAt: TEST_NOW,
       }),
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
-    'link.deleteExpiredBefore': () => links.deleteExpiredBefore(TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
     'account.createPasswordless': () =>
       accounts.createPasswordless({ email: EMAIL, name: 'Outage Tester' }),
@@ -33,7 +32,6 @@ export const MAGIC_LINK_OUTAGES: Record<string, string> = {
   'link.countRequestedSince': UNAVAILABLE,
   'link.insertLink': UNAVAILABLE,
   'link.claimLink': UNAVAILABLE,
-  'link.deleteExpiredBefore': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,
   'account.createPasswordless': UNAVAILABLE,
 };

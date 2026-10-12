@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
+import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
 
 /** Shared names of the unique rules creating an account can run into. */
 export const MAGIC_LINK_ACCOUNT_CONSTRAINT = {
@@ -41,9 +41,7 @@ export abstract class MagicLinkAccounts {
   ): Promise<MagicLinkAccount>;
 }
 
-export type MagicLinkSignInOutcome =
-  | { requiresTwoFactor: true }
-  | { requiresTwoFactor: false; user: AuthenticatedUserSummary };
+export type MagicLinkSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account a link proved. */
 export abstract class MagicLinkSignIn {

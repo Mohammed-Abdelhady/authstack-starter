@@ -232,19 +232,4 @@ export function seamCases(
       { challengeHash: HASH, userId: ownerId },
     ]);
   });
-
-  it('delete-expired removes what lapsed and nothing else', async () => {
-    const seed = (challengeHash: string, expiresAt: Date): Promise<void> =>
-      harness().seedChallenge({ challengeHash, purpose: 'login', expiresAt });
-    await seed('1'.repeat(64), at(-1));
-    await seed('2'.repeat(64), at(0));
-    await seed('3'.repeat(64), at(1));
-
-    expect(await harness().challenges.deleteExpired(at(0))).toBe(2);
-
-    expect(await harness().storedChallenges()).toMatchObject([
-      { challengeHash: '3'.repeat(64), expiresAt: at(1) },
-    ]);
-    expect(await harness().challenges.deleteExpired(at(0))).toBe(0);
-  });
 }

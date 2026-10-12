@@ -200,17 +200,3 @@ export function isNativeProofIdReplay(error: unknown): boolean {
     error.constraint === NATIVE_CONSTRAINT.PROOF_ID
   );
 }
-
-export function isNativeDpopProofIdConflict(error: unknown): boolean {
-  if (!isRecord(error) || error.code !== 11000 || !isRecord(error.keyPattern)) {
-    return false;
-  }
-  return (
-    error.keyPattern.proofIdHash === 1 &&
-    Object.keys(error.keyPattern).length === 1
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
