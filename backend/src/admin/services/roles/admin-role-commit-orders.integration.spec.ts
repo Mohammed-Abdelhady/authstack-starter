@@ -82,8 +82,11 @@ describe('role edits and assignments cover both commit orders', () => {
           }
         } finally {
           gate.release();
-          await edit;
-          restore();
+          try {
+            await edit;
+          } finally {
+            restore();
+          }
         }
         if (operation === 'delete') {
           expect((await h.users.findById(target._id))?.role).toBe(
