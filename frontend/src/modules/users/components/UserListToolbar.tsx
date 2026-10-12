@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { RoleFilter } from './RoleFilter';
 import { SearchBar } from '@/components/design-system';
-import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
 import { MAX_ADMIN_SEARCH_LENGTH } from '@/modules/permissions/constants/search';
 
 export interface UserListToolbarProps {
