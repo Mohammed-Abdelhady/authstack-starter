@@ -47,6 +47,7 @@ export async function applyNativeResult(
       return { kind: 'apiFailure' };
     const outcome = await callbacks.processAddress(result.redirectUri);
     if (outcome.kind === 'signedIn') return outcome;
+    if (outcome.kind === 'disposed') return { kind: 'disposed' };
     if (activationCompleted) return { kind: 'activationCompleted' };
     if (outcome.kind === 'storageFailure') return { kind: 'storageFailure' };
     if (outcome.kind === 'transportFailure') return { kind: 'transportFailure' };

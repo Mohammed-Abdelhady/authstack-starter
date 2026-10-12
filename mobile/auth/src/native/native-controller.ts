@@ -120,9 +120,9 @@ export function createNativeController(
       if (!runtime.isEpochCurrent(epoch)) {
         return answer.kind === 'outcome' ? answer.outcome : { kind: 'signedOut' };
       }
-      return answer.kind === 'outcome'
-        ? answer.outcome
-        : applyNativeResult(runtime, callbacks, answer.result, epoch);
+      if (answer.kind === 'outcome') return answer.outcome;
+      const outcome = await applyNativeResult(runtime, callbacks, answer.result, epoch);
+      return runtime.disposed ? { kind: 'disposed' } : outcome;
     } catch (error) {
       if (runtime.disposed) return { kind: 'disposed' };
       if (action.kind === 'start' && error instanceof PortDeadlineError) {
