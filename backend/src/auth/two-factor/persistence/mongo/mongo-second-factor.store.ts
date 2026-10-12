@@ -22,56 +22,15 @@ import {
   SPEND_OUTCOME,
   SpendOutcome,
 } from '../../stores/second-factor.store';
+import {
+  recordOf,
+  secondFactorDocumentOf,
+} from './mongo-second-factor-records';
 
-// A write goes through the document its record was read from, so Mongoose
-// writes only what changed, the way the services did when they held it.
-const DOCUMENTS = new WeakMap<SecondFactorAccount, UserDocument>();
-
-/** The document behind a record a MongoDB read handed out. */
-export function secondFactorDocumentOf(
-  account: SecondFactorAccount,
-): UserDocument {
-  const user = DOCUMENTS.get(account);
-  if (!user) {
-    throw new Error('This account was not read from MongoDB');
-  }
-  return user;
-}
-
-/** The record for a document, tied to it for the writes that follow. */
-export function toSecondFactorAccount(user: UserDocument): SecondFactorAccount {
-  const state = user.twoFactor;
-  const account: SecondFactorAccount = {
-    id: user._id.toString(),
-    email: user.email,
-    isDeleted: Boolean(user.isDeleted),
-    passwordHash: user.password || undefined,
-    twoFactor: {
-      enabled: state?.enabled === true,
-      secret: state?.secret
-        ? {
-            ciphertext: state.secret.ciphertext,
-            iv: state.secret.iv,
-            tag: state.secret.tag,
-          }
-        : null,
-      confirmedAt: state?.confirmedAt ?? null,
-      recoveryCodes: (state?.recoveryCodes ?? []).map((code) => ({
-        hash: code.hash,
-        usedAt: code.usedAt ?? null,
-      })),
-      lastUsedStep: state?.lastUsedStep ?? null,
-      failedAttempts: state?.failedAttempts ?? 0,
-      lockedUntil: state?.lockedUntil ?? null,
-    },
-  };
-  DOCUMENTS.set(account, user);
-  return account;
-}
-
-function recordOf(user: UserDocument | null): SecondFactorAccount | null {
-  return user ? toSecondFactorAccount(user) : null;
-}
+export {
+  secondFactorDocumentOf,
+  toSecondFactorAccount,
+} from './mongo-second-factor-records';
 
 /** The second factor inside the user document, where it has always been. */
 @Injectable()
@@ -253,7 +212,12 @@ export class MongoSecondFactorStore extends SecondFactorStore {
           _id: user._id,
           ...(expectedSessionVersion === undefined
             ? {}
-            : { sessionVersion: expectedSessionVersion }),
+            : {
+                sessionVersion:
+                  expectedSessionVersion === 0
+                    ? { $in: [0, null] }
+                    : expectedSessionVersion,
+              }),
           'twoFactor.failedAttempts':
             readWith === 0 ? { $in: [0, null] } : readWith,
         },
