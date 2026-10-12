@@ -49,7 +49,7 @@ test('template sync preserves pnpm manifests, workspace edges and packed lock na
     },
   );
   assert.equal(root.scripts.build, 'pnpm -r --if-present run build');
-  assert.equal(root.scripts.test, 'pnpm -r --if-present run test && pnpm run test:config');
+  assert.equal(root.scripts.test, 'pnpm -r --workspace-concurrency=1 --if-present run test && pnpm run test:config');
   const frontend = JSON.parse(templateContent('frontend/package.json', readFileSync(join(ROOT, 'frontend/package.json'))));
   assert.equal(frontend.dependencies['@app/core'], 'workspace:*');
   assert.equal(frontend.dependencies['@app/sdk'], 'workspace:*');
