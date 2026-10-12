@@ -57,6 +57,7 @@ test.describe('Session Management', () => {
     await expect(page.getByTestId('logout-session-confirm-dialog')).not.toBeVisible();
     await expect(page.getByTestId(cards)).toHaveCount(1);
     await expect(page.getByTestId('current-session-badge')).toBeVisible();
+    await expect(page.getByTestId('empty-state')).toBeHidden();
     await expect(
       page.getByRole('region', { name: /Notifications/ }).getByRole('listitem'),
     ).toContainText(/terminated/i);
@@ -106,16 +107,6 @@ test.describe('Session Management', () => {
     await expect(page.getByTestId(cards)).toHaveCount(2);
   });
 
-  test('should show empty state when no sessions exist', async ({ page }) => {
-    // A healthy authenticated session cannot have an empty list; this is presentation coverage.
-    await page.route('**/api/user/sessions', (route) =>
-      route.fulfill({ json: { success: true, data: { sessions: [], total: 0 } } }),
-    );
-    await page.getByTestId('refresh-sessions-button').click();
-    await expect(page.getByTestId('empty-state')).toBeVisible();
-    await expect(page.getByTestId(cards)).toHaveCount(0);
-  });
-
   test('should handle network errors gracefully', async ({ page }, testInfo) => {
     testInfo.annotations.push({
       type: 'expected-api-error',
@@ -126,16 +117,17 @@ test.describe('Session Management', () => {
         status: 500,
         json: {
           success: false,
-          error: { message: 'Fixture failure', code: 'INTERNAL_SERVER_ERROR' },
+          error: { message: 'Fixture failure', code: 'INTERNAL_ERROR' },
         },
       }),
     );
     await page.getByTestId('refresh-sessions-button').click();
-    await expect(page.getByTestId('error-state')).toBeVisible();
-    await expect(page.getByTestId('retry-sessions-button')).toBeVisible();
+    await expect(page.getByTestId('stale-list-notice')).toBeVisible();
+    await expect(page.getByTestId(cards)).toHaveCount(2);
+    await expect(page.getByTestId('retry-refresh-sessions-button')).toBeVisible();
     await page.unroute('**/api/user/sessions');
-    await page.getByTestId('retry-sessions-button').click();
-    await expect(page.getByTestId('error-state')).not.toBeVisible();
+    await page.getByTestId('retry-refresh-sessions-button').click();
+    await expect(page.getByTestId('stale-list-notice')).not.toBeVisible();
     await expect(page.getByTestId(cards)).toHaveCount(2);
   });
 });

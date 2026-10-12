@@ -86,11 +86,6 @@ for (const locale of ['en', 'ar'] as const) {
           body: await page.screenshot({ fullPage: true }),
           contentType: 'image/png',
         });
-        for (const path of ['/api/user/linked-providers', '/api/user/sync-status'])
-          info.annotations.push({
-            type: 'expected-api-error',
-            description: JSON.stringify({ path, status: 401 }),
-          });
         await page.getByTestId('logout-button').click();
         await expect(page).toHaveURL(`http://127.0.0.1:3107/${locale}/auth/login`);
         expect((await page.request.get(`${API}/user/profile`)).status()).toBe(401);
