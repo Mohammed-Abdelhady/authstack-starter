@@ -59,14 +59,18 @@ describe('committed role sweep failure logging', () => {
     await expect(
       h.roles.delete(EDITOR_SLUG, fixture.roleActorId),
     ).resolves.toBeUndefined();
-    expect(log).toHaveBeenCalledWith({
-      event: ROLE_SWEEP_PENDING,
-      roleId: role._id.toString(),
-      previousSlug: EDITOR_SLUG,
-      actorId: fixture.roleActorId,
-      error: 'name=MongoNetworkError',
-      pendingRecordError: 'name=MongoNetworkError',
-    });
+    expect(log.mock.calls).toEqual([
+      [
+        {
+          event: ROLE_SWEEP_PENDING,
+          roleId: role._id.toString(),
+          previousSlug: EDITOR_SLUG,
+          actorId: fixture.roleActorId,
+          error: 'name=MongoNetworkError',
+          pendingRecordError: 'name=MongoNetworkError',
+        },
+      ],
+    ]);
     expect((await h.users.findById(target._id))?.role).toBe(EDITOR_SLUG);
     expect(
       (await h.roleModel.findOne({ slug: UserRole.USER }))?.pendingHolderSweeps,
