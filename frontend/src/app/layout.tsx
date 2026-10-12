@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Noto_Sans_Arabic } from 'next/font/google'; // feature:locale-ar
 import { getLocale, getTranslations } from 'next-intl/server';
 import { AppProviders } from '@/components/providers';
 import { routing } from '@/i18n/routing';
 import { getTextDirection } from '@/i18n/direction';
+import { NONCE_HEADER } from '@/lib/config/security-headers';
 import './globals.css';
 import './arabic-font.css'; // feature:locale-ar
 
@@ -64,11 +66,14 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const t = await getTranslations({ locale, namespace: 'common' });
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
 
   return (
     <html lang={locale} dir={getTextDirection(locale)} suppressHydrationWarning>
       <body className={`${FONT_VARIABLES} antialiased`}>
-        <AppProviders loadingLabel={t('loading')}>{children}</AppProviders>
+        <AppProviders loadingLabel={t('loading')} nonce={nonce}>
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

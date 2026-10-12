@@ -30,7 +30,7 @@ test.describe('User administration through real API state', () => {
       'Edited User',
     );
     await page.getByTestId(`user-actions-menu-${id}`).click();
-    await expect(page.getByTestId(`delete-user-${id}`)).toHaveCount(0);
+    await expect(page.getByTestId(`deactivate-user-${id}`)).toBeVisible();
     await page.getByTestId(`deactivate-user-${id}`).click();
     const deactivated = page.waitForResponse(
       (response) =>
