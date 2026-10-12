@@ -117,6 +117,10 @@ export interface AuthorizationDenialGuard {
 export abstract class NativeAuthorizationStore {
   /** Commits by itself. */
   abstract createPending(pending: NewPendingAuthorization): Promise<void>;
+  abstract createPendingIn(
+    unitOfWork: UnitOfWork,
+    pending: NewPendingAuthorization,
+  ): Promise<void>;
 
   /** A plain read of a request that is pending at `now`. */
   abstract findPending(

@@ -96,6 +96,22 @@ export class MongoNativeAuthorizationStore extends NativeAuthorizationStore {
     );
   }
 
+  async createPendingIn(
+    unitOfWork: UnitOfWork,
+    pending: NewPendingAuthorization,
+  ): Promise<void> {
+    await this.transactions.create(
+      [
+        {
+          ...pending,
+          intent: NATIVE_AUTH_INTENT,
+          consumed: false,
+        },
+      ],
+      { session: mongoSessionOf(unitOfWork) },
+    );
+  }
+
   async findPending(
     transactionId: string,
     now: Date,
