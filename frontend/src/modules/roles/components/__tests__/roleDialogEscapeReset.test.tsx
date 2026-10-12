@@ -70,7 +70,10 @@ beforeEach(() => {
   vi.stubGlobal('ResizeObserver', InertResizeObserver);
 });
 
-describe.each(['en', 'ar'] as const)('role dialog Escape reset in %s', (locale: AppLocale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('role dialog Escape reset in %s', (locale: AppLocale) => {
   it('clears an unsaved create role value and its field error', async () => {
     stubNetwork(() => success({}));
     const form = await renderForm(locale, <CreateHost />);

@@ -117,16 +117,16 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the users page when a read of the list fails in %s', (locale) => {
-  it('labels user search and sends no more than the supported Arabic query length', async () => {
+  it('labels user search and sends no more than the supported query length', async () => {
     const page = await renderPage(locale);
     await screen.findByTestId('user-role-selector-user-7');
     const input = screen.getByRole('textbox', { name: page.message('users.searchLabel') });
 
     expect(input).toHaveProperty('maxLength', 100);
-    fireEvent.change(input, { target: { value: 'ب'.repeat(101) } });
+    fireEvent.change(input, { target: { value: 'x'.repeat(101) } });
 
-    expect(input).toHaveProperty('value', 'ب'.repeat(100));
-    await waitFor(() => expect(page.searchTerms).toEqual(['ب'.repeat(100)]));
+    expect(input).toHaveProperty('value', 'x'.repeat(100));
+    await waitFor(() => expect(page.searchTerms).toEqual(['x'.repeat(100)]));
   });
 
   it('keeps the list, the open confirmation and its reason when a change and the re-read both fail', async () => {
@@ -283,3 +283,18 @@ describe.each([
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 });
+
+// feature:locale-ar:start
+it('clamps an Arabic user search at the supported query length', async () => {
+  const page = await renderPage('ar');
+  await screen.findByTestId('user-role-selector-user-7');
+  const input = screen.getByRole('textbox', { name: page.message('users.searchLabel') });
+  const query = 'ب'.repeat(101);
+
+  expect(input).toHaveProperty('maxLength', 100);
+  fireEvent.change(input, { target: { value: query } });
+
+  expect(input).toHaveProperty('value', 'ب'.repeat(100));
+  await waitFor(() => expect(page.searchTerms).toEqual(['ب'.repeat(100)]));
+});
+// feature:locale-ar:end

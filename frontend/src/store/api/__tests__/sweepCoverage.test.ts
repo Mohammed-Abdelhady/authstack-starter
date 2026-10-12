@@ -8,18 +8,24 @@ import { UNTAGGED } from './untaggedRefetchCases';
 import { authApi } from '@/modules/auth/store/authApi';
 import { oauthApi } from '@/modules/oauth/api/oauthApi';
 import { CONVERTED as ACCOUNT } from '@/modules/account/api/__tests__/sweepCases';
+// feature:magic-link:start
 import {
   CONVERTED as MAGIC,
   UNTAGGED as MAGIC_UNTAGGED,
 } from '@/modules/auth/methods/magic-link/__tests__/sweepCases';
+// feature:magic-link:end
+// feature:passkeys:start
 import {
   CONVERTED as PASSKEYS,
   UNTAGGED as PASSKEYS_UNTAGGED,
 } from '@/modules/passkeys/api/__tests__/sweepCases';
+// feature:passkeys:end
+// feature:totp:start
 import {
   CONVERTED as TWO_FACTOR,
   UNTAGGED as TWO_FACTOR_UNTAGGED,
 } from '@/modules/two-factor/api/__tests__/sweepCases';
+// feature:totp:end
 
 /** Every current endpoint injector, imported through the case lists above. */
 const DECLARED_INJECTORS = [
@@ -27,13 +33,13 @@ const DECLARED_INJECTORS = [
   'src/modules/account/api/profileSyncApi.ts',
   'src/modules/auth/store/authApi.ts',
   'src/modules/auth/api/authMethodsApi.ts',
-  'src/modules/auth/methods/magic-link/magicLinkApi.ts',
+  'src/modules/auth/methods/magic-link/magicLinkApi.ts', // feature:magic-link
   'src/modules/oauth/api/oauthApi.ts',
-  'src/modules/passkeys/api/passkeysApi.ts',
+  'src/modules/passkeys/api/passkeysApi.ts', // feature:passkeys
   'src/modules/roles/api/rolesApi.ts',
   'src/modules/permissions/api/permissionsApi.ts',
   'src/modules/sessions/api/sessionsApi.ts',
-  'src/modules/two-factor/api/twoFactorApi.ts',
+  'src/modules/two-factor/api/twoFactorApi.ts', // feature:totp
   'src/modules/users/api/usersApi.ts',
 ];
 
@@ -59,12 +65,12 @@ describe('mutation sweep coverage', () => {
         ...EXCEPTIONS,
         ...UNTAGGED,
         ...ACCOUNT,
-        ...MAGIC,
-        ...MAGIC_UNTAGGED,
-        ...PASSKEYS,
-        ...PASSKEYS_UNTAGGED,
-        ...TWO_FACTOR,
-        ...TWO_FACTOR_UNTAGGED,
+        ...MAGIC, // feature:magic-link
+        ...MAGIC_UNTAGGED, // feature:magic-link
+        ...PASSKEYS, // feature:passkeys
+        ...PASSKEYS_UNTAGGED, // feature:passkeys
+        ...TWO_FACTOR, // feature:totp
+        ...TWO_FACTOR_UNTAGGED, // feature:totp
       ].map((mutation) => mutation.name),
     ];
     expect(new Set(classified).size).toBe(classified.length);
