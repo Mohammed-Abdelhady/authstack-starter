@@ -1,5 +1,13 @@
 'use client';
 
+import {
+  FORGOT_PASSWORD_PATH,
+  LOGIN_PATH,
+  REDIRECT_PARAM,
+} from '@/modules/auth/constants/authMethods';
+import { nativeBrowserJourneyPath } from '@/modules/auth/utils/nativeBrowserJourney';
+import { readNativeBrowserGuestFlow } from '@/modules/auth/utils/nativeBrowserSelectors';
+
 import { Description, Heading } from '@/components/design-system';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -98,6 +106,8 @@ export function ResetPasswordForm() {
 
   // Get email from URL params (passed from forgot password page)
   const emailFromUrl = searchParams.get('email') || '';
+  const redirect = searchParams.get(REDIRECT_PARAM);
+  const flow = readNativeBrowserGuestFlow(searchParams);
 
   // Memoize schema creation when translation function changes
   const resetPasswordSchema = useMemo(
@@ -127,11 +137,11 @@ export function ResetPasswordForm() {
   // Redirect to forgot password if no email in URL
   useEffect(() => {
     if (!emailFromUrl) {
-      router.push('/auth/forgot-password');
+      router.push(nativeBrowserJourneyPath(FORGOT_PASSWORD_PATH, redirect, flow));
     } else {
       setValue('email', emailFromUrl);
     }
-  }, [emailFromUrl, router, setValue]);
+  }, [emailFromUrl, flow, redirect, router, setValue]);
 
   // Memoize submit handler to prevent recreating on every render
 
@@ -152,7 +162,7 @@ export function ResetPasswordForm() {
         // Redirect to login after short delay
         redirectTimer.current = setTimeout(() => {
           redirectTimer.current = null;
-          router.push('/auth/login');
+          router.push(nativeBrowserJourneyPath(LOGIN_PATH, redirect, flow));
         }, 1500);
       } catch (err: unknown) {
         const parsed = parseApiError(err);
@@ -172,7 +182,7 @@ export function ResetPasswordForm() {
         if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
-    [refusalText, resetPassword, router, setError, setValue, tToast],
+    [flow, redirect, refusalText, resetPassword, router, setError, setValue, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -281,7 +291,7 @@ export function ResetPasswordForm() {
             {showRequestNew && (
               <div className="mt-4 text-center">
                 <Link
-                  href="/auth/forgot-password"
+                  href={nativeBrowserJourneyPath(FORGOT_PASSWORD_PATH, redirect, flow)}
                   className="text-sm font-semibold text-primary hover:underline transition-colors"
                   data-testid="request-new-code-link"
                   onMouseDown={preventNavigationBlur}
@@ -294,7 +304,7 @@ export function ResetPasswordForm() {
             {/* Back to Login Link */}
             <div className="mt-6 text-center">
               <Link
-                href="/auth/login"
+                href={nativeBrowserJourneyPath(LOGIN_PATH, redirect, flow)}
                 className="text-sm font-semibold text-primary hover:underline transition-colors"
                 data-testid="back-to-login-link"
                 onMouseDown={preventNavigationBlur}
