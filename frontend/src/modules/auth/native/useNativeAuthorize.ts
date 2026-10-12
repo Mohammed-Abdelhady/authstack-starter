@@ -6,8 +6,12 @@ import { ErrorCode, parseApiError } from '@app/core';
 import { useRouter } from '@/i18n/navigation';
 import { baseApi } from '@/store/api/baseApi';
 import { useAppDispatch } from '@/store/hooks';
-import { REDIRECT_PARAM } from '../constants/authMethods';
-import { isSignInRequired, nativeAuthorizeContinuation } from '../constants/nativeAuthorize';
+import { isSignInRequired } from '../constants/nativeAuthorize';
+import type { NativeBrowserSelectors } from '../types/nativeBrowserSelectors.types';
+import {
+  hasExplicitNativeBrowserSelection,
+  nativeBrowserSignInTarget,
+} from '../utils/nativeBrowserSignIn';
 import { translatableErrorCode } from '../utils/errorCodeMessage';
 import {
   useApproveNativeAuthorizeMutation,
@@ -55,12 +59,6 @@ export interface NativeAuthorizeController {
   reopen: () => void;
 }
 
-/** Where a signed-out visitor goes, with the way back carried along. */
-function signInHref(transaction: string): string {
-  const continuation = nativeAuthorizeContinuation(transaction);
-  return `/auth/login?${REDIRECT_PARAM}=${encodeURIComponent(continuation)}`;
-}
-
 const EMPTY_VIEW: Omit<NativeAuthorizeView, 'kind'> = {
   applicationName: '',
   accountName: '',
@@ -80,13 +78,19 @@ const EMPTY_VIEW: Omit<NativeAuthorizeView, 'kind'> = {
  * in-flight guard covers approve, deny and "Not you?", so no two requests can
  * race and a held Enter spends the transaction once.
  */
-export function useNativeAuthorize(transaction: string): NativeAuthorizeController {
+export function useNativeAuthorize(
+  transaction: string,
+  selectors?: NativeBrowserSelectors,
+): NativeAuthorizeController {
   const t = useTranslations('auth.nativeAuthorize');
   const tCodes = useTranslations('errors.codes');
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const signInTarget = nativeBrowserSignInTarget(transaction, selectors);
 
-  const [leaving, setLeaving] = useState(false);
+  const [leaving, setLeaving] = useState(
+    () => transaction.length > 0 && hasExplicitNativeBrowserSelection(selectors),
+  );
   const {
     account,
     accountSignedOut,
@@ -150,8 +154,9 @@ export function useNativeAuthorize(transaction: string): NativeAuthorizeControll
     hasLeft.current = true;
     dispatch(logoutAction());
     dispatch(baseApi.util.resetApiState());
-    router.replace(signInHref(transaction));
-  }, [dispatch, leaving, router, transaction]);
+    if (signInTarget.kind === 'provider') window.location.assign(signInTarget.href);
+    else router.replace(signInTarget.href);
+  }, [dispatch, leaving, router, signInTarget.href, signInTarget.kind]);
 
   useEffect(() => {
     if (!returning) {
