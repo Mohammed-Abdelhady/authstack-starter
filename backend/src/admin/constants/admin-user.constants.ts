@@ -4,10 +4,5 @@
 export const ADMIN_USER_HIDDEN_FIELDS =
   '-password -verificationToken -verificationExpires -resetPasswordToken -resetPasswordExpires';
 
-/**
- * Password hashing cost for admin-created accounts.
- */
-export const ADMIN_PASSWORD_SALT_ROUNDS = 12;
-
 export const ADMIN_ROLE_RECONCILE_FAILED = 'admin_role_reconcile_failed';
 export const ADMIN_ROLE_CHANGED = 'admin_role_changed';
