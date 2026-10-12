@@ -1,9 +1,9 @@
 # Browser test scopes
 
-| Scope                       | Configuration                   | Backend dependency                                                                                                                 |
-| --------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Anonymous frontend behavior | `playwright.frontend.config.ts` | Method discovery is stubbed. The global anonymous profile request is blocked and recorded. Every other API request fails the test. |
-| Application integration     | `playwright.config.ts`          | One owned Mongo/backend worker, deterministic users, real sessions, captured mail and a local consent adapter.                     |
+| Scope                       | Configuration                   | Backend dependency                                                                                                |
+| --------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Anonymous frontend behavior | `playwright.frontend.config.ts` | Method discovery and the public signed-out identity envelope are stubbed. Every other API request fails the test. |
+| Application integration     | `playwright.config.ts`          | One owned Mongo/backend worker, deterministic users, real sessions, captured mail and a local consent adapter.    |
 
 The frontend-only suite checks English/Arabic desktop/mobile navigation, empty and malformed input, accessible validation descriptions, keyboard controls, loading/empty method discovery, language/direction and horizontal overflow. It captures page screenshots and browser audit attachments. It does not test account creation, sign-in, reset delivery or backend authorization.
 
@@ -17,7 +17,7 @@ The test server serves that build's standalone output and assets on `127.0.0.1:3
 
 The default runtime is Playwright's bundled Chromium. When the exact bundled runtime is unavailable, an installed Chrome channel can be selected explicitly with `PLAYWRIGHT_CHROMIUM_CHANNEL=chrome`; record the browser version with the results. This does not install or change application dependencies.
 
-Under the current environment-file access restriction, run only from the prepared isolated copy without environment or credential files. Use synthetic process variables for build configuration. Do not run against a normal local checkout that could load prohibited files.
+Use synthetic process variables for build configuration and the fixture's ephemeral backend state.
 
 Application integration includes sidebar, sessions, roles, reload persistence, registration/activation/signout, password reset, profile editing, user creation/editing/soft deletion, local OAuth and magic links, connection failure recovery and representative automated WCAG A/AA checks. Core lifecycle journeys cover English and Arabic at desktop and mobile sizes. Local OAuth tests exercise the application redirect/callback/session chain; they do not establish external provider protocol conformance. Real provider accounts, delivered mail and hardware remain external limits.
 
