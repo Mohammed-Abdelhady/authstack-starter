@@ -68,7 +68,6 @@
       "deactivateDescription": "هل أنت متأكد من رغبتك في تعطيل حساب <strong>{name}</strong>؟ سيفقد الوصول إلى النظام، ويمكن تفعيل حسابه لاحقاً.",
       "deactivateConfirm": "تعطيل الحساب",
       "cancel": "إلغاء",
-      "roleUpdateSuccess": "تم تحديث الدور بنجاح",
       "activateSuccess": "تم تفعيل ⁨{name}⁩ بنجاح",
       "deactivateSuccess": "تم تعطيل حساب ⁨{name}⁩ بنجاح"
     },

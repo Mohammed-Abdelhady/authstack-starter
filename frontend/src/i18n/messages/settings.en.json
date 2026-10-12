@@ -13,9 +13,7 @@
       "linkWith": "Link {provider}",
       "connecting": "Connecting to {provider}...",
       "unlinkSuccess": "{provider} account unlinked successfully",
-      "unlinkError": "Failed to unlink {provider} account",
       "setPrimarySuccess": "{provider} set as primary account",
-      "setPrimaryError": "Failed to set {provider} as primary",
       "unlinkConfirmTitle": "Unlink Account?",
       "unlinkConfirmDescription": "Are you sure you want to unlink your {provider} account? You can always link it again later.",
       "cancel": "Cancel",
@@ -37,10 +35,7 @@
       "syncNow": "Sync Profile",
       "syncing": "Syncing...",
       "loading": "Loading sync status...",
-      "syncSuccess": "Profile synced successfully",
-      "syncSuccessDescription": "Your profile has been updated from your primary provider",
-      "syncError": "Profile sync failed",
-      "syncErrorDescription": "Failed to sync profile. Please try again later"
+      "syncError": "Profile sync failed"
     },
     "password": {
       "title": "Change Password",

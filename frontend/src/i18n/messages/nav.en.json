@@ -2,7 +2,6 @@
   "nav": {
     "home": "Home",
     "login": "Sign in",
-    "register": "Register",
     "logout": "Sign out"
   }
 }
