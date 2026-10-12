@@ -21,9 +21,21 @@ function userFrom(value: unknown, status: number): User {
   const validProviders = linkedProviders.map((entry) =>
     stringField(entry, 'data.user.linkedProviders item', status),
   );
-  if (typeof user.isVerified !== 'boolean' || typeof user.twoFactorEnabled !== 'boolean') {
-    throw malformedResponse(status, 'The response is malformed: data.user flags are not booleans');
+  if (typeof user.isVerified !== 'boolean') {
+    throw malformedResponse(
+      status,
+      'The response is malformed: data.user.isVerified is not boolean',
+    );
   }
+  // feature:totp:start
+  if (typeof user.twoFactorEnabled !== 'boolean') {
+    throw malformedResponse(
+      status,
+      'The response is malformed: data.user.twoFactorEnabled is not boolean',
+    );
+  }
+  // feature:totp:end
+  // feature:passkeys:start
   if (
     typeof user.passkeyCount !== 'number' ||
     !Number.isSafeInteger(user.passkeyCount) ||
@@ -31,6 +43,7 @@ function userFrom(value: unknown, status: number): User {
   ) {
     throw malformedResponse(status, 'The response is malformed: data.user.passkeyCount is invalid');
   }
+  // feature:passkeys:end
   return {
     id: stringField(user.id, 'data.user.id', status),
     email: stringField(user.email, 'data.user.email', status),
@@ -40,8 +53,12 @@ function userFrom(value: unknown, status: number): User {
     permissions: validPermissions,
     linkedProviders: validProviders,
     isVerified: user.isVerified,
+    // feature:totp:start
     twoFactorEnabled: user.twoFactorEnabled,
+    // feature:totp:end
+    // feature:passkeys:start
     passkeyCount: user.passkeyCount,
+    // feature:passkeys:end
     ...(typeof user.avatarUrl === 'string' ? { avatarUrl: user.avatarUrl } : {}),
     ...(typeof user.primaryProvider === 'string' ? { primaryProvider: user.primaryProvider } : {}),
     ...(typeof user.profileSyncedAt === 'string' ? { profileSyncedAt: user.profileSyncedAt } : {}),
