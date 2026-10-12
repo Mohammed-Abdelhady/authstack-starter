@@ -376,7 +376,8 @@
         "frontend/src/modules/account/components/LinkProviderButton.tsx",
         "frontend/src/modules/account/components/ProfileSyncStatus.tsx",
         "frontend/src/app/[locale]/(auth)/auth/oauth/**",
-        "backend/test/auth/oauth-unlink-refused.e2e-spec.ts"
+        "backend/test/auth/oauth-unlink-refused.e2e-spec.ts",
+        "backend/test/auth/oauth-auto-link-notice.e2e-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -410,7 +411,9 @@
         "frontend/src/app/[locale]/(auth)/auth/forgot-password/**",
         "frontend/src/app/[locale]/(auth)/auth/reset-password/**",
         "backend/test/auth/security-notices.e2e-spec.ts",
-        "backend/test/auth/identity.e2e-spec.ts"
+        "backend/test/auth/identity.e2e-spec.ts",
+        "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
+        "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
@@ -529,7 +532,8 @@
         "frontend/src/app/[locale]/(auth)/auth/2fa/**",
         "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts",
         "backend/test/auth/two-factor-http.e2e-spec.ts",
-        "backend/test/utils/auth/two-factor-enrolment.ts"
+        "backend/test/utils/auth/two-factor-enrolment.ts",
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx"
       ],
       "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
