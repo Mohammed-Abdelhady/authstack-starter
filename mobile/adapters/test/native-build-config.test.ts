@@ -14,6 +14,27 @@ describe('native SDK build configuration', () => {
     expect(configureNativeSignIn(original, {})).toEqual(original);
   });
 
+  it('publishes only declared public settings for the runtime adapter', () => {
+    const configured = configureNativeSignIn(
+      original,
+      Object.assign(
+        {
+          appleSignIn: true,
+          facebookAppId: '123456',
+          facebookClientToken: 'public-client-token',
+        },
+        { appSecret: 'must-not-export' },
+      ),
+    );
+    expect(configured.extra).toEqual({
+      nativeSignIn: {
+        appleSignIn: true,
+        facebookAppId: '123456',
+        facebookClientToken: 'public-client-token',
+      },
+    });
+  });
+
   it('configures public Google and Apple SDK settings', () => {
     const configured = configureNativeSignIn(original, {
       googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
