@@ -196,6 +196,38 @@ export function describeNativeAttemptContract(
       ).toBe(false);
     });
 
+    it('refuses expiry extension while allowing equal and shorter deadlines', async () => {
+      const created = await harness.store.create(input());
+      const claimed = await harness.store.claim(guard(created), 'first');
+      if (!claimed) throw new Error('Claim failed');
+      const operation = { ...guard(claimed), operationId: 'first' };
+      const next = {
+        phase: NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED,
+        details: created.details,
+      };
+      const later = new Date(EXPIRES_AT.getTime() + 1);
+      expect(
+        await harness.store.transition(operation, {
+          ...next,
+          expiresAt: later,
+        }),
+      ).toBeNull();
+      const equal = await harness.store.transition(operation, {
+        ...next,
+        expiresAt: EXPIRES_AT,
+      });
+      expect(equal?.expiresAt).toEqual(EXPIRES_AT);
+      const claimedAgain = await harness.store.claim(
+        guard(equal ?? created),
+        'second',
+      );
+      const earlier = new Date(EXPIRES_AT.getTime() - 1);
+      const shortened = await harness.store.transition(
+        { ...guard(claimedAgain ?? created), operationId: 'second' },
+        { ...next, expiresAt: earlier },
+      );
+      expect(shortened?.expiresAt).toEqual(earlier);
+    });
     it('allows one transition and rejects late writes after cancellation', async () => {
       const created = await harness.store.create(input());
       const claimed = await harness.store.claim(guard(created), 'remote');
