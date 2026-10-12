@@ -2,8 +2,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, expect, it } from 'vitest';
-import en from '@/i18n/messages/en.json';
-import ar from '@/i18n/messages/ar.json'; // feature:locale-ar
+import en from '@/i18n/messages/users.en.json';
+import ar from '@/i18n/messages/users.ar.json'; // feature:locale-ar
 import { CreateUserButton } from '../CreateUserButton';
 
 afterEach(cleanup);
