@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
+import type { User } from '@app/sdk';
 import {
   refusal,
   refusalWith,
   makeStore,
   registerFormTestLifecycle,
+  identitySuccess,
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
@@ -26,12 +28,28 @@ import {
 } from './mutationSweepBase';
 import { authApi } from '@/modules/auth/store/authApi';
 import { sessionsApi } from '@/modules/sessions/api/sessionsApi';
+// feature:passkeys:start
 import { passkeysApi } from '@/modules/passkeys/api/passkeysApi';
+// feature:passkeys:end
 import { authMethodsApi } from '@/modules/auth/api/authMethodsApi';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 registerFormTestLifecycle();
+
+const IDENTITY_PATH = '/api/auth/identity';
+const IDENTITY_USER: User = {
+  ...PROFILE,
+  authProvider: 'email',
+  isVerified: true,
+  twoFactorEnabled: false,
+  passkeyCount: 0,
+  linkedProviders: ['email'],
+};
+
+async function readIdentity(store: ReturnType<typeof makeStore>): Promise<void> {
+  await store.dispatch(authApi.endpoints.getIdentity.initiate());
+}
 
 describeSuccessOnly(CONVERTED);
 describeUntagged(UNTAGGED);
@@ -99,11 +117,13 @@ describe('logout', () => {
     ],
   ] as const)('keeps a validated session after %s', async (_label, answer) => {
     stubNetwork((request, path) => {
+      if (path === IDENTITY_PATH) return identitySuccess(IDENTITY_USER);
       if (request.method === 'POST') return answer();
       if (path === '/api/user/profile') return success(PROFILE);
       throw new Error(`Unexpected path: ${path}`);
     });
     const store = makeStore();
+    await readIdentity(store);
     await readProfile(store);
     expect(store.getState().auth.isAuthenticated).toBe(true);
 
@@ -147,10 +167,13 @@ describe('logout', () => {
     ],
   ] as const)('refetches each subscribed session-owned read after %s', async (_label, answer) => {
     const requests = stubNetwork((request, path) => {
+      if (path === IDENTITY_PATH) return identitySuccess(IDENTITY_USER);
       if (request.method === 'POST') return answer();
       if (path === '/api/user/profile') return success(PROFILE);
       if (path === '/api/user/sessions') return success({ sessions: [] });
+      // feature:passkeys:start
       if (path === '/api/auth/passkeys') return success({ passkeys: [], canRemove: true });
+      // feature:passkeys:end
       if (path === '/api/auth/methods')
         return success({
           methods: {
@@ -164,22 +187,37 @@ describe('logout', () => {
       throw new Error(`Unexpected path: ${path}`);
     });
     const store = makeStore();
+    await readIdentity(store);
     await readProfile(store);
     await store.dispatch(sessionsApi.endpoints.getSessions.initiate());
+    // feature:passkeys:start
     await store.dispatch(passkeysApi.endpoints.getPasskeys.initiate());
+    // feature:passkeys:end
     await store.dispatch(authMethodsApi.endpoints.getAuthMethods.initiate());
 
     await store.dispatch(authApi.endpoints.logout.initiate());
     await Promise.all(store.dispatch(baseApi.util.getRunningQueriesThunk()));
 
     const reads = [
+      'GET /api/auth/identity',
       'GET /api/user/profile',
       'GET /api/user/sessions',
+      // feature:passkeys:start
       'GET /api/auth/passkeys',
+      // feature:passkeys:end
+      'GET /api/auth/methods',
+    ];
+    const refetchedReads = [
+      'GET /api/auth/identity',
+      'GET /api/user/profile',
+      'GET /api/user/sessions',
+      // feature:passkeys:start
+      'GET /api/auth/passkeys',
+      // feature:passkeys:end
       'GET /api/auth/methods',
     ];
     expect(requests.slice(0, reads.length + 1)).toEqual([...reads, 'POST /api/auth/logout']);
-    expect(requests.slice(reads.length + 1).sort()).toEqual([...reads].sort());
+    expect(requests.slice(reads.length + 1).sort()).toEqual([...refetchedReads].sort());
     expect(store.getState().auth.isAuthenticated).toBe(true);
   });
 });

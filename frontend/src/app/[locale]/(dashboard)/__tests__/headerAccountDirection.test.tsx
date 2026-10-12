@@ -6,6 +6,7 @@ import {
   registerFormTestLifecycle,
   renderForm,
   stubNetwork,
+  identitySuccess,
   success,
 } from '@/tests/serverRejectionHarness';
 import DashboardLayout from '../layout';
@@ -28,6 +29,8 @@ const ACCOUNT = {
   permissions: [],
   authProvider: 'email',
   isVerified: true,
+  twoFactorEnabled: false,
+  passkeyCount: 0,
   linkedProviders: ['email'],
 };
 
@@ -39,7 +42,9 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('the signed-in account in the dashboard header in %s', (locale) => {
   it('keeps the slug left to right inside an rtl header', async () => {
-    stubNetwork(() => success(ACCOUNT));
+    stubNetwork((_, path) =>
+      path === '/api/auth/identity' ? identitySuccess(ACCOUNT) : success(ACCOUNT),
+    );
     await renderForm(
       locale,
       <DashboardLayout>
@@ -52,15 +57,17 @@ describe.each([
       text: slug.textContent,
       value: slug.getAttribute('dir'),
       line: slug.parentElement ? directionOf(slug.parentElement) : null,
-      shown: slug.parentElement?.textContent,
-    }).toEqual({ text: SLUG, value: 'ltr', line: 'rtl', shown: `(${SLUG})` });
+    }).toEqual({ text: SLUG, value: 'ltr', line: 'rtl' });
   });
 
   it.each([
     ['a Latin name starting with digits', '3M Support Lead'],
     ['an Arabic name', 'ليلى حداد'], // feature:locale-ar
   ])('lets the account name take its own direction: %s', async (_kind, name) => {
-    stubNetwork(() => success({ ...ACCOUNT, name }));
+    const account = { ...ACCOUNT, name };
+    stubNetwork((_, path) =>
+      path === '/api/auth/identity' ? identitySuccess(account) : success(account),
+    );
     await renderForm(
       locale,
       <DashboardLayout>

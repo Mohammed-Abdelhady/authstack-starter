@@ -3,14 +3,13 @@ import { fillActivation, navigation } from './registrationHarness';
 import * as React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { ErrorCode } from '@app/core';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { ActivationGuard } from '@/components/providers/ActivationGuard';
 import { ActivationForm } from '@/modules/auth/components/ActivationForm';
 import {
   registerFormTestLifecycle,
   renderForm,
-  refusalWith,
+  identitySuccess,
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
@@ -32,16 +31,15 @@ describe.each([
   it.each(OUTCOMES)(
     'keeps a $kind outcome without refetching a session that was not issued',
     async ({ kind, response }) => {
-      let profileRead = false;
+      let identityReads = 0;
       let release: (response: Response) => void = () => undefined;
-      const unexpectedProfile = new Promise<Response>((resolve) => {
+      const unexpectedIdentity = new Promise<Response>((resolve) => {
         release = resolve;
       });
       const requests = stubNetwork((_, path) => {
-        if (path === '/api/user/profile') {
-          if (profileRead) return unexpectedProfile;
-          profileRead = true;
-          return refusalWith(401, ErrorCode.SESSION_REQUIRED);
+        if (path === '/api/auth/identity') {
+          identityReads += 1;
+          return identityReads === 1 ? identitySuccess(null) : unexpectedIdentity;
         }
         if (path === '/api/auth/activate') return success(response);
         throw new Error(`Unexpected request: ${path}`);
@@ -80,10 +78,10 @@ describe.each([
             ),
           );
         }
-        expect.soft(requests).toEqual(['GET /api/user/profile', 'POST /api/auth/activate']);
+        expect.soft(requests).toEqual(['GET /api/auth/identity', 'POST /api/auth/activate']);
         expect.soft(navigation.replace).not.toHaveBeenCalled();
       } finally {
-        release(refusalWith(401, ErrorCode.SESSION_REQUIRED));
+        release(identitySuccess(null));
       }
     },
   );
