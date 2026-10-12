@@ -171,12 +171,14 @@ describe('the one factory a shell calls', () => {
 });
 
 describe('the package entry', () => {
-  it('exports the factory, the transport and the three values a shell needs', () => {
+  it('exports the native port factories, the transport and shell values', () => {
     expect(Object.keys(entry).sort()).toEqual([
       'INSTALL_MARKER_FILE',
       'REQUEST_DEADLINE_MS',
       'createFetchTransport',
       'createNativePorts',
+      'createNativeSignInPorts',
+      'readNativeSignInSettings',
       'recordMarkerFile',
     ]);
     expect(entry.INSTALL_MARKER_FILE).toBe('install.marker');
