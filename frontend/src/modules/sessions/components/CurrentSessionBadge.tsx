@@ -40,7 +40,10 @@ export const CurrentSessionBadge = forwardRef<HTMLSpanElement, CurrentSessionBad
         {...props}
       >
         <span
-          className={cn('h-2 w-2 rounded-full bg-status-success', pulse && 'animate-pulse')}
+          className={cn(
+            'h-2 w-2 rounded-full bg-status-success',
+            pulse && 'motion-safe:animate-pulse',
+          )}
           data-testid="pulse-dot"
         />
         <span>{t('activeNow')}</span>

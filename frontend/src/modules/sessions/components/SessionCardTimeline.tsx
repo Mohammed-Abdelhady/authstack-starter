@@ -1,7 +1,7 @@
 'use client';
 
 import { Heading } from '@/components/design-system';
-import { memo, useId } from 'react';
+import { memo, useCallback, useId } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { LogOut, MapPin, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,12 @@ import { DeviceIcon } from './DeviceIcon';
 import { CurrentSessionBadge } from './CurrentSessionBadge';
 import { SessionKindBadge } from './SessionKindBadge';
 import { SESSION_KIND } from '../constants';
-import { describeNativeDevice, sessionKindOf, sessionDeviceText } from '../utils/sessionDevice';
+import {
+  browserDeviceText,
+  describeNativeDevice,
+  sessionKindOf,
+  sessionDeviceText,
+} from '../utils/sessionDevice';
 import { parseUserAgent } from '@/lib/parseUserAgent';
 import type { Session } from '@app/sdk';
 import type { SignOutTarget } from './SessionSignOutDialog';
@@ -44,7 +49,7 @@ export const SessionCardTimeline = memo(
     const t = useTranslations('sessions');
     const locale = useLocale();
 
-    const { device, browser, os } = parseUserAgent(session.userAgent);
+    const { device } = parseUserAgent(session.userAgent);
 
     const titleId = useId();
     const kindId = useId();
@@ -53,6 +58,10 @@ export const SessionCardTimeline = memo(
     const nativeDevice =
       kind === SESSION_KIND.NATIVE_APP ? describeNativeDevice(session.userAgent) : null;
     const displayedName = sessionDeviceText(session, t);
+    const handleSignOut = useCallback(
+      () => onSignOut?.({ id: session.id, deviceName: displayedName }),
+      [onSignOut, session.id, displayedName],
+    );
 
     const lastActivity = formatTimeAgo(session.lastUsedAt || session.createdAt, locale);
     const createdAt = formatTimeAgo(session.createdAt, locale);
@@ -92,12 +101,8 @@ export const SessionCardTimeline = memo(
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
                 {kind && <SessionKindBadge id={kindId} kind={kind} />}
                 {!nativeDevice && (
-                  <p
-                    dir="ltr"
-                    className="text-sm text-card-foreground"
-                    data-testid="session-browser-os"
-                  >
-                    {browser} · {os}
+                  <p className="text-sm text-card-foreground" data-testid="session-browser-os">
+                    {browserDeviceText(session.userAgent, t)}
                   </p>
                 )}
               </div>
@@ -108,8 +113,8 @@ export const SessionCardTimeline = memo(
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onSignOut?.({ id: session.id, deviceName: displayedName })}
-              aria-label={t('logoutThisDevice')}
+              onClick={handleSignOut}
+              aria-label={t('signOutDevice', { device: displayedName })}
               className="text-destructive hover:text-destructive hover:bg-destructive/10 ms-2"
               data-testid="logout-session-button"
             >
@@ -122,6 +127,7 @@ export const SessionCardTimeline = memo(
         <div className="space-y-1 text-sm text-card-foreground">
           <div className="flex items-center gap-2" data-testid="session-ip-row">
             <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+            <span className="sr-only">{t('ipAddress')}</span>
             <span dir="ltr" data-testid="session-ip">
               {session.ip}
             </span>
@@ -143,6 +149,11 @@ export const SessionCardTimeline = memo(
   (prevProps, nextProps) => {
     // Only re-render if session data actually changes
     return (
+      prevProps.onSignOut === nextProps.onSignOut &&
+      prevProps.session.credentialPurpose === nextProps.session.credentialPurpose &&
+      prevProps.session.userAgent === nextProps.session.userAgent &&
+      prevProps.session.ip === nextProps.session.ip &&
+      prevProps.session.createdAt === nextProps.session.createdAt &&
       prevProps.session.id === nextProps.session.id &&
       prevProps.session.lastUsedAt === nextProps.session.lastUsedAt &&
       prevProps.session.isCurrent === nextProps.session.isCurrent &&
