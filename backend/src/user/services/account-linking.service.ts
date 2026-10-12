@@ -18,10 +18,8 @@ import {
 } from '../dto/account-linking.dto';
 import { LinkedAccountStore } from '../stores/linked-account.store';
 import { StoredAccount } from '../stores/stored-account';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from './security-notice.service';
+import { SecurityNoticeService } from './security-notice.service';
+import { SECURITY_NOTICE } from '../constants/security-notice.constants';
 import {
   emailSignInAnswer,
   emailWayIn,

@@ -27,10 +27,8 @@ import {
   OAuthLinkParams,
   OAuthLoginParams,
 } from './types/oauth-service.types';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from '../../user/services/security-notice.service';
+import { SecurityNoticeService } from '../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../user/constants/security-notice.constants';
 
 const DEFAULT_ROLE = 'user';
 

@@ -3,16 +3,7 @@ import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
 import { MailService } from '../../mail/mail.service';
 import { AccountProfileStore } from '../stores/account-profile.store';
 
-export const SECURITY_NOTICE = {
-  PASSWORD_RESET: 'password_reset',
-  PASSWORD_CHANGED: 'password_changed',
-  TWO_FACTOR_DISABLED: 'two_factor_disabled',
-  PASSKEY_ADDED: 'passkey_added',
-  PROVIDER_ADDED: 'provider_added',
-} as const;
-
-export type SecurityNotice =
-  (typeof SECURITY_NOTICE)[keyof typeof SECURITY_NOTICE];
+import type { SecurityNotice } from '../types/security-notice.type';
 
 const NOTICE_TEXT: Record<SecurityNotice, { subject: string; text: string }> = {
   password_reset: {
