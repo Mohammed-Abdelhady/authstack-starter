@@ -50,9 +50,6 @@ export default function AdminUsersPage() {
     search: debouncedSearch.trim() || undefined,
     role: roleFilter !== 'all' ? roleFilter : undefined,
   };
-  const requestedPage = useGetUsersQuery(listParams);
-  const lastAvailablePage = Math.max(1, requestedPage.currentData?.totalPages ?? page);
-  const effectivePage = Math.min(page, lastAvailablePage);
   const {
     data: usersData,
     currentData,
@@ -60,7 +57,11 @@ export default function AdminUsersPage() {
     isFetching,
     error,
     refetch,
-  } = useGetUsersQuery({ ...listParams, page: effectivePage });
+  } = useGetUsersQuery(listParams);
+
+  const lastAvailablePage = Math.max(1, currentData?.totalPages ?? page);
+  const hasSettledCurrentPage = currentData?.page === page && !isFetching && error === undefined;
+  if (hasSettledCurrentPage && page > lastAvailablePage) setPage(lastAvailablePage);
 
   const titleRef = useRef<HTMLHeadingElement>(null);
   // A list already on screen stays when a later read of it fails.
@@ -246,7 +247,7 @@ export default function AdminUsersPage() {
           />
 
           <PaginationControl
-            currentPage={effectivePage}
+            currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
             isLoading={isLoading || isFetching}
