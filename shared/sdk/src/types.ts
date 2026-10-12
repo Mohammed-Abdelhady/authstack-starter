@@ -1,4 +1,5 @@
 import type { DEVICE_KIND, OAuthTokenType, OAUTH_GRANT_TYPE } from './constants';
+export * from './types/native-auth';
 
 /** The account, as GET and PATCH /api/user/profile send it. Dates are ISO strings. */
 export interface User {
