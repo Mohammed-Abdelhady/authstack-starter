@@ -1,8 +1,8 @@
 {
   "nav": {
     "home": "Home",
-    "login": "Login",
+    "login": "Sign in",
     "register": "Register",
-    "logout": "Logout"
+    "logout": "Sign out"
   }
 }
