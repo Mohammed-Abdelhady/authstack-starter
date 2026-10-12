@@ -3,10 +3,10 @@
     "nav": {
       "dashboard": "لوحة التحكم",
       "settings": "الإعدادات",
-      "admin": "المشرف",
+      "admin": "الإدارة",
       "users": "المستخدمون",
       "roles": "الأدوار",
-      "permissionsDemo": "عرض الصلاحيات",
+      "permissionsDemo": "عرض توضيحي للصلاحيات",
       "activity": "النشاط",
       "sessions": "الجلسات"
     },
@@ -17,7 +17,8 @@
       "navigationTitle": "التنقل",
       "navigationDescription": "روابط أقسام لوحة التحكم",
       "mainNavigation": "التنقل الرئيسي",
-      "accountControls": "عناصر التحكم في الحساب"
+      "accountControls": "عناصر التحكم في الحساب",
+      "accountIdentity": "<nameText>{name}</nameText>، <roleText>{role}</roleText>"
     },
     "user": {
       "title": "لوحة التحكم",
