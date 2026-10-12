@@ -2,6 +2,7 @@ import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
 import { hashMagicLinkToken } from '../utils/magic-link-token.util';
 import {
+  LINK_REQUEST,
   LINK_RESPONSE,
   linkServices,
   LinkServices,
@@ -24,7 +25,11 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
   });
 
   const verify = (token = TOKEN) =>
-    services.service.verify({ token }, LINK_RESPONSE);
+    services.service.verify(
+      { token, confirm: true },
+      LINK_REQUEST,
+      LINK_RESPONSE,
+    );
   const seedLink = (
     overrides: {
       tokenHash?: string;

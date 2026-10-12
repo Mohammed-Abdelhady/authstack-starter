@@ -6,6 +6,7 @@ import {
   partialMock,
 } from '../../../../common/testing/test-doubles.harness-spec';
 import { raisedBy } from '../../../../../test/utils/auth/store-outage-cases';
+import { MailCounterDocument } from '../../../persistence/mongo/schemas/mail-counter.schema';
 import { UserDocument } from '../../../../user/persistence/mongo/schemas/user.schema';
 import {
   MAGIC_LINK_OUTAGES,
@@ -22,15 +23,21 @@ describe('MongoDB magic link statements that commit by themselves', () => {
   it('raises the shared outage from every link and account statement', async () => {
     const links = new MongoMagicLinkStore(
       createModelMock<Model<PendingMagicLinkDocument>>({
-        countDocuments: away(),
         create: away(),
+        findOne: jest.fn().mockReturnValue({
+          select: () => ({ lean: away() }),
+        }),
         findOneAndUpdate: away(),
         deleteMany: away(),
+      }),
+      createModelMock<Model<MailCounterDocument>>({
+        findOneAndUpdate: away(),
       }),
     );
     const accounts = new MongoMagicLinkAccounts(
       createModelMock<Model<UserDocument>>({
         findOne: away(),
+        exists: away(),
         create: away(),
       }),
     );

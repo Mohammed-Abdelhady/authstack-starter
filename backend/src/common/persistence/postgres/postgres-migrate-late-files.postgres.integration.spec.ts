@@ -16,7 +16,7 @@ const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
 const FEATURE_FILES = [
   ['0008_two_factor.sql', '0017_two_factor_lockout.sql'], // feature:totp
   ['0009_passkeys.sql'], // feature:passkeys
-  ['0013_magic_links.sql'], // feature:magic-link
+  ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'], // feature:magic-link
 ];
 // feature:totp,passkeys,magic-link:end
 
@@ -117,7 +117,12 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
         ),
         // feature:totp:end
         '0009_passkeys.sql': gained('0009_passkeys.sql'), // feature:passkeys
-        '0013_magic_links.sql': gained('0013_magic_links.sql'), // feature:magic-link
+        // feature:magic-link:start
+        '0013_magic_links.sql': gained(
+          '0013_magic_links.sql',
+          '0015_magic_link_request_nonce.sql',
+        ),
+        // feature:magic-link:end
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,
@@ -179,6 +184,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
             'user_agent',
             'redirect',
             'created_at',
+            'request_nonce_hash',
           ],
           indexes: [
             'pending_magic_link_email_created',

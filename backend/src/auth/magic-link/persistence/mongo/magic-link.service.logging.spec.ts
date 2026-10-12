@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
 import { MagicLinkModule } from '../../magic-link.module';
 import { MagicLinkService } from '../../magic-link.service';
 import {
@@ -47,23 +48,26 @@ describe('MagicLinkService logging with real repositories', () => {
     await runWithRequestContext('req-ml', () =>
       fixture.module
         .get(MagicLinkService)
-        .request({ email: LOGGING_EMAIL }, loggingResponse().request),
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        ),
     );
+    await fixture.module.get(MailDispatcherService).flush();
     expect(log).toHaveBeenCalled();
     expect(loggedCalls(log)).toContain('Magic link sent requestId=req-ml');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
   it('warns a capped address with the request id, never the address', async () => {
-    const pending = fixture.module.get<Model<PendingMagicLinkDocument>>(
-      getModelToken(PendingMagicLink.name),
-    );
-    for (let index = 0; index < 5; index += 1) {
-      await pending.create({
-        email: LOGGING_EMAIL,
-        tokenHash: `token-${index}`,
-        createdAt: fixture.clock.now(),
-        expiresAt: new Date(MAGIC_LINK_EXPIRES_AT),
-      });
+    for (let mailed = 0; mailed < 5; mailed += 1) {
+      await fixture.module
+        .get(MagicLinkService)
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        );
     }
     const log = captureLogs();
     const warn = jest
@@ -72,7 +76,11 @@ describe('MagicLinkService logging with real repositories', () => {
     await runWithRequestContext('req-cap', () =>
       fixture.module
         .get(MagicLinkService)
-        .request({ email: LOGGING_EMAIL }, loggingResponse().request),
+        .request(
+          { email: LOGGING_EMAIL },
+          loggingResponse().request,
+          loggingResponse().response,
+        ),
     );
     expect(warn).toHaveBeenCalled();
     expect(loggedCalls(log, warn)).toContain('requestId=req-cap');
@@ -92,7 +100,11 @@ describe('MagicLinkService logging with real repositories', () => {
     const log = captureLogs();
     await fixture.module
       .get(MagicLinkService)
-      .verify({ token: MAGIC_LINK_TOKEN }, loggingResponse().response);
+      .verify(
+        { token: MAGIC_LINK_TOKEN, confirm: true },
+        loggingResponse().request,
+        loggingResponse().response,
+      );
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
@@ -114,7 +126,11 @@ describe('MagicLinkService logging with real repositories', () => {
     const log = captureLogs();
     await fixture.module
       .get(MagicLinkService)
-      .verify({ token: MAGIC_LINK_TOKEN }, loggingResponse().response);
+      .verify(
+        { token: MAGIC_LINK_TOKEN, confirm: true },
+        loggingResponse().request,
+        loggingResponse().response,
+      );
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });

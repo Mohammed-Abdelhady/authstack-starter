@@ -270,6 +270,7 @@ export interface PendingMagicLinksTable {
   request_ip: string | null;
   user_agent: string | null;
   redirect: string | null;
+  request_nonce_hash: string | null;
   created_at: ColumnType<Date, Date | undefined, never>;
 }
 // feature:magic-link:end

@@ -21,7 +21,7 @@ async function conflictOf(attempt: Promise<unknown>): Promise<string | null> {
   return null;
 }
 
-/** Shared link errors and address handling. */
+/** What the link ports promise: shared errors, addresses and cleanup. */
 export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
   let services: LinkServices;
 
@@ -30,10 +30,13 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
   });
 
   const request = (email = EMAIL) =>
-    services.service.request({ email }, LINK_REQUEST);
+    services.service.request({ email }, LINK_REQUEST, LINK_RESPONSE);
   const verify = (token = TOKEN) =>
-    services.service.verify({ token }, LINK_RESPONSE);
-
+    services.service.verify(
+      { token, confirm: true },
+      LINK_REQUEST,
+      LINK_RESPONSE,
+    );
   it('refuses a second link with one token hash and a second account with one address as unique conflicts', async () => {
     const link = { email: EMAIL, tokenHash: 'same', expiresAt: LINK_EXPIRY };
     const account = { email: EMAIL, name: 'link' };

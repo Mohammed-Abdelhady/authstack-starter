@@ -24,6 +24,7 @@ export const MAIL_COUNTER_PURPOSE = {
   EMAIL_CHANGE: PENDING_PURPOSE.EMAIL_CHANGE,
   NOTICE: 'notice',
   PASSWORD_RESET: 'password-reset',
+  MAGIC_LINK: 'magic-link', // feature:magic-link
 } as const;
 
 export type MailCounterPurpose =

@@ -1,15 +1,21 @@
 import { ConfigService } from '@nestjs/config';
-import { Request, Response } from 'express';
+import { CookieOptions, Request, Response } from 'express';
 import { recorded } from '../../../../test/utils/auth/pending-codes-contract/pending-codes-contract-support';
 import { FrozenClock } from '../../../../test/utils/frozen-clock';
 import {
   createRequestMock,
   createResponseMock,
+  partialMock,
 } from '../../../common/testing/test-doubles.harness-spec';
 import { MailDispatcherService } from '../../../mail/mail-dispatcher.service';
 import { MailOptions } from '../../../mail/interfaces/mail-options.interface';
 import { MailService } from '../../../mail/mail.service';
 import { AuthMailService } from '../../services/mail/auth-mail.service';
+import { AuthenticatedSession } from '../../../session/authority/authenticated-session';
+import { AccountIdentity } from '../../../session/authority/session-authority.store';
+import { SessionCookieService } from '../../services/sessions/session-cookie.service';
+import { Sessions } from '../../services/sessions/sessions';
+import { MagicLinkBrowserService } from '../magic-link-browser.service';
 import { MagicLinkService } from '../magic-link.service';
 import {
   MagicLinkAccount,
@@ -17,7 +23,7 @@ import {
   MagicLinkSignIn,
   MagicLinkSignInOutcome,
 } from '../stores/magic-link-accounts';
-import { MagicLinkStore } from '../stores/magic-link.store';
+import { MagicLinkStore, NewMagicLink } from '../stores/magic-link.store';
 
 /** Written out, so a changed constant cannot agree with itself. */
 export const LINK_LIFETIME_MS = 900_000;
@@ -112,8 +118,61 @@ export interface LinkServices {
   signedIn: string[];
   /** Every store call the service made, in order. */
   storeCalls: string[];
+  /** The token hash of every link the service stored, in order. */
+  storedHashes: string[];
+  /** Mails the transport finished, which takes one turn of the event loop. */
+  finishedMail(): number;
+  /** Waits for every mail the service started. */
+  settleMail(): Promise<void>;
   /** The token the last mail carried in its link. */
   mailedToken(): string;
+  /** Signs this browser in to the account, as a session cookie would. */
+  holdSession(browser: LinkBrowser, accountId: string): void;
+}
+
+/** What a browser was told to store, as the response wrote it. */
+export interface CookieWrite {
+  name: string;
+  value: string;
+  options: CookieOptions;
+}
+
+/** One browser: the cookies it holds and the request and response that carry them. */
+export interface LinkBrowser {
+  readonly cookies: Record<string, string>;
+  readonly written: CookieWrite[];
+  readonly cleared: string[];
+  readonly request: Request;
+  readonly response: Response;
+}
+
+export function linkBrowser(): LinkBrowser {
+  const cookies: Record<string, string> = {};
+  const written: CookieWrite[] = [];
+  const cleared: string[] = [];
+  const response: Response = createResponseMock({
+    cookie: (name: string, value: string, options: CookieOptions) => {
+      cookies[name] = value;
+      written.push({ name, value, options });
+      return response;
+    },
+    clearCookie: (name: string) => {
+      Reflect.deleteProperty(cookies, name);
+      cleared.push(name);
+      return response;
+    },
+  });
+  return {
+    cookies,
+    written,
+    cleared,
+    request: createRequestMock({
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'Contract/1' },
+      cookies,
+    }),
+    response,
+  };
 }
 
 export const LINK_REQUEST: Request = createRequestMock({
@@ -121,10 +180,16 @@ export const LINK_REQUEST: Request = createRequestMock({
   headers: { 'user-agent': 'Contract/1' },
 });
 
-export const LINK_RESPONSE: Response = createResponseMock({});
+/** A response whose cookies nobody keeps: the next call comes from elsewhere. */
+export const LINK_RESPONSE: Response = linkBrowser().response;
+
+/** The name the session cookie has under the contract's configuration. */
+export const SESSION_COOKIE = 'sid';
 
 /** The real service on one database's adapters, with mail kept in memory. */
-export function linkServices(harness: MagicLinkContractHarness): LinkServices {
+export function linkServices(
+  harness: Pick<MagicLinkContractHarness, 'clock' | 'links' | 'accounts'>,
+): LinkServices {
   const config = new ConfigService({
     magicLink: { expiresIn: LINK_LIFETIME_MS, maxPerHour: LINKS_PER_HOUR },
     cors: { clientUrl: 'http://localhost:3000' },
@@ -132,29 +197,71 @@ export function linkServices(harness: MagicLinkContractHarness): LinkServices {
   });
   const mail: MailOptions[] = [];
   const mailService = new MailService(config);
-  mailService.sendMail = (options: MailOptions): Promise<void> => {
+  let finished = 0;
+  mailService.sendMail = async (options: MailOptions): Promise<void> => {
     mail.push(options);
-    return Promise.resolve();
+    // A transport answers later than the code that called it.
+    await new Promise<void>((resolve) => {
+      setImmediate(resolve);
+    });
+    finished += 1;
   };
-  const authMail = new AuthMailService(
-    mailService,
-    new MailDispatcherService(config, mailService),
-  );
+  const dispatcher = new MailDispatcherService(config, mailService);
+  const authMail = new AuthMailService(mailService, dispatcher);
   const signIn = new RecordingSignIn();
+  const sessionAccounts = new Map<string, string>();
+  const sessions = partialMock<Sessions>({
+    validateSessionWithoutExtendingIdle: (token: string) => {
+      const id = sessionAccounts.get(token);
+      return Promise.resolve(
+        id === undefined
+          ? null
+          : partialMock<AuthenticatedSession>({
+              user: partialMock<AccountIdentity>({ id }),
+            }),
+      );
+    },
+  });
   const storeCalls: string[] = [];
+  const storedHashes: string[] = [];
+  const links = new Proxy(harness.links, {
+    get(target, property) {
+      if (property !== 'insertLink') {
+        return Reflect.get(target, property, target) as unknown;
+      }
+      return (link: NewMagicLink): Promise<void> => {
+        storedHashes.push(link.tokenHash);
+        return target.insertLink(link);
+      };
+    },
+  });
 
   return {
     service: new MagicLinkService(
-      recorded(harness.links, 'links', storeCalls),
+      recorded(links, 'links', storeCalls),
       recorded(harness.accounts, 'accounts', storeCalls),
       config,
       authMail,
+      dispatcher,
       signIn,
+      new MagicLinkBrowserService(
+        sessions,
+        new SessionCookieService(config),
+        config,
+      ),
       harness.clock,
     ),
     mail,
     signedIn: signIn.accountIds,
     storeCalls,
+    storedHashes,
+    finishedMail: () => finished,
+    settleMail: () => dispatcher.flush(),
+    holdSession: (browser, accountId) => {
+      const token = `session-of-${accountId}`;
+      sessionAccounts.set(token, accountId);
+      browser.cookies[SESSION_COOKIE] = token;
+    },
     mailedToken: () => {
       const last = mail[mail.length - 1];
       const token = /token=([A-Za-z0-9_-]+)/.exec(last?.text ?? '')?.[1];

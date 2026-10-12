@@ -1,7 +1,13 @@
+import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SEED_USER } from '../constants/seed-users';
-import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import {
+  bootE2eApp,
+  browserAgent,
+  type E2eApp,
+  type TestAgent,
+} from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
@@ -25,7 +31,8 @@ describe('magic link whose stored expiry has passed (e2e)', () => {
     e2e.app.get(ConfigService).set('magicLink.enabled', true);
   });
 
-  async function mailedToken(): Promise<string> {
+  /** The browser that asked for a link, and the token its mail carried. */
+  async function mailedLink(): Promise<{ browser: TestAgent; token: string }> {
     const requester = await browserAgent(e2e.httpServer);
     await requester
       .post('/api/auth/magic-link/request')
@@ -34,16 +41,17 @@ describe('magic link whose stored expiry has passed (e2e)', () => {
     const link = e2e.mail.at(-1)?.text?.match(/https?:\/\/[^\s]+/)?.[0];
     const token = link ? new URL(link).searchParams.get('token') : null;
     if (!token) throw new Error('Magic link mail has no token');
-    return token;
+    return { browser: requester, token };
   }
 
   it('refuses the link and signs nobody in, with the clock still inside its lifetime', async () => {
-    const token = await mailedToken();
+    const { browser, token } = await mailedLink();
     await e2e.state.auth.expireMagicLinks();
 
-    const verifier = await browserAgent(e2e.httpServer);
-    const refused = await verifier
+    const proof = await proofFor(browser);
+    const refused = await browser
       .post('/api/auth/magic-link/verify')
+      .set(CSRF_HEADER, proof)
       .send({ token });
 
     expect(refused.status).toBe(400);
@@ -55,14 +63,21 @@ describe('magic link whose stored expiry has passed (e2e)', () => {
   });
 
   it('accepts the same kind of link when nothing expired it', async () => {
-    const token = await mailedToken();
+    const { browser, token } = await mailedLink();
 
-    const verifier = await browserAgent(e2e.httpServer);
-    await verifier
+    const proof = await proofFor(browser);
+    await browser
       .post('/api/auth/magic-link/verify')
+      .set(CSRF_HEADER, proof)
       .send({ token })
       .expect(200);
 
     expect(await e2e.state.sessions.countSessions()).toBe(1);
   });
 });
+
+/** A browser proof works once, so a browser fetches one before each anonymous post. */
+async function proofFor(browser: TestAgent): Promise<string> {
+  const proof = await browser.get('/api/auth/browser-proof').expect(200);
+  return (proof.body as { data: { token: string } }).data.token;
+}
