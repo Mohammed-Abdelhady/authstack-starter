@@ -3,6 +3,8 @@
 import { useLocale } from 'next-intl';
 import { useCallback, type MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
+import { BLOCKED_PRESS_CLASSES } from '@/components/ui/busy';
+import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
 import { MAGIC_LINK_VERIFY_PATH } from '@/modules/auth/constants/authMethods';
@@ -16,7 +18,7 @@ export function LanguageSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
   const currentLocale = useLocale();
-  const verificationInProgress = pathname === MAGIC_LINK_VERIFY_PATH;
+  const localeChangeBlocked = pathname === MAGIC_LINK_VERIFY_PATH;
 
   // Only offer a locale the router actually serves; one is not a choice, so a
   // single-button switcher would do nothing.
@@ -24,7 +26,7 @@ export function LanguageSwitcher() {
   const options = LOCALE_OPTIONS.filter((option) => routed.has(option.locale));
   const handleLanguageChange = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
-      if (verificationInProgress) return;
+      if (localeChangeBlocked) return;
       const option = LOCALE_OPTIONS.find(
         ({ locale }) => locale === event.currentTarget.dataset.locale,
       );
@@ -33,7 +35,7 @@ export function LanguageSwitcher() {
         router.replace(`${pathname}${search}${hash}`, { locale: option.locale });
       }
     },
-    [pathname, router, verificationInProgress],
+    [pathname, router, localeChangeBlocked],
   );
   if (options.length < 2) return null;
 
@@ -48,12 +50,15 @@ export function LanguageSwitcher() {
             type="button"
             onClick={handleLanguageChange}
             data-locale={locale}
-            disabled={verificationInProgress}
+            aria-disabled={localeChangeBlocked || undefined}
             aria-current={isCurrent ? 'true' : undefined}
             data-testid={`language-switcher-${locale}`}
             variant={isCurrent ? 'default' : 'secondary'}
             size="sm"
-            className={isCurrent ? 'forced-colors:underline' : undefined}
+            className={cn(
+              isCurrent && 'forced-colors:underline',
+              localeChangeBlocked && BLOCKED_PRESS_CLASSES,
+            )}
           >
             <span lang={locale}>{label}</span>
           </Button>
