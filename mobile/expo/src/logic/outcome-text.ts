@@ -11,6 +11,7 @@ import {
   type SignInOutcome,
   type SignOutOutcome,
 } from '@app/native-auth';
+import { isolateLtr } from '@app/native-ui/host';
 import { ApiError, OAuthError, TransportError } from '@app/sdk';
 import { translate, type Locale, type MessageKey } from '../i18n/messages';
 import {
@@ -39,7 +40,9 @@ export interface Described {
 const BROWSER_REASON_SEPARATOR = ':';
 
 function renderPart(locale: Locale, part: Described | string | undefined): string | undefined {
-  return part === undefined || typeof part === 'string' ? part : render(locale, part);
+  if (part === undefined) return undefined;
+  // Data from outside keeps its own order inside a sentence of either direction.
+  return typeof part === 'string' ? isolateLtr(part) : render(locale, part);
 }
 
 export function render(locale: Locale, described: Described): string {

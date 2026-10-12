@@ -45,7 +45,15 @@ describe.each([
         createTranslate(locale),
         deviceNameOf({ userAgent: 'okhttp/4.12.0', deviceName: 'Legacy phrase' }, true),
       ),
-    ).toBe('Legacy phrase');
+    ).toBe('\u2066Legacy phrase\u2069');
+  });
+
+  it("reads the server's own placeholder in the app's language", () => {
+    const device = deviceNameOf({ userAgent: 'curl/8.9.1', deviceName: 'Unknown device' }, false);
+
+    expect(deviceText(createTranslate(locale), device)).toBe(
+      MESSAGES[locale]['sessions.unknownDevice'],
+    );
   });
 
   it('keeps a platform-only result readable', () => {

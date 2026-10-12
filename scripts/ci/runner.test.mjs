@@ -78,6 +78,7 @@ test('the repository gate list has separate quality, install and installer selec
       'Full-tree hard bans',
       'Package-manager inventory',
       'Workspace dependency check',
+      'Colour contrast',
       'Lint',
       'Typecheck',
       'Unit and config tests',
@@ -96,6 +97,7 @@ test('the repository gate list has separate quality, install and installer selec
       ['node', ['scripts/check-hard-bans.mjs', '--all']],
       ['node', ['scripts/check-package-manager.mjs']],
       ['node', ['scripts/check-workspace-dependencies.mjs']],
+      ['node', ['scripts/check-contrast.mjs']],
       ['pnpm', ['run', 'lint']],
       ['pnpm', ['run', 'typecheck']],
       ['pnpm', ['test']],
@@ -124,7 +126,7 @@ test('the repository gate list has separate quality, install and installer selec
     selectGates(config, '--install').map((g) => [g.command, g.args]),
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
-  assert.equal(selectGates(config, '--quality').length, 8);
+  assert.equal(selectGates(config, '--quality').length, 9);
   assert.deepEqual(
     selectGates(config, '--api').map((g) => g.args),
     [

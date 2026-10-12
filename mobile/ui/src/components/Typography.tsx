@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { useUi } from '../context/ui-context';
+import { usePaint } from '../context/paint-context';
 import { TYPE_ROLE, TYPE_ROLE_NAME, type Palette, type TypeRoleName } from '../theme/tokens';
 
 /** The only place a text style is built. Screens pick a role and never a size, weight or colour. */
@@ -42,7 +42,7 @@ function RoleText({
   children,
   testID,
 }: RoleTextProps) {
-  const { colors, direction } = useUi();
+  const { colors, direction } = usePaint();
   return (
     <Text
       testID={testID}

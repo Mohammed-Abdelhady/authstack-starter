@@ -121,7 +121,7 @@ export async function checkGeneratedRules(packed: Packed): Promise<void> {
   });
   expect(sections.get('Checks')?.tables[0]?.header).toEqual(['Check', 'Command']);
   expect(renderedStructure(agents)).toEqual({
-    checkRows: 8,
+    checkRows: 9,
     commitItems: 3,
     enforcementItems: 3,
     locationItems: 5,
@@ -134,7 +134,7 @@ export async function checkGeneratedRules(packed: Packed): Promise<void> {
   expect(minimalResult.status, `${minimalResult.stdout}\n${minimalResult.stderr}`).toBe(0);
   const minimalRules = readFileSync(join(minimalProject, 'AGENTS.md'), 'utf8');
   expect(renderedStructure(minimalRules)).toEqual({
-    checkRows: 8,
+    checkRows: 9,
     commitItems: 3,
     enforcementItems: 3,
     locationItems: 5,

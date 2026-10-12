@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { LIST_VIEW } from '../constants';
 import { useUi } from '../context/ui-context';
 import { isApiFailure } from '../logic/request-failure';
-import { failureText, roleText } from '../logic/session-text';
+import { failureText, profileText } from '../logic/session-text';
 import { useGetProfileQuery } from '../state/api';
 import { useEngineSnapshot } from './use-engine-snapshot';
 
@@ -18,10 +18,7 @@ export function useAccount() {
   const view = data !== undefined ? LIST_VIEW.READY : failure ? LIST_VIEW.ERROR : LIST_VIEW.LOADING;
   return {
     view,
-    profile:
-      data === undefined
-        ? undefined
-        : { name: data.name, email: data.email, role: roleText(t, data.role) },
+    profile: data === undefined ? undefined : profileText(t, data),
     failureText: failureText(t, failure),
     sessionNotSaved: snapshot.warning === 'storageBlocked',
     retry,

@@ -12,6 +12,8 @@ import {
   parseTokens,
   resolveControlTokens,
   resolveTintedSurface,
+  SURFACE_CONTROLS,
+  TINTED_SURFACES,
   tintedPairs,
 } from './check-contrast.mjs';
 
@@ -302,4 +304,20 @@ test('every tinted surface keeps its text at 4.5:1 and its icon at 3:1 in both t
     ],
   );
   assert.deepEqual(shortfalls(pairs), []);
+});
+
+test('a control or surface whose file is absent stops the audit instead of being skipped', () => {
+  const [control] = SURFACE_CONTROLS;
+  const [surface] = TINTED_SURFACES;
+  const absent = 'frontend/src/components/ui/absent-control.tsx';
+
+  assert.throws(() => loadControlPairs(KNOWN_TOKENS, [{ ...control, usage: absent }]), {
+    code: 'ENOENT',
+  });
+  assert.throws(() => loadControlPairs(KNOWN_TOKENS, [{ ...control, primitive: absent }]), {
+    code: 'ENOENT',
+  });
+  assert.throws(() => loadTintedPairs(KNOWN_TOKENS, [{ ...surface, usage: absent }]), {
+    code: 'ENOENT',
+  });
 });

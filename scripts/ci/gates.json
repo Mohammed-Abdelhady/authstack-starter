@@ -28,6 +28,12 @@
       "args": ["scripts/check-workspace-dependencies.mjs"]
     },
     {
+      "name": "Colour contrast",
+      "group": "quality",
+      "command": "node",
+      "args": ["scripts/check-contrast.mjs"]
+    },
+    {
       "name": "Lint",
       "group": "quality",
       "command": "pnpm",

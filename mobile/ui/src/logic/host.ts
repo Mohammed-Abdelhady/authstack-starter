@@ -1,5 +1,5 @@
 import type { AuthEngine } from '@app/native-auth';
-import { DIRECTION, resolveLocale, type Locale } from '../i18n';
+import { DIRECTION, resolveLocale, translate, type Direction, type Locale } from '../i18n';
 import type { EdgeInsets, NativeAppProps, PhysicalInsets } from '../types';
 
 const systemLocaleTag = (): string => new Intl.DateTimeFormat().resolvedOptions().locale;
@@ -22,6 +22,11 @@ export function logicalInsets(physical: PhysicalInsets, locale: Locale): EdgeIns
     start: rtl ? physical.right : physical.left,
     end: rtl ? physical.left : physical.right,
   };
+}
+
+/** What a shell shows while it prepares, in the language the screens will read in. */
+export function startingNotice(locale: Locale): { text: string; direction: Direction } {
+  return { text: translate(locale, 'common.starting'), direction: DIRECTION[locale] };
 }
 
 /** What a shell built: its engine, and wall time from the clock that engine reads. */
