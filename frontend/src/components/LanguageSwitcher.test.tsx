@@ -157,8 +157,12 @@ describe('LanguageSwitcher', () => {
 
     const english = screen.getByTestId('language-switcher-en');
     const arabic = screen.getByTestId('language-switcher-ar');
-    expect(english.hasAttribute('disabled')).toBe(true);
-    expect(arabic.hasAttribute('disabled')).toBe(true);
+    expect(english.getAttribute('aria-disabled')).toBe('true');
+    expect(arabic.getAttribute('aria-disabled')).toBe('true');
+    expect(english.hasAttribute('disabled')).toBe(false);
+    expect(arabic.hasAttribute('disabled')).toBe(false);
+    english.focus();
+    expect(document.activeElement).toBe(english);
     fireEvent.click(english);
     fireEvent.click(arabic);
 
