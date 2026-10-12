@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
 
 /** Shared names of the unique rules creating an account can run into. */
@@ -29,6 +30,10 @@ export interface NewPasswordlessAccount {
 export abstract class MagicLinkAccounts {
   /** The account with this address, deleted ones included. */
   abstract findByEmail(email: string): Promise<MagicLinkAccount | null>;
+  abstract findByEmailIn(
+    unitOfWork: UnitOfWork,
+    email: string,
+  ): Promise<MagicLinkAccount | null>;
 
   /**
    * True when the address belongs to a deleted account. One statement of the
@@ -37,12 +42,20 @@ export abstract class MagicLinkAccounts {
   abstract hasDeletedAccount(email: string): Promise<boolean>;
 
   abstract markVerified(account: MagicLinkAccount): Promise<void>;
+  abstract markVerifiedIn(
+    unitOfWork: UnitOfWork,
+    account: MagicLinkAccount,
+  ): Promise<boolean>;
 
   /**
    * Stores a verified account with no password. An address another request
    * took first is a `UniqueConflictError`.
    */
   abstract createPasswordless(
+    account: NewPasswordlessAccount,
+  ): Promise<MagicLinkAccount>;
+  abstract createPasswordlessIn(
+    unitOfWork: UnitOfWork,
     account: NewPasswordlessAccount,
   ): Promise<MagicLinkAccount>;
 }

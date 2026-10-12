@@ -1,5 +1,7 @@
 import { Response } from 'express';
 import { Kysely, sql } from 'kysely';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import {
   MAGIC_LINK_ACCOUNT_CONSTRAINT,
   MagicLinkAccount,
@@ -28,6 +30,7 @@ import {
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
+import { accountFailure } from '../../../../user/persistence/postgres/postgres-account-rows';
 import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../../utils/authenticated-user.util';
@@ -184,6 +187,27 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
     });
   }
 
+  async findByEmailIn(
+    unitOfWork: UnitOfWork,
+    email: string,
+  ): Promise<MagicLinkAccount | null> {
+    const transaction = postgresTransactionOf(unitOfWork);
+    const row = await transaction
+      .selectFrom('users')
+      .select([...SIGN_IN_COLUMNS, 'is_deleted'])
+      .where('email', '=', storedAddress(email))
+      .executeTakeFirst();
+    return row
+      ? new PostgresMagicLinkAccount(
+          toSignInAccount(
+            row,
+            await secondFactorEnabled(transaction, row.id), // feature:totp
+          ),
+          row.is_deleted,
+        )
+      : null;
+  }
+
   hasDeletedAccount(email: string): Promise<boolean> {
     return autocommit(NONE, async () => {
       const row = await this.database
@@ -208,6 +232,22 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
     read.signIn.isVerified = true;
   }
 
+  async markVerifiedIn(
+    unitOfWork: UnitOfWork,
+    account: MagicLinkAccount,
+  ): Promise<boolean> {
+    const read = readByThisStore(account);
+    const updated = await postgresTransactionOf(unitOfWork)
+      .updateTable('users')
+      .set({ is_verified: true })
+      .where('id', '=', read.id)
+      .where('is_deleted', '=', false)
+      .returning('id')
+      .execute();
+    read.signIn.isVerified = updated.length === 1;
+    return updated.length === 1;
+  }
+
   createPasswordless(
     account: NewPasswordlessAccount,
   ): Promise<MagicLinkAccount> {
@@ -225,6 +265,28 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
         .executeTakeFirstOrThrow();
       return new PostgresMagicLinkAccount(toSignInAccount(row), false);
     });
+  }
+
+  async createPasswordlessIn(
+    unitOfWork: UnitOfWork,
+    account: NewPasswordlessAccount,
+  ): Promise<MagicLinkAccount> {
+    try {
+      const row = await postgresTransactionOf(unitOfWork)
+        .insertInto('users')
+        .values({
+          email: storedAddress(account.email),
+          name: account.name,
+          is_verified: true,
+          auth_provider: EMAIL_PROVIDER,
+          primary_provider: EMAIL_PROVIDER,
+        })
+        .returning(SIGN_IN_COLUMNS)
+        .executeTakeFirstOrThrow();
+      return new PostgresMagicLinkAccount(toSignInAccount(row), false);
+    } catch (error) {
+      throw accountFailure(error);
+    }
   }
 }
 

@@ -34,7 +34,9 @@ export class ActivateDto {
   @IsEmail({}, { message: 'Invalid email format' })
   @MaxLength(255, { message: 'Email must not exceed 255 characters' })
   @IsNotEmpty({ message: 'Email is required' })
-  @Transform(({ value }: { value: string }) => value?.toLowerCase()?.trim())
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   email!: string;
 
   @ApiProperty({
