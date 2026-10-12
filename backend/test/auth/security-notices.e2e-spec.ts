@@ -1,3 +1,7 @@
+import {
+  SECURITY_NOTICE,
+  SECURITY_NOTICE_MESSAGES,
+} from '../../src/user/constants/security-notice.constants';
 import request from 'supertest';
 import { SEED_USER } from '../constants/seed-users';
 import {
@@ -42,7 +46,8 @@ describe('security notices after committed changes (e2e)', () => {
     expect(mail).toHaveLength(1);
     expect(mail[0]).toMatchObject({
       to: SEED_USER.email,
-      subject: 'Your password was changed',
+      subject:
+        SECURITY_NOTICE_MESSAGES[SECURITY_NOTICE.PASSWORD_CHANGED].subject,
     });
     expect(mail[0].html).toBeUndefined();
     expect(JSON.stringify(mail)).not.toContain(NEW_PASSWORD);
@@ -78,7 +83,7 @@ describe('security notices after committed changes (e2e)', () => {
     expect(mail).toHaveLength(2);
     expect(mail[1]).toMatchObject({
       to: SEED_USER.email,
-      subject: 'Your password was reset',
+      subject: SECURITY_NOTICE_MESSAGES[SECURITY_NOTICE.PASSWORD_RESET].subject,
     });
     expect(JSON.stringify(mail[1])).not.toContain(code);
     expect(JSON.stringify(mail[1])).not.toContain(NEW_PASSWORD);
