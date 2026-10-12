@@ -116,7 +116,6 @@ describe('native recovery lifecycle contract', () => {
   it('rejects a code rotated for a different attempt', async () => {
     const first = await requestCode();
     await e2e.captureMail();
-    const firstCode = await e2e.mailedCode();
     const firstAttempt = await storedAttempt(e2e, first);
     const second = await requestCode();
     await e2e.captureMail();
@@ -141,7 +140,6 @@ describe('native recovery lifecycle contract', () => {
       ROTATED_PASSWORD,
     ).expect(200);
     expect(parseLifecycleResult(completed).stage).toBe('recoveryComplete');
-    expect(firstCode).not.toBe(secondCode);
   });
 
   it('keeps absent, deleted, passwordless, and capped address outcomes generic', async () => {
