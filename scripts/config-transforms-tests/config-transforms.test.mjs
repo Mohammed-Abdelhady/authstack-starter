@@ -82,7 +82,10 @@ function upstreamOf(location) {
 // Folders every production compose file mounts into the nginx container.
 async function nginxMounts() {
   let mounts;
-  for (const file of ['docker-compose.prod.yml', 'docker-compose.postgres.prod.yml']) {
+  for (const file of [
+    'docker-compose.prod.yml',
+    'docker-compose.postgres.prod.yml', // feature:database-choice
+  ]) {
     const compose = await readFile(new URL(`../../${file}`, import.meta.url), 'utf8');
     const service = compose.split(/^  nginx:\n/m)[1].split(/^  [\w-]+:\n/m)[0];
     const targets = [...service.matchAll(/^\s+- [^\s:]+:(\/[^\s:]+)/gm)].map((match) => match[1]);
@@ -185,7 +188,10 @@ for (const file of ['nginx/nginx.conf', 'nginx/production-nginx.conf']) {
 }
 for (const port of [5001, 5507, 1, 65535]) {
   test(`docker-compose.prod.yml: backend port ${port} preserves frontend listener`, async () => {
-    const source = await readFile(new URL('../../docker-compose.prod.yml', import.meta.url), 'utf8');
+    const source = await readFile(
+      new URL('../../docker-compose.prod.yml', import.meta.url),
+      'utf8',
+    );
     const result = configureBackendPort(source, port);
     const [backend, frontend] = result.split('  backend:\n')[1].split('  frontend:\n');
     assert.match(backend, new RegExp(`PORT: ${port}\\b`));
@@ -199,7 +205,10 @@ for (const port of [5001, 5507, 1, 65535]) {
 
 for (const port of [3000, 5300]) {
   test(`docker-compose.prod.yml: frontend host port ${port} keeps internal port 3000`, async () => {
-    const source = await readFile(new URL('../../docker-compose.prod.yml', import.meta.url), 'utf8');
+    const source = await readFile(
+      new URL('../../docker-compose.prod.yml', import.meta.url),
+      'utf8',
+    );
     const result = configureFrontendPort(configureBackendPort(source, 5507), port);
     const frontend = result.split('  frontend:\n')[1];
     assert.match(frontend, /expose:\s*\n\s*- '3000'/);
@@ -245,13 +254,18 @@ test('manual startup commands exist in their workspaces', async () => {
 test('architecture methods example satisfies the actual frontend response type', async () => {
   const require = createRequire(new URL('../../frontend/package.json', import.meta.url));
   const ts = require('typescript');
-  const document = await readFile(new URL('../../docs/reference/ARCHITECTURE.md', import.meta.url), 'utf8');
+  const document = await readFile(
+    new URL('../../docs/reference/ARCHITECTURE.md', import.meta.url),
+    'utf8',
+  );
   const example = [...document.matchAll(/```json\n([\s\S]*?)```/g)].find((match) =>
     match[1].includes('"methods"'),
   )?.[1];
   const payload = example && JSON.parse(example);
   assert.ok(example, 'methods example exists');
-  const filename = fileURLToPath(new URL('../../methods-documentation-contract.ts', import.meta.url));
+  const filename = fileURLToPath(
+    new URL('../../methods-documentation-contract.ts', import.meta.url),
+  );
   const authTypes = fileURLToPath(new URL('../../shared/sdk/src/types.js', import.meta.url));
   const options = {
     noEmit: true,
