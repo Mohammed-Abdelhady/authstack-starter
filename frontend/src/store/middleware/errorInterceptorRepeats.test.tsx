@@ -14,11 +14,16 @@ const SERVER_FAILURE = {
 };
 
 /** Sends one rejected request through the interceptor, as the query layer does. */
-function reject(endpointName: string, payload: Record<string, unknown>) {
+function reject(
+  endpointName: string,
+  payload: Record<string, unknown>,
+  queryCacheKey = endpointName,
+  type: 'query' | 'mutation' = 'query',
+) {
   errorInterceptor({ dispatch: vi.fn(), getState: () => ({ auth: { isAuthenticated: false } }) })(
     vi.fn(),
   )({
-    type: 'api/executeQuery/rejected',
+    type: `api/execute${type === 'query' ? 'Query' : 'Mutation'}/rejected`,
     payload,
     error: { name: 'Error', message: 'Rejected' },
     meta: {
@@ -27,7 +32,25 @@ function reject(endpointName: string, payload: Record<string, unknown>) {
       rejectedWithValue: true,
       aborted: false,
       condition: false,
-      arg: { endpointName },
+      arg: { endpointName, type, queryCacheKey },
+    },
+  });
+}
+
+function fulfill(endpointName: string, queryCacheKey = endpointName) {
+  errorInterceptor({
+    dispatch: vi.fn(),
+    getState: () => ({
+      auth: { isAuthenticated: false },
+      api: { queries: { [queryCacheKey]: { status: 'pending', error: SERVER_FAILURE } } },
+    }),
+  })(vi.fn())({
+    type: 'api/executeQuery/fulfilled',
+    payload: {},
+    meta: {
+      requestId: endpointName,
+      requestStatus: 'fulfilled',
+      arg: { endpointName, type: 'query', queryCacheKey },
     },
   });
 }
@@ -75,6 +98,67 @@ describe('how many toasts a failure raises', () => {
 
     await waitFor(() =>
       expect(screen.getAllByText(message('errors.codes.INTERNAL_ERROR'))).toHaveLength(2),
+    );
+  });
+
+  it('shows separate notices when the same mutation is refused twice', async () => {
+    const message = await renderToasts();
+
+    act(() => {
+      reject('createRole', SERVER_FAILURE, 'createRole', 'mutation');
+      reject('createRole', SERVER_FAILURE, 'createRole', 'mutation');
+    });
+
+    await waitFor(() =>
+      expect(screen.getAllByText(message('errors.codes.INTERNAL_ERROR'))).toHaveLength(2),
+    );
+  });
+
+  it('keeps one visible toast when the same polling read fails with 503 twice', async () => {
+    const message = await renderToasts();
+    const unavailable = {
+      status: 503,
+      data: {
+        success: false,
+        error: { code: 'AUTHORITY_UNAVAILABLE', message: 'English server text' },
+      },
+    };
+
+    act(() => {
+      reject('getSessions', unavailable);
+      reject('getSessions', unavailable);
+    });
+
+    await screen.findByText(message('errors.codes.AUTHORITY_UNAVAILABLE'));
+    expect(screen.getAllByText(message('errors.codes.AUTHORITY_UNAVAILABLE'))).toHaveLength(1);
+  });
+
+  it('keeps separate toasts for different query arguments and dismisses only a recovered read', async () => {
+    const message = await renderToasts();
+    const unavailable = {
+      status: 503,
+      data: {
+        success: false,
+        error: { code: 'AUTHORITY_UNAVAILABLE', message: 'English server text' },
+      },
+    };
+
+    act(() => {
+      reject('getUserById', unavailable, 'getUserById("user-1")');
+      reject('getUserById', unavailable, 'getUserById("user-2")');
+    });
+    await waitFor(() =>
+      expect(screen.getAllByText(message('errors.codes.AUTHORITY_UNAVAILABLE'))).toHaveLength(2),
+    );
+
+    act(() => fulfill('getUserById', 'getUserById("user-1")'));
+    await waitFor(() =>
+      expect(screen.getAllByText(message('errors.codes.AUTHORITY_UNAVAILABLE'))).toHaveLength(1),
+    );
+
+    act(() => reject('getUserById', unavailable, 'getUserById("user-1")'));
+    await waitFor(() =>
+      expect(screen.getAllByText(message('errors.codes.AUTHORITY_UNAVAILABLE'))).toHaveLength(2),
     );
   });
 });
