@@ -42,7 +42,8 @@
         "mobile/auth/**",
         "mobile/device-key/**",
         "mobile/metro/**",
-        "mobile/ui/**"
+        "mobile/ui/**",
+        "docs/setup/setup-mobile-sign-in.md"
       ],
       "workspaces": [
         "mobile/adapters",
