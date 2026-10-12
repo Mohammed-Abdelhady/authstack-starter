@@ -1,0 +1,1 @@
+export const NATIVE_DISPLAY_LABEL_MAX_LENGTH = 160;
