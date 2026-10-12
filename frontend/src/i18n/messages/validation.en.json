@@ -4,9 +4,6 @@
     "emailInvalid": "Invalid email format",
     "nameRequired": "Name is required",
     "nameMinLength": "Name must be at least 2 characters",
-    "passwordRequired": "Password is required",
-    "passwordMinLength": "Password must be at least 8 characters",
-    "passwordStrength": "Password must contain uppercase, lowercase, number, and special character",
     "roleRequired": "Role is required"
   }
 }

@@ -68,7 +68,6 @@
       "deactivateDescription": "Are you sure you want to deactivate <strong>{name}</strong>? They will lose access to the system but their account can be restored later.",
       "deactivateConfirm": "Deactivate",
       "cancel": "Cancel",
-      "roleUpdateSuccess": "Role updated successfully",
       "activateSuccess": "⁨{name}⁩ activated successfully",
       "deactivateSuccess": "⁨{name}⁩ deactivated successfully"
     },

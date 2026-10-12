@@ -20,7 +20,6 @@
         "networkError": "Network error. Please check your connection"
       }
     },
-    "rememberMe": "Remember me",
     "passwordToggle": {
       "show": "Show password",
       "hide": "Hide password"
@@ -39,12 +38,9 @@
       "subtitle": "Welcome back! Please enter your credentials",
       "email": "Email address",
       "password": "Password",
-      "rememberMe": "Remember me",
       "submit": "Sign in",
       "forgotPassword": "Forgot password?",
-      "noAccount": "Don't have an account?",
       "signUp": "Sign up",
-      "divider": "Or sign in with e-mail",
       "success": "Signed in. Redirecting...",
       "errors": {
         "invalidCredentials": "Invalid email or password",
@@ -65,27 +61,20 @@
       "email": "Email address",
       "password": "Password",
       "submit": "Create account",
-      "haveAccount": "Already have an account?",
       "signIn": "Sign in",
       "magicLinkOnlyTitle": "No account to create",
       "magicLinkOnlyBody": "This site signs you in with a link sent by email. The first link you use creates your account.",
       "providerOnlyTitle": "Sign in to continue",
       "providerOnlyBody": "Use an available method on the sign-in page. Passkeys and some providers require an existing account.",
-      "divider": "Or sign up with e-mail",
       "errors": {
         "nameRequired": "Name is required",
         "nameMinLength": "Name must be at least 2 characters",
         "emailRequired": "Email is required",
         "emailInvalid": "Please enter a valid email address",
-        "emailExists": "Email already registered",
         "passwordRequired": "Password is required",
         "passwordMinLength": "Password must be at least 8 characters",
-        "passwordWeak": "Password must contain letters and numbers",
         "serverError": "An error occurred. Please try again later",
-        "networkError": "Network error. Please check your connection",
-        "passwordUppercase": "Password must contain at least one uppercase letter",
-        "passwordLowercase": "Password must contain at least one lowercase letter",
-        "passwordNumber": "Password must contain at least one number"
+        "networkError": "Network error. Please check your connection"
       }
     },
     "activate": {
@@ -99,13 +88,11 @@
       "resendButton": "Resend code",
       "resendSending": "Sending...",
       "resendCooldown": "Resend code ({seconds}s)",
-      "didntReceive": "Didn't receive the code?",
       "errors": {
         "emailRequired": "Email is required",
         "emailInvalid": "Please enter a valid email address",
         "codeRequired": "Verification code is required",
         "codeInvalid": "Invalid verification code",
-        "codeExpired": "Code has expired. Please register again",
         "codeLength": "Code must be exactly 6 digits",
         "serverError": "An error occurred. Please try again later",
         "networkError": "Network error. Please check your connection"
@@ -121,25 +108,17 @@
       "submit": "Reset password",
       "backToLogin": "Back to sign in",
       "success": "Password updated successfully",
-      "invalidToken": "Invalid or missing reset link",
       "requestNew": "Request new reset link",
       "errors": {
         "emailRequired": "Email is required",
         "emailInvalid": "Please enter a valid email address",
         "codeRequired": "Verification code is required",
         "codeInvalid": "Invalid verification code",
-        "codeExpired": "Code has expired. Please request a new one",
         "codeLength": "Code must be exactly 6 digits",
         "passwordRequired": "Password is required",
         "passwordMinLength": "Password must be at least 8 characters",
-        "passwordWeak": "Password must contain letters and numbers",
-        "passwordUppercase": "Password must contain at least one uppercase letter",
-        "passwordLowercase": "Password must contain at least one lowercase letter",
-        "passwordNumber": "Password must contain at least one number",
         "confirmRequired": "Please confirm your password",
         "passwordMismatch": "Passwords don't match",
-        "tokenInvalid": "Invalid reset token",
-        "tokenExpired": "Reset link has expired",
         "serverError": "An error occurred. Please try again later",
         "networkError": "Network error. Please check your connection"
       }

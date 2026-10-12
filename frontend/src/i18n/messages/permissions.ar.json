@@ -71,9 +71,7 @@
       "remove": "إزالة",
       "removePermission": "إزالة الصلاحية ⁨{permission}⁩",
       "addSuccess": "{count, plural, zero {لم تتم إضافة أي صلاحيات} one {تمت إضافة صلاحية واحدة بنجاح} two {تمت إضافة صلاحيتين بنجاح} few {تمت إضافة {count} صلاحيات بنجاح} many {تمت إضافة {count} صلاحية بنجاح} other {تمت إضافة {count} صلاحية بنجاح}}",
-      "removeSuccess": "تمت إزالة الصلاحية بنجاح",
-      "addError": "فشل في إضافة الصلاحيات",
-      "removeError": "فشل في إزالة الصلاحية"
+      "removeSuccess": "تمت إزالة الصلاحية بنجاح"
     },
     "userRole": {
       "selectorLabel": "الدور: {role}",
@@ -88,8 +86,7 @@
       "cancel": "إلغاء",
       "changing": "جارٍ التغيير...",
       "changeRole": "تغيير الدور",
-      "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩",
-      "changeError": "فشل في تغيير دور المستخدم"
+      "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩"
     },
     "selector": {
       "groups": {

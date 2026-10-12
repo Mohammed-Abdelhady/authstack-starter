@@ -71,9 +71,7 @@
       "remove": "Remove",
       "removePermission": "Remove ⁨{permission}⁩",
       "addSuccess": "{count} {count, plural, =1 {permission} other {permissions}} added successfully",
-      "removeSuccess": "Permission removed successfully",
-      "addError": "Failed to add permissions",
-      "removeError": "Failed to remove permission"
+      "removeSuccess": "Permission removed successfully"
     },
     "userRole": {
       "selectorLabel": "Role: {role}",
@@ -88,8 +86,7 @@
       "cancel": "Cancel",
       "changing": "Changing...",
       "changeRole": "Change Role",
-      "changeSuccess": "User role changed to ⁨{role}⁩",
-      "changeError": "Failed to change user role"
+      "changeSuccess": "User role changed to ⁨{role}⁩"
     },
     "selector": {
       "groups": {

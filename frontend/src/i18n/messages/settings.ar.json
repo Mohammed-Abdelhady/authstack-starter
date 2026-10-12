@@ -13,9 +13,7 @@
       "linkWith": "ربط {provider}",
       "connecting": "جارٍ الاتصال بـ {provider}...",
       "unlinkSuccess": "تم إلغاء ربط حساب {provider} بنجاح",
-      "unlinkError": "فشل إلغاء ربط حساب {provider}",
       "setPrimarySuccess": "تم تعيين {provider} حسابًا أساسيًا",
-      "setPrimaryError": "فشل تعيين {provider} حسابًا أساسيًا",
       "unlinkConfirmTitle": "إلغاء ربط الحساب؟",
       "unlinkConfirmDescription": "هل أنت متأكد أنك تريد إلغاء ربط حساب {provider}؟ يمكنك دائماً ربطه مرة أخرى لاحقاً.",
       "cancel": "إلغاء",
@@ -37,10 +35,7 @@
       "syncNow": "مزامنة الملف الشخصي",
       "syncing": "جارٍ المزامنة...",
       "loading": "جارٍ تحميل حالة المزامنة...",
-      "syncSuccess": "تمت مزامنة الملف الشخصي بنجاح",
-      "syncSuccessDescription": "تم تحديث ملفك الشخصي من المزود الأساسي",
-      "syncError": "فشلت مزامنة الملف الشخصي",
-      "syncErrorDescription": "فشل في مزامنة الملف الشخصي. يرجى المحاولة مرة أخرى لاحقاً"
+      "syncError": "فشلت مزامنة الملف الشخصي"
     },
     "password": {
       "title": "تغيير كلمة المرور",

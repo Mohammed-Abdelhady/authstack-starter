@@ -11,10 +11,6 @@
     "error": {
       "networkError": "Network error. Please check your connection",
       "timeoutError": "Request timed out. Please try again",
-      "registrationFailed": "Registration failed",
-      "activationFailed": "Invalid verification code",
-      "resetFailed": "Failed to reset password",
-      "invalidToken": "Invalid or expired reset link",
       "unauthorized": "You are not authorized to access this resource",
       "forbidden": "Access denied. You don't have permission",
       "validationFailed": "Validation failed. Please check your input",
@@ -24,10 +20,7 @@
       "unknownError": "An unexpected error occurred",
       "notFound": "Resource not found",
       "tooManyRequests": "Too many requests. Please slow down",
-      "badGateway": "Bad gateway. Please try again",
-      "resendError": "Failed to send activation code. Please try again",
-      "resendRateLimit": "Too many resend attempts. Please wait before trying again",
-      "resendNoPending": "No pending registration found. Please register again"
+      "badGateway": "Bad gateway. Please try again"
     }
   }
 }
