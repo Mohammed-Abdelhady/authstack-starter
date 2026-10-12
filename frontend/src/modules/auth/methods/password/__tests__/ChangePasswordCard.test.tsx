@@ -22,6 +22,7 @@ const AUTH_METHODS = { methods: { password: true } };
 
 async function submitPasswordChange(locale: AppLocale) {
   const form = await renderForm(locale, <ChangePasswordCard />);
+  await screen.findByTestId('change-password-form');
   const label = (key: string) => form.message(`settings.password.${key}`);
   const currentPassword = screen.getByLabelText(label('currentPassword'));
   const newPassword = screen.getByLabelText(label('newPassword'));
@@ -105,6 +106,7 @@ describe.each([
     refuseWrites([], AUTH_METHODS);
 
     const { message } = await renderForm(locale, <ChangePasswordCard />);
+    await screen.findByTestId('change-password-form');
     const purposeOf = (key: string) =>
       screen.getByLabelText(message(`settings.password.${key}`)).getAttribute('autocomplete');
 

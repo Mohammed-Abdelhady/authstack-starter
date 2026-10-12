@@ -68,6 +68,7 @@ export const TimelineList = forwardRef(
     return (
       <div
         ref={ref}
+        role="list"
         data-testid="timeline-list"
         className={cn('flex flex-col space-y-4', className)}
         {...props}
@@ -77,6 +78,7 @@ export const TimelineList = forwardRef(
 
           return (
             <div
+              role="listitem"
               key={itemKey(item)}
               data-testid={`timeline-item-${index}`}
               data-highlighted={isHighlighted ? 'true' : undefined}

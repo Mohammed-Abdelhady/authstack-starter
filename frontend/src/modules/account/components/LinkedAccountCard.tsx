@@ -135,7 +135,7 @@ export function LinkedAccountCard({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Heading level={3} variant="subsectionTitle">
+                  <Heading level={5} variant="subsectionTitle">
                     {displayName}
                   </Heading>
                   {isPrimary && (
@@ -169,11 +169,9 @@ export function LinkedAccountCard({
                         aria-hidden="true"
                       />
                     ) : (
-                      <>
-                        <LinkIcon className="h-4 w-4 shrink-0" />
-                        <span>{t('setPrimary')}</span>
-                      </>
+                      <LinkIcon className="h-4 w-4 shrink-0" />
                     )}
+                    <span>{t('setPrimary')}</span>
                   </Button>
                 )}
 
@@ -199,11 +197,9 @@ export function LinkedAccountCard({
                         aria-hidden="true"
                       />
                     ) : (
-                      <>
-                        <Unlink className="h-4 w-4 shrink-0" />
-                        <span>{t('unlink')}</span>
-                      </>
+                      <Unlink className="h-4 w-4 shrink-0" />
                     )}
+                    <span>{t('unlink')}</span>
                   </Button>
                 )}
               </div>

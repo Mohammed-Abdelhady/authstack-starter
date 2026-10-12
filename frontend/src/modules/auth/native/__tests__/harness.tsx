@@ -1,14 +1,15 @@
 import { StrictMode, type ReactElement } from 'react';
-import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 import { render } from '@testing-library/react';
 import { NextIntlClientProvider, createTranslator, type AbstractIntlMessages } from 'next-intl';
 import { vi } from 'vitest';
 import type { AppLocale } from '@/i18n/load-messages';
-import { baseApi } from '@/store/api/baseApi';
+import {
+  makeStore as makeAppStore,
+  registerFormTestLifecycle,
+} from '@/tests/serverRejectionHarness';
 import { authApi } from '../../store/authApi';
 import { NativeAuthorizePanel } from '../NativeAuthorizePanel';
-import authReducer from '../../store/authSlice';
 import type { User } from '@app/sdk';
 
 export const TEST_TRANSACTION = 'txn-abc123';
@@ -44,18 +45,9 @@ export function transactionPayload(applicationName: string) {
   };
 }
 
-export function makeStore() {
-  return configureStore({
-    reducer: {
-      [baseApi.reducerPath]: baseApi.reducer,
-      auth: authReducer,
-    },
-    middleware: (defaults) => defaults().concat(baseApi.middleware),
-    // The default notifier asks the window for a frame, and RTK Query still
-    // dispatches after unmount, so a frame could outlive jsdom's window.
-    enhancers: (defaults) => defaults({ autoBatch: { type: 'tick' } }),
-  });
-}
+registerFormTestLifecycle();
+
+export const makeStore = makeAppStore;
 
 export type TestStore = ReturnType<typeof makeStore>;
 

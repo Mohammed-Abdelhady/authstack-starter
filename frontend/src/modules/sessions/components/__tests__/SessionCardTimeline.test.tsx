@@ -93,14 +93,19 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('SessionCardTimeline kind in %s', (locale) => {
   it('names a browser row by its device and the browser label', async () => {
-    const { message } = await renderForm(locale, <SessionCardTimeline session={BROWSER_SESSION} />);
+    const { message, format } = await renderForm(
+      locale,
+      <SessionCardTimeline session={BROWSER_SESSION} />,
+    );
 
     const row = screen.getByRole('article', {
-      name: `Chrome 120 on macOS 10.15 ${message('sessions.kind.browser')}`,
+      name: `${format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' })} ${message('sessions.kind.browser')}`,
     });
     expect(within(row).getByText(message('sessions.kind.browser'))).toBeTruthy();
     expect(within(row).queryByText(message('sessions.kind.nativeApp'))).toBeNull();
-    expect(within(row).getByText('Chrome 120 · macOS 10.15')).toBeTruthy();
+    expect(within(row).getByTestId('session-browser-os').textContent).toBe(
+      format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' }),
+    );
     expect(within(row).getByTestId('device-icon-desktop')).toBeTruthy();
   });
 
@@ -117,13 +122,13 @@ describe.each([
   });
 
   it('names a mobile row by the system its app reports', async () => {
-    const { message } = await renderForm(
+    const { message, format } = await renderForm(
       locale,
       <SessionCardTimeline session={NATIVE_SESSION_ON_IOS} />,
     );
 
     const row = screen.getByRole('article', {
-      name: `${NATIVE_SESSION_ON_IOS.deviceName} ${message('sessions.kind.nativeApp')}`,
+      name: `${format('sessions.mobileAppOnSystem', { system: 'iOS 17' })} ${message('sessions.kind.nativeApp')}`,
     });
     expect(row).toBeTruthy();
   });
@@ -216,15 +221,19 @@ describe.each([
   });
 
   it('shows a row without a kind label for a purpose it does not know', async () => {
-    const { message } = await renderForm(
+    const { message, format } = await renderForm(
       locale,
       <SessionCardTimeline session={sessionFromNewerServer()} />,
     );
 
-    const row = screen.getByRole('article', { name: 'Chrome 120 on macOS 10.15' });
+    const row = screen.getByRole('article', {
+      name: format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' }),
+    });
     expect(within(row).queryByText(message('sessions.kind.browser'))).toBeNull();
     expect(within(row).queryByText(message('sessions.kind.nativeApp'))).toBeNull();
-    expect(within(row).getByText('Chrome 120 · macOS 10.15')).toBeTruthy();
+    expect(within(row).getByTestId('session-browser-os').textContent).toBe(
+      format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' }),
+    );
   });
 
   it.each([
@@ -238,9 +247,7 @@ describe.each([
 
     const row = screen.getByRole('article');
     expect(within(row).getByText(message('sessions.activeNow'))).toBeTruthy();
-    expect(
-      within(row).queryByRole('button', { name: message('sessions.logoutThisDevice') }),
-    ).toBeNull();
+    expect(within(row).queryByRole('button')).toBeNull();
   });
 
   it.each([
@@ -248,15 +255,19 @@ describe.each([
     ['mobile', NATIVE_SESSION],
   ])('signs out another %s session after a confirmation', async (_kind, session) => {
     const requests = stubNetwork(() => success({ message: 'Session revoked' }));
-    const { message, successToasts } = await renderForm(
+    const { message, format, successToasts } = await renderForm(
       locale,
       <CardWithSignOut session={session} />,
     );
 
     const row = screen.getByRole('article');
     expect(within(row).queryByText(message('sessions.activeNow'))).toBeNull();
+    const device =
+      _kind === 'browser'
+        ? format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' })
+        : (session.deviceName ?? '');
     fireEvent.click(
-      within(row).getByRole('button', { name: message('sessions.logoutThisDevice') }),
+      within(row).getByRole('button', { name: format('sessions.signOutDevice', { device }) }),
     );
     expect(requests).toEqual([]);
 
@@ -274,9 +285,13 @@ describe.each([
   });
 
   it('asks about a mobile session without naming a browser', async () => {
-    const { message } = await renderForm(locale, <CardWithSignOut session={NATIVE_SESSION} />);
+    const { format } = await renderForm(locale, <CardWithSignOut session={NATIVE_SESSION} />);
 
-    fireEvent.click(screen.getByRole('button', { name: message('sessions.logoutThisDevice') }));
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: format('sessions.signOutDevice', { device: NATIVE_SESSION.deviceName ?? '' }),
+      }),
+    );
 
     const dialog = screen.getByRole('alertdialog');
     expect(dialog.textContent).toContain(NATIVE_SESSION.deviceName);

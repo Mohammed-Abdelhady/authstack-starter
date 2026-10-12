@@ -1,0 +1,12 @@
+{
+  "validation": {
+    "emailRequired": "البريد الإلكتروني مطلوب",
+    "emailInvalid": "صيغة البريد الإلكتروني غير صحيحة",
+    "nameRequired": "الاسم مطلوب",
+    "nameMinLength": "يجب أن يكون الاسم حرفين على الأقل",
+    "passwordRequired": "كلمة المرور مطلوبة",
+    "passwordMinLength": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
+    "passwordStrength": "يجب أن تحتوي كلمة المرور على أحرف كبيرة وصغيرة ورقم ورمز خاص",
+    "roleRequired": "الدور مطلوب"
+  }
+}

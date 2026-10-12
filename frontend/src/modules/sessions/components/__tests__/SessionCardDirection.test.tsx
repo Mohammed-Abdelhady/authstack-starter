@@ -41,13 +41,13 @@ describe.each([
     }).toEqual({ text: LOOPBACK, address: 'ltr', row: 'rtl' });
   });
 
-  it('isolates the browser and system line left to right', async () => {
-    await renderForm(locale, <SessionCardTimeline session={SESSION} />);
+  it('isolates technical values inside the localized device line', async () => {
+    const { format } = await renderForm(locale, <SessionCardTimeline session={SESSION} />);
 
     const line = screen.getByTestId('session-browser-os');
     expect({ text: line.textContent, line: line.getAttribute('dir') }).toEqual({
-      text: 'Chrome 120 · macOS 10.15',
-      line: 'ltr',
+      text: format('sessions.browserOnSystem', { browser: 'Chrome 120', system: 'macOS 10.15' }),
+      line: null,
     });
   });
 });

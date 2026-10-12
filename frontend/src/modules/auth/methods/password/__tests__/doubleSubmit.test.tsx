@@ -117,6 +117,7 @@ describe('two submissions in one tick send one request', () => {
         : success({ methods: { password: true } }),
     );
     const { message, successToasts } = await renderForm('en', <ChangePasswordCard />);
+    await screen.findByTestId('change-password-form');
     const label = (key: string) => message(`settings.password.${key}`);
     const type = (key: string, value: string) =>
       fireEvent.change(screen.getByLabelText(label(key)), { target: { value } });

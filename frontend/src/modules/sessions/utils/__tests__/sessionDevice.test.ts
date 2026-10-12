@@ -1,8 +1,18 @@
 import { createTranslator } from 'next-intl';
-import en from '@/i18n/messages/session-kinds.en.json';
-import ar from '@/i18n/messages/session-kinds.ar.json'; // feature:locale-ar
+import enKinds from '@/i18n/messages/session-kinds.en.json';
+import enBase from '@/i18n/messages/sessions.en.json';
+import arKinds from '@/i18n/messages/session-kinds.ar.json'; // feature:locale-ar
+import arBase from '@/i18n/messages/sessions.ar.json'; // feature:locale-ar
 import { describe, expect, it } from 'vitest';
-import { sessionDeviceText, describeNativeDevice, sessionKindOf } from '../sessionDevice';
+import {
+  browserDeviceText,
+  sessionDeviceText,
+  describeNativeDevice,
+  sessionKindOf,
+} from '../sessionDevice';
+
+const en = { sessions: { ...enBase.sessions, ...enKinds.sessions } };
+const ar = { sessions: { ...arBase.sessions, ...arKinds.sessions } }; // feature:locale-ar
 
 describe('sessionKindOf', () => {
   it.each([
@@ -105,5 +115,20 @@ describe.each([
       native: messages.sessions.mobileAppOnSystem.replace('{system}', 'iOS'),
       isolated: true,
     });
+  });
+});
+
+describe('legacy browser localization', () => {
+  it.each([
+    { agent: 'Custom/1.0', browser: 'unknownBrowser', system: 'unknownSystem' },
+    { agent: 'Chrome/120 Android 14', browser: 'Chrome 120', system: 'Android 14' },
+  ])('translates unknown descriptors from $agent', ({ agent, browser, system }) => {
+    const calls: [string, Record<string, string> | undefined][] = [];
+    const answer = browserDeviceText(agent, (key, args) => {
+      calls.push([key, args]);
+      return key;
+    });
+    expect(answer).toBe('browserOnSystem');
+    expect(calls.at(-1)).toEqual(['browserOnSystem', { browser, system }]);
   });
 });

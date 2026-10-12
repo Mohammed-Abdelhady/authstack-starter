@@ -1,7 +1,12 @@
 import { DEVICE_KIND, type Session } from '@app/sdk';
 import { parseUserAgent, getDeviceLabel } from '@/lib/parseUserAgent';
 import type { DeviceType } from '../components/DeviceIcon';
-import { SESSION_KIND_BY_PURPOSE, UNKNOWN_OS_LABELS, type SessionKind } from '../constants';
+import {
+  SESSION_KIND_BY_PURPOSE,
+  UNKNOWN_OS_LABELS,
+  UNKNOWN_BROWSER_LABELS,
+  type SessionKind,
+} from '../constants';
 
 const KIND_BY_PURPOSE = new Map<string, SessionKind>(Object.entries(SESSION_KIND_BY_PURPOSE));
 
@@ -28,20 +33,45 @@ export function describeNativeDevice(userAgent: string): NativeDevice {
   };
 }
 
+type DeviceTranslator = (
+  key:
+    | 'unknownDevice'
+    | 'unknownBrowser'
+    | 'unknownSystem'
+    | 'kind.nativeApp'
+    | 'browserOnSystem'
+    | 'mobileAppOnSystem',
+  values?: Record<string, string>,
+) => string;
+
+export function browserDeviceText(userAgent: string, t: DeviceTranslator): string {
+  const { browser, os } = parseUserAgent(userAgent);
+  return t('browserOnSystem', {
+    browser: UNKNOWN_BROWSER_LABELS.includes(browser) ? t('unknownBrowser') : browser,
+    system: UNKNOWN_OS_LABELS.includes(os) ? t('unknownSystem') : os,
+  });
+}
+
 /** Catalogue arguments stay language-neutral; templates isolate their LTR runs. */
 export function sessionDeviceText(
-  session: Pick<Session, 'deviceParts' | 'deviceName'> & Partial<Pick<Session, 'userAgent'>>,
-  t: (
-    key: 'unknownDevice' | 'kind.nativeApp' | 'browserOnSystem' | 'mobileAppOnSystem',
-    values?: Record<string, string>,
-  ) => string,
+  session: Pick<Session, 'deviceParts' | 'deviceName'> &
+    Partial<Pick<Session, 'userAgent' | 'credentialPurpose'>>,
+  t: DeviceTranslator,
 ): string {
   const parts = session.deviceParts;
-  if (!parts)
-    return (
-      session.deviceName ||
-      (session.userAgent ? getDeviceLabel(session.userAgent) : t('unknownDevice'))
-    );
+  if (!parts) {
+    if (
+      session.deviceName &&
+      (!session.userAgent || session.deviceName !== getDeviceLabel(session.userAgent))
+    ) {
+      return session.deviceName;
+    }
+    if (session.credentialPurpose === 'native_access' && session.userAgent) {
+      const native = describeNativeDevice(session.userAgent);
+      return native.os ? t('mobileAppOnSystem', { system: native.os }) : t('unknownDevice');
+    }
+    return session.userAgent ? browserDeviceText(session.userAgent, t) : t('unknownDevice');
+  }
   const system = [parts.platformName, parts.platformVersion].filter(Boolean).join(' ');
   const browser = [parts.browserName, parts.browserMajorVersion].filter(Boolean).join(' ');
   if (parts.kind === DEVICE_KIND.MOBILE_APP)

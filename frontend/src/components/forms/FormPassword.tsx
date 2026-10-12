@@ -56,6 +56,7 @@ export const FormPassword = <TFieldValues extends FieldValues = FieldValues>({
                   {...restField}
                   {...restInputProps}
                   type={showPassword ? 'text' : 'password'}
+                  dir="ltr"
                   onChange={(e) => {
                     consumerOnChange?.(e);
                     fieldOnChange(e);

@@ -1,0 +1,192 @@
+{
+  "settings": {
+    "accounts": {
+      "title": "Linked Accounts",
+      "description": "Manage your connected OAuth providers and set your primary account for profile synchronization",
+      "linkedAccountsLabel": "Connected Accounts",
+      "availableProvidersLabel": "Available Providers",
+      "primary": "Primary",
+      "primaryDescription": "This account is used for profile synchronization",
+      "linkedDescription": "Connected to your account",
+      "setPrimary": "Set as Primary",
+      "unlink": "Unlink",
+      "linkWith": "Link {provider}",
+      "connecting": "Connecting to {provider}...",
+      "unlinkSuccess": "{provider} account unlinked successfully",
+      "unlinkError": "Failed to unlink {provider} account",
+      "setPrimarySuccess": "{provider} set as primary account",
+      "setPrimaryError": "Failed to set {provider} as primary",
+      "unlinkConfirmTitle": "Unlink Account?",
+      "unlinkConfirmDescription": "Are you sure you want to unlink your {provider} account? You can always link it again later.",
+      "cancel": "Cancel",
+      "confirmUnlink": "Unlink Account",
+      "unlinkBlockedLastSignInMethod": "This is the only way to sign in to your account, so it cannot be unlinked.",
+      "emailSignInName": "Email",
+      "emailSignInSwitchedOff": "Email sign-in is turned off. This address still identifies your account.",
+      "allProvidersLinked": "All available providers are already linked to your account"
+    },
+    "profileSync": {
+      "title": "Profile Sync",
+      "description": "Synchronize your profile information from your primary OAuth provider",
+      "lastSynced": "Last synced",
+      "syncedFrom": "Synced from",
+      "primaryProvider": "Primary provider",
+      "never": "Never",
+      "none": "None",
+      "cannotSyncInfo": "Set an OAuth provider as your primary to enable profile synchronization",
+      "syncNow": "Sync Profile",
+      "syncing": "Syncing...",
+      "loading": "Loading sync status...",
+      "syncSuccess": "Profile synced successfully",
+      "syncSuccessDescription": "Your profile has been updated from your primary provider",
+      "syncError": "Profile sync failed",
+      "syncErrorDescription": "Failed to sync profile. Please try again later"
+    },
+    "password": {
+      "title": "Change Password",
+      "description": "Update your account password. You'll be logged out of other sessions.",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "submit": "Update Password",
+      "success": "Password updated successfully",
+      "currentPasswordRequired": "Current password is required",
+      "newPasswordRequired": "New password is required",
+      "newPasswordMin": "Password must be at least 8 characters",
+      "newPasswordUppercase": "Password must contain at least one uppercase letter",
+      "newPasswordLowercase": "Password must contain at least one lowercase letter",
+      "newPasswordNumber": "Password must contain at least one number",
+      "confirmPasswordRequired": "Please confirm your password",
+      "passwordsDoNotMatch": "Passwords do not match",
+      "error": "Failed to change password"
+    },
+    "twoFactor": {
+      "title": "Two-step verification",
+      "description": "Ask for a code from an authenticator app at every sign-in.",
+      "statusOn": "On",
+      "statusOff": "Off",
+      "setup": {
+        "open": "Set up",
+        "title": "Set up two-step verification",
+        "reauth": {
+          "description": "Confirm it is you before changing how you sign in.",
+          "passwordBody": "Enter your current password to continue.",
+          "passwordlessBody": "Your account has no password, so the session you signed in on is the proof. Sign in again if this is refused.",
+          "password": "Current password",
+          "continue": "Continue"
+        },
+        "scan": {
+          "description": "Add the account to your authenticator app.",
+          "body": "Scan this code with your authenticator app, or type the key below into it.",
+          "qrLabel": "QR code for your authenticator app",
+          "secretLabel": "Setup key",
+          "copySecret": "Copy the setup key",
+          "continue": "I have added it"
+        },
+        "confirm": {
+          "description": "Enter the first code your app shows.",
+          "body": "Your app now shows a six digit code that changes every 30 seconds.",
+          "code": "Authentication code",
+          "codeLength": "The code is six digits",
+          "submit": "Turn on",
+          "back": "Back"
+        },
+        "recoveryCodes": {
+          "description": "Save these codes somewhere safe.",
+          "body": "Each code signs you in once if you lose your authenticator app. They are shown here and nowhere else.",
+          "acknowledge": "I saved these codes",
+          "done": "Done"
+        }
+      },
+      "recoveryCodes": {
+        "copy": "Copy",
+        "copied": "Copied",
+        "download": "Download"
+      },
+      "disable": {
+        "open": "Turn off",
+        "title": "Turn off two-step verification?",
+        "description": "Sign-in stops asking for a code. You can turn it back on later.",
+        "password": "Current password",
+        "submit": "Turn off",
+        "success": "Two-step verification is off"
+      },
+      "regenerate": {
+        "open": "Replace recovery codes",
+        "title": "Replace recovery codes",
+        "description": "The old codes stop working, used or not.",
+        "submit": "Replace codes",
+        "done": "Here are your new codes. The old ones no longer work.",
+        "close": "Done"
+      }
+    },
+    "passkeys": {
+      "title": "Passkeys",
+      "description": "Sign in with your fingerprint, face or screen lock instead of a password.",
+      "count": "{count, plural, =0 {None} =1 {1 passkey} other {{count} passkeys}}",
+      "add": "Add a passkey",
+      "noPlatformAuthenticator": "This device has no built-in authenticator. A security key or your phone works too.",
+      "empty": "No passkeys yet. Add one to sign in without a password.",
+      "listLabel": "Your passkeys",
+      "backedUp": "Backed up",
+      "added": "Added {date}",
+      "lastUsed": "Last used {date}",
+      "neverUsed": "Not used yet",
+      "deviceType": {
+        "singleDevice": "One device",
+        "multiDevice": "Several devices"
+      },
+      "deviceNames": {
+        "mac": "Mac",
+        "iphone": "iPhone",
+        "ipad": "iPad",
+        "android": "Android phone",
+        "windows": "Windows PC",
+        "linux": "Linux computer",
+        "other": "Passkey"
+      },
+      "name": {
+        "title": "Name this passkey",
+        "description": "The name shows here only, to tell your passkeys apart.",
+        "field": "Name",
+        "submit": "Save"
+      },
+      "rename": {
+        "title": "Rename passkey",
+        "description": "Pick a name that tells you which device this is.",
+        "label": "Rename {name}"
+      },
+      "delete": {
+        "title": "Remove this passkey?",
+        "description": "{name} stops working for sign-in. The key stays on your device until you delete it there.",
+        "label": "Remove {name}",
+        "submit": "Remove",
+        "success": "The passkey was removed",
+        "blockedLastSignInMethod": "This is the only way to sign in to your account, so it cannot be removed."
+      },
+      "errors": {
+        "nameRequired": "Enter a name",
+        "nameTooLong": "A name can be at most {max} characters"
+      }
+    },
+    "profile": {
+      "title": "Profile Information",
+      "description": "Update your personal information.",
+      "name": "Full Name",
+      "namePlaceholder": "Jane Doe",
+      "email": "Email Address",
+      "emailHint": "Email cannot be changed",
+      "submit": "Save Changes",
+      "success": "Profile updated successfully",
+      "nameRequired": "Name is required",
+      "nameMinLength": "Name must be at least 2 characters",
+      "nameMaxLength": "Name must not exceed 100 characters",
+      "noChanges": "No changes to save",
+      "error": "Failed to update profile"
+    },
+    "title": "Settings",
+    "description": "Manage your account settings and preferences",
+    "accountGroup": "Account & Security",
+    "integrationsGroup": "Connected Accounts & Sync"
+  }
+}

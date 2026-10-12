@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { focusAfterOpenAndEscape } from '@/tests/dialogFocus';
+import { availability, heldAnswer, HELD } from '@/tests/busyControls';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -43,7 +44,10 @@ describe('focus when the new recovery codes dialog closes', () => {
   });
 
   it('returns to the button that opened it once the new codes are dismissed', async () => {
-    stubNetwork(answer);
+    const held = heldAnswer();
+    stubNetwork((request, path) =>
+      request.method === 'POST' ? held.answer : answer(request, path),
+    );
     await renderForm('en', <TwoFactorCard />);
     const opener = await screen.findByTestId(OPENER);
     opener.focus();
@@ -52,6 +56,12 @@ describe('focus when the new recovery codes dialog closes', () => {
     await waitFor(() => expect(document.activeElement).toBe(code));
     fireEvent.change(code, { target: { value: '123456' } });
     fireEvent.submit(screen.getByTestId('two-factor-regenerate-form'));
+
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('two-factor-regenerate-submit'))).toEqual(HELD),
+    );
+    expect(screen.getByTestId(DIALOG).contains(document.activeElement)).toBe(true);
+    held.settle(() => success({ recoveryCodes: ['aaaa-bbbb'] }));
 
     fireEvent.click(await screen.findByTestId('two-factor-regenerate-done'));
 

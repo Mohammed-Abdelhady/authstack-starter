@@ -303,7 +303,8 @@
         "frontend/src/i18n/messages/ar.json",
         "frontend/src/i18n/messages/*.ar.json",
         "mobile/ui/src/i18n/ar.ts",
-        "mobile/expo/src/i18n/ar.ts"
+        "mobile/expo/src/i18n/ar.ts",
+        "frontend/src/app/arabic-font.css"
       ],
       "docs": [],
       "catalogueKeys": [

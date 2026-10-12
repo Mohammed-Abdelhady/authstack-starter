@@ -107,7 +107,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
           sizeClasses[size],
           variantClasses[variant],
           statusColors[status][variant],
-          pulse && 'animate-pulse',
+          pulse && 'motion-safe:animate-pulse',
           className,
         )}
         {...props}
@@ -116,7 +116,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
         {pulse && (
           <span
             className={cn(
-              'h-1.5 w-1.5 rounded-full animate-pulse',
+              'h-1.5 w-1.5 rounded-full motion-safe:animate-pulse',
               status === 'active' && 'bg-status-success',
               status === 'verified' && 'bg-status-success',
             )}

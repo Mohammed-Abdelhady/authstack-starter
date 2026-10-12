@@ -86,7 +86,7 @@ describe.each([
     expect({
       email: directionOf(email),
       name: directionOf(screen.getByRole('textbox', { name: message('settings.profile.name') })),
-    }).toEqual({ email: 'ltr', name: 'rtl' });
+    }).toEqual({ email: 'ltr', name: 'auto' });
   });
 
   it('sends a person whose session ended to sign in, without a toast', async () => {

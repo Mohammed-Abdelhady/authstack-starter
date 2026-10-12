@@ -22,6 +22,7 @@ vi.mock('next-intl/server', () => ({
 vi.mock('next/font/google', () => ({
   Geist: () => ({ variable: '' }),
   Geist_Mono: () => ({ variable: '' }),
+  Noto_Sans_Arabic: () => ({ variable: '' }), // feature:locale-ar
 }));
 vi.mock('../globals.css', () => ({}));
 vi.mock('@/components/providers', () => ({ AppProviders: () => null }));

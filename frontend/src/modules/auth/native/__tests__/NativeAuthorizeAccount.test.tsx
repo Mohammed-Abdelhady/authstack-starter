@@ -4,6 +4,7 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AbstractIntlMessages } from 'next-intl';
 import { loadMessages } from '@/i18n/load-messages';
 import { clearBrowserProof, rememberBrowserProof } from '@/store/api/browser-proof';
+import { availability, IDLE } from '@/tests/busyControls';
 import {
   OTHER_USER,
   TEST_USER,
@@ -130,7 +131,7 @@ describe('NativeAuthorizePanel account on screen', () => {
       );
       expect(requests).toEqual([PROFILE_PATH]);
       expect(assignMock).not.toHaveBeenCalled();
-      expect(screen.getByTestId('native-authorize-approve').hasAttribute('disabled')).toBe(false);
+      expect(availability(screen.getByTestId('native-authorize-approve'))).toEqual(IDLE);
     },
   );
 

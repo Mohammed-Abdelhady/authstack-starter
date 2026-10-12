@@ -40,6 +40,8 @@ function roles(name: string) {
   };
 }
 
+const EMPTY_ROLES = { roles: [], total: 0, page: 1, pages: 1 };
+
 /** The page that owns the filter value, as the users page does. */
 function Host({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
@@ -63,6 +65,7 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('the role filter in an rtl page in %s', (locale) => {
   it('shows the translated label, not a role value, while every role is listed', async () => {
+    stubNetwork(() => success(EMPTY_ROLES));
     const { message } = await renderForm(locale, <Host initial="all" />);
 
     expect(screen.queryByTestId('role-filter-value')).toBeNull();
@@ -84,6 +87,7 @@ describe.each([
   it.each([SLUG, 'support-team'])(
     'shows the slug %s it has no name for as it is, left to right',
     async (slug) => {
+      stubNetwork(() => success(EMPTY_ROLES));
       await renderForm(locale, <Host initial={slug} />);
 
       expect(shownValue()).toEqual({ text: slug, value: 'ltr', line: 'rtl' });

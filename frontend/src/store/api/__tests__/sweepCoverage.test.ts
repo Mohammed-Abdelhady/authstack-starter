@@ -6,25 +6,34 @@ import { unclassifiedMutationNames } from './mutationSweepGuard';
 import { CONVERTED, EXCEPTIONS } from './invalidationRefetchCases';
 import { UNTAGGED } from './untaggedRefetchCases';
 import { authApi } from '@/modules/auth/store/authApi';
+import { oauthApi } from '@/modules/oauth/api/oauthApi';
+import { CONVERTED as ACCOUNT } from '@/modules/account/api/__tests__/sweepCases';
+import {
+  CONVERTED as MAGIC,
+  UNTAGGED as MAGIC_UNTAGGED,
+} from '@/modules/auth/methods/magic-link/__tests__/sweepCases';
+import {
+  CONVERTED as PASSKEYS,
+  UNTAGGED as PASSKEYS_UNTAGGED,
+} from '@/modules/passkeys/api/__tests__/sweepCases';
+import {
+  CONVERTED as TWO_FACTOR,
+  UNTAGGED as TWO_FACTOR_UNTAGGED,
+} from '@/modules/two-factor/api/__tests__/sweepCases';
 
-/** Source folders the features own; their files may be absent. */
-const FEATURE_OWNED_PREFIXES = [
-  'src/modules/auth/methods/magic-link/',
-  'src/modules/passkeys/',
-  'src/modules/two-factor/',
-  'src/modules/oauth/',
+/** Every current endpoint injector, imported through the case lists above. */
+const DECLARED_INJECTORS = [
   'src/modules/account/api/accountLinkingApi.ts',
   'src/modules/account/api/profileSyncApi.ts',
-];
-
-/** Files the core sweep always imports and its guard always classifies. */
-const CORE_DECLARED = [
-  'src/store/api/baseApi.ts',
   'src/modules/auth/store/authApi.ts',
   'src/modules/auth/api/authMethodsApi.ts',
+  'src/modules/auth/methods/magic-link/magicLinkApi.ts',
+  'src/modules/oauth/api/oauthApi.ts',
+  'src/modules/passkeys/api/passkeysApi.ts',
   'src/modules/roles/api/rolesApi.ts',
   'src/modules/permissions/api/permissionsApi.ts',
   'src/modules/sessions/api/sessionsApi.ts',
+  'src/modules/two-factor/api/twoFactorApi.ts',
   'src/modules/users/api/usersApi.ts',
 ];
 
@@ -45,11 +54,23 @@ function tsFilesUnder(rootDir: string): string[] {
 describe('mutation sweep coverage', () => {
   it('classifies every mutation endpoint its import graph holds', () => {
     const classified = [
-      ...[...CONVERTED, ...EXCEPTIONS, ...UNTAGGED].map((mutation) => mutation.name),
+      ...[
+        ...CONVERTED,
+        ...EXCEPTIONS,
+        ...UNTAGGED,
+        ...ACCOUNT,
+        ...MAGIC,
+        ...MAGIC_UNTAGGED,
+        ...PASSKEYS,
+        ...PASSKEYS_UNTAGGED,
+        ...TWO_FACTOR,
+        ...TWO_FACTOR_UNTAGGED,
+      ].map((mutation) => mutation.name),
     ];
     expect(new Set(classified).size).toBe(classified.length);
-    // The endpoint objects are shared, so one registry lists every endpoint
-    // this file's import graph holds; a second slice would repeat it.
+    // OAuth currently has only a read, but its slice must be loaded here so
+    // a new write cannot escape the registry check.
+    expect(unclassifiedMutationNames(oauthApi, classified)).toEqual([]);
     expect(unclassifiedMutationNames(authApi, classified)).toEqual([]);
   });
 
@@ -62,14 +83,13 @@ describe('mutation sweep coverage', () => {
       // Test files mention the call in their lists; the structure guard is
       // about production API slices.
       .filter((file) => !file.includes('__tests__'))
-      .filter((file) => readFileSync(file, 'utf8').includes('injectEndpoints('))
-      .map((file) => file.slice(srcDir.length));
+      .filter((file) => /\.injectEndpoints\s*\(/.test(readFileSync(file, 'utf8')))
+      .map((file) => file.slice(srcDir.length))
+      .sort();
 
-    const owned = (file: string) =>
-      FEATURE_OWNED_PREFIXES.some((prefix) => file.startsWith(prefix));
-    for (const file of CORE_DECLARED) {
+    for (const file of DECLARED_INJECTORS) {
       expect(existsSync(join(srcDir, file)), `${file} must exist`).toBe(true);
     }
-    expect(injectors.filter((file) => !CORE_DECLARED.includes(file) && !owned(file))).toEqual([]);
+    expect(injectors).toEqual([...DECLARED_INJECTORS].sort());
   });
 });

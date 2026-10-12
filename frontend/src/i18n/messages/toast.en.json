@@ -1,0 +1,62 @@
+{
+  "toast": {
+    "success": {
+      "loginSuccess": "Welcome back!",
+      "logoutSuccess": "Logged out successfully",
+      "registrationSuccess": "Account created! Check your email",
+      "activationSuccess": "Email verified successfully!",
+      "emailVerified": "Email verified successfully",
+      "resendSuccess": "New activation code sent to your email",
+      "resetLinkSent": "If the email is registered, you'll receive a reset link",
+      "passwordReset": "Password updated successfully! You can now log in",
+      "passwordResetSent": "Password reset email sent",
+      "passwordChanged": "Password changed successfully",
+      "profileUpdated": "Profile updated successfully",
+      "avatarUploaded": "Avatar uploaded successfully",
+      "saveSuccess": "Saved successfully",
+      "deleteSuccess": "Deleted successfully",
+      "copySuccess": "Copied to clipboard"
+    },
+    "error": {
+      "networkError": "Network error. Please check your connection",
+      "timeoutError": "Request timed out. Please try again",
+      "connectionLost": "Connection lost. Please check your internet",
+      "invalidCredentials": "Invalid email or password",
+      "registrationFailed": "Registration failed",
+      "activationFailed": "Invalid verification code",
+      "resetFailed": "Failed to reset password",
+      "invalidToken": "Invalid or expired reset link",
+      "sessionExpired": "Your session has expired. Please login again",
+      "unauthorized": "You are not authorized to access this resource",
+      "forbidden": "Access denied. You don't have permission",
+      "validationFailed": "Validation failed. Please check your input",
+      "invalidInput": "Invalid input. Please correct the errors",
+      "requiredFields": "Please fill in all required fields",
+      "serverError": "Something went wrong. Please try again later",
+      "serviceUnavailable": "Service temporarily unavailable",
+      "maintenanceMode": "System is under maintenance. Please try again later",
+      "unknownError": "An unexpected error occurred",
+      "operationFailed": "Operation failed. Please try again",
+      "notFound": "Resource not found",
+      "tooManyRequests": "Too many requests. Please slow down",
+      "badGateway": "Bad gateway. Please try again",
+      "resendError": "Failed to send activation code. Please try again",
+      "resendRateLimit": "Too many resend attempts. Please wait before trying again",
+      "resendNoPending": "No pending registration found. Please register again"
+    },
+    "warning": {
+      "unsavedChanges": "You have unsaved changes",
+      "slowConnection": "Slow connection detected",
+      "sessionExpiring": "Your session is about to expire",
+      "quotaLimit": "Approaching quota limit",
+      "deprecatedFeature": "This feature is deprecated"
+    },
+    "info": {
+      "loading": "Loading...",
+      "processing": "Processing...",
+      "pleaseWait": "Please wait...",
+      "featureComingSoon": "Feature coming soon",
+      "tipOfTheDay": "Tip of the day"
+    }
+  }
+}

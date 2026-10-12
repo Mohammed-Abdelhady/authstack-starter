@@ -60,20 +60,21 @@ export const authApi = baseApi.injectEndpoints({
         method: 'POST',
       }),
       transformResponse: (response: unknown) => unwrapObjectBody<MessageResult>(response),
-      // A refused sign-out leaves the session's fate unknown, so the reads are
-      // asked again. A confirmed one clears the slice and the caller drops the
-      // cache, and a refetch would only ask a closed session for its profile
-      // and collect a 401. A server that could not be reached would fail every
-      // one of those reads too, so they wait for the next request that gets through.
+      // An unconfirmed sign-out leaves the session's fate unknown, so the reads
+      // are asked again. A confirmed one clears the slice and the caller drops
+      // the cache, so a refetch would only ask a closed session for its profile.
       invalidatesTags: (_result, error) =>
-        error && error.status !== 'FETCH_ERROR'
+        error
           ? [
               'Auth',
               'User',
               'LinkedProviders', // feature:oauth-core
               'ProfileSync', // feature:oauth-core
+              'AuthMethods',
               'Roles',
               'Permissions',
+              'Sessions',
+              'Passkeys', // feature:passkeys
             ]
           : [],
     }),

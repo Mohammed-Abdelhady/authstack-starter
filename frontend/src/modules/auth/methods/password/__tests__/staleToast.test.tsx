@@ -68,6 +68,7 @@ describe('a refused password form leaves no toast behind when the form is sent a
   it('on the change password form, which says why itself and raises no toast', async () => {
     refuseFirstWrite({ message: 'changed' }, () => ({ methods: { password: true } }));
     const { message } = await renderForm('en', <ChangePasswordCard />);
+    await screen.findByTestId('change-password-form');
     const field = (key: string) => screen.getByLabelText(message(`settings.password.${key}`));
     const fill = () => {
       fireEvent.change(field('currentPassword'), { target: { value: 'OldPassw0rdLayla' } });

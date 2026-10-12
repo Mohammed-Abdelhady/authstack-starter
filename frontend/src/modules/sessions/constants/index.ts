@@ -15,3 +15,4 @@ export const SESSION_KIND_BY_PURPOSE: Record<Session['credentialPurpose'], Sessi
 
 /** What `parseUserAgent` returns for a system it cannot name. */
 export const UNKNOWN_OS_LABELS: readonly string[] = ['Unknown OS', 'Unknown'];
+export const UNKNOWN_BROWSER_LABELS: readonly string[] = ['Unknown Browser', 'Unknown'];

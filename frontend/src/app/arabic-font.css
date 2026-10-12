@@ -1,0 +1,4 @@
+html[lang='ar'] body {
+  --font-geist-sans: var(--font-arabic-sans);
+  font-family: var(--font-arabic-sans), sans-serif;
+}

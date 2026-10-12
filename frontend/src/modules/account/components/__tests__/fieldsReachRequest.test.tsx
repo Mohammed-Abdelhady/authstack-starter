@@ -39,7 +39,11 @@ describe('every field on the profile form reaches its request', () => {
     const form = screen.getByTestId('update-profile-form');
     // The address is shown for reference: it has no name and cannot be edited here.
     expect(fieldNames(form)).toEqual(['name']);
-    expect(screen.getByTestId('profile-email-input')).toHaveProperty('disabled', true);
+    const email = screen.getByTestId('profile-email-input');
+    expect(email).toHaveProperty('readOnly', true);
+    expect(email).toHaveProperty('disabled', false);
+    email.focus();
+    expect(document.activeElement).toBe(email);
     fireEvent.change(name, { target: { value: 'Layla H' } });
 
     fireEvent.submit(form);

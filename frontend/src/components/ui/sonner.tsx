@@ -15,7 +15,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme={theme as ToasterProps['theme']}
       className="toaster group"
       containerAriaLabel={t('toastRegion')}
+      closeButton
       toastOptions={{
+        closeButtonAriaLabel: t('closeToast'),
         classNames: {
           toast:
             'group toast [overflow-wrap:anywhere] group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',

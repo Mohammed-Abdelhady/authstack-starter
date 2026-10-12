@@ -2,8 +2,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, expect, it } from 'vitest';
-import en from '@/i18n/messages/en.json';
-import ar from '@/i18n/messages/ar.json'; // feature:locale-ar
+import en from '@/i18n/messages/settings.en.json';
+import ar from '@/i18n/messages/settings.ar.json'; // feature:locale-ar
 import { directionOf, registerRtlDocument } from '@/tests/direction';
 import { RecoveryCodeList } from '../RecoveryCodeList';
 

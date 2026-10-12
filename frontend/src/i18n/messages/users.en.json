@@ -1,0 +1,84 @@
+{
+  "users": {
+    "addUser": "Add User",
+    "title": "Users",
+    "count": "{count} {count, plural, =1 {user} other {users}} registered",
+    "refresh": "Refresh",
+    "searchPlaceholder": "Search by name or email...",
+    "allRoles": "All Roles",
+    "loading": "Loading users...",
+    "loadError": "Failed to load users.",
+    "tryAgain": "Please try again.",
+    "retry": "Retry",
+    "noUsers": "No users found",
+    "noUsersYet": "No users yet",
+    "noUsersHint": "Try adjusting your search or filter criteria.",
+    "noUsersYetHint": "Users will appear here once they register.",
+    "verifiedUsers": "Verified Users",
+    "pendingVerification": "Pending Verification",
+    "showingCount": "Showing {filtered} of {total} users",
+    "createUser": {
+      "title": "Create New User",
+      "description": "Add a new user to the system with a specific role and permissions.",
+      "email": "Email Address",
+      "emailPlaceholder": "user@example.com",
+      "name": "Full Name",
+      "namePlaceholder": "John Doe",
+      "password": "Password",
+      "role": "User Role",
+      "selectRole": "Select a role",
+      "systemRole": "(System)",
+      "submit": "Create User",
+      "creating": "Creating...",
+      "success": "User created successfully",
+      "error": "Failed to create user"
+    },
+    "editUser": {
+      "title": "Edit User",
+      "description": "Update user information. Changes will be saved immediately.",
+      "name": "Full Name",
+      "namePlaceholder": "John Doe",
+      "email": "Email Address",
+      "emailPlaceholder": "user@example.com",
+      "cancel": "Cancel",
+      "save": "Save Changes",
+      "saving": "Saving...",
+      "noChanges": "No changes to save",
+      "success": "User updated successfully",
+      "error": "Failed to update user",
+      "errors": {
+        "emailRequired": "Email is required",
+        "emailInvalid": "Invalid email format",
+        "nameRequired": "Name is required",
+        "nameMinLength": "Name must be at least 2 characters"
+      }
+    },
+    "actions": {
+      "menuLabel": "Actions",
+      "editUser": "Edit User",
+      "managePermissions": "Manage Permissions",
+      "activateUser": "Activate User",
+      "deactivateUser": "Deactivate User",
+      "activateTitle": "Activate User?",
+      "activateDescription": "Are you sure you want to activate <strong>{name}</strong>? This will restore their access to the system.",
+      "activateConfirm": "Activate",
+      "deactivateTitle": "Deactivate User?",
+      "deactivateDescription": "Are you sure you want to deactivate <strong>{name}</strong>? They will lose access to the system but their account can be restored later.",
+      "deactivateConfirm": "Deactivate",
+      "cancel": "Cancel",
+      "roleUpdateSuccess": "Role updated successfully",
+      "activateSuccess": "⁨{name}⁩ activated successfully",
+      "deactivateSuccess": "⁨{name}⁩ deactivated successfully"
+    },
+    "card": {
+      "role": "Role:",
+      "joined": "Joined {date}"
+    },
+    "list": {
+      "emptyGroup": "No users in this group"
+    },
+    "roleFilterTitle": "Filter by role",
+    "roleFilterHint": "Search or browse roles, then choose one to filter users.",
+    "roleFilterError": "Could not load roles. Please try again."
+  }
+}
