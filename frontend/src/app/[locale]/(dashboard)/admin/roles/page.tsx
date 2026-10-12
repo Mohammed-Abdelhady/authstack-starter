@@ -39,13 +39,12 @@ export default function RolesPage() {
     limit: 20,
     search: debouncedSearch.trim() || undefined,
   };
-  const requestedPage = useListRolesQuery(listParams);
-  const lastAvailablePage = Math.max(1, requestedPage.currentData?.totalPages ?? page);
-  const effectivePage = Math.min(page, lastAvailablePage);
-  const { data, currentData, isLoading, isFetching, error, refetch } = useListRolesQuery({
-    ...listParams,
-    page: effectivePage,
-  });
+  const { data, currentData, isLoading, isFetching, error, refetch } =
+    useListRolesQuery(listParams);
+
+  const lastAvailablePage = Math.max(1, currentData?.totalPages ?? page);
+  const hasSettledCurrentPage = currentData?.page === page && !isFetching && error === undefined;
+  if (hasSettledCurrentPage && page > lastAvailablePage) setPage(lastAvailablePage);
 
   // A list already on screen stays when a later read of it fails.
   const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
@@ -207,12 +206,13 @@ export default function RolesPage() {
               content={
                 <RoleDetailPanel role={selectedRole} onEdit={handleEdit} onDelete={handleDelete} />
               }
+              sidebarLabel={t('title')}
               sidebarWidth="280px"
               stickySidebar
             />
 
             <PaginationControl
-              currentPage={effectivePage}
+              currentPage={page}
               totalPages={totalPages}
               onPageChange={setPage}
               isLoading={isLoading || isFetching}
