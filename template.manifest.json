@@ -375,7 +375,8 @@
         "frontend/src/modules/account/components/LinkedAccountCard.tsx",
         "frontend/src/modules/account/components/LinkProviderButton.tsx",
         "frontend/src/modules/account/components/ProfileSyncStatus.tsx",
-        "frontend/src/app/[locale]/(auth)/auth/oauth/**"
+        "frontend/src/app/[locale]/(auth)/auth/oauth/**",
+        "backend/test/auth/oauth-unlink-refused.e2e-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -403,7 +404,6 @@
         "backend/test/auth/sign-in-cookie-order.e2e-spec.ts",
         "backend/test/auth/user-password.e2e-spec.ts",
         "backend/src/auth/passkeys/contract/passkeys-contract-reauth-password.harness-spec.ts",
-        "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/utils/stable-answer.ts",
         "frontend/src/modules/auth/methods/password/**",
         "frontend/src/app/[locale]/(auth)/auth/register/**",
@@ -462,7 +462,7 @@
     },
     "facebook": {
       "label": "Facebook",
-      "description": "Sign in with a Facebook account.",
+      "description": "Sign in with an already linked Facebook identity. A fresh database needs another sign-in method to create an account before linking Facebook in settings.",
       "kind": "oauth",
       "default": true,
       "files": ["backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts"],
@@ -526,7 +526,9 @@
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
         "frontend/src/app/[locale]/(auth)/auth/2fa/**",
-        "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts"
+        "backend/test/auth/two-factor-confirm-revokes.e2e-spec.ts",
+        "backend/test/auth/two-factor-http.e2e-spec.ts",
+        "backend/test/utils/auth/two-factor-enrolment.ts"
       ],
       "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
@@ -535,7 +537,7 @@
     "passkeys": {
       "status": "available",
       "label": "Passkeys",
-      "description": "WebAuthn sign-in with platform authenticators, and a passkey as an alternative second factor. Works on its own or next to email and password. When TOTP two-factor is also selected, its verify route accepts a passkey.",
+      "description": "Sign in with previously enrolled WebAuthn credentials, or use a passkey as a second factor. A fresh database needs another sign-in method to create its first account before enrollment.",
       "kind": "passwordless",
       "default": false,
       "files": [
@@ -549,7 +551,10 @@
         "backend/src/common/persistence/postgres/migrations/0009_passkeys.sql",
         "frontend/src/modules/passkeys/**",
         "backend/src/config/passkey-env.validation.spec.ts",
-        "backend/src/config/passkey-name.spec.ts"
+        "backend/src/config/passkey-name.spec.ts",
+        "backend/test/auth/passkey-rename.e2e-spec.ts",
+        "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
+        "backend/test/auth/passkey-first-account.e2e-spec.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
@@ -763,7 +768,12 @@
       "template.rewrites.json",
       "scripts/ci/*.test.mjs",
       ".hyperflow/**",
-      "openspec/**"
+      "openspec/**",
+      "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
+      "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
+      "backend/test/auth/passkey-first-account.e2e-spec.ts",
+      "backend/test/native/engine/native-auth-engine-consent.e2e-spec.ts",
+      "backend/test/utils/native/native-auth-engine-consent.ts"
     ]
   }
 }
