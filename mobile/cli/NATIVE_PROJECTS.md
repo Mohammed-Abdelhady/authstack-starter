@@ -198,13 +198,14 @@ A development build always talks to `http://localhost:5001`, so the backend
 has to listen on port 5001. A release build talks to `PRODUCTION_API_ORIGIN` in
 `mobile/cli/src/constants.ts`, which is a placeholder until you change it.
 
-The web app must be running too, because sign-in happens on its pages, and
-`CLIENT_URL` on the backend must be its address. You also need an account. The
-seed script makes two.
+The registration above uses browser sign-in. To enable native methods, add the
+`signIn` policy from the [mobile sign-in guide](../../docs/setup/setup-mobile-sign-in.md).
+The web option needs the web app running and `CLIENT_URL` set to its address.
+The seed script creates two accounts; native signup can create another.
 
 ### Run it on an iOS simulator
 
-With MongoDB, the backend and the web app running:
+With the database and backend running, plus the web app for browser sign-in:
 
 ```sh
 # In one terminal, serve the JavaScript:
