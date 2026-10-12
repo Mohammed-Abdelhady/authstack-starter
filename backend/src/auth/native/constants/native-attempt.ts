@@ -7,7 +7,10 @@ export const NATIVE_ATTEMPT_PHASE = {
   CONSENT_REQUIRED: 'consentRequired',
   CODE_READY: 'codeReady',
   DENIED: 'denied',
+  RECOVERY_COMPLETE: 'recoveryComplete',
 } as const;
+
+export const NATIVE_ATTEMPT_HEADER = 'X-Native-Attempt';
 
 export const NATIVE_ATTEMPT_FLOW = {
   SIGN_IN: 'signIn',

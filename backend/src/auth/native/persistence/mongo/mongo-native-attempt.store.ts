@@ -78,6 +78,15 @@ export class MongoNativeAttemptStore extends NativeAttemptStore {
     return found ? toAttempt(found) : null;
   }
 
+  async findAuthenticated(
+    attemptId: string,
+    secretHash: string,
+  ): Promise<NativeAttempt | null> {
+    assertNativeAttemptSecretHash(secretHash);
+    const found = await this.collection.findOne({ attemptId, secretHash });
+    return found ? toAttempt(found) : null;
+  }
+
   claim(
     guard: NativeAttemptGuard,
     operationId: string,
@@ -145,7 +154,11 @@ export class MongoNativeAttemptStore extends NativeAttemptStore {
     return {
       ...this.live(credentials),
       phase: {
-        $nin: [NATIVE_ATTEMPT_PHASE.DENIED, NATIVE_ATTEMPT_PHASE.CODE_READY],
+        $nin: [
+          NATIVE_ATTEMPT_PHASE.DENIED,
+          NATIVE_ATTEMPT_PHASE.CODE_READY,
+          NATIVE_ATTEMPT_PHASE.RECOVERY_COMPLETE,
+        ],
       },
     };
   }

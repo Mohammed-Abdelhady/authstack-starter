@@ -15,6 +15,15 @@ export interface VerifiedNativeAccount {
   grantVersion: number | null;
   authenticationMethods: string[];
   verifiedAt: Date;
+  firstFactor: 'password' | 'provider' | 'passkey' | 'emailLink';
+}
+
+/** Only a server verifier may supply this after checking its own credential. */
+export interface VerifiedNativePrincipal {
+  userId: string;
+  userVersion: number;
+  firstFactor: VerifiedNativeAccount['firstFactor'];
+  authenticationMethods: string[];
 }
 
 export interface NativeAttemptEmailState {
@@ -36,6 +45,11 @@ export interface NativeAttemptDetails {
   nonceDigest: string | null;
   email: NativeAttemptEmailState | null;
   codeReply: EncryptedNativeCodeReply | null;
+  secondFactors?: ('totp' | 'recoveryCode' | 'passkey')[];
+  activationCompleted?: boolean;
+  passkeyChallengeHash?: string | null;
+  passkeyPurpose?: 'firstFactor' | 'secondFactor' | null;
+  emailTokenHash?: string | null;
 }
 
 export interface NativeAttempt {
