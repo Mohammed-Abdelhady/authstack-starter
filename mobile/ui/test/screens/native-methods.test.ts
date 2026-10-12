@@ -41,14 +41,20 @@ describe.each(LOCALES)('native method discovery in %s', (locale) => {
     expect(isShown(app.root, 'native-passkey-choice')).toBe(false);
   });
 
-  it('refuses all sign-in controls when native sessions are explicitly disabled', async () => {
+  it('retains browser sign-in when the direct native catalogue is disabled', async () => {
     const app = await nativeApp(locale, { methods: { ...METHODS, nativeEnabled: false } });
     expect(isShown(app.root, 'native-password-choice')).toBe(false);
     await press(app.root, 'sign-in-action');
-    expect(app.ports.authBrowser.opened).toEqual([]);
+    expect(app.ports.authBrowser.opened).toHaveLength(1);
+    const address = new URL(app.ports.authBrowser.opened[0]!.address);
+    expect(address.searchParams.get('client_id')).toBe('native-client');
+    expect(address.searchParams.get('redirect_uri')).toBe('sampleapp://auth/callback');
+    expect(address.searchParams.get('locale')).toBe(locale);
+    expect(address.searchParams.get('code_challenge_method')).toBe('S256');
+    expect(app.transport.sent.some(({ path }) => path === '/api/auth/native/attempts')).toBe(false);
   });
 
-  it('rechecks explicitly disabled methods before allowing sign-in again', async () => {
+  it('rechecks disabled direct methods while keeping browser sign-in available', async () => {
     let reads = 0;
     const held = deferred<ReturnType<typeof apiReply>>();
     const app = await nativeApp(locale, {
@@ -58,7 +64,7 @@ describe.each(LOCALES)('native method discovery in %s', (locale) => {
       },
     });
     await press(app.root, 'native-methods-retry');
-    expect(byTestId(app.root, 'sign-in-action').props.disabled).toBe(true);
+    expect(byTestId(app.root, 'sign-in-action').props.disabled).toBe(false);
     act(() => held.resolve(apiReply(METHODS)));
     await flush();
     expect(isShown(app.root, 'native-password-choice')).toBe(true);

@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiReply, oauthTokenReply, successUserReply } from '../../../auth/test/support/support';
-import { nativeApp, disposeNativeApps, ATTEMPT_ID, ATTEMPT_SECRET } from '../support/native-auth';
+import {
+  nativeApp,
+  disposeNativeApps,
+  ATTEMPT_ID,
+  ATTEMPT_SECRET,
+  METHODS,
+} from '../support/native-auth';
 import { cleanup, press, byTestId, isShown, textsOf } from '../support/render';
 import { translate } from '../../src/i18n';
 import { LOCALES } from '../support/locales';
@@ -12,6 +18,31 @@ afterEach(() => {
 });
 
 describe.each(LOCALES)('native second-step resume in %s', (locale) => {
+  it('switches a resumed journey to browser after direct methods are disabled', async () => {
+    const app = await nativeApp(locale);
+    const mfa = {
+      attemptId: ATTEMPT_ID,
+      stage: 'secondFactorRequired',
+      expiresAt: app.expiresAt,
+      factors: ['totp', 'recoveryCode'],
+    };
+    app.reply('password', mfa);
+    app.raw(`/api/auth/native/attempts/${ATTEMPT_ID}`, async () => apiReply(mfa));
+    await press(app.root, 'native-password-choice');
+    await app.input('native-email', 'person@example.test');
+    await app.input('native-password', 'Temporary-secret1');
+    await press(app.root, 'native-submit');
+    app.methods({ ...METHODS, nativeEnabled: false });
+    await app.remount();
+    expect(isShown(app.root, 'native-totp-choice')).toBe(true);
+    await press(app.root, 'native-web');
+    expect(app.ports.authBrowser.opened).toHaveLength(1);
+    expect(new URL(app.ports.authBrowser.opened[0]!.address).searchParams.get('locale')).toBe(
+      locale,
+    );
+    expect(app.transport.sent.some(({ path }) => path.endsWith('/cancel'))).toBe(true);
+  });
+
   it('restores real persisted MFA and uses only the factors returned by the server', async () => {
     const app = await nativeApp(locale);
     const mfa = {
