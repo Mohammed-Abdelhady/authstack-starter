@@ -40,24 +40,30 @@ const PROVIDERS: ReadonlyArray<
     jwks: string;
   }
 > = [
+  // feature:google:start
   {
     id: 'google',
     mode: 'googleIdentityToken',
     issuer: 'https://accounts.google.com',
     jwks: 'https://www.googleapis.com/oauth2/v3/certs',
-  }, // feature:google
+  },
+  // feature:google:end
+  // feature:apple:start
   {
     id: 'apple',
     mode: 'appleIdentityTokenAndCode',
     issuer: 'https://appleid.apple.com',
     jwks: 'https://appleid.apple.com/auth/keys',
-  }, // feature:apple
+  },
+  // feature:apple:end
+  // feature:facebook:start
   {
     id: 'facebook',
     mode: 'facebook',
     issuer: 'https://www.facebook.com',
     jwks: 'https://www.facebook.com/.well-known/oauth/openid/jwks/',
-  }, // feature:facebook
+  },
+  // feature:facebook:end
 ];
 const FETCH = global.fetch;
 const ONLY_THE_CALENDAR = [
