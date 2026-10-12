@@ -15,14 +15,28 @@ import {
   mongoSessionsState,
 } from './e2e-mongo-state-shared';
 import { mongoNativeState } from './e2e-mongo-state-native';
-import { startMemoryReplSet } from './memory-replset';
+import { startMemoryReplSet, startSharedMongoServer } from './memory-replset';
 
 const DATABASE_NAME = 'auth_e2e';
 
 /** A database of the shared MongoDB test server, and the fixture's own connection to it. */
 export async function startMongoE2eStorage(): Promise<E2eStorage> {
   const mongo = await startMemoryReplSet();
-  const uri = mongo.uri(DATABASE_NAME);
+  return createMongoE2eStorage(mongo.uri(DATABASE_NAME), mongo.stop);
+}
+
+/** The browser child owns its Mongo process; it does not run inside Jest. */
+export async function startBrowserMongoE2eStorage(): Promise<E2eStorage> {
+  const mongo = await startSharedMongoServer();
+  const uri = new URL(mongo.uri);
+  uri.pathname = `/${DATABASE_NAME}`;
+  return createMongoE2eStorage(uri.toString(), mongo.stop);
+}
+
+function createMongoE2eStorage(
+  uri: string,
+  stopMongo: () => Promise<void>,
+): E2eStorage {
   let fixtureConnection: Connection | undefined;
 
   return {
@@ -77,7 +91,7 @@ export async function startMongoE2eStorage(): Promise<E2eStorage> {
         fixtureConnection = undefined;
       }
       try {
-        await mongo.stop();
+        await stopMongo();
       } catch (error) {
         if (!failed) {
           failure = error;
