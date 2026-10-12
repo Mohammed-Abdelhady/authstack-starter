@@ -31,8 +31,11 @@ import {
 import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
 import { MongoUnitOfWorkRunner } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ACCOUNT_STORES } from '../mongo-account-stores';
-
-jest.setTimeout(60000);
+import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
+import {
+  securityNoticeProviders,
+  stubSmtpBoundary,
+} from '../../../../../test/utils/security-notice-fixture';
 
 const OLD_PASSWORD = 'OldPassword123!';
 const NEW_PASSWORD = 'NewPassword123!';
@@ -41,14 +44,17 @@ describe('password change keeps the calling session (plan S1)', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
   let harness: SessionAuthorityHarness;
   let service: UserProfileService;
+  let module: TestingModule | undefined;
+  let restoreSmtp: (() => void) | undefined;
 
   beforeAll(async () => {
+    restoreSmtp = stubSmtpBoundary();
     mongo = await startMemoryReplSet();
     harness = await bootSessionAuthority(
       mongo.uri('user_password'),
       new FrozenClock(TEST_NOW),
     );
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         UserProfileService,
         {
@@ -77,6 +83,7 @@ describe('password change keeps the calling session (plan S1)', () => {
         // feature:passkeys:end
         { provide: SessionRevoker, useValue: harness.app.get(SessionRevoker) },
         { provide: getConnectionToken(), useValue: harness.connection },
+        ...securityNoticeProviders(),
       ],
     }).compile();
     await module.get<Model<Role>>(getModelToken(Role.name)).init();
@@ -86,9 +93,19 @@ describe('password change keeps the calling session (plan S1)', () => {
     service = module.get(UserProfileService);
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
+  afterEach(async () => {
+    await module?.get(MailDispatcherService).flush();
+  });
+
   afterAll(async () => {
-    await harness?.app.close();
-    await mongo?.stop();
+    try {
+      await module?.get(MailDispatcherService).flush();
+      await module?.close();
+      await harness?.app.close();
+    } finally {
+      restoreSmtp?.();
+      await mongo?.stop();
+    }
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   beforeEach(async () => {

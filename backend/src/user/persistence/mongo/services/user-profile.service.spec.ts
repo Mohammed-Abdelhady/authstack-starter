@@ -23,11 +23,18 @@ import {
   MONGO_ACCOUNT_PERMISSION_STORE,
   MONGO_ACCOUNT_PROFILE_STORE,
 } from '../mongo-account-stores';
+import {
+  closeSecurityNoticeFixture,
+  securityNoticeProviders,
+  stubSmtpBoundary,
+} from '../../../../../test/utils/security-notice-fixture';
 
 jest.mock('bcrypt');
 
 describe('UserProfileService', () => {
   let service: UserProfileService;
+  let module: TestingModule | undefined;
+  let restoreSmtp: (() => void) | undefined;
 
   const mockUserId = new Types.ObjectId().toString();
   const mockSessionId = new Types.ObjectId().toString();
@@ -77,7 +84,8 @@ describe('UserProfileService', () => {
   };
 
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    restoreSmtp = stubSmtpBoundary();
+    module = await Test.createTestingModule({
       providers: [
         UserProfileService,
         {
@@ -96,6 +104,7 @@ describe('UserProfileService', () => {
         { provide: getModelToken(Passkey.name), useValue: mockPasskeyModel }, // feature:passkeys
         { provide: SessionService, useValue: mockSessionService },
         { provide: getConnectionToken(), useValue: mockConnection },
+        ...securityNoticeProviders(),
       ],
     }).compile();
 
@@ -105,6 +114,10 @@ describe('UserProfileService', () => {
     mockRoleModel.findOne.mockReturnValue({
       exec: jest.fn().mockResolvedValue({ permissions: [] }),
     });
+  });
+
+  afterEach(async () => {
+    await closeSecurityNoticeFixture(module, restoreSmtp);
   });
 
   it('should be defined', () => {
