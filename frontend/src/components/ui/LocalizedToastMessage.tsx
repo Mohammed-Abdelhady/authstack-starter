@@ -4,10 +4,12 @@ import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl'; // feature:locale-ar
 import { icuArgNames, type MessageValues } from '@/i18n/icu-args';
+import englishMessages from '@/i18n/messages/toast.en.json';
+import arabicMessages from '@/i18n/messages/toast.ar.json'; // feature:locale-ar
 
 const UNKNOWN_ERROR = {
-  en: 'An unexpected error occurred',
-  ar: 'حدث خطأ غير متوقع', // feature:locale-ar
+  en: englishMessages.toast.error.unknownError,
+  ar: arabicMessages.toast.error.unknownError, // feature:locale-ar
 };
 
 const UNKNOWN_ERROR_KEY = 'toast.error.unknownError';
