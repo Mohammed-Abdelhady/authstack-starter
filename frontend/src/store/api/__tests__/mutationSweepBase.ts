@@ -81,7 +81,7 @@ const READS: Record<string, unknown> = {
     pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
   },
   '/api/admin/users/user-2': ADMIN_USER,
-  '/api/roles': { roles: [ROLE], total: 1, page: 1 },
+  '/api/roles': { roles: [ROLE], total: 1, page: 1, pages: 1 },
   '/api/roles/editor': ROLE,
   '/api/admin/users/user-2/permissions': PERMISSIONS,
 };
@@ -152,33 +152,31 @@ export function describeSuccessOnly(
       ).toEqual(mutation.requests);
     });
 
-    if (mutation.outcomeUnknown) {
-      it('repeats its reads after a 503, whose save may have landed', async () => {
-        const requests = await requestsOf(
-          mutation,
-          () => refusalWith(503, ErrorCode.AUTHORITY_UNAVAILABLE),
-          extraReads,
-        );
-        expect(requests.slice(0, mutation.requests.length)).toEqual(mutation.requests);
-        expect(requests.slice(mutation.requests.length).sort()).toEqual(
-          [...mutation.refetched].sort(),
-        );
-      });
+    it('repeats its reads after a 503, whose save may have landed', async () => {
+      const requests = await requestsOf(
+        mutation,
+        () => refusalWith(503, ErrorCode.AUTHORITY_UNAVAILABLE),
+        extraReads,
+      );
+      expect(requests.slice(0, mutation.requests.length)).toEqual(mutation.requests);
+      expect(requests.slice(mutation.requests.length).sort()).toEqual(
+        mutation.outcomeUnknown ? [...mutation.refetched].sort() : [],
+      );
+    });
 
-      it('repeats its reads when no answer arrives at all', async () => {
-        const requests = await requestsOf(
-          mutation,
-          () => {
-            throw new TypeError('Failed to fetch');
-          },
-          extraReads,
-        );
-        expect(requests.slice(0, mutation.requests.length)).toEqual(mutation.requests);
-        expect(requests.slice(mutation.requests.length).sort()).toEqual(
-          [...mutation.refetched].sort(),
-        );
-      });
-    }
+    it('repeats its reads when no answer arrives at all', async () => {
+      const requests = await requestsOf(
+        mutation,
+        () => {
+          throw new TypeError('Failed to fetch');
+        },
+        extraReads,
+      );
+      expect(requests.slice(0, mutation.requests.length)).toEqual(mutation.requests);
+      expect(requests.slice(mutation.requests.length).sort()).toEqual(
+        mutation.outcomeUnknown ? [...mutation.refetched].sort() : [],
+      );
+    });
 
     it('repeats only its own reads after the server accepted it', async () => {
       const requests = await requestsOf(mutation, () => success(mutation.accepted), extraReads);

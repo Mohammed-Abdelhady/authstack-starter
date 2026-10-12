@@ -1,9 +1,33 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { refusal, registerFormTestLifecycle, success } from '@/tests/serverRejectionHarness';
+import { toast } from 'sonner';
+import {
+  refusal,
+  refusalWith,
+  makeStore,
+  registerFormTestLifecycle,
+  stubNetwork,
+  success,
+} from '@/tests/serverRejectionHarness';
+import { ErrorCode } from '@app/core';
+import { baseApi } from '@/store/api/baseApi';
+import { usersApi } from '@/modules/users/api/usersApi';
 import { CONVERTED, SESSION_REVOCATIONS, SIGN_OUT } from './invalidationRefetchCases';
 import { UNTAGGED } from './untaggedRefetchCases';
-import { describeSuccessOnly, describeUntagged, requestsOf } from './mutationSweepBase';
+import {
+  ADMIN_USER,
+  PROFILE,
+  describeSuccessOnly,
+  describeUntagged,
+  readProfile,
+  readUser,
+  readUsers,
+  requestsOf,
+} from './mutationSweepBase';
+import { authApi } from '@/modules/auth/store/authApi';
+import { sessionsApi } from '@/modules/sessions/api/sessionsApi';
+import { passkeysApi } from '@/modules/passkeys/api/passkeysApi';
+import { authMethodsApi } from '@/modules/auth/api/authMethodsApi';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
@@ -11,6 +35,44 @@ registerFormTestLifecycle();
 
 describeSuccessOnly(CONVERTED);
 describeUntagged(UNTAGGED);
+
+it('refetches a deleted user as 404 and reports the failed detail read', async () => {
+  let deleted = false;
+  const requests = stubNetwork((request, path) => {
+    if (request.method === 'DELETE') {
+      deleted = true;
+      return success({ message: 'User deleted' });
+    }
+    if (path === '/api/admin/users/user-2') {
+      return deleted ? refusalWith(404, ErrorCode.USER_NOT_FOUND) : success(ADMIN_USER);
+    }
+    if (path === '/api/admin/users') {
+      const data = deleted ? [] : [ADMIN_USER];
+      return success({
+        data,
+        pagination: { page: 1, limit: 20, total: data.length, totalPages: 1 },
+      });
+    }
+    throw new Error(`Unexpected path: ${path}`);
+  });
+  const store = makeStore();
+  await readUsers(store);
+  await readUser(store);
+  await store.dispatch(usersApi.endpoints.deleteUser.initiate('user-2'));
+  await Promise.all(store.dispatch(baseApi.util.getRunningQueriesThunk()));
+
+  expect(requests).toEqual([
+    'GET /api/admin/users',
+    'GET /api/admin/users/user-2',
+    'DELETE /api/admin/users/user-2',
+    'GET /api/admin/users',
+    'GET /api/admin/users/user-2',
+  ]);
+  expect(usersApi.endpoints.getUserById.select('user-2')(store.getState()).error).toMatchObject({
+    status: 404,
+  });
+  expect(vi.mocked(toast.error)).toHaveBeenCalledTimes(1);
+});
 
 // The success-only and untagged suites live in the shared base; the
 // session-revocation suite is only used here.
@@ -27,6 +89,30 @@ describe.each(SESSION_REVOCATIONS)('$name invalidates even when refused', (mutat
 });
 
 describe('logout', () => {
+  it.each([
+    ['a refusal', () => refusal(['name'])],
+    [
+      'a lost answer',
+      () => {
+        throw new TypeError('Failed to fetch');
+      },
+    ],
+  ] as const)('keeps a validated session after %s', async (_label, answer) => {
+    stubNetwork((request, path) => {
+      if (request.method === 'POST') return answer();
+      if (path === '/api/user/profile') return success(PROFILE);
+      throw new Error(`Unexpected path: ${path}`);
+    });
+    const store = makeStore();
+    await readProfile(store);
+    expect(store.getState().auth.isAuthenticated).toBe(true);
+
+    await store.dispatch(authApi.endpoints.logout.initiate());
+    await Promise.all(store.dispatch(baseApi.util.getRunningQueriesThunk()));
+    expect(store.getState().auth.isAuthenticated).toBe(true);
+    expect(store.getState().auth.user?.id).toBe(PROFILE.id);
+  });
+
   it('repeats nothing after the server confirmed the sign-out', async () => {
     expect(await requestsOf(SIGN_OUT, () => success(SIGN_OUT.accepted))).toEqual([
       'GET /api/user/profile',
@@ -35,19 +121,65 @@ describe('logout', () => {
   });
 
   it('asks for the profile again after a refused sign-out', async () => {
-    expect(await requestsOf(SIGN_OUT, () => refusal(['name']))).toEqual([
+    const requests = await requestsOf(SIGN_OUT, () => refusal(['name']));
+    expect(requests.slice(0, SIGN_OUT.requests.length)).toEqual(SIGN_OUT.requests);
+    expect(requests.slice(SIGN_OUT.requests.length).sort()).toEqual([...SIGN_OUT.refetched].sort());
+  });
+
+  it('checks the profile after a lost sign-out answer', async () => {
+    const requests = await requestsOf(SIGN_OUT, () => {
+      throw new TypeError('Failed to fetch');
+    });
+    expect(requests).toEqual([
       'GET /api/user/profile',
       'POST /api/auth/logout',
       'GET /api/user/profile',
     ]);
   });
 
-  // A read sent to a server that cannot be reached fails as the sign-out did.
-  // The next request that gets through tells the page what became of the session.
-  it('asks for nothing more when the server could not be reached', async () => {
-    const requests = await requestsOf(SIGN_OUT, () => {
-      throw new TypeError('Failed to fetch');
+  it.each([
+    ['a refusal', () => refusal(['name'])],
+    [
+      'a lost answer',
+      () => {
+        throw new TypeError('Failed to fetch');
+      },
+    ],
+  ] as const)('refetches each subscribed session-owned read after %s', async (_label, answer) => {
+    const requests = stubNetwork((request, path) => {
+      if (request.method === 'POST') return answer();
+      if (path === '/api/user/profile') return success(PROFILE);
+      if (path === '/api/user/sessions') return success({ sessions: [] });
+      if (path === '/api/auth/passkeys') return success({ passkeys: [], canRemove: true });
+      if (path === '/api/auth/methods')
+        return success({
+          methods: {
+            password: true,
+            magicLink: true,
+            twoFactor: false,
+            passkeys: true,
+            oauth: [],
+          },
+        });
+      throw new Error(`Unexpected path: ${path}`);
     });
-    expect(requests).toEqual(['GET /api/user/profile', 'POST /api/auth/logout']);
+    const store = makeStore();
+    await readProfile(store);
+    await store.dispatch(sessionsApi.endpoints.getSessions.initiate());
+    await store.dispatch(passkeysApi.endpoints.getPasskeys.initiate());
+    await store.dispatch(authMethodsApi.endpoints.getAuthMethods.initiate());
+
+    await store.dispatch(authApi.endpoints.logout.initiate());
+    await Promise.all(store.dispatch(baseApi.util.getRunningQueriesThunk()));
+
+    const reads = [
+      'GET /api/user/profile',
+      'GET /api/user/sessions',
+      'GET /api/auth/passkeys',
+      'GET /api/auth/methods',
+    ];
+    expect(requests.slice(0, reads.length + 1)).toEqual([...reads, 'POST /api/auth/logout']);
+    expect(requests.slice(reads.length + 1).sort()).toEqual([...reads].sort());
+    expect(store.getState().auth.isAuthenticated).toBe(true);
   });
 });

@@ -12,14 +12,14 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
-import { isHeld } from '@/tests/busyControls';
+import { availability, IDLE, isHeld } from '@/tests/busyControls';
 import { askToClose, isOpen } from '@/tests/dialogBusy';
 import { clickTwiceInOneTick, writesOf } from '../../__tests__/submitTwice';
 import { useGetCurrentUserQuery } from '../../store/authApi';
 import { LogoutButton } from '../LogoutButton';
 
 vi.mock('sonner', () => ({
-  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
 }));
 // jsdom follows a fragment and nothing else, so the sign-in address is one here.
 vi.mock('@/i18n/navigation', () => ({
@@ -145,8 +145,8 @@ describe('a sign-out the server did not confirm', () => {
       name: page.message('auth.signOut.notConfirmedTitle'),
     });
     expect(dialog.textContent).toContain(page.message('auth.signOut.notConfirmedBody'));
-    expect(page.retry()).toHaveProperty('disabled', false);
-    expect(page.stay()).toHaveProperty('disabled', false);
+    expect(availability(page.retry())).toEqual(IDLE);
+    expect(availability(page.stay())).toEqual(IDLE);
   });
 
   it('keeps the notice up while the retry runs and signs out when it reaches the server', async () => {
@@ -314,11 +314,10 @@ describe('the reads of the page after a sign-out that was not confirmed', () => 
     return requests;
   }
 
-  it('are not asked again while the server cannot be reached', async () => {
+  it('are asked again when the sign-out answer is lost', async () => {
     const requests = await signOutWith(unreachable);
 
-    // The mutation has settled by the time the notice is up, so a refetch would be listed.
-    expect(requests).toEqual([PROFILE, SIGN_OUT]);
+    await waitFor(() => expect(requests).toEqual([PROFILE, SIGN_OUT, PROFILE]));
   });
 
   it('are asked again when the server answered with a failure', async () => {
