@@ -1,4 +1,4 @@
-import type { NativeAttemptStart } from '@app/sdk';
+import type { NativeAttemptStart, NativeMethods } from '@app/sdk';
 import { NATIVE_ATTEMPT_FLOW } from '../constants/native-attempt';
 
 export function isNativeAttemptStart(
@@ -11,4 +11,17 @@ export function isNativeAttemptStart(
     Array.isArray(value.scopes) &&
     value.scopes.every((scope) => typeof scope === 'string')
   );
+}
+
+export function nativeAttemptFlowAvailable(
+  flow: NativeAttemptStart['flow'],
+  methods: NativeMethods,
+  firstFactorCount: number,
+): boolean {
+  if (flow === NATIVE_ATTEMPT_FLOW.SIGN_IN) return firstFactorCount > 0;
+  if (flow === NATIVE_ATTEMPT_FLOW.REGISTRATION)
+    return methods.capabilities.registration;
+  if (flow === NATIVE_ATTEMPT_FLOW.RECOVERY)
+    return methods.capabilities.recovery;
+  return false;
 }

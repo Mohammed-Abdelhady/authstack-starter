@@ -419,6 +419,7 @@
         "backend/test/auth/security-notices.e2e-spec.ts",
         "backend/test/auth/identity.e2e-spec.ts",
         "backend/src/auth/native/factors/native-password.service.ts",
+        "backend/test/native/factors/native-factors.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
       ],
@@ -538,6 +539,7 @@
       "files": [
         "backend/src/auth/two-factor/**",
         "backend/src/auth/native/factors/native-second-factor.service.ts",
+        "backend/test/native/factors/native-factors.e2e-spec.ts",
         "backend/src/user/persistence/mongo/schemas/two-factor.schema.ts",
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
@@ -568,6 +570,7 @@
         "backend/src/auth/passkeys/**",
         "backend/src/auth/native/factors/native-passkey.service.ts",
         "backend/src/auth/native/factors/utils/native-passkey-assertion.ts",
+        "backend/test/native/factors/native-factors.e2e-spec.ts",
         "backend/src/auth/passkeys/persistence/mongo/schemas/passkey.schema.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-registration.harness-spec.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-steps.harness-spec.ts",
