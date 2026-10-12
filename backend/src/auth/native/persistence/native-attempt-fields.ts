@@ -53,6 +53,9 @@ export function nativeAttemptDetails(
     ...(details.emailTokenHash !== undefined
       ? { emailTokenHash: details.emailTokenHash }
       : {}),
+    ...(details.emailCodeGenerationHash !== undefined
+      ? { emailCodeGenerationHash: details.emailCodeGenerationHash }
+      : {}),
   };
 }
 

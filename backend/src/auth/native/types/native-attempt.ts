@@ -53,6 +53,7 @@ export interface NativeAttemptDetails {
   passkeyChallengeHash?: string | null;
   passkeyPurpose?: 'firstFactor' | 'secondFactor' | null;
   emailTokenHash?: string | null;
+  emailCodeGenerationHash?: string | null;
 }
 
 export interface NativeAttempt {
