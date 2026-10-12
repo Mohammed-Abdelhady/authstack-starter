@@ -51,6 +51,17 @@ describe('native provider sign-in port', () => {
     }
   });
 
+  it('keeps Google available on iOS without the Apple SDK', async () => {
+    const fixture = createNativeSignInFixture('ios');
+    const ports = createNativeSignInPorts(
+      { ...fixture.modules, apple: undefined, appleScopes: undefined },
+      createNativeSignInSettings(),
+    );
+
+    expect(await ports.providerSignIn.available(GOOGLE_METHOD)).toBe(true);
+    expect(await ports.providerSignIn.available(APPLE_METHOD)).toBe(false);
+  });
+
   it('gates Google, Apple, Facebook, and system methods by platform and public configuration', async () => {
     const ios = createNativeSignInFixture('ios');
     const iosPorts = createNativeSignInPorts(ios.modules, createNativeSignInSettings());
