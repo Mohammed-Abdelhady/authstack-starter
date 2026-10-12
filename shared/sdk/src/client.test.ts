@@ -32,6 +32,31 @@ const TOKEN_SET = {
 };
 
 describe('createApiClient routes', () => {
+  it('reads a signed-out identity without requesting the protected profile', async () => {
+    const transport = answering(200, {
+      success: true,
+      data: { authenticated: false, user: null },
+    });
+
+    expect(await createApiClient(transport).auth.identity()).toEqual({
+      authenticated: false,
+      user: null,
+    });
+    expect(transport.sent).toStrictEqual([{ method: 'GET', path: '/api/auth/identity' }]);
+  });
+
+  it('reads an authenticated identity', async () => {
+    const transport = answering(200, {
+      success: true,
+      data: { authenticated: true, user: { ...PROFILE, twoFactorEnabled: false, passkeyCount: 0 } },
+    });
+
+    expect(await createApiClient(transport).auth.identity()).toEqual({
+      authenticated: true,
+      user: { ...PROFILE, twoFactorEnabled: false, passkeyCount: 0 },
+    });
+  });
+
   it('reads the profile', async () => {
     const transport = answering(200, { success: true, data: PROFILE });
 
