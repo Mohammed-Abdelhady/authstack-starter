@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { Noto_Sans_Arabic } from 'next/font/google'; // feature:locale-ar
 import { getLocale, getTranslations } from 'next-intl/server';
 import { AppProviders } from '@/components/providers';
 import { routing } from '@/i18n/routing';
 import { getTextDirection } from '@/i18n/direction';
 import './globals.css';
+import './arabic-font.css'; // feature:locale-ar
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,6 +17,21 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
+
+// feature:locale-ar:start
+const arabicSans = Noto_Sans_Arabic({
+  variable: '--font-arabic-sans',
+  subsets: ['arabic'],
+  display: 'swap',
+  preload: false,
+});
+// feature:locale-ar:end
+
+const FONT_VARIABLES = [
+  geistSans.variable,
+  geistMono.variable,
+  arabicSans.variable, // feature:locale-ar
+].join(' ');
 
 /** The product name the page itself shows and its description, in the request locale. */
 export async function generateMetadata(): Promise<Metadata> {
@@ -50,7 +67,7 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} dir={getTextDirection(locale)} suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${FONT_VARIABLES} antialiased`}>
         <AppProviders loadingLabel={t('loading')}>{children}</AppProviders>
       </body>
     </html>
