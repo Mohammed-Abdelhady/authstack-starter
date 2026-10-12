@@ -1,17 +1,17 @@
 {
   "auth": {
-    "signIn": "Sign In",
-    "signUp": "Sign Up",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
     "sessionCheckFailed": "We could not confirm your session. Try again.",
     "email": "Email",
     "password": "Password",
-    "confirmPassword": "Confirm Password",
+    "confirmPassword": "Confirm password",
     "forgotPassword": {
-      "title": "Forgot Your Password?",
+      "title": "Forgot your password?",
       "subtitle": "Enter your email address and we'll send you a reset link",
-      "email": "Email Address",
-      "submit": "Send Reset Link",
-      "backToLogin": "Back to Login",
+      "email": "Email address",
+      "submit": "Send reset link",
+      "backToLogin": "Back to sign in",
       "success": "If this email is registered, you'll receive a reset link shortly",
       "errors": {
         "emailRequired": "Email is required",
@@ -20,7 +20,7 @@
         "networkError": "Network error. Please check your connection"
       }
     },
-    "rememberMe": "Remember Me",
+    "rememberMe": "Remember me",
     "passwordToggle": {
       "show": "Show password",
       "hide": "Hide password"
@@ -35,7 +35,7 @@
       "failed": "Not passed"
     },
     "login": {
-      "title": "Login to your account",
+      "title": "Sign in to your account",
       "subtitle": "Welcome back! Please enter your credentials",
       "email": "Email address",
       "password": "Password",
@@ -45,7 +45,7 @@
       "noAccount": "Don't have an account?",
       "signUp": "Sign up",
       "divider": "Or sign in with e-mail",
-      "success": "Login successful! Redirecting...",
+      "success": "Signed in. Redirecting...",
       "errors": {
         "invalidCredentials": "Invalid email or password",
         "emailRequired": "Email is required",
@@ -54,17 +54,17 @@
         "passwordMinLength": "Password must be at least 6 characters",
         "serverError": "An error occurred. Please try again later",
         "networkError": "Network error. Please check your connection",
-        "tooManyAttempts": "Too many login attempts. Please try again later"
+        "tooManyAttempts": "Too many sign-in attempts. Please try again later"
       }
     },
     "register": {
-      "title": "Create Your Account",
+      "title": "Create your account",
       "subtitle": "Join us today",
-      "name": "Full Name",
+      "name": "Full name",
       "namePlaceholder": "Jane Doe",
-      "email": "Email Address",
+      "email": "Email address",
       "password": "Password",
-      "submit": "Create Account",
+      "submit": "Create account",
       "haveAccount": "Already have an account?",
       "signIn": "Sign in",
       "magicLinkOnlyTitle": "No account to create",
@@ -89,16 +89,16 @@
       }
     },
     "activate": {
-      "title": "Verify Your Email",
+      "title": "Verify your email",
       "description": "Enter the 6-digit code sent to your email",
-      "email": "Email Address",
-      "code": "Verification Code",
-      "submit": "Verify and Continue",
-      "logout": "Logout",
-      "loggingOut": "Logging out...",
-      "resendButton": "Resend Code",
+      "email": "Email address",
+      "code": "Verification code",
+      "submit": "Verify and continue",
+      "logout": "Sign out",
+      "loggingOut": "Signing out...",
+      "resendButton": "Resend code",
       "resendSending": "Sending...",
-      "resendCooldown": "Resend Code ({seconds}s)",
+      "resendCooldown": "Resend code ({seconds}s)",
       "didntReceive": "Didn't receive the code?",
       "errors": {
         "emailRequired": "Email is required",
@@ -112,14 +112,14 @@
       }
     },
     "resetPassword": {
-      "title": "Reset Your Password",
+      "title": "Reset your password",
       "subtitle": "Enter the 6-digit code sent to your email",
-      "email": "Email Address",
-      "code": "Verification Code",
-      "password": "New Password",
-      "confirmPassword": "Confirm Password",
-      "submit": "Reset Password",
-      "backToLogin": "Back to Login",
+      "email": "Email address",
+      "code": "Verification code",
+      "password": "New password",
+      "confirmPassword": "Confirm password",
+      "submit": "Reset password",
+      "backToLogin": "Back to sign in",
       "success": "Password updated successfully",
       "invalidToken": "Invalid or missing reset link",
       "requestNew": "Request new reset link",
@@ -219,15 +219,15 @@
         "backToSignIn": "Back to sign in"
       },
       "errorPage": {
-        "title": "OAuth Authentication Failed",
+        "title": "Provider sign-in failed",
         "description": "We could not finish signing you in with that provider.",
         "reasonsTitle": "What might have gone wrong:",
         "reasonCancelled": "You may have cancelled the authorization",
         "reasonTimeout": "The authorization may have timed out",
         "reasonProvider": "There might be a temporary issue with the OAuth provider",
         "reasonLinked": "Your account may already be linked to another account",
-        "tryAgain": "Try Again",
-        "goHome": "Go to Home",
+        "tryAgain": "Try again",
+        "goHome": "Go to home",
         "help": "If the problem persists, <link>return to sign in</link>."
       }
     }
