@@ -1,7 +1,16 @@
 import { bootE2eApp } from '../e2e-app';
 import { startLocalOAuth } from '../oauth/local-oauth';
+import {
+  startBrowserMongoE2eStorage,
+  watchMongoFixtureConnections,
+} from '../e2e-mongo-storage';
+import { useE2eStorage } from '../e2e-storage';
 
 async function main(): Promise<void> {
+  useE2eStorage({
+    start: startBrowserMongoE2eStorage,
+    watchConnections: watchMongoFixtureConnections,
+  });
   const oauth = await startLocalOAuth();
   const fixture = await bootE2eApp(5107, {
     browserStrategy: oauth.strategy,
