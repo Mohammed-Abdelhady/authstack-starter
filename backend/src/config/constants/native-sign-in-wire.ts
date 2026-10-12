@@ -1,0 +1,2 @@
+export const NATIVE_RP_ID_MAX_LENGTH = 160;
+export const NATIVE_SDK_IDENTIFIER_MAX_LENGTH = 128;

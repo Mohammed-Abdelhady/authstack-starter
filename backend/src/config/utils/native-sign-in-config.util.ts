@@ -1,4 +1,8 @@
 import { NATIVE_APPLICATIONS_CONFIG_VARIABLE } from '../../session/constants/client-ids';
+import {
+  NATIVE_RP_ID_MAX_LENGTH,
+  NATIVE_SDK_IDENTIFIER_MAX_LENGTH,
+} from '../constants/native-sign-in-wire';
 import type {
   NativeProviderSignInConfiguration,
   NativeSignInConfiguration,
@@ -57,8 +61,17 @@ export function parseSignIn(
     );
   }
   const rpId = value.rpId;
-  if (rpId !== undefined && (!isNonEmptyString(rpId) || /[:/\s]/u.test(rpId))) {
-    throw entryError(index, clientId, 'signIn.rpId must be a hostname');
+  if (
+    rpId !== undefined &&
+    (!isNonEmptyString(rpId) ||
+      /[:/\s]/u.test(rpId) ||
+      rpId.length > NATIVE_RP_ID_MAX_LENGTH)
+  ) {
+    throw entryError(
+      index,
+      clientId,
+      `signIn.rpId must be a hostname of at most ${NATIVE_RP_ID_MAX_LENGTH} characters`,
+    );
   }
   if (value.passkeys === true && (!origins || !rpId)) {
     throw entryError(
@@ -132,11 +145,16 @@ function parseSignInProviders(
       );
     }
     for (const key of ['webClientId', 'iosClientId', 'appId']) {
-      if (provider[key] !== undefined && !isNonEmptyString(provider[key])) {
+      const identifier = provider[key];
+      if (
+        identifier !== undefined &&
+        (!isNonEmptyString(identifier) ||
+          identifier.length > NATIVE_SDK_IDENTIFIER_MAX_LENGTH)
+      ) {
         throw entryError(
           index,
           clientId,
-          `signIn.providers ${key} must be a non-empty string`,
+          `signIn.providers ${key} must be a non-empty string of at most ${NATIVE_SDK_IDENTIFIER_MAX_LENGTH} characters`,
         );
       }
     }
