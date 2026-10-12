@@ -24,7 +24,15 @@ import { TwoFactorContractHarness } from '../../../contract/two-factor-contract.
 
 const A_UUID = '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e5f';
 
-export async function bootMongoTwoFactorHarness(): Promise<TwoFactorContractHarness> {
+export interface MongoTwoFactorHarness extends TwoFactorContractHarness {
+  setRawSessionVersion(
+    userId: string,
+    version: number | null | undefined,
+  ): Promise<void>;
+  mappedSessionVersion(userId: string): Promise<number>;
+}
+
+export async function bootMongoTwoFactorHarness(): Promise<MongoTwoFactorHarness> {
   const mongo = await startMemoryReplSet();
   const connection = await createConnection(
     mongo.uri('two_factor_contract'),
@@ -53,6 +61,23 @@ export async function bootMongoTwoFactorHarness(): Promise<TwoFactorContractHarn
     clock: new FrozenClock(TEST_NOW),
     accounts: module.get(SecondFactorStore),
     challenges: module.get(SecondFactorChallengeStore),
+    setRawSessionVersion: async (userId, version) => {
+      const id = new Types.ObjectId(userId);
+      await users.updateOne(
+        { _id: id },
+        version === undefined
+          ? { $unset: { sessionVersion: 1 } }
+          : { $set: { sessionVersion: version } },
+      );
+    },
+    mappedSessionVersion: async (userId) => {
+      const user = await users
+        .findById(userId)
+        .select(USER_HIDDEN_FIELDS)
+        .exec();
+      if (!user) throw new Error('seed account missing');
+      return toStoredAccount(user).sessionVersion;
+    },
 
     // The profile store's own query and mapping, without its other models.
     profileSaysEnabled: async (userId) => {
