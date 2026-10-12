@@ -44,10 +44,14 @@ export function nativeProfileFromClaims(
     providerId: claims.sub,
     email: claims.email,
     emailVerified,
-    name: (typeof claims.name === 'string' && claims.name.trim()
-      ? claims.name.trim()
-      : claims.email
-    ).slice(0, NAME_LIMIT),
+    name: Array.from(
+      (typeof claims.name === 'string' && claims.name.trim()
+        ? claims.name.trim()
+        : claims.email
+      ).normalize('NFC'),
+    )
+      .slice(0, NAME_LIMIT)
+      .join(''),
     ...(typeof claims.picture === 'string'
       ? { avatarUrl: claims.picture }
       : {}),
