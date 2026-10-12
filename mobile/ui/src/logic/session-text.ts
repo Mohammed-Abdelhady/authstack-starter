@@ -17,7 +17,7 @@ const ROLE_TEXT = new Map<string, MessageKey>([
 ]);
 
 export function deviceText(t: Translate, device: DeviceName): string {
-  if (device.kind === 'named') return isolateLtr(device.name);
+  if (device.kind === 'named') return isolateTyped(device.name);
   if (device.kind === 'mobileApp')
     return device.system
       ? t('sessions.mobileAppOnSystem', { system: device.system })
@@ -33,11 +33,15 @@ export function kindText(t: Translate, kind: SessionKind | undefined): string | 
 export function activityText(t: Translate, locale: Locale, row: SessionRow): string {
   if (row.activity === ACTIVITY.NOW) return t('sessions.activeNow');
   const at = new Date(row.lastActiveAt);
+  const numericLocale = `${locale}-u-nu-latn`;
   if (row.activity === ACTIVITY.TODAY) {
-    const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(at);
+    const time = new Intl.DateTimeFormat(numericLocale, {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(at);
     return t('sessions.activeToday', { time });
   }
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(at);
+  const date = new Intl.DateTimeFormat(numericLocale, { dateStyle: 'medium' }).format(at);
   return t('sessions.activeEarlier', { date });
 }
 
