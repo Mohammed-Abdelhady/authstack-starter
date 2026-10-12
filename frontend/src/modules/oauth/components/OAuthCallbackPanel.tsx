@@ -63,8 +63,11 @@ export function OAuthCallbackPanel({
   if (failureCode === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="text-center" data-testid="oauth-callback-pending">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" aria-hidden="true" />
+        <div className="text-center" data-testid="oauth-callback-pending" role="status">
+          <Loader2
+            className="mx-auto h-12 w-12 motion-safe:animate-spin text-primary"
+            aria-hidden="true"
+          />
           <Heading level={1} variant="display" className="mt-4">
             {t('title')}
           </Heading>
@@ -90,7 +93,7 @@ export function OAuthCallbackPanel({
         <Heading level={1} variant="display" className="mb-2">
           {t('errorTitle')}
         </Heading>
-        <Description variant="lead" className="mb-8">
+        <Description variant="lead" className="mb-8" role="alert">
           {message}
         </Description>
 

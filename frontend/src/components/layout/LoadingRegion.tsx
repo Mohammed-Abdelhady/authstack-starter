@@ -29,7 +29,6 @@ export function LoadingRegion({
   return (
     <div
       role="status"
-      aria-busy="true"
       aria-live="polite"
       data-testid={testId}
       className={cn('flex min-h-[60vh] w-full items-center justify-center p-6', className)}

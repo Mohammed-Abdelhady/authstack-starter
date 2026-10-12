@@ -30,7 +30,6 @@ export function FormRootError({
         className,
       )}
       role="alert"
-      aria-live="assertive"
       aria-atomic="true"
       data-testid={testId}
     >
