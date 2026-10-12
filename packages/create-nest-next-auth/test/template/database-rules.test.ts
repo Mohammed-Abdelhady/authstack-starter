@@ -94,6 +94,7 @@ describe('the PostgreSQL tables of an optional feature', () => {
       '0012_retention_indexes.sql',
       '0014_code_guess_locks.sql',
       '0016_pending_email.sql',
+      '0018_native_attempts.sql',
     ]);
     for (const file of withoutOptional) {
       const sql = readFileSync(join(REPOSITORY, MIGRATIONS, file), 'utf8')
