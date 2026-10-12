@@ -797,6 +797,7 @@
       "CLAUDE.md",
       "frontend/e2e/**",
       "docs/superpowers/plans/2026-10-12-mobile-login-options.md",
+      "docs/superpowers/specs/2026-10-12-mobile-login-options-design.md",
       "backend/test/native/engine/native-auth-engine.e2e-spec.ts",
       "backend/test/native/engine/native-auth-engine-dpop.e2e-spec.ts",
       "backend/test/native/engine/native-auth-engine-dpop-retry.e2e-spec.ts",
