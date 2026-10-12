@@ -33,7 +33,7 @@ export interface BrowserSignInOptions {
 export type NativeSignInAction =
   | { kind: 'start'; flow: NativeFlow }
   | { kind: 'password'; email: string; password: string }
-  | { kind: 'provider'; providerId: string }
+  | { kind: 'provider'; providerId: string; locale?: BrowserSignInOptions['locale'] }
   | { kind: 'passkey' }
   | { kind: 'secondFactor'; input: NativeSecondFactorInput }
   | { kind: 'requestEmailLink'; email: string }
