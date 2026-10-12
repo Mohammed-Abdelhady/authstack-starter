@@ -18,8 +18,42 @@ import {
 import { SEED_USER } from '../../constants/seed-users';
 import type { E2eApp } from '../e2e-app';
 import type { AuthorizationReadGate } from '../e2e-state-native';
+import { NativeAuthorizeService } from '../../../src/session/native/authorize/native-authorize.service';
+import { NativeTokenService } from '../../../src/session/native/token/native-token.service';
+import { NATIVE_META } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 
 export { NATIVE_CLIENT_ID, NATIVE_REDIRECT };
+
+export async function issueNativeGrantFor(
+  e2e: E2eApp,
+  email: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const user = await e2e.state.accounts.accountWithAddress(email);
+  if (!user) throw new Error('seed user is missing');
+  const verifier = randomBytes(32).toString('base64url');
+  const authorize = e2e.app.get(NativeAuthorizeService);
+  const begun = await authorize.begin(nativeAuthorizeQuery(verifier));
+  if (!begun.ok) throw new Error(begun.error);
+  const approved = await authorize.approve(
+    user._id.toString(),
+    begun.transactionId,
+    ['password'],
+  );
+  const code = new URL(approved.redirectUri).searchParams.get('code');
+  if (!code) throw new Error('authorization code is missing');
+  const result = await e2e.app.get(NativeTokenService).grant(
+    {
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: NATIVE_REDIRECT,
+      client_id: NATIVE_CLIENT_ID,
+      code_verifier: verifier,
+    },
+    NATIVE_META,
+  );
+  if (!result.ok) throw new Error(result.error);
+  return { accessToken: result.accessToken, refreshToken: result.refreshToken };
+}
 
 export interface StartedNativeAuthorization {
   transactionId: string;

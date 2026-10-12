@@ -9,6 +9,12 @@ import {
 } from '../utils/hook-timeouts';
 import { createNativeApplication } from '../utils/native/native-authorize.fixtures';
 import { signInNative } from '../utils/sdk/sdk-transport';
+import {
+  FLAG_USER_PRESENT,
+  attestationCredential,
+  createSoftwareAuthenticator,
+} from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
+import { E2E_CLIENT_URL } from '../utils/e2e-app';
 
 const OPTIONS = '/api/auth/passkeys/register/options';
 const VERIFY = '/api/auth/passkeys/register/verify';
@@ -155,6 +161,41 @@ describe('adding a passkey asks who is there again (e2e)', () => {
       code: 'PASSKEY_VERIFICATION_FAILED',
     });
     expect(await e2e.state.auth.countPasskeys()).toBe(0);
+  });
+
+  it('sends one notice only after a real authenticator registration succeeds', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const options = await browser
+      .post(OPTIONS)
+      .send({ password: SEED_USER.password })
+      .expect(200);
+    const challenge = (options.body as { data: { challenge: string } }).data
+      .challenge;
+    const authenticator = createSoftwareAuthenticator(
+      Buffer.from('notice-passkey-credential'),
+    );
+    const credential = attestationCredential(authenticator, {
+      rpId: new URL(E2E_CLIENT_URL).hostname,
+      origin: E2E_CLIENT_URL,
+      challenge,
+      flags: FLAG_USER_PRESENT,
+      counter: 0,
+    });
+
+    await browser.post(VERIFY).send({ response: credential }).expect(200);
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
+    const mail = await e2e.captureMail();
+    expect(mail).toHaveLength(1);
+    expect(mail[0]).toMatchObject({
+      to: SEED_USER.email,
+      subject: 'A passkey was added',
+    });
+    expect(JSON.stringify(mail[0])).not.toContain(authenticator.credentialId);
+    expect(JSON.stringify(mail[0])).not.toContain(challenge);
+
+    await browser.post(VERIFY).send({ response: credential }).expect(401);
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
+    expect(await e2e.captureMail()).toHaveLength(1);
   });
 
   it('refuses the eleventh request for options of one client in fifteen minutes, right password or not', async () => {
