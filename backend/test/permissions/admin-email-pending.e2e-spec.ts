@@ -4,7 +4,7 @@ import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import {
   EMAIL_CHANGE_EMAIL_SUBJECT,
   EMAIL_CHANGE_NOTICE_SUBJECT,
-  PASSWORD_RESET_EMAIL_SUBJECT,
+  PASSWORD_RESET_EMAIL_SUBJECT, // feature:email-password
 } from '../../src/mail/constants/mail.constants';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof'; // feature:email-password
 import { UserRole } from '../../src/user/enums/user-role.enum';
