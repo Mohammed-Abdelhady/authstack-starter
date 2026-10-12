@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   clearBrowserProof,
   currentBrowserProof,
+  csrfLookupHint,
   methodNeedsBrowserProof,
   rememberBrowserProof,
+  rememberNoSession,
+  rememberSessionPresent,
   takeBrowserProof,
 } from '../browser-proof';
 
@@ -39,5 +42,45 @@ describe('browser proof memory', () => {
     expect(methodNeedsBrowserProof('get')).toBe(false);
     expect(methodNeedsBrowserProof('POST')).toBe(true);
     expect(methodNeedsBrowserProof('delete')).toBe(true);
+  });
+
+  it('drops a held session proof when the server confirms there is no session', () => {
+    clearBrowserProof();
+    rememberBrowserProof('session-proof', 'session');
+
+    rememberNoSession();
+
+    expect(currentBrowserProof()).toBe('');
+    expect(csrfLookupHint()).toBe('no-session');
+  });
+
+  it('keeps a pre-session proof while recording that the browser is signed out', () => {
+    clearBrowserProof();
+    rememberBrowserProof('pre-session-proof', 'pre-session');
+
+    rememberNoSession();
+
+    expect(currentBrowserProof()).toBe('pre-session-proof');
+    expect(csrfLookupHint()).toBe('no-session');
+  });
+
+  it('keeps a session proof and clears the signed-out hint after identity confirms a session', () => {
+    clearBrowserProof();
+    rememberBrowserProof('session-proof', 'session');
+
+    rememberSessionPresent();
+
+    expect(currentBrowserProof()).toBe('session-proof');
+    expect(csrfLookupHint()).toBe('unknown');
+  });
+
+  it('drops a pre-session proof after identity confirms a signed-in session', () => {
+    clearBrowserProof();
+    rememberBrowserProof('pre-session-proof', 'pre-session');
+
+    rememberSessionPresent();
+
+    expect(currentBrowserProof()).toBe('');
+    expect(csrfLookupHint()).toBe('unknown');
   });
 });
