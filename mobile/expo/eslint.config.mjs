@@ -19,6 +19,7 @@ export default tseslint.config(
           allowDefaultProject: [
             'vitest.config.mts',
             'metro.config.js',
+            'app.config.js',
             'plugins/with-scene-lifecycle.js',
             'test/scene-lifecycle.test.cjs',
           ],
@@ -37,7 +38,7 @@ export default tseslint.config(
   },
   {
     // Metro and Expo prebuild load these with require.
-    files: ['metro.config.js', 'plugins/*.js', 'test/*.cjs'],
+    files: ['metro.config.js', 'app.config.js', 'plugins/*.js', 'test/*.cjs'],
     languageOptions: { sourceType: 'commonjs', globals: globals.node },
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
