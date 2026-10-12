@@ -116,10 +116,7 @@
       "to": "'PostgreSQL password (leave empty to generate)'"
     },
     {
-      "files": [
-        "scripts/lib/docker-smoke-model.mjs",
-        "scripts/config-transforms-tests/config-transforms.test.mjs"
-      ],
+      "files": ["scripts/lib/docker-smoke-model.mjs"],
       "from": "['mongodb', 'backend', 'frontend', 'nginx']",
       "to": "['postgres', 'backend', 'frontend', 'nginx']"
     },
