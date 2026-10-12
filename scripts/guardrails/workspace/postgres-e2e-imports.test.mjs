@@ -242,6 +242,7 @@ test('the PostgreSQL configuration leaves out the MongoDB-only suites by their n
       'migrations/mail-counter-expiry.mongo.e2e-spec.ts',
       'migrations/registration-binding.mongo.e2e-spec.ts',
       'migrations/rollback-ownership.mongo.e2e-spec.ts',
+      'native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts',
     ],
   );
 });
