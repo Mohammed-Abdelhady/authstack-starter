@@ -18,6 +18,8 @@ export interface AuthState {
   error: string | null;
   validationStatus: 'idle' | 'pending' | 'succeeded' | 'failed';
   validationErrorStatus: number | null;
+  sessionGeneration: number;
+  identityRequest: { requestId: string; sessionGeneration: number } | null;
 }
 
 /**
