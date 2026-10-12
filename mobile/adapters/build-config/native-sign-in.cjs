@@ -36,6 +36,20 @@ function validateSettings(settings) {
   }
 }
 
+/** @param {Settings} settings @returns {Settings} */
+function publicSettings(settings) {
+  return {
+    ...(settings.googleIosUrlScheme ? { googleIosUrlScheme: settings.googleIosUrlScheme } : {}),
+    ...(settings.appleSignIn === undefined ? {} : { appleSignIn: settings.appleSignIn }),
+    ...(settings.facebookAppId ? { facebookAppId: settings.facebookAppId } : {}),
+    ...(settings.facebookClientToken ? { facebookClientToken: settings.facebookClientToken } : {}),
+    ...(settings.facebookDisplayName ? { facebookDisplayName: settings.facebookDisplayName } : {}),
+    ...(settings.passkeyRpId ? { passkeyRpId: associatedDomain(settings.passkeyRpId) } : {}),
+    ...(settings.appLinkHost ? { appLinkHost: associatedDomain(settings.appLinkHost) } : {}),
+    ...(settings.appLinkPath ? { appLinkPath: settings.appLinkPath } : {}),
+  };
+}
+
 /**
  * @template {Configuration} T
  * @param {T} config
@@ -98,6 +112,11 @@ function configureNativeSignIn(config, settings) {
   }
   return {
     ...config,
+    ...(Object.keys(settings).length
+      ? {
+          extra: { ...config.extra, nativeSignIn: publicSettings(settings) },
+        }
+      : {}),
     ...(plugins.length ? { plugins } : {}),
     ...(settings.appleSignIn || domains.length
       ? {

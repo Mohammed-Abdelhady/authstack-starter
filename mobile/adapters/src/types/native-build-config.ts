@@ -20,6 +20,7 @@ export interface NativeBuildIntentFilter {
 
 export interface NativeBuildConfiguration {
   name?: string;
+  extra?: Record<string, unknown> & { nativeSignIn?: NativeBuildSettings };
   plugins?: NativeBuildPlugin[];
   ios?: {
     bundleIdentifier?: string;
