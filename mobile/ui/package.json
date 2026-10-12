@@ -24,7 +24,7 @@
     "@app/core": "workspace:*",
     "@app/native-auth": "workspace:*",
     "@app/sdk": "workspace:*",
-    "@reduxjs/toolkit": "^2.12.0",
+    "@reduxjs/toolkit": "^2.13.0",
     "react-redux": "^9.3.0"
   },
   "peerDependencies": {
@@ -42,8 +42,8 @@
     "react-native": "0.86.3",
     "react-test-renderer": "19.2.3",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.2"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   },
   "engines": {
     "node": ">=22.12.0 <23",
