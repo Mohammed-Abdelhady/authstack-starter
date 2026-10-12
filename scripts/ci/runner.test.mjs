@@ -89,6 +89,9 @@ test('the repository gate list has separate quality, install and installer selec
       'Installer combinations',
       'Installer PostgreSQL projects',
       'Installer MongoDB projects',
+      'Browser test frontend build',
+      'Frontend browser checks',
+      'Complete authentication browser journeys',
     ],
   );
   assert.deepEqual(
@@ -108,6 +111,12 @@ test('the repository gate list has separate quality, install and installer selec
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+      ['pnpm', ['--filter', 'frontend', 'run', 'build']],
+      [
+        'pnpm',
+        ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.frontend.config.ts'],
+      ],
+      ['pnpm', ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.config.ts']],
     ],
   );
   assert.deepEqual(
@@ -121,6 +130,13 @@ test('the repository gate list has separate quality, install and installer selec
   assert.deepEqual(
     selectGates(config, '--installer-mongodb').map((g) => g.args),
     [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+  );
+  const browser = selectGates(config, '--browser');
+  assert.equal(browser.length, 3);
+  assert.deepEqual(browser[0].env, { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:5107' });
+  assert.equal(
+    browser.every((gate) => gate.repositoryOnly === true),
+    true,
   );
   assert.deepEqual(
     selectGates(config, '--install').map((g) => [g.command, g.args]),
@@ -141,6 +157,7 @@ test('the repository gate list has separate quality, install and installer selec
     'installer',
     'installer-postgres',
     'installer-mongodb',
+    'browser',
   ]);
   assert.deepEqual([...new Set(config.gates.map((g) => g.group))], config.groups);
   assert.throws(() => selectGates(config, '--unknown'), /Unknown CI mode/);

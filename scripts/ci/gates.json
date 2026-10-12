@@ -7,7 +7,7 @@
       "MONGOMS_DISABLE_POSTINSTALL": "1"
     }
   },
-  "groups": ["quality", "api", "installer", "installer-postgres", "installer-mongodb"],
+  "groups": ["quality", "api", "installer", "installer-postgres", "installer-mongodb", "browser"],
   "gates": [
     {
       "name": "Full-tree hard bans",
@@ -96,6 +96,30 @@
       "group": "installer-mongodb",
       "command": "pnpm",
       "args": ["--filter", "create-nest-next-auth", "run", "test:combinations:mongodb"],
+      "repositoryOnly": true
+    },
+    {
+      "name": "Browser test frontend build",
+      "group": "browser",
+      "command": "pnpm",
+      "args": ["--filter", "frontend", "run", "build"],
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:5107"
+      },
+      "repositoryOnly": true
+    },
+    {
+      "name": "Frontend browser checks",
+      "group": "browser",
+      "command": "pnpm",
+      "args": ["--filter", "frontend", "run", "test:e2e", "--config=playwright.frontend.config.ts"],
+      "repositoryOnly": true
+    },
+    {
+      "name": "Complete authentication browser journeys",
+      "group": "browser",
+      "command": "pnpm",
+      "args": ["--filter", "frontend", "run", "test:e2e", "--config=playwright.config.ts"],
       "repositoryOnly": true
     }
   ],
