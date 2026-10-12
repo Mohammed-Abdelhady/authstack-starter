@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { test, expect } from './fixtures/authenticated';
 import { settleAnimations } from './utils/accessibility';
 
-const profile = (url: string) => url.endsWith('/api/user/profile');
+const identity = (url: string) => url.endsWith('/api/auth/identity');
 
 const overflowCaptures = new WeakMap<TestInfo, (signal: AbortSignal) => Promise<void>>();
 
@@ -40,12 +40,17 @@ for (const actor of [
           await expect(page).toHaveURL(`http://127.0.0.1:3107/en${actor.landing}`);
         }
         const validated = page.waitForResponse(
-          (response) => profile(response.url()) && response.status() === 200,
+          (response) => identity(response.url()) && response.status() === 200,
         );
         await page.reload();
         const response = await validated;
-        const profileBody = (await response.json()) as { data: { email: string } };
-        expect(profileBody.data.email).toBe(actor.email);
+        const identityBody = (await response.json()) as {
+          data: { authenticated: boolean; user: { email: string } | null };
+        };
+        expect(identityBody.data).toMatchObject({
+          authenticated: true,
+          user: { email: actor.email },
+        });
         await expect(page.getByTestId('dashboard-main')).toBeVisible();
         await expect(page).toHaveURL(`http://127.0.0.1:3107/en${actor.landing}`);
         await expect(page.getByTestId('auth-guard-loading')).not.toBeVisible();
@@ -72,16 +77,19 @@ test.describe('Explicit destination', () => {
   });
 });
 
-test('healthy anonymous profile 401 leaves login usable without an error toast', async ({
+test('healthy signed-out identity leaves login usable without an error toast', async ({
   page,
   context,
 }, testInfo) => {
   await context.clearCookies();
   const anonymous = page.waitForResponse(
-    (response) => profile(response.url()) && response.status() === 401,
+    (response) => identity(response.url()) && response.status() === 200,
   );
   await page.goto('/en/auth/login');
-  await anonymous;
+  expect(await (await anonymous).json()).toMatchObject({
+    success: true,
+    data: { authenticated: false, user: null },
+  });
   await expect(page.getByTestId('login-submit')).toBeVisible();
   await expect(
     page.getByRole('region', { name: /Notifications/ }).getByRole('listitem'),
@@ -209,12 +217,13 @@ for (const locale of ['en', 'ar'] as const) {
           expect(rect!.x + rect!.width).toBeLessThanOrEqual(width);
         }
         const theme = page.getByTestId('theme-switcher');
-        await theme.click();
-        await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
-        await theme.click();
-        await expect(page.locator('html')).toHaveClass(/\bdark\b/);
-        await theme.click();
-        await expect(page.locator('html')).not.toHaveClass(/\bdark\b/);
+        const isDark = () =>
+          page.locator('html').evaluate((element) => element.classList.contains('dark'));
+        const initiallyDark = await isDark();
+        for (const expected of [!initiallyDark, initiallyDark, !initiallyDark]) {
+          await theme.click();
+          await expect.poll(isDark).toBe(expected);
+        }
         const skip = page.getByTestId('skip-to-content-link');
         const hiddenRect = await skip.boundingBox();
         expect(hiddenRect).not.toBeNull();
