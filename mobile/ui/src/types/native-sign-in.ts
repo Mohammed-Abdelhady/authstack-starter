@@ -1,5 +1,5 @@
 import type { NativeProviderMethod, NativeFlow } from '@app/sdk';
-import type { NativeSignInAction } from '@app/native-auth';
+import type { BrowserSignInOptions, NativeSignInAction } from '@app/native-auth';
 import type { NATIVE_METHOD } from '../constants/native-sign-in';
 
 export interface NativeProviderButtonProps {
@@ -8,7 +8,7 @@ export interface NativeProviderButtonProps {
   pending: boolean;
   label: string;
   onPress: () => void;
-  locale: 'en' | 'ar';
+  locale: NonNullable<BrowserSignInOptions['locale']>;
   testID?: string;
 }
 

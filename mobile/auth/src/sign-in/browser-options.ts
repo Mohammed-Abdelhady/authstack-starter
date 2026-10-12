@@ -1,4 +1,5 @@
 import { AUTHORIZE_PATH } from '../constants';
+import { NATIVE_SIGN_IN_LOCALE } from '../constants/native-sign-in-locale';
 import type { AuthConfiguration } from '../types/auth';
 import type { BrowserSignInOptions } from '../types/native-sign-in';
 
@@ -43,7 +44,9 @@ export function validBrowserSignInOptions(options?: BrowserSignInOptions): boole
     return false;
   if (options.providerId !== undefined && options.flow !== undefined && options.flow !== 'signIn')
     return false;
-  return options.locale === undefined || options.locale === 'en' || options.locale === 'ar';
+  return (
+    options.locale === undefined || Object.values(NATIVE_SIGN_IN_LOCALE).includes(options.locale)
+  );
 }
 
 function hasControlCharacter(value: string): boolean {
