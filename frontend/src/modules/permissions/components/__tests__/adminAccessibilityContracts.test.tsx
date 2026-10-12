@@ -41,7 +41,10 @@ function PermissionLabelProbe() {
 
 registerFormTestLifecycle();
 
-describe.each(['en', 'ar'] as const)('admin accessibility contracts in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('admin accessibility contracts in %s', (locale) => {
   it('exposes user cards and permission nodes as list items', async () => {
     await renderForm(
       locale,

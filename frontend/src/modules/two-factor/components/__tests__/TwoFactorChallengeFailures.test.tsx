@@ -44,7 +44,10 @@ function submitCode() {
   fireEvent.submit(screen.getByTestId('two-factor-form'));
 }
 
-describe.each(['en', 'ar'] as const)('two-factor challenge failures in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('two-factor challenge failures in %s', (locale) => {
   it.each(REFUSALS)('shows the localized error for %s without signing in', async (code, key) => {
     stubNetwork((_request, path) =>
       path === '/api/auth/methods' ? success(METHODS) : refusalWith(401, code),
