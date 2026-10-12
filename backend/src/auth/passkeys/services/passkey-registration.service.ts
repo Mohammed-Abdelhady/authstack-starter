@@ -14,10 +14,8 @@ import { PasskeyCreationOptions, WebAuthnAdapter } from './webauthn.adapter';
 import { PASSKEY_DEFAULT_NAME } from '../constants/passkeys.constants';
 import { PasskeyAccounts } from '../stores/passkey-accounts';
 import { PasskeyStore } from '../stores/passkey.store';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from '../../../user/services/security-notice.service';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
 
 /** A request as the guard left it. The session it arrived on is all that is read. */
 export type SignedInRequest = Request & {
