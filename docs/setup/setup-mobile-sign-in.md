@@ -107,8 +107,9 @@ and the [backend Apple setup](setup-apple-oauth.md).
 Set `MOBILE_FACEBOOK_APP_ID`, `MOBILE_FACEBOOK_CLIENT_TOKEN` and, optionally,
 `MOBILE_FACEBOOK_DISPLAY_NAME`. The first two must be supplied together. The
 native and backend app IDs must match. The client token is public; the app secret
-belongs on the backend. Facebook initializes only when its sign-in action starts.
-Automatic event logging and advertiser tracking are disabled by the build plugin.
+belongs on the backend. The iOS wrapper initializes Facebook at app launch;
+provider sign-in starts when the user selects it. The configured build plugin
+sets the automatic event logging and advertising ID collection flags to false.
 Facebook identities retain the existing restriction against automatic email
 linking. See the [native wrapper configuration](https://github.com/thebergamo/react-native-fbsdk-next)
 and the [backend Facebook setup](setup-facebook-oauth.md).
