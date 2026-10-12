@@ -7,6 +7,7 @@ import { Provider } from 'react-redux';
 import { NextIntlClientProvider, createTranslator, type AbstractIntlMessages } from 'next-intl';
 import { toast as sonnerToast } from 'sonner';
 import { ErrorCode } from '@app/core';
+import type { Identity, User } from '@app/sdk';
 import { loadMessages, type AppLocale } from '@/i18n/load-messages';
 import { lookupMessage } from '@/i18n/__tests__/message-tree';
 import { baseApi } from '@/store/api/baseApi';
@@ -45,6 +46,13 @@ export function refusalWith(status: number, code: string, details?: unknown): Re
 
 export function success(data: unknown): Response {
   return Response.json({ success: true, data });
+}
+
+/** The optional session endpoint's real envelope, including its discriminator. */
+export function identitySuccess(user: User | null): Response {
+  const data: Identity =
+    user === null ? { authenticated: false, user: null } : { authenticated: true, user };
+  return success(data);
 }
 
 /**

@@ -6,6 +6,7 @@ import { ErrorCode } from '@app/core';
 import { loginFulfilled } from '@/modules/auth/store/authSlice';
 import {
   descriptions,
+  identitySuccess,
   makeStore,
   refusalWith,
   registerFormTestLifecycle,
@@ -44,7 +45,16 @@ const USER = {
   role: 'user',
   permissions: [],
 };
+const IDENTITY_USER = {
+  ...USER,
+  authProvider: 'email',
+  isVerified: true,
+  twoFactorEnabled: false,
+  passkeyCount: 0,
+  linkedProviders: ['email'],
+};
 const REMOVE = `DELETE ${passkeyPath(PASSKEY.id)}`;
+const IDENTITY_PATH = '/api/auth/identity';
 
 /** A server with passkeys on and one passkey listed, answering as scripted. */
 function server(script: { canRemove?: boolean; remove?: () => Response }) {
@@ -124,6 +134,7 @@ describe.each([
 
   it('offers the existing sign-out path when a fresh sign-in is required', async () => {
     const requests = stubNetwork((_request, path) => {
+      if (path === IDENTITY_PATH) return identitySuccess(IDENTITY_USER);
       if (path === PASSKEY_PATHS.REGISTER_OPTIONS) {
         return refusalWith(401, ErrorCode.REAUTH_REQUIRED, { required: 'recent_sign_in' });
       }
