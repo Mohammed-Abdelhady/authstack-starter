@@ -110,6 +110,35 @@ export class SessionRevoker {
     return count;
   }
 
+  async revokeAllForUserFromIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    const account = await this.store.readAccountForRevocation(
+      unitOfWork,
+      userId,
+    );
+    if (!account || account.sessionVersion !== expectedVersion) return null;
+    const count = await this.store.countLiveSessions(unitOfWork, {
+      userId: account.id,
+      userVersion: expectedVersion,
+      now: this.clock.now(),
+    });
+    const advanced = await this.store.advanceAccountVersionFrom(
+      unitOfWork,
+      account.id,
+      expectedVersion,
+    );
+    if (advanced !== ACCOUNT_VERSION_ADVANCE.ADVANCED) return null;
+    await this.store.appendSecurityEvent(unitOfWork, {
+      targetUserId: account.id,
+      action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_ALL,
+      reasonCode: REVOKED_REASON.ALL_USER,
+    });
+    return count;
+  }
+
   /** Ends every session of the account but one. Answers with how many ended. */
   revokeAllOthersExceptSession(
     userId: string,

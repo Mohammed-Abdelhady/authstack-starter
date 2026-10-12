@@ -1,6 +1,9 @@
 import { Injectable, Provider } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
+import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { MongoAccountDocuments } from '../../../user/persistence/mongo/mongo-account-records';
 import {
   User,
@@ -50,6 +53,28 @@ export class MongoPasswordSignInStore extends PasswordSignInStore {
     const user = this.read.documentOf(account);
     user.password = passwordHash;
     await user.save();
+  }
+
+  async storeNewPasswordIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    expectedSessionVersion: number,
+    passwordHash: string,
+  ): Promise<boolean> {
+    const versionFilter =
+      expectedSessionVersion === 0
+        ? [{ sessionVersion: 0 }, { sessionVersion: { $exists: false } }]
+        : [{ sessionVersion: expectedSessionVersion }];
+    const updated = await this.userModel.updateOne(
+      {
+        _id: toObjectId(userId),
+        isDeleted: { $ne: true },
+        $or: versionFilter,
+      },
+      { $set: { password: passwordHash } },
+      { session: mongoSessionOf(unitOfWork) },
+    );
+    return updated.matchedCount > 0;
   }
 }
 

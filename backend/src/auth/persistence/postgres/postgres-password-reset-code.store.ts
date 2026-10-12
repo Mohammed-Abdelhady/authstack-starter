@@ -1,4 +1,5 @@
 import { Kysely } from 'kysely';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
   PASSWORD_RESET_CONSTRAINT,
   PasswordResetClaim,
@@ -14,6 +15,7 @@ import {
   CodeRotation,
 } from '../../pending-codes/pending-registration.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
+import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
 import { autocommit, storedAddress } from './postgres-pending-codes-database';
 import { MAIL_COUNTER_PURPOSE } from '../../constants/registration';
@@ -114,6 +116,33 @@ export class PostgresPasswordResetCodeStore extends PasswordResetCodeStore {
       });
       return CODE_CLAIM.CLAIMED;
     });
+  }
+
+  async claimCodeIn(
+    unitOfWork: UnitOfWork,
+    claim: PasswordResetClaim,
+  ): Promise<CodeClaim> {
+    const transaction = postgresTransactionOf(unitOfWork);
+    const claimed = await transaction
+      .deleteFrom('pending_password_resets')
+      .where('id', '=', toUuid(claim.id))
+      .where('hashed_code', '=', claim.hashedCode)
+      .where('expires_at', '>', claim.now)
+      .returning('email')
+      .executeTakeFirst();
+    if (!claimed) return CODE_CLAIM.NOT_CLAIMABLE;
+    await transaction
+      .updateTable('mail_counters')
+      .set({
+        failed_guesses: 0,
+        guess_lock_level: 0,
+        guess_locked_until: null,
+        guess_state_expires_at: null,
+      })
+      .where('email', '=', claimed.email)
+      .where('purpose', '=', PURPOSE)
+      .execute();
+    return CODE_CLAIM.CLAIMED;
   }
 
   async dropExpiredRecord(email: string, now: Date): Promise<void> {
