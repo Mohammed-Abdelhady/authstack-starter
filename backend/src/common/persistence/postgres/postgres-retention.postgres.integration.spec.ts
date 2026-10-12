@@ -155,6 +155,66 @@ describe('PostgreSQL retention', () => {
     }).toEqual({ first: 4, afterFirst: 2, second: 1, left: ['live'] });
   });
 
+  it('removes expired native attempts in bounded PostgreSQL batches', async () => {
+    const insert = async (expiresAt: Date): Promise<void> => {
+      const id = randomUUID();
+      await connection.database
+        .insertInto('native_attempts')
+        .values({
+          id,
+          attempt_id: id,
+          secret_hash: 'a'.repeat(64),
+          client_id: 'native-client',
+          redirect_uri: 'myapp://callback',
+          code_challenge: 'b'.repeat(43),
+          state: 'state',
+          requested_scopes: ['api'],
+          flow: 'signIn',
+          phase: 'firstFactorRequired',
+          auth_epoch: 1,
+          created_at: at(-ONE_HOUR_MS),
+          expires_at: expiresAt,
+          revision: 0,
+          active_operation_id: null,
+          cancelled_at: null,
+          details: JSON.stringify({
+            verifiedAccount: null,
+            nonceDigest: null,
+            email: null,
+            codeReply: null,
+          }),
+        })
+        .execute();
+    };
+    await insert(at(-1));
+    await insert(at(0));
+    await insert(at(1));
+    const rule = [
+      { table: 'native_attempts' as const, column: 'expires_at', keepForMs: 0 },
+    ];
+    const first = await removeExpiredRows(
+      connection.database,
+      NOW,
+      { batchRows: 1, batchesPerRun: 1 },
+      rule,
+    );
+    const second = await removeExpiredRows(
+      connection.database,
+      NOW,
+      { batchRows: 1, batchesPerRun: 1 },
+      rule,
+    );
+    const left = await connection.database
+      .selectFrom('native_attempts')
+      .select('expires_at')
+      .execute();
+    expect({
+      first: first.removed.native_attempts,
+      second: second.removed.native_attempts,
+      left: left.map((row) => row.expires_at),
+    }).toEqual({ first: 1, second: 1, left: [at(1)] });
+  });
+
   it('reads every table whose rows expire, and finds nothing in an empty database', async () => {
     expect((await removeExpiredRows(connection.database, NOW)).removed).toEqual(
       {
@@ -166,6 +226,7 @@ describe('PostgreSQL retention', () => {
         two_factor_challenges: 0, // feature:totp
         passkey_challenges: 0, // feature:passkeys
         authorization_transactions: 0,
+        native_attempts: 0,
         native_credentials: 0,
         native_dpop_proof_ids: 0,
         sessions: 0,
