@@ -7,7 +7,12 @@ import type { Plan } from '../manifest/plan.js';
 import { applyMobileIdentity } from '../mobile/apply.js';
 import { templateDir } from '../paths.js';
 import { prune } from '../prune/index.js';
-import { describeDangling, describeSelection, describeUnexplainedRules } from '../report.js';
+import {
+  describeDangling,
+  describePossiblyPrunedRules,
+  describeSelection,
+  describeUnexplainedRules,
+} from '../report.js';
 import type { AnswersRecord, CliOptions, Manifest, PruneResult } from '../types.js';
 import type { SetupSummary } from '../types/setup.js';
 import { recordAnswers } from './answers.js';
@@ -99,6 +104,9 @@ export async function scaffoldProject(
     log.error(describeUnexplainedRules(result.unexplainedDatabaseRules).join('\n'));
     outro(`Left the tree at ${target} so you can inspect it.`);
     return undefined;
+  }
+  if (result.unmatchedDatabaseRules.length > 0) {
+    log.warn(describePossiblyPrunedRules(result.unmatchedDatabaseRules).join('\n'));
   }
 
   // Records how the project was made, before any git commit and on runs that
