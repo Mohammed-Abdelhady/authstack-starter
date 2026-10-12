@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
-import { apiReply, CONFIG, Deferred, ScriptedTransport, testPorts } from '../support/support';
+import {
+  apiReply,
+  CONFIG,
+  Deferred,
+  readQueryValues,
+  ScriptedTransport,
+  testPorts,
+} from '../support/support';
 import { ATTEMPT_ID, ATTEMPT_SECRET, NONCE_DIGEST, startReply } from './native-fixtures';
 
 function methodsReply() {
@@ -263,6 +270,30 @@ describe('native platform credentials', () => {
 
     expect(outcome.kind).toBe('transportFailure');
     expect(ports.credentials.value).toBeUndefined();
+    expect(engine.snapshot.nativeAttempt).toBeUndefined();
+  });
+
+  it('falls back to a fresh system-browser provider sign-in when the SDK is unavailable', async () => {
+    const transport = new ScriptedTransport();
+    const ports = testPorts(transport);
+    const expiresAt = new Date(ports.clock.wall + 10 * 60_000).toISOString();
+    transport.respond = async (request) => {
+      if (request.path === '/api/auth/native/attempts') return startReply(expiresAt);
+      if (request.path.startsWith('/api/auth/native/methods')) return methodsReply();
+      return apiReply({ attemptId: ATTEMPT_ID, stage: 'denied', expiresAt, reason: 'cancelled' });
+    };
+    const engine = createAuthEngine(CONFIG, ports);
+    await engine.restore();
+    await engine.nativeSignIn({ kind: 'start', flow: 'signIn' });
+    const firstState = JSON.parse(ports.credentials.value ?? '{}').transaction.state;
+
+    const result = await engine.nativeSignIn({ kind: 'provider', providerId: 'google' });
+
+    expect(result.kind).toBe('cancelled');
+    expect(ports.authBrowser.opened).toHaveLength(1);
+    const query = readQueryValues(ports.authBrowser.opened[0].address);
+    expect(query.get('provider_id')).toBe('google');
+    expect(query.get('state')).not.toBe(firstState);
     expect(engine.snapshot.nativeAttempt).toBeUndefined();
   });
 });
