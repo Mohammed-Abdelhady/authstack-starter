@@ -22,7 +22,10 @@ interface ProofFile {
 
 const FILE = JSON.parse(
   readFileSync(
-    join(__dirname, '../../../../mobile/auth/test/proof/dpop-vector.json'),
+    join(
+      __dirname,
+      '../../../../shared/sdk/test/fixtures/native-dpop-vector.json',
+    ),
     'utf8',
   ),
 ) as ProofFile;

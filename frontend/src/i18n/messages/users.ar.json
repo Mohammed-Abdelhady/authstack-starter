@@ -5,6 +5,7 @@
     "count": "{count, plural, zero {لا يوجد مستخدمون مسجلون} one {مستخدم واحد مسجل} two {مستخدمان مسجلان} few {{count} مستخدمين مسجلين} many {{count} مستخدماً مسجلاً} other {{count} مستخدم مسجل}}",
     "refresh": "تحديث",
     "searchPlaceholder": "البحث بالاسم أو البريد الإلكتروني...",
+    "searchLabel": "البحث عن المستخدمين",
     "allRoles": "جميع الأدوار",
     "loading": "جارٍ تحميل المستخدمين...",
     "loadError": "فشل في تحميل المستخدمين.",
@@ -16,7 +17,7 @@
     "noUsersYetHint": "سيظهر المستخدمون هنا بمجرد تسجيلهم.",
     "verifiedUsers": "المستخدمون الموثقون",
     "pendingVerification": "في انتظار التحقق",
-    "showingCount": "عرض {filtered} من {total} مستخدم",
+    "showingCount": "المعروض {filtered} من أصل {total}",
     "createUser": {
       "title": "إنشاء مستخدم جديد",
       "description": "إضافة مستخدم جديد إلى النظام بدور وصلاحيات محددة.",
@@ -55,6 +56,7 @@
     },
     "actions": {
       "menuLabel": "إجراءات",
+      "menuLabelForUser": "إجراءات المستخدم ⁨{name}⁩",
       "editUser": "تعديل المستخدم",
       "managePermissions": "إدارة الصلاحيات",
       "activateUser": "تفعيل المستخدم",
@@ -72,6 +74,7 @@
     },
     "card": {
       "role": "الدور:",
+      "pendingEmail": "البريد الإلكتروني الجديد بانتظار التأكيد: ⁨{email}⁩",
       "joined": "انضم في {date}"
     },
     "list": {
@@ -79,6 +82,7 @@
     },
     "roleFilterTitle": "التصفية حسب الدور",
     "roleFilterHint": "ابحث عن الأدوار أو استعرضها، ثم اختر دورًا لتصفية المستخدمين.",
+    "roleFilterTriggerLabel": "تصفية المستخدمين حسب الدور: ⁨{role}⁩",
     "roleFilterError": "تعذر تحميل الأدوار. يرجى المحاولة مرة أخرى."
   }
 }

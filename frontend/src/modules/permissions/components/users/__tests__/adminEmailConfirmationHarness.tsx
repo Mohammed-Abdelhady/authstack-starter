@@ -81,10 +81,7 @@ export async function renderAdminCard(
     ...context,
     rerenderUser: (nextUser: User) => view.rerender(<UserCard user={nextUser} />),
     openMenu: () => {
-      fireEvent.keyDown(
-        screen.getByRole('button', { name: context.message('users.actions.menuLabel') }),
-        { key: 'Enter' },
-      );
+      fireEvent.keyDown(screen.getByTestId(`user-actions-menu-${user._id}`), { key: 'Enter' });
     },
     resendItem: () =>
       screen.getByRole('menuitem', { name: context.message('users.actions.resendEmailChange') }),

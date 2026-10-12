@@ -97,6 +97,7 @@ export function UpdateProfileCard() {
           >
             <FormInput<UpdateProfileFormData>
               name="name"
+              required
               label={t('name')}
               placeholder={t('namePlaceholder')}
               busy={isLoading}

@@ -48,7 +48,9 @@ function readResponse(): Response {
 
 async function renderReady(store: TestStore) {
   await seedReady(store);
-  return renderPanel({ locale: 'en', messages, store });
+  const view = renderPanel({ locale: 'en', messages, store });
+  await screen.findByTestId('native-authorize-ready');
+  return view;
 }
 
 describe('NativeAuthorizePanel "Not you?"', () => {

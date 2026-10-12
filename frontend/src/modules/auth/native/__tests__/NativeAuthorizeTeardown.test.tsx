@@ -94,6 +94,7 @@ describe('NativeAuthorizePanel teardown', () => {
     await seedReady(store);
     renderPanel({ locale: 'en', messages, store });
 
+    screen.getByTestId('native-authorize-ready');
     fireEvent.click(screen.getByTestId('native-authorize-approve'));
     await waitUntil(() => expect(approvalSent).toBe(true));
     unmountAndRunStoreTimers();
@@ -103,7 +104,7 @@ describe('NativeAuthorizePanel teardown', () => {
 
   it('asks for no frame when a refused session sends the visitor to sign-in', async () => {
     installFetch(() => errorResponse('SESSION_REQUIRED', 401), {
-      profile: () => errorResponse('SESSION_REQUIRED', 401),
+      identity: () => errorResponse('SESSION_REQUIRED', 401),
     });
     renderPanel({ locale: 'en', messages, store: makeStore() });
 

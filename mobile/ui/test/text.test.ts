@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AR } from '../src/i18n/ar'; // feature:locale-ar
 import { EN } from '../src/i18n/en';
 import {
+  createTranslate,
   placeholdersOf,
   resolveLocale,
   translate,
@@ -10,8 +11,8 @@ import {
   type Translate,
 } from '../src/i18n';
 import { signInActionText, signInNotice } from '../src/logic/sign-in-text';
-import { deviceText, failureText, roleText } from '../src/logic/session-text';
-import type { SignInView } from '../src/types';
+import { activityText, deviceText, failureText, roleText } from '../src/logic/session-text';
+import type { SessionRow, SignInView } from '../src/types';
 
 const ARABIC_LETTER = /[؀-ۿ]/; // feature:locale-ar
 
@@ -131,7 +132,7 @@ describe('which message a state asks for', () => {
       ['sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }],
       ['sessions.unknownDevice', undefined],
     ]);
-    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('\u2066Work laptop\u2069');
+    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('\u2068Work laptop\u2069');
   });
 
   it('translates a known role and shows a custom one as the server spells it', () => {
@@ -151,5 +152,24 @@ describe('which message a state asks for', () => {
       failureText(t, { kind: 'refused', code: 'X', status: 500 }),
       failureText(t, undefined),
     ]).toEqual(['common.offline', 'common.serverError', 'common.serverError']);
+  });
+});
+
+describe('session activity formatting', () => {
+  const row = (activity: SessionRow['activity']): SessionRow => ({
+    id: 'session',
+    isCurrent: false,
+    device: { kind: 'named', name: 'legacy' },
+    kind: undefined,
+    ip: '192.0.2.1',
+    activity,
+    lastActiveAt: Date.UTC(2026, 5, 10, 13, 5),
+  });
+
+  it.each(['today', 'earlier'] as const)('uses Latin digits in Arabic %s activity', (activity) => {
+    const text = activityText(createTranslate('ar'), 'ar', row(activity)); // feature:locale-ar
+
+    expect(text).toMatch(/[0-9]/);
+    expect(text).not.toMatch(/[٠-٩]/);
   });
 });

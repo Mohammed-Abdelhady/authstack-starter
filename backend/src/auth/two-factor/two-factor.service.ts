@@ -25,10 +25,8 @@ import {
 } from './utils/recovery-code.util';
 import { SecondFactorAccount } from './stores/second-factor-account';
 import { SecondFactorStore } from './stores/second-factor.store';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from '../../user/services/security-notice.service';
+import { SecurityNoticeService } from '../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../user/constants/security-notice.constants';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { SessionRevoker } from '../../session/revocation/session-revoker';
 import { runLeavingFailuresAsRaised } from '../../common/persistence/store-failure';

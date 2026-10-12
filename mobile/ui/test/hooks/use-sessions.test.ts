@@ -38,7 +38,7 @@ async function revoke(subject: UiHookSubject<Sessions>, id: string, confirmed = 
 }
 
 const LAPTOP_STILL_IN = {
-  title: translate('en', 'sessions.revokeFailed.title', { device: 'Work laptop' }),
+  title: translate('en', 'sessions.revokeFailed.title', { device: '\u2068Work laptop\u2069' }),
   description: translate('en', 'sessions.revokeFailed.description'),
 };
 
@@ -107,6 +107,21 @@ describe('the devices hook', () => {
     expect({ refreshing: subject.current().refreshing, view: subject.current().view }).toEqual({
       refreshing: false,
       view: 'empty',
+    });
+  });
+
+  it('starts one read when refresh is called twice before the next render', async () => {
+    const subject = await loaded();
+
+    act(() => {
+      subject.current().refresh();
+      subject.current().refresh();
+    });
+    await flush();
+
+    expect({ sent: subject.server.sent(), refreshing: subject.current().refreshing }).toEqual({
+      sent: [ROUTE.SESSIONS, ROUTE.SESSIONS],
+      refreshing: true,
     });
   });
 

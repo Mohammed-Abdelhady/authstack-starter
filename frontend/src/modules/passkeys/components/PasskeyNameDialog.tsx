@@ -123,6 +123,7 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
               name="name"
               label={t('name.field')}
               maxLength={PASSKEY_NAME_MAX_LENGTH}
+              dir="auto"
               busy={isLoading}
               autoFocus
               data-testid="passkey-name-input"

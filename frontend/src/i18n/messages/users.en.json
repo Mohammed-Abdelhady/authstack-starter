@@ -5,6 +5,7 @@
     "count": "{count} {count, plural, =1 {user} other {users}} registered",
     "refresh": "Refresh",
     "searchPlaceholder": "Search by name or email...",
+    "searchLabel": "Search users",
     "allRoles": "All Roles",
     "loading": "Loading users...",
     "loadError": "Failed to load users.",
@@ -55,6 +56,7 @@
     },
     "actions": {
       "menuLabel": "Actions",
+      "menuLabelForUser": "Actions for ⁨{name}⁩",
       "editUser": "Edit User",
       "managePermissions": "Manage Permissions",
       "activateUser": "Activate User",
@@ -72,6 +74,7 @@
     },
     "card": {
       "role": "Role:",
+      "pendingEmail": "New email waiting for confirmation: ⁨{email}⁩",
       "joined": "Joined {date}"
     },
     "list": {
@@ -79,6 +82,7 @@
     },
     "roleFilterTitle": "Filter by role",
     "roleFilterHint": "Search or browse roles, then choose one to filter users.",
+    "roleFilterTriggerLabel": "Filter users by role: ⁨{role}⁩",
     "roleFilterError": "Could not load roles. Please try again."
   }
 }

@@ -21,10 +21,8 @@ import { assertValidId } from '../user/utils/user-lookup.util';
 import { PasswordSignInStore } from './stores/password-sign-in.store';
 import { generateVerificationCode } from './utils/verification-code.util';
 import { MAIL_COUNTER_PURPOSE } from './constants/registration';
-import {
-  SECURITY_NOTICE,
-  SecurityNoticeService,
-} from '../user/services/security-notice.service';
+import { SecurityNoticeService } from '../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../user/constants/security-notice.constants';
 
 /**
  * Password sign-in and the password lifecycle. The sign-up code flows live in

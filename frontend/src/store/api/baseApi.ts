@@ -13,7 +13,7 @@ import {
 } from '@/constants/api';
 import { HTTP_STATUS } from '@/constants/httpStatus';
 import { ErrorCode, getErrorCode } from '@app/core';
-import { API_PATHS } from '@app/sdk';
+import { API_PATHS, unwrapIdentityBody } from '@app/sdk';
 import {
   CSRF_HEADER,
   clearBrowserProof,
@@ -21,6 +21,7 @@ import {
   methodNeedsBrowserProof,
   rememberBrowserProof,
   rememberNoSession,
+  rememberSessionPresent,
   takeBrowserProof,
   type BrowserProofKind,
 } from './browser-proof';
@@ -121,6 +122,20 @@ function rememberIssuedProof(response: Response | undefined, data: unknown, url:
   }
 }
 
+function updateIdentityProofHint(result: Awaited<ReturnType<typeof rawBaseQuery>>): void {
+  try {
+    const identity = unwrapIdentityBody(result.data);
+    if (!identity.authenticated) {
+      clearBrowserProof();
+      rememberNoSession();
+    } else {
+      rememberSessionPresent();
+    }
+  } catch {
+    clearBrowserProof();
+  }
+}
+
 /**
  * Reads the session proof first (for a reloaded signed-in page) and falls back
  * to a fresh pre-session proof when there is no session. A pre-session proof
@@ -192,9 +207,8 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
   let result = await rawBaseQuery(proof ? withBrowserProof(args, proof) : args, api, extra);
   rememberIssuedProof(result.meta?.response, result.data, url);
 
-  // A refused session read already says there is no session proof to look up.
-  if (url === API_PATHS.user.profile && result.error?.status === HTTP_STATUS.UNAUTHORIZED) {
-    rememberNoSession();
+  if (url === API_PATHS.auth.identity) {
+    updateIdentityProofHint(result);
   }
 
   // A spent or stale proof must be replaced and the request retried exactly

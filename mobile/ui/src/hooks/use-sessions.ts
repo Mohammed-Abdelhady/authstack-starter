@@ -15,7 +15,7 @@ interface Problem {
 
 export function useSessions() {
   const { runtime, t, now, confirm } = useUi();
-  const { currentData: data, error, refetch } = useListSessionsQuery();
+  const { currentData: data, error, isFetching, refetch } = useListSessionsQuery();
   const [problem, setProblem] = useState<Problem>();
   // Only a pull shows the refresh indicator. The re-read after a sign-out stays quiet.
   const [pulling, setPulling] = useState(false);
@@ -31,9 +31,12 @@ export function useSessions() {
 
   const refresh = useCallback(() => {
     setProblem(undefined);
+    if (isFetching) return;
     setPulling(true);
-    void refetch().then(() => setPulling(false));
-  }, [refetch]);
+    void refetch().finally(() => {
+      setPulling(false);
+    });
+  }, [isFetching, refetch]);
 
   const revoke = useCallback(
     async (row: SessionRow) => {
@@ -93,6 +96,7 @@ export function useSessions() {
     failureText: failureText(t, view.failure),
     problem,
     refreshing: pulling,
+    refreshPending: pulling || isFetching,
     writingRow,
     writingOthers,
     refresh,

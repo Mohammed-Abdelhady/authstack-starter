@@ -57,7 +57,9 @@ function answerSignOut(
     attempts += 1;
     return answer();
   });
-  return () => writesOf(requests);
+  return Object.assign(() => writesOf(requests), {
+    allRequests: () => requests.allRequests,
+  });
 }
 
 /** What a server answers a read once it no longer knows the session. */
@@ -159,6 +161,14 @@ describe('a sign-out the server did not confirm', () => {
     fireEvent.click(page.retry());
 
     await waitFor(() => expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]));
+    expect(writes.allRequests()).toEqual([
+      'GET /api/auth/csrf',
+      'GET /api/auth/browser-proof',
+      SIGN_OUT,
+      'GET /api/auth/csrf',
+      'GET /api/auth/browser-proof',
+      SIGN_OUT,
+    ]);
     expect(screen.getByRole('alertdialog')).toBeTruthy();
     expect(page.retry().getAttribute('aria-busy')).toBe('true');
     expect(page.isSignedIn()).toBe(true);

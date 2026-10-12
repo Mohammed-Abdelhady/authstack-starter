@@ -6,6 +6,7 @@ import { Button } from './button';
 import { Input } from './input';
 import { Textarea } from './textarea';
 import { Badge } from './badge';
+import { SplitView } from '@/components/design-system/layout/SplitView';
 
 const PAYLOAD = {
   [UNSAFE_MARKUP_PROP]: { __html: '<strong data-testid="injected">payload</strong>' },
@@ -21,6 +22,22 @@ it('keeps typed button and badge content when runtime props contain markup', () 
   );
   expect(screen.getByRole('button').textContent).toBe('button-content');
   expect(screen.getByText('badge-content')).toBeTruthy();
+  expect(screen.queryByTestId('injected')).toBeNull();
+});
+
+it('names the split-view sidebar and preserves both panes against runtime markup', () => {
+  render(
+    <SplitView
+      sidebar="sidebar-content"
+      content="pane-content"
+      sidebarLabel="sidebar-label"
+      {...PAYLOAD}
+    />,
+  );
+  expect(screen.getByRole('complementary', { name: 'sidebar-label' }).textContent).toBe(
+    'sidebar-content',
+  );
+  expect(screen.getByText('pane-content')).toBeTruthy();
   expect(screen.queryByTestId('injected')).toBeNull();
 });
 

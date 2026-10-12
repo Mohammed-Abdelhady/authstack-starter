@@ -170,6 +170,7 @@ export function TwoFactorDisableDialog({
                 label={t('password')}
                 placeholder={tCommon('passwordPlaceholder')}
                 autoComplete="current-password"
+                required
                 busy={isLoading}
                 data-testid="two-factor-disable-password"
               />
