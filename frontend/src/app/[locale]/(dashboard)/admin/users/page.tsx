@@ -50,14 +50,9 @@ export default function AdminUsersPage() {
     search: debouncedSearch.trim() || undefined,
     role: roleFilter !== 'all' ? roleFilter : undefined,
   };
-  const {
-    data: usersData,
-    currentData,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useGetUsersQuery(listParams);
+  const { currentData, isLoading, isFetching, error, refetch } = useGetUsersQuery(listParams);
+  const isSearchDebouncing = searchQuery.trim() !== debouncedSearch.trim();
+  const visibleData = isSearchDebouncing ? undefined : currentData;
 
   const lastAvailablePage = Math.max(1, currentData?.totalPages ?? page);
   const hasSettledCurrentPage = currentData?.page === page && !isFetching && error === undefined;
@@ -66,16 +61,16 @@ export default function AdminUsersPage() {
   const titleRef = useRef<HTMLHeadingElement>(null);
   // A list already on screen stays when a later read of it fails.
   const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
-    isLoading,
-    error,
-    hasData: currentData !== undefined,
+    isLoading: isLoading || isSearchDebouncing || (isFetching && visibleData === undefined),
+    error: isSearchDebouncing ? undefined : error,
+    hasData: visibleData !== undefined,
     refetch,
     landing: titleRef,
   });
 
-  const users = useMemo(() => usersData?.users || [], [usersData?.users]);
-  const totalPages = usersData?.totalPages || 1;
-  const totalCount = usersData?.total ?? users.length;
+  const users = useMemo(() => visibleData?.users || [], [visibleData?.users]);
+  const totalPages = visibleData?.totalPages || 1;
+  const totalCount = visibleData?.total ?? users.length;
 
   const verifiedUsers = useMemo(() => users.filter((u) => u.isVerified), [users]);
   const pendingUsers = useMemo(() => users.filter((u) => !u.isVerified), [users]);
