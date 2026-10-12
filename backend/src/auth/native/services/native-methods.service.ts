@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
+import { ModuleRef } from '@nestjs/core'; // feature:oauth-core
 import { createHash } from 'node:crypto';
 import type { NativeMethods, NativeProviderMethod } from '@app/sdk';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
@@ -18,7 +18,7 @@ export class NativeMethodsService {
   constructor(
     private readonly epoch: AuthEpochService,
     private readonly features: AuthFeaturesService,
-    private readonly modules: ModuleRef,
+    private readonly modules: ModuleRef, // feature:oauth-core
     private readonly applications: ApplicationRegistry,
   ) {}
 
@@ -34,8 +34,7 @@ export class NativeMethodsService {
       registered?.enabled === true &&
       registered.platform === APPLICATION_PLATFORM.NATIVE &&
       registered.clientType === APPLICATION_CLIENT_TYPE.PUBLIC;
-    const registry = this.registry();
-    const oauth = registry?.listEnabled() ?? [];
+    const oauth = this.oauthMethods();
     const providers = oauth.map((provider) => {
       const sdk = enabled
         ? signIn.providers?.find((entry) => entry.id === provider.id)
@@ -91,12 +90,22 @@ export class NativeMethodsService {
       .digest('hex');
   }
 
+  // feature:oauth-core:start
   private registry(): OAuthRegistryService | null {
     try {
       return this.modules.get(OAuthRegistryService, { strict: false });
     } catch {
       return null;
     }
+  }
+  // feature:oauth-core:end
+
+  private oauthMethods(): NativeMethods['methods']['oauth'] {
+    // feature:oauth-core:start
+    const registry = this.registry();
+    if (registry) return registry.listEnabled();
+    // feature:oauth-core:end
+    return [];
   }
 
   private provider(

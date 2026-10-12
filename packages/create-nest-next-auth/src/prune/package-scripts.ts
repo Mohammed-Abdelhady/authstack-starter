@@ -108,6 +108,27 @@ export function prunePackageDependencies(
   return changed ? updated : packageJson;
 }
 
+/** Removes native dependencies owned only by features left out of the project. */
+export async function pruneFeaturePackages(
+  root: string,
+  packages: ReadonlySet<string>,
+): Promise<string[]> {
+  if (packages.size === 0) return [];
+  const edited: string[] = [];
+  for (const file of (await listFiles(root)).filter(isPackageManifest)) {
+    const path = join(root, file);
+    const raw = await readFileIfExists(path);
+    if (raw === undefined) continue;
+    const parsed = parseJson(raw, file);
+    if (!isRecord(parsed)) continue;
+    const updated = prunePackageDependencies(parsed, packages);
+    if (updated === parsed) continue;
+    await writeFile(path, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+    edited.push(file);
+  }
+  return edited;
+}
+
 /** Applies the typed transform to a generated root package.json. */
 export async function pruneRootPackage(
   root: string,

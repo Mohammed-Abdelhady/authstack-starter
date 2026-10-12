@@ -107,12 +107,12 @@ function requestOptions(
 
 export function createPasskeySignInPort(
   platform: NativeSignInPlatform,
-  module: NativePasskeysApi,
+  module: NativePasskeysApi | undefined,
   settings: NativeSignInSettings,
   lease: NativePromptLease = createNativePromptLease(),
 ): PasskeyPort {
   const available = async (): Promise<boolean> => {
-    if (!isNativePlatform(platform) || !settings.passkeyRpId) return false;
+    if (!isNativePlatform(platform) || !settings.passkeyRpId || !module) return false;
     try {
       return await module.isSupported();
     } catch {
@@ -127,6 +127,7 @@ export function createPasskeySignInPort(
       const request = requestOptions(options, settings);
       if (!request) return promptFailure('invalidResponse');
       if (signal.aborted) return { kind: 'cancelled' };
+      if (!module) return { kind: 'unavailable' };
       if (!(await available())) return { kind: 'unavailable' };
 
       return lease.run<unknown, NativePasskeyAssertion>(

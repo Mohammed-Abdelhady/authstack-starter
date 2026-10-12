@@ -6,9 +6,9 @@ import { UserModule } from '../../../user/user.module';
 import { SessionModule } from '../../../session/session.module';
 import { NativeAuthModule } from '../native-auth.module';
 import { NativeFactorsController } from './native-factors.controller';
-import { NativePasswordService } from './native-password.service';
-import { NativeSecondFactorService } from './native-second-factor.service';
-import { NativePasskeyService } from './native-passkey.service';
+import { NativePasswordService } from './native-password.service'; // feature:email-password
+import { NativeSecondFactorService } from './native-second-factor.service'; // feature:totp
+import { NativePasskeyService } from './native-passkey.service'; // feature:passkeys
 
 @Module({
   imports: [
@@ -21,14 +21,14 @@ import { NativePasskeyService } from './native-passkey.service';
   ],
   controllers: [NativeFactorsController],
   providers: [
-    NativePasswordService,
-    NativeSecondFactorService,
-    NativePasskeyService,
+    NativePasswordService, // feature:email-password
+    NativeSecondFactorService, // feature:totp
+    NativePasskeyService, // feature:passkeys
   ],
   exports: [
-    NativePasswordService,
-    NativeSecondFactorService,
-    NativePasskeyService,
+    NativePasswordService, // feature:email-password
+    NativeSecondFactorService, // feature:totp
+    NativePasskeyService, // feature:passkeys
   ],
 })
 export class NativeFactorsModule {}

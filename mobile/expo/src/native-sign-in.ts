@@ -5,31 +5,43 @@ import type {
   NativeSignInPlatform,
 } from '@app/native-adapters';
 import Constants from 'expo-constants';
-import { AppleAuthenticationScope } from 'expo-apple-authentication/build/AppleAuthentication.types';
+import { AppleAuthenticationScope } from 'expo-apple-authentication/build/AppleAuthentication.types'; // feature:apple
 import { Platform } from 'react-native';
-import { AccessToken, AuthenticationToken, LoginManager, Settings } from 'react-native-fbsdk-next';
+import { AccessToken, AuthenticationToken, LoginManager, Settings } from 'react-native-fbsdk-next'; // feature:facebook
 
+// feature:google:start
 let googleModule: Promise<typeof import('react-native-nitro-google-signin')> | undefined;
+// feature:google:end
+// feature:passkeys:start
 let passkeyModule: Promise<typeof import('react-native-passkeys')> | undefined;
+// feature:passkeys:end
+// feature:apple:start
 let appleModule:
   Promise<typeof import('expo-apple-authentication/build/AppleAuthentication')> | undefined;
+// feature:apple:end
 
+// feature:google:start
 function loadGoogleModule(): Promise<typeof import('react-native-nitro-google-signin')> {
   googleModule ??= import('react-native-nitro-google-signin');
   return googleModule;
 }
+// feature:google:end
 
+// feature:passkeys:start
 function loadPasskeyModule(): Promise<typeof import('react-native-passkeys')> {
   passkeyModule ??= import('react-native-passkeys');
   return passkeyModule;
 }
+// feature:passkeys:end
 
+// feature:apple:start
 function loadAppleModule(): Promise<
   typeof import('expo-apple-authentication/build/AppleAuthentication')
 > {
   appleModule ??= import('expo-apple-authentication/build/AppleAuthentication');
   return appleModule;
 }
+// feature:apple:end
 
 function currentPlatform(): NativeSignInPlatform {
   switch (Platform.OS) {
@@ -42,13 +54,16 @@ function currentPlatform(): NativeSignInPlatform {
   }
 }
 
+// feature:apple:start
 function isAppleScope(value: number): value is AppleAuthenticationScope {
   return value === AppleAuthenticationScope.FULL_NAME || value === AppleAuthenticationScope.EMAIL;
 }
+// feature:apple:end
 
 function createModules(): NativeSignInModules {
   return {
     platform: currentPlatform(),
+    // feature:google:start
     google: {
       isAvailable: async () => {
         try {
@@ -63,6 +78,8 @@ function createModules(): NativeSignInModules {
       presentExplicitSignIn: async () =>
         (await loadGoogleModule()).GoogleOneTapSignIn.presentExplicitSignIn(),
     },
+    // feature:google:end
+    // feature:apple:start
     apple: {
       isAvailableAsync: async () => (await loadAppleModule()).isAvailableAsync(),
       signInAsync: async ({ requestedScopes, state, nonce }) =>
@@ -76,6 +93,8 @@ function createModules(): NativeSignInModules {
       fullName: AppleAuthenticationScope.FULL_NAME,
       email: AppleAuthenticationScope.EMAIL,
     },
+    // feature:apple:end
+    // feature:facebook:start
     facebook: {
       settings: {
         setAppID: (appId) => Settings.setAppID(appId),
@@ -94,10 +113,13 @@ function createModules(): NativeSignInModules {
         getAuthenticationTokenIOS: () => AuthenticationToken.getAuthenticationTokenIOS(),
       },
     },
+    // feature:facebook:end
+    // feature:passkeys:start
     passkeys: {
       isSupported: async () => (await loadPasskeyModule()).isSupported(),
       get: async (options) => (await loadPasskeyModule()).get(options),
     },
+    // feature:passkeys:end
   };
 }
 

@@ -36,6 +36,7 @@ import { NativeAttemptViewService } from './native-attempt-view.service';
 import { isFirstFactorClaim } from '../utils/native-first-factor-claim';
 import { nativeFirstFactors } from '../utils/native-first-factors';
 import { assertNativePolicy } from '../utils/native-policy.util';
+import { isNativeAttemptStart } from '../utils/native-attempt-start';
 import { guardOf, operationGuardOf } from '../utils/native-attempt-guards';
 export { guardOf, operationGuardOf } from '../utils/native-attempt-guards';
 import {
@@ -68,14 +69,7 @@ export class NativeAttemptService {
 
   async start(input: NativeAttemptStart): Promise<NativeAttemptStartResult> {
     this.assertEnabled();
-    if (
-      !input ||
-      !Object.values(NATIVE_ATTEMPT_FLOW).some((flow) => flow === input.flow) ||
-      !Array.isArray(input.scopes) ||
-      input.scopes.some((scope) => typeof scope !== 'string')
-    ) {
-      throw invalidRequest();
-    }
+    if (!isNativeAttemptStart(input)) throw invalidRequest();
     const methods = await this.methods.forClient(input.clientId);
     if (!methods.nativeEnabled) throw featureDisabled();
     const factors = nativeFirstFactors(methods);
@@ -294,14 +288,19 @@ export class NativeAttemptService {
     const phase = owesMfa
       ? NATIVE_ATTEMPT_PHASE.SECOND_FACTOR_REQUIRED
       : NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED;
+    // feature:passkeys:start
     const methods = owesMfa
       ? await this.methods.forClient(claimed.clientId)
       : null;
-    const passkeyEligible =
+    // feature:passkeys:end
+    const passkeyEligible = Boolean(
+      // feature:passkeys:start
       owesMfa &&
       principal.firstFactor !== NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
       methods?.capabilities.passkeys === true &&
-      (await this.passkeys.listDescriptors(account.id, unitOfWork)).length > 0;
+      (await this.passkeys.listDescriptors(account.id, unitOfWork)).length > 0,
+      // feature:passkeys:end
+    );
     const completed = await this.attempts.transitionIn(
       unitOfWork,
       operationGuardOf(claimed),
