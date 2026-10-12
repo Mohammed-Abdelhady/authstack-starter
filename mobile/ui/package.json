@@ -21,7 +21,7 @@
     "@app/core": "workspace:*",
     "@app/native-auth": "workspace:*",
     "@app/sdk": "workspace:*",
-    "@reduxjs/toolkit": "^2.12.0",
+    "@reduxjs/toolkit": "^2.13.0",
     "react-redux": "^9.3.0"
   },
   "peerDependencies": {
@@ -31,15 +31,15 @@
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.2",
-    "@types/react": "~19.2.0",
+    "@types/react": "~19.3.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^9.1.2",
     "eslint-plugin-prettier": "^5.5.6",
-    "react": "19.2.3",
-    "react-native": "0.86.3",
+    "react": "19.3.0",
+    "react-native": "0.87.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.70.1",
-    "vitest": "^5.0.2"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
   },
   "engines": {
     "node": ">=22.12.0 <23",
