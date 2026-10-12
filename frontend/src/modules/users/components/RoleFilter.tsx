@@ -13,13 +13,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { SearchBar } from '@/components/design-system';
+import { SearchBar, TruncatedText } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
 import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { useDebounce } from '@/hooks/useDebounce';
-import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
-import { TruncatedText } from '@/modules/permissions/components/shared/TruncatedText';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
 import type { Role } from '@/modules/roles/types';
 
 export function RoleFilter({

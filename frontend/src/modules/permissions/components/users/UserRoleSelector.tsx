@@ -29,7 +29,7 @@ import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
 import { FormRootError } from '@/components/forms';
 import { useRefusalText } from '@/hooks/useRefusalText';
-import { TruncatedText } from '../shared/TruncatedText';
+import { TruncatedText } from '@/components/design-system';
 
 interface UserRoleSelectorProps {
   readonly userId: string;
