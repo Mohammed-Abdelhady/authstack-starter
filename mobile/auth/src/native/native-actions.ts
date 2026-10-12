@@ -22,7 +22,7 @@ type NativeActionResult =
 interface NativeActionContext {
   runtime: AuthRuntime;
   client: ApiClient<AbortSignalPort>;
-  methods: () => Promise<NativeMethods>;
+  methods: (signal?: AbortSignalPort) => Promise<NativeMethods>;
   cancel: () => Promise<NativeSignInOutcome>;
   browserSignIn: (options: BrowserSignInOptions) => Promise<SignInOutcome>;
 }
@@ -81,7 +81,9 @@ async function performProvider(
   controller: PortAbortController,
   attempt: NativeAttempt,
 ): Promise<NativeActionResult> {
-  const methods = await context.methods();
+  const methods = await context.methods(controller.signal);
+  if (context.runtime.disposed) return outcome({ kind: 'disposed' });
+  if (controller.signal.aborted) return outcome({ kind: 'signedOut' });
   const method = methods.providers.find((candidate) => candidate.id === action.providerId);
   if (!method || !methods.nativeEnabled) return outcome({ kind: 'unavailable' });
   if (method.mode === 'system') {
@@ -94,8 +96,7 @@ async function performProvider(
     return outcome(mapBrowserResult(result));
   }
   const port = context.runtime.dependencies.providerSignIn;
-  if (!port || !(await safeAvailable(() => port.available(method))))
-    return outcome({ kind: 'unavailable' });
+  if (!port) return outcome({ kind: 'unavailable' });
   const native = context.runtime.record?.nativeAttempt;
   const transaction = context.runtime.record?.transaction;
   if (!native || !transaction) return outcome({ kind: 'signedOut' });

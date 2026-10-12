@@ -1,4 +1,4 @@
-import type { ApiClient, NativeMethods } from '@app/sdk';
+import type { ApiClient } from '@app/sdk';
 import { ApiError, TransportError } from '@app/sdk';
 import { AUTH_OPERATION, SESSION_STATUS } from '../constants';
 import { createCallbackProcessor } from '../callbacks/callback-processing';
@@ -17,6 +17,7 @@ import { beginNativeAttempt } from './native-start';
 import { applyNativeResult } from './native-result';
 import { parseNativeEmailCallback } from './native-email-callback';
 import { performNativeAction } from './native-actions';
+import { createNativeMethodsReader } from './native-methods-reader';
 
 const NATIVE_CALL_TIMEOUT_MS = 15_000;
 const NATIVE_CALLBACK_QUEUE_LIMIT = 16;
@@ -33,28 +34,7 @@ export function createNativeController(
   let busy = false;
   runtime.onEpochChange(() => active?.abort());
 
-  const methods = async (): Promise<NativeMethods> => {
-    const server = await client.nativeAuth.methods(runtime.config.clientId);
-    const passkeys = runtime.dependencies.passkeys;
-    const providers = runtime.dependencies.providerSignIn;
-    const availablePasskeys = passkeys && (await safeAvailable(() => passkeys.available()));
-    const availableProviders = await Promise.all(
-      server.providers.map(async (method) => {
-        if (method.mode === 'system') return method;
-        if (!providers || !(await safeAvailable(() => providers.available(method))))
-          return { id: method.id, displayName: method.displayName, mode: 'system' as const };
-        return method;
-      }),
-    );
-    return {
-      ...server,
-      capabilities: {
-        ...server.capabilities,
-        passkeys: server.capabilities.passkeys && Boolean(availablePasskeys),
-      },
-      providers: availableProviders,
-    };
-  };
+  const methods = createNativeMethodsReader(runtime, client, NATIVE_CALL_TIMEOUT_MS);
 
   const nativeSignIn = async (action: NativeSignInAction): Promise<NativeSignInOutcome> => {
     if (runtime.disposed) return { kind: 'disposed' };
@@ -226,12 +206,4 @@ export function createNativeController(
     processInitialAddress,
     restore,
   };
-}
-
-async function safeAvailable(check: () => Promise<boolean>): Promise<boolean> {
-  try {
-    return await check();
-  } catch {
-    return false;
-  }
 }
