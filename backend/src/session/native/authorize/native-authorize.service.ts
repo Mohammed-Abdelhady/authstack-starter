@@ -23,32 +23,34 @@ import { ApplicationAccessStore } from '../../applications/application-access.st
 import { ApplicationRegistry } from '../../applications/application-registry';
 import { RegisteredClient } from '../../applications/application-registry.store';
 import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
-import { isPkceVerifier } from '../../utils/oauth/pkce';
 import { addMs } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
 import { isAcceptableRedirectUri } from '../../utils/oauth/redirect-uri.util';
 import type { RedirectUriPolicy } from '../../utils/oauth/redirect-uri.util';
 import { matchesRegisteredRedirectUri } from '../../utils/oauth/redirect-uri.util';
-import {
-  AuthorizeBegin,
-  OAUTH_ERROR,
-  OauthFailure,
-  oauthFailure,
-} from '../oauth/native-oauth.types';
+import { AuthorizeBegin, OauthFailure } from '../oauth/native-oauth.types';
 import {
   AUTHORIZATION_APPROVAL,
   GRANT_VERSION_CAPTURE,
   NativeAuthorizationStore,
 } from './native-authorization.store';
-import { isValidAuthorizeQueryShape } from './native-authorize-query.util';
+import { validateNativeAuthorizationRequest } from './native-authorize-validation';
+import type { ValidatedNativeAuthorization } from '../types/native-authorization';
+import {
+  appendAuthorizationCode,
+  expiredTransaction,
+  incompleteApproval,
+} from './native-authorization-result';
+import type {
+  NativeAttempt,
+  VerifiedNativeAccount,
+} from '../../../auth/native/types/native-attempt';
 
 interface ApprovedAuthorization {
   redirectUri: string;
   state: string;
   code: string;
 }
-
-const STATE_MAX_LENGTH = 512;
 
 @Injectable()
 export class NativeAuthorizeService {
@@ -63,62 +65,33 @@ export class NativeAuthorizeService {
   ) {}
 
   async begin(query: unknown): Promise<AuthorizeBegin | OauthFailure> {
-    if (!isValidAuthorizeQueryShape(query)) {
-      return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_REQUEST);
-    }
-    if (!this.authEpoch.nativeEnabled()) {
-      return oauthFailure(
-        HttpStatus.BAD_REQUEST,
-        OAUTH_ERROR.UNAUTHORIZED_CLIENT,
-        ErrorCode.NATIVE_AUTH_DISABLED,
-      );
-    }
-    if (query.response_type !== 'code') {
-      return oauthFailure(
-        HttpStatus.BAD_REQUEST,
-        OAUTH_ERROR.UNSUPPORTED_RESPONSE_TYPE,
-      );
-    }
-    const clientId = query.client_id.trim();
-    const redirectUri = query.redirect_uri;
-    const challenge = query.code_challenge;
-    if (
-      !clientId ||
-      !redirectUri ||
-      query.code_challenge_method !== 'S256' ||
-      !isPkceVerifier(challenge)
-    ) {
-      return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_REQUEST);
-    }
-    const state = query.state;
-    if (state.length > STATE_MAX_LENGTH) {
-      return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_REQUEST);
-    }
-
-    const application = await this.registry.lookUpClient(clientId);
-    const clientError = this.rejectClient(application, redirectUri);
-    if (clientError) {
-      return clientError;
-    }
-    const scopes = this.resolveScopes(application, query.scope);
-    if (!scopes) {
-      return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_SCOPE);
-    }
+    const validated = await this.validateRequest(query);
+    if ('ok' in validated) return validated;
 
     const now = this.clock.now();
     const transactionId = randomUUID();
     await this.store.createPending({
       transactionId,
-      clientId,
-      redirectUri,
-      codeChallenge: challenge,
-      state,
-      requestedScopes: scopes,
+      clientId: validated.clientId,
+      redirectUri: validated.redirectUri,
+      codeChallenge: validated.codeChallenge,
+      state: validated.state,
+      requestedScopes: validated.requestedScopes,
       audience: DEFAULT_API_AUDIENCE,
       expiresAt: addMs(now, PENDING_AUTH_LIFETIME_MS),
       authEpoch: this.authEpoch.current(),
     });
     return { ok: true, transactionId };
+  }
+
+  async validateRequest(
+    query: unknown,
+  ): Promise<ValidatedNativeAuthorization | OauthFailure> {
+    return validateNativeAuthorizationRequest(
+      query,
+      this.registry,
+      this.authEpoch,
+    );
   }
 
   async approve(
@@ -163,11 +136,101 @@ export class NativeAuthorizeService {
     };
   }
 
+  /** The native attempt already holds a server-verified principal. The caller owns this UOW. */
+  async approveVerifiedIn(
+    unitOfWork: UnitOfWork,
+    attempt: NativeAttempt,
+    principal: VerifiedNativeAccount,
+  ): Promise<{ redirectUri: string; expiresAt: Date }> {
+    const now = this.clock.now();
+    if (
+      attempt.authEpoch !== this.authEpoch.current() ||
+      attempt.clientId.length === 0 ||
+      principal.userId.length === 0
+    )
+      throw expiredTransaction();
+    await this.assertVerifiedCurrentIn(unitOfWork, attempt, principal);
+    const transactionId = randomUUID();
+    await this.store.createPendingIn(unitOfWork, {
+      transactionId,
+      clientId: attempt.clientId,
+      redirectUri: attempt.redirectUri,
+      codeChallenge: attempt.codeChallenge,
+      state: attempt.state,
+      requestedScopes: attempt.requestedScopes,
+      audience: DEFAULT_API_AUDIENCE,
+      expiresAt: addMs(now, AUTHORIZATION_CODE_LIFETIME_MS),
+      authEpoch: attempt.authEpoch,
+    });
+    const approved = await this.approveIn(
+      unitOfWork,
+      principal.userId,
+      transactionId,
+      principal.authenticationMethods,
+      principal,
+    );
+    return {
+      redirectUri: appendAuthorizationCode(
+        approved.redirectUri,
+        approved.code,
+        approved.state,
+      ),
+      expiresAt: addMs(now, AUTHORIZATION_CODE_LIFETIME_MS),
+    };
+  }
+
+  async assertVerifiedCurrentIn(
+    unitOfWork: UnitOfWork,
+    attempt: NativeAttempt,
+    principal: VerifiedNativeAccount,
+  ): Promise<void> {
+    if (attempt.authEpoch !== this.authEpoch.current())
+      throw expiredTransaction();
+    const account = await this.issuance.readAccountForIssuance(
+      unitOfWork,
+      principal.userId,
+    );
+    if (
+      !account ||
+      account.isDeleted ||
+      account.sessionVersion !== principal.userVersion
+    )
+      throw expiredTransaction();
+    const application = await this.registry.findClientIn(
+      unitOfWork,
+      attempt.clientId,
+    );
+    if (
+      !application ||
+      !application.enabled ||
+      application.platform !== APPLICATION_PLATFORM.NATIVE ||
+      application.clientType !== APPLICATION_CLIENT_TYPE.PUBLIC ||
+      application.sessionVersion !== principal.clientVersion ||
+      !isAcceptableRedirectUri(attempt.redirectUri, this.redirectPolicy()) ||
+      !application.redirectUris.some((registered) =>
+        matchesRegisteredRedirectUri(registered, attempt.redirectUri),
+      )
+    ) {
+      throw expiredTransaction();
+    }
+    const grant = await this.grants.takeGrantForChange(
+      unitOfWork,
+      principal.userId,
+      attempt.clientId,
+    );
+    if (
+      (grant?.sessionVersion ?? null) !== principal.grantVersion ||
+      grant?.allowed === false
+    )
+      throw expiredTransaction();
+  }
+
   private async approveIn(
     unitOfWork: UnitOfWork,
     userId: string,
     transactionId: string,
     authenticationMethods: string[],
+    expected?: VerifiedNativeAccount,
   ): Promise<ApprovedAuthorization> {
     const now = this.clock.now();
     const account = await this.issuance.findAccount(unitOfWork, userId);
@@ -178,6 +241,8 @@ export class NativeAuthorizeService {
         HttpStatus.NOT_FOUND,
       );
     }
+    if (expected && account.sessionVersion !== expected.userVersion)
+      throw expiredTransaction();
     const pending = await this.store.findPendingIn(
       unitOfWork,
       transactionId,
@@ -204,6 +269,8 @@ export class NativeAuthorizeService {
     ) {
       throw expiredTransaction();
     }
+    if (expected && application.sessionVersion !== expected.clientVersion)
+      throw expiredTransaction();
     const code = randomSecret();
     const codeExpiresAt = addMs(now, AUTHORIZATION_CODE_LIFETIME_MS);
     const codeHash = hashToken(code);
@@ -220,7 +287,12 @@ export class NativeAuthorizeService {
     if (claimed !== AUTHORIZATION_APPROVAL.APPROVED) {
       throw expiredTransaction();
     }
-    const grant = await this.allowGrant(unitOfWork, account.id, application);
+    const grant = await this.allowGrant(
+      unitOfWork,
+      account.id,
+      application,
+      expected?.grantVersion,
+    );
     const captured = await this.store.captureGrantVersion(
       unitOfWork,
       pending.id,
@@ -240,62 +312,23 @@ export class NativeAuthorizeService {
     };
   }
 
-  private rejectClient(
-    application: RegisteredClient | null,
-    redirectUri: string,
-  ): OauthFailure | null {
-    if (
-      !application ||
-      !application.enabled ||
-      application.platform !== APPLICATION_PLATFORM.NATIVE ||
-      application.clientType !== APPLICATION_CLIENT_TYPE.PUBLIC
-    ) {
-      return oauthFailure(
-        HttpStatus.BAD_REQUEST,
-        OAUTH_ERROR.UNAUTHORIZED_CLIENT,
-      );
-    }
-    if (
-      !isAcceptableRedirectUri(redirectUri, this.redirectPolicy()) ||
-      !application.redirectUris.some((registered) =>
-        matchesRegisteredRedirectUri(registered, redirectUri),
-      )
-    ) {
-      return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_REQUEST);
-    }
-    return null;
-  }
-
-  private resolveScopes(
-    application: RegisteredClient | null,
-    requested: string | undefined,
-  ): string[] | null {
-    if (!application) {
-      return null;
-    }
-    const allowed = new Set(application.allowedScopes);
-    if (!requested || requested.trim().length === 0) {
-      return [...application.allowedScopes];
-    }
-    const scopes = requested.split(' ').filter((scope) => scope.length > 0);
-    if (scopes.length === 0 || scopes.some((scope) => !allowed.has(scope))) {
-      return null;
-    }
-    return scopes;
-  }
-
   private async allowGrant(
     unitOfWork: UnitOfWork,
     userId: string,
     application: RegisteredClient,
+    expectedVersion?: number | null,
   ): Promise<{ sessionVersion: number }> {
-    // Taking the grant keeps a block of the same person and client apart from
-    // this approval, so the first grant is created by one of them alone.
     const existing = await this.grants.takeGrantForChange(
       unitOfWork,
       userId,
       application.clientId,
     );
+    if (
+      expectedVersion !== undefined &&
+      (existing?.sessionVersion ?? null) !== expectedVersion
+    ) {
+      throw expiredTransaction();
+    }
     if (existing && !existing.allowed) {
       throw new AppException(
         ErrorCode.GRANT_BLOCKED,
@@ -312,31 +345,4 @@ export class NativeAuthorizeService {
       allowedScopes: application.allowedScopes,
     });
   }
-}
-
-function appendAuthorizationCode(
-  redirectUri: string,
-  code: string,
-  state: string,
-): string {
-  const target = new URL(redirectUri);
-  target.searchParams.set('code', code);
-  target.searchParams.set('state', state);
-  return target.toString();
-}
-
-function expiredTransaction(): AppException {
-  return new AppException(
-    ErrorCode.NATIVE_TRANSACTION_EXPIRED,
-    'Native authorization transaction is expired or already ended',
-    HttpStatus.NOT_FOUND,
-  );
-}
-
-function incompleteApproval(): AppException {
-  return new AppException(
-    ErrorCode.VALIDATION_ERROR,
-    'Authorization approval is incomplete',
-    HttpStatus.BAD_REQUEST,
-  );
 }
