@@ -36,12 +36,12 @@ export async function assertActorHoldsRole(
   routePermission: string,
   roleSlug: string,
 ): Promise<void> {
-  const role = await store.readRoleBySlug(unitOfWork, roleSlug);
-  await assertActorHolds(
+  const actor = await assertFreshRolePermission(
     store,
     unitOfWork,
     actorId,
     routePermission,
-    role?.permissions ?? [],
   );
+  const role = await store.readRoleAuthorityBySlug(unitOfWork, roleSlug);
+  assertCanGrant(actor, role?.permissions ?? []);
 }

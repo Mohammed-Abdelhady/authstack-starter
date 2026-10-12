@@ -37,6 +37,11 @@ export abstract class RoleChangeStore {
     unitOfWork: UnitOfWork,
     slug: string,
   ): Promise<StoredRole | null>;
+  /** Holds the role's grant authority through this unit of work. */
+  abstract readRoleAuthorityBySlug(
+    unitOfWork: UnitOfWork,
+    slug: string,
+  ): Promise<StoredRole | null>;
   /** Reads the role this unit of work is about to edit or delete. */
   abstract takeRoleForChange(
     unitOfWork: UnitOfWork,

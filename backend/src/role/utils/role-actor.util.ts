@@ -4,10 +4,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { WILDCARD_PERMISSION } from '../../common/constants/permissions';
 import { hasPermission } from '../../common/utils/permission.utils';
-import {
-  UNKNOWN_ROLE_LEVEL,
-  canModifyLevel,
-} from '../../common/utils/role-hierarchy';
+import { canModifyLevel } from '../../common/utils/role-hierarchy';
 import { RoleChangeStore } from '../stores/role-change.store';
 import { RoleLevelSource, resolveRoleLevel } from './role.util';
 
@@ -31,8 +28,15 @@ export async function assertFreshRolePermission(
       HttpStatus.UNAUTHORIZED,
     );
   }
-  const role = await store.readRoleBySlug(unitOfWork, actor.roleSlug);
-  const permissions = [...(role?.permissions ?? []), ...actor.permissions];
+  const role = await store.readRoleAuthorityBySlug(unitOfWork, actor.roleSlug);
+  if (!role) {
+    throw new AppException(
+      ErrorCode.SESSION_INVALID,
+      'Actor role is no longer active',
+      HttpStatus.UNAUTHORIZED,
+    );
+  }
+  const permissions = [...role.permissions, ...actor.permissions];
   if (!hasPermission(permissions, permission)) {
     throw new AppException(
       ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
@@ -41,7 +45,7 @@ export async function assertFreshRolePermission(
     );
   }
   return {
-    level: role ? resolveRoleLevel(role) : UNKNOWN_ROLE_LEVEL,
+    level: resolveRoleLevel(role),
     permissions,
   };
 }

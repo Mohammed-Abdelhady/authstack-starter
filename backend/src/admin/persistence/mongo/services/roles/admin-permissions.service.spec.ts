@@ -89,12 +89,19 @@ describe('AdminPermissionsService (S-03)', () => {
       ],
     }),
     readRoleBySlug: jest.fn().mockResolvedValue(null),
+    readRoleAuthorityBySlug: jest.fn().mockResolvedValue({
+      slug: UserRole.MANAGER,
+      permissions: [],
+    }),
   };
 
-  const runInPlace: UnitOfWorkRunner = {
-    run: <Result>(work: (unitOfWork: UnitOfWork) => Promise<Result>) =>
-      work(new TestUnitOfWork()),
-  };
+  const runInPlace = new (class extends UnitOfWorkRunner {
+    run<Result>(
+      work: (unitOfWork: UnitOfWork) => Promise<Result>,
+    ): Promise<Result> {
+      return work(new TestUnitOfWork());
+    }
+  })();
 
   function stubTarget(role: string, permissions: string[] = []): void {
     target = {
