@@ -46,7 +46,17 @@ export function pendingCodeStatements(
   const counter = { email: EMAIL, purpose: MAIL_COUNTER_PURPOSE.SIGNUP };
   const record = { email: EMAIL, purpose: PENDING_PURPOSE.SIGNUP };
   const generation = { hashedCode: 'hash', expiresAt: TEST_NOW };
-  const attempts = { now: TEST_NOW, maxAttempts: 5 };
+  const attempts = {
+    now: TEST_NOW,
+    maxAttempts: 5,
+    guesses: {
+      limit: 5,
+      lockBaseMs: HOUR_MS,
+      lockMaxMs: HOUR_MS,
+      maxLockLevel: 1,
+      memoryMs: HOUR_MS,
+    },
+  };
   const window = { now: TEST_NOW, windowMs: HOUR_MS };
   return {
     'mail.recordWithinCap': () =>

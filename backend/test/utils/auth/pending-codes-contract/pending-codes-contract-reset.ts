@@ -9,6 +9,7 @@ import {
   ContractServices,
   EXPIRED_EXPIRY,
   hashOf,
+  GUESS_RULE,
   HarnessSource,
   LIVE_EXPIRY,
   matches,
@@ -224,7 +225,7 @@ export function passwordResetCases(harness: HarnessSource): void {
 
       const reserved = await harness().stores.passwordResets.reserveAttempt(
         EMAIL,
-        { now: TEST_NOW, maxAttempts: MAX_ATTEMPTS },
+        { now: TEST_NOW, maxAttempts: MAX_ATTEMPTS, guesses: GUESS_RULE },
       );
 
       expect({ reserved, attempts: (await stored()).attempts }).toEqual({

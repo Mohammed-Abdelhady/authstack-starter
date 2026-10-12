@@ -9,6 +9,7 @@ import {
   ContractServices,
   EXPIRED_EXPIRY,
   hashOf,
+  GUESS_RULE,
   HarnessSource,
   LIVE_EXPIRY,
   MAX_ATTEMPTS,
@@ -173,7 +174,7 @@ export function registrationVerifyCases(harness: HarnessSource): void {
 
       const reserved = await harness().stores.registrations.reserveAttempt(
         { email: EMAIL, purpose: SIGNUP },
-        { now: TEST_NOW, maxAttempts: MAX_ATTEMPTS },
+        { now: TEST_NOW, maxAttempts: MAX_ATTEMPTS, guesses: GUESS_RULE },
       );
 
       expect({ reserved, attempts: await attempts() }).toEqual({

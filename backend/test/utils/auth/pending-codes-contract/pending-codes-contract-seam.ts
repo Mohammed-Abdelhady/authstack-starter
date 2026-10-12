@@ -112,7 +112,8 @@ export function pendingCodeSeamCases(harness: HarnessSource): void {
           reservedEmail: storedForm,
           counter: 1,
           reset: true,
-          rows: [1, 1, 1],
+          // Two counter rows: the sign-up mail and guess, and the reset guess.
+          rows: [1, 2, 1],
         });
       } finally {
         services.restore();
