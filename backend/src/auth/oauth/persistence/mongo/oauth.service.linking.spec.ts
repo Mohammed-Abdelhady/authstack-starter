@@ -1,6 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { OAuthService } from '../../oauth.service';
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
@@ -13,6 +14,14 @@ import { AppException } from '../../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../../common/enums/error-code.enum';
 import { OAuthProviderStrategy } from '../../oauth-provider.interface';
 import { MONGO_PROVIDER_SIGN_IN_STORE } from './mongo-provider-sign-in.store';
+import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
+import { Passkey } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
+import { MONGO_ACCOUNT_PROFILE_STORE } from '../../../../user/persistence/mongo/mongo-account-stores';
+import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
+import {
+  securityNoticeProviders,
+  stubSmtpBoundary,
+} from '../../../../../test/utils/security-notice-fixture';
 
 const USER_ID = 'user-1';
 const SESSION_ID = 'session-1';
@@ -47,9 +56,14 @@ describe('OAuthService linking', () => {
   let signIn: { completeSignIn: jest.Mock };
   let sessions: { validateSession: jest.Mock; getUserSessions: jest.Mock };
   let cookies: { read: jest.Mock };
+  let module: TestingModule | undefined;
+  let restoreSmtp: (() => void) | undefined;
 
   beforeEach(async () => {
-    accountLinking = { linkProvider: jest.fn().mockResolvedValue({}) };
+    restoreSmtp = stubSmtpBoundary();
+    accountLinking = {
+      linkProvider: jest.fn().mockResolvedValue({ id: USER_ID }),
+    };
     profileSync = {
       syncProfileFromProvider: jest.fn().mockResolvedValue(undefined),
     };
@@ -65,21 +79,46 @@ describe('OAuthService linking', () => {
       ),
     };
     cookies = { read: jest.fn().mockReturnValue('session-token') };
+    const config = new ConfigService({
+      smtp: { from: 'security-notice@example.test' },
+      mail: { maxPendingSends: 4, drainDeadlineMs: 250 },
+    });
+    const userModel = {
+      findOne: jest.fn(),
+      findById: jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      }),
+    };
+    const roleModel = { findOne: jest.fn() };
 
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         OAuthService,
-        { provide: getModelToken(User.name), useValue: { findOne: jest.fn() } },
+        { provide: getModelToken(User.name), useValue: userModel },
+        { provide: getModelToken(Role.name), useValue: roleModel },
+        { provide: getModelToken(Passkey.name), useValue: {} },
+        MONGO_ACCOUNT_PROFILE_STORE,
         MONGO_PROVIDER_SIGN_IN_STORE,
         { provide: SignInCompletion, useValue: signIn },
         { provide: ProfileSyncService, useValue: profileSync },
         { provide: AccountLinkingService, useValue: accountLinking },
         { provide: Sessions, useValue: sessions },
         { provide: SessionCookieService, useValue: cookies },
+        ...securityNoticeProviders(config),
       ],
     }).compile();
 
     service = module.get(OAuthService);
+  });
+
+  afterEach(async () => {
+    try {
+      await module?.get(MailDispatcherService).flush();
+      await module?.close();
+    } finally {
+      restoreSmtp?.();
+    }
   });
 
   function params(
