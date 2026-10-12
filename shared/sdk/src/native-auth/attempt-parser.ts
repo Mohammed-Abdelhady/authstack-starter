@@ -159,12 +159,13 @@ export function parseAttemptResult(
         email: email(record.email, 'email', status),
       };
     case NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED:
-      exactKeys(record, [...baseKeys, 'factors'], 'data', status);
+      exactKeys(record, [...baseKeys, 'factors', 'activationCompleted'], 'data', status);
       return {
         attemptId,
         stage: NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED,
         expiresAt,
         factors: parseFactors(record.factors, 'factors', isSecondFactor, status),
+        ...(activationCompleted === undefined ? {} : { activationCompleted }),
       };
     case NATIVE_AUTH_STAGE.CONSENT_REQUIRED:
       exactKeys(

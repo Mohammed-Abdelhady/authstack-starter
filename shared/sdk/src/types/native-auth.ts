@@ -266,6 +266,7 @@ export type NativeAttemptView =
   | (NativeAttemptViewBase & {
       stage: 'secondFactorRequired';
       factors: NativeSecondFactor[];
+      activationCompleted?: boolean;
     })
   | (NativeAttemptViewBase & {
       stage: 'consentRequired';
