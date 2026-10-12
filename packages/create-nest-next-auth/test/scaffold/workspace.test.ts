@@ -11,7 +11,7 @@ import { renderWorkspace, workspaceDirectories } from '../../src/scaffold/worksp
 const ROOT_SCRIPT_COMMANDS = [
   ['lint', 'pnpm -r --if-present run lint'],
   ['typecheck', 'pnpm -r --if-present run typecheck'],
-  ['test', 'pnpm -r --if-present run test && pnpm run test:config'],
+  ['test', 'pnpm -r --workspace-concurrency=1 --if-present run test && pnpm run test:config'],
 ] as const;
 const MOBILE_WORKSPACES = [
   'mobile/adapters',
