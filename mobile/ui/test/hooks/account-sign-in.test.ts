@@ -40,7 +40,11 @@ describe('the account hook', () => {
 
       expect({ view: subject.current().view, profile: subject.current().profile }).toEqual({
         view: 'ready',
-        profile: { name: 'Ada', email: 'ada@example.test', role: translate(locale, 'role.admin') },
+        profile: {
+          name: '\u2068Ada\u2069',
+          email: '\u2066ada@example.test\u2069',
+          role: translate(locale, 'role.admin'),
+        },
       });
     },
   );
@@ -51,7 +55,7 @@ describe('the account hook', () => {
     subject.server.answer(ROUTE.PROFILE, ok({ ...ADA.profile, role: 'auditor' }));
     await flush();
 
-    expect(subject.current().profile?.role).toBe('auditor');
+    expect(subject.current().profile?.role).toBe('\u2066auditor\u2069');
   });
 
   it.each([

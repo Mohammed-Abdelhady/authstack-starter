@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import { useUi } from '../context/ui-context';
 import { SIZE, SPACE, type Palette } from '../theme/tokens';
 import { Description, Heading } from './Typography';
@@ -23,6 +24,15 @@ interface NoticeProps {
 /** A message about what just happened. A screen reader hears it when it appears. */
 export function Notice({ title, description, tone = NOTICE_TONE.INFO, testID }: NoticeProps) {
   const { colors } = useUi();
+  const announcement = description === undefined ? title : `${title}. ${description}`;
+  const lastAnnouncement = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || lastAnnouncement.current === announcement) return;
+    lastAnnouncement.current = announcement;
+    AccessibilityInfo.announceForAccessibility(announcement);
+  }, [announcement]);
+
   return (
     <View
       testID={testID}

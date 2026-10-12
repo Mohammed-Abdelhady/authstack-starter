@@ -97,7 +97,7 @@ export const TEST_ID = {
   SESSIONS_SCREEN: 'sessions-screen',
   SESSIONS_LIST: 'sessions-list',
   SESSIONS_BACK: 'sessions-back',
-  SESSIONS_RETRY: 'sessions-retry',
+  SESSIONS_REFRESH: 'sessions-refresh',
   SESSIONS_REVOKE_OTHERS: 'sessions-revoke-others',
   SESSIONS_NOTICE: 'sessions-notice',
   SESSION_ROW: 'session-row',

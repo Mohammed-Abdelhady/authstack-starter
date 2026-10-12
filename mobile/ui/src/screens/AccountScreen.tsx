@@ -8,6 +8,7 @@ import { Description, Heading } from '../components/Typography';
 import { LIST_VIEW, SIGN_OUT_STATE, TEST_ID } from '../constants';
 import { useUi } from '../context/ui-context';
 import { useAccount } from '../hooks/use-account';
+import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
 import { SIZE, SPACE } from '../theme/tokens';
 
 const styles = StyleSheet.create({
@@ -35,6 +36,7 @@ function AccountSkeleton({ label }: { label: string }) {
 
 export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
   const { t } = useUi();
+  const titleRef = useScreenTitleFocus();
   const { view, profile, failureText, sessionNotSaved, retry, signOut, signOutState } =
     useAccount();
 
@@ -42,7 +44,9 @@ export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
     <Screen testID={TEST_ID.ACCOUNT_SCREEN} arrival={arrival}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.intro}>
-          <Heading level="screen">{t('account.title')}</Heading>
+          <Heading level="screen" nativeRef={titleRef}>
+            {t('account.title')}
+          </Heading>
           <Description>{t('account.description')}</Description>
         </View>
         {sessionNotSaved ? (

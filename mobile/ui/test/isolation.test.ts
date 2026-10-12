@@ -69,14 +69,16 @@ describe.each(LOCALES)('values from outside in %s', (locale) => {
     const device = deviceText(t, named);
 
     expect(named.kind).toBe('named');
-    expect(device.match(ISOLATE)).toEqual([LTR, CLOSE]);
-    expect(device.startsWith(LTR) && device.endsWith(CLOSE)).toBe(true);
+    expect(device.match(ISOLATE)).toEqual([FIRST_STRONG, CLOSE]);
+    expect(device.startsWith(FIRST_STRONG) && device.endsWith(CLOSE)).toBe(true);
     for (const key of [
       'sessions.revokeLabel',
       'sessions.confirmRevoke.title',
       'sessions.revokeFailed.title',
     ] as const) {
-      expect(translate(locale, key, { device })).toContain(device);
+      const message = translate(locale, key, { device });
+      expect(message).toContain(device);
+      if (locale === 'ar') expect(message).toContain(`${FIRST_STRONG}${device}${CLOSE}`);
     }
   });
 });

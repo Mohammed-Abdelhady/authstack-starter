@@ -1,5 +1,5 @@
 import type { AuthEngine, AuthSnapshot } from '@app/native-auth';
-import { act, createElement, type ReactElement } from 'react';
+import { act, createElement, StrictMode, type ReactElement } from 'react';
 import { create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 import { vi } from 'vitest';
 import { NativeApp } from '../../src/NativeApp';
@@ -184,6 +184,7 @@ export interface App {
 
 interface AppOptions {
   locale?: Locale;
+  strictMode?: boolean;
   /** Changes the fake engine before the screens mount. */
   prepare?(fake: FakeEngine): void;
 }
@@ -195,15 +196,16 @@ export async function renderApp(initial: AuthSnapshot, options: AppOptions = {})
   const fake = createFakeEngine(server.transport, initial);
   options.prepare?.(fake);
   const confirm = recordConfirm();
+  const appElement = createElement(NativeApp, {
+    engine: asAuthEngine(fake.engine),
+    appName: APP_NAME,
+    locale,
+    insets: NO_INSETS,
+    now: () => NOW,
+    confirm: confirm.confirm,
+  });
   const root = render(
-    createElement(NativeApp, {
-      engine: asAuthEngine(fake.engine),
-      appName: APP_NAME,
-      locale,
-      insets: NO_INSETS,
-      now: () => NOW,
-      confirm: confirm.confirm,
-    }),
+    options.strictMode ? createElement(StrictMode, null, appElement) : appElement,
   );
   await flush();
   const step = async (run: () => void): Promise<void> => {
