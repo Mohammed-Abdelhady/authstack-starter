@@ -111,6 +111,7 @@
     "searchDialog": {
       "title": "Add Permissions",
       "description": "Search and select permissions to add. Use tabs to browse by category.",
+      "searchLabel": "Search permissions",
       "searchPlaceholder": "Search permissions...",
       "noPermissionsMatch": "No permissions found matching \"⁦{query}⁩\"",
       "noCategoryPermissionsMatch": "No permissions found in {category} matching \"⁦{query}⁩\"",
