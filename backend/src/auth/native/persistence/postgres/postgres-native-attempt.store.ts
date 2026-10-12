@@ -118,6 +118,20 @@ export class PostgresNativeAttemptStore extends NativeAttemptStore {
     return row ? toAttempt(row) : null;
   }
 
+  async findAuthenticated(
+    attemptId: string,
+    secretHash: string,
+  ): Promise<NativeAttempt | null> {
+    assertNativeAttemptSecretHash(secretHash);
+    const row = await this.database
+      .selectFrom('native_attempts')
+      .selectAll()
+      .where('attempt_id', '=', attemptId)
+      .where('secret_hash', '=', secretHash)
+      .executeTakeFirst();
+    return row ? toAttempt(row) : null;
+  }
+
   claim(
     guard: NativeAttemptGuard,
     operationId: string,
@@ -200,6 +214,7 @@ export class PostgresNativeAttemptStore extends NativeAttemptStore {
       .where('phase', 'not in', [
         NATIVE_ATTEMPT_PHASE.DENIED,
         NATIVE_ATTEMPT_PHASE.CODE_READY,
+        NATIVE_ATTEMPT_PHASE.RECOVERY_COMPLETE,
       ]);
   }
 

@@ -14,6 +14,11 @@ export abstract class NativeAttemptStore {
   abstract findByCredentials(
     credentials: NativeAttemptCredentials,
   ): Promise<NativeAttempt | null>;
+  /** Authenticates before lifecycle checks; preserves expired and terminal metadata. */
+  abstract findAuthenticated(
+    attemptId: string,
+    secretHash: string,
+  ): Promise<NativeAttempt | null>;
   abstract claim(
     guard: NativeAttemptGuard,
     operationId: string,

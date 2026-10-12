@@ -16,6 +16,7 @@ export function nativeAttemptDetails(
           grantVersion: account.grantVersion,
           authenticationMethods: [...account.authenticationMethods],
           verifiedAt: account.verifiedAt,
+          firstFactor: account.firstFactor,
         }
       : null,
     nonceDigest: details.nonceDigest,
@@ -34,6 +35,21 @@ export function nativeAttemptDetails(
           expiresAt: reply.expiresAt,
         }
       : null,
+    ...(details.secondFactors
+      ? { secondFactors: [...details.secondFactors] }
+      : {}),
+    ...(details.activationCompleted !== undefined
+      ? { activationCompleted: details.activationCompleted }
+      : {}),
+    ...(details.passkeyChallengeHash !== undefined
+      ? { passkeyChallengeHash: details.passkeyChallengeHash }
+      : {}),
+    ...(details.passkeyPurpose !== undefined
+      ? { passkeyPurpose: details.passkeyPurpose }
+      : {}),
+    ...(details.emailTokenHash !== undefined
+      ? { emailTokenHash: details.emailTokenHash }
+      : {}),
   };
 }
 

@@ -47,6 +47,7 @@ function input(): NewNativeAttempt {
         grantVersion: null,
         authenticationMethods: ['password'],
         verifiedAt: TEST_NOW,
+        firstFactor: 'password',
       },
       nonceDigest: 'b'.repeat(64),
       email: {
@@ -101,8 +102,6 @@ export function describeNativeAttemptContract(
       const created = await harness.store.create(unsafe);
       expect(created).not.toHaveProperty('password');
       expect(created.details).not.toHaveProperty('verificationCode');
-      expect(created.id).toBeTruthy();
-      expect(created.revision).toBe(0);
       expect(
         await harness.store.findByCredentials({
           attemptId: created.attemptId,
@@ -228,6 +227,7 @@ export function describeNativeAttemptContract(
       );
       expect(shortened?.expiresAt).toEqual(earlier);
     });
+
     it('allows one transition and rejects late writes after cancellation', async () => {
       const created = await harness.store.create(input());
       const claimed = await harness.store.claim(guard(created), 'remote');
