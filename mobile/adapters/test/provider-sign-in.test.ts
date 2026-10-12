@@ -38,6 +38,19 @@ const SYSTEM_METHOD: NativeProviderMethod = {
 };
 
 describe('native provider sign-in port', () => {
+  it('reports unavailable when optional native provider modules are absent', async () => {
+    const ports = createNativeSignInPorts({ platform: 'ios' }, createNativeSignInSettings());
+    for (const method of [GOOGLE_METHOD, APPLE_METHOD, FACEBOOK_METHOD]) {
+      expect(await ports.providerSignIn.available(method)).toBe(false);
+      expect(
+        await ports.providerSignIn.authenticate(
+          { method, nonceDigest: NONCE_DIGEST, state: 'native-state' },
+          new TestAbort().signal,
+        ),
+      ).toEqual({ kind: 'unavailable' });
+    }
+  });
+
   it('gates Google, Apple, Facebook, and system methods by platform and public configuration', async () => {
     const ios = createNativeSignInFixture('ios');
     const iosPorts = createNativeSignInPorts(ios.modules, createNativeSignInSettings());

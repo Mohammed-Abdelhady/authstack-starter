@@ -29,6 +29,14 @@ const ASSERTION = {
 };
 
 describe('native passkey sign-in port', () => {
+  it('reports unavailable when the optional passkey module is absent', async () => {
+    const ports = createNativeSignInPorts({ platform: 'ios' }, createNativeSignInSettings());
+    expect(await ports.passkeys.available()).toBe(false);
+    expect(await ports.passkeys.authenticate(OPTIONS, new TestAbort().signal)).toEqual({
+      kind: 'unavailable',
+    });
+  });
+
   it('preserves request options and returns only a validated assertion', async () => {
     const fixture = createNativeSignInFixture('ios');
     fixture.calls.passkeyResult = async () => ASSERTION;
