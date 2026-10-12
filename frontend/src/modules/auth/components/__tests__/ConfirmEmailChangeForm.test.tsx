@@ -23,16 +23,16 @@ vi.mock('@/i18n/navigation', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 registerFormTestLifecycle();
 
-async function submit(locale: AppLocale) {
+async function submit(locale: AppLocale, code = '123456') {
   const form = await renderForm(locale, <ConfirmEmailChangeForm />);
+  const codeField = screen.getByRole('textbox', { name: form.message('auth.activate.code') });
+  const codeMaxLength = codeField.getAttribute('maxlength');
   fireEvent.change(screen.getByRole('textbox', { name: form.message('auth.activate.email') }), {
     target: { value: 'new@example.com' },
   });
-  fireEvent.change(screen.getByRole('textbox', { name: form.message('auth.activate.code') }), {
-    target: { value: '123456' },
-  });
+  fireEvent.change(codeField, { target: { value: code } });
   fireEvent.submit(screen.getByTestId('confirm-email-form'));
-  return form;
+  return { ...form, codeMaxLength };
 }
 
 describe.each([
@@ -45,7 +45,7 @@ describe.each([
       bodies.push(await request.json());
       return success({ message: 'Confirmed' });
     });
-    const form = await submit(locale);
+    const form = await submit(locale, '123 456');
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toBe(
         form.message('auth.confirmEmailChange.success'),
@@ -57,6 +57,7 @@ describe.each([
       ),
     );
     expect(bodies).toEqual([{ email: 'new@example.com', code: '123456' }]);
+    expect(form.codeMaxLength).toBeNull();
     expect(requests).toEqual(['POST /api/auth/confirm-email-change']);
     expect(
       screen

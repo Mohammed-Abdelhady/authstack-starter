@@ -15,6 +15,7 @@ import {
 } from '@/tests/serverRejectionHarness';
 import { ActivationForm } from '@/modules/auth/components/ActivationForm';
 import { beforeEach } from 'vitest';
+import { acceptActivation } from './registrationHarness';
 
 beforeEach(() => {
   navigation.search = '';
@@ -43,6 +44,20 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('ActivationForm rejected code in %s', (locale) => {
+  it('marks the activation values required in the browser', async () => {
+    await renderForm(locale, <ActivationForm />);
+
+    for (const testId of [
+      'activate-email-input',
+      'activate-code-input',
+      'activate-name-input',
+      'activate-password-input',
+      'activate-confirm-password-input',
+    ]) {
+      expect(screen.getByTestId(testId).hasAttribute('required')).toBe(true);
+    }
+  });
+
   it('shows the catalogue message and the register-again link only after a rejection', async () => {
     rejectActivationCode();
 
@@ -76,4 +91,18 @@ describe.each([
     });
     expect(screen.queryByTestId('register-again-link')).toBeNull();
   });
+});
+
+it('accepts a formatted activation code pasted from a message', async () => {
+  const bodies: unknown[] = [];
+  acceptActivation(bodies);
+  await renderForm('en', <ActivationForm />);
+  fillActivation();
+  const code = screen.getByTestId('activate-code-input');
+  expect(code).toHaveProperty('maxLength', -1);
+  fireEvent.change(code, { target: { value: '123 456' } });
+  fireEvent.submit(screen.getByTestId('activate-form'));
+
+  await waitFor(() => expect(bodies).toHaveLength(1));
+  expect(bodies[0]).toMatchObject({ code: '123456' });
 });
