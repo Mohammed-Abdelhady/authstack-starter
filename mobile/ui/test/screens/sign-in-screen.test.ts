@@ -52,7 +52,7 @@ describe.each(LOCALES)('the sign-in screen in %s', (locale) => {
 
     expect(textsOf(byTestId(app.root, TEST_ID.SIGN_IN_SCREEN)).slice(0, 2)).toEqual([
       app.t('signIn.title', { appName: APP_NAME }),
-      app.t('signIn.description'),
+      app.t('native.description'),
     ]);
     expect(shown(app)).toEqual({
       button: button(app, 'signIn.action', false),

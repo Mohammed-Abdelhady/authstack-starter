@@ -60,9 +60,13 @@ describe('screens take their text styles from the type roles', () => {
     .filter((file) => file.endsWith('.tsx'))
     .map((file) => ({ file, source: readFileSync(join(SCREENS, file), 'utf8') }));
 
-  it('finds the three screens', () => {
+  it('finds the account and sign-in screens', () => {
     expect(sources.map(({ file }) => file).sort()).toEqual([
       'AccountScreen.tsx',
+      'NativeCodeScreen.tsx',
+      'NativeConsentScreen.tsx',
+      'NativeCredentialScreen.tsx',
+      'NativeSecondFactorScreen.tsx',
       'SessionsScreen.tsx',
       'SignInScreen.tsx',
     ]);
