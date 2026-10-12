@@ -431,7 +431,8 @@
         "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts",
-        "mobile/ui/test/native-name.test.ts"
+        "mobile/ui/test/native-name.test.ts",
+        "backend/test/native/attempts/native-application-label.e2e-spec.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
@@ -450,7 +451,8 @@
         "backend/src/auth/oauth/strategies/google-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts",
         "mobile/expo/test/native-sign-in-readiness.test.ts",
-        "mobile/cli/test/native-sign-in-readiness.test.ts"
+        "mobile/cli/test/native-sign-in-readiness.test.ts",
+        "backend/test/native/attempts/native-account-email.e2e-spec.ts"
       ],
       "packages": ["react-native-nitro-google-signin", "react-native-nitro-modules"],
       "envVars": [
@@ -771,7 +773,8 @@
         "backend/src/auth/oauth/strategies/oidc-oauth.harness-spec.ts",
         "backend/src/auth/oauth/utils/oidc-discovery.util.ts",
         "backend/src/auth/oauth/utils/oidc-discovery.util.spec.ts",
-        "backend/src/auth/oauth/utils/oidc-settings.util.ts"
+        "backend/src/auth/oauth/utils/oidc-settings.util.ts",
+        "backend/test/native/providers/native-provider-label.e2e-spec.ts"
       ],
       "envVars": [
         "OAUTH_OIDC_CLIENT_ID",
