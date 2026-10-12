@@ -8,7 +8,7 @@ import {
   ScriptedTransport,
   successUserReply,
   testPorts,
-  readQueryValues,
+  readQueryValues, // feature:locale-ar
 } from '../support/support';
 import { ATTEMPT_ID, startReply } from './native-fixtures';
 
@@ -119,6 +119,7 @@ describe('native flow completion', () => {
     expect(JSON.stringify(cold.snapshot)).not.toContain('mail-token');
   });
 
+  // feature:locale-ar:start
   it('adds validated browser selectors and rejects a contradictory provider flow', async () => {
     const ports = testPorts(new ScriptedTransport());
     const engine = createAuthEngine(CONFIG, ports);
@@ -135,6 +136,7 @@ describe('native flow completion', () => {
     expect(query.get('flow')).toBe('signIn');
     expect(query.get('locale')).toBe('ar');
   });
+  // feature:locale-ar:end
 
   it('returns signed out only after the recovery server confirms a password update', async () => {
     const transport = new ScriptedTransport();
