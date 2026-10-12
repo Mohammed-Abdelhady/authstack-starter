@@ -14,9 +14,12 @@ in their `app.json` as the client ID. The default Expo callback is
 
 The `signIn` object controls the methods allowed for each native application.
 These settings also depend on the corresponding backend feature being enabled.
+<!-- feature:native-cli:start -->
+
 The bare shell's client ID and callback are defined in
 `mobile/cli/src/constants.ts`; its defaults are `native-app` and
 `mobilecli://auth/callback`. Register those values when using that shell.
+<!-- feature:native-cli:end -->
 
 ```json
 {
@@ -54,9 +57,13 @@ Keep the registered callback and the engine's `redirectUri` identical.
 
 Expo reads `EXPO_PUBLIC_API_ORIGIN` at bundle time. Its Debug builds fall back
 to `http://localhost:5001`; production builds require an explicit origin.
+Physical devices need a reachable HTTPS API address.
+<!-- feature:native-cli:start -->
+
 The bare shell reads its development and production API origins from
 `mobile/cli/src/constants.ts`. Replace the production placeholder before building
-for release. Physical devices need a reachable HTTPS API address.
+for release.
+<!-- feature:native-cli:end -->
 
 <!-- feature:oauth-core:start -->
 
