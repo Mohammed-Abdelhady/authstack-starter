@@ -55,6 +55,11 @@ scheme requires the backend's explicit development custom-scheme policy.
 Production deployments should use the project's validated HTTPS app-link setup.
 Keep the registered callback and the engine's `redirectUri` identical.
 
+Native relying party IDs have a limit of 160 UTF-16 units. Provider SDK client
+and application IDs have a limit of 128. The backend rejects longer native
+configuration values at startup. Application and provider labels are trimmed,
+normalized and shortened for native screens without changing stored settings.
+
 Expo reads `EXPO_PUBLIC_API_ORIGIN` at bundle time. Its Debug builds fall back
 to `http://localhost:5001`; production builds require an explicit origin.
 Physical devices need a reachable HTTPS API address.
