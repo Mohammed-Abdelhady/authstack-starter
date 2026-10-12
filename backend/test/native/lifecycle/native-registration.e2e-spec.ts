@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
+import { AccountProfileStore } from '../../../src/user/stores/account-profile.store';
 import {
   MAIL_COUNTER_PURPOSE,
   MAILED_CODE_LIMIT_PER_ADDRESS,
@@ -201,6 +202,28 @@ describe('native registration lifecycle contract', () => {
     expect(response.body.error.code).toBe(ErrorCode.VALIDATION_ERROR);
     expect((await storedAttempt(e2e, attempt)).phase).toBe(
       NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
+    );
+  });
+
+  it('persists a 100 character supplementary name and passes the real response into the native SDK', async () => {
+    const name = '\u{10400}'.repeat(100);
+    const attempt = await startLifecycleAttempt(e2e, 'registration');
+    await requestCode(attempt, EMAIL).expect(200);
+    const code = await e2e.mailedCode();
+    const activated = await postLifecycle(e2e, attempt, 'activate', {
+      email: EMAIL,
+      code,
+      password: PASSWORD,
+      name,
+    }).expect(200);
+    expect(parseLifecycleResult(activated)).toMatchObject({
+      stage: 'consentRequired',
+      account: { name },
+    });
+    const id = await e2e.state.accounts.accountIdFor(EMAIL);
+    if (!id) throw new Error('activated account was not persisted');
+    expect((await e2e.app.get(AccountProfileStore).findAccount(id))?.name).toBe(
+      name,
     );
   });
 });
