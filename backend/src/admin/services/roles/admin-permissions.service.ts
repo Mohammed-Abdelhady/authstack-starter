@@ -106,7 +106,7 @@ export class AdminPermissionsService {
     change: 'grant' | 'revoke',
   ): Promise<StoredAccount> {
     try {
-      return await this.runner.run(async (unitOfWork) => {
+      return await this.runner.runForAuthority(actorId, async (unitOfWork) => {
         const target = await this.loadAuthorizedTarget(
           unitOfWork,
           userId,

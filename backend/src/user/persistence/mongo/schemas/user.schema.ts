@@ -65,6 +65,10 @@ export class User {
   @Prop({ type: Number, default: 0 })
   issuanceFence!: number;
 
+  /** A grant writes this so a concurrent loss of authority conflicts. */
+  @Prop({ type: Number, select: false })
+  grantAuthorityFence?: number;
+
   /**
    * Bumped each time an admin moves this account to a new address. An
    * email-change code is bound to the generation it was issued under, so a

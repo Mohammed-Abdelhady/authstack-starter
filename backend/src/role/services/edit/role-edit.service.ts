@@ -98,7 +98,7 @@ export class RoleEditService {
     const id = roleId.toString();
     const requestedSlug = dto.name ? generateSlug(dto.name) : undefined;
     try {
-      const outcome = await this.runner.run((unitOfWork) =>
+      const outcome = await this.runner.runForAuthority(actorId, (unitOfWork) =>
         this.editInWork(unitOfWork, id, dto, actorId),
       );
       outcome.usersMoved += await this.repair(
@@ -114,7 +114,7 @@ export class RoleEditService {
   async delete(roleId: RoleIdInput, actorId: string): Promise<void> {
     const id = roleId.toString();
     try {
-      const owed = await this.runner.run((unitOfWork) =>
+      const owed = await this.runner.runForAuthority(actorId, (unitOfWork) =>
         this.deleteInWork(unitOfWork, id, actorId),
       );
       await this.repair(owed.ownerId, owed.refs, owed.recorded);

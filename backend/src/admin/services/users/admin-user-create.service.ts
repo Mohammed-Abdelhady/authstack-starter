@@ -64,47 +64,50 @@ export class AdminUserCreateService {
     let assignmentRef: AssignedRoleRef | undefined;
     let transactionAcknowledged = false;
     try {
-      const outcome = await this.runner.run(async (unitOfWork) => {
-        const assignedRole = await this.accounts.readRoleBySlug(
-          unitOfWork,
-          role,
-        );
-        if (!assignedRole) {
-          throw new AppException(
-            ErrorCode.ROLE_NOT_FOUND,
-            `Role "${role}" does not exist`,
-            HttpStatus.NOT_FOUND,
+      const outcome = await this.runner.runForAuthority(
+        actorId,
+        async (unitOfWork) => {
+          const assignedRole = await this.accounts.readRoleBySlug(
+            unitOfWork,
+            role,
           );
-        }
-        await this.accessService.assertFreshActorCanModify(
-          actorId,
-          assignedRole.slug,
-          unitOfWork,
-        );
-        await assertActorHoldsRole(
-          this.roleChanges,
-          unitOfWork,
-          actorId,
-          USER_PERMISSIONS.CREATE_ALL,
-          assignedRole.slug,
-        );
-        const newUser = await this.accounts.insertAccount(unitOfWork, {
-          email,
-          name,
-          passwordHash: hashedPassword,
-          role: assignedRole.slug,
-        });
-        createdUserId = newUser.id;
-        assignmentRef = {
-          roleId: assignedRole.id,
-          assignedSlug: assignedRole.slug,
-          created: {
-            updatedAt: newUser.updatedAt,
-            sessionVersion: newUser.sessionVersion,
-          },
-        };
-        return { newUser, roleId: assignedRole.id };
-      });
+          if (!assignedRole) {
+            throw new AppException(
+              ErrorCode.ROLE_NOT_FOUND,
+              `Role "${role}" does not exist`,
+              HttpStatus.NOT_FOUND,
+            );
+          }
+          await this.accessService.assertFreshActorCanModify(
+            actorId,
+            assignedRole.slug,
+            unitOfWork,
+          );
+          await assertActorHoldsRole(
+            this.roleChanges,
+            unitOfWork,
+            actorId,
+            USER_PERMISSIONS.CREATE_ALL,
+            assignedRole.slug,
+          );
+          const newUser = await this.accounts.insertAccount(unitOfWork, {
+            email,
+            name,
+            passwordHash: hashedPassword,
+            role: assignedRole.slug,
+          });
+          createdUserId = newUser.id;
+          assignmentRef = {
+            roleId: assignedRole.id,
+            assignedSlug: assignedRole.slug,
+            created: {
+              updatedAt: newUser.updatedAt,
+              sessionVersion: newUser.sessionVersion,
+            },
+          };
+          return { newUser, roleId: assignedRole.id };
+        },
+      );
       transactionAcknowledged = true;
       const { newUser } = outcome;
       const liveRole = await reconcileAssignedRole({

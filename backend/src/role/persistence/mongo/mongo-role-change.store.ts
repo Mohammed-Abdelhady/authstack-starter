@@ -50,11 +50,19 @@ export class MongoRoleChangeStore extends RoleChangeStore {
     unitOfWork: UnitOfWork,
     actorId: string,
   ): Promise<RoleActorRecord | null> {
+    const session = mongoSessionOf(unitOfWork);
     const actor = await this.userModel
       .findById(toObjectId(actorId))
-      .session(mongoSessionOf(unitOfWork))
+      .session(session)
       .exec();
     if (!actor) return null;
+    if (!actor.isDeleted) {
+      await this.userModel.updateOne(
+        { _id: actor._id },
+        { $inc: { grantAuthorityFence: 1 } },
+        { session, timestamps: false },
+      );
+    }
     return {
       isDeleted: Boolean(actor.isDeleted),
       roleSlug: actor.role,
@@ -81,6 +89,18 @@ export class MongoRoleChangeStore extends RoleChangeStore {
       .findOne({ slug })
       .session(mongoSessionOf(unitOfWork))
       .exec();
+    return this.remember(unitOfWork, role);
+  }
+
+  async readRoleAuthorityBySlug(
+    unitOfWork: UnitOfWork,
+    slug: string,
+  ): Promise<StoredRole | null> {
+    const role = await this.roleModel.findOneAndUpdate(
+      { slug },
+      { $inc: { grantAuthorityFence: 1 } },
+      { new: true, session: mongoSessionOf(unitOfWork), timestamps: false },
+    );
     return this.remember(unitOfWork, role);
   }
 
