@@ -106,6 +106,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
           autoComplete="username"
+          required
           busy={isLoading}
           autoFocus
           onBlur={onEmailBlur}
@@ -117,6 +118,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           label={t('password')}
           placeholder={tCommon('passwordPlaceholder')}
           autoComplete="current-password"
+          required
           busy={isLoading}
           showToggle={false}
           onBlur={onPasswordBlur}
