@@ -183,7 +183,10 @@ describe('native auth response parsers', () => {
         fields: { email: 'user@example.com', activationCompleted: false },
       },
       { stage: 'recoveryCodeRequired', fields: { email: 'user@example.com' } },
-      { stage: 'secondFactorRequired', fields: { factors: ['totp', 'recoveryCode'] } },
+      {
+        stage: 'secondFactorRequired',
+        fields: { factors: ['totp', 'recoveryCode'], activationCompleted: true },
+      },
       {
         stage: 'consentRequired',
         fields: {
