@@ -43,12 +43,11 @@ export function UserPermissionsSummary({
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {t('totalPermissions', { count: totalCount })} (
-              {t('inheritedAndDirect', {
+              {t('summary', {
+                total: t('totalPermissions', { count: totalCount }),
                 inherited: inheritedCount,
                 direct: directCount,
               })}
-              )
             </p>
           </div>
         </div>
