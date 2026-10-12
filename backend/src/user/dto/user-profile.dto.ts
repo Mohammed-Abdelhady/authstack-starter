@@ -1,3 +1,5 @@
+import { DEVICE_KIND } from '../../common/constants/session';
+import type { DeviceParts } from '@app/sdk';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -107,6 +109,26 @@ export class UserProfileDto {
   updatedAt?: Date;
 }
 
+export class DevicePartsDto implements DeviceParts {
+  @ApiProperty({
+    enum: Object.values(DEVICE_KIND),
+    example: DEVICE_KIND.BROWSER,
+  })
+  kind!: DeviceParts['kind'];
+
+  @ApiProperty({ required: false, example: 'Chrome' })
+  browserName?: string;
+
+  @ApiProperty({ required: false, example: '140' })
+  browserMajorVersion?: string;
+
+  @ApiProperty({ required: false, example: 'macOS' })
+  platformName?: string;
+
+  @ApiProperty({ required: false, example: '10.15' })
+  platformVersion?: string;
+}
+
 /**
  * DTO for session information.
  */
@@ -118,7 +140,7 @@ export class SessionDto {
   id!: string;
 
   @ApiProperty({
-    description: 'User agent string from browser',
+    description: 'User agent string from the HTTP client',
     example: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
   })
   userAgent!: string;
@@ -135,6 +157,14 @@ export class SessionDto {
     required: false,
   })
   deviceName?: string;
+
+  @ApiProperty({
+    description:
+      'Language-neutral device parts derived from the stored user agent. Library and kernel versions are not platform versions.',
+    required: false,
+    type: () => DevicePartsDto,
+  })
+  deviceParts?: DeviceParts;
 
   @ApiProperty({
     description: 'Session creation timestamp',

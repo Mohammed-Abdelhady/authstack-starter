@@ -14,8 +14,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@app/device-key": "workspace:*",
     "@app/native-adapters": "workspace:*",
     "@app/native-auth": "workspace:*",
+    "@app/native-ui": "workspace:*",
     "@app/sdk": "workspace:*",
     "@babel/runtime": "7.29.7",
     "expo": "57.0.26",
@@ -26,7 +28,8 @@
     "expo-web-browser": "57.0.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-native": "0.86.3"
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "5.7.0"
   },
   "devDependencies": {
     "@app/metro-config": "workspace:*",

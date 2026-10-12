@@ -1,5 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
 import { AuthSessionError } from '@app/native-auth';
 import {
   ApiError,
@@ -7,11 +6,6 @@ import {
   TransportError,
   createApiClient,
 } from '@app/sdk';
-import type { Model } from 'mongoose';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
 import { bootE2eApp, type E2eApp } from '../../utils/e2e-app';
 import { TEST_NOW } from '../../utils/frozen-clock';
 import {
@@ -23,7 +17,7 @@ import {
   createNativeApplication,
   NATIVE_CLIENT_ID,
 } from '../../utils/native/native-authorize.fixtures';
-import { SESSION_AUTHORITY_BOOT_TIMEOUT_MS } from '../../utils/session-authority-harness';
+import { SESSION_AUTHORITY_BOOT_TIMEOUT_MS } from '../../utils/hook-timeouts';
 import {
   isRefreshBody,
   openEngine,
@@ -260,15 +254,9 @@ describe('native auth engine against the server', () => {
   it('exchanges a loopback callback on the runtime-selected port', async () => {
     const registeredRedirect = 'http://127.0.0.1/callback';
     const runtimeRedirect = 'http://127.0.0.1:49152/callback';
-    const applications = e2e.app.get<Model<ApplicationDocument>>(
-      getModelToken(Application.name),
-    );
-    await applications
-      .updateOne(
-        { clientId: NATIVE_CLIENT_ID },
-        { $set: { redirectUris: [registeredRedirect] } },
-      )
-      .exec();
+    await e2e.state.applications.changeApplication(NATIVE_CLIENT_ID, {
+      redirectUris: [registeredRedirect],
+    });
     const { engine, requests } = await openEngine(e2e, runtimeRedirect);
 
     const outcome = await engine.signIn();

@@ -1,6 +1,6 @@
 # Passkeys Setup Guide
 
-This guide explains how to turn passkeys on: signing in with the fingerprint reader, face scan or device PIN the user already unlocks their machine with, and no password anywhere in the flow.
+This guide explains how to turn passkeys on: signing in with the fingerprint reader, face scan or device PIN the user already unlocks their machine with.
 
 ## Overview
 
@@ -14,7 +14,7 @@ A passkey is a key pair. The private half stays on the authenticator, which is t
 
 No email address is asked for at any point. The credentials are discoverable, so the browser lists the accounts it holds for this site and the user picks one.
 
-**What this needs**: `OAUTH_STATE_SECRET`, which is required at boot anyway. No SMTP, no extra service.
+**What this needs**: `OAUTH_STATE_SECRET`, which is required at boot anyway. Set `PASSKEY_CHALLENGE_SECRET` to separate passkey challenge signatures from OAuth state. No extra service is required.
 
 ---
 
@@ -26,9 +26,15 @@ Add to `backend/.env`:
 PASSKEYS_ENABLED=true
 ```
 
-That is the whole minimum. The relying party settings below default from `CLIENT_URL`, which is right whenever the browser reaches the app at that URL.
+This enables passkey routes. The relying party settings below default from `CLIENT_URL`, which is right whenever the browser reaches the app at that URL.
 
-The challenge cookie is signed with a key derived from `OAUTH_STATE_SECRET` using HKDF under a passkey-specific label, so it cannot stand in for the OAuth state key or the other way round. Without that secret the passkey routes answer `503 PASSKEY_NOT_CONFIGURED`.
+### First account on a fresh database
+
+A passkey is enrolled from a signed-in account. A fresh database has no account or session, so selecting only `passkeys` cannot create its first account. Start with `email-password` and `passkeys` (or another working account creation and sign-in method), create and verify an account, sign in, and register its passkey. Confirm that passkey sign-in works before disabling password sign-in.
+
+A generated passkeys-only project can serve an **existing** database whose users already enrolled passkeys. Keep that database and the same `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN`; changing the RP ID makes existing credentials unusable. Removing password routes does not remove stored accounts or credentials. A fresh passkeys-only database needs another enrollment path before users can sign in.
+
+New challenge cookies use a key derived from `PASSKEY_CHALLENGE_SECRET` when set. An unset dedicated secret keeps the existing OAuth-derived key working. During rotation, set `PASSKEY_CHALLENGE_SECRET_PREVIOUS` to the former dedicated secret until all five-minute ceremonies finish, then remove it. To accept cookies issued before introducing the dedicated secret, set `PASSKEY_CHALLENGE_LEGACY_UNTIL` to an ISO timestamp no more than five minutes ahead. Remove that setting after the deadline. Without either a dedicated secret or `OAUTH_STATE_SECRET`, passkey routes answer `503 PASSKEY_NOT_CONFIGURED`.
 
 ---
 
@@ -64,8 +70,10 @@ Behind a reverse proxy, set `WEBAUTHN_ORIGIN` explicitly to the public URL. The 
 | ------------------ | ------------------------------------------------ | ------------------------ |
 | `PASSKEYS_ENABLED` | Turns the `/auth/passkeys` routes on or off      | `true`                   |
 | `WEBAUTHN_RP_ID`   | Domain the credentials are bound to, a bare host | hostname of `CLIENT_URL` |
-| `WEBAUTHN_RP_NAME` | Name shown in the browser prompt                 | the app name             |
+| `WEBAUTHN_RP_NAME` | Name shown in the browser prompt                 | `Auth App`               |
 | `WEBAUTHN_ORIGIN`  | Origin the browser has to be on                  | origin of `CLIENT_URL`   |
+
+The web app and passkey prompt now default to `Auth App`. Set `WEBAUTHN_RP_NAME` when your deployment uses a different name.
 
 Setting `PASSKEYS_ENABLED=false` closes the routes with `404 FEATURE_DISABLED` and makes `GET /api/auth/methods` report `passkeys: false`.
 
@@ -148,6 +156,14 @@ DELETE /api/auth/passkeys/:id
 
 Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the account's only passkey **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes.
 
+The list answer carries the same decision ahead of time, so a page can say why before anyone tries:
+
+```json
+{ "passkeys": [{ "id": "…", "name": "Laptop" }], "canRemove": false }
+```
+
+`canRemove` is `false` when a delete would be refused with `PASSKEY_LAST_SIGN_IN_METHOD` right now. It comes from the rule the delete asks, and it is advice: the delete still decides, so a page handles the `409` as well. The field is optional. A client that does not know it can ignore it.
+
 ---
 
 ## Passkeys and the second factor
@@ -155,6 +171,8 @@ Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the account'
 A passkey that verified the user, with a PIN, a fingerprint or a face scan, has collected two factors in one gesture: the key on the device, and something only its owner can supply. That sign-in is let through even on an account with TOTP enabled, which is what WebAuthn is designed for and what the platforms do.
 
 A passkey that only proved possession, with no user verification, still owes the code. That sign-in answers `requiresTwoFactor: true` and leaves the `mfa_challenge` cookie, exactly like the password path.
+
+A security key used without a PIN or a biometric cannot be both steps. After it opens the sign-in, the second step refuses any passkey that does not verify the user, and the person finishes with their code or a recovery code.
 
 A passkey can also answer a challenge that some other method opened. The client fetches `POST /api/auth/passkeys/login/options` while the `mfa_challenge` cookie is set, then posts the assertion to the two-factor route:
 

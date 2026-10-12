@@ -1,0 +1,28 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "testPathIgnorePatterns": ["/node_modules/", "\\.mongo\\.e2e-spec\\.ts$"],
+  "globalSetup": "<rootDir>/postgres/e2e/postgres-global-setup.ts",
+  "globalTeardown": "<rootDir>/postgres/e2e/postgres-global-teardown.ts",
+  "setupFiles": [
+    "<rootDir>/postgres/e2e/postgres-run-setting.ts",
+    "<rootDir>/postgres/e2e/select-postgres.ts"
+  ],
+  "transform": {
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": {
+          "allowJs": true
+        }
+      }
+    ]
+  },
+  "transformIgnorePatterns": [
+    "/node_modules/(?!(.*/)?(jose|@scure/base|@noble/hashes|@simplewebauthn|@nestjs/mongoose)/)"
+  ],
+  "testTimeout": 60000,
+  "maxWorkers": 1
+}

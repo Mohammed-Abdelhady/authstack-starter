@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
-import { useUi } from '../context/ui-context';
+import { usePaint } from '../context/paint-context';
 import { runMotion } from '../logic/motion';
 import { MOTION } from '../theme/tokens';
 
@@ -8,7 +8,7 @@ const REST_SCALE = 1;
 
 /** A control that gives a little under the finger. With reduced motion it stays still. */
 export function usePressMotion() {
-  const { reduceMotion } = useUi();
+  const { reduceMotion } = usePaint();
   const scale = useRef(new Animated.Value(REST_SCALE)).current;
 
   const stop = useRef<(() => void) | undefined>(undefined);

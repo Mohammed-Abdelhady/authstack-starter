@@ -12,8 +12,10 @@ coverage
 **/playwright-report
 **/blob-report
 **/.auth
+# feature:mongodb:start
 **/.mongodb-binaries
 **/mongodb-memory-server
+# feature:mongodb:end
 **/*.pem
 **/*.key
 **/*.crt

@@ -5,9 +5,9 @@ import { ErrorCode } from '../../common/enums/error-code.enum';
 import { CSRF_HEADER } from '../../session/constants/browser-proof';
 import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
 import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
-import { ApplicationRegistryService } from '../../session/services/application-registry.service';
+import { ApplicationRegistry } from '../../session/applications/application-registry';
 import { BrowserProofService } from '../../session/services/browser-proof.service';
-import { SessionService } from '../services/sessions/session.service';
+import { Sessions } from '../services/sessions/sessions';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { BrowserProofGuard } from './browser-proof.guard';
@@ -50,9 +50,9 @@ describe('BrowserProofGuard', () => {
         BrowserProofGuard,
         Reflector,
         { provide: SessionCookieService, useValue: sessionCookie },
-        { provide: SessionService, useValue: sessions },
+        { provide: Sessions, useValue: sessions },
         { provide: BrowserProofService, useValue: proofs },
-        { provide: ApplicationRegistryService, useValue: applications },
+        { provide: ApplicationRegistry, useValue: applications },
       ],
     }).compile();
 

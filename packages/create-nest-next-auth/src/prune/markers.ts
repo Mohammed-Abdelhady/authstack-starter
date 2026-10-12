@@ -85,6 +85,25 @@ export function stripFeatureMarkers(
 }
 
 /**
+ * Takes the marker comments off and keeps every marked line, for a file that
+ * goes to a project this template's choices do not apply to.
+ */
+export function withoutMarkerComments(content: string, file: string): string {
+  if (!content.includes('feature:')) return content;
+  const ids = new Set<string>();
+  for (const [index, line] of content.split('\n').entries()) {
+    const match = MARKER.exec(line);
+    if (match === null) continue;
+    const token = (match[1] ?? match[2]).trim();
+    const list = token.split(':')[0];
+    if (list === '')
+      throw new MarkerError(file, index + 1, `has a malformed feature marker: ${token}`);
+    for (const id of list.split(',')) ids.add(id);
+  }
+  return stripFeatureMarkers(content, file, ids, ids).content;
+}
+
+/**
  * Applies stripFeatureMarkers to every source file under `root`. Files with no
  * marker are left untouched, so the result differs from the template only where
  * a marker sat.

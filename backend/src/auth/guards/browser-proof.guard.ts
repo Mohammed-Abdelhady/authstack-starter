@@ -11,7 +11,7 @@ import { ErrorCode } from '../../common/enums/error-code.enum';
 import { SKIP_BROWSER_PROOF } from '../decorators/skip-browser-proof.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
-import { SessionService } from '../services/sessions/session.service';
+import { Sessions } from '../services/sessions/sessions';
 import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
 import {
   CSRF_HEADER,
@@ -19,12 +19,9 @@ import {
   UNSAFE_METHODS,
 } from '../../session/constants/browser-proof';
 import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
-import {
-  LeanSession,
-  SessionDocument,
-} from '../../session/schemas/session.schema';
+import { AuthenticatedSession } from '../../session/authority/authenticated-session';
+import { ApplicationRegistry } from '../../session/applications/application-registry';
 import { BrowserProofService } from '../../session/services/browser-proof.service';
-import { ApplicationRegistryService } from '../../session/services/application-registry.service';
 import { decideOrigin } from '../../session/utils/request/request-origin';
 import { secretEquals } from '../../session/utils/hashing/token-hash';
 import { readBearerToken } from '../../session/native/access/native-access.service';
@@ -44,9 +41,9 @@ export class BrowserProofGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly sessionCookie: SessionCookieService,
-    private readonly sessions: SessionService,
+    private readonly sessions: Sessions,
     private readonly proofs: BrowserProofService,
-    private readonly applications: ApplicationRegistryService,
+    private readonly applications: ApplicationRegistry,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -137,7 +134,7 @@ export class BrowserProofGuard implements CanActivate {
   private async sessionForProof(
     request: RequestWithUser,
     isPublic: boolean,
-  ): Promise<LeanSession | SessionDocument | undefined> {
+  ): Promise<AuthenticatedSession | undefined> {
     if (request.session) {
       return request.session;
     }
@@ -156,7 +153,7 @@ export class BrowserProofGuard implements CanActivate {
 
   private async rejectUntrustedOrigin(
     request: RequestWithUser,
-    session: LeanSession | SessionDocument | undefined,
+    session: AuthenticatedSession | undefined,
   ): Promise<void> {
     const clientId = session?.clientId || WEB_CLIENT_ID;
     const application = await this.applications.findByClientId(clientId);
@@ -176,7 +173,7 @@ export class BrowserProofGuard implements CanActivate {
   }
 
   private assertSessionToken(
-    session: LeanSession | SessionDocument,
+    session: AuthenticatedSession,
     presented: string,
   ): void {
     if (!this.hasSessionToken(session, presented)) {
@@ -189,7 +186,7 @@ export class BrowserProofGuard implements CanActivate {
   }
 
   private hasSessionToken(
-    session: LeanSession | SessionDocument,
+    session: AuthenticatedSession,
     presented: string,
   ): boolean {
     const stored = session.csrfToken;

@@ -1,7 +1,8 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import { z } from 'zod';
 import { FormProvider } from 'react-hook-form';
@@ -9,23 +10,30 @@ import { MailCheck, Send } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { Button } from '@/components/ui/button';
-import { zodEmail, parseApiError } from '@app/core';
+import { zodEmail } from '@app/core';
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
 import { isNativeAuthorizeContinuation } from '@/modules/auth/constants/nativeAuthorize';
 import { getRedirectPath } from '@/modules/auth/utils';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import type { AuthMethodFormProps } from '../types';
 import { useRequestMagicLinkMutation } from './magicLinkApi';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /** Seconds before the same address may ask for another link. */
 const RESEND_COOLDOWN_SECONDS = 60;
 
-const createMagicLinkSchema = (t: (key: string) => string) =>
+/** @param tSignIn - The sign-in page's messages, so both of its forms word an address error alike */
+const createMagicLinkSchema = (tSignIn: (key: string) => string) =>
   z.object({
     email: zodEmail({
       required: true,
-      messages: { required: t('errors.emailRequired'), invalid: t('errors.emailInvalid') },
+      messages: {
+        required: tSignIn('errors.emailRequired'),
+        invalid: tSignIn('errors.emailInvalid'),
+      },
     }),
   });
 
@@ -39,18 +47,21 @@ type MagicLinkFormData = z.infer<ReturnType<typeof createMagicLinkSchema>>;
  */
 export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormProps) {
   const t = useTranslations('auth.magicLink');
-  const tCodes = useTranslations('errors.codes');
+  const tSignIn = useTranslations('auth.login');
+  const tCommon = useTranslations('common');
+  const refusalText = useRefusalText();
   const [requestMagicLink, { isLoading }] = useRequestMagicLinkMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
   const [sentTo, setSentTo] = useState<string | null>(null);
   const { secondsLeft, isCooling, start: startCooldown } = useCooldown(RESEND_COOLDOWN_SECONDS);
 
-  const schema = useMemo(() => createMagicLinkSchema(t), [t]);
+  const schema = useMemo(() => createMagicLinkSchema(tSignIn), [tSignIn]);
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
 
   const {
     handleSubmit,
@@ -59,14 +70,22 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
     getValues,
   } = form;
 
-  const send = useCallback(
+  // The form gives way to the confirmation, which then takes the focus.
+  const sentHeadingRef = useRef<HTMLHeadingElement>(null);
+  const { arm, handTo } = useFocusHandOff();
+  useEffect(() => {
+    if (sentTo !== null) handTo(sentHeadingRef.current);
+  }, [handTo, sentTo]);
+
+  const sendLink = useCallback(
     async (email: string) => {
       // Only the native authorize continuation is worth carrying through the
       // link, and only its validated value is sent, never the raw query string.
       const validated = getRedirectPath(redirect, '');
       const continuation = isNativeAuthorizeContinuation(validated) ? validated : undefined;
       try {
-        await requestMagicLink({ email, redirect: continuation }).unwrap();
+        arm();
+        await showsOwnRefusal(requestMagicLink({ email, redirect: continuation })).unwrap();
         setSentTo(email);
         startCooldown();
       } catch (err) {
@@ -74,15 +93,12 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
         if (handleFeatureDisabled(err)) {
           return;
         }
-        const code = translatableErrorCode(err, '');
-        setError('root', {
-          type: 'manual',
-          message: code ? tCodes(code) : parseApiError(err).message || t('error'),
-        });
+        setError('root', { type: 'manual', message: refusalText(err) });
       }
     },
-    [handleFeatureDisabled, redirect, requestMagicLink, setError, startCooldown, t, tCodes],
+    [arm, handleFeatureDisabled, redirect, refusalText, requestMagicLink, setError, startCooldown],
   );
+  const send = useSingleFlight(sendLink);
 
   const onSubmit = useCallback(async (data: MagicLinkFormData) => send(data.email), [send]);
 
@@ -90,18 +106,27 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
 
   if (sentTo !== null) {
     return (
-      <div className="mx-auto max-w-xs text-center" role="status" data-testid="magic-link-sent">
-        <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
-        <Heading level={3} variant="sectionTitle" className="mt-3">
-          {t('sentTitle')}
-        </Heading>
-        <Description className="mt-2">{t('sentBody', { email: sentTo })}</Description>
+      <div className="mx-auto max-w-xs text-center" data-testid="magic-link-sent">
+        <div role="status">
+          <MailCheck className="mx-auto h-8 w-8 text-primary" aria-hidden="true" />
+          <Heading
+            level={2}
+            variant="sectionTitle"
+            className="mt-3"
+            ref={sentHeadingRef}
+            tabIndex={-1}
+          >
+            {t('sentTitle')}
+          </Heading>
+          <Description className="mt-2">{t('sentBody', { email: sentTo })}</Description>
+        </div>
         <Button
           type="button"
           variant="ghost"
           className="mt-4 w-full"
           onClick={onResend}
-          disabled={isLoading || isCooling}
+          busy={isLoading || isCooling}
+          aria-busy={isLoading}
           data-testid="magic-link-resend"
         >
           {isCooling ? t('resendCooldown', { seconds: secondsLeft }) : t('resend')}
@@ -133,10 +158,12 @@ export function MagicLinkRequestForm({ isOnlyMethod, redirect }: AuthMethodFormP
           name="email"
           type="email"
           label={t('email')}
-          placeholder="name@example.com"
+          placeholder={tCommon('emailPlaceholder')}
           autoComplete="email"
-          disabled={isLoading}
+          required
+          busy={isLoading}
           autoFocus={isOnlyMethod}
+          onBlur={onEmailBlur}
           data-testid="magic-link-email-input"
         />
 

@@ -50,21 +50,21 @@ Left out entirely, `MAGIC_LINK_ENABLED` follows SMTP: links are on when `SMTP_HO
 
 ## Environment Variables Reference
 
-| Variable                  | Description                                | Default                    |
-| ------------------------- | ------------------------------------------ | -------------------------- |
-| `MAGIC_LINK_ENABLED`      | Turns the routes on or off                 | on when SMTP is configured |
-| `MAGIC_LINK_EXPIRES_IN`   | Link lifetime in milliseconds              | `900000` (15 minutes)      |
-| `MAGIC_LINK_MAX_PER_HOUR` | Links mailed to one address per hour       | `5`                        |
-| `AUTH_PASSWORD_ENABLED`   | Password register, login, forgot and reset | `true`                     |
-| `CLIENT_URL`              | Origin the mailed link points at           | `http://localhost:3000`    |
+| Variable                  | Description                                 | Default                    |
+| ------------------------- | ------------------------------------------- | -------------------------- |
+| `MAGIC_LINK_ENABLED`      | Turns the routes on or off                  | on when SMTP is configured |
+| `MAGIC_LINK_EXPIRES_IN`   | Link lifetime in milliseconds               | `900000` (15 minutes)      |
+| `MAGIC_LINK_MAX_PER_HOUR` | Links mailed to one address per hour        | `5`                        |
+| `AUTH_PASSWORD_ENABLED`   | Password sign-up, sign-in, reset and change | `true`                     |
+| `CLIENT_URL`              | Origin the mailed link points at            | `http://localhost:3000`    |
 
 ---
 
 ## Running magic links on their own
 
-Set `AUTH_PASSWORD_ENABLED=false` alongside `MAGIC_LINK_ENABLED=true`. `POST /api/auth/register`, `/login`, `/forgot-password` and `/reset-password` then answer `404` with the error code `FEATURE_DISABLED`, and `GET /api/auth/methods` reports `password: false`, so a client built against that endpoint stops rendering the password form.
+Set `AUTH_PASSWORD_ENABLED=false` alongside `MAGIC_LINK_ENABLED=true`. `POST /api/auth/register`, `/activate`, `/resend-activation`, `/login`, `/forgot-password` and `/reset-password` then answer `404` with the error code `FEATURE_DISABLED`, as does `POST /api/user/password`, and `GET /api/auth/methods` reports `password: false`, so a client built against that endpoint stops rendering the password form.
 
-Activation, resend and logout stay open. An activation code also confirms an address an administrator moved an account to, which has nothing to do with passwords.
+Logout stays open. So does `POST /api/auth/confirm-email-change`, which confirms an address an administrator moved an account to and has nothing to do with passwords.
 
 Accounts created by a magic link have no password hash. They can request a password later through the reset flow, if password sign-in is on. Accounts that have a password can also sign in with a link; the two methods do not exclude each other.
 

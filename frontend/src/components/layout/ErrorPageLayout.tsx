@@ -39,7 +39,7 @@ export function ErrorPageLayout({
       <main
         id="main"
         tabIndex={-1}
-        className="max-w-screen-xl m-0 sm:m-20 bg-card shadow sm:rounded-lg flex justify-center flex-1 focus-visible:outline-none"
+        className="max-w-screen-xl m-0 sm:m-20 bg-card shadow sm:rounded-lg flex justify-center flex-1 focus-visible:outline-hidden"
         data-testid="error-page-main"
       >
         {/* Start Side - Error Content */}
@@ -65,7 +65,10 @@ export function ErrorPageLayout({
             {/* Error Digest (if available, for debugging) */}
             {errorDigest && (
               <p className="text-sm text-muted-foreground mb-8 font-mono bg-muted px-3 py-2 rounded max-w-md">
-                {errorIdLabel}: {errorDigest}
+                {errorIdLabel}:{' '}
+                <span dir="ltr" data-testid="error-digest">
+                  {errorDigest}
+                </span>
               </p>
             )}
 

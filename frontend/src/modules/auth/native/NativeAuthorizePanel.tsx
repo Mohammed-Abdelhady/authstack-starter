@@ -54,6 +54,14 @@ export function NativeAuthorizePanel({ transaction }: NativeAuthorizePanelProps)
     headingRef.current?.focus();
   }, [view.kind]);
 
+  // The pressed button is disabled while its request runs, which drops focus
+  // to the page. The card stays up for the new account, so put focus back.
+  useEffect(() => {
+    if (view.accountChanged) {
+      headingRef.current?.focus();
+    }
+  }, [view.accountChanged]);
+
   return (
     <>
       <p role="status" aria-live="polite" className="sr-only" data-testid="native-authorize-status">

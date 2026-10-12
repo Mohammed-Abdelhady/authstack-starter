@@ -1,8 +1,6 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, FilterQuery } from 'mongoose';
-import { Role, RoleDocument } from './schemas/role.schema';
-import { User, UserDocument } from '../user/schemas/user.schema';
+import { RoleCatalogStore } from './stores/role-catalog.store';
+import { StoredRole } from './stores/role-records';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { ListRolesQueryDto } from './dto/list-roles-query.dto';
@@ -18,7 +16,6 @@ import {
   generateSlug,
   mapRoleToResponseDto,
 } from './utils/role.util';
-import { escapeRegex } from '../common/utils/escape-regex';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { AppException } from '../common/exceptions/app.exception';
 import { RoleEditService } from './services/edit/role-edit.service';
@@ -28,8 +25,7 @@ export class RoleService {
   private readonly logger = new Logger(RoleService.name);
 
   constructor(
-    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly catalog: RoleCatalogStore,
     private readonly roleEdit: RoleEditService,
   ) {}
 
@@ -39,7 +35,7 @@ export class RoleService {
   async create(dto: CreateRoleDto, actorId: string): Promise<RoleResponseDto> {
     const slug = generateSlug(dto.name);
 
-    const existing = await this.roleModel.findOne({ slug: { $eq: slug } });
+    const existing = await this.catalog.findRoleBySlug(slug);
     if (existing) {
       throw new AppException(
         ErrorCode.ROLE_NAME_TAKEN,
@@ -60,29 +56,11 @@ export class RoleService {
    */
   async findAll(query: ListRolesQueryDto): Promise<RoleListData> {
     const { page = 1, limit = 10, search } = query;
-    const skip = (page - 1) * limit;
-
-    // Build filter
-    const filter: FilterQuery<RoleDocument> = {};
-    if (search) {
-      const escaped = escapeRegex(search);
-      filter.$or = [
-        { name: { $regex: escaped, $options: 'i' } },
-        { slug: { $regex: escaped, $options: 'i' } },
-      ];
-    }
-
-    // Execute queries in parallel
-    const [roles, total] = await Promise.all([
-      this.roleModel
-        .find(filter)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .exec(),
-      this.roleModel.countDocuments(filter),
-    ]);
+    const { roles, total } = await this.catalog.listRoles({
+      search,
+      page,
+      limit,
+    });
 
     const pages = Math.ceil(total / limit);
 
@@ -135,7 +113,7 @@ export class RoleService {
 
     // The previous slug and the rename flag are recomputed inside the work
     // function, so a rename that landed meanwhile is used, not the stale one.
-    const outcome = await this.roleEdit.commit(role._id, dto, actorId);
+    const outcome = await this.roleEdit.commit(role.id, dto, actorId);
 
     // The rename line is written only after the transaction commits, so an
     // aborted attempt cannot report a rename that never landed.
@@ -166,21 +144,21 @@ export class RoleService {
       );
     }
 
-    await this.roleEdit.delete(role._id, actorId);
+    await this.roleEdit.delete(role.id, actorId);
   }
 
   /**
    * Get role by slug (helper method)
    */
-  async getRoleBySlug(slug: string): Promise<RoleDocument | null> {
-    return this.roleModel.findOne({ slug: { $eq: slug } }).exec();
+  async getRoleBySlug(slug: string): Promise<StoredRole | null> {
+    return this.catalog.findRoleBySlug(slug);
   }
 
   /**
    * Check if role is assigned to any users
    */
   async isRoleAssignedToUsers(roleSlug: string): Promise<boolean> {
-    const count = await this.userModel.countDocuments({ role: roleSlug });
+    const count = await this.catalog.countHolders(roleSlug);
     return count > 0;
   }
 
@@ -188,22 +166,14 @@ export class RoleService {
    * Get user count for a role
    */
   async getUserCount(roleSlug: string): Promise<number> {
-    return this.userModel.countDocuments({ role: roleSlug });
+    return this.catalog.countHolders(roleSlug);
   }
 
   /**
    * Find role by ID or slug (private helper)
    */
-  private async findRoleByIdOrSlug(idOrSlug: string): Promise<RoleDocument> {
-    let role: RoleDocument | null;
-
-    // Try finding by MongoDB ObjectId first
-    if (idOrSlug.match(/^[0-9a-fA-F]{24}$/)) {
-      role = await this.roleModel.findById(idOrSlug);
-    } else {
-      // Otherwise treat as slug
-      role = await this.roleModel.findOne({ slug: { $eq: idOrSlug } });
-    }
+  private async findRoleByIdOrSlug(idOrSlug: string): Promise<StoredRole> {
+    const role = await this.catalog.findRole(idOrSlug);
 
     if (!role) {
       throw new AppException(
@@ -221,11 +191,11 @@ export class RoleService {
    */
   private async assertSlugAvailable(
     slug: string,
-    role: RoleDocument,
+    role: StoredRole,
   ): Promise<void> {
-    const existing = await this.roleModel.findOne({ slug: { $eq: slug } });
+    const existing = await this.catalog.findRoleBySlug(slug);
 
-    if (existing && existing._id.toString() !== role._id.toString()) {
+    if (existing && existing.id !== role.id) {
       throw new AppException(
         ErrorCode.ROLE_NAME_TAKEN,
         `Role with slug "${slug}" already exists`,
@@ -253,11 +223,9 @@ export class RoleService {
   }
 
   /**
-   * Map Role document to response DTO
+   * Map a stored role to its response DTO
    */
-  private mapToResponseDto(
-    role: RoleDocument | (Role & { _id: { toString(): string } }),
-  ): RoleResponseDto {
+  private mapToResponseDto(role: StoredRole): RoleResponseDto {
     return mapRoleToResponseDto(role);
   }
 }

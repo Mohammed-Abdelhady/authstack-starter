@@ -1,5 +1,5 @@
 import { ApiResponse } from '../../common/dto/api-response.dto';
-import { AuthenticatedUserSummary } from '../utils/authenticated-user.util';
+import { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
 
 /**
  * Body of activation. Like every sign-in route, an account that owes a second

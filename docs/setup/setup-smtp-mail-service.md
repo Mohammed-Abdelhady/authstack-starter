@@ -29,7 +29,7 @@ export class MailService {
 
   async sendActivationCode(email: string, code: string, name: string) {
     const mailOptions = {
-      from: `"${this.configService.get('EMAIL_FROM_NAME')}" <${this.configService.get('EMAIL_FROM')}>`,
+      from: this.configService.get('EMAIL_FROM'),
       to: email,
       subject: 'Verify Your Email - Activation Code',
       html: `
@@ -47,7 +47,7 @@ export class MailService {
 
   async sendPasswordReset(email: string, code: string, name: string) {
     const mailOptions = {
-      from: `"${this.configService.get('EMAIL_FROM_NAME')}" <${this.configService.get('EMAIL_FROM')}>`,
+      from: this.configService.get('EMAIL_FROM'),
       to: email,
       subject: 'Password Reset Code',
       html: `
@@ -174,23 +174,7 @@ telnet smtp.gmail.com 587
 
 **Cause**: Self-signed SSL certificate.
 
-**Solution**:
-
-```bash
-# Add to .env (development only!)
-SMTP_TLS_REJECT=false
-```
-
-**Backend**:
-
-```typescript
-nodemailer.createTransport({
-  // ...
-  tls: {
-    rejectUnauthorized: process.env.SMTP_TLS_REJECT !== 'false',
-  },
-});
-```
+**Solution**: use a mail host whose certificate this machine trusts, or add the signing authority to the machine. The server always checks the certificate and has no setting that turns the check off. For local work, a mail catcher on a plain port with `SMTP_SECURE=false` avoids the question.
 
 ### Error: "Greeting never received"
 

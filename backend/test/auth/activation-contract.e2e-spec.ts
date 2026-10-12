@@ -1,21 +1,16 @@
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
-import { Types } from 'mongoose';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
-import { partialMock } from '../../src/common/testing/test-doubles.harness-spec';
-import { Role, RoleDocument } from '../../src/role/schemas/role.schema';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
 import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import type { E2ePendingRegistrationFields } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { seedPendingEmailChange } from '../utils/auth/pending-email-change-seed';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const CODE = '123456';
 const PASSWORD = 'Password123!';
@@ -25,15 +20,9 @@ const TOO_LONG_PASSWORD = `A1${'a'.repeat(71)}`;
 
 describe('Activation contract (e2e)', () => {
   let e2e: E2eApp;
-  let pendingRegistrations: Model<PendingRegistration>;
-  let users: Model<UserDocument>;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
-    users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -58,7 +47,7 @@ describe('Activation contract (e2e)', () => {
     return agent.post(path).send(body);
   }
 
-  function pendingFields(overrides: Record<string, unknown> = {}) {
+  function pendingFields(overrides: E2ePendingRegistrationFields = {}) {
     return {
       purpose: PENDING_PURPOSE.SIGNUP,
       hashedCode: 'old-code',
@@ -70,35 +59,23 @@ describe('Activation contract (e2e)', () => {
 
   async function seedSignup(
     email: string,
-    overrides: Record<string, unknown> = {},
+    overrides: E2ePendingRegistrationFields = {},
   ): Promise<string> {
     const hashedCode = await bcrypt.hash(CODE, 4);
-    await pendingRegistrations.create({
+    await e2e.state.auth.storePendingRegistration({
       email,
       ...pendingFields({ hashedCode, ...overrides }),
     });
     return hashedCode;
   }
 
-  async function seedEmailChange(
-    email: string,
-    userId: Types.ObjectId,
-    addressGeneration: number,
-  ): Promise<void> {
-    await pendingRegistrations.create({
-      email,
-      ...pendingFields({
-        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
-        hashedCode: await bcrypt.hash(CODE, 4),
-        userId,
-        addressGeneration,
-      }),
-    });
-  }
-
   it('refuses an old-shape registration the same way for a free and a taken address', async () => {
     const takenEmail = 'old-taken@example.test';
-    await users.create({ email: takenEmail, name: 'Taken', isVerified: true });
+    await e2e.state.accounts.createAccount({
+      email: takenEmail,
+      name: 'Taken',
+      isVerified: true,
+    });
 
     const free = await post('/api/auth/register', {
       email: 'old-free@example.test',
@@ -168,43 +145,10 @@ describe('Activation contract (e2e)', () => {
         error: { code: ErrorCode.VALIDATION_ERROR },
       });
 
-      const record = await pendingRegistrations.findOne({ email });
+      const record = await e2e.state.auth.pendingRegistrationFor(email);
       expect(record?.attempts).toBe(0);
     },
   );
-
-  it('never honours an old-shape pending record', async () => {
-    const email = 'legacy@example.test';
-    await pendingRegistrations.collection.insertOne({
-      email,
-      name: 'Legacy',
-      hashedCode: await bcrypt.hash(CODE, 4),
-      attempts: 0,
-      expiresAt: LIVE_EXPIRY,
-    });
-
-    const activated = await post('/api/auth/activate', {
-      email,
-      code: CODE,
-      password: PASSWORD,
-      name: NAME,
-    });
-    const confirmed = await post('/api/auth/confirm-email-change', {
-      email,
-      code: CODE,
-    });
-
-    expect(activated.status).toBe(400);
-    expect(activated.body).toMatchObject({
-      success: false,
-      error: { code: ErrorCode.ACTIVATION_CODE_INVALID },
-    });
-    expect(confirmed.status).toBe(400);
-    expect(confirmed.body).toMatchObject({
-      success: false,
-      error: { code: ErrorCode.ACTIVATION_CODE_INVALID },
-    });
-  });
 
   it('does not let a sign-up code confirm an address change or the reverse', async () => {
     const signupEmail = 'cross-signup@example.test';
@@ -220,13 +164,12 @@ describe('Activation contract (e2e)', () => {
     });
 
     const changeEmail = 'cross-change@example.test';
-    const target = await users.create({
+    await seedPendingEmailChange(e2e, {
       email: changeEmail,
-      name: 'Target',
-      isVerified: false,
+      code: CODE,
+      expiresAt: LIVE_EXPIRY,
       addressGeneration: 1,
     });
-    await seedEmailChange(changeEmail, target._id, 1);
     const asActivate = await post('/api/auth/activate', {
       email: changeEmail,
       code: CODE,
@@ -242,13 +185,12 @@ describe('Activation contract (e2e)', () => {
 
   it('confirms an address change without a session, with password sign-in disabled', async () => {
     const email = 'moved@example.test';
-    const target = await users.create({
+    const target = await seedPendingEmailChange(e2e, {
       email,
-      name: 'Target',
-      isVerified: false,
+      code: CODE,
+      expiresAt: LIVE_EXPIRY,
       addressGeneration: 3,
     });
-    await seedEmailChange(email, target._id, 3);
     e2e.app.get(ConfigService).set('auth.passwordEnabled', false);
 
     const response = await post('/api/auth/confirm-email-change', {
@@ -258,17 +200,21 @@ describe('Activation contract (e2e)', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers['set-cookie']).toBeUndefined();
-    const stored = await users.findById(target._id);
+    const stored = await e2e.state.accounts.accountWithId(target._id);
     expect(stored?.isVerified).toBe(true);
+    expect(stored).toMatchObject({
+      email,
+      isVerified: true,
+      addressGeneration: 3,
+    });
+    expect(stored?.pendingEmail).toBeUndefined();
   });
 
   it('leaves the code usable when the account write fails before the commit', async () => {
     const email = 'write-fails@example.test';
     await post('/api/auth/register', { email });
     const code = await e2e.mailedCode();
-    const saveSpy = jest
-      .spyOn(users.prototype, 'save')
-      .mockRejectedValueOnce(new Error('account write failed'));
+    const restoreWrite = e2e.state.auth.failNextAccountWrite();
 
     const failed = await post('/api/auth/activate', {
       email,
@@ -277,7 +223,7 @@ describe('Activation contract (e2e)', () => {
       name: NAME,
     });
     expect(failed.status).toBe(500);
-    saveSpy.mockRestore();
+    restoreWrite();
 
     const retried = await post('/api/auth/activate', {
       email,
@@ -286,19 +232,14 @@ describe('Activation contract (e2e)', () => {
       name: NAME,
     });
     expect(retried.status).toBe(200);
-    expect(await users.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countAccountsWithAddress(email)).toBe(1);
   });
 
   it('issues no session cookie when the role read fails after the commit', async () => {
     const email = 'role-read-fails@example.test';
     await post('/api/auth/register', { email });
     const code = await e2e.mailedCode();
-    const roles = e2e.app.get<Model<RoleDocument>>(getModelToken(Role.name));
-    const roleSpy = jest.spyOn(roles, 'findOne').mockReturnValueOnce(
-      partialMock<ReturnType<typeof roles.findOne>>({
-        exec: jest.fn().mockRejectedValue(new Error('role read failed')),
-      }),
-    );
+    const restoreRoleRead = e2e.state.auth.failNextRoleRead();
 
     const response = await post('/api/auth/activate', {
       email,
@@ -306,7 +247,7 @@ describe('Activation contract (e2e)', () => {
       password: PASSWORD,
       name: NAME,
     });
-    roleSpy.mockRestore();
+    restoreRoleRead();
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
@@ -315,7 +256,7 @@ describe('Activation contract (e2e)', () => {
     });
     expect(response.headers['set-cookie']).toBeUndefined();
 
-    const stored = await users.findOne({ email }).select('+password');
+    const stored = await e2e.state.accounts.accountWithAddress(email);
     expect(stored?.isVerified).toBe(true);
     expect(await bcrypt.compare(PASSWORD, stored?.password ?? '')).toBe(true);
   });

@@ -1,4 +1,7 @@
 import type { Manifest, Preset } from '../types.js';
+import { MOBILE_DEFAULT_PROJECT_NAME, MOBILE_IDENTITY_FIELDS } from '../constants/mobile.js';
+import { resolveMobileIdentity } from '../mobile/identity.js';
+import type { MobileIdentity } from '../types/mobile.js';
 import {
   DEFAULT_PRESET_ID,
   DEFAULT_RULES_POLICY,
@@ -22,7 +25,7 @@ import {
 } from './dimensions.js';
 import { resolveFeatureSelection } from './features.js';
 import { isMember } from './read.js';
-import { availableFeatures, isAvailable } from './select.js';
+import { availableFeatures, isAvailable, isMobileTarget } from './select.js';
 import type { Plan, PlanError, PlanRequest } from './plan-types.js';
 
 export type {
@@ -217,6 +220,34 @@ function signInSite(
   return 'kept-for-native';
 }
 
+/**
+ * The mobile app's identity, asked for only when a mobile app is in the plan.
+ * A value given without one is an error, never dropped quietly.
+ */
+function mobileIdentity(
+  manifest: Manifest,
+  chosenTargets: Set<string>,
+  request: PlanRequest,
+  errors: PlanError[],
+): MobileIdentity | undefined {
+  const given = request.mobile ?? {};
+  const hasApp = [...chosenTargets].some((id) => isMobileTarget(manifest.targets[id]));
+  if (!hasApp) {
+    for (const field of MOBILE_IDENTITY_FIELDS) {
+      if (given[field] !== undefined) errors.push({ id: field, reason: 'identity-unused' });
+    }
+    return undefined;
+  }
+  const { identity, problems } = resolveMobileIdentity(
+    given,
+    request.projectName ?? MOBILE_DEFAULT_PROJECT_NAME,
+  );
+  for (const problem of problems) {
+    errors.push({ id: problem.field, reason: 'identity', message: problem.message });
+  }
+  return identity;
+}
+
 /** Resolves every selection dimension into one deterministic plan. Pure: no I/O. */
 export function resolvePlan(manifest: Manifest, request: PlanRequest): Plan {
   const errors: PlanError[] = [];
@@ -248,6 +279,7 @@ export function resolvePlan(manifest: Manifest, request: PlanRequest): Plan {
     errors,
   );
   const selectedSignInSite = signInSite(manifest, chosenTargets, added);
+  const mobile = mobileIdentity(manifest, chosenTargets, request, errors);
 
   return {
     rules: request.rules ?? DEFAULT_RULES_POLICY,
@@ -259,6 +291,7 @@ export function resolvePlan(manifest: Manifest, request: PlanRequest): Plan {
     options: Object.keys(manifest.options).filter((id) => chosenOptions.has(id)),
     shared: Object.keys(manifest.shared).filter((id) => shared.has(id)),
     signInSite: selectedSignInSite,
+    ...(mobile === undefined ? {} : { mobile }),
     added: added.list(),
     removed,
     errors,

@@ -1,4 +1,3 @@
-import { Connection } from 'mongoose';
 import { WEB_CLIENT_ID } from './constants/client-ids';
 import {
   WEB_ABSOLUTE_LIFETIME_MS,
@@ -13,6 +12,8 @@ import {
   SessionAuthorityHarness,
 } from '../../test/utils/session-authority-harness';
 import { FrozenClock, TEST_NOW } from '../../test/utils/frozen-clock';
+import { holdBefore, RaceGate } from '../../test/utils/race-gate';
+import { BrowserIssuanceStore } from './issuance/browser-issuance.store';
 
 describe('session issuance concurrency', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
@@ -81,7 +82,9 @@ describe('session issuance concurrency', () => {
       harness.users,
       'disable-race@example.test',
     );
-    const gate = pauseFirstTransactionCommit(harness.connection);
+    const gate = pauseSignInBeforeItsEvent(
+      harness.app.get(BrowserIssuanceStore),
+    );
     const issue = harness.sessionService.createSession(
       user._id,
       'disable race',
@@ -122,37 +125,18 @@ describe('session issuance concurrency', () => {
   });
 });
 
-function pauseFirstTransactionCommit(connection: Connection) {
-  let announceReached = () => {};
-  let releaseCommit = () => {};
-  const reached = new Promise<void>((resolve) => {
-    announceReached = resolve;
-  });
-  const blocked = new Promise<void>((resolve) => {
-    releaseCommit = resolve;
-  });
-  const originalStartSession = connection.startSession.bind(connection);
-  const startSession = jest.spyOn(connection, 'startSession');
-  let pauseNextCommit = true;
-
-  startSession.mockImplementation(async (options) => {
-    const session = await originalStartSession(options);
-    if (pauseNextCommit) {
-      pauseNextCommit = false;
-      const originalCommit = session.commitTransaction.bind(session);
-      // Hold the real transaction after it captures the application version.
-      jest.spyOn(session, 'commitTransaction').mockImplementation(async () => {
-        announceReached();
-        await blocked;
-        return originalCommit();
-      });
-    }
-    return session;
-  });
-
+/**
+ * Holds the first sign-in at its last write. By then it has read the
+ * application's version and stored its session, and nothing is committed.
+ */
+function pauseSignInBeforeItsEvent(store: BrowserIssuanceStore) {
+  const gate = new RaceGate();
+  const restore = holdBefore(store, 'appendSecurityEvent', (call) =>
+    call === 0 ? gate : undefined,
+  );
   return {
-    reached,
-    release: releaseCommit,
-    restore: () => startSession.mockRestore(),
+    reached: gate.reached(),
+    release: () => gate.release(),
+    restore,
   };
 }

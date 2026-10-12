@@ -16,6 +16,11 @@ export interface PasskeySummary {
 /** Payload of GET /auth/passkeys. */
 export interface PasskeyListResponse {
   passkeys: PasskeySummary[];
+  /**
+   * False when the server would refuse to remove a listed passkey because it
+   * is the last way in. Absent from a server that predates the hint.
+   */
+  canRemove?: boolean;
 }
 
 /** Body of POST /auth/passkeys/register/verify. */
@@ -23,6 +28,15 @@ export interface RegisterPasskeyRequest {
   response: RegistrationResponseJSON;
   name?: string;
 }
+
+/** Fresh proof accepted by the registration-options endpoint. */
+export interface PasskeyRegistrationProof {
+  password?: string;
+  code?: string;
+  recoveryCode?: string;
+}
+
+export type PasskeyRegistrationRequirement = 'password' | 'recent_sign_in' | 'second_factor';
 
 /** Body of POST /auth/passkeys/login/verify. */
 export interface PasskeyLoginRequest {

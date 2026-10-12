@@ -8,6 +8,8 @@ import { isErrnoException } from '../utils/fs.js';
 import {
   AGENT_RULE_COPY,
   KNOWN_WORKSPACE_COPY,
+  MOBILE_APP_CONFIG_PATH,
+  MOBILE_APP_TEXT,
   STANDARD_POLICY_LOCATION,
 } from './rules-text-template.js';
 import { workspaceDirectories } from './workspace.js';
@@ -161,6 +163,17 @@ export async function explicitTypeLintFact(
     throw policyError('has an invalid explicit-type rule name');
   }
   return `The workspace ESLint configs reject TypeScript's \`${typeName}\` type.`;
+}
+
+/** The mobile section, for a project that has the Expo app. Empty for every other project. */
+export async function mobileAppSection(projectRoot: string): Promise<string> {
+  try {
+    await readFile(join(projectRoot, MOBILE_APP_CONFIG_PATH), 'utf8');
+  } catch (error) {
+    if (isErrnoException(error) && error.code === 'ENOENT') return '';
+    throw error;
+  }
+  return `\n\n${MOBILE_APP_TEXT}`;
 }
 
 export async function workspaceLocationLines(

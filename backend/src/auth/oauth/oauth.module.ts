@@ -1,9 +1,7 @@
-import { DynamicModule, Module, Type, forwardRef } from '@nestjs/common';
+import { DynamicModule, Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth.module';
 import { UserModule } from '../../user/user.module';
-import { User, UserSchema } from '../../user/schemas/user.schema';
 import { OAUTH_STRATEGIES } from './oauth.constants';
 import { OAuthProviderStrategy } from './oauth-provider.interface';
 import { OAuthController } from './oauth.controller';
@@ -11,6 +9,10 @@ import { OAuthRegistryService } from './oauth-registry.service';
 import { OAuthRedirectService } from './oauth-redirect.service';
 import { OAuthStateService } from './oauth-state.service';
 import { OAuthService } from './oauth.service';
+import {
+  OAUTH_PERSISTENCE_IMPORTS,
+  OAUTH_PERSISTENCE_PROVIDERS,
+} from './persistence/oauth-persistence';
 import { IsRegisteredProviderConstraint } from './validators/is-registered-provider.validator';
 
 /**
@@ -28,9 +30,11 @@ export class OAuthModule {
       module: OAuthModule,
       imports: [
         ConfigModule,
-        MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-        forwardRef(() => AuthModule),
-        forwardRef(() => UserModule),
+        ...OAUTH_PERSISTENCE_IMPORTS,
+        // Named directly. A forward reference inside a dynamic module's imports
+        // makes Nest register the module a second time under another key.
+        AuthModule,
+        UserModule,
       ],
       controllers: [OAuthController],
       providers: [
@@ -46,6 +50,7 @@ export class OAuthModule {
         OAuthStateService,
         OAuthRedirectService,
         OAuthService,
+        ...OAUTH_PERSISTENCE_PROVIDERS,
         IsRegisteredProviderConstraint,
       ],
       exports: [

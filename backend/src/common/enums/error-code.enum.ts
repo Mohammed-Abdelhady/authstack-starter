@@ -53,6 +53,8 @@ export enum ErrorCode {
   TWO_FACTOR_SETUP_REQUIRED = 'TWO_FACTOR_SETUP_REQUIRED',
   /** TOTP_ENCRYPTION_KEY is missing or not 32 bytes */
   TWO_FACTOR_NOT_CONFIGURED = 'TWO_FACTOR_NOT_CONFIGURED',
+  /** Too many wrong codes on the account. No answer is checked until the lock ends */
+  TWO_FACTOR_LOCKED = 'TWO_FACTOR_LOCKED',
   // feature:totp:end
 
   // Passkey errors
@@ -177,6 +179,8 @@ export enum ErrorCode {
   OAUTH_CODE_INVALID = 'OAUTH_CODE_INVALID',
   /** Provider did not confirm the email address */
   OAUTH_EMAIL_UNVERIFIED = 'OAUTH_EMAIL_UNVERIFIED',
+  /** The address has an account this sign-in may not attach to by itself */
+  OAUTH_ACCOUNT_EXISTS = 'OAUTH_ACCOUNT_EXISTS',
   /** Provider account is already linked to another user */
   OAUTH_ACCOUNT_LINKED_ELSEWHERE = 'OAUTH_ACCOUNT_LINKED_ELSEWHERE',
   /** OAuth authentication failed for any other reason */
@@ -227,7 +231,7 @@ export enum ErrorCode {
   INVALID_PERMISSION_FORMAT = 'INVALID_PERMISSION_FORMAT',
 
   // Role errors
-  /** Role slug does not exist in the roles collection */
+  /** Role slug is not a stored role */
   ROLE_NOT_FOUND = 'ROLE_NOT_FOUND',
   /** Another role already has this name */
   ROLE_NAME_TAKEN = 'ROLE_NAME_TAKEN',

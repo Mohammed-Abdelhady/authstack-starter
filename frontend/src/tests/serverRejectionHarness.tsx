@@ -7,10 +7,11 @@ import { Provider } from 'react-redux';
 import { NextIntlClientProvider, createTranslator, type AbstractIntlMessages } from 'next-intl';
 import { toast as sonnerToast } from 'sonner';
 import { ErrorCode } from '@app/core';
+import type { Identity, User } from '@app/sdk';
 import { loadMessages, type AppLocale } from '@/i18n/load-messages';
 import { lookupMessage } from '@/i18n/__tests__/message-tree';
 import { baseApi } from '@/store/api/baseApi';
-import { clearBrowserProof, rememberBrowserProof } from '@/store/api/browser-proof';
+import { CSRF_HEADER, clearBrowserProof } from '@/store/api/browser-proof';
 import { errorInterceptor } from '@/store/middleware/errorInterceptor';
 import authReducer from '@/modules/auth/store/authSlice';
 
@@ -47,24 +48,52 @@ export function success(data: unknown): Response {
   return Response.json({ success: true, data });
 }
 
+/** The optional session endpoint's real envelope, including its discriminator. */
+export function identitySuccess(user: User | null): Response {
+  const data: Identity =
+    user === null ? { authenticated: false, user: null } : { authenticated: true, user };
+  return success(data);
+}
+
 /**
  * Answers every request through `respond` and records what was asked, as
  * `METHOD /path`, in the order the requests arrived.
  */
+export interface NetworkRequests extends Array<string> {
+  /** Includes the session and browser proof reads hidden from older business-request assertions. */
+  allRequests: string[];
+}
+
 export function stubNetwork(
   respond: (request: Request, path: string) => Response | Promise<Response>,
-): string[] {
-  const requests: string[] = [];
+  options: { proof?: 'automatic' | 'delegate' } = {},
+): NetworkRequests {
+  const requests: NetworkRequests = Object.assign([] as string[], { allRequests: [] as string[] });
+  Object.defineProperty(requests, 'allRequests', { enumerable: false });
+  let issuedProofs = 0;
   vi.stubGlobal('fetch', async (request: Request) => {
     const path = new URL(request.url).pathname;
-    requests.push(`${request.method} ${path}`);
+    const name = `${request.method} ${path}`;
+    requests.allRequests.push(name);
+    if (options.proof !== 'delegate' && path === '/api/auth/csrf') {
+      return refusalWith(401, ErrorCode.SESSION_REQUIRED);
+    }
+    if (options.proof !== 'delegate' && path === '/api/auth/browser-proof') {
+      issuedProofs += 1;
+      const token = `test-browser-proof-${issuedProofs}`;
+      return Response.json(
+        { success: true, data: { token } },
+        { headers: { [CSRF_HEADER]: token } },
+      );
+    }
+    requests.push(name);
     return respond(request, path);
   });
   return requests;
 }
 
 /** Refuses every write with a validation error and answers every read with `readData`. */
-export function refuseWrites(fieldNames: string[], readData: unknown = {}): string[] {
+export function refuseWrites(fieldNames: string[], readData: unknown = {}): NetworkRequests {
   return stubNetwork((request) =>
     request.method === 'GET' ? success(readData) : refusal(fieldNames),
   );
@@ -165,6 +194,7 @@ function describeFailure(kind: string, reason: unknown): string {
 export function registerFormTestLifecycle() {
   const unhandled: string[] = [];
   const expectedLogs: RegExp[] = [];
+  let restoreConsoleError = () => {};
   const onRejection = (reason: unknown) => {
     unhandled.push(describeFailure('unhandled rejection', reason));
   };
@@ -182,8 +212,8 @@ export function registerFormTestLifecycle() {
     process.on('unhandledRejection', onRejection);
     window.addEventListener('unhandledrejection', onWindowRejection);
     window.addEventListener('error', onWindowError);
-    vi.spyOn(console, 'error').mockImplementation(onConsoleError);
-    rememberBrowserProof('session-proof', 'session');
+    const spy = vi.spyOn(console, 'error').mockImplementation(onConsoleError);
+    restoreConsoleError = () => spy.mockRestore();
   });
 
   afterEach(async () => {
@@ -193,7 +223,7 @@ export function registerFormTestLifecycle() {
     process.off('unhandledRejection', onRejection);
     window.removeEventListener('unhandledrejection', onWindowRejection);
     window.removeEventListener('error', onWindowError);
-    vi.mocked(console.error).mockRestore();
+    restoreConsoleError();
     clearBrowserProof();
     vi.unstubAllGlobals();
     vi.clearAllMocks();

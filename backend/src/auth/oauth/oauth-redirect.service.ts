@@ -4,7 +4,7 @@ import { Response } from 'express';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { OAUTH_CLIENT_CALLBACK_PATH } from './oauth.constants';
-import { describeDriverError } from '../../common/utils/mongo-error.util';
+import { describeDriverError } from '../../common/utils/describe-error.util';
 import {
   DEFAULT_REDIRECT_PATH,
   TWO_FACTOR_CLIENT_PATH,

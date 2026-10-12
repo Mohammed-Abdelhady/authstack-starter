@@ -79,6 +79,8 @@ Needs a session, and proof that the person at the keyboard is the account holder
 
 Render `otpauthUrl` as a QR code in the client, and show `secret` for people typing it in by hand. The backend does not draw the QR code: turning a URL into an image is a client concern, and shipping an image library for it is not worth the dependency.
 
+Authenticator apps list newly enrolled accounts under `Auth App`. Existing enrollments keep their stored label and their codes remain valid.
+
 Nothing about the account changes yet. The secret is stored unconfirmed, so a setup abandoned halfway leaves sign-in exactly as it was. Calling setup again replaces the pending secret.
 
 ### Confirm

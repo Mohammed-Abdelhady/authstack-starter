@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth.module';
 import { PasskeysModule } from '../passkeys/passkeys.module'; // feature:passkeys
 import { PasskeySecondFactorVerifier } from '../passkeys/services/passkey-second-factor.verifier'; // feature:passkeys
@@ -12,14 +11,16 @@ import {
   SECOND_FACTOR_VERIFIERS,
   SecondFactorVerifier,
 } from './services/second-factor-verifiers';
-import { User, UserSchema } from '../../user/schemas/user.schema';
+import { TWO_FACTOR_PERSISTENCE_PROVIDERS } from './persistence/two-factor-persistence';
 import { CommonModule } from '../../common/common.module';
+import { UserModule } from '../../user/user.module';
+import { SessionModule } from '../../session/session.module';
 
 /**
  * Routes for the TOTP second factor.
  *
- * The pieces the sign-in paths need, the challenge service and the secret
- * crypto, live in AuthModule instead: password, magic link and OAuth all have
+ * The pieces the sign-in paths need, the challenge service, the secret crypto
+ * and the stores under them, live in AuthModule instead: password, magic link and OAuth all have
  * to reach them, and importing this module from there would close a cycle.
  *
  * Other ways of answering a challenge are registered under
@@ -29,8 +30,9 @@ import { CommonModule } from '../../common/common.module';
 @Module({
   imports: [
     ConfigModule,
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     CommonModule,
+    UserModule,
+    SessionModule,
     AuthModule,
     PasskeysModule, // feature:passkeys
   ],
@@ -39,6 +41,7 @@ import { CommonModule } from '../../common/common.module';
     TwoFactorService,
     TwoFactorLoginService,
     TwoFactorReauthService,
+    ...TWO_FACTOR_PERSISTENCE_PROVIDERS,
     {
       provide: SECOND_FACTOR_VERIFIERS,
       useFactory: (

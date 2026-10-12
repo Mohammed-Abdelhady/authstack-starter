@@ -10,14 +10,18 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody, ApiCookieAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UserProfileService } from './services/user-profile.service';
 import { RequestWithUser } from '../auth/guards/auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { RequiresFeature } from '../auth/decorators/requires-feature.decorator';
+import { AuthFeature } from '../auth/enums/auth-feature.enum';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { ApiResponse } from '../common/dto/api-response.dto';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
+import { THROTTLE_CHANGE_PASSWORD } from '../common/constants/throttle';
 import { requestSessionId } from '../session/utils/request/request-session';
 
 /**
@@ -71,6 +75,8 @@ export class UserProfileController {
    *
    * @example POST /user/password
    */
+  @RequiresFeature(AuthFeature.PASSWORD)
+  @Throttle(THROTTLE_CHANGE_PASSWORD)
   @Post('password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

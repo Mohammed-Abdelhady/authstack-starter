@@ -1,17 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname } from '@/i18n/navigation';
-import { formatDistanceToNow } from 'date-fns';
+import { formatTimeAgo } from '@/lib/formatters';
 import { RefreshCw, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { getRedirectPath } from '@/modules/auth/utils';
-import { startOAuthFlow } from '@/modules/oauth';
+import { getProviderDisplayName, startOAuthFlow } from '@/modules/oauth';
 import { useGetSyncStatusQuery, useInitiateProfileSyncMutation } from '../api';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Profile Sync Status Component
@@ -19,6 +20,7 @@ import { useGetSyncStatusQuery, useInitiateProfileSyncMutation } from '../api';
  */
 export function ProfileSyncStatus() {
   const t = useTranslations('settings.profileSync');
+  const locale = useLocale();
   const pathname = usePathname();
   const { data: syncStatus, isLoading } = useGetSyncStatusQuery();
   const [initiateSync, { isLoading: isSyncInitiating }] = useInitiateProfileSyncMutation();
@@ -29,7 +31,7 @@ export function ProfileSyncStatus() {
    * again. The backend updates the profile while handling the callback and
    * sends the browser back to this page.
    */
-  const handleManualSync = async () => {
+  const startManualSync = async () => {
     setIsSyncing(true);
     try {
       const response = await initiateSync().unwrap();
@@ -46,6 +48,7 @@ export function ProfileSyncStatus() {
       reportUnlessHandled(error);
     }
   };
+  const handleManualSync = useSingleFlight(startManualSync);
 
   if (isLoading) {
     return (
@@ -81,22 +84,22 @@ export function ProfileSyncStatus() {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t('lastSynced')}</span>
             <span className="font-medium">
-              {lastSyncedAt
-                ? formatDistanceToNow(new Date(lastSyncedAt), { addSuffix: true })
-                : t('never')}
+              {lastSyncedAt ? formatTimeAgo(lastSyncedAt, locale) : t('never')}
             </span>
           </div>
 
           {lastSyncedProvider && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('syncedFrom')}</span>
-              <span className="font-medium capitalize">{lastSyncedProvider}</span>
+              <span className="font-medium">{getProviderDisplayName(lastSyncedProvider)}</span>
             </div>
           )}
 
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t('primaryProvider')}</span>
-            <span className="font-medium capitalize">{primaryProvider || t('none')}</span>
+            <span className="font-medium">
+              {primaryProvider ? getProviderDisplayName(primaryProvider) : t('none')}
+            </span>
           </div>
         </div>
 
@@ -109,7 +112,9 @@ export function ProfileSyncStatus() {
 
         <Button
           onClick={handleManualSync}
-          disabled={!canSync || isSyncInitiating || isSyncing}
+          disabled={!canSync}
+          busy={isSyncInitiating || isSyncing}
+          aria-busy={isSyncInitiating || isSyncing}
           className="w-full whitespace-normal"
           data-testid="manual-sync-button"
         >

@@ -4,11 +4,16 @@ import { Description, Heading } from '@/components/design-system';
 import { memo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PermissionTreeView } from '../permission-tree/PermissionTreeView';
 import { Pencil, Trash2, Shield, Lock } from 'lucide-react';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
 import { cn } from '@/lib/utils';
 import type { Role } from '../../api/rolesApi';
+
+const BASE_ROLE_NOTICE_ID = 'base-role-notice';
+const PROTECTED_ROLE_NOTICE_ID = 'protected-role-notice';
 
 export interface RoleDetailPanelProps {
   /**
@@ -92,19 +97,30 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
   // Check if role is user or admin (cannot be edited)
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
+  const deleteReasonId = isBaseRole
+    ? BASE_ROLE_NOTICE_ID
+    : role.isProtected
+      ? PROTECTED_ROLE_NOTICE_ID
+      : undefined;
 
   return (
     <article className={cn('space-y-6', className)} data-testid="role-detail-panel">
       {/* Header */}
       <header className="pb-4 border-b border-border">
         <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <Heading level={2} variant="sectionTitle">
-              {role.name}
+          <div className="min-w-0 flex-1">
+            <Heading level={2} variant="sectionTitle" className={WRAP_ANYWHERE_CLASSES}>
+              <span dir="auto" data-testid="role-detail-name">
+                {role.name}
+              </span>
             </Heading>
-            <Description className="mt-1">{role.slug}</Description>
+            <Description className={cn('mt-1', WRAP_ANYWHERE_CLASSES)}>
+              <span dir="ltr" data-testid="role-detail-slug">
+                {role.slug}
+              </span>
+            </Description>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {role.isSystemRole && (
               <Badge variant="outline" className="text-xs">
                 <Shield className="h-3 w-3 me-1" aria-hidden="true" />
@@ -123,8 +139,12 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Description */}
       {role.description && (
-        <section>
-          <Description>{role.description}</Description>
+        <section className="min-w-0">
+          <Description className={WRAP_ANYWHERE_CLASSES}>
+            <span dir="auto" data-testid="role-detail-description">
+              {role.description}
+            </span>
+          </Description>
         </section>
       )}
 
@@ -153,6 +173,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
           size="sm"
           onClick={() => onEdit?.(role)}
           disabled={isBaseRole}
+          aria-describedby={isBaseRole ? BASE_ROLE_NOTICE_ID : undefined}
           data-testid="edit-role-button"
         >
           <Pencil className="h-3 w-3 me-2" aria-hidden="true" />
@@ -163,6 +184,7 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
           size="sm"
           onClick={() => onDelete?.(role)}
           disabled={role.isProtected}
+          aria-describedby={deleteReasonId}
           data-testid="delete-role-button"
         >
           <Trash2 className="h-3 w-3 me-2" aria-hidden="true" />
@@ -172,20 +194,20 @@ export const RoleDetailPanel = memo(function RoleDetailPanel({
 
       {/* Base Role Notice */}
       {isBaseRole && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 dark:bg-blue-950/50 dark:border-blue-900">
-          <p className="text-xs text-blue-900 dark:text-blue-100">
+        <Alert variant="infoSoft" role="note" className="p-3">
+          <AlertDescription id={BASE_ROLE_NOTICE_ID} className="text-xs">
             <strong>{t('baseRoleNoticeTitle')}</strong> {t('baseRoleNotice')}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Protected Notice */}
       {role.isProtected && !isBaseRole && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 dark:bg-amber-950/50 dark:border-amber-900">
-          <p className="text-xs text-amber-900 dark:text-amber-100">
+        <Alert variant="warningSoft" role="note" className="p-3">
+          <AlertDescription id={PROTECTED_ROLE_NOTICE_ID} className="text-xs">
             <strong>{t('protectedRoleNoticeTitle')}</strong> {t('protectedRoleNotice')}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
     </article>
   );

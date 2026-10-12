@@ -32,11 +32,21 @@ jobs:
       - name: Scan event commits
         run: node scripts/ci.mjs --range
 
+  # repository-only:start
+  # No runner has timed any job here: GitHub Actions is off for this repository.
+  # Each limit is the slowest local measurement of what the job runs, on a
+  # 12-core Mac, times 2 for a 4-vCPU runner (an assumption) and times 1.5 for
+  # headroom, rounded up to 5 minutes. The measurement is beside each limit.
+  # repository-only:end
   quality:
     name: Quality gates
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # repository-only:start
+    # Scans 10 s, lint 36, typecheck 12, unit and config tests 646, complete
+    # config regressions 123, build 19: 846 s.
+    # repository-only:end
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -62,12 +72,49 @@ jobs:
       - name: Run quality gates
         run: node scripts/ci.mjs --quality
 
+  api:
+    name: Backend API suites
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    # repository-only:start
+    # The API suite on MongoDB took 420 to 557 s and on PostgreSQL 34 to 100 s:
+    # 657 s at most.
+    # repository-only:end
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.6.0
+          run_install: false
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+      - name: Resolve Mongo binary cache
+        id: mongo
+        run: node scripts/ci.mjs --cache
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ steps.mongo.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}
+      - name: Install dependencies
+        run: node scripts/ci.mjs --install
+      - name: Run the API suites
+        run: node scripts/ci.mjs --api
+
   # repository-only:start
+  # These three add 185 s to the slower of two runs measured alone: the most
+  # either run spent outside its tests.
   installer:
     name: Installer combinations
     if: github.event.deleted != true
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # The four older slow files: 652 to 827 s of tests, so 1012 s at most.
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -92,4 +139,82 @@ jobs:
         run: node scripts/ci.mjs --install
       - name: Test generated projects
         run: node scripts/ci.mjs --installer
+
+  installer-postgres:
+    name: Installer PostgreSQL projects
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    # Five PostgreSQL projects: 704 to 719 s of tests, so 904 s at most.
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.6.0
+          run_install: false
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: node scripts/ci.mjs --install
+      - name: Test generated projects
+        run: node scripts/ci.mjs --installer-postgres
+
+  installer-mongodb:
+    name: Installer MongoDB projects
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    # Two MongoDB projects: 841 to 1360 s of tests, so 1545 s at most. The two
+    # cases may take 30 minutes each before they fail by their own budget.
+    timeout-minutes: 80
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.6.0
+          run_install: false
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+      - name: Resolve Mongo binary cache
+        id: mongo
+        run: node scripts/ci.mjs --cache
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ steps.mongo.outputs.path }}
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}
+      - name: Install dependencies
+        run: node scripts/ci.mjs --install
+      - name: Test generated projects
+        run: node scripts/ci.mjs --installer-mongodb
+  browser:
+    name: Browser authentication journeys
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.6.0
+          run_install: false
+          cache: true
+          cache_dependency_path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: node scripts/ci.mjs --install
+      - name: Run browser journeys
+        run: node scripts/ci.mjs --browser
   # repository-only:end

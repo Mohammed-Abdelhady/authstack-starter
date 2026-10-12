@@ -1,6 +1,4 @@
 import { randomBytes } from 'crypto';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { AuthEpochService } from '../../../src/common/services/auth-epoch.service';
 import {
@@ -13,18 +11,49 @@ import {
   NATIVE_IDLE_LIFETIME_MS,
 } from '../../../src/session/constants/session-policy';
 import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
-import { AuthorizationTransactionDocument } from '../../../src/session/schemas/authorization-transaction.schema';
-import {
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
   nativeAuthorizeQuery,
-} from '../../../src/session/native/harness/native-oauth.harness-spec';
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
+import { SEED_USER } from '../../constants/seed-users';
 import type { E2eApp } from '../e2e-app';
+import type { AuthorizationReadGate } from '../e2e-state-native';
+import { NativeAuthorizeService } from '../../../src/session/native/authorize/native-authorize.service';
+import { NativeTokenService } from '../../../src/session/native/token/native-token.service';
+import { NATIVE_META } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 
 export { NATIVE_CLIENT_ID, NATIVE_REDIRECT };
+
+export async function issueNativeGrantFor(
+  e2e: E2eApp,
+  email: string,
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const user = await e2e.state.accounts.accountWithAddress(email);
+  if (!user) throw new Error('seed user is missing');
+  const verifier = randomBytes(32).toString('base64url');
+  const authorize = e2e.app.get(NativeAuthorizeService);
+  const begun = await authorize.begin(nativeAuthorizeQuery(verifier));
+  if (!begun.ok) throw new Error(begun.error);
+  const approved = await authorize.approve(
+    user._id.toString(),
+    begun.transactionId,
+    ['password'],
+  );
+  const code = new URL(approved.redirectUri).searchParams.get('code');
+  if (!code) throw new Error('authorization code is missing');
+  const result = await e2e.app.get(NativeTokenService).grant(
+    {
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: NATIVE_REDIRECT,
+      client_id: NATIVE_CLIENT_ID,
+      code_verifier: verifier,
+    },
+    NATIVE_META,
+  );
+  if (!result.ok) throw new Error(result.error);
+  return { accessToken: result.accessToken, refreshToken: result.refreshToken };
+}
 
 export interface StartedNativeAuthorization {
   transactionId: string;
@@ -32,11 +61,17 @@ export interface StartedNativeAuthorization {
   location: string;
 }
 
+/** The seed user's id, which a consent action names as the account it was shown to. */
+export async function seedUserId(e2e: E2eApp): Promise<string> {
+  const id = await e2e.state.accounts.accountIdFor(SEED_USER.email);
+  if (id === null) {
+    throw new Error('the seed user is missing');
+  }
+  return id;
+}
+
 export async function createNativeApplication(e2e: E2eApp): Promise<void> {
-  const applications = e2e.app.get<Model<ApplicationDocument>>(
-    getModelToken(Application.name),
-  );
-  await applications.create({
+  await e2e.state.applications.createApplication({
     clientId: NATIVE_CLIENT_ID,
     displayName: 'Native test client',
     platform: APPLICATION_PLATFORM.NATIVE,
@@ -79,39 +114,7 @@ export async function beginNativeAuthorization(
 }
 
 export function pauseNextNativeAuthorizationRead(
-  transactions: Model<AuthorizationTransactionDocument>,
-) {
-  let announceReached = () => {};
-  let releaseRead = () => {};
-  let shouldPause = true;
-  const reached = new Promise<void>((resolve) => {
-    announceReached = resolve;
-  });
-  const blocked = new Promise<void>((resolve) => {
-    releaseRead = resolve;
-  });
-  const originalFindOne = transactions.findOne.bind(transactions);
-  const spy = jest
-    .spyOn(transactions, 'findOne')
-    .mockImplementation((...args) => {
-      const query = originalFindOne(...args);
-      if (!shouldPause) {
-        return query;
-      }
-      shouldPause = false;
-      const originalExec = query.exec.bind(query);
-      jest.spyOn(query, 'exec').mockImplementation(async (...execArgs) => {
-        const transaction = await originalExec(...execArgs);
-        announceReached();
-        await blocked;
-        return transaction;
-      });
-      return query;
-    });
-
-  return {
-    reached,
-    release: releaseRead,
-    restore: () => spy.mockRestore(),
-  };
+  e2e: E2eApp,
+): AuthorizationReadGate {
+  return e2e.state.native.pauseNextAuthorizationRead();
 }

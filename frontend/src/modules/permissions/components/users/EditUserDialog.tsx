@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -14,15 +14,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { FormRootError } from '@/components/forms';
 import { useUpdateUserMutation } from '@/store/api/userApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
+import { cn } from '@/lib/utils';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 
 interface EditUserDialogProps {
   userId: string | null;
@@ -30,6 +31,8 @@ interface EditUserDialogProps {
   currentEmail: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 interface EditUserFormValues {
@@ -61,14 +64,12 @@ function EditUserForm({
   const [name, setName] = useState(initialName || '');
   const [email, setEmail] = useState(initialEmail || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
   const uid = useId();
   const fieldId = (field: keyof EditUserFormValues) => fieldElementId(uid, field);
   const errorId = (field: keyof EditUserFormValues) => `${fieldId(field)}-error`;
 
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -97,36 +98,44 @@ function EditUserForm({
     }
 
     setErrors(newErrors);
+    const firstInvalid = (['name', 'email'] as const).find((field) => Boolean(newErrors[field]));
+    if (firstInvalid) document.getElementById(fieldId(firstInvalid))?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || submissionInFlight.current) return;
 
     if (!validateForm()) {
       return;
     }
 
+    submissionInFlight.current = true;
     const nameChanged = name !== initialName;
-    const success = await onSubmit(
-      {
-        email: email.trim(),
-        ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
-      },
-      applyServerFieldErrors,
-    );
-    if (success) {
-      onClose();
+    refusal.clear();
+    try {
+      const success = await onSubmit(
+        {
+          email: email.trim(),
+          ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
+        },
+        refusal.show,
+      );
+      if (success) onClose();
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <FormRootError error={refusal.alert} className="mb-0" testId="edit-user-error" />
       {/* Name Field */}
       <div className="space-y-2">
         <Label
           htmlFor={fieldId('name')}
-          className="text-xs uppercase tracking-widest text-muted-foreground"
+          className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
         >
           {t('name')}
         </Label>
@@ -139,14 +148,14 @@ function EditUserForm({
             setName(e.target.value);
             if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
           }}
-          disabled={isLoading}
+          busy={isLoading}
           aria-invalid={Boolean(errors.name)}
           aria-describedby={errors.name ? errorId('name') : undefined}
-          className={errors.name ? 'border-red-500' : ''}
+          className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
           data-testid="edit-user-name-input"
         />
         {errors.name && (
-          <p id={errorId('name')} className="text-xs text-red-500" data-testid="name-error">
+          <p id={errorId('name')} className="text-xs text-destructive" data-testid="name-error">
             {errors.name}
           </p>
         )}
@@ -156,27 +165,29 @@ function EditUserForm({
       <div className="space-y-2">
         <Label
           htmlFor={fieldId('email')}
-          className="text-xs uppercase tracking-widest text-muted-foreground"
+          className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
         >
           {t('email')}
         </Label>
         <Input
           id={fieldId('email')}
           type="email"
+          dir="ltr"
           placeholder={t('emailPlaceholder')}
+          required
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
             if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
           }}
-          disabled={isLoading}
+          busy={isLoading}
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? errorId('email') : undefined}
-          className={errors.email ? 'border-red-500' : ''}
+          className={errors.email ? 'border-destructive' : ''}
           data-testid="edit-user-email-input"
         />
         {errors.email && (
-          <p id={errorId('email')} className="text-xs text-red-500" data-testid="email-error">
+          <p id={errorId('email')} className="text-xs text-destructive" data-testid="email-error">
             {errors.email}
           </p>
         )}
@@ -187,15 +198,16 @@ function EditUserForm({
           type="button"
           variant="ghost"
           onClick={onClose}
-          disabled={isLoading}
+          busy={isLoading}
           data-testid="cancel-edit-user-button"
         >
           {t('cancel')}
         </Button>
         <Button
           type="submit"
-          disabled={isLoading}
+          busy={isLoading}
           aria-busy={isLoading}
+          className="rtl:tracking-normal"
           data-testid="submit-edit-user-button"
         >
           {isLoading ? (
@@ -239,6 +251,7 @@ export function EditUserDialog({
   currentEmail,
   open,
   onOpenChange,
+  onCloseAutoFocus,
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
   const [updateUser, { isLoading }] = useUpdateUserMutation();
@@ -256,11 +269,13 @@ export function EditUserDialog({
     }
 
     try {
-      await updateUser({
-        userId,
-        ...(data.name === undefined ? {} : { name: data.name }),
-        email: data.email,
-      }).unwrap();
+      await showsOwnRefusal(
+        updateUser({
+          userId,
+          ...(data.name === undefined ? {} : { name: data.name }),
+          email: data.email,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       return true;
@@ -278,8 +293,12 @@ export function EditUserDialog({
   if (!userId) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="edit-user-dialog">
+    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-[500px]"
+        data-testid="edit-user-dialog"
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>{t('description')}</DialogDescription>

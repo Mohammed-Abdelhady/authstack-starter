@@ -70,3 +70,11 @@ export class DeviceBindingRequiredError extends SdkError {
     this.name = 'DeviceBindingRequiredError';
   }
 }
+
+/** The server kept challenging the proof, and no request it could have acted on was sent. */
+export class DpopChallengeLimitError extends SdkError {
+  constructor(cause: unknown) {
+    super('The server challenged every DPoP proof', { cause });
+    this.name = 'DpopChallengeLimitError';
+  }
+}

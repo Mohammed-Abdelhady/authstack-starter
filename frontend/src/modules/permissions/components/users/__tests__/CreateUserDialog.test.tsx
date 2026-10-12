@@ -13,6 +13,8 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { isHeld } from '@/tests/busyControls';
+import { askToClose, isOpen } from '@/tests/dialogBusy';
 import { CreateUserDialog } from '../CreateUserDialog';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -68,11 +70,38 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('CreateUserDialog refused by the server in %s', (locale) => {
-  it('marks the rejected fields, focuses the first and raises one localized toast', async () => {
+  it('focuses the first invalid field on an empty submit and marks required controls', async () => {
+    stubNetwork(() => success(ROLES));
+    const form = await renderForm(locale, <Host />);
+    const email = screen.getByRole('textbox', {
+      name: form.message('users.createUser.email'),
+    });
+    const name = screen.getByRole('textbox', {
+      name: form.message('users.createUser.name'),
+    });
+    const password = screen.getByLabelText(form.message('users.createUser.password'));
+    const role = screen.getByRole('combobox', {
+      name: form.message('users.createUser.role'),
+    });
+
+    const submit = screen.getByRole('button', {
+      name: form.message('users.createUser.submit'),
+    });
+    submit.focus();
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(email.getAttribute('aria-invalid')).toBe('true'));
+    expect(document.activeElement).toBe(email);
+    expect(email.hasAttribute('required')).toBe(true);
+    expect(name.hasAttribute('required')).toBe(true);
+    expect(password.hasAttribute('required')).toBe(true);
+    expect(role.getAttribute('aria-required')).toBe('true');
+  });
+
+  it('marks the rejected fields, focuses the first and raises no toast', async () => {
     refuseWrites(['role', 'name', 'nickname'], ROLES);
 
-    const { email, name, role, fieldMessage, generalMessage, errorToasts } =
-      await submitCreate(locale);
+    const { email, name, role, fieldMessage, errorToasts } = await submitCreate(locale);
 
     await waitFor(() => {
       expect(name.getAttribute('aria-invalid')).toBe('true');
@@ -81,30 +110,45 @@ describe.each([
     expect(role.getAttribute('aria-invalid')).toBe('true');
     expect(descriptions(role)).toEqual([fieldMessage]);
     expect(email.getAttribute('aria-invalid')).toBe('false');
-    // The fields stay disabled until the store reports the end of the request.
+    // The field is focused once the store reports the end of the request.
     await waitFor(() => {
       expect(document.activeElement).toBe(name);
     });
-    expect(errorToasts()).toEqual([generalMessage]);
+    // The marked fields say it. No toast repeats it.
+    expect(errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
 
-  it('opens clean after it was closed while a refused request was in flight', async () => {
-    let answerCreate: (response: Response) => void = () => undefined;
-    const pendingCreate = new Promise<Response>((resolve) => {
-      answerCreate = resolve;
-    });
+  it('tells the browser its password field takes a new password', async () => {
+    refuseWrites([], ROLES);
+    const { message } = await renderForm(locale, <Host />);
+
+    expect(
+      screen.getByLabelText(message('users.createUser.password')).getAttribute('autocomplete'),
+    ).toBe('new-password');
+  });
+
+  it('cannot be closed while its request is in flight, and opens clean after the refusal was closed', async () => {
+    const { promise: pendingCreate, resolve: answerCreate } = Promise.withResolvers<Response>();
     stubNetwork((request) => (request.method === 'GET' ? success(ROLES) : pendingCreate));
 
-    const { message, generalMessage, errorToasts } = await submitCreate(locale);
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).toBeNull();
-    });
+    const { message, fieldMessage } = await submitCreate(locale);
+    await askToClose('create-user-dialog');
+    fireEvent.click(screen.getByTestId('cancel-create-user-button'));
+    await askToClose('create-user-dialog');
+    expect(isOpen('create-user-dialog')).toBe(true);
 
     answerCreate(refusal(['name']));
+    const refused = screen.getByRole('textbox', { name: message('users.createUser.name') });
     await waitFor(() => {
-      expect(errorToasts()).toEqual([generalMessage]);
+      expect(descriptions(refused)).toEqual([fieldMessage]);
+    });
+    await waitFor(() => {
+      expect(isHeld(screen.getByTestId('cancel-create-user-button'))).toBe(false);
+    });
+    await askToClose('create-user-dialog');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open' }));

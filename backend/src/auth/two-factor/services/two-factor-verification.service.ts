@@ -1,8 +1,4 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
-import { TwoFactorSecret } from '../../../user/schemas/two-factor.schema';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { TotpSecretCryptoService } from './totp-secret-crypto.service';
@@ -12,6 +8,19 @@ import {
   recoveryHashEquals,
 } from '../utils/recovery-code.util';
 import { TOTP_STEP_MS } from '../constants/two-factor.constants';
+import {
+  SecondFactorAccount,
+  StoredTotpSecret,
+} from '../stores/second-factor-account';
+import {
+  ATTEMPT_RESERVATION,
+  SecondFactorStore,
+  SPEND_OUTCOME,
+} from '../stores/second-factor.store';
+import {
+  lockDurationMs,
+  retryAfterSeconds,
+} from '../utils/second-factor-lock.util';
 
 /** What a caller may send as the second factor. Exactly one is used. */
 export interface SecondFactorInput {
@@ -29,16 +38,17 @@ export class TwoFactorVerificationService {
   private readonly logger = new Logger(TwoFactorVerificationService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: SecondFactorStore,
     private readonly cryptoService: TotpSecretCryptoService,
   ) {}
 
   /**
    * @throws AppException TWO_FACTOR_CODE_INVALID when neither field is filled
    * in, or when the value in it does not match
+   * @throws AppException TWO_FACTOR_LOCKED while the account is locked
    */
   async verifySecondFactor(
-    user: UserDocument,
+    user: SecondFactorAccount,
     input: SecondFactorInput,
   ): Promise<void> {
     if (input.code) {
@@ -57,42 +67,96 @@ export class TwoFactorVerificationService {
   /**
    * Checks a code against the secret on the account, whether or not the second
    * factor is confirmed yet, and marks the step as spent.
+   *
+   * @throws AppException TWO_FACTOR_LOCKED while the account is locked
    */
-  async verifyTotpCode(user: UserDocument, code: string): Promise<void> {
-    const secret = user.twoFactor?.secret;
+  async verifyTotpCode(user: SecondFactorAccount, code: string): Promise<void> {
+    const secret = user.twoFactor.secret;
     if (!secret) {
       throw this.invalidCode('account has no secret to check against');
     }
 
-    const step = this.resolveStep(secret, code);
+    // Read before the answer is counted: a key that reads nothing is the
+    // server's fault and must not count against the account.
+    const plaintext = await this.readSecret(user, secret);
+    await this.counted(user, () => this.spendCode(user, plaintext, code));
+  }
+
+  /**
+   * Spends one recovery code. A code that was already spent is refused.
+   *
+   * @throws AppException TWO_FACTOR_LOCKED while the account is locked
+   */
+  async verifyRecoveryCode(
+    user: SecondFactorAccount,
+    recoveryCode: string,
+  ): Promise<void> {
+    await this.counted(user, () => this.spendRecovery(user, recoveryCode));
+  }
+
+  /**
+   * Counts the answer against the account, checks it, and clears the count
+   * when it was right. The count is stored before the check, so answers sent
+   * together cannot all be checked against one count: each needs its own.
+   * Every fifth wrong answer in a row locks the account, for longer each
+   * time, and nothing is checked while the lock holds.
+   */
+  private async counted(
+    user: SecondFactorAccount,
+    check: () => Promise<void>,
+  ): Promise<void> {
+    const now = Date.now();
+    const { failedAttempts, lockedUntil } = user.twoFactor;
+    if (lockedUntil && lockedUntil.getTime() > now) {
+      throw this.locked(lockedUntil, now);
+    }
+
+    const counted = failedAttempts + 1;
+    const lockMs = lockDurationMs(counted);
+    const reservation = await this.accounts.reserveAttempt(user, {
+      failedAttempts: counted,
+      lockedUntil: lockMs > 0 ? new Date(now + lockMs) : null,
+    });
+    if (reservation !== ATTEMPT_RESERVATION.RESERVED) {
+      throw this.invalidCode('another answer was counted for the account');
+    }
+
+    await check();
+    await this.accounts.clearFailedAttempts(user);
+  }
+
+  private async spendCode(
+    user: SecondFactorAccount,
+    plaintext: string,
+    code: string,
+  ): Promise<void> {
+    const delta = checkTotpDelta(code, plaintext);
+    if (delta === null || delta === undefined) {
+      throw this.invalidCode('code does not match the secret');
+    }
+
+    // The absolute step, counted from the epoch. Steps only ever move
+    // forward, which is what makes a spent one detectable.
+    const step = Math.floor(Date.now() / TOTP_STEP_MS) + delta;
     const lastUsedStep = user.twoFactor.lastUsedStep;
 
     if (typeof lastUsedStep === 'number' && step <= lastUsedStep) {
       throw this.invalidCode('code was already used');
     }
 
-    const updated = await this.userModel.updateOne(
-      {
-        _id: user._id,
-        'twoFactor.lastUsedStep': lastUsedStep ?? null,
-      },
-      { $set: { 'twoFactor.lastUsedStep': step } },
-    );
+    const outcome = await this.accounts.spendTotpStep(user, step);
 
-    if (updated.modifiedCount !== 1) {
+    if (outcome !== SPEND_OUTCOME.SPENT) {
       throw this.invalidCode('code was already used');
     }
-
-    user.twoFactor.lastUsedStep = step;
   }
 
-  /** Spends one recovery code. A code that was already spent is refused. */
-  async verifyRecoveryCode(
-    user: UserDocument,
+  private async spendRecovery(
+    user: SecondFactorAccount,
     recoveryCode: string,
   ): Promise<void> {
     const hash = hashRecoveryCode(recoveryCode);
-    const match = (user.twoFactor?.recoveryCodes ?? []).find(
+    const match = user.twoFactor.recoveryCodes.find(
       (candidate) =>
         candidate.usedAt === null && recoveryHashEquals(candidate.hash, hash),
     );
@@ -101,36 +165,44 @@ export class TwoFactorVerificationService {
       throw this.invalidCode('recovery code is unknown or already used');
     }
 
-    const usedAt = new Date();
-    const updated = await this.userModel.updateOne(
-      {
-        _id: user._id,
-        'twoFactor.recoveryCodes': {
-          $elemMatch: { hash: match.hash, usedAt: null },
-        },
-      },
-      { $set: { 'twoFactor.recoveryCodes.$.usedAt': usedAt } },
+    const outcome = await this.accounts.spendRecoveryCode(
+      user,
+      match.hash,
+      new Date(Date.now()),
     );
 
-    if (updated.modifiedCount !== 1) {
+    if (outcome !== SPEND_OUTCOME.SPENT) {
       throw this.invalidCode('recovery code is unknown or already used');
     }
-
-    match.usedAt = usedAt;
   }
 
   /**
-   * The absolute TOTP step the code belongs to, counted from the epoch. Steps
-   * only ever move forward, which is what makes a spent one detectable.
+   * The secret in plain text. One the previous key still reads is written
+   * again under the current key here, so the previous key can be dropped once
+   * every account has answered a code.
    */
-  private resolveStep(secret: TwoFactorSecret, code: string): number {
-    const delta = checkTotpDelta(code, this.cryptoService.decrypt(secret));
-
-    if (delta === null || delta === undefined) {
-      throw this.invalidCode('code does not match the secret');
+  private async readSecret(
+    user: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<string> {
+    const opened = this.cryptoService.open(secret);
+    if (opened.underPreviousKey) {
+      await this.accounts.replaceSecret(
+        user,
+        this.cryptoService.encrypt(opened.plaintext),
+      );
     }
+    return opened.plaintext;
+  }
 
-    return Math.floor(Date.now() / TOTP_STEP_MS) + delta;
+  private locked(lockedUntil: Date, now: number): AppException {
+    this.logger.warn('Two-factor check refused: the account is locked');
+    return new AppException(
+      ErrorCode.TWO_FACTOR_LOCKED,
+      'Too many wrong codes. Try again later.',
+      HttpStatus.TOO_MANY_REQUESTS,
+      { retryAfter: retryAfterSeconds(lockedUntil, now) },
+    );
   }
 
   private invalidCode(reason: string): AppException {

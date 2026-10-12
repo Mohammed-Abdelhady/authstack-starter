@@ -1,7 +1,7 @@
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { UserRole } from '../../../user/enums/user-role.enum';
-import { UserDocument } from '../../../user/schemas/user.schema';
-import { useAdminRoundFour } from '../admin-round-four.harness-spec';
+import { UserDocument } from '../../../user/persistence/mongo/schemas/user.schema';
+import { useAdminRoundFour } from '../../persistence/mongo/services/admin-round-four.harness-spec';
 
 const ORIGINAL_NAME = 'Target';
 const NEW_NAME = 'Renamed Target';

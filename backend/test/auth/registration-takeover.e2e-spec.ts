@@ -1,8 +1,5 @@
 import type { Response } from 'supertest';
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
 import {
   bootE2eApp,
   browserAgent,
@@ -14,7 +11,7 @@ import { TEST_NOW } from '../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const VICTIM_EMAIL = 'victim@example.test';
 const REPEAT_VICTIM_EMAIL = 'repeat-victim@example.test';
@@ -110,13 +107,9 @@ async function expectPasswordBoundToVictim(
 
 describe('Registration takeover (e2e)', () => {
   let e2e: E2eApp;
-  let pendingRegistrations: Model<PendingRegistration>;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -154,9 +147,7 @@ describe('Registration takeover (e2e)', () => {
       '000000',
     );
     expect(attackerWrongCode.status).toBe(400);
-    const attacked = await pendingRegistrations.findOne({
-      email: VICTIM_EMAIL,
-    });
+    const attacked = await e2e.state.auth.pendingRegistrationFor(VICTIM_EMAIL);
     expect(attacked?.attempts).toBe(1);
 
     const victimRegister = await registerAs(victim, victimSignUp);

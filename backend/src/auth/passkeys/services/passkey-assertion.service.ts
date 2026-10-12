@@ -1,17 +1,19 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Request, Response } from 'express';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { Passkey, PasskeyDocument } from '../schemas/passkey.schema';
 import { PasskeyCredentialDto } from '../dto/passkey-credential.dto';
 import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyConfigService } from './passkey-config.service';
 import { PasskeyRequestOptions, WebAuthnAdapter } from './webauthn.adapter';
+import {
+  COUNTER_OUTCOME,
+  PasskeyStore,
+  StoredPasskey,
+} from '../stores/passkey.store';
 
 export interface PasskeyAssertionResult {
-  passkey: PasskeyDocument;
+  passkey: StoredPasskey;
   /**
    * The authenticator asked for a PIN, a fingerprint or a face before it
    * signed. Two factors in one gesture: possession of the key and something
@@ -30,8 +32,7 @@ export class PasskeyAssertionService {
   private readonly logger = new Logger(PasskeyAssertionService.name);
 
   constructor(
-    @InjectModel(Passkey.name)
-    private readonly passkeyModel: Model<PasskeyDocument>,
+    private readonly passkeys: PasskeyStore,
     private readonly adapter: WebAuthnAdapter,
     private readonly config: PasskeyConfigService,
     private readonly challenges: PasskeyChallengeService,
@@ -73,9 +74,7 @@ export class PasskeyAssertionService {
       this.challenges.clear(response);
     }
 
-    const passkey = await this.passkeyModel.findOne({
-      credentialId: { $eq: credential.id },
-    });
+    const passkey = await this.passkeys.findByCredentialId(credential.id);
 
     if (!passkey) {
       throw this.failed('credential is not registered');
@@ -98,26 +97,23 @@ export class PasskeyAssertionService {
 
     this.assertCounterMovedForward(passkey.counter, verified.newCounter);
 
-    const lastUsedAt = new Date();
+    const lastUsedAt = new Date(Date.now());
     if (passkey.counter > 0 || verified.newCounter > 0) {
-      const updated = await this.passkeyModel.updateOne(
-        { _id: passkey._id, counter: passkey.counter },
-        { $set: { counter: verified.newCounter, lastUsedAt } },
-      );
-      if (updated.modifiedCount !== 1) {
+      const outcome = await this.passkeys.advanceCounter(passkey, {
+        counter: verified.newCounter,
+        usedAt: lastUsedAt,
+      });
+      if (outcome !== COUNTER_OUTCOME.ADVANCED) {
         throw this.failed('counter was already advanced');
       }
     } else {
-      await this.passkeyModel.updateOne(
-        { _id: passkey._id },
-        { $set: { lastUsedAt } },
-      );
+      await this.passkeys.markUsed(passkey, lastUsedAt);
     }
 
-    passkey.counter = verified.newCounter;
-    passkey.lastUsedAt = lastUsedAt;
-
-    return { passkey, userVerified: verified.userVerified };
+    return {
+      passkey: { ...passkey, counter: verified.newCounter, lastUsedAt },
+      userVerified: verified.userVerified,
+    };
   }
 
   /**

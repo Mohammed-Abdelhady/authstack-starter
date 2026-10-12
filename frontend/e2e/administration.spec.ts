@@ -1,8 +1,9 @@
 import { auditAccessibility } from './utils/accessibility';
 import { test, expect, API } from './fixtures/authenticated';
+import { message } from './utils/messages';
 
 test.describe('User administration through real API state', () => {
-  test('admin creates, edits and deletes a custom-role user', async ({ page }) => {
+  test('admin creates, edits and deactivates a custom-role user', async ({ page }) => {
     await page.goto('/en/admin/users');
     await page.getByTestId('create-user-button').filter({ visible: true }).click();
     await page.getByTestId('create-user-name-input').fill('Created User');
@@ -29,18 +30,24 @@ test.describe('User administration through real API state', () => {
       'Edited User',
     );
     await page.getByTestId(`user-actions-menu-${id}`).click();
-    await page.getByTestId(`delete-user-${id}`).click();
-    const deleted = page.waitForResponse(
+    await expect(page.getByTestId(`deactivate-user-${id}`)).toBeVisible();
+    await page.getByTestId(`deactivate-user-${id}`).click();
+    const deactivated = page.waitForResponse(
       (response) =>
-        response.url().endsWith(`/api/admin/users/${id}`) &&
-        response.request().method() === 'DELETE',
+        response.url().endsWith(`/api/admin/users/${id}/status`) &&
+        response.request().method() === 'PATCH',
     );
     await page.getByTestId('confirm-user-action-button').click();
-    expect((await deleted).status()).toBe(204);
-    await expect(page.getByTestId(`user-card-${id}`)).toContainText('Inactive');
-    await expect(page.getByRole('region', { name: 'Notifications' })).toContainText(
-      'Edited User deleted successfully',
-    );
+    expect((await deactivated).status()).toBe(200);
+    // The confirmation stays open until the server has answered.
+    await expect(page.getByTestId('user-action-confirm-dialog')).toBeHidden();
+    await expect(
+      page.getByTestId(`user-card-${id}`).getByTestId('user-inactive-badge'),
+    ).toBeVisible();
+    // The name is wrapped in a first-strong isolate so it keeps its own direction.
+    await expect(
+      page.getByRole('region', { name: message('en', 'common.toastRegion') }),
+    ).toContainText(message('en', 'users.actions.deactivateSuccess', { name: 'Edited User' }));
   });
 
   test('session confirmation and role dialog have no automated WCAG A/AA violations', async ({

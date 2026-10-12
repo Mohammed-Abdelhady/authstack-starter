@@ -4,13 +4,10 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
 } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
-import { Role, RoleDocument } from '../../schemas/role.schema';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { UserRole } from '../../../user/enums/user-role.enum';
-import { SecurityEventService } from '../../../session/services/security-event.service';
-import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../../session/constants/session-policy';
+import { RoleChangeStore } from '../../stores/role-change.store';
+import { RoleSweepStore } from '../../stores/role-sweep.store';
 import {
   ROLE_PENDING_SWEEP_LIMIT,
   ROLE_SWEEP_BOOTSTRAP_BUDGET_MS,
@@ -19,9 +16,10 @@ import {
   ROLE_SWEEP_BOOTSTRAP_FINISHED,
   ROLE_SWEEP_BOOTSTRAP_LIMIT,
 } from '../../../common/constants/roles';
-import { repairPendingRoleSweeps } from '../../utils/holder-sweeps/role-pending-sweep.util';
+import { repairPendingRoleSweeps } from '../../sweeps/role-pending-repair';
+import { RoleSweepStores } from '../../sweeps/role-holder-sweep';
 import { Clock } from '../../../common/services/clock';
-import { describeDriverError } from '../../../common/utils/mongo-error.util';
+import { describeStoreFailure } from '../../utils/role-failure.util';
 
 @Injectable()
 export class RoleSweepBootstrapService
@@ -31,13 +29,16 @@ export class RoleSweepBootstrapService
   private task: Promise<void> = Promise.resolve();
   private stopping = false;
 
+  private readonly stores: RoleSweepStores;
+
   constructor(
-    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectConnection() private readonly connection: Connection,
-    private readonly events: SecurityEventService,
+    runner: UnitOfWorkRunner,
+    changes: RoleChangeStore,
+    private readonly sweeps: RoleSweepStore,
     private readonly clock: Clock,
-  ) {}
+  ) {
+    this.stores = { runner, changes, sweeps };
+  }
 
   onApplicationBootstrap(): void {
     this.stopping = false;
@@ -47,7 +48,7 @@ export class RoleSweepBootstrapService
       .catch((error: unknown) => {
         this.logger.error({
           event: ROLE_SWEEP_BOOTSTRAP_FAILED,
-          error: describeDriverError(error),
+          error: describeStoreFailure(error),
         });
       })
       .finally(() => {
@@ -74,12 +75,9 @@ export class RoleSweepBootstrapService
       }
       return true;
     };
-    const owners = await this.roleModel
-      .find({ 'pendingHolderSweeps.0': { $exists: true } })
-      .sort({ updatedAt: 1, _id: 1 })
-      .limit(ROLE_SWEEP_BOOTSTRAP_LIMIT)
-      .maxTimeMS(LINEARIZABLE_QUERY_MAX_TIME_MS)
-      .exec();
+    const owners = await this.sweeps.listSweepOwners(
+      ROLE_SWEEP_BOOTSTRAP_LIMIT,
+    );
     const attempted = new Set<string>();
     for (const owner of owners) {
       if (shouldStop()) return;
@@ -87,49 +85,34 @@ export class RoleSweepBootstrapService
         0,
         ROLE_PENDING_SWEEP_LIMIT,
       ))
-        attempted.add(`${ref.roleId.toString()}:${ref.previousSlug}`);
-      await repairPendingRoleSweeps({
-        connection: this.connection,
-        roleModel: this.roleModel,
-        userModel: this.userModel,
-        events: this.events,
-        ownerId: owner._id,
+        attempted.add(`${ref.roleId}:${ref.previousSlug}`);
+      await repairPendingRoleSweeps(this.stores, {
+        ownerId: owner.id,
         refs: owner.pendingHolderSweeps.slice(0, ROLE_PENDING_SWEEP_LIMIT),
         logger: this.logger,
         shouldStop,
       });
       if (shouldStop()) return;
       // Rotate owners that still have pending work behind older unattempted owners.
-      await this.roleModel.updateOne(
-        { _id: owner._id, 'pendingHolderSweeps.0': { $exists: true } },
-        { $set: { updatedAt: this.clock.now() } },
-        { timestamps: false },
-      );
+      await this.sweeps.rotateSweepOwner(owner.id, this.clock.now());
     }
     if (shouldStop()) return;
     // Delete references also survive a crash before the default role can record them.
-    const deleted = await this.events.pendingRoleDeletions(
+    const deleted = await this.sweeps.listPendingDeletions(
       ROLE_SWEEP_BOOTSTRAP_LIMIT,
     );
     if (deleted.length === 0 || shouldStop()) return;
-    const fallback = await this.roleModel
-      .findOne({ slug: UserRole.USER })
-      .exec();
+    const fallback = await this.sweeps.findSweepOwnerBySlug(UserRole.USER);
     if (!fallback)
       throw new Error('Default role is missing during startup repair');
     for (const ref of deleted) {
       if (shouldStop()) return;
       if (attempted.has(`${ref.roleId}:${ref.previousSlug}`)) continue;
-      const roleId = new Types.ObjectId(ref.roleId);
-      await repairPendingRoleSweeps({
-        connection: this.connection,
-        roleModel: this.roleModel,
-        userModel: this.userModel,
-        events: this.events,
-        ownerId: fallback._id,
-        refs: [{ ...ref, roleId }],
-        recorded: fallback.pendingHolderSweeps.some((pending) =>
-          pending.roleId.equals(roleId),
+      await repairPendingRoleSweeps(this.stores, {
+        ownerId: fallback.id,
+        refs: [ref],
+        recorded: fallback.pendingHolderSweeps.some(
+          (pending) => pending.roleId === ref.roleId,
         ),
         logger: this.logger,
         shouldStop,

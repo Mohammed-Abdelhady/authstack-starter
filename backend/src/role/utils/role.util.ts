@@ -7,7 +7,7 @@ import {
   ROLE_HIERARCHY,
 } from '../../common/utils/role-hierarchy';
 import { RoleResponseDto } from '../dto/role-response.dto';
-import { Role, RoleDocument } from '../schemas/role.schema';
+import { StoredRole } from '../stores/role-records';
 
 /**
  * Role fields needed to work out a hierarchy level.
@@ -93,16 +93,14 @@ export function resolveRoleLevel(role: RoleLevelSource): number {
 }
 
 /**
- * Map Role document to response DTO.
+ * Map a stored role to its response DTO.
  *
- * @param role - Stored role document
+ * @param role - Stored role
  * @returns Serialized role response DTO
  */
-export function mapRoleToResponseDto(
-  role: RoleDocument | (Role & { _id: { toString(): string } }),
-): RoleResponseDto {
+export function mapRoleToResponseDto(role: StoredRole): RoleResponseDto {
   return {
-    id: role._id.toString(),
+    id: role.id,
     name: role.name,
     slug: role.slug,
     description: role.description,

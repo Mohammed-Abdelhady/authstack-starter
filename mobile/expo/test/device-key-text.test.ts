@@ -13,7 +13,10 @@ const CASES: [DeviceKeyReadiness, MessageKey][] = [
   [{ kind: 'keyInvalidated' }, 'deviceKeyInvalidated'],
 ];
 
-describe.each(['en', 'ar'] as const)('device key presentation in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('device key presentation in %s', (locale) => {
   it.each(CASES)('translates %j through %s in each locale', (readiness, key) => {
     expect(describeDeviceKey(locale, readiness)).toBe(MESSAGES[locale][key]);
   });

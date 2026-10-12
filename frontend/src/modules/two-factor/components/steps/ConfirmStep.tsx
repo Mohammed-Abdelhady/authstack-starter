@@ -45,7 +45,7 @@ export function ConfirmStep({ isBusy, onConfirm, onBack }: ConfirmStepProps) {
         <CodeField<ConfirmFormData>
           name="code"
           label={t('code')}
-          disabled={isBusy}
+          busy={isBusy}
           autoFocus
           testId="two-factor-confirm-code"
         />

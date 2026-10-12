@@ -10,7 +10,7 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { PASSKEY_CEREMONY_TIMEOUT_MS } from '../constants/passkeys.constants';
-import { describeDriverError } from '../../../common/utils/mongo-error.util';
+import { describeDriverError } from '../../../common/utils/describe-error.util';
 
 /**
  * The only file that talks to @simplewebauthn/server. Everything else works

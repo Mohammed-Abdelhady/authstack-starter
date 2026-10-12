@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isRunning, stopProcessTree } from '../../lib/process-tree.mjs';
 import { GIT_PUSH_TIMEOUT_MS } from '../policy.mjs';
 import { installChecker, repository } from '../test-repository.mjs';
 
@@ -11,6 +12,7 @@ export const CLEAN = 'export const value = 1;\n';
 export const BAD = `node.${TOKEN} = value;\n`;
 export const GATES = ['lint', 'typecheck', 'test'];
 export const ZERO = '0'.repeat(40);
+export { isRunning };
 
 export function fixture(t, { hooks = true } = {}) {
   const repo = repository(t);
@@ -43,6 +45,8 @@ export function remote(t, repo, name, url) {
   return target;
 }
 
+// GIT_PUSH_TIMEOUT_MS is the installer's push budget too, sized there from the
+// slowest real hook. These hooks run shims: a whole case takes about 2 s under load.
 export function push(repo, ...args) {
   const result = spawnSync('git', ['-c', 'commit.gpgsign=false', 'push', ...args], {
     cwd: repo.root,
@@ -53,13 +57,8 @@ export function push(repo, ...args) {
     detached: true,
   });
   if (result.error) {
-    if (result.pid) {
-      try {
-        process.kill(-result.pid, 'SIGKILL');
-      } catch (error) {
-        if (error.code !== 'ESRCH') throw error;
-      }
-    }
+    // The bound stops Git alone; its hook and the hook's tools are still running.
+    if (result.pid) stopProcessTree(result.pid);
     if (result.error.code === 'ETIMEDOUT')
       throw new Error(`Git push fixture timed out after ${GIT_PUSH_TIMEOUT_MS} ms.`);
     throw result.error;

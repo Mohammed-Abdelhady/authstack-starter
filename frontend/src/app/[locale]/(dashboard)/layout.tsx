@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useCallback, type ReactNode } from 'react';
 import { AuthGuard } from '@/components/providers/AuthGuard';
 import { MobileNavSheet } from '@/components/navigation/MobileNavSheet';
 import { SidebarBrand } from '@/components/navigation/SidebarBrand';
@@ -18,11 +19,35 @@ import { selectUser } from '@/modules/auth/store/authSlice';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const t = useTranslations('dashboard.shell');
   const user = useAppSelector(selectUser);
+  const nameText = useCallback(
+    (chunks: ReactNode) => (
+      <span
+        dir="auto"
+        className="text-sm font-medium text-foreground"
+        data-testid="dashboard-user-name"
+      >
+        {chunks}
+      </span>
+    ),
+    [],
+  );
+  const roleText = useCallback(
+    (chunks: ReactNode) => (
+      <span dir="ltr" className="text-xs text-muted-foreground" data-testid="dashboard-user-role">
+        {chunks}
+      </span>
+    ),
+    [],
+  );
+  const accountIdentity = user
+    ? t.rich('accountIdentity', { name: user.name, role: user.role, nameText, roleText })
+    : null;
 
   return (
     <AuthGuard>
       <div className="flex min-h-screen">
         <aside
+          aria-label={t('mainNavigation')}
           className="fixed start-0 top-0 z-40 hidden h-screen w-64 border-e border-border bg-background md:block"
           data-testid="dashboard-sidebar"
         >
@@ -43,9 +68,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               data-testid="dashboard-account-controls"
             >
               {user && (
-                <div className="hidden items-center gap-2 rounded-lg bg-muted px-3 py-2 sm:flex">
-                  <span className="text-sm font-medium text-foreground">{user.name}</span>
-                  <span className="text-xs text-muted-foreground">({user.role})</span>
+                <div className="hidden min-w-0 items-center gap-2 rounded-lg bg-muted px-3 py-2 [overflow-wrap:anywhere] sm:flex">
+                  {accountIdentity}
                 </div>
               )}
               <LanguageSwitcher /> {/* feature:locale-ar */}
@@ -57,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main
             id="main"
             tabIndex={-1}
-            className="flex-1 focus-visible:outline-none"
+            className="flex-1 focus-visible:outline-hidden"
             data-testid="dashboard-main"
           >
             {children}

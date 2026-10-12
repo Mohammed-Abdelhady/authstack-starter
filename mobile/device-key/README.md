@@ -175,8 +175,9 @@ join to the same name. An alias over 200 characters is refused when the key is b
   unavailable.
 - The Kotlin code reads `KeyInfo.isInsideSecureHardware` below API 31, which newer SDKs mark
   deprecated. It is the only way to ask on those versions.
-- The Swift code has compiled and run on an iOS 27 simulator only, where the key reported
-  `secureEnclave`. It has not run on a phone. The Kotlin code has not been compiled or run.
+- The Swift code has compiled and run on an iOS 27 simulator only, in the Expo app and in the
+  bare app, where the key reported `secureEnclave`. It has not run on a phone. The Kotlin code
+  has not been compiled or run.
 
 ## Tests
 

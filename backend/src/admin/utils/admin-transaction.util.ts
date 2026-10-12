@@ -1,56 +1,62 @@
 import { HttpStatus, Logger } from '@nestjs/common';
-import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { isDatabaseUnavailableError } from '../../common/utils/mongo-error.util';
-import { UserDocument } from '../../user/schemas/user.schema';
+import {
+  isStoreOutage,
+  storeFailureCause,
+} from '../../common/persistence/store-failure';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../common/persistence/unit-of-work';
 import { asAuthorityUnavailable } from '../../session/utils/authority/authority-unavailable';
+import { StoredAccount } from '../../user/stores/stored-account';
 import { AdminUserAccessService } from '../services/users/admin-user-access.service';
-import { withMajorityTransaction } from '../../session/utils/transactions/mongo-transaction';
+import { AdminAccountStore } from '../stores/admin-account.store';
 
 /**
- * Only a genuine database error is an authority failure; a domain refusal
+ * Only a genuine database failure is an authority failure; a domain refusal
  * (AppException), a validation error or a programming error keeps its own
- * answer. Shares the classification with the role edit path.
+ * answer. Either way the failure leaves named by what the database raised.
  */
 export function rethrowOrUnavailable(error: unknown): never {
-  if (!isDatabaseUnavailableError(error)) {
-    throw error;
+  if (!isStoreOutage(error)) {
+    throw storeFailureCause(error);
   }
-  asAuthorityUnavailable(error);
+  asAuthorityUnavailable(storeFailureCause(error));
 }
 
 /**
  * Write the same session-revocation line the SessionService writes when it
- * owns the transaction, now that an in-transaction caller logs after commit.
+ * owns the unit of work, now that a caller inside one logs after commit.
  */
 export function logSessionRevocation(
   logger: Logger,
-  userId: Types.ObjectId,
+  userId: string,
   count: number,
 ): void {
   logger.log(
-    `All sessions invalidated for user ${userId.toString()}: ${count} document(s)`,
+    `All sessions invalidated for user ${userId}: ${count} document(s)`,
   );
 }
 
 /**
- * Re-read the target and the acting account inside the caller's transaction
+ * Re-read the target and the acting account inside the caller's unit of work
  * and repeat the write check against the roles they hold now, so a promotion
  * of the target or a demotion of the actor that lands after the pre-check
  * cannot be acted on. A deactivated target is reported as missing unless the
  * caller is the one bringing it back.
  */
 export async function loadAuthorizedUser(
-  userModel: Model<UserDocument>,
+  accounts: AdminAccountStore,
   accessService: AdminUserAccessService,
-  session: ClientSession,
+  unitOfWork: UnitOfWork,
   targetId: string,
   actorId: string,
   message?: string,
   options: { includeDeleted?: boolean; requireAdmin?: boolean } = {},
-): Promise<UserDocument> {
-  const current = await userModel.findById(targetId).session(session).exec();
+): Promise<StoredAccount> {
+  const current = await accounts.takeAccountForChange(unitOfWork, targetId);
   if (!current || (current.isDeleted && !options.includeDeleted)) {
     throw new AppException(
       ErrorCode.USER_NOT_FOUND,
@@ -61,7 +67,7 @@ export async function loadAuthorizedUser(
   await accessService.assertFreshActorCanModify(
     actorId,
     current.role,
-    session,
+    unitOfWork,
     message,
     options.requireAdmin,
   );
@@ -69,52 +75,53 @@ export async function loadAuthorizedUser(
 }
 
 /**
- * Write an admin name or address edit onto the target as it is now, after the
- * actor's rank is checked again. The address fields come from the document
- * the email change service prepared, and mailed a code for, beforehand.
+ * Write an admin name or pending address onto the target as it is now, after
+ * the actor's rank is checked again. The next email generation is allocated
+ * under the account write, before a confirmation code is issued.
  */
 export function saveUserUpdate(
-  connection: Connection,
-  userModel: Model<UserDocument>,
+  runner: UnitOfWorkRunner,
+  accounts: AdminAccountStore,
   accessService: AdminUserAccessService,
   edit: {
     id: string;
     actorId: string;
     name?: string;
-    moved?: UserDocument;
+    pendingEmail?: string;
     previousEmail: string;
     previousGeneration: number;
   },
-): Promise<UserDocument> {
-  return withMajorityTransaction(connection, async (session) => {
+): Promise<StoredAccount> {
+  return runner.run(async (unitOfWork) => {
     const current = await loadAuthorizedUser(
-      userModel,
+      accounts,
       accessService,
-      session,
+      unitOfWork,
       edit.id,
       edit.actorId,
       undefined,
-      { requireAdmin: Boolean(edit.moved) },
+      { requireAdmin: edit.pendingEmail !== undefined },
     );
-    if (edit.name !== undefined) {
-      current.name = edit.name;
+    if (
+      edit.pendingEmail !== undefined &&
+      (current.email !== edit.previousEmail ||
+        current.addressGeneration !== edit.previousGeneration)
+    ) {
+      throw new AppException(
+        ErrorCode.CONFLICT,
+        'The email address changed while this edit was prepared',
+        HttpStatus.CONFLICT,
+      );
     }
-    if (edit.moved) {
-      if (
-        current.email !== edit.previousEmail ||
-        (current.addressGeneration ?? 0) !== edit.previousGeneration
-      ) {
-        throw new AppException(
-          ErrorCode.CONFLICT,
-          'The email address changed while this edit was prepared',
-          HttpStatus.CONFLICT,
-        );
-      }
-      current.email = edit.moved.email;
-      current.addressGeneration = edit.moved.addressGeneration;
-      current.isVerified = false;
-    }
-    await current.save({ session });
-    return current;
+    return accounts.saveIdentity(unitOfWork, current, {
+      name: edit.name,
+      address:
+        edit.pendingEmail === undefined
+          ? undefined
+          : {
+              email: edit.pendingEmail,
+              addressGeneration: current.addressGeneration + 1,
+            },
+    });
   });
 }

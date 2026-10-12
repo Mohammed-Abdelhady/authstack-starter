@@ -1,8 +1,5 @@
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { UserRole } from '../../src/user/enums/user-role.enum';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
 import {
   SEED_ADMIN,
   SEED_MANAGER,
@@ -17,12 +14,11 @@ import {
   type TestAgent,
 } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { ABSENT_ID } from '../utils/route-id-answers';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
-
-const NEVER_EXISTED_ID = '507f1f77bcf86cd799439011';
+} from '../utils/hook-timeouts';
 
 interface StatusResponse {
   id: string;
@@ -36,12 +32,10 @@ interface ErrorBody {
 
 describe('PATCH /api/admin/users/:id/status (e2e)', () => {
   let e2e: E2eApp;
-  let users: Model<UserDocument>;
   let admin: TestAgent;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -55,11 +49,11 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
   });
 
   async function idOf(seed: SeedUser): Promise<string> {
-    const user = await users.findOne({ email: seed.email }).exec();
-    if (!user) {
+    const id = await e2e.state.accounts.accountIdFor(seed.email);
+    if (!id) {
       throw new Error(`seed user ${seed.email} is missing`);
     }
-    return user._id.toString();
+    return id;
   }
 
   function setStatus(agent: TestAgent, id: string, isActive: boolean) {
@@ -77,7 +71,7 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
       id,
       isDeleted: false,
     });
-    const stored = await users.findById(id).exec();
+    const stored = await e2e.state.accounts.accountWithId(id);
     expect(stored?.isDeleted).toBe(false);
     expect(stored?.deletedAt).toBeUndefined();
     // The session ended by the deactivation does not come back.
@@ -87,13 +81,12 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
   });
 
   it('refuses a reactivation by an actor who does not outrank the target', async () => {
-    const peer = await users.create({
+    const { _id: id } = await e2e.state.accounts.createAccount({
       email: 'second-manager@seed.local',
       name: 'Second Manager',
       role: UserRole.MANAGER,
       isVerified: true,
     });
-    const id = peer._id.toString();
     await setStatus(admin, id, false).expect(200);
     const manager = await loginAs(e2e.httpServer, SEED_MANAGER);
 
@@ -102,11 +95,11 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
     expect((refused.body as ErrorBody).error.code).toBe(
       ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
     );
-    expect((await users.findById(id).exec())?.isDeleted).toBe(true);
+    expect((await e2e.state.accounts.accountWithId(id))?.isDeleted).toBe(true);
   });
 
   it('answers 404 when reactivating a user who never existed', async () => {
-    const missing = await setStatus(admin, NEVER_EXISTED_ID, true).expect(404);
+    const missing = await setStatus(admin, ABSENT_ID, true).expect(404);
 
     expect((missing.body as ErrorBody).error.code).toBe(
       ErrorCode.USER_NOT_FOUND,

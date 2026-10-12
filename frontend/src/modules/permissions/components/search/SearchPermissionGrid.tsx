@@ -27,7 +27,7 @@ export function SearchPermissionGrid({
             id={`permission-${permission}`}
             checked={selectedPermissions.includes(permission)}
             onCheckedChange={() => onTogglePermission(permission)}
-            disabled={isLoading}
+            busy={isLoading}
             data-testid={`permission-checkbox-${permission}`}
           />
           <div className="flex-1">
@@ -36,8 +36,16 @@ export function SearchPermissionGrid({
               className="cursor-pointer text-sm leading-tight"
             >
               {formatPermissionLabel(permission)}
+              <span className="sr-only">
+                {' '}
+                <span dir="ltr">{permission}</span>
+              </span>
             </Label>
-            <p className="mt-0.5 text-xs text-tertiary font-mono">{permission}</p>
+            <p className="mt-0.5 text-xs text-tertiary font-mono">
+              <span dir="ltr" data-testid={`permission-code-${permission}`}>
+                {permission}
+              </span>
+            </p>
           </div>
         </div>
       ))}

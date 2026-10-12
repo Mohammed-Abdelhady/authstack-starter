@@ -39,7 +39,7 @@ const FORBIDDEN_REFERENCE = new RegExp(
   `\\b(?:${LEGACY_MANAGER} (?:${LEGACY_MANAGER_VERBS})\\b|${LEGACY_EXEC}\\b|${LEGACY_YARN} (?:add|install|run|dev)\\b|${LEGACY_BUN_EXEC}\\b|${LEGACY_BUN} (?:install|run)\\b|${LEGACY_LOCKFILE})`,
   'g',
 );
-const PUBLICATION_PATHS = new Set(['packages/create-nest-next-auth/test/packed-cli.ts']);
+const PUBLICATION_PATHS = new Set(['packages/create-nest-next-auth/test/packed/packed-cli.ts']);
 const SKIPPED_DIRECTORIES = new Set([
   ...SKIPPED_DIRECTORY_PARTS,
   '.git',

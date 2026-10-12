@@ -6,7 +6,9 @@ import {
   RULES_POLICIES,
 } from '../constants/index.js';
 import { isMember, isRecord, readBoolean, readString, readStringArray } from '../manifest/read.js';
+import { MOBILE_IDENTITY_FIELDS } from '../constants/mobile.js';
 import type { RulesPolicy } from '../types.js';
+import type { MobileIdentityRequest } from '../types/mobile.js';
 import { isErrnoException } from '../utils/fs.js';
 
 export class ConfigFileError extends Error {
@@ -25,6 +27,7 @@ export interface ConfigSelection {
   options?: Partial<Record<string, boolean>>;
   locales?: string[];
   rules?: RulesPolicy;
+  mobile?: MobileIdentityRequest;
 }
 
 const KEYS = new Set([
@@ -36,6 +39,7 @@ const KEYS = new Set([
   'production',
   'locales',
   'rules',
+  'mobile',
 ]);
 
 /** Flags lower-case their lists, so config values are normalised the same way. */
@@ -78,6 +82,28 @@ function readRules(value: unknown, problems: string[]): RulesPolicy | undefined 
   if (isMember(RULES_POLICIES, value)) return value;
   problems.push(`rules must be one of ${RULES_POLICIES.join(', ')}, got ${JSON.stringify(value)}`);
   return undefined;
+}
+
+/** The mobile app's identity: an object of strings. Their rules are checked with the plan. */
+function readMobile(value: unknown, problems: string[]): MobileIdentityRequest {
+  if (!isRecord(value)) {
+    problems.push('mobile must be an object with name, slug, appId and scheme');
+    return {};
+  }
+  const given: MobileIdentityRequest = {};
+  for (const [key, entry] of Object.entries(value)) {
+    const field = MOBILE_IDENTITY_FIELDS.find((name) => name === key);
+    if (field === undefined) {
+      problems.push(`unknown key "mobile.${key}"`);
+      continue;
+    }
+    if (typeof entry !== 'string') {
+      problems.push(`mobile.${key} must be a string`);
+      continue;
+    }
+    given[field] = entry;
+  }
+  return given;
 }
 
 /** Validates a parsed config file. Throws ConfigFileError naming every problem. */
@@ -129,6 +155,11 @@ export function parseConfigFile(value: unknown): ConfigSelection {
   if (value.rules !== undefined) {
     const rules = readRules(value.rules, problems);
     if (rules !== undefined) selection.rules = rules;
+  }
+
+  if (value.mobile !== undefined) {
+    const mobile = readMobile(value.mobile, problems);
+    if (Object.keys(mobile).length > 0) selection.mobile = mobile;
   }
 
   if (problems.length > 0) {

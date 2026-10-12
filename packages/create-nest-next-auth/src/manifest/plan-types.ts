@@ -1,4 +1,5 @@
 import type { RulesPolicy } from '../types.js';
+import type { MobileIdentity, MobileIdentityRequest } from '../types/mobile.js';
 
 export type PlanErrorReason =
   | 'unknown'
@@ -7,13 +8,17 @@ export type PlanErrorReason =
   | 'database-conflict'
   | 'option-conflict'
   | 'feature-conflict'
-  | 'locales';
+  | 'locales'
+  | 'identity'
+  | 'identity-unused';
 
 export interface PlanError {
   id: string;
   reason: PlanErrorReason;
   /** For a conflict, the other id: what `id` needs but cannot have. */
   needed?: string;
+  /** For an identity error, what is wrong with the value. `id` is the field. */
+  message?: string;
 }
 
 /** An id the plan gained, and what caused it. */
@@ -39,6 +44,8 @@ export interface Plan {
   options: string[];
   shared: string[];
   signInSite: 'full' | 'kept-for-native' | 'none';
+  /** Set only when a mobile app is part of the plan. */
+  mobile?: MobileIdentity;
   added: PlanChange[];
   removed: PlanRemoval[];
   errors: PlanError[];
@@ -53,4 +60,7 @@ export interface PlanRequest {
   options?: Partial<Record<string, boolean>>;
   locales?: string[];
   preset?: string;
+  mobile?: MobileIdentityRequest;
+  /** The directory name the mobile defaults are built from. */
+  projectName?: string;
 }

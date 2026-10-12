@@ -14,6 +14,7 @@ import { RULES_GATES_PATH as GATES_PATH } from '../constants/rules.js';
 import type { RulesPolicy } from '../types.js';
 import {
   explicitTypeLintFact,
+  mobileAppSection,
   readPolicyFacts,
   renderBannedConstructs,
   workspaceLocationLines,
@@ -223,6 +224,8 @@ export async function renderRulesText(input: RulesTextInput): Promise<RenderedRu
         ? `${notEnforced}\n\n${input.facts?.standardNotEnforced ?? STANDARD_NOT_ENFORCED}`
         : notEnforced,
     whereThingsAre,
+    // Supplied facts describe another project, which has no app from this template.
+    mobileApp: input.facts === undefined ? await mobileAppSection(input.projectRoot) : '',
   });
   return { agents, claude: CLAUDE_RULES_TEXT };
 }

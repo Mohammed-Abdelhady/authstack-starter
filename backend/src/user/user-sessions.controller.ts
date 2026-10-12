@@ -21,7 +21,7 @@ import { SessionListData } from './dto/user-profile.dto';
 import { ApiResponse } from '../common/dto/api-response.dto';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
 import { requestSessionId } from '../session/utils/request/request-session';
-import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
+import { RouteIdPipe } from '../common/pipes/route-id.pipe';
 
 /**
  * Controller for user session management.
@@ -74,7 +74,7 @@ export class UserSessionsController {
   })
   async revokeSession(
     @CurrentUser('id') userId: string,
-    @Param('sessionId', ParseObjectIdPipe) sessionId: string,
+    @Param('sessionId', RouteIdPipe) sessionId: string,
     @Req() request: RequestWithUser,
   ): Promise<ApiResponse<{ message: string }>> {
     return this.userSessionsService.revokeSession(

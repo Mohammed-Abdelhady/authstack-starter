@@ -43,6 +43,13 @@ export const PALETTE: Record<ColorScheme, Palette> = {
   },
 };
 
+/** The system bar's clock and icons, drawn in the shade that reads on the scheme's background. */
+export const STATUS_BAR_STYLE = {
+  light: 'dark-content',
+  dark: 'light-content',
+} as const satisfies Record<ColorScheme, string>;
+export type StatusBarStyle = (typeof STATUS_BAR_STYLE)[ColorScheme];
+
 /** For a border that takes its place in the layout before it has a colour to show. */
 export const TRANSPARENT = 'transparent';
 
@@ -81,11 +88,23 @@ export interface TypeRole {
   fontWeight: '400' | '600' | '700';
   /** The palette entry the role is painted with unless a tone says otherwise. */
   color: keyof Palette;
+  /** How far the system text size may enlarge the role. Unset means without limit. */
+  maxFontScale?: number;
 }
 
-/** Line heights leave room for Arabic letterforms, which sit taller than Latin ones. */
+/**
+ * Line heights leave room for letterforms that sit taller than Latin ones.
+ * The title is already large, so it stops growing at twice its size: beyond that
+ * a single word no longer fits a phone's width and breaks in the middle.
+ */
 export const TYPE_ROLE: Record<TypeRoleName, TypeRole> = {
-  screenTitle: { fontSize: 28, lineHeight: 40, fontWeight: '700', color: 'text' },
+  screenTitle: {
+    fontSize: 28,
+    lineHeight: 40,
+    fontWeight: '700',
+    color: 'text',
+    maxFontScale: 2,
+  },
   sectionHeading: { fontSize: 18, lineHeight: 28, fontWeight: '600', color: 'text' },
   description: { fontSize: 15, lineHeight: 24, fontWeight: '400', color: 'textMuted' },
   body: { fontSize: 17, lineHeight: 28, fontWeight: '400', color: 'text' },

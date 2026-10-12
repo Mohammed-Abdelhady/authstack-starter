@@ -1,22 +1,28 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model } from 'mongoose';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { SECURITY_EVENT_ACTION } from '../../constants/security-event-action';
-import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
 import {
   NATIVE_DPOP_FAILURE_REASON,
   NATIVE_DPOP_RETRY_WINDOW_MS,
 } from '../../constants/session-policy';
 import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../schemas/native-credential.schema';
-import { SessionDocument } from '../../schemas/session.schema';
-import { SecurityEventService } from '../../services/security-event.service';
-import { UserDocument } from '../../../user/schemas/user.schema';
-import { ApplicationDocument } from '../../schemas/application.schema';
-import { UserApplicationGrantDocument } from '../../schemas/user-application-grant.schema';
+  IssuanceAccount,
+  IssuanceApplication,
+  IssuanceGrant,
+} from '../../issuance/browser-issuance.store';
 import { hashToken } from '../../utils/hashing/token-hash';
+import {
+  NativeFamilySession,
+  StoredNativeCredential,
+} from '../credentials/native-credential.store';
+import {
+  NativeRotationStore,
+  REPLACEMENT_LINK,
+  RETRY_CLAIM,
+  SUCCESSOR_REVOCATION,
+  UnusedSuccessor,
+} from '../credentials/native-rotation.store';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
 import { NativeCredentialIssuer } from '../token/native-credential.issuer';
 import {
   ClientMeta,
@@ -28,12 +34,12 @@ import {
 import type { NativeDpopProofResult } from '../proof/native-dpop-proof';
 
 export interface NativeBoundRetryInput {
-  db: ClientSession;
-  presented: NativeCredentialDocument;
-  session: SessionDocument;
-  user: UserDocument;
-  application: ApplicationDocument;
-  grant: UserApplicationGrantDocument;
+  unitOfWork: UnitOfWork;
+  presented: StoredNativeCredential;
+  session: NativeFamilySession;
+  account: IssuanceAccount;
+  application: IssuanceApplication;
+  grant: IssuanceGrant;
   meta: ClientMeta;
   now: Date;
   thumbprint: string;
@@ -43,16 +49,15 @@ export interface NativeBoundRetryInput {
 @Injectable()
 export class NativeBoundRetryService {
   constructor(
-    @InjectModel(NativeCredential.name)
-    private readonly credentials: Model<NativeCredentialDocument>,
+    private readonly rotations: NativeRotationStore,
     private readonly issuer: NativeCredentialIssuer,
-    private readonly events: SecurityEventService,
+    private readonly events: NativeSecurityEvents,
   ) {}
 
   async retryOrReplay(
     input: NativeBoundRetryInput,
   ): Promise<TokenSuccess | OauthFailure> {
-    const { presented, now } = input;
+    const { presented, now, unitOfWork } = input;
     if (!this.insideRetryWindow(presented, now)) {
       return this.replay(input);
     }
@@ -60,85 +65,65 @@ export class NativeBoundRetryService {
     if (!successor) {
       return this.replay(input);
     }
-    const claimed = await this.credentials
-      .updateOne(
-        {
-          _id: presented._id,
-          spent: true,
-          revokedAt: { $exists: false },
-          $or: [
-            { retryClaimUntil: { $exists: false } },
-            { retryClaimUntil: { $lte: now } },
-          ],
-        },
-        {
-          $set: {
-            retryClaimUntil: new Date(
-              now.getTime() + NATIVE_DPOP_RETRY_WINDOW_MS,
-            ),
-          },
-        },
-      )
-      .session(input.db)
-      .exec();
-    if (claimed.modifiedCount !== 1) {
+    const claimed = await this.rotations.claimRetry(unitOfWork, presented.id, {
+      now,
+      until: new Date(now.getTime() + NATIVE_DPOP_RETRY_WINDOW_MS),
+    });
+    if (claimed !== RETRY_CLAIM.CLAIMED) {
       return oauthFailure(
         HttpStatus.BAD_REQUEST,
         OAUTH_ERROR.INVALID_DPOP_PROOF,
         NATIVE_DPOP_FAILURE_REASON.RETRY_IN_PROGRESS,
       );
     }
-    const pairRevoked = await this.revokeUnusedSuccessor(input, successor);
-    if (!pairRevoked) {
+    const pairRevoked = await this.rotations.revokeUnusedSuccessor(unitOfWork, {
+      accessId: successor.accessId,
+      refreshId: successor.refreshId,
+      now,
+    });
+    if (pairRevoked !== SUCCESSOR_REVOCATION.REVOKED) {
       return this.replay(input);
     }
-    const replacement = await this.issuer.issuePair(
-      input.db,
-      input.user,
-      input.application,
-      input.grant,
-      {
-        clientId: input.presented.clientId,
+    const replacement = await this.issuer.issuePair(unitOfWork, {
+      account: input.account,
+      application: input.application,
+      grant: input.grant,
+      context: {
+        clientId: presented.clientId,
         requestedScopes: input.session.scopes,
         audience: input.session.audience,
         authenticationMethods: input.session.authenticationMethods,
       },
-      input.meta,
-      input.now,
-      successor.refresh.generation,
-      input.session,
-      input.presented.familyId,
-      input.thumbprint,
+      meta: input.meta,
+      now,
+      generation: successor.generation,
+      existing: input.session,
+      familyId: presented.familyId,
+      proofKeyThumbprint: input.thumbprint,
+    });
+    const linked = await this.rotations.linkReplacement(
+      unitOfWork,
+      presented.id,
+      {
+        accessHash: hashToken(replacement.accessToken),
+        refreshHash: hashToken(replacement.refreshToken),
+        now,
+      },
     );
-    const linked = await this.credentials
-      .updateOne(
-        { _id: input.presented._id, retryClaimUntil: { $gt: input.now } },
-        {
-          $set: {
-            successorAccessHash: hashToken(replacement.accessToken),
-            successorRefreshHash: hashToken(replacement.refreshToken),
-          },
-        },
-      )
-      .session(input.db)
-      .exec();
-    if (linked.modifiedCount !== 1) {
+    if (linked !== REPLACEMENT_LINK.LINKED) {
       return this.replay(input);
     }
-    await this.events.record(
-      {
-        targetUserId: input.user._id.toString(),
-        clientId: input.presented.clientId,
-        sessionId: input.session._id.toString(),
-        action: SECURITY_EVENT_ACTION.NATIVE_DPOP_BOUND_RETRY,
-      },
-      input.db,
-    );
+    await this.events.record(unitOfWork, {
+      targetUserId: input.account.id,
+      clientId: presented.clientId,
+      sessionId: input.session.id,
+      action: SECURITY_EVENT_ACTION.NATIVE_DPOP_BOUND_RETRY,
+    });
     return replacement;
   }
 
   private insideRetryWindow(
-    presented: NativeCredentialDocument,
+    presented: StoredNativeCredential,
     now: Date,
   ): boolean {
     const consumedAt = presented.consumedAt?.getTime();
@@ -150,99 +135,26 @@ export class NativeBoundRetryService {
     );
   }
 
-  private async findUnusedSuccessor(input: NativeBoundRetryInput): Promise<
-    | {
-        access: NativeCredentialDocument;
-        refresh: NativeCredentialDocument;
-      }
-    | undefined
-  > {
-    const { presented, db } = input;
-    if (!presented.successorAccessHash || !presented.successorRefreshHash) {
-      return undefined;
-    }
-    const refresh = await this.credentials
-      .findOne({
-        tokenHash: presented.successorRefreshHash,
-        purpose: CREDENTIAL_PURPOSE.NATIVE_REFRESH,
-        familyId: presented.familyId,
-        sessionId: presented.sessionId,
-        clientId: presented.clientId,
-        generation: presented.generation + 1,
-        spent: false,
-        revokedAt: { $exists: false },
-      })
-      .session(db)
-      .exec();
-    if (!refresh) {
-      return undefined;
-    }
-    const access = await this.credentials
-      .findOne({
-        tokenHash: presented.successorAccessHash,
-        purpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
-        familyId: presented.familyId,
-        sessionId: presented.sessionId,
-        clientId: presented.clientId,
-        generation: refresh.generation,
-        firstUsedAt: { $exists: false },
-        spent: false,
-        revokedAt: { $exists: false },
-      })
-      .session(db)
-      .exec();
-    if (!access) {
-      return undefined;
-    }
-    const usedGeneration = await this.credentials
-      .findOne({
-        familyId: presented.familyId,
-        sessionId: presented.sessionId,
-        generation: refresh.generation,
-        purpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
-        firstUsedAt: { $exists: true },
-      })
-      .session(db)
-      .exec();
-    return usedGeneration ? undefined : { access, refresh };
-  }
-
-  private async revokeUnusedSuccessor(
+  private async findUnusedSuccessor(
     input: NativeBoundRetryInput,
-    successor: {
-      access: NativeCredentialDocument;
-      refresh: NativeCredentialDocument;
-    },
-  ): Promise<boolean> {
-    const refresh = await this.credentials
-      .updateOne(
-        {
-          _id: successor.refresh._id,
-          spent: false,
-          revokedAt: { $exists: false },
-        },
-        { $set: { spent: true, revokedAt: input.now } },
-      )
-      .session(input.db)
-      .exec();
-    const access = await this.credentials
-      .updateOne(
-        {
-          _id: successor.access._id,
-          spent: false,
-          revokedAt: { $exists: false },
-          firstUsedAt: { $exists: false },
-        },
-        { $set: { spent: true, revokedAt: input.now } },
-      )
-      .session(input.db)
-      .exec();
-    return refresh.modifiedCount === 1 && access.modifiedCount === 1;
+  ): Promise<UnusedSuccessor | null> {
+    const { presented } = input;
+    if (!presented.successorAccessHash || !presented.successorRefreshHash) {
+      return null;
+    }
+    return this.rotations.findUnusedSuccessor(input.unitOfWork, {
+      accessHash: presented.successorAccessHash,
+      refreshHash: presented.successorRefreshHash,
+      familyId: presented.familyId,
+      sessionId: presented.sessionId,
+      clientId: presented.clientId,
+      generation: presented.generation,
+    });
   }
 
   private async replay(input: NativeBoundRetryInput): Promise<OauthFailure> {
     await this.issuer.revokeFamily(
-      input.db,
+      input.unitOfWork,
       input.presented.familyId,
       input.presented.sessionId,
       input.now,

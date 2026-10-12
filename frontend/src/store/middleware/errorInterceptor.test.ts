@@ -68,9 +68,9 @@ const ROWS: Row[] = [
     shows: null,
   },
   {
-    name: '401 on the session check itself',
+    name: '401 on the identity check itself',
     payload: { status: 401, data: body('SESSION_INVALID') },
-    endpoint: 'getCurrentUser',
+    endpoint: 'getIdentity',
     signedIn: true,
     shows: null,
   },

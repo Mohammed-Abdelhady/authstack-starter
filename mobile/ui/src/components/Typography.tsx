@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import type { ComponentRef, ReactNode, Ref } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { useUi } from '../context/ui-context';
+import { usePaint } from '../context/paint-context';
 import { TYPE_ROLE, TYPE_ROLE_NAME, type Palette, type TypeRoleName } from '../theme/tokens';
 
 /** The only place a text style is built. Screens pick a role and never a size, weight or colour. */
@@ -25,6 +25,7 @@ export type LabelTone = Extract<keyof Palette, 'text' | 'danger' | 'onAccent'>;
 interface TextProps {
   children: ReactNode;
   testID?: string;
+  nativeRef?: Ref<ComponentRef<typeof Text>>;
 }
 
 interface RoleTextProps extends TextProps {
@@ -41,12 +42,16 @@ function RoleText({
   header = false,
   children,
   testID,
+  nativeRef,
 }: RoleTextProps) {
-  const { colors, direction } = useUi();
+  const { colors, direction } = usePaint();
   return (
     <Text
+      ref={nativeRef}
       testID={testID}
+      accessible={header ? true : undefined}
       accessibilityRole={header ? 'header' : 'text'}
+      maxFontSizeMultiplier={TYPE_ROLE[role].maxFontScale}
       style={[
         ROLE_STYLE[role],
         centered ? ROLE_STYLE.center : ROLE_STYLE.start,

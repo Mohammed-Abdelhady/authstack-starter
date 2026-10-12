@@ -43,9 +43,11 @@ import {
 /**
  * Password sign-in and the account lifecycle around it.
  *
- * The four routes that need a password close with AUTH_PASSWORD_ENABLED=false.
- * Activation, resend and logout stay open: an activation code also confirms an
- * address an admin moved an account to, which has nothing to do with passwords.
+ * Six routes close with AUTH_PASSWORD_ENABLED=false: register, activate,
+ * resend-activation, login, forgot-password and reset-password. Activation
+ * sets a password, so it closes with the rest. Logout stays open, and so does
+ * confirm-email-change: it confirms an address an admin moved an account to,
+ * which has nothing to do with passwords.
  */
 @ApiTags('auth')
 @Controller('auth')
@@ -121,6 +123,7 @@ export class AuthController {
    * POST /api/auth/activate
    */
   @Public()
+  @RequiresFeature(AuthFeature.PASSWORD)
   @Throttle(THROTTLE_ACTIVATE)
   @Post('activate')
   @HttpCode(HttpStatus.OK)
@@ -138,7 +141,7 @@ export class AuthController {
   }
 
   /**
-   * Confirm the new address an admin moved an account to
+   * Confirm the address an admin asked an account to move to
    * POST /auth/confirm-email-change
    */
   @Public()
@@ -148,9 +151,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Confirm an admin-initiated email change',
     description:
-      'Marks the new address verified on the account an admin moved. It needs ' +
-      'no password and issues no session, so a deployment without password ' +
-      'sign-in still confirms addresses.',
+      'Moves the account to the address an admin asked for and ends its ' +
+      'sessions. It needs no password and issues no session, so a deployment ' +
+      'without password sign-in still confirms addresses.',
   })
   @ApiBody({ type: ConfirmEmailChangeDto })
   async confirmEmailChange(@Body() dto: ConfirmEmailChangeDto) {
@@ -162,6 +165,7 @@ export class AuthController {
    * POST /api/auth/resend-activation
    */
   @Public()
+  @RequiresFeature(AuthFeature.PASSWORD)
   @Throttle({ default: { limit: 3, ttl: 3600000 } })
   @Post('resend-activation')
   @HttpCode(HttpStatus.OK)
@@ -218,7 +222,7 @@ export class AuthController {
       request.user
     ) {
       const result = await this.authService.logoutNative(
-        session._id.toString(),
+        session.id,
         request.user.id,
       );
       return response.status(HttpStatus.OK).json(result);

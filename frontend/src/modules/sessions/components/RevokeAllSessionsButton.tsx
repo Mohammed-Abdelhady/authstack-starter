@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { FormRootError } from '@/components/forms';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useTranslations } from 'next-intl';
 import { LogOut, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, DESTRUCTIVE_FILL_CLASSES } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +21,7 @@ import {
 import { useRevokeAllOtherSessionsMutation } from '../api/sessionsApi';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 
 export interface RevokeAllSessionsButtonProps {
   /** Number of other sessions that will be revoked */
@@ -26,6 +30,8 @@ export interface RevokeAllSessionsButtonProps {
   onSuccess?: (revokedCount: number) => void;
   /** Additional className for the button */
   className?: string;
+  /** The heading that takes focus once the sessions are gone, and this button with them */
+  landing?: RemovalLanding;
 }
 
 /**
@@ -50,19 +56,31 @@ export function RevokeAllSessionsButton({
   otherSessionsCount,
   onSuccess,
   className,
+  landing,
 }: RevokeAllSessionsButtonProps) {
   const [open, setOpen] = useState(false);
   const [revokeAllOtherSessions, { isLoading }] = useRevokeAllOtherSessionsMutation();
   const t = useTranslations('sessions');
   const tCommon = useTranslations('common');
+  const { noteRemoved, focusLanding } = useRemovalFocus(landing);
+  const refusalText = useRefusalText();
+  const [refusal, setRefusal] = useState<string | null>(null);
+
+  const changeOpen = (next: boolean) => {
+    setRefusal(null);
+    setOpen(next);
+  };
 
   const handleRevoke = async () => {
+    setRefusal(null);
     try {
-      const result = await revokeAllOtherSessions().unwrap();
+      const result = await showsOwnRefusal(revokeAllOtherSessions()).unwrap();
       toast.success(t('logoutAllSuccess', { count: result.revokedCount }));
+      noteRemoved();
       setOpen(false);
       onSuccess?.(result.revokedCount);
     } catch (error) {
+      setRefusal(refusalText(error));
       reportUnlessHandled(error);
     }
   };
@@ -73,12 +91,13 @@ export function RevokeAllSessionsButton({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog open={open} busy={isLoading} onOpenChange={changeOpen}>
       <AlertDialogTrigger asChild>
         <Button
           variant="destructive"
           size="sm"
-          disabled={isLoading}
+          busy={isLoading}
+          aria-busy={isLoading}
           className={className}
           data-testid="logout-all-sessions-button"
         >
@@ -86,21 +105,26 @@ export function RevokeAllSessionsButton({
           {t('logoutAllOther')}
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent data-testid="revoke-all-confirm-dialog">
+      <AlertDialogContent data-testid="revoke-all-confirm-dialog" onCloseAutoFocus={focusLanding}>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('logoutAllConfirmTitle')}</AlertDialogTitle>
           <AlertDialogDescription>
             {t('logoutAllConfirmDescription', { count: otherSessionsCount })}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <FormRootError error={refusal} className="mb-0" testId="revoke-all-error" />
         <AlertDialogFooter>
           <AlertDialogCancel data-testid="cancel-logout-all">{tCommon('cancel')}</AlertDialogCancel>
           <AlertDialogAction
-            onClick={handleRevoke}
-            disabled={isLoading}
+            onClick={(event) => {
+              // Stays open until the answer arrives, so focus has one place to go.
+              event.preventDefault();
+              void handleRevoke();
+            }}
+            busy={isLoading}
             aria-busy={isLoading}
             data-testid="confirm-logout-all"
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className={DESTRUCTIVE_FILL_CLASSES}
           >
             {isLoading ? (
               <>

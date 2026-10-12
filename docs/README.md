@@ -4,6 +4,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 
 ## Core guides
 
+- [Session device names](../backend/docs/session-device-names.md): Session response parts, localized names, and legacy fallback.
 - [Architecture](reference/ARCHITECTURE.md): Request pipeline, session storage, OAuth provider registry, and security model.
 - [Database schema](reference/DATABASE_SCHEMA.md): MongoDB collections, document models, indexes, and migrations.
 - [Two-factor challenges and seed data](reference/database-schema-two-factor-challenges.md)
@@ -19,6 +20,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 - [Code quality](reference/code-quality.md): Local lint, format, hard-ban hooks, and tests on push.
 - [Deployment](operations/deployment.md): Docker Compose and cloud deployment instructions.
 - [Custom domains and deployment troubleshooting](operations/deployment-custom-domain.md)
+- [Production security settings](operations/production-security.md): Start checks, cookie rules, rate limit counters, and the security headers each layer sends.
 
 ## Authentication setup guides
 
@@ -59,6 +61,8 @@ See [backend/docs/](../backend/docs/):
 - [OAuth authentication](../backend/docs/oauth-authentication.md): OAuth provider registry and provider addition steps.
 - [User roles and permissions](../backend/docs/user-roles-permissions.md): RBAC model, role levels, and permission checks.
 - [Database management](../backend/docs/database-management.md): MongoDB connection, migrations, and seed commands.
+- [PostgreSQL](../backend/docs/database-postgres.md): Version, settings, migrations, retention, and how the tests run. <!-- feature:postgres -->
+- [API routes](../backend/docs/api-routes.md): Every route, who may call it and the setting that closes it.
 - [API responses](../backend/docs/api-responses.md): Response envelope formats and error codes.
 - [Postman collection](../backend/docs/postman/README.md): Postman collection, environments, and test scripts.
 

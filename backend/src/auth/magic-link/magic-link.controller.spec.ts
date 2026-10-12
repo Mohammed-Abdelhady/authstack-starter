@@ -4,7 +4,10 @@ import { MagicLinkController } from './magic-link.controller';
 import { MagicLinkService } from './magic-link.service';
 import { FeatureEnabledGuard } from '../guards/feature-enabled.guard';
 import { AuthFeaturesService } from '../services/features/auth-features.service';
-import { MOCK_REQUEST, MOCK_RESPONSE } from './magic-link.harness-spec';
+import {
+  MOCK_REQUEST,
+  MOCK_RESPONSE,
+} from './persistence/mongo/magic-link.harness-spec';
 import { createResponseMock } from '../../common/testing/test-doubles.harness-spec';
 
 describe('MagicLinkController', () => {
@@ -34,11 +37,16 @@ describe('MagicLinkController', () => {
   });
 
   it('should pass the request along with the caller address and agent', async () => {
-    await controller.request({ email: 'user@example.com' }, MOCK_REQUEST);
+    await controller.request(
+      { email: 'user@example.com' },
+      MOCK_REQUEST,
+      MOCK_RESPONSE,
+    );
 
     expect(magicLinkService.request).toHaveBeenCalledWith(
       { email: 'user@example.com' },
       MOCK_REQUEST,
+      MOCK_RESPONSE,
     );
   });
 
@@ -49,10 +57,11 @@ describe('MagicLinkController', () => {
       status: jest.fn().mockReturnValue(createResponseMock({ json })),
     });
 
-    await controller.verify({ token: 'token' }, response);
+    await controller.verify({ token: 'token' }, MOCK_REQUEST, response);
 
     expect(magicLinkService.verify).toHaveBeenCalledWith(
       { token: 'token' },
+      MOCK_REQUEST,
       response,
     );
     expect(json).toHaveBeenCalledWith({ success: true });

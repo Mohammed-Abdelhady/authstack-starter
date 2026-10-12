@@ -9,7 +9,7 @@ interface PermissionGroupGridProps {
   permissions: Record<string, string>;
   selectedPermissions: string[];
   onTogglePermission: (permission: string) => void;
-  disabled?: boolean;
+  busy?: boolean;
   prefix?: string;
 }
 
@@ -17,13 +17,13 @@ export const PermissionGroupGrid = memo(function PermissionGroupGrid({
   permissions,
   selectedPermissions,
   onTogglePermission,
-  disabled = false,
+  busy = false,
   prefix = '',
 }: PermissionGroupGridProps) {
   const formatPermissionLabel = usePermissionLabel();
 
   return (
-    <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted p-4">
+    <div className="grid grid-cols-1 gap-3 rounded-lg border border-border bg-muted p-4 sm:grid-cols-2">
       {Object.entries(permissions).map(([, permission]) => {
         const id = `permission-${permission}${prefix ? `-${prefix}` : ''}`;
         return (
@@ -32,14 +32,22 @@ export const PermissionGroupGrid = memo(function PermissionGroupGrid({
               id={id}
               checked={selectedPermissions.includes(permission)}
               onCheckedChange={() => onTogglePermission(permission)}
-              disabled={disabled}
+              busy={busy}
               data-testid={`permission-checkbox-${permission}`}
             />
             <div className="flex-1">
               <Label htmlFor={id} className="cursor-pointer text-sm leading-tight">
                 {formatPermissionLabel(permission)}
+                <span className="sr-only">
+                  {' '}
+                  <span dir="ltr">{permission}</span>
+                </span>
               </Label>
-              <p className="mt-0.5 text-xs text-tertiary font-mono">{permission}</p>
+              <p className="mt-0.5 text-xs text-tertiary font-mono">
+                <span dir="ltr" data-testid={`permission-code-${permission}`}>
+                  {permission}
+                </span>
+              </p>
             </div>
           </div>
         );

@@ -1,7 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { CookieOptions, Request, Response } from 'express';
 import { createHash, hkdfSync } from 'crypto';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -18,9 +16,9 @@ import {
   PasskeyChallengePurpose,
 } from '../constants/passkeys.constants';
 import {
-  PasskeyChallenge,
-  PasskeyChallengeDocument,
-} from '../schemas/passkey-challenge.schema';
+  CHALLENGE_USE,
+  PasskeyChallengeStore,
+} from '../stores/passkey-challenge.store';
 
 export interface PasskeyChallengePayload {
   purpose: PasskeyChallengePurpose;
@@ -28,6 +26,11 @@ export interface PasskeyChallengePayload {
   challenge: string;
   /** Account the challenge was issued to. Registration only; login is open. */
   sub?: string;
+  /**
+   * Session that proved itself before the challenge was issued. Registration
+   * only: the proof is good for this challenge and for no other session.
+   */
+  sid?: string;
   /** Epoch milliseconds after which the cookie is refused. */
   expiresAt: number;
 }
@@ -42,8 +45,7 @@ export class PasskeyChallengeService {
   private readonly logger = new Logger(PasskeyChallengeService.name);
 
   constructor(
-    @InjectModel(PasskeyChallenge.name)
-    private readonly challengeModel: Model<PasskeyChallengeDocument>,
+    private readonly challenges: PasskeyChallengeStore,
     private readonly configService: ConfigService,
   ) {}
 
@@ -52,23 +54,22 @@ export class PasskeyChallengeService {
     purpose: PasskeyChallengePurpose,
     challenge: string,
     userId?: string,
+    sessionId?: string,
   ): Promise<void> {
-    const signingKey = this.key();
+    const signingKey = this.currentKey();
     const expiresAt = Date.now() + PASSKEY_CHALLENGE_TTL_MS;
     const payload: PasskeyChallengePayload = {
       purpose,
       challenge,
       sub: userId,
+      sid: sessionId,
       expiresAt,
     };
 
-    await this.challengeModel.create({
+    await this.challenges.open({
       challengeHash: hashChallenge(challenge),
       purpose,
-      user:
-        userId && Types.ObjectId.isValid(userId)
-          ? new Types.ObjectId(userId)
-          : undefined,
+      userId,
       expiresAt: new Date(expiresAt),
     });
 
@@ -88,9 +89,11 @@ export class PasskeyChallengeService {
     purpose: PasskeyChallengePurpose,
   ): PasskeyChallengePayload {
     const cookies = request.cookies as Record<string, string> | undefined;
-    const payload = decodeSignedCookie<PasskeyChallengePayload>(
-      cookies?.[PASSKEY_CHALLENGE_COOKIE],
-      this.key(),
+    const raw = cookies?.[PASSKEY_CHALLENGE_COOKIE];
+    const payload = this.readKeys().reduce<PasskeyChallengePayload | null>(
+      (found, key) =>
+        found ?? decodeSignedCookie<PasskeyChallengePayload>(raw, key),
+      null,
     );
 
     if (!payload || typeof payload.challenge !== 'string') {
@@ -119,13 +122,12 @@ export class PasskeyChallengeService {
     purpose: PasskeyChallengePurpose,
     challenge: string,
   ): Promise<void> {
-    const deleted = await this.challengeModel.findOneAndDelete({
-      challengeHash: hashChallenge(challenge),
-      purpose,
-      expiresAt: { $gt: new Date() },
-    });
+    const use = await this.challenges.consume(
+      { challengeHash: hashChallenge(challenge), purpose },
+      new Date(Date.now()),
+    );
 
-    if (!deleted) {
+    if (use !== CHALLENGE_USE.CONSUMED) {
       throw this.invalid('challenge already spent');
     }
   }
@@ -146,14 +148,35 @@ export class PasskeyChallengeService {
     };
   }
 
-  /**
-   * Signed under a key derived from OAUTH_STATE_SECRET, the one secret every
-   * deployment has to set. Deriving it under a passkey label keeps it from
-   * standing in for the OAuth state key, or the other way round.
-   *
-   * @throws AppException PASSKEY_NOT_CONFIGURED when the secret is missing
-   */
-  private key(): Buffer {
+  /** Dedicated signing key when configured; older deployments use a labeled OAuth key. */
+  private currentKey(): Buffer {
+    const dedicated = this.configService.get<string>(
+      'passkeys.challengeSecret',
+    );
+    if (dedicated) return deriveKey(dedicated);
+    return this.legacyKey();
+  }
+
+  private readKeys(): Buffer[] {
+    const keys = [this.currentKey()];
+    const previous = this.configService.get<string>(
+      'passkeys.previousChallengeSecret',
+    );
+    if (previous) keys.push(deriveKey(previous));
+    const legacyUntil = this.configService.get<string>(
+      'passkeys.legacyChallengeUntil',
+    );
+    if (
+      this.configService.get<string>('passkeys.challengeSecret') &&
+      legacyUntil &&
+      Date.parse(legacyUntil) > Date.now()
+    ) {
+      keys.push(this.legacyKey());
+    }
+    return keys;
+  }
+
+  private legacyKey(): Buffer {
     const secret = this.configService.get<string>('oauth.stateSecret');
 
     if (!secret) {
@@ -164,15 +187,7 @@ export class PasskeyChallengeService {
       );
     }
 
-    return Buffer.from(
-      hkdfSync(
-        'sha256',
-        secret,
-        Buffer.alloc(0),
-        PASSKEY_CHALLENGE_HKDF_INFO,
-        PASSKEY_CHALLENGE_KEY_BYTES,
-      ),
-    );
+    return deriveKey(secret);
   }
 
   private invalid(reason: string): AppException {
@@ -183,6 +198,18 @@ export class PasskeyChallengeService {
       HttpStatus.UNAUTHORIZED,
     );
   }
+}
+
+function deriveKey(secret: string): Buffer {
+  return Buffer.from(
+    hkdfSync(
+      'sha256',
+      secret,
+      Buffer.alloc(0),
+      PASSKEY_CHALLENGE_HKDF_INFO,
+      PASSKEY_CHALLENGE_KEY_BYTES,
+    ),
+  );
 }
 
 function hashChallenge(challenge: string): string {

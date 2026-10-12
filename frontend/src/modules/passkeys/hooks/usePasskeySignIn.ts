@@ -12,6 +12,7 @@ import {
   webAuthnMessageKey,
   type AuthenticationResponseJSON,
 } from '../utils/webauthn';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /** The call that turns a signed challenge into a session, or a second one. */
 export type PasskeyVerify = (response: AuthenticationResponseJSON) => Promise<LoginResponse>;
@@ -45,7 +46,7 @@ export function usePasskeySignIn(
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
+  const runCeremony = useCallback(async () => {
     setError(null);
     setIsBusy(true);
 
@@ -69,6 +70,12 @@ export function usePasskeySignIn(
       setIsBusy(false);
     }
   }, [completeSignIn, createLoginOptions, handleFeatureDisabled, redirect, t, tCodes, verify]);
+
+  // Held through the browser prompt, so a second click cannot open another.
+  const guarded = useSingleFlight(runCeremony);
+  const run = useCallback(async () => {
+    await guarded();
+  }, [guarded]);
 
   return { run, isBusy, error };
 }

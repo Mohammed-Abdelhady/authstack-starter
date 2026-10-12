@@ -5,7 +5,7 @@ import {
   REFRESH_THROTTLE_BACKOFF_MS,
   SESSION_STATUS,
 } from '../constants';
-import { AuthSessionError, authPortFailure } from '../errors/errors';
+import { AuthSessionError, authPortFailure, DpopChallengeLimitError } from '../errors/errors';
 import { makeRecord } from '../storage/persistence';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort } from '../types/auth';
@@ -29,7 +29,10 @@ export async function waitForThrottle(
   throw new AuthSessionError();
 }
 
-export function isKnownNonRotatingFailure(error: unknown): error is ApiError {
+export function isKnownNonRotatingFailure(
+  error: unknown,
+): error is ApiError | DpopChallengeLimitError {
+  if (error instanceof DpopChallengeLimitError) return true;
   return (
     error instanceof ApiError &&
     ((error.status === 429 && error.code === RATE_LIMIT_EXCEEDED_CODE) ||

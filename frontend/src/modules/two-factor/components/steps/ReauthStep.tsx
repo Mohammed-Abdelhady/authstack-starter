@@ -5,6 +5,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
 import { ShieldCheck } from 'lucide-react';
 import { FormPassword, SubmitButton } from '@/components/forms';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
 
 interface ReauthStepProps {
   /** True when the account signs in with a password and should re-enter it. */
@@ -24,6 +25,7 @@ interface ReauthFormData {
  */
 export function ReauthStep({ hasPassword, isBusy, onContinue }: ReauthStepProps) {
   const t = useTranslations('settings.twoFactor.setup.reauth');
+  const tCommon = useTranslations('common');
   const form = useForm<ReauthFormData>({ defaultValues: { password: '' } });
 
   const onSubmit = useCallback(
@@ -57,13 +59,15 @@ export function ReauthStep({ hasPassword, isBusy, onContinue }: ReauthStepProps)
         data-testid="two-factor-reauth-form"
         noValidate
       >
+        <HiddenUsernameField />
         <p className="text-sm text-muted-foreground">{t('passwordBody')}</p>
         <FormPassword<ReauthFormData>
           name="password"
           label={t('password')}
-          placeholder="********"
+          placeholder={tCommon('passwordPlaceholder')}
           autoComplete="current-password"
-          disabled={isBusy}
+          required
+          busy={isBusy}
           data-testid="two-factor-reauth-password"
         />
         <SubmitButton

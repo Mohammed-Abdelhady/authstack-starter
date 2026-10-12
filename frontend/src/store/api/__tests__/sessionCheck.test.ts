@@ -11,7 +11,9 @@ import {
 import { baseApi } from '@/store/api/baseApi';
 import { authApi } from '@/modules/auth/store/authApi';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 const PROFILE = {
   id: 'user-1',
@@ -21,15 +23,18 @@ const PROFILE = {
   permissions: [],
   authProvider: 'email',
   isVerified: true,
+  twoFactorEnabled: false,
+  passkeyCount: 0,
   linkedProviders: ['email'],
 };
 
-const SIGNED_OUT = () => refusalWith(401, 'SESSION_INVALID');
+const SIGNED_IN = { authenticated: true, user: PROFILE } as const;
+const signedOutIdentity = () => success({ authenticated: false, user: null });
+const INVALID_IDENTITY = () => refusalWith(401, 'SESSION_INVALID');
 
-const readProfile = (store: TestStore) =>
-  store.dispatch(authApi.endpoints.getCurrentUser.initiate());
-const refetchProfile = (store: TestStore) =>
-  store.dispatch(authApi.endpoints.getCurrentUser.initiate(undefined, { forceRefetch: true }));
+const readIdentity = (store: TestStore) => store.dispatch(authApi.endpoints.getIdentity.initiate());
+const refetchIdentity = (store: TestStore) =>
+  store.dispatch(authApi.endpoints.getIdentity.initiate(undefined, { forceRefetch: true }));
 const saveProfile = (store: TestStore) =>
   store.dispatch(authApi.endpoints.updateProfile.initiate({ name: 'Layla H' }));
 const changePassword = (store: TestStore) =>
@@ -54,26 +59,26 @@ registerFormTestLifecycle();
 
 describe('a 401 on a write', () => {
   it('starts one session check, which signs the person out', async () => {
-    let profileReads = 0;
+    let identityReads = 0;
     const requests = stubNetwork((request) => {
-      if (request.method !== 'GET') return SIGNED_OUT();
-      profileReads += 1;
-      return profileReads === 1 ? success(PROFILE) : SIGNED_OUT();
+      if (request.method !== 'GET') return INVALID_IDENTITY();
+      identityReads += 1;
+      return identityReads === 1 ? success(SIGNED_IN) : signedOutIdentity();
     });
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
     await saveProfile(store);
     await settled(store);
 
     expect(requests).toEqual([
-      'GET /api/user/profile',
+      'GET /api/auth/identity',
       'PATCH /api/user/profile',
-      'GET /api/user/profile',
+      'GET /api/auth/identity',
     ]);
     expect(session(store)).toEqual({
-      validationStatus: 'failed',
-      validationErrorStatus: 401,
+      validationStatus: 'succeeded',
+      validationErrorStatus: null,
       isAuthenticated: false,
       name: null,
     });
@@ -84,37 +89,37 @@ describe('a 401 on a write', () => {
     const check = new Promise<Response>((resolve) => {
       answerCheck = resolve;
     });
-    let profileReads = 0;
+    let identityReads = 0;
     const requests = stubNetwork((request) => {
-      if (request.method !== 'GET') return SIGNED_OUT();
-      profileReads += 1;
-      return profileReads === 1 ? success(PROFILE) : check;
+      if (request.method !== 'GET') return INVALID_IDENTITY();
+      identityReads += 1;
+      return identityReads === 1 ? success(SIGNED_IN) : check;
     });
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
     await Promise.all([saveProfile(store), changePassword(store)]);
-    answerCheck(SIGNED_OUT());
+    answerCheck(signedOutIdentity());
     await settled(store);
 
-    expect(requests.filter((request) => request === 'GET /api/user/profile')).toHaveLength(2);
+    expect(requests.filter((request) => request === 'GET /api/auth/identity')).toHaveLength(2);
     expect(session(store).isAuthenticated).toBe(false);
   });
 
   it('keeps the session when the check says it is still valid', async () => {
     const requests = stubNetwork((request) =>
-      request.method === 'GET' ? success(PROFILE) : SIGNED_OUT(),
+      request.method === 'GET' ? success(SIGNED_IN) : INVALID_IDENTITY(),
     );
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
     await saveProfile(store);
     await settled(store);
 
     expect(requests).toEqual([
-      'GET /api/user/profile',
+      'GET /api/auth/identity',
       'PATCH /api/user/profile',
-      'GET /api/user/profile',
+      'GET /api/auth/identity',
     ]);
     expect(session(store)).toEqual({
       validationStatus: 'succeeded',
@@ -125,7 +130,7 @@ describe('a 401 on a write', () => {
   });
 
   it('starts no session check for a person who is not signed in', async () => {
-    const requests = stubNetwork(() => SIGNED_OUT());
+    const requests = stubNetwork(() => INVALID_IDENTITY());
     const store = makeStore();
 
     await saveProfile(store);
@@ -140,7 +145,7 @@ describe('session status transitions', () => {
     stubNetwork(() => refusalWith(503, 'AUTHORITY_UNAVAILABLE'));
     const store = makeStore();
 
-    await readProfile(store);
+    await readIdentity(store);
 
     expect(session(store)).toEqual({
       validationStatus: 'failed',
@@ -161,11 +166,11 @@ describe('session status transitions', () => {
       return reads === 1 ? refusalWith(503, 'AUTHORITY_UNAVAILABLE') : retry;
     });
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
-    const retried = refetchProfile(store);
+    const retried = refetchIdentity(store);
     expect(session(store).validationStatus).toBe('pending');
-    answerRetry(success(PROFILE));
+    answerRetry(success(SIGNED_IN));
     await retried;
 
     expect(session(store).validationStatus).toBe('succeeded');
@@ -182,12 +187,12 @@ describe('session status transitions', () => {
     let reads = 0;
     stubNetwork(() => {
       reads += 1;
-      return reads === 1 ? success(PROFILE) : answer();
+      return reads === 1 ? success(SIGNED_IN) : answer();
     });
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
-    await refetchProfile(store);
+    await refetchIdentity(store);
 
     expect(session(store)).toEqual({
       validationStatus: 'succeeded',
@@ -202,12 +207,12 @@ describe('session status transitions', () => {
     let reads = 0;
     stubNetwork(() => {
       reads += 1;
-      return reads === 1 ? success(PROFILE) : SIGNED_OUT();
+      return reads === 1 ? success(SIGNED_IN) : INVALID_IDENTITY();
     });
     const store = makeStore();
-    await readProfile(store);
+    await readIdentity(store);
 
-    await refetchProfile(store);
+    await refetchIdentity(store);
 
     expect(session(store)).toEqual({
       validationStatus: 'failed',
@@ -225,8 +230,8 @@ describe('session status transitions', () => {
     const requests = stubNetwork(() => read);
     const store = makeStore();
 
-    const first = readProfile(store);
-    const second = readProfile(store);
+    const first = readIdentity(store);
+    const second = readIdentity(store);
     // The store learns that the second read was skipped once the pending work has run.
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(session(store)).toEqual({
@@ -236,10 +241,10 @@ describe('session status transitions', () => {
       name: null,
     });
     expect(store.getState().auth.isLoading).toBe(true);
-    answerRead(success(PROFILE));
+    answerRead(success(SIGNED_IN));
     await Promise.all([first, second]);
 
-    expect(requests).toEqual(['GET /api/user/profile']);
+    expect(requests).toEqual(['GET /api/auth/identity']);
     expect(session(store).validationStatus).toBe('succeeded');
   });
 });

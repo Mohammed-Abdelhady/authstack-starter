@@ -1,15 +1,11 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { ListUsersQueryDto } from '../../dto/list-users-query.dto';
 import { AdminUserDto, UserListData } from '../../dto/admin-user-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
-import { ADMIN_USER_HIDDEN_FIELDS } from '../../constants/admin-user.constants';
 import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
-import { buildUserFilter, buildUserSort } from '../../utils/user-filter.util';
+import { AdminAccountStore } from '../../stores/admin-account.store';
 import { AdminUserAccessService } from './admin-user-access.service';
 
 /**
@@ -21,7 +17,7 @@ export class AdminUserQueriesService {
   private readonly logger = new Logger(AdminUserQueriesService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: AdminAccountStore,
     private readonly accessService: AdminUserAccessService,
   ) {}
 
@@ -40,21 +36,19 @@ export class AdminUserQueriesService {
       sortOrder = 'desc',
     } = query;
     const viewableRoles = await this.accessService.getViewableSlugs(actorRole);
-    const filter = buildUserFilter(query, viewableRoles);
-
-    const [users, total] = await Promise.all([
-      this.userModel
-        .find(filter)
-        .select(ADMIN_USER_HIDDEN_FIELDS)
-        .sort(buildUserSort(sortBy, sortOrder))
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .exec(),
-      this.userModel.countDocuments(filter),
-    ]);
+    const { accounts: users, total } = await this.accounts.listAccounts({
+      search: query.search,
+      role: query.role,
+      status: query.status,
+      isVerified: query.isVerified,
+      viewableRoles,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    });
 
     this.logger.log(`Listed ${users.length} users (page ${page}, ${total})`);
-
     return ApiResponse.success({
       data: users.map((user) => mapToAdminUserDto(user)),
       pagination: {
@@ -73,10 +67,7 @@ export class AdminUserQueriesService {
     id: string,
     actorRole: string,
   ): Promise<ApiResponse<AdminUserDto>> {
-    const user = await this.userModel
-      .findById(id)
-      .select(ADMIN_USER_HIDDEN_FIELDS)
-      .exec();
+    const user = await this.accounts.findAccountView(id);
 
     if (!user || user.isDeleted) {
       this.logger.warn(`User not found or deleted: ${id}`);

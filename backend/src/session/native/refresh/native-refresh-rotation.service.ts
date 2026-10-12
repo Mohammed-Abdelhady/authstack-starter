@@ -1,17 +1,21 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model } from 'mongoose';
-import { UserDocument } from '../../../user/schemas/user.schema';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { SECURITY_EVENT_ACTION } from '../../constants/security-event-action';
-import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
-import { ApplicationDocument } from '../../schemas/application.schema';
 import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../schemas/native-credential.schema';
-import { SessionDocument } from '../../schemas/session.schema';
-import { UserApplicationGrantDocument } from '../../schemas/user-application-grant.schema';
+  IssuanceAccount,
+  IssuanceApplication,
+  IssuanceGrant,
+} from '../../issuance/browser-issuance.store';
 import { hashToken } from '../../utils/hashing/token-hash';
+import {
+  NativeFamilySession,
+  StoredNativeCredential,
+} from '../credentials/native-credential.store';
+import {
+  NativeRotationStore,
+  REFRESH_CLAIM,
+  SUCCESSOR_LINK,
+} from '../credentials/native-rotation.store';
 import { NativeCredentialIssuer } from '../token/native-credential.issuer';
 import {
   ClientMeta,
@@ -22,56 +26,45 @@ import {
 } from '../oauth/native-oauth.types';
 
 export interface RefreshAuthority {
-  session: SessionDocument;
-  user: UserDocument;
-  application: ApplicationDocument;
-  grant: UserApplicationGrantDocument;
+  session: NativeFamilySession;
+  account: IssuanceAccount;
+  application: IssuanceApplication;
+  grant: IssuanceGrant;
 }
 
 @Injectable()
 export class NativeRefreshRotationService {
   constructor(
-    @InjectModel(NativeCredential.name)
-    private readonly credentials: Model<NativeCredentialDocument>,
+    private readonly rotations: NativeRotationStore,
     private readonly issuer: NativeCredentialIssuer,
   ) {}
 
   async claimAndRotate(
-    db: ClientSession,
-    presented: NativeCredentialDocument,
+    unitOfWork: UnitOfWork,
+    presented: StoredNativeCredential,
     authority: RefreshAuthority,
     meta: ClientMeta,
     now: Date,
     thumbprint?: string,
   ): Promise<TokenSuccess | OauthFailure> {
-    const claimed = await this.credentials
-      .updateOne(
-        { _id: presented._id, spent: false },
-        { $set: { spent: true, consumedAt: now } },
-      )
-      .session(db)
-      .exec();
-    if (claimed.modifiedCount !== 1) {
-      return this.replay(db, presented, now);
+    const claimed = await this.rotations.claimRefresh(
+      unitOfWork,
+      presented.id,
+      now,
+    );
+    if (claimed !== REFRESH_CLAIM.CLAIMED) {
+      return this.replay(unitOfWork, presented, now);
     }
-    await this.credentials
-      .updateMany(
-        {
-          familyId: presented.familyId,
-          sessionId: presented.sessionId,
-          purpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
-          spent: false,
-        },
-        { $set: { spent: true, revokedAt: now } },
-      )
-      .session(db)
-      .exec();
-    const pair = await this.issuer.issuePair(
-      db,
-      authority.user,
-      authority.application,
-      authority.grant,
-      {
+    await this.rotations.retireAccessTokens(unitOfWork, {
+      familyId: presented.familyId,
+      sessionId: presented.sessionId,
+      now,
+    });
+    const pair = await this.issuer.issuePair(unitOfWork, {
+      account: authority.account,
+      application: authority.application,
+      grant: authority.grant,
+      context: {
         clientId: presented.clientId,
         requestedScopes: authority.session.scopes,
         audience: authority.session.audience,
@@ -79,38 +72,34 @@ export class NativeRefreshRotationService {
       },
       meta,
       now,
-      presented.generation + 1,
-      authority.session,
-      presented.familyId,
-      thumbprint,
-    );
+      generation: presented.generation + 1,
+      existing: authority.session,
+      familyId: presented.familyId,
+      proofKeyThumbprint: thumbprint,
+    });
     if (thumbprint) {
-      const linked = await this.credentials
-        .updateOne(
-          { _id: presented._id, spent: true },
-          {
-            $set: {
-              successorAccessHash: hashToken(pair.accessToken),
-              successorRefreshHash: hashToken(pair.refreshToken),
-            },
-          },
-        )
-        .session(db)
-        .exec();
-      if (linked.modifiedCount !== 1) {
-        return this.replay(db, presented, now);
+      const linked = await this.rotations.linkSuccessors(
+        unitOfWork,
+        presented.id,
+        {
+          accessHash: hashToken(pair.accessToken),
+          refreshHash: hashToken(pair.refreshToken),
+        },
+      );
+      if (linked !== SUCCESSOR_LINK.LINKED) {
+        return this.replay(unitOfWork, presented, now);
       }
     }
     return pair;
   }
 
   async replay(
-    db: ClientSession,
-    presented: NativeCredentialDocument,
+    unitOfWork: UnitOfWork,
+    presented: StoredNativeCredential,
     now: Date,
   ): Promise<OauthFailure> {
     await this.issuer.revokeFamily(
-      db,
+      unitOfWork,
       presented.familyId,
       presented.sessionId,
       now,

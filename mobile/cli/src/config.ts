@@ -1,4 +1,6 @@
+import { KEY_PROTECTION, type KeyProtection } from '@app/device-key';
 import type { AuthConfiguration } from '@app/native-auth';
+import appConfig from '../app.json';
 import {
   APP_CALLBACK_URI,
   APP_CLIENT_ID,
@@ -22,3 +24,14 @@ export const AUTH_CONFIGURATION: AuthConfiguration = {
 };
 
 export const EPHEMERAL_BROWSER_SESSION = true;
+
+/**
+ * The one place that decides whether this build may sign with a software key.
+ * A software key exists so a simulator can run the bound flow. A release build never makes one.
+ */
+export const DEVICE_KEY_PROTECTION: KeyProtection = __DEV__
+  ? KEY_PROTECTION.SOFTWARE_ALLOWED
+  : KEY_PROTECTION.HARDWARE_ONLY;
+
+/** The product name the sign-in screen shows, as the home screen shows it. */
+export const APP_NAME = appConfig.displayName;

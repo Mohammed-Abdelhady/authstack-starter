@@ -4,7 +4,7 @@ import {
   CURRENT_STEP,
   FIXED_NOW_MS,
   RECOVERY_CODE,
-} from './two-factor-verification.harness-spec';
+} from '../persistence/mongo/services/two-factor-verification.harness-spec';
 import { generateTotpSecret } from '../utils/totp.util';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 

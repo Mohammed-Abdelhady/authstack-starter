@@ -1,5 +1,5 @@
 import type { LoggerService } from '@nestjs/common';
-import { describeDriverError } from '../../common/utils/mongo-error.util';
+import { describeDriverError } from '../../common/utils/describe-error.util';
 
 export function logUnknownCommit(
   logger: LoggerService,

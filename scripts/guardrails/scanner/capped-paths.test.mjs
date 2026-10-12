@@ -4,7 +4,7 @@ import { evaluateChanges, isCappedPath } from '../../check-hard-bans.mjs';
 
 const CAPPED = [
   'packages/create-nest-next-auth/src/cli.ts',
-  'packages/create-nest-next-auth/test/plan.test.ts',
+  'packages/create-nest-next-auth/test/plan/plan.test.ts',
   'packages/create-nest-next-auth/scripts/sync-template.mjs',
   'scripts/init.js',
   'scripts/lib/cli-utils.js',

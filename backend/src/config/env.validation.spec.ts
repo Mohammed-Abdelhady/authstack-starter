@@ -6,7 +6,8 @@ describe('validateEnvironment', () => {
 
   const baseEnv: Record<string, unknown> = {
     NODE_ENV: 'test',
-    MONGO_URI: 'mongodb://localhost:27017/authboiler',
+    MONGO_URI: 'mongodb://localhost:27017/authboiler', // feature:mongodb
+    POSTGRES_URL: 'postgres://app:placeholder@localhost:5432/authboiler', // feature:postgres
     CLIENT_URL: 'http://localhost:3000',
     OAUTH_STATE_SECRET: STATE_SECRET,
   };
@@ -14,12 +15,13 @@ describe('validateEnvironment', () => {
   it('valid env passes', () => {
     const result = validateEnvironment(baseEnv);
 
-    expect(result.MONGO_URI).toBe('mongodb://localhost:27017/authboiler');
+    expect(result.MONGO_URI).toBe('mongodb://localhost:27017/authboiler'); // feature:mongodb
     expect(result.NODE_ENV).toBe('test');
     expect(result.CLIENT_URL).toBe('http://localhost:3000');
     expect(result.PORT).toBe(3000);
   });
 
+  // feature:mongodb:start
   it('missing MONGO_URI fails with its name in the message', () => {
     const envWithoutMongo: Record<string, unknown> = {
       NODE_ENV: 'test',
@@ -29,6 +31,7 @@ describe('validateEnvironment', () => {
 
     expect(() => validateEnvironment(envWithoutMongo)).toThrow(/MONGO_URI/);
   });
+  // feature:mongodb:end
 
   it("SWAGGER_ENABLED='false' yields false", () => {
     const envWithSwaggerFalse: Record<string, unknown> = {
@@ -52,6 +55,7 @@ describe('validateEnvironment', () => {
     expect(result.SWAGGER_ENABLED).toBe(true);
   });
 
+  // feature:mongodb:start
   it('mongodb+srv URI accepted', () => {
     const envWithAtlas: Record<string, unknown> = {
       ...baseEnv,
@@ -74,6 +78,7 @@ describe('validateEnvironment', () => {
 
     expect(() => validateEnvironment(envWithInvalidMongo)).toThrow(/MONGO_URI/);
   });
+  // feature:mongodb:end
 
   it('parses numeric environment variables via Type transformer', () => {
     const envWithNumbers: Record<string, unknown> = {
@@ -90,6 +95,7 @@ describe('validateEnvironment', () => {
     expect(result.THROTTLE_LIMIT).toBe(200);
   });
 
+  // feature:oauth-core,passkeys:start
   it('missing OAUTH_STATE_SECRET fails with its name in the message', () => {
     const { OAUTH_STATE_SECRET: _omitted, ...envWithoutSecret } = baseEnv;
 
@@ -108,6 +114,8 @@ describe('validateEnvironment', () => {
       /at least 32 characters/,
     );
   });
+
+  // feature:oauth-core,passkeys:end
 
   it('accepts API_URL and OAUTH_CALLBACK_BASE_URL', () => {
     const envWithUrls: Record<string, unknown> = {

@@ -15,7 +15,7 @@ import { AuthModule } from '../auth.module';
 import { AuthFeature } from '../enums/auth-feature.enum';
 import { AUTH_FEATURE_KEY } from '../decorators/requires-feature.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { SignInService } from '../services/sessions/sign-in.service';
+import { SignInService } from '../persistence/mongo/sign-in.service';
 import { TwoFactorChallengeService } from './services/two-factor-challenge.service';
 import { TotpSecretCryptoService } from './services/totp-secret-crypto.service';
 import { TwoFactorVerificationService } from './services/two-factor-verification.service';

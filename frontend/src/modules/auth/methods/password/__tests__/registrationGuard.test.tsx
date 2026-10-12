@@ -6,6 +6,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ActivationGuard } from '@/components/providers/ActivationGuard';
 import { ActivationForm } from '@/modules/auth/components/ActivationForm';
 import { loginFulfilled } from '@/modules/auth/store/authSlice';
+import { availability, IDLE } from '@/tests/busyControls';
 import {
   makeStore,
   registerFormTestLifecycle,
@@ -63,6 +64,6 @@ describe.each([
     fireEvent.submit(screen.getByTestId('activate-form'));
     await waitFor(() => expect(navigation.push).toHaveBeenCalledWith('/auth/2fa'));
     expect(navigation.replace).not.toHaveBeenCalled();
-    expect(screen.getByTestId('activate-submit')).toHaveProperty('disabled', false);
+    expect(availability(screen.getByTestId('activate-submit'))).toEqual(IDLE);
   });
 });

@@ -1,14 +1,15 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { User, UserDocument } from '../schemas/user.schema';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { describeDriverError } from '../../common/utils/mongo-error.util';
+import { describeStoreFailure } from '../../common/persistence/store-failure';
 import { OAuthProfile } from '../../auth/oauth/oauth-provider.interface';
+import { LinkedAccountStore } from '../stores/linked-account.store';
+import { StoredAccount } from '../stores/stored-account';
+
+const SYNC_BATCH_SIZE = 100;
 
 /**
  * Profile Sync Service
@@ -19,7 +20,7 @@ export class ProfileSyncService {
   private readonly logger = new Logger(ProfileSyncService.name);
 
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly links: LinkedAccountStore,
     private readonly configService: ConfigService,
   ) {}
 
@@ -30,14 +31,14 @@ export class ProfileSyncService {
    * @param userId - User ID to sync
    * @param provider - OAuth provider
    * @param profile - OAuth user profile from provider
-   * @returns Updated user document
+   * @returns The account as stored after the sync
    */
   async syncProfileFromProvider(
     userId: string,
     provider: string,
     profile: OAuthProfile,
-  ): Promise<UserDocument> {
-    const user = await this.userModel.findById(userId);
+  ): Promise<StoredAccount> {
+    const user = await this.links.findSyncTarget(userId);
 
     if (!user) {
       throw new AppException(
@@ -67,7 +68,7 @@ export class ProfileSyncService {
       .map((field: string): string => field.trim())
       .filter(Boolean);
 
-    let updated = false;
+    const changes: { name?: string; avatarUrl?: string } = {};
 
     // Sync name if configured
     if (
@@ -75,8 +76,7 @@ export class ProfileSyncService {
       profile.name &&
       profile.name !== user.name
     ) {
-      user.name = profile.name;
-      updated = true;
+      changes.name = profile.name;
       this.logger.log(`Updated name for user ${userId} from ${provider}`);
     }
 
@@ -87,18 +87,20 @@ export class ProfileSyncService {
       profile.avatarUrl &&
       profile.avatarUrl !== user.avatarUrl
     ) {
-      user.avatarUrl = profile.avatarUrl;
-      updated = true;
+      changes.avatarUrl = profile.avatarUrl;
     }
 
-    if (updated) {
-      user.profileSyncedAt = new Date();
-      user.lastSyncedProvider = provider;
-      await user.save();
-      this.logger.log(`Profile synced for user ${userId} from ${provider}`);
+    if (changes.name === undefined && changes.avatarUrl === undefined) {
+      return user;
     }
 
-    return user;
+    const synced = await this.links.saveSyncedProfile(user, {
+      ...changes,
+      profileSyncedAt: new Date(),
+      lastSyncedProvider: provider,
+    });
+    this.logger.log(`Profile synced for user ${userId} from ${provider}`);
+    return synced;
   }
 
   /**
@@ -113,9 +115,7 @@ export class ProfileSyncService {
     provider: string;
     message: string;
   }> {
-    const user = await this.userModel
-      .findById(userId)
-      .select('primaryProvider linkedAccounts authProvider');
+    const user = await this.links.findSyncSource(userId);
 
     if (!user) {
       throw new AppException(
@@ -157,9 +157,7 @@ export class ProfileSyncService {
     primaryProvider?: string;
     canSync: boolean;
   }> {
-    const user = await this.userModel
-      .findById(userId)
-      .select('profileSyncedAt lastSyncedProvider primaryProvider');
+    const user = await this.links.findSyncStatus(userId);
 
     if (!user) {
       throw new AppException(
@@ -207,18 +205,14 @@ export class ProfileSyncService {
       // Find users with OAuth primary providers who haven't synced in 24 hours
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      const usersToSync = await this.userModel
-        .find({
-          primaryProvider: { $ne: EMAIL_PROVIDER },
-          $or: [
-            { profileSyncedAt: { $lt: oneDayAgo } },
-            { profileSyncedAt: { $exists: false } },
-          ],
-        })
-        .limit(100) // Process in batches
-        .select('_id primaryProvider');
+      // Process in batches
+      const due = await this.links.countDueForSync(
+        oneDayAgo,
+        EMAIL_PROVIDER,
+        SYNC_BATCH_SIZE,
+      );
 
-      this.logger.log(`Found ${usersToSync.length} users to sync`);
+      this.logger.log(`Found ${due} users to sync`);
 
       // TODO: Implement background sync with stored OAuth refresh tokens
       // For each user:
@@ -231,7 +225,7 @@ export class ProfileSyncService {
       this.logger.log('Automatic profile sync completed');
     } catch (error) {
       this.logger.error(
-        `Automatic profile sync failed: ${describeDriverError(error)}`,
+        `Automatic profile sync failed: ${describeStoreFailure(error)}`,
       );
     }
   }
@@ -248,9 +242,7 @@ export class ProfileSyncService {
     userId: string,
     profiles: Map<string, Partial<OAuthProfile>>,
   ): Promise<Partial<OAuthProfile>> {
-    const user = await this.userModel
-      .findById(userId)
-      .select('primaryProvider');
+    const user = await this.links.findConflictSource(userId);
 
     if (!user) {
       throw new AppException(

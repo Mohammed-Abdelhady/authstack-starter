@@ -3,7 +3,7 @@ import { join, posix } from 'node:path';
 import { parseDocument } from 'yaml';
 import { PACKAGE_MANIFEST, PNPM_WORKSPACE_FILE } from '../constants/index.js';
 import { isRecord } from '../manifest/read.js';
-import { isErrnoException, listFiles } from '../utils/fs.js';
+import { isErrnoException, isPackageManifest, listFiles } from '../utils/fs.js';
 import { matchesAnyGlob } from '../utils/glob.js';
 
 interface WorkspaceDocument {
@@ -47,19 +47,33 @@ export async function workspaceDirectories(root: string): Promise<string[]> {
   ].sort();
 }
 
-/** Keeps security settings and lists only workspaces left in the scaffold. */
-export async function renderWorkspace(root: string): Promise<boolean> {
+/** The named build approvals the workspace file carries. */
+function presentApprovals(config: unknown, names: readonly string[]): string[] {
+  if (!isRecord(config) || !isRecord(config.allowBuilds)) return [];
+  const approvals = config.allowBuilds;
+  return names.filter((name) => name in approvals);
+}
+
+/**
+ * Keeps security settings, lists only workspaces left in the scaffold, and
+ * drops the build approvals of tooling the project does not install.
+ */
+export async function renderWorkspace(
+  root: string,
+  unusedApprovals: readonly string[] = [],
+): Promise<boolean> {
   const workspace = await readWorkspace(root);
   if (workspace === undefined) return false;
-  const manifests = (await listFiles(root)).filter(
-    (file) => file === PACKAGE_MANIFEST || file.endsWith(`/${PACKAGE_MANIFEST}`),
-  );
+  const manifests = (await listFiles(root)).filter(isPackageManifest);
   const packages = workspace.packages.filter((pattern) =>
     manifests.some((file) => matchesAnyGlob(file, [`${pattern}/${PACKAGE_MANIFEST}`])),
   );
-  if (packages.length === workspace.packages.length) return false;
+  const approvals = presentApprovals(workspace.document.toJS(), unusedApprovals);
+  const packagesChanged = packages.length !== workspace.packages.length;
+  if (!packagesChanged && approvals.length === 0) return false;
 
-  workspace.document.set('packages', packages);
+  if (packagesChanged) workspace.document.set('packages', packages);
+  for (const name of approvals) workspace.document.deleteIn(['allowBuilds', name]);
   await writeFile(join(root, PNPM_WORKSPACE_FILE), workspace.document.toString(), 'utf8');
   return true;
 }

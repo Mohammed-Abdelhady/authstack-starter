@@ -14,17 +14,19 @@ import {
   SubmitButton,
 } from '@/components/forms';
 import { useResetPasswordMutation } from '@/modules/auth/store/authApi';
-import { ErrorCode, NETWORK_ERROR_CODE, parseApiError } from '@app/core';
+import { ErrorCode, parseApiError } from '@app/core';
 import { KeyRound } from 'lucide-react';
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { createPasswordSchema } from '@/modules/auth/utils/passwordSchema';
 import { filterDigits } from '@/modules/auth/utils/digitFilter';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 /**
  * Reset password form validation schema
@@ -58,6 +60,15 @@ const createResetPasswordSchema = (
 type ResetPasswordFormData = z.infer<ReturnType<typeof createResetPasswordSchema>>;
 
 /**
+ * The answers after which the code that was typed can never work: the server
+ * found it wrong, expired or locked, or took it and found no account.
+ */
+const CODE_SPENT_ERRORS: ReadonlySet<string> = new Set([
+  ErrorCode.PASSWORD_RESET_CODE_INVALID,
+  ErrorCode.USER_NOT_FOUND_FOR_RESET,
+]);
+
+/**
  * ResetPasswordForm component for completing password reset
  * Uses 6-digit code sent via email (similar to activation flow)
  *
@@ -66,13 +77,24 @@ type ResetPasswordFormData = z.infer<ReturnType<typeof createResetPasswordSchema
  */
 export function ResetPasswordForm() {
   const t = useTranslations('auth.resetPassword');
+  const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
   const tToast = useTranslations('toast');
-  const tCodes = useTranslations('errors.codes');
   const router = useRouter();
   const searchParams = useSearchParams();
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
+  const refusalText = useRefusalText();
   const [showRequestNew, setShowRequestNew] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (redirectTimer.current !== null) {
+        clearTimeout(redirectTimer.current);
+      }
+    },
+    [],
+  );
 
   // Get email from URL params (passed from forgot password page)
   const emailFromUrl = searchParams.get('email') || '';
@@ -112,34 +134,30 @@ export function ResetPasswordForm() {
   }, [emailFromUrl, router, setValue]);
 
   // Memoize submit handler to prevent recreating on every render
-  const onSubmit = useCallback(
+
+  const submit = useCallback(
     async (data: ResetPasswordFormData) => {
       try {
-        await resetPassword({
-          email: data.email,
-          code: data.code,
-          newPassword: data.password,
-        }).unwrap();
+        await showsOwnRefusal(
+          resetPassword({
+            email: data.email,
+            code: data.code,
+            newPassword: data.password,
+          }),
+        ).unwrap();
 
         // Show success message
         toast.success(tToast('success.passwordReset'));
 
         // Redirect to login after short delay
-        setTimeout(() => {
+        redirectTimer.current = setTimeout(() => {
+          redirectTimer.current = null;
           router.push('/auth/login');
         }, 1500);
       } catch (err: unknown) {
         const parsed = parseApiError(err);
-        const code = translatableErrorCode(err, '');
         // The server answers one code for a wrong, missing, expired or locked
         // code. The person gets one message and can request a new code below.
-        let errorMessage = t('errors.serverError');
-
-        if (parsed.code === NETWORK_ERROR_CODE) {
-          errorMessage = t('errors.networkError');
-        } else if (code) {
-          errorMessage = tCodes(code);
-        }
 
         if (parsed.code === ErrorCode.PASSWORD_RESET_CODE_INVALID) {
           setShowRequestNew(true);
@@ -147,14 +165,16 @@ export function ResetPasswordForm() {
 
         setError('root', {
           type: 'manual',
-          message: errorMessage,
+          message: refusalText(err),
         });
 
-        setValue('code', '');
+        // Any other refusal leaves the code usable, so what was typed stays.
+        if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
-    [resetPassword, router, setError, setValue, t, tCodes, tToast],
+    [refusalText, resetPassword, router, setError, setValue, tToast],
   );
+  const onSubmit = useSingleFlight(submit);
 
   const handleCodeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.value = filterDigits(e.target.value, 6);
@@ -201,9 +221,10 @@ export function ResetPasswordForm() {
               data-testid="reset-password-email-input"
               type="email"
               label={t('email')}
-              placeholder="name@example.com"
-              autoComplete="email"
-              disabled={isLoading}
+              placeholder={tCommon('emailPlaceholder')}
+              autoComplete="username"
+              required
+              busy={isLoading}
               readOnly
               className="bg-muted"
             />
@@ -216,10 +237,10 @@ export function ResetPasswordForm() {
               type="text"
               inputMode="numeric"
               label={t('code')}
-              placeholder="123456"
+              placeholder={tCommon('codePlaceholder')}
               autoComplete="one-time-code"
-              disabled={isLoading}
-              maxLength={6}
+              required
+              busy={isLoading}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus
               onChange={handleCodeChange}
@@ -230,9 +251,10 @@ export function ResetPasswordForm() {
               name="password"
               data-testid="reset-password-password-input"
               label={t('password')}
-              placeholder="••••••••"
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              required
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 
@@ -243,9 +265,10 @@ export function ResetPasswordForm() {
               name="confirmPassword"
               data-testid="reset-password-confirmPassword-input"
               label={t('confirmPassword')}
-              placeholder="••••••••"
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading}
+              required
+              busy={isLoading}
               className={FORM_STYLES.authField}
             />
 

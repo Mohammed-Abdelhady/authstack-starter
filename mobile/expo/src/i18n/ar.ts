@@ -28,6 +28,8 @@ export const AR: Record<MessageKey, string> = {
   loadProfileLabel: 'تحميل الملف الشخصي من الخادم',
   signOut: 'تسجيل الخروج',
   signOutLabel: 'تسجيل الخروج وإنهاء الجلسة على الخادم',
+  close: 'العودة إلى التطبيق',
+  closeLabel: 'إغلاق فحص تسجيل الدخول والعودة إلى التطبيق',
 
   statusRestoring: 'جارٍ قراءة الجلسة المحفوظة',
   statusSignedOut: 'تم تسجيل الخروج',

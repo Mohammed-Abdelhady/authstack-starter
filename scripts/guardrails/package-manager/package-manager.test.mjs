@@ -78,7 +78,7 @@ test('inventory accepts pnpm, registry prose and publication commands', () => {
 
 test('publication and changelog exemptions remain narrow', () => {
   assert.deepEqual(
-    legacyReferences('packages/create-nest-next-auth/test/packed-cli.ts', `${OLD_MANAGER} install`),
+    legacyReferences('packages/create-nest-next-auth/test/packed/packed-cli.ts', `${OLD_MANAGER} install`),
     [],
   );
   assert.deepEqual(legacyReferences('.gitignore', `${OLD_LOCK}.json\n`), []);

@@ -14,6 +14,8 @@ import { FormInput, SubmitButton } from '@/components/forms';
 import { useGetCurrentUserQuery, useUpdateProfileMutation } from '@/modules/auth/store';
 import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
 import { zodName } from '@app/core';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 const createUpdateProfileSchema = (t: (key: string) => string) =>
   z.object({
@@ -39,6 +41,7 @@ export function UpdateProfileCard() {
   const t = useTranslations('settings.profile');
   const { data: user } = useGetCurrentUserQuery();
   const [updateProfile, { isLoading }] = useUpdateProfileMutation();
+  const refusalToast = useRefusalToast();
 
   const updateProfileSchema = useMemo(() => createUpdateProfileSchema(t), [t]);
 
@@ -60,20 +63,23 @@ export function UpdateProfileCard() {
     }
   }, [user?.name, form]);
 
-  const onSubmit = async (data: UpdateProfileFormData) => {
+  const submit = async (data: UpdateProfileFormData) => {
     if (data.name === user?.name) {
       toast.info(t('noChanges'));
       return;
     }
 
+    refusalToast.clearStale();
     try {
       await updateProfile({ name: data.name }).unwrap();
       toast.success(t('success'));
     } catch (error) {
+      refusalToast.noteRefusal();
       applyServerFieldErrors(error);
       reportUnlessHandled(error);
     }
   };
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <Card>
@@ -91,9 +97,11 @@ export function UpdateProfileCard() {
           >
             <FormInput<UpdateProfileFormData>
               name="name"
+              required
               label={t('name')}
               placeholder={t('namePlaceholder')}
-              disabled={isLoading}
+              busy={isLoading}
+              dir="auto"
               data-testid="profile-name-input"
             />
 
@@ -103,12 +111,16 @@ export function UpdateProfileCard() {
               </Label>
               <Input
                 id="profile-email"
+                dir="ltr"
                 value={user?.email || ''}
-                disabled
+                readOnly
+                aria-describedby="profile-email-hint"
                 className="bg-muted"
                 data-testid="profile-email-input"
               />
-              <p className="text-xs text-muted-foreground">{t('emailHint')}</p>
+              <p id="profile-email-hint" className="text-xs text-muted-foreground">
+                {t('emailHint')}
+              </p>
             </div>
 
             <SubmitButton

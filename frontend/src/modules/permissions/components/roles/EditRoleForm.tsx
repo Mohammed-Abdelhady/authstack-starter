@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  ROLE_NAME_LENGTHS,
+  firstInvalidRoleField,
+  validateRoleForm,
+} from '../../utils/roleFormValidation';
+import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
 import { useId, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -8,9 +14,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { FieldError, SubmitButton } from '@/components/forms';
+import { FieldError, FormRootError, SubmitButton } from '@/components/forms';
 import { PermissionSelector } from '../selector/PermissionSelector';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import type { Role } from '../../api/rolesApi';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface EditRoleFormValues {
   name: string;
@@ -21,13 +30,9 @@ export interface EditRoleFormValues {
 export interface EditRoleFormProps {
   role: Role;
   isLoading: boolean;
-  onSubmit: (data: EditRoleFormValues) => void;
+  /** `showRefusal` shows a refused save on the field it names, or in the form's alert. */
+  onSubmit: (data: EditRoleFormValues, showRefusal: (error: unknown) => void) => void;
   onCancel: () => void;
-}
-
-interface EditRoleFormErrors {
-  name?: string;
-  permissions?: string;
 }
 
 /**
@@ -37,33 +42,44 @@ interface EditRoleFormErrors {
 export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFormProps) {
   const t = useTranslations('roles.form');
   const uid = useId();
-  const nameId = `${uid}-name`;
-  const nameErrorId = `${uid}-name-error`;
-  const descriptionId = `${uid}-description`;
+  const nameId = fieldElementId(uid, 'name');
+  const nameErrorId = `${nameId}-error`;
+  const nameHintId = `${nameId}-hint`;
+  const nameCodeId = `${nameId}-code`;
+  const descriptionId = fieldElementId(uid, 'description');
+  const descriptionErrorId = `${descriptionId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
   const permissionsErrorId = `${uid}-permissions-error`;
 
   const [name, setName] = useState(role.name || '');
   const [description, setDescription] = useState(role.description || '');
   const [permissions, setPermissions] = useState<string[]>(role.permissions || []);
-  const [errors, setErrors] = useState<EditRoleFormErrors>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const isProtected = role.isProtected;
   const isBaseRole = role.slug === 'user' || role.slug === 'admin';
+  const canRename = !isProtected && !isBaseRole;
+  const code = previewedRoleCode(name);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const nextErrors: EditRoleFormErrors = {};
-    if (!name.trim()) nextErrors.name = t('nameError');
-    if (permissions.length === 0) nextErrors.permissions = t('permissionsError');
+    const nextErrors = validateRoleForm(
+      { name, description, permissions, nameIsEditable: canRename },
+      t,
+    );
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
+      // The first field with a problem takes the focus, not whichever had it.
+      const invalid = firstInvalidRoleField(nextErrors);
+      if (invalid) document.getElementById(fieldElementId(uid, invalid))?.focus();
       return;
     }
 
-    onSubmit({ name, description, permissions });
+    refusal.clear();
+    onSubmit({ name, description, permissions }, refusal.show);
   };
 
   return (
@@ -74,20 +90,19 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
       </DialogHeader>
 
       <div className="space-y-6 py-6">
+        <FormRootError error={refusal.alert} className="mb-0" testId="edit-role-error" />
         {isBaseRole && (
-          <Alert variant="info" role="note" data-testid="base-role-note">
+          <Alert variant="infoSoft" role="note" data-testid="base-role-note">
             <AlertDescription>
-              <strong>Base Role:</strong> User and Admin roles are fundamental to the system. Name
-              and description cannot be modified, but you can update permissions.
+              <strong>{t('baseRoleAlertTitle')}</strong> {t('baseRoleAlert')}
             </AlertDescription>
           </Alert>
         )}
 
         {isProtected && !isBaseRole && (
-          <Alert variant="warning" role="note" data-testid="protected-role-note">
+          <Alert variant="warningSoft" role="note" data-testid="protected-role-note">
             <AlertDescription>
-              <strong>Protected Role:</strong> This role cannot be deleted and its core permissions
-              are managed by the system.
+              <strong>{t('protectedRoleAlertTitle')}</strong> {t('protectedRoleAlert')}
             </AlertDescription>
           </Alert>
         )}
@@ -102,20 +117,32 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
             value={name}
             onChange={(e) => {
               setName(e.target.value);
-              if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+              if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
             }}
-            disabled={isLoading || isProtected || isBaseRole}
+            disabled={isProtected || isBaseRole}
+            busy={isLoading}
             required
             aria-invalid={Boolean(errors.name)}
-            aria-describedby={errors.name ? nameErrorId : undefined}
+            aria-describedby={describedBy(
+              canRename && nameHintId,
+              canRename && code !== '' && nameCodeId,
+              Boolean(errors.name) && nameErrorId,
+            )}
+            className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-name-input"
           />
+          {canRename && (
+            <p id={nameHintId} className="text-xs text-tertiary" data-testid="edit-role-name-hint">
+              {t('nameHint', ROLE_NAME_LENGTHS)}
+            </p>
+          )}
+          {canRename && (
+            <RoleCodePreview id={nameCodeId} code={code} testId="edit-role-code-preview" />
+          )}
           <FieldError id={nameErrorId} message={errors.name} testId="edit-role-name-error" />
           {(isProtected || isBaseRole) && (
             <p className="text-xs text-tertiary">
-              {isBaseRole
-                ? 'Base role names cannot be changed'
-                : 'Protected role names cannot be changed'}
+              {isBaseRole ? t('baseRoleNameImmutable') : t('protectedRoleNameImmutable')}
             </p>
           )}
         </div>
@@ -126,11 +153,23 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
           <Textarea
             id={descriptionId}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              if (errors.description) setErrors((prev) => ({ ...prev, description: '' }));
+            }}
             placeholder={t('descriptionPlaceholder')}
             rows={3}
-            disabled={isLoading || isBaseRole}
+            disabled={isBaseRole}
+            busy={isLoading}
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={errors.description ? descriptionErrorId : undefined}
+            className={FREE_TEXT_FIELD_CLASSES}
             data-testid="edit-role-description-input"
+          />
+          <FieldError
+            id={descriptionErrorId}
+            message={errors.description}
+            testId="edit-role-description-error"
           />
           {isBaseRole && (
             <p className="text-xs text-tertiary">{t('baseRoleDescriptionImmutable')}</p>
@@ -152,9 +191,9 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
               selectedPermissions={permissions}
               onChange={(next) => {
                 setPermissions(next);
-                if (errors.permissions) setErrors((prev) => ({ ...prev, permissions: undefined }));
+                if (errors.permissions) setErrors((prev) => ({ ...prev, permissions: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
             />
           </div>
           <FieldError
@@ -170,7 +209,7 @@ export function EditRoleForm({ role, isLoading, onSubmit, onCancel }: EditRoleFo
           type="button"
           variant="outline"
           onClick={onCancel}
-          disabled={isLoading}
+          busy={isLoading}
           data-testid="cancel-button"
         >
           {t('cancel')}

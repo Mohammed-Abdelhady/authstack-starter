@@ -6,6 +6,7 @@ import {
   IsUrl,
   MinLength, // feature:oauth-core,passkeys
 } from 'class-validator';
+import { StorageEnvironmentVariables } from './env.storage.schema';
 
 const OAUTH_STATE_SECRET_MIN_LENGTH = 32; // feature:oauth-core,passkeys
 
@@ -89,7 +90,7 @@ export interface OAuthEnvironmentConfig {
 }
 
 /** Base class of EnvironmentVariables. class-validator reads inherited decorators. */
-export class OAuthEnvironmentVariables {
+export class OAuthEnvironmentVariables extends StorageEnvironmentVariables {
   // feature:oauth-core,passkeys:start
   @IsString()
   @IsNotEmpty()

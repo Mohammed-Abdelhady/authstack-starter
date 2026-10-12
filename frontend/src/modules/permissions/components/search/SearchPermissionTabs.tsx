@@ -2,35 +2,15 @@
 
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
+import { busyPressProps } from '@/components/ui/busy';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SearchPermissionGrid } from './SearchPermissionGrid';
-import {
-  PROFILE_PERMISSIONS,
-  USER_PERMISSIONS,
-  ROLE_PERMISSIONS,
-  PERMISSION_PERMISSIONS,
-  SESSION_PERMISSIONS,
-  REPORT_PERMISSIONS,
-} from '@app/core';
-
-export interface PermissionGroup {
-  /** Tab value and key of the group name under permissions.selector.groups */
-  id: string;
-  permissions: Record<string, string>;
-}
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
+import type { PermissionGroup } from '../../types/permissionGroup.types';
 
 export interface FilteredPermissionGroup extends PermissionGroup {
   filteredPermissions: Record<string, string>;
 }
-
-export const PERMISSION_GROUPS: PermissionGroup[] = [
-  { id: 'profile', permissions: PROFILE_PERMISSIONS },
-  { id: 'users', permissions: USER_PERMISSIONS },
-  { id: 'roles', permissions: ROLE_PERMISSIONS },
-  { id: 'permissions', permissions: PERMISSION_PERMISSIONS },
-  { id: 'sessions', permissions: SESSION_PERMISSIONS },
-  { id: 'reports', permissions: REPORT_PERMISSIONS },
-];
 
 export interface SearchPermissionTabsProps {
   activeTab: string;
@@ -94,9 +74,12 @@ export function SearchPermissionTabs({
                 </Heading>
                 <button
                   type="button"
-                  onClick={() => onSelectAll(group.filteredPermissions)}
-                  disabled={isLoading || groupPerms.length === 0}
-                  className="text-xs text-primary hover:underline disabled:opacity-50"
+                  disabled={groupPerms.length === 0}
+                  {...busyPressProps(isLoading, () => onSelectAll(group.filteredPermissions))}
+                  aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                    group: t(`groups.${group.id}`),
+                  })}
+                  className="min-h-6 text-xs text-primary hover:underline disabled:opacity-50 aria-disabled:cursor-progress aria-disabled:opacity-85"
                   data-testid={`select-all-${group.id}`}
                 >
                   {allSelected ? t('deselectAll') : t('selectAll')}
@@ -125,7 +108,7 @@ export function SearchPermissionTabs({
         const filtered = filteredGroups.find((g) => g.id === group.id);
         const groupPerms = filtered ? Object.values(filtered.filteredPermissions) : [];
         const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
-        const category = t(`groups.${group.id}`).toLocaleLowerCase();
+        const category = t(`groups.${group.id}`);
 
         return (
           <TabsContent
@@ -141,9 +124,11 @@ export function SearchPermissionTabs({
                   </p>
                   <button
                     type="button"
-                    onClick={() => onSelectAll(filtered.filteredPermissions)}
-                    disabled={isLoading}
-                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                    {...busyPressProps(isLoading, () => onSelectAll(filtered.filteredPermissions))}
+                    aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
+                      group: category,
+                    })}
+                    className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`select-all-tab-${group.id}`}
                   >
                     {allSelected ? t('deselectAll') : t('selectAll')}

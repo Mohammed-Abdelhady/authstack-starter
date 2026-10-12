@@ -8,8 +8,13 @@ import { Button } from '@/components/ui/button';
 
 export function ThemeSwitcher() {
   const t = useTranslations('common');
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const isLight = resolvedTheme === 'light';
+  const handleToggle = React.useCallback(
+    () => setTheme(isLight ? 'dark' : 'light'),
+    [isLight, setTheme],
+  );
 
   // Avoid hydration mismatch
   React.useEffect(() => {
@@ -20,13 +25,11 @@ export function ThemeSwitcher() {
     return <div className="h-9 w-9" />; // Skeleton to prevent layout shift
   }
 
-  const isLight = theme === 'light';
-
   return (
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setTheme(isLight ? 'dark' : 'light')}
+      onClick={handleToggle}
       aria-label={isLight ? t('switchToDarkMode') : t('switchToLightMode')}
       data-testid="theme-switcher"
     >

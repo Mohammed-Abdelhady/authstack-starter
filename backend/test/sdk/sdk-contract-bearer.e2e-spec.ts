@@ -22,7 +22,7 @@ import {
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 describe('sdk contract over a bearer transport', () => {
   let e2e: E2eApp;

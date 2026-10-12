@@ -1,5 +1,10 @@
-import { Types } from 'mongoose';
 import { PendingPurpose } from '../constants/registration';
+
+/**
+ * An id as the storage seam hands it out, a string, or the object an older
+ * caller still holds. Either way only its text is used.
+ */
+export type IdSource = string | { toString(): string };
 
 /** The plain code to mail, or null when the address is over its cap. */
 export interface IssuedCode {
@@ -8,17 +13,17 @@ export interface IssuedCode {
 
 /** What a pending record carries once its code compared successfully. */
 export interface ReservedCode {
-  id: Types.ObjectId;
+  id: IdSource;
   email: string;
   purpose: PendingPurpose;
   hashedCode: string;
-  userId?: Types.ObjectId;
+  userId?: IdSource;
   addressGeneration?: number;
 }
 
 /** Target user and generation, for an email-change record only. */
 export interface RegistrationDetails {
-  userId?: Types.ObjectId;
+  userId?: IdSource;
   addressGeneration?: number;
 }
 

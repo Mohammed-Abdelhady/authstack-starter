@@ -1,7 +1,11 @@
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { SignInService } from '../../services/sessions/sign-in.service';
+import { SignInService } from '../../persistence/mongo/sign-in.service';
 import { PasskeyAssertionService } from './passkey-assertion.service';
 import { PasskeyLoginService } from './passkey-login.service';
+import {
+  MongoPasskeyAccounts,
+  MongoPasskeySignIn,
+} from '../persistence/mongo/mongo-passkey-accounts';
 import {
   createModelMock,
   partialMock,
@@ -12,7 +16,7 @@ import {
   createMockRequest,
   createMockResponse,
   USER_ID,
-} from '../passkeys.harness-spec';
+} from '../persistence/mongo/passkeys.harness-spec';
 
 const USER_SUMMARY = {
   id: USER_ID.toString(),
@@ -63,11 +67,13 @@ function createHarness(options: {
 
   return {
     service: new PasskeyLoginService(
-      createModelMock<ConstructorParameters<typeof PasskeyLoginService>[0]>(
-        userModel,
+      new MongoPasskeyAccounts(
+        createModelMock<ConstructorParameters<typeof MongoPasskeyAccounts>[0]>(
+          userModel,
+        ),
       ),
       partialMock<PasskeyAssertionService>(assertions),
-      partialMock<SignInService>(signInService),
+      new MongoPasskeySignIn(partialMock<SignInService>(signInService)),
     ),
     assertions,
     signInService,

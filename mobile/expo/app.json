@@ -5,9 +5,13 @@
     "version": "0.1.0",
     "scheme": "com.example.mobile",
     "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android"],
     "ios": {
-      "bundleIdentifier": "com.example.mobileexpo"
+      "bundleIdentifier": "com.example.mobileexpo",
+      "infoPlist": {
+        "CFBundleLocalizations": ["en", "ar"]
+      }
     },
     "android": {
       "package": "com.example.mobileexpo"

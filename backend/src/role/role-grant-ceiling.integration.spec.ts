@@ -5,11 +5,11 @@ import {
 } from '../common/constants/permissions';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { UserRole } from '../user/enums/user-role.enum';
-import { UserDocument } from '../user/schemas/user.schema';
+import { UserDocument } from '../user/persistence/mongo/schemas/user.schema';
 import {
   EDITOR_SLUG,
   useAdminRoundFour,
-} from '../admin/services/admin-round-four.harness-spec';
+} from '../admin/persistence/mongo/services/admin-round-four.harness-spec';
 
 const NEW_ROLE_NAME = 'Grant Ceiling';
 const NEW_ROLE_SLUG = 'grant-ceiling';

@@ -1,10 +1,16 @@
+import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { ConfigService } from '@nestjs/config';
 import { SEED_USER } from '../constants/seed-users';
-import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import {
+  bootE2eApp,
+  browserAgent,
+  type E2eApp,
+  type TestAgent,
+} from '../utils/e2e-app';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 import { TEST_NOW } from '../utils/frozen-clock';
 
 describe('magic-link native continuation (e2e)', () => {
@@ -33,9 +39,10 @@ describe('magic-link native continuation (e2e)', () => {
       .expect(200);
     const token = latestMagicLinkToken(e2e);
 
-    const verifier = await browserAgent(e2e.httpServer);
-    const verified = await verifier
+    const proof = await proofFor(requester);
+    const verified = await requester
       .post('/api/auth/magic-link/verify')
+      .set(CSRF_HEADER, proof)
       .send({ token })
       .expect(200);
     expect(verified.body.data.redirect).toBe(redirect);
@@ -52,9 +59,10 @@ describe('magic-link native continuation (e2e)', () => {
       .expect(200);
     const token = latestMagicLinkToken(e2e);
 
-    const verifier = await browserAgent(e2e.httpServer);
-    const verified = await verifier
+    const proof = await proofFor(requester);
+    const verified = await requester
       .post('/api/auth/magic-link/verify')
+      .set(CSRF_HEADER, proof)
       .send({ token })
       .expect(200);
     expect(verified.body.data).not.toHaveProperty('redirect');
@@ -72,4 +80,10 @@ function latestMagicLinkToken(e2e: E2eApp): string {
     throw new Error('Magic link URL has no token');
   }
   return token;
+}
+
+/** A browser proof works once, so a browser fetches one before each anonymous post. */
+async function proofFor(browser: TestAgent): Promise<string> {
+  const proof = await browser.get('/api/auth/browser-proof').expect(200);
+  return (proof.body as { data: { token: string } }).data.token;
 }

@@ -1,16 +1,18 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
-import { getModelToken } from '@nestjs/mongoose';
-import { Types } from 'mongoose';
 import { AuthGuard } from './auth.guard';
-import { SessionService } from '../services/sessions/session.service';
+import { Sessions } from '../services/sessions/sessions';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
 import { Public } from '../decorators/public.decorator';
-import { Role } from '../../role/schemas/role.schema';
+import { MongoRolePermissions } from '../../role/persistence/mongo/mongo-role-permissions';
+import { RolePermissions } from '../../role/stores/role-permissions';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { NativeAccessService } from '../../session/native/access/native-access.service';
-import { createExecutionContextMock } from '../../common/testing/test-doubles.harness-spec';
+import {
+  createExecutionContextMock,
+  createModelMock,
+} from '../../common/testing/test-doubles.harness-spec';
 
 class GuardedRoutes {
   @Public()
@@ -89,10 +91,17 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthGuard,
-        { provide: SessionService, useValue: sessionService },
+        { provide: Sessions, useValue: sessionService },
         { provide: SessionCookieService, useValue: sessionCookieService },
         { provide: NativeAccessService, useValue: nativeAccess },
-        { provide: getModelToken(Role.name), useValue: roleModel },
+        {
+          provide: RolePermissions,
+          useValue: new MongoRolePermissions(
+            createModelMock<
+              ConstructorParameters<typeof MongoRolePermissions>[0]
+            >(roleModel),
+          ),
+        },
         Reflector,
       ],
     }).compile();
@@ -158,7 +167,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   it('deliberately refuses an unpopulated session user with SESSION_INVALID', async () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     sessionService.validateSession.mockResolvedValue({
-      user: new Types.ObjectId(),
+      user: '507f1f77bcf86cd799439013',
     });
 
     await expect(guard.canActivate(context)).rejects.toMatchObject({
@@ -171,7 +180,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     sessionService.validateSession.mockResolvedValue({
       user: {
-        _id: new Types.ObjectId(),
+        id: '507f1f77bcf86cd799439014',
         email: 'deleted@example.com',
         isDeleted: true,
       },
@@ -186,7 +195,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   it('should allow access when user is active', async () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     const userDoc = {
-      _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+      id: '507f1f77bcf86cd799439011',
       email: 'active@example.com',
       name: 'Active User',
       role: 'user',
@@ -207,7 +216,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
     request.headers = { authorization: 'Bearer access-token' };
     nativeAccess.validate.mockResolvedValue({
       user: {
-        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        id: '507f1f77bcf86cd799439011',
         email: 'active@example.com',
         name: 'Active User',
         role: 'user',
@@ -237,10 +246,10 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   it('authenticates the bearer user when a cookie for another user is also sent', async () => {
     const { context, request } = createMockContext({ sid: 'cookie-token' });
     request.headers = { authorization: 'Bearer access-token' };
-    const bearerUserId = new Types.ObjectId('507f1f77bcf86cd799439012');
+    const bearerUserId = '507f1f77bcf86cd799439012';
     nativeAccess.validate.mockResolvedValue({
       user: {
-        _id: bearerUserId,
+        id: bearerUserId,
         email: 'bearer@example.com',
         name: 'Bearer User',
         role: 'user',
@@ -265,7 +274,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
     nativeAccess.validate.mockResolvedValue(null);
     sessionService.validateSession.mockResolvedValue({
       user: {
-        _id: new Types.ObjectId('507f1f77bcf86cd799439011'),
+        id: '507f1f77bcf86cd799439011',
         email: 'cookie@example.com',
         name: 'Cookie User',
         role: 'user',

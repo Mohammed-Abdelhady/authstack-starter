@@ -5,6 +5,10 @@ import {
   type JsonWebKey,
 } from 'node:crypto';
 
+export const NATIVE_DPOP_TEST_SECRET =
+  'native-dpop-test-secret-at-least-32-chars';
+export const NATIVE_PUBLIC_API_ORIGIN = 'https://api.example.test';
+
 export const DPOP_TEST_PUBLIC_KEY_A: JsonWebKey = {
   kty: 'EC',
   crv: 'P-256',

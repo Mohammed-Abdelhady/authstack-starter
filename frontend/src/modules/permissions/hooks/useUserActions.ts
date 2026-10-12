@@ -3,10 +3,10 @@ import { useTranslations } from 'next-intl';
 import {
   useUpdateUserStatusMutation,
   useUpdateUserRoleMutation,
-  useDeleteUserMutation,
   useResendEmailChangeMutation,
 } from '@/modules/users/api/usersApi';
 import { toast } from '@/lib/toast';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 
 /**
@@ -16,9 +16,13 @@ export interface UseUserActionsReturn {
   /** Update user role */
   handleRoleChange: (userId: string, newRole: string) => Promise<void>;
   /** Activate or deactivate user */
-  handleStatusChange: (userId: string, isActive: boolean, userName: string) => Promise<boolean>;
-  /** Delete user */
-  handleDelete: (userId: string, userName: string) => Promise<boolean>;
+  /** Activate or deactivate user. `onRefused` receives what the request failed with. */
+  handleStatusChange: (
+    userId: string,
+    isActive: boolean,
+    userName: string,
+    onRefused?: (error: unknown) => void,
+  ) => Promise<boolean>;
   handleResendEmailChange: (userId: string) => Promise<void>;
   /** Whether any action is loading */
   isLoading: boolean;
@@ -26,8 +30,6 @@ export interface UseUserActionsReturn {
   isUpdatingStatus: boolean;
   /** Whether role update is loading */
   isUpdatingRole: boolean;
-  /** Whether delete is loading */
-  isDeleting: boolean;
 }
 
 /**
@@ -41,7 +43,7 @@ export interface UseUserActionsReturn {
  * @example
  * ```tsx
  * function UserCard({ user }) {
- *   const { handleRoleChange, handleStatusChange, handleDelete, isLoading } = useUserActions();
+ *   const { handleRoleChange, handleStatusChange, isLoading } = useUserActions();
  *
  *   const onActivate = async () => {
  *     const success = await handleStatusChange(user._id, true, user.name);
@@ -61,18 +63,17 @@ export interface UseUserActionsReturn {
 export function useUserActions(): UseUserActionsReturn {
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateUserStatusMutation();
   const [updateRole, { isLoading: isUpdatingRole }] = useUpdateUserRoleMutation();
-  const [deleteUser, { isLoading: isDeleting }] = useDeleteUserMutation();
   const [resendEmailChange, { isLoading: isResendingEmailChange }] = useResendEmailChangeMutation();
   const resendInFlight = useRef(false);
   const t = useTranslations('users.actions');
 
   /**
-   * Update user role. A refusal rejects, so the caller knows it failed and
-   * raises the success message itself.
+   * Update user role. A refusal rejects, so the caller knows it failed, says
+   * why in its confirmation and raises the success message itself.
    */
   const handleRoleChange = useCallback(
     async (userId: string, newRole: string) => {
-      await updateRole({ userId, role: newRole }).unwrap();
+      await showsOwnRefusal(updateRole({ userId, role: newRole })).unwrap();
     },
     [updateRole],
   );
@@ -82,9 +83,16 @@ export function useUserActions(): UseUserActionsReturn {
    * Returns true on success, false on failure.
    */
   const handleStatusChange = useCallback(
-    async (userId: string, isActive: boolean, userName: string): Promise<boolean> => {
+    async (
+      userId: string,
+      isActive: boolean,
+      userName: string,
+      onRefused?: (error: unknown) => void,
+    ): Promise<boolean> => {
       try {
-        await updateStatus({ userId, isActive }).unwrap();
+        const request = updateStatus({ userId, isActive });
+        // A caller that shows the refusal says it once, in its confirmation.
+        await (onRefused ? showsOwnRefusal(request) : request).unwrap();
         toast.success(
           isActive
             ? t('activateSuccess', { name: userName })
@@ -92,29 +100,12 @@ export function useUserActions(): UseUserActionsReturn {
         );
         return true;
       } catch (error) {
+        onRefused?.(error);
         reportUnlessHandled(error);
         return false;
       }
     },
     [updateStatus, t],
-  );
-
-  /**
-   * Delete user.
-   * Returns true on success, false on failure.
-   */
-  const handleDelete = useCallback(
-    async (userId: string, userName: string): Promise<boolean> => {
-      try {
-        await deleteUser(userId).unwrap();
-        toast.success(t('deleteSuccess', { name: userName }));
-        return true;
-      } catch (error) {
-        reportUnlessHandled(error);
-        return false;
-      }
-    },
-    [deleteUser, t],
   );
 
   const handleResendEmailChange = useCallback(
@@ -133,17 +124,15 @@ export function useUserActions(): UseUserActionsReturn {
     [resendEmailChange, t],
   );
 
-  const isLoading = isUpdatingStatus || isUpdatingRole || isDeleting || isResendingEmailChange;
+  const isLoading = isUpdatingStatus || isUpdatingRole || isResendingEmailChange;
 
   return {
     handleRoleChange,
     handleStatusChange,
-    handleDelete,
     handleResendEmailChange,
     isLoading,
     isUpdatingStatus,
     isUpdatingRole,
-    isDeleting,
   };
 }
 

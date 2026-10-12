@@ -9,6 +9,9 @@
  * `RaceBarrier` groups gates by a name so a spec can keep its named pause points
  * apart. Neither class imports or reaches into Mongoose; the pause is placed at
  * a seam the spec holds (a spied collaborator or a paused model query).
+ *
+ * Prefer `holdBefore` on a public service method: that seam outlives a change
+ * of database, a paused model query does not.
  */
 export class RaceGate {
   private held = 0;
@@ -89,4 +92,59 @@ export function pauseQuery<Result>(
     await gate.hold();
     return execute();
   });
+}
+
+type AsyncMethod = (...args: never[]) => Promise<unknown>;
+
+export type AsyncMethodName<Service> = {
+  [Key in keyof Service]: Service[Key] extends AsyncMethod ? Key : never;
+}[keyof Service] &
+  string;
+
+/**
+ * Holds chosen calls to a public service method on a gate before the real
+ * method runs, and returns the function that puts the method back. `call`
+ * counts from zero across every caller and `args` are that call's arguments.
+ */
+export function holdBefore<
+  Service extends object,
+  Name extends AsyncMethodName<Service>,
+>(
+  service: Service,
+  method: Name,
+  gateFor: (
+    call: number,
+    args: Parameters<Extract<Service[Name], AsyncMethod>>,
+  ) => RaceGate | undefined,
+): () => void {
+  const real: unknown = Reflect.get(service, method);
+  if (typeof real !== 'function') {
+    throw new Error(`${method} is not a method of the held service`);
+  }
+  const owned = Object.prototype.hasOwnProperty.call(service, method);
+  let call = 0;
+  Reflect.defineProperty(service, method, {
+    configurable: true,
+    writable: true,
+    value: async (
+      ...args: Parameters<Extract<Service[Name], AsyncMethod>>
+    ): Promise<unknown> => {
+      const gate = gateFor(call, args);
+      call += 1;
+      await gate?.hold();
+      const result: unknown = await Reflect.apply(real, service, args);
+      return result;
+    },
+  });
+  return () => {
+    if (owned) {
+      Reflect.defineProperty(service, method, {
+        configurable: true,
+        writable: true,
+        value: real,
+      });
+    } else {
+      Reflect.deleteProperty(service, method);
+    }
+  };
 }

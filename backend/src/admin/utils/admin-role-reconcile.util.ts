@@ -1,85 +1,74 @@
 import { HttpStatus, Logger } from '@nestjs/common';
-import { Connection, Model, Types } from 'mongoose';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { RoleDocument } from '../../role/schemas/role.schema';
-import { UserDocument } from '../../user/schemas/user.schema';
-import { SecurityEventService } from '../../session/services/security-event.service';
-import { withMajorityTransaction } from '../../session/utils/transactions/mongo-transaction';
-import { sweepRoleHolders } from '../../role/utils/holder-sweeps/role-holder.util';
-import { AssignedRoleRef } from '../types/assigned-role-ref';
+import { describeStoreFailure } from '../../common/persistence/store-failure';
+import {
+  RoleSweepStores,
+  sweepRoleHolders,
+} from '../../role/sweeps/role-holder-sweep';
+import { StoredAccount } from '../../user/stores/stored-account';
 import { ADMIN_ROLE_RECONCILE_FAILED } from '../constants/admin-user.constants';
-import { describeDriverError } from '../../common/utils/mongo-error.util';
+import { AdminAccountStore } from '../stores/admin-account.store';
+import { AssignedRoleRef } from '../types/assigned-role-ref';
 
 /** Resolve the assigned role by id after commit and repair or undo the assignment. */
 export async function reconcileAssignedRole(input: {
-  connection: Connection;
-  roleModel: Model<RoleDocument>;
-  userModel: Model<UserDocument>;
-  events: SecurityEventService;
+  accounts: AdminAccountStore;
+  roles: RoleSweepStores;
   logger: Logger;
   actorId: string;
-  userId: Types.ObjectId;
+  userId: string;
   ref: AssignedRoleRef;
 }): Promise<string> {
-  const { connection, roleModel, userModel, logger, userId, ref } = input;
+  const { accounts, roles, logger, actorId, userId, ref } = input;
+  const sweep = { actorId, logger, userId, roleId: ref.roleId };
   let missing = false;
-  let current: UserDocument | null;
+  let current: StoredAccount | null;
   try {
-    const role = await roleModel.findById(ref.roleId).exec();
+    const role = await accounts.findRole(ref.roleId);
     if (role) {
       if (role.slug !== ref.assignedSlug) {
-        await sweepRoleHolders({
-          ...input,
-          roleId: ref.roleId,
+        await sweepRoleHolders(roles, {
+          ...sweep,
           previousSlug: ref.assignedSlug,
         });
       }
     } else if (ref.created) {
-      current = await withMajorityTransaction(connection, async (session) => {
-        await userModel
-          .deleteOne(
-            {
-              _id: userId,
-              role: ref.assignedSlug,
-              updatedAt: ref.created?.updatedAt,
-              sessionVersion: ref.created?.sessionVersion,
-            },
-            { session },
-          )
-          .exec();
-        return userModel.findById(userId).session(session).exec();
+      const created = ref.created;
+      current = await roles.runner.run(async (unitOfWork) => {
+        await accounts.removeCreatedAccount(unitOfWork, {
+          id: userId,
+          role: ref.assignedSlug,
+          updatedAt: created.updatedAt,
+          sessionVersion: created.sessionVersion,
+        });
+        return accounts.readAccount(unitOfWork, userId);
       });
       missing = !current;
-      if (
-        current &&
-        !(await roleModel.findOne({ slug: current.role }).exec())
-      ) {
-        await sweepRoleHolders({
-          ...input,
-          roleId: ref.roleId,
+      if (current && !(await accounts.findRoleBySlug(current.role))) {
+        await sweepRoleHolders(roles, {
+          ...sweep,
           previousSlug: current.role,
         });
       }
     } else {
-      await sweepRoleHolders({
-        ...input,
-        roleId: ref.roleId,
+      await sweepRoleHolders(roles, {
+        ...sweep,
         previousSlug: ref.assignedSlug,
         previousRoleId: ref.previousRoleId,
       });
       missing = true;
     }
-    current = await userModel.findById(userId).exec();
+    current = await accounts.findAccount(userId);
     if (!ref.created && role && current && current.role !== role.slug) {
-      missing = !(await roleModel.findById(ref.roleId).exec());
+      missing = !(await accounts.findRole(ref.roleId));
     }
   } catch (error) {
     logger.error({
       event: ADMIN_ROLE_RECONCILE_FAILED,
-      userId: userId.toString(),
-      roleId: ref.roleId.toString(),
-      error: describeDriverError(error),
+      userId,
+      roleId: ref.roleId,
+      error: describeStoreFailure(error),
     });
     throw error;
   }

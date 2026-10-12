@@ -1,113 +1,109 @@
 import { Logger } from '@nestjs/common';
-import { ClientSession, Model, Types } from 'mongoose';
 import { Response } from 'express';
-import { UserDocument } from '../../user/schemas/user.schema';
-import { AuthProvider } from '../../user/enums/auth-provider.enum';
-import { isMongoDuplicateKeyError } from '../../common/utils/mongo-error.util';
+import { UniqueConflictError } from '../../common/persistence/persistence-errors';
+import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { ActivateResponseDto } from '../dto/activate-response.dto';
-import { SignInService } from '../services/sessions/sign-in.service';
 import { ReservedCode } from '../interfaces/pending-code.interface';
+import {
+  ActivatedAccount,
+  ActivationAccounts,
+  ActivationSignIn,
+} from '../pending-codes/activation-accounts';
 import { activationCodeInvalid } from './activation-error.util';
 
 const logger = new Logger('Activation');
 
 /**
  * Build the account a verified sign-up code describes, inside the caller's
- * transaction. An address that already has an account wins the collision:
+ * unit of work. An address that already has an account wins the collision:
  * nothing is overwritten, nobody is signed in, and the answer is the shared
  * failure, so a sign-up never verifies, changes or signs into an account
  * because its address matches.
  *
+ * @param accounts - The account store
+ * @param unitOfWork - The unit of work the insert must join
  * @param reserved - The generation verifyCode compared
- * @param passwordHash - Hash made from the activation password
- * @param name - Name supplied at activation
- * @param userModel - User model used inside the transaction
- * @param session - Transaction the insert must join
- * @param accountId - Id generated before the transaction, so an unknown commit
- *   can be resolved by looking this exact account up afterwards
+ * @param account - Password hash, name and the id generated before the unit
+ *   of work, so an unknown commit can be resolved by looking this exact
+ *   account up afterwards
  * @throws AppException ACTIVATION_CODE_INVALID when an account already exists
  */
 export async function createActivatedAccount(
+  accounts: ActivationAccounts,
+  unitOfWork: UnitOfWork,
   reserved: ReservedCode,
-  passwordHash: string,
-  name: string,
-  userModel: Model<UserDocument>,
-  session: ClientSession,
-  accountId: Types.ObjectId,
-): Promise<UserDocument> {
-  const existing = await userModel
-    .findOne({
-      email: { $eq: reserved.email },
-      isDeleted: { $ne: true },
-    })
-    .session(session);
-
-  if (existing) {
+  account: { id: string; passwordHash: string; name: string },
+): Promise<ActivatedAccount> {
+  if (await accounts.hasActiveAccount(unitOfWork, reserved.email)) {
     throw activationCodeInvalid();
   }
 
-  const user = new userModel({
-    _id: accountId,
-    email: reserved.email,
-    password: passwordHash,
-    name,
-    isVerified: true,
-    authProvider: AuthProvider.EMAIL,
-    primaryProvider: AuthProvider.EMAIL,
-  });
   try {
-    await user.save({ session });
+    return await accounts.insertActivated(unitOfWork, {
+      id: account.id,
+      email: reserved.email,
+      passwordHash: account.passwordHash,
+      name: account.name,
+    });
   } catch (error) {
     // A second account for the same address can win between the read and the
-    // insert. The caller gets the shared failure and the transaction rolls
+    // insert. The caller gets the shared failure and the unit of work rolls
     // back, so the code stays usable and no session is issued.
-    if (isMongoDuplicateKeyError(error)) {
+    if (error instanceof UniqueConflictError) {
       throw activationCodeInvalid();
     }
     throw error;
   }
-  return user;
 }
 
 /**
- * Mark the address verified on the account an admin moved, inside the
- * transaction that consumed the code. The record must still point at the same
- * user and the same address generation, so a superseded change confirms
- * nothing. No session is issued: the user signs in normally.
+ * Put the account on the address an admin asked for, inside the unit of work
+ * that consumed the code. Until here the account kept its previous address.
+ * The record must still point at the same user and the same address
+ * generation, so a superseded change confirms nothing. No session is issued:
+ * the user signs in normally.
  *
+ * @param accounts - The account store
+ * @param unitOfWork - The unit of work the update must join
  * @param reserved - The generation verifyCode compared
- * @param userModel - User model used inside the transaction
- * @param session - Transaction the update must join
- * @throws AppException ACTIVATION_CODE_INVALID for a stale or missing target
+ * @returns The address the account left, or null when it was already on the
+ *   confirmed one
+ * @throws AppException ACTIVATION_CODE_INVALID for a stale or missing target,
+ *   or an address another account took meanwhile
  */
 export async function confirmEmailChange(
+  accounts: ActivationAccounts,
+  unitOfWork: UnitOfWork,
   reserved: ReservedCode,
-  userModel: Model<UserDocument>,
-  session: ClientSession,
-): Promise<void> {
+): Promise<string | null> {
   if (!reserved.userId) {
     throw activationCodeInvalid();
   }
 
-  const user = await userModel
-    .findOne({
-      _id: reserved.userId,
-      isDeleted: { $ne: true },
-    })
-    .session(session);
+  const user = await accounts.readMovedAccount(
+    unitOfWork,
+    reserved.userId.toString(),
+  );
 
-  const matchesTarget =
-    user !== null &&
-    user.email === reserved.email &&
-    (user.addressGeneration ?? 0) === (reserved.addressGeneration ?? 0);
-
-  if (!user || !matchesTarget) {
+  if (
+    !user ||
+    user.addressGeneration !== (reserved.addressGeneration ?? 0) ||
+    user.pendingEmail !== reserved.email
+  ) {
     throw activationCodeInvalid();
   }
 
-  user.isVerified = true;
-  await user.save({ session });
+  const previous = user.email;
+  try {
+    await accounts.confirmAddress(unitOfWork, user, reserved.email);
+  } catch (error) {
+    if (error instanceof UniqueConflictError) {
+      throw activationCodeInvalid();
+    }
+    throw error;
+  }
+  return previous === reserved.email ? null : previous;
 }
 
 /**
@@ -116,17 +112,17 @@ export async function confirmEmailChange(
  * sign-in must not read as a failed activation, so the caller is asked to sign
  * in normally instead.
  *
- * @param signInService - The shared sign-in path
- * @param user - The committed account
+ * @param signIn - The shared sign-in path
+ * @param account - The committed account
  * @param response - Response the session cookie is set on
  */
 export async function finishActivation(
-  signInService: SignInService,
-  user: UserDocument,
+  signIn: ActivationSignIn,
+  account: ActivatedAccount,
   response: Response,
 ): Promise<ApiResponse<ActivateResponseDto>> {
   try {
-    const outcome = await signInService.completeSignIn(user, response);
+    const outcome = await signIn.complete(account, response);
     if (outcome.requiresTwoFactor) {
       return ActivateResponseDto.twoFactorRequired();
     }
@@ -134,7 +130,7 @@ export async function finishActivation(
   } catch (error) {
     const cause = error instanceof Error ? error.name : typeof error;
     logger.error(
-      `Sign-in after activation failed for user ${user._id.toString()} cause=${cause}`,
+      `Sign-in after activation failed for user ${account.id} cause=${cause}`,
     );
     return ActivateResponseDto.signInRequired();
   }

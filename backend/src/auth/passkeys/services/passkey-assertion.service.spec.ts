@@ -1,6 +1,7 @@
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { PASSKEY_CHALLENGE_COOKIE } from '../constants/passkeys.constants';
 import { PasskeyAssertionService } from './passkey-assertion.service';
+import { MongoPasskeyStore } from '../persistence/mongo/mongo-passkey.store';
 import { WebAuthnAdapter } from './webauthn.adapter';
 import {
   createModelMock,
@@ -16,7 +17,7 @@ import {
   createPasskeyConfig,
   MockPasskey,
   RP_ID,
-} from '../passkeys.harness-spec';
+} from '../persistence/mongo/passkeys.harness-spec';
 
 /** The signature check itself is the library's; everything around it is here. */
 
@@ -53,8 +54,10 @@ async function createHarness(
 
   return {
     service: new PasskeyAssertionService(
-      createModelMock<ConstructorParameters<typeof PasskeyAssertionService>[0]>(
-        passkeyModel,
+      new MongoPasskeyStore(
+        createModelMock<ConstructorParameters<typeof MongoPasskeyStore>[0]>(
+          passkeyModel,
+        ),
       ),
       partialMock<WebAuthnAdapter>(adapter),
       createPasskeyConfig(),
@@ -244,9 +247,11 @@ describe('PasskeyAssertionService', () => {
           .mockResolvedValue({ newCounter: 5, userVerified: true }),
       };
       const service = new PasskeyAssertionService(
-        createModelMock<
-          ConstructorParameters<typeof PasskeyAssertionService>[0]
-        >(passkeyModel),
+        new MongoPasskeyStore(
+          createModelMock<ConstructorParameters<typeof MongoPasskeyStore>[0]>(
+            passkeyModel,
+          ),
+        ),
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,
@@ -288,9 +293,11 @@ describe('PasskeyAssertionService', () => {
           .mockResolvedValue({ newCounter: 0, userVerified: true }),
       };
       const service = new PasskeyAssertionService(
-        createModelMock<
-          ConstructorParameters<typeof PasskeyAssertionService>[0]
-        >(passkeyModel),
+        new MongoPasskeyStore(
+          createModelMock<ConstructorParameters<typeof MongoPasskeyStore>[0]>(
+            passkeyModel,
+          ),
+        ),
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,

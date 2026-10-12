@@ -24,7 +24,7 @@ import { ApiResponse } from '../common/dto/api-response.dto';
 import { AddPermissionDto } from '../user/dto/add-permission.dto';
 import { PERMISSION_PERMISSIONS } from '../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
-import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
+import { RouteIdPipe } from '../common/pipes/route-id.pipe';
 
 /**
  * Admin endpoints for direct permission grants.
@@ -58,7 +58,7 @@ export class AdminPermissionsController {
     example: '507f1f77bcf86cd799439011',
   })
   async getUserPermissions(
-    @Param('id', ParseObjectIdPipe) userId: string,
+    @Param('id', RouteIdPipe) userId: string,
     @CurrentUser('role') actorRole: string,
   ): Promise<
     ApiResponse<{ userId: string; permissions: string[]; role: string }>
@@ -78,8 +78,9 @@ export class AdminPermissionsController {
     summary: 'Add permission to user',
     description:
       'Adds a direct permission in the format resource:action[:scope]. ' +
-      'The wildcard cannot be granted here. Cannot target the actor itself ' +
-      "or a user at or above the actor's role level.",
+      'The wildcard cannot be granted here, and the actor must hold the ' +
+      'permission itself. Cannot target the actor itself or a user at or ' +
+      "above the actor's role level.",
   })
   @ApiParam({
     name: 'id',
@@ -88,7 +89,7 @@ export class AdminPermissionsController {
   })
   @ApiBody({ type: AddPermissionDto })
   async addPermission(
-    @Param('id', ParseObjectIdPipe) userId: string,
+    @Param('id', RouteIdPipe) userId: string,
     @Body() dto: AddPermissionDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
@@ -126,14 +127,14 @@ export class AdminPermissionsController {
     example: 'users:read:all',
   })
   async removePermission(
-    @Param('id', ParseObjectIdPipe) userId: string,
+    @Param('id', RouteIdPipe) userId: string,
     @Param('permission') permission: string,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.removePermission(
       userId,
-      decodeURIComponent(permission),
+      permission,
       actorId,
       actorRole,
     );

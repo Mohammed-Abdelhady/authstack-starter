@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ClientSession } from 'mongoose';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
   NATIVE_DPOP_REVOKE_PATH,
   NATIVE_DPOP_TOKEN_PATH,
@@ -10,7 +10,7 @@ import {
 } from '../../constants/security-event-action';
 import { NativeDpopService } from './native-dpop.service';
 import type { NativeDpopVerification } from './native-dpop.service';
-import { SecurityEventService } from '../../services/security-event.service';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
 
 export interface BoundProofEventContext {
   targetUserId?: string;
@@ -22,7 +22,7 @@ export interface BoundProofEventContext {
 export class NativeBoundProofService {
   constructor(
     private readonly dpop: NativeDpopService,
-    private readonly events: SecurityEventService,
+    private readonly events: NativeSecurityEvents,
   ) {}
 
   verify(
@@ -41,23 +41,26 @@ export class NativeBoundProofService {
     );
   }
 
-  async reserve(db: ClientSession, jti: string, now: Date): Promise<void> {
-    await this.dpop.reserveProofId(db, jti, now);
+  async reserve(unitOfWork: UnitOfWork, jti: string, now: Date): Promise<void> {
+    await this.dpop.reserveProofId(unitOfWork, jti, now);
   }
 
+  /** Without a unit of work the refusal commits by itself. */
   async recordRefusal(
-    db: ClientSession | undefined,
+    unitOfWork: UnitOfWork | undefined,
     context: BoundProofEventContext,
     reason: string,
   ): Promise<void> {
-    await this.events.record(
-      {
-        ...context,
-        action: SECURITY_EVENT_ACTION.NATIVE_DPOP_PROOF_REFUSED,
-        reasonCode: reason,
-        outcome: SECURITY_EVENT_OUTCOME.FAILED,
-      },
-      db,
-    );
+    const event = {
+      ...context,
+      action: SECURITY_EVENT_ACTION.NATIVE_DPOP_PROOF_REFUSED,
+      reasonCode: reason,
+      outcome: SECURITY_EVENT_OUTCOME.FAILED,
+    };
+    if (unitOfWork) {
+      await this.events.record(unitOfWork, event);
+      return;
+    }
+    await this.events.recordOutsideUnitOfWork(event);
   }
 }

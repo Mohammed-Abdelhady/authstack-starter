@@ -37,4 +37,14 @@ export class PasskeySummaryDto {
 export class PasskeyListResponseDto {
   @ApiProperty({ type: [PasskeySummaryDto] })
   passkeys!: PasskeySummaryDto[];
+
+  @ApiProperty({
+    description:
+      'Whether removing one of the listed passkeys would be accepted now. ' +
+      'False when it would be refused with PASSKEY_LAST_SIGN_IN_METHOD. ' +
+      'Advice for a page: the removal itself still decides.',
+    example: true,
+    required: false,
+  })
+  canRemove?: boolean;
 }

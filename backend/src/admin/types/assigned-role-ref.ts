@@ -1,8 +1,6 @@
-import { Types } from 'mongoose';
-
 export interface AssignedRoleRef {
-  roleId: Types.ObjectId;
+  roleId: string;
   assignedSlug: string;
-  previousRoleId?: Types.ObjectId;
+  previousRoleId?: string;
   created?: { updatedAt: Date; sessionVersion: number };
 }

@@ -1,42 +1,34 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Request, Response } from 'express';
+import { Request } from 'express';
+import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
 import {
-  SignInService,
+  SignInCompletion,
   SignInOutcome,
-} from '../services/sessions/sign-in.service';
-import { SessionService } from '../services/sessions/session.service';
+} from '../services/sessions/sign-in-completion';
+import { Sessions } from '../services/sessions/sessions';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
-import { User, UserDocument } from '../../user/schemas/user.schema';
+import { StoredAccount } from '../../user/stores/stored-account';
 import { ProfileSyncService } from '../../user/services/profile-sync.service';
 import { AccountLinkingService } from '../../user/services/account-linking.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { isMongoDuplicateKeyError } from '../../common/utils/mongo-error.util';
+import { UniqueConflictError } from '../../common/persistence/persistence-errors';
+import { storeFailureCause } from '../../common/persistence/store-failure';
 import { readBearerToken } from '../../session/native/access/native-access.service';
 import { hasBothCredentials } from '../../session/utils/request/request-credential';
 import {
-  OAuthCallbackParams,
   OAuthProfile,
   OAuthProviderStrategy,
 } from './oauth-provider.interface';
-
-export interface OAuthLoginParams {
-  strategy: OAuthProviderStrategy;
-  code: string;
-  redirectUri: string;
-  codeVerifier?: string;
-  nonce?: string;
-  /** Raw callback parameters, for providers that ship profile data with them. */
-  callbackParams?: OAuthCallbackParams;
-  response: Response;
-}
-
-export interface OAuthLinkParams extends OAuthLoginParams {
-  request: Request;
-  linkUserId: string;
-}
+import { ProviderSignInStore } from './stores/provider-sign-in.store';
+import {
+  LinkingProvider,
+  LinkingSession,
+  OAuthLinkParams,
+  OAuthLoginParams,
+} from './types/oauth-service.types';
+import { SecurityNoticeService } from '../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../user/constants/security-notice.constants';
 
 const DEFAULT_ROLE = 'user';
 
@@ -49,12 +41,13 @@ export class OAuthService {
   private readonly logger = new Logger(OAuthService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    private readonly signInService: SignInService,
+    private readonly accounts: ProviderSignInStore,
+    private readonly signInService: SignInCompletion,
     private readonly profileSyncService: ProfileSyncService,
     private readonly accountLinkingService: AccountLinkingService,
-    private readonly sessionService: SessionService,
+    private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
@@ -64,9 +57,9 @@ export class OAuthService {
   async login(params: OAuthLoginParams): Promise<SignInOutcome> {
     const { strategy } = params;
     const profile = await this.loadVerifiedProfile(params);
-    const user = await this.findOrCreateUser(strategy.id, profile);
+    const user = await this.findOrCreateUser(strategy, profile);
     await this.profileSyncService.syncProfileFromProvider(
-      user._id.toString(),
+      user.id,
       strategy.id,
       profile,
     );
@@ -74,6 +67,7 @@ export class OAuthService {
     const outcome = await this.signInService.completeSignIn(
       user,
       params.response,
+      FIRST_FACTOR.PROVIDER, // feature:totp
     );
 
     this.logger.log(
@@ -85,35 +79,56 @@ export class OAuthService {
   }
 
   /**
-   * Attaches the provider identity to the signed-in user. The existing
-   * session is left alone; a second factor is not started.
+   * Attaches the provider identity to the account that started the link. The
+   * callback is a navigation the provider's site started, and a browser sends
+   * no `SameSite=Strict` cookie with it, so the session cookie cannot be asked
+   * for here. The signed state names the account and the session that asked,
+   * and that session must still be live. No session is issued and a second
+   * factor is not started.
    */
   async link(params: OAuthLinkParams): Promise<void> {
-    const sessionUserId = await this.requireSessionUserId(params.request);
-    if (sessionUserId !== params.linkUserId) {
-      throw new AppException(
-        ErrorCode.OAUTH_STATE_INVALID,
-        'OAuth link intent does not match the signed-in user',
-        HttpStatus.UNAUTHORIZED,
-        { provider: params.strategy.id },
-      );
-    }
+    await this.assertLinkingSessionLive(params);
 
     const profile = await this.loadVerifiedProfile(params);
     await this.accountLinkingService.linkProvider(
-      sessionUserId,
+      params.linkUserId,
       params.strategy.id,
       profile,
     );
     await this.profileSyncService.syncProfileFromProvider(
-      sessionUserId,
+      params.linkUserId,
       params.strategy.id,
       profile,
     );
     this.logger.log(`Linked ${params.strategy.id} to the signed-in user`);
   }
 
+  /**
+   * The session that asked for the link is one of the account's live ones.
+   * A session that was ended, has lapsed, or belongs to an account that was
+   * deactivated since is not, and neither is a session of another account.
+   */
+  private async assertLinkingSessionLive(
+    params: OAuthLinkParams,
+  ): Promise<void> {
+    const live = await this.sessionService.getUserSessions(params.linkUserId);
+    if (live.some((session) => session.id === params.linkSessionId)) {
+      return;
+    }
+    throw new AppException(
+      ErrorCode.SESSION_INVALID,
+      'Invalid or expired session',
+      HttpStatus.UNAUTHORIZED,
+      { provider: params.strategy.id },
+    );
+  }
+
   async requireSessionUserId(request: Request): Promise<string> {
+    return (await this.requireSession(request)).userId;
+  }
+
+  /** The signed-in session of a request, for the start of a link. */
+  async requireSession(request: Request): Promise<LinkingSession> {
     if (
       hasBothCredentials(
         readBearerToken(request) !== null,
@@ -136,7 +151,7 @@ export class OAuthService {
     }
 
     const session = await this.sessionService.validateSession(token);
-    const user = session?.user as UserDocument | undefined;
+    const user = session?.user;
     if (!session || !user || user.isDeleted) {
       throw new AppException(
         ErrorCode.SESSION_INVALID,
@@ -145,7 +160,7 @@ export class OAuthService {
       );
     }
 
-    return user._id.toString();
+    return { userId: user.id, sessionId: session.id };
   }
 
   private async loadVerifiedProfile(
@@ -168,84 +183,74 @@ export class OAuthService {
   /**
    * Resolves the account for a provider profile: existing link, existing email,
    * or a new user. The account email is never overwritten from the provider.
+   * An account that has the address is only attached to when the provider
+   * vouches for each address and this server verified the account's own.
    */
   async findOrCreateUser(
-    provider: string,
+    strategy: LinkingProvider,
     profile: OAuthProfile,
-  ): Promise<UserDocument> {
-    const linked = await this.userModel.findOne({
-      linkedAccounts: {
-        $elemMatch: { provider, providerId: profile.providerId },
-      },
-    });
+  ): Promise<StoredAccount> {
+    const provider = strategy.id;
+    const identity = { provider, providerId: profile.providerId };
+    const linked = await this.accounts.findByIdentity(identity);
 
     if (linked) {
       this.assertActive(linked, provider);
       return linked;
     }
 
-    const byEmail = await this.userModel.findOne({
-      email: { $eq: profile.email },
-    });
+    const byEmail = await this.accounts.findByAddress(profile.email);
     if (byEmail) {
       this.assertActive(byEmail, provider);
-      return this.linkToExistingUser(byEmail, provider, profile);
+      this.assertMayLinkByEmail(strategy, byEmail);
+      return this.linkToExistingUser(byEmail, identity);
     }
 
-    return this.createUser(provider, profile);
+    if (!strategy.autoLinksByEmail) {
+      throw new AppException(
+        ErrorCode.OAUTH_EMAIL_UNVERIFIED,
+        'This provider cannot verify the email address. Sign in another way, then link the provider in settings',
+        HttpStatus.FORBIDDEN,
+        { provider },
+      );
+    }
+
+    return this.createUser(identity, profile);
   }
 
   private async linkToExistingUser(
-    user: UserDocument,
-    provider: string,
-    profile: OAuthProfile,
-  ): Promise<UserDocument> {
-    user.linkedAccounts.push({
-      provider,
-      providerId: profile.providerId,
-      linkedAt: new Date(),
-    });
-    user.isVerified = true;
-    if (!user.primaryProvider) {
-      user.primaryProvider = provider;
-    }
-
+    user: StoredAccount,
+    identity: { provider: string; providerId: string },
+  ): Promise<StoredAccount> {
     try {
-      await user.save();
+      const linked = await this.accounts.linkFirstSignIn(user, identity);
+      this.notices?.defer(linked.id, SECURITY_NOTICE.PROVIDER_ADDED);
+      this.logger.log(
+        `Linked ${identity.provider} account to an existing user`,
+      );
+      return linked;
     } catch (error) {
-      throw this.toLinkConflict(error, provider);
+      throw this.toLinkConflict(error, identity.provider);
     }
-
-    this.logger.log(`Linked ${provider} account to an existing user`);
-    return user;
   }
 
   private async createUser(
-    provider: string,
+    identity: { provider: string; providerId: string },
     profile: OAuthProfile,
-  ): Promise<UserDocument> {
+  ): Promise<StoredAccount> {
     try {
-      const user = await this.userModel.create({
+      const user = await this.accounts.createFromProvider({
+        ...identity,
         email: profile.email,
         name: profile.name,
         avatarUrl: profile.avatarUrl,
-        isVerified: true,
-        authProvider: provider,
-        primaryProvider: provider,
-        linkedAccounts: [
-          {
-            provider,
-            providerId: profile.providerId,
-            linkedAt: new Date(),
-          },
-        ],
         role: DEFAULT_ROLE,
       });
 
-      this.logger.log(`Created a new user through ${provider}`);
+      this.logger.log(`Created a new user through ${identity.provider}`);
       return user;
     } catch (error) {
-      throw this.toLinkConflict(error, provider);
+      throw this.toLinkConflict(error, identity.provider);
     }
   }
 
@@ -265,7 +270,32 @@ export class OAuthService {
     );
   }
 
-  private assertActive(user: UserDocument, provider: string): void {
+  /**
+   * Attaching by address alone hands the account to whoever the provider says
+   * owns the address. That is refused when the provider states nothing about
+   * the address, and when the account's own address was never verified here,
+   * because such an account may not belong to the address's owner.
+   */
+  private assertMayLinkByEmail(
+    strategy: LinkingProvider,
+    account: StoredAccount,
+  ): void {
+    if (strategy.autoLinksByEmail && account.isVerified) {
+      return;
+    }
+
+    this.logger.warn(
+      `First ${strategy.id} sign-in not attached to an existing account`,
+    );
+    throw new AppException(
+      ErrorCode.OAUTH_ACCOUNT_EXISTS,
+      'An account with this address already exists. Sign in another way, then link this provider in the settings',
+      HttpStatus.CONFLICT,
+      { provider: strategy.id },
+    );
+  }
+
+  private assertActive(user: StoredAccount, provider: string): void {
     if (!user.isDeleted) {
       return;
     }
@@ -282,8 +312,8 @@ export class OAuthService {
   }
 
   private toLinkConflict(error: unknown, provider: string): unknown {
-    if (!isMongoDuplicateKeyError(error)) {
-      return error;
+    if (!(error instanceof UniqueConflictError)) {
+      return storeFailureCause(error);
     }
 
     return new AppException(

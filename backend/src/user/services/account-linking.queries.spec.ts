@@ -7,16 +7,22 @@ import {
   linkedAccount,
   USER_ID,
   type MockUser,
-} from './account-linking.harness-spec';
+} from '../persistence/mongo/services/account-linking.harness-spec';
 
 describe('AccountLinkingService queries', () => {
   let service: AccountLinkingService;
   let resolveUser: (user: MockUser | null) => void;
+  let closeHarness: (() => Promise<void>) | undefined;
 
   beforeEach(async () => {
     const harness = await createHarness();
     service = harness.service;
     resolveUser = harness.resolveUser;
+    closeHarness = harness.close;
+  });
+
+  afterEach(async () => {
+    await closeHarness?.();
   });
 
   describe('getLinkedProviders', () => {
@@ -40,6 +46,7 @@ describe('AccountLinkingService queries', () => {
   });
 
   describe('canUnlinkProvider', () => {
+    // feature:email-password:start
     it('should allow a linked provider while another method remains', async () => {
       resolveUser(buildUser({ linkedAccounts: [linkedAccount('google')] }));
 
@@ -47,6 +54,7 @@ describe('AccountLinkingService queries', () => {
         true,
       );
     });
+    // feature:email-password:end
 
     it('should never allow unlinking email sign-in', async () => {
       resolveUser(buildUser());

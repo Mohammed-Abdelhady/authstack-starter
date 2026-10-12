@@ -1,22 +1,14 @@
-import { Model } from 'mongoose';
-import { RoleDocument } from '../../role/schemas/role.schema';
-
 /**
- * Compute effective permissions by combining role and direct user permissions.
+ * Combine what the role grants with what the account holds directly.
+ *
+ * @param rolePermissions - The role's permissions, or null when no role carries the slug
+ * @param directPermissions - Permissions stored on the account itself
  */
-export async function getEffectivePermissions(
-  user: { role?: string; permissions?: string[] },
-  roleModel: Model<RoleDocument>,
-): Promise<string[]> {
-  const rolePermissions: string[] = [];
-
-  if (user.role) {
-    const role = await roleModel.findOne({ slug: user.role }).exec();
-    if (role?.permissions) {
-      rolePermissions.push(...role.permissions);
-    }
-  }
-
-  const directPermissions = user.permissions || [];
-  return [...new Set([...rolePermissions, ...directPermissions])];
+export function effectivePermissions(
+  rolePermissions: string[] | null,
+  directPermissions: string[] | undefined,
+): string[] {
+  return [
+    ...new Set([...(rolePermissions ?? []), ...(directPermissions ?? [])]),
+  ];
 }

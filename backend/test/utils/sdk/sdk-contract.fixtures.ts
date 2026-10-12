@@ -1,11 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { CREDENTIAL_PURPOSE } from '../../../src/session/constants/credential-purpose';
-import {
-  Session,
-  SessionDocument,
-} from '../../../src/session/schemas/session.schema';
 import { bootE2eApp, type E2eApp } from '../e2e-app';
 import { TEST_NOW } from '../frozen-clock';
 import { createNativeApplication } from '../native/native-authorize.fixtures';
@@ -28,11 +22,10 @@ export async function resetContractApp(e2e: E2eApp): Promise<void> {
 
 /** The session a native bearer itself runs on. */
 export async function contractNativeSessionId(e2e: E2eApp): Promise<string> {
-  const sessions = e2e.app.get<Model<SessionDocument>>(
-    getModelToken(Session.name),
+  return required(
+    await e2e.state.sessions.sessionIdWithPurpose(
+      CREDENTIAL_PURPOSE.NATIVE_ACCESS,
+    ),
+    'native session',
   );
-  const native = await sessions
-    .findOne({ credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS })
-    .exec();
-  return required(native, 'native session')._id.toString();
 }

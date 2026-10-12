@@ -1,26 +1,21 @@
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { CSRF_HEADER } from '../../../src/session/constants/browser-proof';
 import { PENDING_AUTH_LIFETIME_MS } from '../../../src/session/constants/session-policy';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
 import { SEED_USER } from '../../constants/seed-users';
 import {
   beginNativeAuthorization,
   createNativeApplication,
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
+  seedUserId,
 } from '../../utils/native/native-authorize.fixtures';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
 
 interface ApiErrorBody {
@@ -34,10 +29,6 @@ interface AuthorizeActionBody {
 
 interface TokenResponseBody {
   access_token: string;
-}
-
-interface BrowserProofResponseBody {
-  data: { token: string };
 }
 
 describe('native browser authorization (e2e)', () => {
@@ -97,22 +88,24 @@ describe('native browser authorization (e2e)', () => {
   // feature:locale-ar:end
 
   it('requires a browser proof header for approval and denial', async () => {
-    const browser = request.agent(e2e.httpServer);
-    const proof = await browser.get('/api/auth/browser-proof').expect(200);
-    const preAuthToken = (proof.body as BrowserProofResponseBody).data.token;
-    await browser
-      .post('/api/auth/login')
-      .set(CSRF_HEADER, preAuthToken)
-      .send({ email: SEED_USER.email, password: SEED_USER.password })
-      .expect(200);
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
     const started = await beginNativeAuthorization(e2e);
 
+    // The agent presents its proof by itself, so these two take it off.
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId });
+      .unset(CSRF_HEADER)
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
     const denial = await browser
       .post('/api/oauth/authorize/deny')
-      .send({ transactionId: started.transactionId });
+      .unset(CSRF_HEADER)
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
     for (const response of [approval, denial]) {
       expect(response.status).toBe(403);
       expect((response.body as ApiErrorBody).error.code).toBe(
@@ -138,7 +131,10 @@ describe('native browser authorization (e2e)', () => {
     const started = await beginNativeAuthorization(e2e);
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId })
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      })
       .expect(200);
     const approvalBody = approval.body as AuthorizeActionBody;
     expect(approvalBody.success).toBe(true);
@@ -180,9 +176,10 @@ describe('native browser authorization (e2e)', () => {
       .expect(200);
     expect(alreadyGranted.body.data.alreadyGranted).toBe(true);
 
-    const repeated = await browser
-      .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId });
+    const repeated = await browser.post('/api/oauth/authorize/approve').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
     expect(repeated.status).toBe(404);
     expect((repeated.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
@@ -194,7 +191,10 @@ describe('native browser authorization (e2e)', () => {
     const started = await beginNativeAuthorization(e2e);
     const denied = await browser
       .post('/api/oauth/authorize/deny')
-      .send({ transactionId: started.transactionId })
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      })
       .expect(200);
     const deniedBody = denied.body as AuthorizeActionBody;
     const callback = new URL(deniedBody.data.redirectUri);
@@ -213,9 +213,10 @@ describe('native browser authorization (e2e)', () => {
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
     );
 
-    const approval = await browser
-      .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId });
+    const approval = await browser.post('/api/oauth/authorize/approve').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
     expect(approval.status).toBe(404);
     expect((approval.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
@@ -237,10 +238,14 @@ describe('native browser authorization (e2e)', () => {
     );
     const expiredApprove = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: approveId.transactionId });
-    const expiredDeny = await browser
-      .post('/api/oauth/authorize/deny')
-      .send({ transactionId: denyId.transactionId });
+      .send({
+        transactionId: approveId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
+    const expiredDeny = await browser.post('/api/oauth/authorize/deny').send({
+      transactionId: denyId.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
 
     for (const response of [
       unknown,
@@ -258,13 +263,9 @@ describe('native browser authorization (e2e)', () => {
   it('returns expired for a disabled app and disabled for the feature switch', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const disabledApp = await beginNativeAuthorization(e2e);
-    const appModel = e2e.app.get<Model<ApplicationDocument>>(
-      getModelToken(Application.name),
-    );
-    await appModel.updateOne(
-      { clientId: NATIVE_CLIENT_ID },
-      { $set: { enabled: false } },
-    );
+    await e2e.state.applications.changeApplication(NATIVE_CLIENT_ID, {
+      enabled: false,
+    });
     const appRead = await browser.get(
       `/api/oauth/authorize/transaction/${disabledApp.transactionId}`,
     );
@@ -273,10 +274,9 @@ describe('native browser authorization (e2e)', () => {
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
     );
 
-    await appModel.updateOne(
-      { clientId: NATIVE_CLIENT_ID },
-      { $set: { enabled: true } },
-    );
+    await e2e.state.applications.changeApplication(NATIVE_CLIENT_ID, {
+      enabled: true,
+    });
     const readId = await beginNativeAuthorization(e2e);
     const approveId = await beginNativeAuthorization(e2e);
     const denyId = await beginNativeAuthorization(e2e);
@@ -284,12 +284,14 @@ describe('native browser authorization (e2e)', () => {
 
     const responses = await Promise.all([
       browser.get(`/api/oauth/authorize/transaction/${readId.transactionId}`),
-      browser
-        .post('/api/oauth/authorize/approve')
-        .send({ transactionId: approveId.transactionId }),
-      browser
-        .post('/api/oauth/authorize/deny')
-        .send({ transactionId: denyId.transactionId }),
+      browser.post('/api/oauth/authorize/approve').send({
+        transactionId: approveId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      }),
+      browser.post('/api/oauth/authorize/deny').send({
+        transactionId: denyId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(403);

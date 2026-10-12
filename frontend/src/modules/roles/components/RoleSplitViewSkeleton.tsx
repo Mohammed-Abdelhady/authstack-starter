@@ -1,6 +1,9 @@
+import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function RoleSplitViewSkeleton() {
+  const t = useTranslations('roles');
+
   return (
     <div
       role="status"
@@ -8,6 +11,7 @@ export function RoleSplitViewSkeleton() {
       className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6"
       data-testid="loading-skeleton"
     >
+      <span className="sr-only">{t('loading')}</span>
       {/* Sidebar skeleton */}
       <div className="space-y-2 rounded-lg border border-border p-3 bg-card">
         {Array.from({ length: 5 }).map((_, i) => (

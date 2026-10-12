@@ -12,7 +12,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 
 const GRANT_EMAIL = 'native@example.com';
 

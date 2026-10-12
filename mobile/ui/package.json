@@ -8,6 +8,9 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./host": "./src/host.ts",
+    "./theme": "./src/theme/index.ts",
+    "./testing": "./test/support/painted.ts",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
@@ -37,6 +40,7 @@
     "eslint-plugin-prettier": "^5.5.6",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-test-renderer": "19.2.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.1",
     "vitest": "^5.0.2"

@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { useCallback, type ChangeEvent } from 'react';
 import type { FieldPath, FieldValues } from 'react-hook-form';
 import { FormInput } from '@/components/forms';
@@ -11,7 +12,8 @@ import { cn } from '@/lib/utils';
 interface CodeFieldProps<TFieldValues extends FieldValues> {
   name: FieldPath<TFieldValues>;
   label: string;
-  disabled?: boolean;
+  /** The request of its form is running. */
+  busy?: boolean;
   autoFocus?: boolean;
   testId: string;
 }
@@ -23,10 +25,11 @@ interface CodeFieldProps<TFieldValues extends FieldValues> {
 export function CodeField<TFieldValues extends FieldValues>({
   name,
   label,
-  disabled,
+  busy,
   autoFocus,
   testId,
 }: CodeFieldProps<TFieldValues>) {
+  const tCommon = useTranslations('common');
   const onChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     event.target.value = filterDigits(event.target.value, TOTP_CODE_LENGTH);
   }, []);
@@ -38,9 +41,9 @@ export function CodeField<TFieldValues extends FieldValues>({
       type="text"
       inputMode="numeric"
       autoComplete="one-time-code"
-      placeholder="123456"
-      maxLength={TOTP_CODE_LENGTH}
-      disabled={disabled}
+      required
+      placeholder={tCommon('codePlaceholder')}
+      busy={busy}
       autoFocus={autoFocus}
       onChange={onChange}
       className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}

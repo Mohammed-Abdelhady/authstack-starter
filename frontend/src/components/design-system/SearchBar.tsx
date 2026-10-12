@@ -59,6 +59,8 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
           className={cn(
             'w-full bg-transparent ps-7 pe-8 py-2',
             'text-foreground placeholder:text-muted-foreground',
+            // A placeholder longer than the box ends in an ellipsis.
+            'text-ellipsis placeholder:text-ellipsis',
             TEXT_CONTROL_FONT_SIZE,
             'border-0 border-b border-border rounded-sm',
             'focus:border-primary',

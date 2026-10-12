@@ -42,6 +42,10 @@ export const REGISTRATION_NOTICE_EMAIL_FAILED_MESSAGE =
 export const EMAIL_CHANGE_EMAIL_FAILED_MESSAGE =
   'Failed to send email change confirmation email';
 
+/** Logged when an existing address does not receive a pending-change notice. */
+export const EMAIL_CHANGE_NOTICE_FAILED_MESSAGE =
+  'Failed to send email change notice';
+
 /**
  * Answer for an old-shape registration that still carries a password or a
  * name. It depends only on the body, never on the address.

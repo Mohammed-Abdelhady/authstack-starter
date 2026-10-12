@@ -1,12 +1,15 @@
-import { Role, RoleDocument } from '../../schemas/role.schema';
+import {
+  Role,
+  RoleDocument,
+} from '../../persistence/mongo/schemas/role.schema';
 import { Logger } from '@nestjs/common';
 import { UserRole } from '../../../user/enums/user-role.enum';
-import { SecurityEventService } from '../../../session/services/security-event.service';
-import { sweepRoleHolders } from './role-holder.util';
+import { SecurityEventService } from '../../../session/persistence/mongo/security-event.service';
+import { sweepRoleHolders } from '../../../../test/utils/role/mongo-role-holder-sweeps';
 import {
   EDITOR_SLUG,
   useAdminRoundFour,
-} from '../../../admin/services/admin-round-four.harness-spec';
+} from '../../../admin/persistence/mongo/services/admin-round-four.harness-spec';
 
 const LIVE_HOLDERS = 1000;
 

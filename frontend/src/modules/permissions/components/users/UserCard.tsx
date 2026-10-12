@@ -1,11 +1,12 @@
 'use client';
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Heading, StatusBadge } from '@/components/design-system';
 import { UserRoleSelector } from './UserRoleSelector';
 import { UserActionsMenu } from './UserActionsMenu';
+import { UserRoleLabel } from './UserRoleLabel';
 import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 import { HOVER_REVEAL_CLASSES } from '@/constants/focusStyles';
@@ -20,6 +21,7 @@ export interface User {
   role: string;
   isVerified: boolean;
   isDeleted: boolean;
+  pendingEmail?: string | null;
   createdAt: string;
 }
 
@@ -27,9 +29,16 @@ export interface UserCardProps {
   /** User data */
   user: User;
   /** Callback when manage permissions is clicked */
-  onManagePermissions?: (userId: string) => void;
+  onManagePermissions?: (userId: string, opener: HTMLElement | null, userName: string) => void;
   /** Optional className */
   className?: string;
+}
+
+function focusRoleRegionIfOwned(region: HTMLDivElement | null) {
+  const activeElement = document.activeElement;
+  if (region && (activeElement === document.body || region.contains(activeElement))) {
+    region.focus();
+  }
 }
 
 /**
@@ -55,17 +64,48 @@ export const UserCard = memo(
     const locale = useLocale();
     const t = useTranslations('users.card');
     const { handleRoleChange, isUpdatingRole } = useUserActions();
+    const roleRegionRef = useRef<HTMLDivElement>(null);
+    const previousUser = useRef({ id: user._id, role: user.role });
+    const confirmedRoleFocus = useRef<{ userId: string; role: string } | null>(null);
+
+    useEffect(() => {
+      const previous = previousUser.current;
+      previousUser.current = { id: user._id, role: user.role };
+      const intent = confirmedRoleFocus.current;
+      confirmedRoleFocus.current = null;
+      if (
+        previous.id !== user._id ||
+        previous.role === user.role ||
+        intent?.userId !== user._id ||
+        intent.role !== user.role ||
+        (user.role !== 'user' && user.role !== 'admin')
+      ) {
+        return;
+      }
+      focusRoleRegionIfOwned(roleRegionRef.current);
+    }, [user._id, user.role]);
 
     const initials = getInitials(user.name);
     const joinedDate = formatDateShort(user.createdAt, locale);
 
-    const handleManageClick = useCallback(() => {
-      onManagePermissions?.(user._id);
-    }, [onManagePermissions, user._id]);
+    const handleManageClick = useCallback(
+      (opener: HTMLElement | null) => {
+        onManagePermissions?.(user._id, opener, user.name);
+      },
+      [onManagePermissions, user._id, user.name],
+    );
 
     const onRoleChange = useCallback(
       async (newRole: string) => {
+        confirmedRoleFocus.current = null;
         await handleRoleChange(user._id, newRole);
+        confirmedRoleFocus.current = { userId: user._id, role: newRole };
+        if (previousUser.current.id === user._id && previousUser.current.role === newRole) {
+          confirmedRoleFocus.current = null;
+          if (newRole === 'user' || newRole === 'admin') {
+            focusRoleRegionIfOwned(roleRegionRef.current);
+          }
+        }
       },
       [handleRoleChange, user._id],
     );
@@ -82,31 +122,45 @@ export const UserCard = memo(
           'bg-card border border-border',
           'transition-all duration-200 ease-out',
           'hover:border-input hover:shadow-sm',
-          user.isDeleted && 'opacity-60',
+          // The dashed line marks an inactive account, so it uses the 3:1 border token.
+          user.isDeleted && 'border-dashed border-input',
           className,
         )}
       >
         {/* Header: Avatar + Name/Email + Status Badge */}
-        <header className="flex items-start gap-3 mb-3">
-          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-transparent group-hover:ring-primary/20 transition-all">
+        <header className="flex flex-wrap items-start gap-3 mb-3">
+          <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-card ring-transparent group-hover:ring-primary/20 transition-all">
             <AvatarFallback className="bg-secondary text-primary text-sm font-medium">
               {initials}
             </AvatarFallback>
           </Avatar>
 
-          <div className="flex-1 min-w-0">
-            <Heading level={3} variant="subsectionTitle" className="truncate">
-              {user.name}
+          {/* Name and address wrap inside the card, so the whole value is always on screen. */}
+          <div className="min-w-0 grow basis-28 [overflow-wrap:anywhere]">
+            <Heading level={3} variant="subsectionTitle">
+              <span dir="auto" data-testid="user-card-name">
+                {user.name}
+              </span>
             </Heading>
-            <p className="text-xs text-tertiary tracking-wide truncate">{user.email}</p>
+            <p className="text-xs text-tertiary tracking-wide">
+              <span dir="ltr" data-testid="user-card-email">
+                {user.email}
+              </span>
+            </p>
+            {user.pendingEmail && (
+              <p className="text-xs text-status-warning" data-testid="user-card-pending-email">
+                {t('pendingEmail', { email: user.pendingEmail })}
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
             {user.isDeleted && (
               <StatusBadge
                 status="inactive"
                 size="sm"
                 variant="soft"
+                className="rtl:tracking-normal"
                 data-testid="user-inactive-badge"
               />
             )}
@@ -114,6 +168,7 @@ export const UserCard = memo(
               status={user.isVerified ? 'verified' : 'pending'}
               size="sm"
               variant="soft"
+              className="rtl:tracking-normal"
               data-testid="user-verification-badge"
             />
           </div>
@@ -121,23 +176,34 @@ export const UserCard = memo(
 
         {/* Role Selector + Actions Row */}
         <div className="mb-3 min-h-[32px] flex items-center justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div
+            ref={roleRegionRef}
+            role="group"
+            aria-label={t('role')}
+            tabIndex={-1}
+            className="flex-1 min-w-0"
+            data-testid="user-card-role-region"
+          >
             <PermissionGuard
               permission={USER_PERMISSIONS.UPDATE_ALL}
               fallback={
-                <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                <div className="text-xs text-tertiary">
+                  {t('role')}{' '}
+                  <span dir="ltr" className="font-medium" data-testid="user-card-role">
+                    {user.role}
+                  </span>
                 </div>
               }
             >
               {isProtectedRole || user.isDeleted ? (
-                <div className="text-xs text-tertiary capitalize">
-                  {t('role')} <span className="font-medium">{user.role}</span>
+                <div className="text-xs text-tertiary">
+                  {t('role')} <UserRoleLabel slug={user.role} />
                 </div>
               ) : (
                 <UserRoleSelector
                   userId={user._id}
                   currentRole={user.role}
+                  userName={user.name}
                   onRoleChange={onRoleChange}
                 />
               )}
@@ -155,7 +221,8 @@ export const UserCard = memo(
               <UserActionsMenu
                 user={user}
                 onManagePermissions={handleManageClick}
-                disabled={isAdminRole || isUpdatingRole}
+                disabled={isAdminRole}
+                busy={isUpdatingRole}
               />
             </PermissionGuard>
           </div>
@@ -177,6 +244,7 @@ export const UserCard = memo(
       prevProps.user.role === nextProps.user.role &&
       prevProps.user.isVerified === nextProps.user.isVerified &&
       prevProps.user.isDeleted === nextProps.user.isDeleted &&
+      prevProps.user.pendingEmail === nextProps.user.pendingEmail &&
       prevProps.onManagePermissions === nextProps.onManagePermissions
     );
   },

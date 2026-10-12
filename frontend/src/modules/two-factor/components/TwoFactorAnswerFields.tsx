@@ -12,6 +12,8 @@ interface TwoFactorAnswerFieldsProps {
   useRecoveryCode: boolean;
   onToggle: () => void;
   isBusy: boolean;
+  /** False where another field above this one should take the focus first. */
+  autoFocus?: boolean;
 }
 
 /**
@@ -22,8 +24,10 @@ export function TwoFactorAnswerFields({
   useRecoveryCode,
   onToggle,
   isBusy,
+  autoFocus = true,
 }: TwoFactorAnswerFieldsProps) {
   const t = useTranslations('auth.twoFactor');
+  const tCommon = useTranslations('common');
 
   return (
     <>
@@ -31,10 +35,11 @@ export function TwoFactorAnswerFields({
         <FormInput<AnswerFormData>
           name="recoveryCode"
           label={t('recoveryCode')}
-          placeholder="K3M7QRTVWX"
+          placeholder={tCommon('recoveryCodePlaceholder')}
           autoComplete="one-time-code"
-          disabled={isBusy}
-          autoFocus
+          required
+          busy={isBusy}
+          autoFocus={autoFocus}
           className={cn('text-center uppercase tracking-widest', RECOVERY_CODE_FONT_SIZE)}
           data-testid="two-factor-recovery-code-input"
         />
@@ -42,8 +47,8 @@ export function TwoFactorAnswerFields({
         <CodeField<AnswerFormData>
           name="code"
           label={t('code')}
-          disabled={isBusy}
-          autoFocus
+          busy={isBusy}
+          autoFocus={autoFocus}
           testId="two-factor-code-input"
         />
       )}
@@ -51,7 +56,7 @@ export function TwoFactorAnswerFields({
       <Button
         type="button"
         variant="link"
-        className="h-auto p-0 text-sm"
+        className="min-h-6 h-auto p-0 text-sm"
         onClick={onToggle}
         data-testid="two-factor-toggle-recovery"
       >

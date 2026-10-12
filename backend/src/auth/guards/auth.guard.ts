@@ -4,22 +4,17 @@ import {
   ExecutionContext,
   HttpStatus,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Reflector } from '@nestjs/core';
-import { Model, Types } from 'mongoose';
 import { Request, Response } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { SessionService } from '../services/sessions/session.service';
+import { Sessions } from '../services/sessions/sessions';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
-import {
-  SessionDocument,
-  LeanSession,
-} from '../../session/schemas/session.schema';
-import { LeanUser } from '../../user/schemas/user.schema';
-import { Role, RoleDocument } from '../../role/schemas/role.schema';
+import { AuthenticatedSession } from '../../session/authority/authenticated-session';
+import { AccountIdentity } from '../../session/authority/session-authority.store';
+import { RolePermissions } from '../../role/stores/role-permissions';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { getEffectivePermissions } from '../utils/permissions.util';
+import { effectivePermissions } from '../utils/permissions.util';
 import {
   NativeAccessService,
   readBearerToken,
@@ -30,13 +25,11 @@ import {
 } from '../../session/utils/request/request-credential';
 
 /**
- * A lean session read populates `user` with the account; an unpopulated read
- * leaves the id. The guard can only authenticate against the populated one.
+ * A validated session names its account. Anything else in that place, an id
+ * for instance, is refused: the guard never reads fields off it.
  */
-export function isPopulatedUser(
-  user: Types.ObjectId | LeanUser,
-): user is LeanUser {
-  return !(user instanceof Types.ObjectId);
+export function isPopulatedUser(user: unknown): user is AccountIdentity {
+  return typeof user === 'object' && user !== null;
 }
 
 export interface RequestWithUser extends Request {
@@ -48,7 +41,7 @@ export interface RequestWithUser extends Request {
     permissions: string[];
     isVerified: boolean;
   };
-  session?: LeanSession | SessionDocument;
+  session?: AuthenticatedSession;
 }
 
 /**
@@ -61,10 +54,10 @@ export interface RequestWithUser extends Request {
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private readonly sessionService: SessionService,
+    private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
     private readonly nativeAccess: NativeAccessService,
-    @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
+    private readonly roles: RolePermissions,
     private readonly reflector: Reflector,
   ) {}
 
@@ -89,7 +82,7 @@ export class AuthGuard implements CanActivate {
     // Only the selected credential was evaluated. Refusing a bearer must
     // never clear the session cookie: the cookie still names a live session.
     const cookieSelected = credential === REQUEST_CREDENTIAL.COOKIE;
-    let session: LeanSession | null;
+    let session: AuthenticatedSession | null;
 
     if (credential === REQUEST_CREDENTIAL.BEARER && bearer) {
       session = await this.nativeAccess.validate(bearer);
@@ -129,17 +122,17 @@ export class AuthGuard implements CanActivate {
     }
 
     // Compute effective permissions (role + direct)
-    const effectivePermissions = await getEffectivePermissions(
-      user,
-      this.roleModel,
+    const permissions = effectivePermissions(
+      user.role ? await this.roles.ofRole(user.role) : null,
+      user.permissions,
     );
 
     request.user = {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
-      permissions: effectivePermissions,
+      permissions,
       isVerified: user.isVerified,
     };
     request.session = session;

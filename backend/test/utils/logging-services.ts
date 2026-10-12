@@ -13,8 +13,13 @@ import { AuthModule } from '../../src/auth/auth.module';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DatabaseModule } from '../../src/database/database.module';
 import { RoleSeedService } from '../../src/database/seeds/role.seed';
-import { ApplicationRegistryService } from '../../src/session/services/application-registry.service';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
+import { SessionService } from '../../src/auth/persistence/mongo/session.service';
+import { ApplicationRegistryService } from '../../src/session/persistence/mongo/application-registry.service';
+import { SessionModule } from '../../src/session/session.module';
+import {
+  User,
+  UserDocument,
+} from '../../src/user/persistence/mongo/schemas/user.schema';
 import { Clock } from '../../src/common/services/clock';
 import { FrozenClock, TEST_NOW } from './frozen-clock';
 import { startMemoryReplSet, MemoryReplSet } from './memory-replset';
@@ -80,8 +85,10 @@ export async function bootLoggingServices(
         AuthModule,
         AdminModule,
         DatabaseModule,
+        SessionModule,
         ...imports,
       ],
+      providers: [SessionService],
     })
       .overrideProvider(Clock)
       .useValue(clock)

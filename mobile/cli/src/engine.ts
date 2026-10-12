@@ -1,11 +1,13 @@
+import { NATIVE_MODULE_NAME, type DeviceKeyNativeApi, type KeyProtection } from '@app/device-key';
 import { INSTALL_MARKER_FILE, recordMarkerFile, type NativeModules } from '@app/native-adapters';
 import type { AuthConfiguration } from '@app/native-auth';
+import { requireNativeModule } from 'expo';
 import * as Crypto from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import * as Linking from 'expo-linking';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
-import { createShellAuth, type ShellAuth } from './shell';
+import { startShellAuth, type StartedShellAuth } from './shell';
 
 /** React Native provides the monotonic clock at run time. */
 declare const performance: { now(): number };
@@ -16,7 +18,8 @@ type ShellTimerHandle = ReturnType<typeof setTimeout>;
 export function createNativeShellAuth(
   configuration: AuthConfiguration,
   ephemeralBrowserSession: boolean,
-): ShellAuth {
+  keyProtection: KeyProtection,
+): Promise<StartedShellAuth> {
   const modules: NativeModules<typeof Crypto.CryptoDigestAlgorithm.SHA256, ShellTimerHandle> = {
     secureStore: SecureStore,
     keychainOptions: {
@@ -38,14 +41,15 @@ export function createNativeShellAuth(
       clearTimeout: (handle) => clearTimeout(handle),
     },
   };
-  return createShellAuth(
+  return startShellAuth(
     {
       ...modules,
+      deviceKey: requireNativeModule<DeviceKeyNativeApi>(NATIVE_MODULE_NAME),
       http: {
         fetch: (address, init) => fetch(address, init),
         createAbort: () => new AbortController(),
       },
     },
-    { configuration, ephemeralBrowserSession },
+    { configuration, ephemeralBrowserSession, keyProtection },
   );
 }

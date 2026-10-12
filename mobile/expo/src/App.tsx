@@ -1,40 +1,38 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
-import { AUTH_CONFIGURATION, DEVICE_KEY_PROTECTION, EPHEMERAL_BROWSER_SESSION } from './config';
-import { createNativeShellAuth } from './engine';
-import { DIRECTION, resolveLocale, translate } from './i18n/messages';
-import { describeError, render, type Described } from './logic/outcome-text';
+import { NativeApp } from '@app/native-ui';
+import { deviceLocale, hostProps, logicalInsets } from '@app/native-ui/host';
+import { useCallback, useEffect, useState } from 'react';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_NAME, DEBUG_BAND_HEIGHT, DEBUG_HOLD_MS, DEBUG_VIEW_AVAILABLE } from './config';
+import { DIRECTION, translate } from './i18n/messages';
+import { render } from './logic/outcome-text';
+import { DebugGate } from './screen/DebugGate';
 import { DebugScreen } from './screen/DebugScreen';
+import { StartNotice } from './screen/StartNotice';
 import type { StartedShellAuth } from './shell';
+import { START, type Start } from './start';
 
-function deviceLocaleTag(): string | undefined {
-  try {
-    return new Intl.DateTimeFormat().resolvedOptions().locale;
-  } catch {
-    return undefined;
-  }
+const LOCALE = deviceLocale();
+
+function Hosted({ auth }: { auth: StartedShellAuth }) {
+  const insets = useSafeAreaInsets();
+  const [checking, setChecking] = useState(false);
+  const openCheck = useCallback(() => setChecking(true), []);
+  const closeCheck = useCallback(() => setChecking(false), []);
+
+  if (checking) return <DebugScreen auth={auth} locale={LOCALE} onClose={closeCheck} />;
+  return (
+    <DebugGate
+      available={DEBUG_VIEW_AVAILABLE}
+      holdMs={DEBUG_HOLD_MS}
+      stripHeight={insets.top + DEBUG_BAND_HEIGHT}
+      onOpen={openCheck}
+    >
+      <NativeApp {...hostProps(auth, APP_NAME, LOCALE)} insets={logicalInsets(insets, LOCALE)} />
+    </DebugGate>
+  );
 }
 
-type Start = { auth: StartedShellAuth } | { failure: Described };
-
-/** Started once per process: the key is prepared before the engine exists. */
-const START: Promise<Start> = Promise.resolve()
-  .then(() =>
-    createNativeShellAuth(AUTH_CONFIGURATION, EPHEMERAL_BROWSER_SESSION, DEVICE_KEY_PROTECTION),
-  )
-  .then(
-    (auth) => ({ auth }),
-    (error: unknown) => ({ failure: describeError(error) }),
-  );
-const LOCALE = resolveLocale(deviceLocaleTag());
-
-const PADDING = 16;
-const TOP_INSET = 64;
-const styles = StyleSheet.create({
-  notice: { padding: PADDING, paddingTop: TOP_INSET, writingDirection: DIRECTION[LOCALE] },
-});
-
-export function App() {
+function Started() {
   const [start, setStart] = useState<Start>();
 
   useEffect(() => {
@@ -48,13 +46,23 @@ export function App() {
   }, []);
 
   if (start === undefined)
-    return <Text style={styles.notice}>{translate(LOCALE, 'starting')}</Text>;
+    return <StartNotice direction={DIRECTION[LOCALE]} text={translate(LOCALE, 'starting')} />;
   if ('failure' in start) {
     return (
-      <Text style={styles.notice}>
-        {translate(LOCALE, 'startFailed', render(LOCALE, start.failure))}
-      </Text>
+      <StartNotice
+        direction={DIRECTION[LOCALE]}
+        text={translate(LOCALE, 'startFailed', render(LOCALE, start.failure))}
+        alert
+      />
     );
   }
-  return <DebugScreen auth={start.auth} locale={LOCALE} />;
+  return <Hosted auth={start.auth} />;
+}
+
+export function App() {
+  return (
+    <SafeAreaProvider>
+      <Started />
+    </SafeAreaProvider>
+  );
 }

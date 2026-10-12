@@ -8,16 +8,22 @@ import {
   GOOGLE_PROFILE,
   USER_ID,
   type MockUser,
-} from './account-linking.harness-spec';
+} from '../persistence/mongo/services/account-linking.harness-spec';
 
 describe('AccountLinkingService link and unlink', () => {
   let service: AccountLinkingService;
   let resolveUser: (user: MockUser | null) => void;
+  let closeHarness: (() => Promise<void>) | undefined;
 
   beforeEach(async () => {
     const harness = await createHarness();
     service = harness.service;
     resolveUser = harness.resolveUser;
+    closeHarness = harness.close;
+  });
+
+  afterEach(async () => {
+    await closeHarness?.();
   });
 
   describe('linkProvider', () => {

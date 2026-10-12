@@ -1,0 +1,126 @@
+{
+  "permissions": {
+    "demo": {
+      "title": "Permissions System Demo",
+      "description": "This page demonstrates how to use permission guards throughout the application.",
+      "singleTitle": "Single Permission Guard",
+      "singleDescription": "Elements wrapped in PermissionGuard are completely hidden if the user lacks permission.",
+      "singleAllowed": "You have USER_PERMISSIONS.LIST_ALL, so this element is visible.",
+      "singleDenied": "This element needs fake:permission, so it stays hidden.",
+      "allTitle": "Multiple Permissions (Require ALL)",
+      "allDescription": "Use the permissions prop to require ALL listed permissions.",
+      "allAllowed": "You have both USER_PERMISSIONS.LIST_ALL and ROLE_PERMISSIONS.LIST_ALL.",
+      "allDenied": "This element stays hidden because fake:permission is missing.",
+      "anyTitle": "Any Permissions (Require ANY)",
+      "anyDescription": "Use the anyPermissions prop to show if user has ANY of the listed permissions.",
+      "anyAllowed": "Your session permissions include READ_ALL or READ_OWN.",
+      "actionsTitle": "Action Buttons with Permission Guards",
+      "actionsDescription": "Wrap action buttons with PermissionGuard to completely hide unauthorized actions.",
+      "sampleName": "John Doe",
+      "sampleEmail": "john@example.com",
+      "tip": "Buttons are completely hidden to prevent users from seeing actions they cannot perform.",
+      "fallbackTitle": "Fallback Content",
+      "fallbackDescription": "Use the fallback prop to show alternative content when permission is denied.",
+      "fallbackDenied": "You don't have permission to view this content.",
+      "secretContent": "This secret content is only for authorized users!",
+      "wildcardTitle": "Wildcard Permission (*)",
+      "wildcardDescription": "The wildcard permission grants access to everything. Only assign it to administrators with full access.",
+      "wildcardNotice": "The wildcard permission gives access to every resource and action.",
+      "codeTitle": "Code Examples",
+      "componentCodeTitle": "Component-level Guard:",
+      "routeCodeTitle": "Route-level Guard:",
+      "allCodeTitle": "Multiple Permissions (ALL):",
+      "anyCodeTitle": "Any Permissions (OR):"
+    },
+    "actions": {
+      "read": "Read",
+      "list": "List",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "manage": "Manage",
+      "grant": "Grant",
+      "revoke": "Revoke"
+    },
+    "scopes": {
+      "own": "own",
+      "all": "all"
+    },
+    "permissionLabelWithScope": "{action} ({scope})",
+    "tree": {
+      "empty": "No permissions assigned",
+      "wildcardLabel": "Wildcard (*)",
+      "wildcardNotice": "This role has all permissions"
+    },
+    "dialog": {
+      "title": "Manage User Permissions",
+      "descriptionWithUser": "Manage permissions for ⁨{name}⁩",
+      "descriptionGeneric": "Add or remove permissions for this user",
+      "noRole": "None",
+      "currentRole": "Current Role:",
+      "totalPermissions": "{count} total {count, plural, =1 {permission} other {permissions}}",
+      "summary": "{total} ({inherited} inherited, {direct} direct)",
+      "wildcardTitle": "Wildcard Permission (*):",
+      "wildcardDescription": "This user has all permissions.",
+      "inheritedFromRole": "Inherited from Role ⁦({role})⁩",
+      "noInheritedPermissions": "No permissions inherited from role",
+      "directPermissions": "Direct Permissions ({count})",
+      "addPermissions": "Add Permissions",
+      "noDirectPermissions": "No direct permissions assigned",
+      "removePermissions": "Remove Permissions",
+      "remove": "Remove",
+      "removePermission": "Remove ⁨{permission}⁩",
+      "addSuccess": "{count} {count, plural, =1 {permission} other {permissions}} added successfully",
+      "removeSuccess": "Permission removed successfully"
+    },
+    "userRole": {
+      "selectorLabel": "Role: {role}",
+      "refusal": {
+        "admin": "Cannot be assigned",
+        "level": "At or above your role"
+      },
+      "changeTitle": "Change User Role?",
+      "thisUser": "this user",
+      "changeDescription": "You are about to change <strong>{name}</strong>'s role from <strong>{from}</strong> to <strong>{to}</strong>.",
+      "changeWarning": "This will update their permissions and access levels immediately.",
+      "cancel": "Cancel",
+      "changing": "Changing...",
+      "changeRole": "Change Role",
+      "changeSuccess": "User role changed to ⁨{role}⁩"
+    },
+    "selector": {
+      "groups": {
+        "profile": "Profile",
+        "users": "Users",
+        "roles": "Roles",
+        "permissions": "Permissions",
+        "sessions": "Sessions",
+        "reports": "Reports"
+      },
+      "allTab": "All",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "selectAllForGroup": "Select all {group} permissions",
+      "deselectAllForGroup": "Deselect all {group} permissions",
+      "wildcardTitle": "Wildcard Permission (*)",
+      "wildcardDescription": "Grants all permissions. Use only for administrators with full access.",
+      "wildcardNotice": "Wildcard permission selected. All other permissions are implicitly granted.",
+      "wildcardSelected": "All permissions granted via wildcard (*)",
+      "permissionsAvailable": "{count, plural, =1 {1 permission available} other {{count} permissions available}}",
+      "permissionsSelected": "{count, plural, =1 {1 permission selected} other {{count} permissions selected}}"
+    },
+    "searchDialog": {
+      "title": "Add Permissions",
+      "description": "Search and select permissions to add. Use tabs to browse by category.",
+      "searchLabel": "Search permissions",
+      "searchPlaceholder": "Search permissions...",
+      "noPermissionsMatch": "No permissions found matching \"⁦{query}⁩\"",
+      "noCategoryPermissionsMatch": "No permissions found in {category} matching \"⁦{query}⁩\"",
+      "categoryAllAssigned": "All permissions in {category} are already assigned",
+      "selectedCount": "{count, plural, =1 {1 new permission selected} other {{count} new permissions selected}}",
+      "allGrantedWildcard": "All permissions granted via wildcard (*)",
+      "cancel": "Cancel",
+      "addCount": "{count, plural, =1 {Add 1 Permission} other {Add {count} Permissions}}"
+    }
+  }
+}

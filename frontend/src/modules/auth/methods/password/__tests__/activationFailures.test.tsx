@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, HELD } from '@/tests/busyControls';
 import {
   change,
   fillActivation,
@@ -13,6 +14,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import {
   descriptions,
+  identitySuccess,
   refusal,
   refusalWith,
   registerFormTestLifecycle,
@@ -82,15 +84,17 @@ describe.each([
 
   it('shows the existing expired view when the carried native transaction has expired', async () => {
     navigation.search = 'redirect=%2Fauth%2Fnative%2Fauthorize%3Ftransaction%3Dtxn-1';
-    stubNetwork((_, path) =>
-      path === '/api/oauth/authorize/transaction/txn-1'
-        ? refusalWith(400, ErrorCode.NATIVE_TRANSACTION_EXPIRED)
-        : success(
-            path === '/api/auth/activate'
-              ? { requiresTwoFactor: false, user: SIGNED_IN_USER }
-              : SIGNED_IN_USER,
-          ),
-    );
+    stubNetwork((_, path) => {
+      if (path === '/api/auth/identity') return identitySuccess(SIGNED_IN_USER);
+      if (path === '/api/oauth/authorize/transaction/txn-1') {
+        return refusalWith(400, ErrorCode.NATIVE_TRANSACTION_EXPIRED);
+      }
+      return success(
+        path === '/api/auth/activate'
+          ? { requiresTwoFactor: false, user: SIGNED_IN_USER }
+          : SIGNED_IN_USER,
+      );
+    });
     const form = await submitActivation(locale);
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith(NATIVE_CONTINUATION));
     form.unmount();
@@ -122,7 +126,7 @@ describe.each([
     fireEvent.submit(screen.getByTestId('activate-form'));
     try {
       await waitFor(() =>
-        expect(screen.getByTestId('activate-submit')).toHaveProperty('disabled', true),
+        expect(availability(screen.getByTestId('activate-submit'))).toEqual(HELD),
       );
       expect(requests).toEqual(['POST /api/auth/activate']);
     } finally {
@@ -146,6 +150,6 @@ describe.each([
       expect(form.successToasts()).toEqual([form.message('toast.success.resendSuccess')]),
     );
     expect(screen.getByTestId('activate-password-input')).toHaveProperty('value', 'Passw0rdLayla');
-    expect(screen.getByTestId('resend-button')).toHaveProperty('disabled', true);
+    expect(availability(screen.getByTestId('resend-button'))).toEqual(HELD);
   });
 });

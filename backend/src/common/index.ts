@@ -23,7 +23,7 @@ export {
 } from './decorators/permissions.decorator';
 
 // Pipes
-export { ParseObjectIdPipe } from './pipes/parse-object-id.pipe';
+export { ParseObjectIdPipe } from './pipes/parse-object-id.pipe'; // feature:mongodb
 
 // Services
 export { HashService } from './services/hash.service';
@@ -37,6 +37,6 @@ export { escapeRegex } from './utils/escape-regex';
 export { toBoolean } from './utils/transform';
 export {
   isCastError,
-  isMongoDuplicateKeyError,
+  isDuplicateKeyError as isMongoDuplicateKeyError, // feature:mongodb
   isDuplicateEmailError,
-} from './utils/mongo-error.util';
+} from './utils/driver-error-shape.util';

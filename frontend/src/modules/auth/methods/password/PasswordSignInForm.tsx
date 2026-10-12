@@ -11,11 +11,14 @@ import { FormInput, FormPassword, FormRootError, SubmitButton } from '@/componen
 import { zodEmail } from '@app/core';
 import { Link } from '@/i18n/navigation';
 import { useCompleteSignIn } from '@/modules/auth/hooks/useCompleteSignIn';
+import { useValidateFilledOnBlur } from '@/modules/auth/hooks/useValidateFilledOnBlur';
 import { useLoginMutation } from '@/modules/auth/store/authApi';
 import { translateAuthError } from '@/modules/auth/utils/authHelpers';
 import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
 import type { AuthMethodFormProps } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 /**
  * Sign-in schema. The minimum length is only there to catch an empty box; the
@@ -38,16 +41,20 @@ type PasswordSignInData = z.infer<ReturnType<typeof createPasswordSignInSchema>>
 /** Email and password sign-in. Hands a challenged account to /auth/2fa. */
 export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
   const t = useTranslations('auth.login');
+  const tCommon = useTranslations('common');
   const tCodes = useTranslations('errors.codes');
   const [login, { isLoading }] = useLoginMutation();
+  const refusalToast = useRefusalToast();
   const completeSignIn = useCompleteSignIn();
 
   const schema = useMemo(() => createPasswordSignInSchema(t), [t]);
   const form = useFormWithValidation({
     schema,
     defaultValues: { email: '', password: '' },
-    mode: 'onBlur',
+    mode: 'onSubmit',
   });
+  const onEmailBlur = useValidateFilledOnBlur(form, 'email');
+  const onPasswordBlur = useValidateFilledOnBlur(form, 'password');
 
   const {
     handleSubmit,
@@ -55,12 +62,14 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
     setError,
   } = form;
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: PasswordSignInData) => {
+      refusalToast.clearStale();
       try {
         const response = await login({ email: data.email, password: data.password }).unwrap();
         await completeSignIn(response, redirect);
       } catch (err) {
+        refusalToast.noteRefusal();
         const code = translatableErrorCode(err, '');
         setError('root', {
           type: 'manual',
@@ -68,8 +77,9 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
         });
       }
     },
-    [completeSignIn, login, redirect, setError, t, tCodes],
+    [completeSignIn, login, redirect, refusalToast, setError, t, tCodes],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
     <FormProvider {...form}>
@@ -81,27 +91,37 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
         aria-labelledby="login-heading"
         aria-describedby={errors.root?.message ? 'login-error' : undefined}
       >
-        <FormRootError id="login-error" error={errors.root?.message} testId="login-error" />
+        <FormRootError
+          id="login-error"
+          error={errors.root?.message}
+          // Clear of the control above it, which is not part of this form.
+          className="mt-4"
+          testId="login-error"
+        />
 
         <FormInput
           containerClassName={FORM_STYLES.authField}
           name="email"
           type="email"
           label={t('email')}
-          placeholder="name@example.com"
-          autoComplete="email"
-          disabled={isLoading}
+          placeholder={tCommon('emailPlaceholder')}
+          autoComplete="username"
+          required
+          busy={isLoading}
           autoFocus
+          onBlur={onEmailBlur}
           data-testid="login-email-input"
         />
 
         <FormPassword
           name="password"
           label={t('password')}
-          placeholder="••••••••"
+          placeholder={tCommon('passwordPlaceholder')}
           autoComplete="current-password"
-          disabled={isLoading}
+          required
+          busy={isLoading}
           showToggle={false}
+          onBlur={onPasswordBlur}
           className={FORM_STYLES.authField}
           data-testid="login-password-input"
         />
@@ -113,7 +133,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
         <div className="mt-2 flex justify-end">
           <Link
             href="/auth/forgot-password"
-            className="no-underline hover:underline text-primary text-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-sm"
+            className="no-underline hover:underline text-primary text-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-card rounded-sm"
             data-testid="forgot-password-link"
             aria-label={t('forgotPassword')}
             onMouseDown={preventNavigationBlur}

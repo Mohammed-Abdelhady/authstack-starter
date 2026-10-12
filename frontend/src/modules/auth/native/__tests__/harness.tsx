@@ -1,15 +1,16 @@
 import { StrictMode, type ReactElement } from 'react';
-import { configureStore } from '@reduxjs/toolkit';
 import { Provider } from 'react-redux';
 import { render } from '@testing-library/react';
 import { NextIntlClientProvider, createTranslator, type AbstractIntlMessages } from 'next-intl';
 import { vi } from 'vitest';
 import type { AppLocale } from '@/i18n/load-messages';
-import { baseApi } from '@/store/api/baseApi';
+import {
+  makeStore as makeAppStore,
+  registerFormTestLifecycle,
+} from '@/tests/serverRejectionHarness';
 import { authApi } from '../../store/authApi';
 import { NativeAuthorizePanel } from '../NativeAuthorizePanel';
-import authReducer from '../../store/authSlice';
-import type { User } from '@app/sdk';
+import type { Identity, User } from '@app/sdk';
 
 export const TEST_TRANSACTION = 'txn-abc123';
 
@@ -44,15 +45,9 @@ export function transactionPayload(applicationName: string) {
   };
 }
 
-export function makeStore() {
-  return configureStore({
-    reducer: {
-      [baseApi.reducerPath]: baseApi.reducer,
-      auth: authReducer,
-    },
-    middleware: (defaults) => defaults().concat(baseApi.middleware),
-  });
-}
+registerFormTestLifecycle();
+
+export const makeStore = makeAppStore;
 
 export type TestStore = ReturnType<typeof makeStore>;
 
@@ -67,10 +62,11 @@ export async function seedTransaction(store: TestStore): Promise<void> {
   );
 }
 
-/** Seeds both queries so a test can render the card without any network work. */
+/** Seeds both reads so a test can render the card without any network work. */
 export async function seedReady(store: TestStore): Promise<void> {
   await seedTransaction(store);
-  await store.dispatch(authApi.util.upsertQueryData('getCurrentUser', undefined, TEST_USER));
+  const identity: Identity = { authenticated: true, user: TEST_USER };
+  await store.dispatch(authApi.util.upsertQueryData('getIdentity', undefined, identity));
 }
 
 interface RenderPanelOptions {
@@ -118,21 +114,21 @@ export function codeTranslator(locale: AppLocale, messages: AbstractIntlMessages
 
 export type FetchHandler = (request: Request) => Response | Promise<Response>;
 
-export type ProfileMode = 'ok' | 'pending' | 'fail';
+export type IdentityMode = 'ok' | 'pending' | 'fail';
 
 export interface FetchOptions {
   /**
-   * How the profile endpoint answers; defaults to a signed-in account. A
+   * How the identity endpoint answers; defaults to a signed-in account. A
    * handler lets one test change the answer between requests.
    */
-  profile?: ProfileMode | FetchHandler;
+  identity?: IdentityMode | FetchHandler;
 }
 
-const PROFILE_PATH = '/api/user/profile';
+const IDENTITY_PATH = '/api/auth/identity';
 
 /**
  * Stubs the network boundary and records the path each request asked for.
- * The profile endpoint is answered here so every test starts from the same
+ * The identity endpoint is answered here so every test starts from the same
  * signed-in account unless it says otherwise.
  */
 export function installFetch(handler: FetchHandler, options: FetchOptions = {}): string[] {
@@ -141,20 +137,20 @@ export function installFetch(handler: FetchHandler, options: FetchOptions = {}):
     const pathname = new URL(request.url).pathname;
     requests.push(pathname);
 
-    if (pathname === PROFILE_PATH) {
-      if (typeof options.profile === 'function') {
-        return options.profile(request);
+    if (pathname === IDENTITY_PATH) {
+      if (typeof options.identity === 'function') {
+        return options.identity(request);
       }
-      if (options.profile === 'pending') {
+      if (options.identity === 'pending') {
         return new Promise<Response>(() => {});
       }
-      if (options.profile === 'fail') {
+      if (options.identity === 'fail') {
         return jsonResponse(
-          { success: false, error: { code: 'INTERNAL_ERROR', message: 'profile failed' } },
+          { success: false, error: { code: 'INTERNAL_ERROR', message: 'identity failed' } },
           500,
         );
       }
-      return jsonResponse({ success: true, data: TEST_USER });
+      return identityResponse(TEST_USER);
     }
 
     return handler(request);
@@ -168,7 +164,14 @@ export function errorResponse(code: string, status: number): Response {
 }
 
 export function userResponse(user: User): Response {
-  return jsonResponse({ success: true, data: user });
+  return identityResponse(user);
+}
+
+export function identityResponse(user: User | null): Response {
+  return jsonResponse({
+    success: true,
+    data: user ? { authenticated: true, user } : { authenticated: false, user: null },
+  });
 }
 
 export function jsonResponse(body: unknown, status = 200): Response {

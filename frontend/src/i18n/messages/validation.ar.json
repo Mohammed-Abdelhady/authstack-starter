@@ -1,0 +1,9 @@
+{
+  "validation": {
+    "emailRequired": "البريد الإلكتروني مطلوب",
+    "emailInvalid": "صيغة البريد الإلكتروني غير صحيحة",
+    "nameRequired": "الاسم مطلوب",
+    "nameMinLength": "يجب أن يكون الاسم حرفين على الأقل",
+    "roleRequired": "الدور مطلوب"
+  }
+}

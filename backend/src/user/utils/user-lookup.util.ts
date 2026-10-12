@@ -1,17 +1,22 @@
 import { HttpStatus } from '@nestjs/common';
-import { Types } from 'mongoose';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
+import { IdFormat } from '../../common/persistence/id-format';
 
 /**
- * Reject an identifier Mongo would choke on.
+ * Reject an identifier this installation's database could not have issued.
  *
+ * @param ids - What the database takes as an id
  * @param id - Value taken from the request
  * @param message - Message returned to the caller
  * @throws AppException INVALID_INPUT
  */
-export function assertValidObjectId(id: string, message: string): void {
-  if (!Types.ObjectId.isValid(id)) {
+export function assertValidId(
+  ids: IdFormat,
+  id: string,
+  message: string,
+): void {
+  if (!ids.isId(id)) {
     throw new AppException(
       ErrorCode.INVALID_INPUT,
       message,
@@ -21,19 +26,11 @@ export function assertValidObjectId(id: string, message: string): void {
 }
 
 /**
- * Reject a user document that is missing or soft deleted.
- *
- * @param user - Result of a user lookup
- * @throws AppException USER_NOT_FOUND
+ * Whether two ids name the same record. Both databases read an id whatever
+ * the case of its letters, so the comparison does too.
  */
-export function assertActiveUser<T extends { isDeleted: boolean }>(
-  user: T | null,
-): asserts user is T {
-  if (!user || user.isDeleted) {
-    throw new AppException(
-      ErrorCode.USER_NOT_FOUND,
-      'User not found',
-      HttpStatus.NOT_FOUND,
-    );
-  }
+export function isSameId(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
 }
+
+export { assertActiveUser } from './account-lookup.util';

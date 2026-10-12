@@ -1,23 +1,24 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import {
-  PendingPasswordReset,
-  PendingPasswordResetDocument,
-} from '../../schemas/pending-password-reset.schema';
 import { HashService } from '../../../common/services/hash.service';
 import { Clock } from '../../../common/services/clock';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { isMongoDuplicateKeyError } from '../../../common/utils/mongo-error.util';
+import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { generateVerificationCode } from '../../utils/verification-code.util';
 import { INVALID_PASSWORD_RESET_CODE_MESSAGE } from '../../constants/auth-messages';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
+import { CODE_GUESS_RULE } from '../../constants/registration';
 import { currentRequestId } from '../../../common/context/request-context';
+import { IdSource } from '../../interfaces/pending-code.interface';
+import { PasswordResetCodeStore } from '../../pending-codes/password-reset-code.store';
+import {
+  CODE_CLAIM,
+  CODE_ROTATION,
+} from '../../pending-codes/pending-registration.store';
 
 export interface ReservedPasswordReset {
-  id: Types.ObjectId;
+  id: string;
   hashedCode: string;
 }
 
@@ -31,8 +32,7 @@ export class PasswordResetCodeService {
   private readonly maxAttempts: number;
 
   constructor(
-    @InjectModel(PendingPasswordReset.name)
-    private readonly pendingPasswordResetModel: Model<PendingPasswordResetDocument>,
+    private readonly store: PasswordResetCodeStore,
     private readonly hashService: HashService,
     private readonly configService: ConfigService,
     private readonly clock: Clock,
@@ -49,7 +49,7 @@ export class PasswordResetCodeService {
 
   /**
    * Store pending password reset code.
-   * A filtered atomic write updates an existing record; when it matches
+   * A guarded single write updates an existing record; when it matches
    * nothing there is no record, so the create path runs. A concurrent insert
    * sends the attempt around once more, which updates the record that won. If
    * a reset consumes that record in the window, the next pass creates it
@@ -62,15 +62,11 @@ export class PasswordResetCodeService {
     const code = generateVerificationCode();
     const hashedCode = await this.hashService.hash(code);
     const expiresAt = new Date(this.clock.now().getTime() + this.codeExpiresIn);
-    const filter = { email: { $eq: email } };
-    const update = { $set: { hashedCode, attempts: 0, expiresAt } };
+    const generation = { hashedCode, expiresAt };
 
     for (let pass = 0; pass < PENDING_STORE_PASSES; pass += 1) {
-      const updated = await this.pendingPasswordResetModel.updateOne(
-        filter,
-        update,
-      );
-      if (updated.matchedCount > 0) {
+      const rotated = await this.store.rotateCode(email, generation);
+      if (rotated === CODE_ROTATION.ROTATED) {
         this.logger.log(
           `Opened pending password reset requestId=${currentRequestId() ?? 'unknown'}`,
         );
@@ -78,18 +74,13 @@ export class PasswordResetCodeService {
       }
 
       try {
-        await this.pendingPasswordResetModel.create({
-          email,
-          hashedCode,
-          attempts: 0,
-          expiresAt,
-        });
+        await this.store.insertRecord(email, generation);
         this.logger.log(
           `Opened pending password reset requestId=${currentRequestId() ?? 'unknown'}`,
         );
         return code;
       } catch (error) {
-        if (!isMongoDuplicateKeyError(error)) throw error;
+        if (!(error instanceof UniqueConflictError)) throw error;
       }
     }
 
@@ -114,15 +105,11 @@ export class PasswordResetCodeService {
     email: string,
     code: string,
   ): Promise<ReservedPasswordReset> {
-    const reserved = await this.pendingPasswordResetModel.findOneAndUpdate(
-      {
-        email: { $eq: email },
-        expiresAt: { $gt: this.clock.now() },
-        attempts: { $lt: this.maxAttempts },
-      },
-      { $inc: { attempts: 1 } },
-      { new: true, select: '+hashedCode' },
-    );
+    const reserved = await this.store.reserveAttempt(email, {
+      now: this.clock.now(),
+      maxAttempts: this.maxAttempts,
+      guesses: CODE_GUESS_RULE,
+    });
 
     if (!reserved) {
       return await this.rejectUnreservable(email, code);
@@ -137,24 +124,24 @@ export class PasswordResetCodeService {
       throw this.invalidCode();
     }
 
-    return { id: reserved._id, hashedCode: reserved.hashedCode };
+    return { id: reserved.id, hashedCode: reserved.hashedCode };
   }
 
   /**
    * Delete the reserved generation. Only the first caller that still holds
    * the hashed code that was compared wins; a refresh or a parallel consume
-   * leaves this returning null.
+   * leaves this returning false.
    */
   async consumePasswordReset(
-    id: Types.ObjectId,
+    id: IdSource,
     hashedCode: string,
   ): Promise<boolean> {
-    const deleted = await this.pendingPasswordResetModel.findOneAndDelete({
-      _id: id,
+    const claim = await this.store.claimCode({
+      id: id.toString(),
       hashedCode,
-      expiresAt: { $gt: this.clock.now() },
+      now: this.clock.now(),
     });
-    return deleted !== null;
+    return claim === CODE_CLAIM.CLAIMED;
   }
 
   /**
@@ -174,10 +161,7 @@ export class PasswordResetCodeService {
     email: string,
     code: string,
   ): Promise<never> {
-    await this.pendingPasswordResetModel.deleteOne({
-      email: { $eq: email },
-      expiresAt: { $lte: this.clock.now() },
-    });
+    await this.store.dropExpiredRecord(email, this.clock.now());
 
     await this.hashService.spendComparison(code);
     throw this.invalidCode();

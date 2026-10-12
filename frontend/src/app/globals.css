@@ -1,6 +1,9 @@
 @import 'tailwindcss';
 @import './tokens.css';
 
+/* The theme switch sets a class on <html>, so `dark:` follows it, not the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Tailwind CSS 4 Theme Configuration
  * Maps CSS variables to Tailwind color utilities

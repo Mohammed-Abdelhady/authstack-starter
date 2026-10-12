@@ -1,3 +1,7 @@
+import { DEVICE_KIND } from '../constants/session';
+import type { DeviceParts } from '@app/sdk';
+import { USER_AGENT_MAX_LENGTH } from '../../session/constants/session-policy';
+
 export type DeviceType = 'mobile' | 'tablet' | 'desktop' | 'unknown';
 
 export interface ParsedUserAgent {
@@ -5,6 +9,7 @@ export interface ParsedUserAgent {
   browser: string;
   os: string;
   name: string;
+  parts: DeviceParts;
 }
 
 function detectDeviceType(ua: string): DeviceType {
@@ -141,21 +146,35 @@ function detectOS(ua: string): string {
 }
 
 export function parseUserAgent(userAgent: string): ParsedUserAgent {
-  if (!userAgent || typeof userAgent !== 'string' || !userAgent.trim()) {
+  userAgent =
+    typeof userAgent === 'string'
+      ? userAgent.slice(0, USER_AGENT_MAX_LENGTH)
+      : '';
+  if (!userAgent.trim()) {
     return {
       type: 'unknown',
       browser: 'Unknown Browser',
       os: 'Unknown OS',
       name: 'Unknown device',
+      parts: { kind: DEVICE_KIND.UNKNOWN },
     };
   }
 
-  const type = detectDeviceType(userAgent);
+  const nativePlatform = /cfnetwork\/|darwin\//i.test(userAgent)
+    ? 'iOS'
+    : /okhttp\/|dalvik\//i.test(userAgent)
+      ? 'Android'
+      : undefined;
+  const type = nativePlatform ? 'mobile' : detectDeviceType(userAgent);
   const browser = detectBrowser(userAgent);
-  const os = detectOS(userAgent);
+  const detectedOS = detectOS(userAgent);
+  const os =
+    detectedOS === 'Unknown OS' && nativePlatform ? nativePlatform : detectedOS;
+  const parts = deviceParts(browser, os, nativePlatform !== undefined);
 
-  const name =
-    browser === 'Unknown Browser' && os === 'Unknown OS'
+  const name = nativePlatform
+    ? `Mobile app on ${os}`
+    : browser === 'Unknown Browser' && os === 'Unknown OS'
       ? 'Unknown device'
       : `${browser} on ${os}`;
 
@@ -164,10 +183,43 @@ export function parseUserAgent(userAgent: string): ParsedUserAgent {
     browser,
     os,
     name,
+    parts,
   };
 }
 
 export function getDeviceLabel(userAgent: string): string {
   const { name } = parseUserAgent(userAgent);
   return name;
+}
+
+function deviceParts(
+  browser: string,
+  os: string,
+  native: boolean,
+): DeviceParts {
+  const browserMatch =
+    browser === 'Unknown Browser'
+      ? undefined
+      : browser.match(/^(.+?)(?: (\d+))?$/);
+  const platformMatch =
+    os === 'Unknown OS' ? undefined : os.match(/^(.+?)(?: ([\d./]+))?$/);
+  return {
+    kind: native
+      ? DEVICE_KIND.MOBILE_APP
+      : browserMatch
+        ? DEVICE_KIND.BROWSER
+        : DEVICE_KIND.UNKNOWN,
+    ...(browserMatch && !native
+      ? {
+          browserName: browserMatch[1],
+          ...(browserMatch[2] ? { browserMajorVersion: browserMatch[2] } : {}),
+        }
+      : {}),
+    ...(platformMatch
+      ? {
+          platformName: platformMatch[1],
+          ...(platformMatch[2] ? { platformVersion: platformMatch[2] } : {}),
+        }
+      : {}),
+  };
 }

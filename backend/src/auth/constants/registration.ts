@@ -16,7 +16,7 @@ export const PENDING_PURPOSES: PendingPurpose[] =
 
 /**
  * Every kind of mail one address may receive that carries a per-address cap.
- * The counter lives in its own collection keyed by address and purpose, so
+ * The counter is stored apart from the code record, by address and purpose, so
  * deleting an expired code record cannot reset the count.
  */
 export const MAIL_COUNTER_PURPOSE = {
@@ -24,6 +24,7 @@ export const MAIL_COUNTER_PURPOSE = {
   EMAIL_CHANGE: PENDING_PURPOSE.EMAIL_CHANGE,
   NOTICE: 'notice',
   PASSWORD_RESET: 'password-reset',
+  MAGIC_LINK: 'magic-link', // feature:magic-link
 } as const;
 
 export type MailCounterPurpose =
@@ -73,3 +74,32 @@ export function mailedCodeWindowMs(codeExpiresIn: number): number {
     MAILED_CODE_WINDOW_MIN_MS,
   );
 }
+
+/**
+ * Wrong codes one address may submit for one purpose before no code for it is
+ * accepted for a while. Counted at the address, across every code it was
+ * mailed, so a new code does not buy new guesses.
+ */
+export const CODE_GUESS_LIMIT = 5;
+
+/** The first lock. Each lock that follows doubles, up to the longest one. */
+export const CODE_GUESS_LOCK_BASE_MS = 15 * 60 * 1000;
+
+export const CODE_GUESS_LOCK_MAX_MS = 24 * 60 * 60 * 1000;
+
+/** Doublings after which the longest lock is reached: 15 minutes x 2^7 > 24 h. */
+export const CODE_GUESS_LOCK_LEVEL_MAX = 7;
+
+/**
+ * How long wrong codes and earlier locks are remembered after the last wrong
+ * code or the end of the last lock. A correct code forgets them at once.
+ */
+export const CODE_GUESS_MEMORY_MS = 24 * 60 * 60 * 1000;
+
+export const CODE_GUESS_RULE = {
+  limit: CODE_GUESS_LIMIT,
+  lockBaseMs: CODE_GUESS_LOCK_BASE_MS,
+  lockMaxMs: CODE_GUESS_LOCK_MAX_MS,
+  maxLockLevel: CODE_GUESS_LOCK_LEVEL_MAX,
+  memoryMs: CODE_GUESS_MEMORY_MS,
+} as const;

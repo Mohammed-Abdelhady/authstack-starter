@@ -1,4 +1,6 @@
 import { SECURITY_EVENT_ACTION } from '../../constants/security-event-action';
+import { hashToken } from '../../utils/hashing/token-hash';
+import { signNativeDpopProof } from '../harness/native-dpop-test-vectors.harness-spec';
 import {
   OAUTH_ERROR,
   TokenSuccess,
@@ -8,19 +10,25 @@ import {
   NATIVE_CLIENT_ID,
   NATIVE_META,
   NativeOauthHarness,
+  issueBoundNativeGrant,
   issueNativeGrant,
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
+import { NativeRefreshRotationService } from './native-refresh-rotation.service';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/utils/session-authority-harness';
-import { RaceBarrier, pauseQuery } from '../../../../test/utils/race-gate';
+import { RaceGate, holdBefore } from '../../../../test/utils/race-gate';
 
-describe('native refresh double rotation race', () => {
+type RefreshAnswer = TokenSuccess | OauthFailure;
+
+describe('two refreshes of one token at once', () => {
   let ctx: NativeOauthHarness;
+  let restoreClaim: (() => void) | undefined;
+  let gates: RaceGate[] = [];
 
   beforeAll(async () => {
     ctx = await startNativeOauth('native_refresh_double_rotation');
@@ -36,135 +44,175 @@ describe('native refresh double rotation race', () => {
     await resetNativeClient(ctx);
   });
 
-  it(
-    'admits one rotation and replays the other when both read the token unspent',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      const barrier = new RaceBarrier();
-      const spend = barrier.point('refresh-spend');
-      const updateOne = ctx.credentials.updateOne.bind(ctx.credentials);
-      const spy = jest
-        .spyOn(ctx.credentials, 'updateOne')
-        .mockImplementation((...args) => {
-          const query = updateOne(...args);
-          pauseQuery(query, spend);
-          return query;
-        });
+  afterEach(() => {
+    for (const gate of gates) {
+      gate.release();
+    }
+    restoreClaim?.();
+    restoreClaim = undefined;
+    gates = [];
+  });
 
-      let results: Array<TokenSuccess | OauthFailure> | undefined;
-      try {
-        const first = rotate(ctx, granted.refreshToken);
-        const second = rotate(ctx, granted.refreshToken);
-        await spend.reached(2);
-        spend.release();
-        results = await Promise.all([first, second]);
-      } finally {
-        spend.release();
-        spy.mockRestore();
-      }
-      if (!results) {
-        throw new Error('double rotation race did not run');
-      }
+  /**
+   * Run both refreshes up to their claim, where each has read the token unspent
+   * and neither has spent it. Let one finish, hand its answer to `between`,
+   * then let the other go.
+   */
+  async function raceToTheClaim<Between>(
+    first: () => Promise<RefreshAnswer>,
+    second: () => Promise<RefreshAnswer>,
+    between: (winner: RefreshAnswer) => Promise<Between>,
+  ): Promise<{ winner: RefreshAnswer; loser: RefreshAnswer; held: Between }> {
+    const firstClaim = new RaceGate();
+    const secondClaim = new RaceGate();
+    gates = [firstClaim, secondClaim];
+    restoreClaim = holdBefore(
+      ctx.harness.app.get(NativeRefreshRotationService),
+      'claimAndRotate',
+      (call) => [firstClaim, secondClaim][call],
+    );
 
-      const successes = results.filter((result) => result.ok);
-      const failures = results.filter((result) => !result.ok);
-      expect(successes).toHaveLength(1);
-      expect(failures).toHaveLength(1);
-      expect(failures[0]).toMatchObject({ error: OAUTH_ERROR.INVALID_GRANT });
+    const racers = [first(), second()];
+    await firstClaim.reached(1);
+    await secondClaim.reached(1);
 
-      const session = await ctx.harness.sessions.findOne({
-        clientId: NATIVE_CLIENT_ID,
-      });
-      if (!session) {
-        throw new Error('expected a native session');
-      }
-      const credentials = await ctx.credentials
-        .find({ sessionId: session._id })
-        .lean()
-        .exec();
+    firstClaim.release();
+    const winner = await Promise.race(racers);
+    const held = await between(winner);
+    secondClaim.release();
+    const answers = await Promise.all(racers);
+    const loser = answers.find((answer) => answer !== winner);
+    if (!loser) {
+      throw new Error('the second refresh did not answer');
+    }
+    return { winner, loser, held };
+  }
 
-      expect({
-        sessionValid: session.isValid,
-        revokedReason: session.revokedReason,
-        credentialCount: credentials.length,
-        spentCount: credentials.filter((row) => row.spent).length,
-        revokedCount: credentials.filter((row) => row.revokedAt instanceof Date)
-          .length,
-        unspentCount: credentials.filter((row) => !row.spent).length,
-      }).toEqual({
-        sessionValid: false,
-        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-        credentialCount: 4,
-        spentCount: 4,
-        revokedCount: 4,
-        unspentCount: 0,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+  async function credentialState(refreshToken: string) {
+    const row = await ctx.credentials
+      .findOne({ tokenHash: hashToken(refreshToken) })
+      .lean()
+      .exec();
+    return {
+      stored: row !== null,
+      spent: row?.spent,
+      revoked: row?.revokedAt instanceof Date,
+    };
+  }
 
-  it(
-    'rejects the loser by retrying its transaction into the replay branch',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      let reads = 0;
-      const findOne = ctx.credentials.findOne.bind(ctx.credentials);
-      const readSpy = jest
-        .spyOn(ctx.credentials, 'findOne')
-        .mockImplementation((...args) => {
-          reads += 1;
-          return findOne(...args);
-        });
-      const barrier = new RaceBarrier();
-      const spend = barrier.point('refresh-spend');
-      const updateOne = ctx.credentials.updateOne.bind(ctx.credentials);
-      const spendSpy = jest
-        .spyOn(ctx.credentials, 'updateOne')
-        .mockImplementation((...args) => {
-          const query = updateOne(...args);
-          pauseQuery(query, spend);
-          return query;
-        });
+  async function nativeSession() {
+    const session = await ctx.harness.sessions.findOne({
+      clientId: NATIVE_CLIENT_ID,
+    });
+    if (!session) {
+      throw new Error('expected a native session');
+    }
+    return session;
+  }
 
-      let results: Array<TokenSuccess | OauthFailure> | undefined;
-      try {
-        const first = rotate(ctx, granted.refreshToken);
-        const second = rotate(ctx, granted.refreshToken);
-        await spend.reached(2);
-        spend.release();
-        results = await Promise.all([first, second]);
-      } finally {
-        spend.release();
-        spendSpy.mockRestore();
-        readSpy.mockRestore();
-      }
-      if (!results) {
-        throw new Error('double rotation race did not run');
-      }
+  function successorOf(answer: RefreshAnswer): string {
+    if (!answer.ok) {
+      throw new Error(`expected a rotation, got ${answer.error}`);
+    }
+    return answer.refreshToken;
+  }
 
-      // The loser's write conflicts, withMajorityTransaction restarts the work,
-      // the token then reads spent and the replay branch revokes the family.
-      expect(results.filter((result) => result.ok)).toHaveLength(1);
-      expect(results.find((result) => !result.ok)).toMatchObject({
+  it('stores one successor and ends the family on the second, without a device key', async () => {
+    const granted = await issueNativeGrant(ctx);
+    const refresh = () => rotate(ctx, granted.refreshToken);
+
+    const { winner, loser, held } = await raceToTheClaim(
+      refresh,
+      refresh,
+      (answer) => credentialState(successorOf(answer)),
+    );
+
+    const session = await nativeSession();
+    const credentials = await ctx.credentials
+      .find({ sessionId: session._id })
+      .lean()
+      .exec();
+    expect({
+      winnerOk: winner.ok,
+      successorWhileLoserHeld: held,
+      loser,
+      sessionValid: session.isValid,
+      revokedReason: session.revokedReason,
+      credentialCount: credentials.length,
+      unspentCount: credentials.filter((row) => !row.spent).length,
+      unrevokedCount: credentials.filter(
+        (row) => !(row.revokedAt instanceof Date),
+      ).length,
+      successorAfterwards: await rotate(ctx, successorOf(winner)),
+    }).toEqual({
+      winnerOk: true,
+      successorWhileLoserHeld: { stored: true, spent: false, revoked: false },
+      loser: expect.objectContaining({
+        ok: false,
         error: OAUTH_ERROR.INVALID_GRANT,
-      });
-      expect(reads).toBeGreaterThan(2);
+      }),
+      sessionValid: false,
+      revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+      credentialCount: 4,
+      unspentCount: 0,
+      unrevokedCount: 0,
+      successorAfterwards: expect.objectContaining({
+        ok: false,
+        error: OAUTH_ERROR.INVALID_GRANT,
+      }),
+    });
+  });
 
-      const session = await ctx.harness.sessions.findOne({
-        clientId: NATIVE_CLIENT_ID,
-      });
-      expect(session?.revokedReason).toBe(
-        SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+  it('replaces the first pair with the second when the same device key signs both', async () => {
+    const granted = await issueBoundNativeGrant(ctx);
+    const refreshWith = (jti: string) => () =>
+      rotate(
+        ctx,
+        granted.refreshToken,
+        signNativeDpopProof({
+          token: granted.refreshToken,
+          claims: { jti },
+        }),
       );
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+
+    const { winner, loser } = await raceToTheClaim(
+      refreshWith('double-rotation-a'),
+      refreshWith('double-rotation-b'),
+      () => Promise.resolve(undefined),
+    );
+
+    const session = await nativeSession();
+    expect({
+      firstPair: await credentialState(successorOf(winner)),
+      replacementPair: await credentialState(successorOf(loser)),
+      liveCredentials: await ctx.credentials.countDocuments({
+        sessionId: session._id,
+        spent: false,
+        revokedAt: { $exists: false },
+      }),
+      sessionValid: session.isValid,
+      retryEvents: await ctx.securityEvents.countDocuments({
+        action: SECURITY_EVENT_ACTION.NATIVE_DPOP_BOUND_RETRY,
+      }),
+      replayEvents: await ctx.securityEvents.countDocuments({
+        action: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+      }),
+    }).toEqual({
+      firstPair: { stored: true, spent: true, revoked: true },
+      replacementPair: { stored: true, spent: false, revoked: false },
+      liveCredentials: 2,
+      sessionValid: true,
+      retryEvents: 1,
+      replayEvents: 0,
+    });
+  });
 });
 
 function rotate(
   ctx: NativeOauthHarness,
   refreshToken: string,
-): Promise<TokenSuccess | OauthFailure> {
+  dpopProof?: string,
+): Promise<RefreshAnswer> {
   return ctx.tokens.grant(
     {
       grant_type: 'refresh_token',
@@ -172,5 +220,6 @@ function rotate(
       client_id: NATIVE_CLIENT_ID,
     },
     NATIVE_META,
+    dpopProof,
   );
 }

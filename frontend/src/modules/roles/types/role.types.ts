@@ -8,6 +8,8 @@ export interface Role {
   description?: string;
   isSystemRole: boolean;
   isProtected: boolean;
+  /** Hierarchy level. A person can assign only roles below the level of their own. */
+  level: number;
   permissions: string[];
   createdAt: string;
   updatedAt: string;

@@ -1,12 +1,9 @@
 import type { ApiBody } from '../types/e2e-responses';
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
-import type { UserDocument } from '../../src/user/schemas/user.schema';
 import { replacePermissions } from '../utils/permissions';
 import type { Response } from 'supertest';
 import {
   bootE2eApp,
-  browserAgent,
+  browserAgent, // feature:email-password
   loginAs,
   type E2eApp,
   type TestAgent,
@@ -16,7 +13,7 @@ import type { UserResponse } from '../types/e2e-responses';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const BASE_PERMISSIONS = ['profile:read:own', 'profile:update:own'];
 
@@ -48,9 +45,7 @@ describe('Permission enforcement (e2e)', () => {
 
   describe('Permission checking logic', () => {
     it('should grant access with wildcard permission', async () => {
-      await e2e.app
-        .get<Model<UserDocument>>(getModelToken('User'))
-        .updateOne({ _id: testUserId }, { permissions: ['*'] });
+      await e2e.state.records.replaceAccountPermissions(testUserId, ['*']);
 
       await userAgent.get('/api/roles').expect(200);
 
@@ -86,6 +81,7 @@ describe('Permission enforcement (e2e)', () => {
       expect(user).toHaveProperty('role');
     });
 
+    // feature:email-password:start
     it('should allow users with same role to have different permissions', async () => {
       const userResponse: Response = await userAgent
         .get('/api/user/profile')
@@ -118,6 +114,7 @@ describe('Permission enforcement (e2e)', () => {
       expect((profile.body as ApiBody<UserResponse>).data.role).toBe('user');
       expect(await e2e.captureMail()).toHaveLength(1);
     });
+    // feature:email-password:end
   });
 
   describe('Protected permissions', () => {

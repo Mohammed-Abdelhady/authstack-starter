@@ -1,8 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model } from 'mongoose';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { RoleHierarchyService } from '../../../role/services/role-hierarchy.service';
+import { StoredAccount } from '../../../user/stores/stored-account';
+import { isSameId } from '../../../user/utils/user-lookup.util';
+import { AdminAccountStore } from '../../stores/admin-account.store';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import {
@@ -20,7 +21,7 @@ import {
 @Injectable()
 export class AdminUserAccessService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: AdminAccountStore,
     private readonly roleHierarchyService: RoleHierarchyService,
   ) {}
 
@@ -29,8 +30,8 @@ export class AdminUserAccessService {
    *
    * @throws AppException USER_NOT_FOUND
    */
-  async loadActiveUser(id: string): Promise<UserDocument> {
-    const user = await this.userModel.findById(id).exec();
+  async loadActiveUser(id: string): Promise<StoredAccount> {
+    const user = await this.accounts.findAccount(id);
 
     if (!user || user.isDeleted) {
       throw new AppException(
@@ -44,12 +45,13 @@ export class AdminUserAccessService {
   }
 
   /**
-   * Reject an operation an actor aims at its own account.
+   * Reject an operation an actor aims at its own account, however the letters
+   * of the id in the route are cased.
    *
    * @throws AppException CANNOT_MODIFY_SELF
    */
   assertNotSelf(targetId: string, actorId: string, message: string): void {
-    if (targetId === actorId) {
+    if (isSameId(targetId, actorId)) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_SELF,
         message,
@@ -131,7 +133,7 @@ export class AdminUserAccessService {
   }
 
   /**
-   * Re-read the acting account inside the caller's transaction and repeat the
+   * Re-read the acting account inside the caller's unit of work and repeat the
    * write check from the role it holds now. A demotion or deactivation that
    * landed after the request was admitted cannot be acted on.
    *
@@ -141,14 +143,11 @@ export class AdminUserAccessService {
   async assertFreshActorCanModify(
     actorId: string,
     targetRole: string,
-    session: ClientSession,
+    unitOfWork: UnitOfWork,
     message = 'Cannot modify user with higher or equal role',
     requireAdmin = false,
   ): Promise<void> {
-    const actor = await this.userModel
-      .findById(actorId)
-      .session(session)
-      .exec();
+    const actor = await this.accounts.readAccount(unitOfWork, actorId);
     if (!actor || actor.isDeleted) {
       throw new AppException(
         ErrorCode.SESSION_INVALID,
@@ -159,11 +158,11 @@ export class AdminUserAccessService {
 
     const actorLevel = await this.roleHierarchyService.getLevel(
       actor.role,
-      session,
+      unitOfWork,
     );
     const targetLevel = await this.roleHierarchyService.getLevel(
       targetRole,
-      session,
+      unitOfWork,
     );
     if (requireAdmin && actorLevel < ADMIN_LEVEL) {
       throw new AppException(

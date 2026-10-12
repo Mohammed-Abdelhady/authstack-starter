@@ -6,6 +6,12 @@
 // feature:locale-ar:start
 // Letter spacing breaks the joins of Arabic script, so every role resets it.
 // feature:locale-ar:end
+const EYEBROW_LOCALE_CLASSES =
+  // feature:locale-ar:start
+  'rtl:text-sm rtl:font-semibold rtl:tracking-normal' +
+  // feature:locale-ar:end
+  '';
+
 const TIGHT_TRACKING = 'tracking-tight rtl:tracking-normal';
 
 export const HEADING_ROLE_CLASSES = {
@@ -13,7 +19,7 @@ export const HEADING_ROLE_CLASSES = {
   pageTitle: `text-2xl font-semibold leading-tight ${TIGHT_TRACKING} text-foreground`,
   sectionTitle: `text-lg font-semibold leading-snug ${TIGHT_TRACKING} text-foreground`,
   subsectionTitle: `text-sm font-semibold leading-snug ${TIGHT_TRACKING} text-foreground`,
-  eyebrow: 'text-xs font-medium uppercase tracking-widest rtl:tracking-normal text-tertiary',
+  eyebrow: `text-xs font-medium uppercase tracking-widest text-tertiary ${EYEBROW_LOCALE_CLASSES}`,
 } as const;
 
 export const DESCRIPTION_ROLE_CLASSES = {

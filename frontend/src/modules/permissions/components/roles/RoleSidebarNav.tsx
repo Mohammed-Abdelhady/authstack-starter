@@ -55,6 +55,8 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
   isLoading = false,
 }: RoleSidebarNavProps) {
   const t = useTranslations('roles.sidebar');
+  const tDetail = useTranslations('roles.detail');
+  const tRoles = useTranslations('roles');
 
   // Group roles by type
   const systemRoles = roles.filter((r) => r.isSystemRole);
@@ -62,21 +64,26 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
 
   if (isLoading) {
     return (
-      <nav
+      <div
         role="status"
         aria-live="polite"
         className="space-y-1"
         data-testid="role-sidebar-nav-loading"
       >
+        <span className="sr-only">{tRoles('loading')}</span>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-10 rounded-md bg-muted motion-safe:animate-pulse" />
+          <div
+            key={i}
+            aria-hidden="true"
+            className="h-10 rounded-md bg-muted motion-safe:animate-pulse"
+          />
         ))}
-      </nav>
+      </div>
     );
   }
 
   return (
-    <nav className="space-y-6" data-testid="role-sidebar-nav">
+    <nav aria-label={t('navigationLabel')} className="space-y-6" data-testid="role-sidebar-nav">
       {/* System Roles Section */}
       {systemRoles.length > 0 && (
         <section>
@@ -101,9 +108,17 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                 data-testid={`role-nav-item-${role.slug}`}
               >
                 <Shield className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                <span className="flex-1 truncate">{role.name}</span>
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                  <span dir="auto">{role.name}</span>
+                </span>
                 {role.isProtected && (
-                  <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
+                  <>
+                    <Lock
+                      className="h-3 w-3 flex-shrink-0 text-status-warning"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">{tDetail('protectedBadge')}</span>
+                  </>
                 )}
               </button>
             ))}
@@ -134,9 +149,17 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                 )}
                 data-testid={`role-nav-item-${role.slug}`}
               >
-                <span className="flex-1 truncate">{role.name}</span>
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
+                  <span dir="auto">{role.name}</span>
+                </span>
                 {role.isProtected && (
-                  <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
+                  <>
+                    <Lock
+                      className="h-3 w-3 flex-shrink-0 text-status-warning"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">{tDetail('protectedBadge')}</span>
+                  </>
                 )}
               </button>
             ))}

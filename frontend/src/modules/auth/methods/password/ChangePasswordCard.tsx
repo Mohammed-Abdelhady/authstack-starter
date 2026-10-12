@@ -7,23 +7,37 @@ import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FormPassword, PasswordRules, SubmitButton } from '@/components/forms';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FormPassword, FormRootError, PasswordRules, SubmitButton } from '@/components/forms';
 import { useChangePasswordMutation } from '@/modules/auth/store';
+import { AuthMethodsLoadErrorCard } from '@/modules/auth/components/AuthMethodsLoadError';
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
-import { useFormFieldTarget, useServerFieldErrors } from '@/hooks/useServerFieldErrors';
+import { HiddenUsernameField } from '@/modules/auth/components/HiddenUsernameField';
+import { useFormFieldTarget } from '@/hooks/useServerFieldErrors';
 import type { ChangePasswordFormData } from '@app/core';
 import { createChangePasswordSchema } from './changePasswordSchema';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
 
 /**
  * Password change, for the settings page.
  *
  * A deployment with password sign-in turned off has no password to change, so
- * the card is not rendered there.
+ * the card is not rendered there. Not knowing whether it is off is a failure
+ * with a retry, not a card that is gone.
  */
 export function ChangePasswordCard() {
   const t = useTranslations('settings.password');
+  const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
-  const { methods } = useAuthMethods();
+  const {
+    methods,
+    isLoading: isLoadingMethods,
+    isError: methodsFailed,
+    retry,
+    hasRetried,
+  } = useAuthMethods();
   const [changePassword, { isLoading }] = useChangePasswordMutation();
 
   const schema = useMemo(() => createChangePasswordSchema(t, tPassword), [t, tPassword]);
@@ -37,25 +51,41 @@ export function ChangePasswordCard() {
     },
   });
   const formRef = useRef<HTMLFormElement>(null);
-  const applyServerFieldErrors = useServerFieldErrors(
-    useFormFieldTarget(form.setError, formRef),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useFormFieldTarget(form.setError, formRef), isLoading);
 
-  const onSubmit = async (data: ChangePasswordFormData) => {
+  const submit = async (data: ChangePasswordFormData) => {
+    refusal.clear();
     try {
-      await changePassword({
-        currentPassword: data.currentPassword,
-        newPassword: data.newPassword,
-      }).unwrap();
+      await showsOwnRefusal(
+        changePassword({
+          currentPassword: data.currentPassword,
+          newPassword: data.newPassword,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       form.reset();
     } catch (error) {
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
     }
   };
+  const onSubmit = useSingleFlight(submit);
+
+  if (isLoadingMethods || methods === undefined) {
+    return <Skeleton className="h-48 w-full" data-testid="change-password-card-loading" />;
+  }
+
+  if (methodsFailed) {
+    return (
+      <AuthMethodsLoadErrorCard
+        title={t('title')}
+        onRetry={retry}
+        takeFocus={hasRetried}
+        testId="change-password-card-error"
+      />
+    );
+  }
 
   if (methods !== undefined && !methods.password) {
     return null;
@@ -75,19 +105,23 @@ export function ChangePasswordCard() {
             className="space-y-4"
             data-testid="change-password-form"
           >
+            <FormRootError error={refusal.alert} testId="change-password-error" />
+            <HiddenUsernameField />
             <FormPassword<ChangePasswordFormData>
               name="currentPassword"
               label={t('currentPassword')}
-              placeholder="********"
-              disabled={isLoading}
+              placeholder={tCommon('passwordPlaceholder')}
+              autoComplete="current-password"
+              busy={isLoading}
               data-testid="current-password-input"
             />
 
             <FormPassword<ChangePasswordFormData>
               name="newPassword"
               label={t('newPassword')}
-              placeholder="********"
-              disabled={isLoading}
+              placeholder={tCommon('passwordPlaceholder')}
+              autoComplete="new-password"
+              busy={isLoading}
               data-testid="new-password-input"
             />
 
@@ -96,8 +130,9 @@ export function ChangePasswordCard() {
             <FormPassword<ChangePasswordFormData>
               name="confirmPassword"
               label={t('confirmPassword')}
-              placeholder="********"
-              disabled={isLoading}
+              placeholder={tCommon('passwordPlaceholder')}
+              autoComplete="new-password"
+              busy={isLoading}
               data-testid="confirm-password-input"
             />
 

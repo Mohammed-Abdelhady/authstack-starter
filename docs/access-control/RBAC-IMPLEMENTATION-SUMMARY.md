@@ -26,8 +26,8 @@ Successfully implemented a comprehensive dynamic Role-Based Access Control (RBAC
 
 **Files Created/Modified**:
 
-- `backend/src/role/schemas/role.schema.ts` - Role data model
-- `backend/src/user/schemas/user.schema.ts` - Added permissions array
+- `backend/src/role/persistence/mongo/schemas/role.schema.ts` - Role data model
+- `backend/src/user/persistence/mongo/schemas/user.schema.ts` - Added permissions array
 - `backend/src/common/guards/permission.guard.ts` - Permission enforcement
 - `backend/src/common/decorators/permissions.decorator.ts` - Permission decorator
 - `backend/src/common/constants/permissions.ts` - Permission definitions

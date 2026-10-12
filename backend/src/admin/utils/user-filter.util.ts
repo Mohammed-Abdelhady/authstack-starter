@@ -1,4 +1,3 @@
-import { ListUsersQueryDto } from '../dto/list-users-query.dto';
 import { escapeRegex } from '../../common/utils/escape-regex';
 
 /**
@@ -9,7 +8,12 @@ import { escapeRegex } from '../../common/utils/escape-regex';
  * @param viewableRoles - Role slugs at or below the actor's level
  */
 export function buildUserFilter(
-  query: ListUsersQueryDto,
+  query: {
+    search?: string;
+    role?: string;
+    status?: 'active' | 'inactive' | 'deleted';
+    isVerified?: boolean;
+  },
   viewableRoles: string[],
 ): Record<string, unknown> {
   const { search, role, status, isVerified } = query;

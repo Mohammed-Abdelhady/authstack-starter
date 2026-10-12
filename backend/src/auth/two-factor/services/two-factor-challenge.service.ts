@@ -1,16 +1,18 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { CookieOptions, Request, Response } from 'express';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import {
-  TwoFactorChallenge,
-  TwoFactorChallengeDocument,
-} from '../schemas/two-factor-challenge.schema';
+  SecondFactorChallengeStore,
+  StoredSecondFactorChallenge,
+} from '../stores/second-factor-challenge.store';
 import { TotpSecretCryptoService } from './totp-secret-crypto.service';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import {
+  FirstFactor,
+  isFirstFactor,
+} from '../../services/sessions/first-factor';
 import {
   TWO_FACTOR_CHALLENGE_COOKIE,
   TWO_FACTOR_CHALLENGE_TTL_MS,
@@ -24,11 +26,14 @@ interface ChallengePayload {
   nonce: string;
   /** Epoch milliseconds after which the token is refused. */
   expiresAt: number;
+  /** What the first step of this sign-in proved. */
+  firstFactor: FirstFactor;
 }
 
 export interface TwoFactorChallengeContext {
-  challengeId: Types.ObjectId;
-  userId: Types.ObjectId;
+  challengeId: string;
+  userId: string;
+  firstFactor: FirstFactor;
 }
 
 const NONCE_BYTES = 32;
@@ -40,32 +45,37 @@ const NONCE_BYTES = 32;
  * with a key derived from TOTP_ENCRYPTION_KEY. The wrong-code count lives in a
  * short lived record rather than in the token, so a client that edits its own
  * cookie cannot reset it.
+ *
+ * The record is stored under a hash of the nonce and the first factor
+ * together. A cookie that names another first factor finds no record.
  */
 @Injectable()
 export class TwoFactorChallengeService {
   private readonly logger = new Logger(TwoFactorChallengeService.name);
 
   constructor(
-    @InjectModel(TwoFactorChallenge.name)
-    private readonly challengeModel: Model<TwoFactorChallengeDocument>,
+    private readonly challenges: SecondFactorChallengeStore,
     private readonly configService: ConfigService,
     private readonly cryptoService: TotpSecretCryptoService,
   ) {}
 
-  /** Opens a challenge for a user who passed a first factor. */
-  async issue(userId: Types.ObjectId, response: Response): Promise<void> {
+  /** Opens a challenge for a user who passed the first factor named. */
+  async issue(
+    userId: string | { toString(): string },
+    response: Response,
+    firstFactor: FirstFactor,
+  ): Promise<void> {
+    const sub = userId.toString();
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const expiresAt = Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS;
 
-    await this.challengeModel.create({
-      user: userId,
-      nonceHash: hashNonce(nonce),
-      attempts: 0,
-      claimedAt: null,
+    await this.challenges.open({
+      userId: sub,
+      nonceHash: hashNonce(nonce, firstFactor),
       expiresAt: new Date(expiresAt),
     });
 
-    const token = this.encode({ sub: userId.toString(), nonce, expiresAt });
+    const token = this.encode({ sub, nonce, expiresAt, firstFactor });
     response.cookie(TWO_FACTOR_CHALLENGE_COOKIE, token, {
       ...this.cookieOptions(),
       maxAge: TWO_FACTOR_CHALLENGE_TTL_MS,
@@ -80,9 +90,9 @@ export class TwoFactorChallengeService {
    */
   async read(request: Request): Promise<TwoFactorChallengeContext> {
     const payload = this.decodeCookie(request);
-    const challenge = await this.challengeModel.findOne({
-      nonceHash: hashNonce(payload.nonce),
-      user: new Types.ObjectId(payload.sub),
+    const challenge = await this.challenges.find({
+      nonceHash: hashNonce(payload.nonce, payload.firstFactor),
+      userId: payload.sub,
     });
 
     if (!challenge) {
@@ -90,16 +100,16 @@ export class TwoFactorChallengeService {
     }
 
     if (challenge.expiresAt.getTime() <= Date.now()) {
-      await this.challengeModel.deleteOne({ _id: challenge._id });
+      await this.challenges.discard(challenge.id);
       throw this.invalid('challenge has expired');
     }
 
     if (challenge.attempts >= TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS) {
-      await this.challengeModel.deleteOne({ _id: challenge._id });
+      await this.challenges.discard(challenge.id);
       throw this.invalid('too many wrong codes');
     }
 
-    return { challengeId: challenge._id, userId: challenge.user };
+    return toContext(challenge, payload.firstFactor);
   }
 
   /**
@@ -111,44 +121,39 @@ export class TwoFactorChallengeService {
    */
   async claim(request: Request): Promise<TwoFactorChallengeContext> {
     const payload = this.decodeCookie(request);
-    const challenge = await this.challengeModel.findOneAndUpdate(
+    const challenge = await this.challenges.claim(
       {
-        nonceHash: hashNonce(payload.nonce),
-        user: new Types.ObjectId(payload.sub),
-        expiresAt: { $gt: new Date() },
-        attempts: { $lt: TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS },
-        $or: [{ claimedAt: null }, { claimedAt: { $exists: false } }],
+        nonceHash: hashNonce(payload.nonce, payload.firstFactor),
+        userId: payload.sub,
       },
-      { $set: { claimedAt: new Date() } },
-      { new: true },
+      {
+        now: new Date(Date.now()),
+        maxAttempts: TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS,
+      },
     );
 
     if (!challenge) {
       throw this.invalid('challenge is unknown, spent, or already claimed');
     }
 
-    return { challengeId: challenge._id, userId: challenge.user };
+    return toContext(challenge, payload.firstFactor);
   }
 
   /**
    * Counts one wrong code and releases the claim so another try can proceed.
    * The challenge is dropped once the count reaches the cap.
    */
-  async registerFailure(challengeId: Types.ObjectId): Promise<void> {
-    const challenge = await this.challengeModel.findOneAndUpdate(
-      { _id: challengeId },
-      { $inc: { attempts: 1 }, $unset: { claimedAt: 1 } },
-      { new: true },
-    );
+  async registerFailure(challengeId: string): Promise<void> {
+    const counted = await this.challenges.countFailure(challengeId);
 
-    if (challenge && challenge.attempts >= TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS) {
-      await this.challengeModel.deleteOne({ _id: challengeId });
+    if (counted && counted.attempts >= TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS) {
+      await this.challenges.discard(challengeId);
       this.logger.warn('Two-factor challenge discarded after too many tries');
     }
   }
 
-  async consume(challengeId: Types.ObjectId): Promise<void> {
-    await this.challengeModel.deleteOne({ _id: challengeId });
+  async consume(challengeId: string): Promise<void> {
+    await this.challenges.discard(challengeId);
   }
 
   clear(response: Response): void {
@@ -194,7 +199,8 @@ export class TwoFactorChallengeService {
         typeof payload.sub !== 'string' ||
         typeof payload.nonce !== 'string' ||
         typeof payload.expiresAt !== 'number' ||
-        !Types.ObjectId.isValid(payload.sub)
+        !isFirstFactor(payload.firstFactor) ||
+        !this.challenges.isAccountId(payload.sub)
       ) {
         throw new Error('missing fields');
       }
@@ -232,8 +238,16 @@ export class TwoFactorChallengeService {
   }
 }
 
-function hashNonce(nonce: string): string {
-  return createHash('sha256').update(nonce).digest('hex');
+function toContext(
+  challenge: StoredSecondFactorChallenge,
+  firstFactor: FirstFactor,
+): TwoFactorChallengeContext {
+  return { challengeId: challenge.id, userId: challenge.userId, firstFactor };
+}
+
+/** A nonce is base64url, so the separator cannot be part of it. */
+function hashNonce(nonce: string, firstFactor: FirstFactor): string {
+  return createHash('sha256').update(`${nonce}.${firstFactor}`).digest('hex');
 }
 
 function constantTimeEquals(left: string, right: string): boolean {

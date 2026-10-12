@@ -1,21 +1,11 @@
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import { getModelToken } from '@nestjs/mongoose';
 import {
   API_PATHS,
   DPOP_PROOF_HEADER,
   OAUTH_ERROR,
   OAUTH_GRANT_TYPE,
 } from '@app/sdk';
-import type { Model } from 'mongoose';
-import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../../src/session/schemas/native-credential.schema';
-import {
-  Session,
-  SessionDocument,
-} from '../../../src/session/schemas/session.schema';
 import { hashToken } from '../../../src/session/utils/hashing/token-hash';
 import type { E2eApp } from '../e2e-app';
 import {
@@ -103,33 +93,18 @@ export function tokenHashClaim(token: string): string {
 }
 
 export async function credentialsFor(e2e: E2eApp, pair: TokenReply) {
-  const credentials = e2e.app.get<Model<NativeCredentialDocument>>(
-    getModelToken(NativeCredential.name),
+  return e2e.state.native.credentialsForTokens(
+    [pair.access_token, pair.refresh_token].map(hashToken),
   );
-  return credentials
-    .find({
-      tokenHash: {
-        $in: [pair.access_token, pair.refresh_token].map(hashToken),
-      },
-    })
-    .sort({ purpose: 1 })
-    .exec();
 }
 
 export async function credentialsForToken(e2e: E2eApp, token: string) {
-  const credentials = e2e.app.get<Model<NativeCredentialDocument>>(
-    getModelToken(NativeCredential.name),
-  );
-  return credentials.find({ tokenHash: hashToken(token) }).exec();
+  return e2e.state.native.credentialsForTokens([hashToken(token)]);
 }
 
-export async function sessionFor(e2e: E2eApp, id: unknown) {
-  if (id === undefined || id === null)
-    throw new Error('Credential session id was missing');
-  const sessions = e2e.app.get<Model<SessionDocument>>(
-    getModelToken(Session.name),
-  );
-  const session = await sessions.findById(id).exec();
+export async function sessionFor(e2e: E2eApp, id: string | undefined) {
+  if (id === undefined) throw new Error('Credential session id was missing');
+  const session = await e2e.state.sessions.session(id);
   if (!session) throw new Error('Native session was missing');
   return session;
 }

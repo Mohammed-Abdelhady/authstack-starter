@@ -1,18 +1,16 @@
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { REQUEST_ID_HEADER } from '../../src/common/constants/request-id';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
 import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import type { E2ePendingRegistrationFields } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
 import { RaceGate } from '../utils/race-gate';
 import { expectSameAnswer } from '../utils/stable-answer';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const CODE = '123456';
 const WRONG_CODE = '000000';
@@ -32,13 +30,9 @@ const ACTIVATION_BODY = {
 
 describe('Activation code step and pending registration windows (e2e)', () => {
   let e2e: E2eApp;
-  let pendingRegistrations: Model<PendingRegistration>;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -73,10 +67,10 @@ describe('Activation code step and pending registration windows (e2e)', () => {
 
   async function seedPendingRegistration(
     email: string,
-    overrides: Record<string, unknown> = {},
+    overrides: E2ePendingRegistrationFields = {},
   ): Promise<string> {
     const hashedCode = await bcrypt.hash(CODE, 4);
-    await pendingRegistrations.create({
+    await e2e.state.auth.storePendingRegistration({
       email,
       purpose: PENDING_PURPOSE.SIGNUP,
       hashedCode,
@@ -88,9 +82,7 @@ describe('Activation code step and pending registration windows (e2e)', () => {
   }
 
   async function storedRegistration(email: string) {
-    const record = await pendingRegistrations
-      .findOne({ email })
-      .select('+hashedCode');
+    const record = await e2e.state.auth.pendingRegistrationFor(email);
     if (!record) throw new Error(`expected a stored record for ${email}`);
     return record;
   }
@@ -106,16 +98,10 @@ describe('Activation code step and pending registration windows (e2e)', () => {
   ): Promise<[Response, Response]> {
     const firstGate = new RaceGate();
     const secondGate = new RaceGate();
-    const originalCreate =
-      pendingRegistrations.create.bind(pendingRegistrations);
-    let call = 0;
-    const spy = jest
-      .spyOn(pendingRegistrations, 'create')
-      .mockImplementation((...args) => {
-        const gate = call === 0 ? firstGate : secondGate;
-        call += 1;
-        return gate.hold().then(() => originalCreate(...args));
-      });
+    const restore = e2e.state.auth.holdPendingRegistrationInserts(
+      firstGate,
+      secondGate,
+    );
 
     try {
       const firstResponse = Promise.resolve(first());
@@ -128,7 +114,7 @@ describe('Activation code step and pending registration windows (e2e)', () => {
       const secondResult = await secondResponse;
       return [firstResult, secondResult];
     } finally {
-      spy.mockRestore();
+      restore();
     }
   }
 
@@ -204,14 +190,14 @@ describe('Activation code step and pending registration windows (e2e)', () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(first.body).toEqual(second.body);
-    expect(await pendingRegistrations.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(1);
 
     const record = await storedRegistration(email);
     expect(record.purpose).toBe(PENDING_PURPOSE.SIGNUP);
     expect(
       await bcrypt.compare(await e2e.mailedCode(), record.hashedCode),
     ).toBe(true);
-    const raw = await pendingRegistrations.collection.findOne({ email });
+    const raw = await e2e.state.auth.storedPendingRegistrationFields(email);
     expect(raw).not.toHaveProperty('hashedPassword');
     expect(raw).not.toHaveProperty('name');
   });

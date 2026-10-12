@@ -18,7 +18,7 @@ import {
 import { OAUTH_ERROR } from './native-oauth.types';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 
-const ACCOUNT_MISMATCH_DESCRIPTION = `${ErrorCode.NATIVE_AUTHORIZE_ACCOUNT_MISMATCH} when expectedUserId is sent and is not the signed-in account. Nothing changes and the request stays pending.`;
+const ACCOUNT_MISMATCH_DESCRIPTION = `${ErrorCode.NATIVE_AUTHORIZE_ACCOUNT_MISMATCH} when expectedUserId is not the signed-in account. Nothing changes and the request stays pending.`;
 
 const AUTHORIZE_QUERY_DOCUMENTATION: Array<{
   name: string;
@@ -142,7 +142,7 @@ export function ApiNativeAuthorizeApproveErrors(): MethodDecorator {
   return applyDecorators(
     ApiBadRequestResponse({
       description:
-        'VALIDATION_ERROR when the transaction id is missing or expectedUserId is not a string',
+        'VALIDATION_ERROR when the transaction id is missing, or expectedUserId is missing or not a string',
     }),
     ApiForbiddenResponse({
       description:
@@ -159,7 +159,7 @@ export function ApiNativeAuthorizeDenyErrors(): MethodDecorator {
   return applyDecorators(
     ApiBadRequestResponse({
       description:
-        'VALIDATION_ERROR when the transaction id is missing or expectedUserId is not a string',
+        'VALIDATION_ERROR when the transaction id is missing, or expectedUserId is missing or not a string',
     }),
     ApiForbiddenResponse({
       description: 'Browser proof is invalid or native sign-in is disabled',
