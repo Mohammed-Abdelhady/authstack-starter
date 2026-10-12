@@ -290,7 +290,8 @@
       "docs": [
         "docs/operations/deployment.md",
         "docs/operations/deployment-custom-domain.md",
-        "docs/operations/PRODUCTION-SETUP.md"
+        "docs/operations/PRODUCTION-SETUP.md",
+        "docs/operations/production-security.md"
       ],
       "catalogueKeys": []
     },

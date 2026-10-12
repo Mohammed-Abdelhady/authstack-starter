@@ -215,7 +215,8 @@ Endpoints:
 | --------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
 | `NEXT_PUBLIC_API_URL` | Backend origin without `/api` suffix. Set it to the address the backend runs on | Port 5000 on `localhost` when unset |
 
-See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings, and [production security settings](docs/operations/production-security.md) for what a production start refuses.
+See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings.
+See [production security settings](docs/operations/production-security.md) for what a production start refuses. <!-- feature:production -->
 
 <!-- feature:mongodb:start -->
 
