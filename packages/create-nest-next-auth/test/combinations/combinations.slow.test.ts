@@ -53,9 +53,11 @@ interface Combination {
 const COMBINATIONS: Combination[] = [
   { name: 'email and password on its own', features: ['email-password'] },
   { name: 'magic link on its own', features: ['magic-link'] },
+  { name: 'Google on its own', features: ['google'] },
   { name: 'email and password with Google', features: ['email-password', 'google'] },
   { name: 'email and password with TOTP', features: ['email-password', 'totp'] },
   { name: 'passkeys on their own', features: ['passkeys'] },
+  { name: 'passkeys with Google and no TOTP', features: ['passkeys', 'google'] },
   {
     name: 'both second factors and every provider',
     features: ['email-password', 'totp', 'passkeys', ...ALL_OAUTH],
@@ -106,10 +108,8 @@ describe('generated projects', () => {
     await expectDriftMatches(project);
     await expectPrunedShared(project);
     await expectLints(project);
-    if (features.includes('google') && features.length === 2) {
-      const api = await runBackendBoot(project);
-      expect(api.ok, api.output).toBe(true);
-    }
+    const api = await runBackendBoot(project);
+    expect(api.ok, api.output).toBe(true);
   });
 
   it('typechecks and lints with everything the manifest offers', async () => {
@@ -119,6 +119,8 @@ describe('generated projects', () => {
     await expectDriftMatches(project);
     await expectPrunedShared(project);
     await expectLints(project);
+    const api = await runBackendBoot(project);
+    expect(api.ok, api.output).toBe(true);
 
     // Retained application and API test files differ only by feature markers.
     const selected = resolveSelection(manifest, requested).selected;
