@@ -16,7 +16,7 @@ for (const locale of ['en', 'ar'] as const) {
     await expect(page.getByTestId('login-submit')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('lang', locale);
     await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
-    for (const path of ['/api/user/profile', '/api/auth/methods', '/api/auth/oauth/providers'])
+    for (const path of ['/api/auth/identity', '/api/auth/methods', '/api/auth/oauth/providers'])
       info.annotations.push({ type: 'expected-network-error', description: path });
     await apiAvailability(false);
     try {
@@ -26,7 +26,6 @@ for (const locale of ['en', 'ar'] as const) {
         message(locale, NETWORK_ERROR),
       );
       await expect(notifications).not.toContainText('toast.error');
-      await expect(notifications).not.toContainText('getCurrentUser');
       await settleAnimations(page);
       await info.attach(`${locale}-network-fallback`, {
         body: await page.screenshot({ fullPage: true }),

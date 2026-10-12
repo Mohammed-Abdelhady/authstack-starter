@@ -2,6 +2,46 @@ import { test, expect, METHODS_PATH, PASSWORD_METHODS } from './fixtures';
 import { authSelectors as s } from '../utils/selectors';
 
 test.describe('frontend-only anonymous auth', () => {
+  test('uses the public identity envelope to keep an anonymous sign-in page open', async ({
+    page,
+    auth,
+  }) => {
+    const identity = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/auth/identity' &&
+        response.request().method() === 'GET',
+    );
+    await auth.open('login');
+    expect(await (await identity).json()).toEqual({
+      success: true,
+      data: { authenticated: false, user: null },
+    });
+    await expect(page.getByTestId(s.login.form)).toBeVisible();
+  });
+
+  test('keeps keyboard focus visible in forced colours and identifies the current language', async ({
+    page,
+    auth,
+    appLocale,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await auth.open('login');
+    const current = page.getByTestId(`language-switcher-${appLocale}`);
+    await expect(current).toHaveAttribute('aria-current', 'true');
+    await expect(current.locator('span')).toHaveAttribute('lang', appLocale);
+    await page.getByTestId(s.login.email).focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    const submit = page.getByTestId(s.login.submit);
+    await expect(submit).toBeFocused();
+    const outline = await submit.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { kind: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
+    });
+    expect(outline.kind).not.toBe('none');
+    expect(outline.width).toBeGreaterThan(0);
+  });
+
   test('preserves the locale through sign-up, sign-in and forgot-password navigation', async ({
     page,
     auth,
@@ -38,7 +78,7 @@ test.describe('frontend-only anonymous auth', () => {
     await auth.expectInvalid([s.login.email, s.login.password]);
   });
 
-  test('validates the registration address and lets the keyboard toggle password visibility', async ({
+  test('validates the registration address and reaches sign-in submit by keyboard', async ({
     page,
     auth,
   }) => {
@@ -54,15 +94,7 @@ test.describe('frontend-only anonymous auth', () => {
     const password = page.getByTestId(s.login.password);
     await password.focus();
     await page.keyboard.press('Tab');
-    const toggle = page.getByTestId(s.togglePassword);
-    await expect(toggle).toBeFocused();
-    await expect(toggle).toHaveAccessibleName(/\S+/);
-    await page.keyboard.press('Space');
-    await expect(password).toHaveAttribute('type', 'text');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Enter');
-    await expect(password).toHaveAttribute('type', 'password');
-    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId(s.login.submit)).toBeFocused();
   });
 
   test('validates the forgot-password address and returns to sign-in by keyboard', async ({

@@ -1,10 +1,12 @@
 import type { Page } from '@playwright/test';
 import { test, expect, API } from './fixtures/authenticated';
 import { auditAccessibility } from './utils/accessibility';
+import { CSRF_HEADER, sessionBrowserProof } from './utils/browser-proof';
 
 async function seedRoles(page: Page) {
   for (let index = 1; index <= 21; index++) {
     const response = await page.request.post(`${API}/roles`, {
+      headers: { [CSRF_HEADER]: await sessionBrowserProof(page.request, API) },
       data: {
         name: `Pagination Fixture ${String(index).padStart(2, '0')}`,
         permissions: ['users:read:all'],
@@ -69,6 +71,7 @@ for (const locale of ['en', 'ar'] as const) {
         later.slug,
       );
       const created = await page.request.post(`${API}/admin/users`, {
+        headers: { [CSRF_HEADER]: await sessionBrowserProof(page.request, API) },
         data: {
           name: 'Filtered Fixture',
           email: 'filtered@example.test',
@@ -92,7 +95,8 @@ for (const locale of ['en', 'ar'] as const) {
       });
       await dialog.getByTestId(`role-filter-option-${later.slug}`).click();
       expect((await filtered).status()).toBe(200);
-      await expect(page.getByTestId(/^user-card-/)).toHaveCount(1);
+      const userCards = page.locator('article[data-testid^="user-card-"]');
+      await expect(userCards).toHaveCount(1);
       await expect(page.getByTestId(`user-card-${user.id ?? user._id}`)).toBeVisible();
       await page.getByTestId('role-filter').click();
       await dialog.getByTestId('role-filter-search').fill(later.name);
@@ -114,7 +118,13 @@ for (const locale of ['en', 'ar'] as const) {
       await page.route('**/api/roles?*', async (route) => {
         if (!failed) {
           failed = true;
-          await route.fulfill({ status: 503, json: { message: 'Temporary fixture failure' } });
+          await route.fulfill({
+            status: 503,
+            json: {
+              success: false,
+              error: { code: 'INTERNAL_ERROR', message: 'Temporary fixture failure' },
+            },
+          });
         } else await route.continue();
       });
       await dialog.getByTestId('role-filter-search').fill('Pagination Fixture');
@@ -123,13 +133,11 @@ for (const locale of ['en', 'ar'] as const) {
       await expect(dialog.getByTestId(/^role-filter-option-/)).toHaveCount(20);
       await page.keyboard.press('Escape');
       await expect(dialog).toBeHidden();
-      await expect(page.getByTestId(/^user-card-/)).toHaveCount(1);
-      await expect(page.getByTestId('role-filter')).toContainText(
-        later.slug.charAt(0).toUpperCase() + later.slug.slice(1),
-      );
+      await expect(userCards).toHaveCount(1);
+      await expect(page.getByTestId('role-filter-value')).toHaveText(later.name);
       await page.getByTestId('role-filter').click();
       await dialog.getByTestId('role-filter-all').click();
-      await expect(page.getByTestId(/^user-card-/)).not.toHaveCount(1);
+      await expect(userCards).not.toHaveCount(1);
     });
   });
 }
