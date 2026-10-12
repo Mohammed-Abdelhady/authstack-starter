@@ -1,3 +1,12 @@
+@font-face {
+  font-family: 'Noto Sans Arabic Fallback';
+  src: local('Arial');
+  ascent-override: 113.22%;
+  descent-override: 60.81%;
+  line-gap-override: 0%;
+  size-adjust: 121.35%;
+}
+
 html[lang='ar'] body {
   --font-geist-sans: var(--font-arabic-sans);
   font-family: var(--font-arabic-sans), sans-serif;
