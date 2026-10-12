@@ -51,7 +51,7 @@ describe('native attempt foundation (e2e)', () => {
     await e2e.reset();
   });
 
-  async function start() {
+  async function start(flow: 'signIn' | 'recovery' = 'signIn') {
     const verifier = randomBytes(32).toString('base64url');
     const query = nativeAuthorizeQuery(verifier);
     const response = await request(e2e.httpServer)
@@ -63,7 +63,7 @@ describe('native attempt foundation (e2e)', () => {
         codeChallengeMethod: 'S256',
         state: query.state,
         scopes: [DEFAULT_API_AUDIENCE],
-        flow: 'signIn',
+        flow,
       })
       .expect(201);
     const attempt = unwrapNativeAttemptStart({
@@ -140,6 +140,24 @@ describe('native attempt foundation (e2e)', () => {
     expect((read.body as { data: { stage: string } }).data.stage).toBe(
       'firstFactorRequired',
     );
+  });
+
+  it('keeps recovery out of the sign-in consent transition', async () => {
+    e2e.app
+      .get(ConfigService)
+      .set('auth.nativeApplications', [
+        { ...APPLICATION, signIn: { password: true, recovery: true } },
+      ]);
+    const { attempt } = await start('recovery');
+    await expect(
+      e2e.app
+        .get(NativeAttemptService)
+        .completeFactor(
+          attempt.attemptId,
+          attempt.attemptSecret,
+          await principal(),
+        ),
+    ).rejects.toMatchObject({ status: 409 });
   });
 
   it('rejects policy changes before factor completion', async () => {
