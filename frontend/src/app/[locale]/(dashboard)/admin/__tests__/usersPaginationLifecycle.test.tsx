@@ -53,6 +53,76 @@ const DESCRIBE_BY_LOCALE = describe.each([
 ] as const);
 
 DESCRIBE_BY_LOCALE('user pagination after the result count changes in %s', (locale: AppLocale) => {
+  it('does not keep previous page rows interactive while the new page is pending', async () => {
+    let releasePageTwo: ((response: Response) => void) | undefined;
+    stubNetwork((request, path) => {
+      if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
+      if (path !== '/api/admin/users') return success({});
+      const requestedPage = Number(new URL(request.url).searchParams.get('page') ?? '1');
+      if (requestedPage === 2) {
+        return new Promise<Response>((resolve) => {
+          releasePageTwo = resolve;
+        });
+      }
+      return pageResult(1, 2, 'initial');
+    });
+
+    await renderForm(
+      locale,
+      <UsersPage />,
+      storeSignedInAs('admin', Object.values(USER_PERMISSIONS)),
+    );
+    await screen.findByTestId('user-card-page-1-initial');
+
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await waitFor(() => expect(releasePageTwo).toBeDefined());
+
+    const oldRowVisible = screen.queryByTestId('user-card-page-1-initial') !== null;
+    const oldActionsVisible = screen.queryByTestId('user-role-selector-page-1-initial') !== null;
+
+    await act(async () => releasePageTwo?.(pageResult(2, 2, 'current')));
+    await screen.findByTestId('user-card-page-2-current');
+    expect(oldRowVisible).toBe(false);
+    expect(oldActionsVisible).toBe(false);
+    expect(screen.queryByTestId('user-card-page-1-initial')).toBeNull();
+  });
+
+  it('hides previous rows as search input moves ahead of its debounced request', async () => {
+    let releaseSearch: ((response: Response) => void) | undefined;
+    stubNetwork((request, path) => {
+      if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
+      if (path !== '/api/admin/users') return success({});
+      if (new URL(request.url).searchParams.get('search') === 'new') {
+        return new Promise<Response>((resolve) => {
+          releaseSearch = resolve;
+        });
+      }
+      return pageResult(1, 2, 'initial');
+    });
+
+    const page = await renderForm(
+      locale,
+      <UsersPage />,
+      storeSignedInAs('admin', Object.values(USER_PERMISSIONS)),
+    );
+    await screen.findByTestId('user-card-page-1-initial');
+    fireEvent.change(screen.getByTestId('search-users-input'), { target: { value: 'new' } });
+    const oldRowImmediatelyVisible = screen.queryByTestId('user-card-page-1-initial') !== null;
+
+    await waitFor(() => expect(releaseSearch).toBeDefined());
+    const oldRowWhileSearchIsPending = screen.queryByTestId('user-card-page-1-initial') !== null;
+    const oldActionsWhileSearchIsPending =
+      screen.queryByTestId('user-role-selector-page-1-initial') !== null;
+    await act(async () => releaseSearch?.(pageResult(1, 1, 'matching')));
+    await screen.findByTestId('user-card-page-1-matching');
+
+    expect(oldRowImmediatelyVisible).toBe(false);
+    expect(oldRowWhileSearchIsPending).toBe(false);
+    expect(oldActionsWhileSearchIsPending).toBe(false);
+    expect(screen.getByText(page.format('users.count', { count: 20 }))).not.toBeNull();
+    expect(screen.queryByTestId('pagination-next')).toBeNull();
+  });
+
   it('clamps once, then stays on page two when the result grows again', async () => {
     let phase = 'initial';
     let releaseShrink: ((response: Response) => void) | undefined;
