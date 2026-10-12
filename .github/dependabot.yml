@@ -3,6 +3,11 @@ updates:
   # Dependabot uses the npm ecosystem for pnpm lockfiles.
   - package-ecosystem: npm
     directory: /
+    # Hold all direct updates in these native manifests until the Expo upgrade.
+    exclude-paths:
+      - mobile/cli/package.json
+      - mobile/expo/package.json
+      - mobile/ui/package.json
     schedule:
       interval: weekly
     groups:
