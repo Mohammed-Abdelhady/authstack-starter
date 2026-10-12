@@ -804,6 +804,7 @@
       "backend/test/native/engine/native-auth-engine-dpop-challenge.e2e-spec.ts",
       "backend/test/native/factors/native-factors.e2e-spec.ts",
       "backend/test/native/factors/native-second-factor-version.e2e-spec.ts",
+      "backend/test/native/attempts/native-account-summary.e2e-spec.ts",
       "backend/test/utils/native/native-auth-engine-harness.ts",
       "backend/test/utils/native/native-auth-engine-dpop-support.ts",
       "frontend/playwright.config.ts",
