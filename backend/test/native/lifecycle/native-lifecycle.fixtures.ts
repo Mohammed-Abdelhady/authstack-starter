@@ -21,9 +21,9 @@ export const NATIVE_LIFECYCLE_APPLICATION: NativeApplicationConfiguration = {
   redirectUris: [NATIVE_REDIRECT],
   allowedScopes: [DEFAULT_API_AUDIENCE],
   signIn: {
-    emailLink: true,
-    registration: true,
-    recovery: true,
+    emailLink: true, // feature:magic-link
+    registration: true, // feature:email-password
+    recovery: true, // feature:email-password
   },
 };
 
@@ -37,7 +37,7 @@ export async function bootNativeLifecycleApp(): Promise<E2eApp> {
     nativeEnabled: true,
     nativeCustomSchemeAllowed: true,
     nativeApplications: [NATIVE_LIFECYCLE_APPLICATION],
-    magicLinkEnabled: true,
+    magicLinkEnabled: true, // feature:magic-link
   });
 }
 
