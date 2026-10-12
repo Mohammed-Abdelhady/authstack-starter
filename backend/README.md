@@ -29,6 +29,11 @@ The PostgreSQL suites start a server of their own and need no database installed
 Set the unit worker count with `pnpm test -- --maxWorkers=4`. The separate
 `--maxWorkers 4`, `-w 4`, and percentage forms are also accepted.
 
+The unit suite uses ts-jest isolated-module transpilation. Run
+`pnpm run typecheck` separately for full type checking. Mongoose decorators
+cannot infer some TypeScript aliases from decorator metadata, so give each
+affected schema property an explicit type, such as `@Prop({ type: String })`.
+
 ## Tech stack
 
 - **NestJS 11** on Express
