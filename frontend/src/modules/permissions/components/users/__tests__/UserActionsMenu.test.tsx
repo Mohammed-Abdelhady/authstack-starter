@@ -38,6 +38,15 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the actions of a user row in %s', (locale) => {
+  it('names the actions menu with the user it belongs to', async () => {
+    const { format } = await openMenu(locale);
+    const trigger = screen.getByTestId(`user-actions-menu-${USER._id}`);
+
+    expect(trigger.getAttribute('aria-label')).toBe(
+      format('users.actions.menuLabelForUser', { name: USER.name }),
+    );
+  });
+
   it('offers deactivate as the only way to take an active account out of use', async () => {
     const { entries } = await openMenu(locale);
 

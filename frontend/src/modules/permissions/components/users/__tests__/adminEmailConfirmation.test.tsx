@@ -26,10 +26,8 @@ describe.each([
   });
 
   it('hides resend from an actor without the update permission', async () => {
-    const card = await renderAdminCard(locale, TARGET_USER, [USER_PERMISSIONS.READ_ALL]);
-    expect(
-      screen.queryByRole('button', { name: card.message('users.actions.menuLabel') }),
-    ).toBeNull();
+    await renderAdminCard(locale, TARGET_USER, [USER_PERMISSIONS.READ_ALL]);
+    expect(screen.queryByTestId(`user-actions-menu-${TARGET_USER._id}`)).toBeNull();
   });
 
   it('hides resend for a deleted account', async () => {
@@ -143,7 +141,7 @@ describe.each([
     const card = await renderAdminCard(locale);
     card.openMenu();
     fireEvent.click(card.resendItem());
-    const trigger = screen.getByRole('button', { name: card.message('users.actions.menuLabel') });
+    const trigger = screen.getByTestId(`user-actions-menu-${TARGET_USER._id}`);
     await waitFor(() => expect(availability(trigger)).toEqual(HELD));
     await act(async () => release(success({ message: 'sent' })));
     await waitFor(() => expect(availability(trigger)).toEqual(IDLE));
