@@ -3,6 +3,24 @@ import { unwrapIdentity, unwrapIdentityBody } from './identity';
 import { apiErrorFrom, respond } from './test-support';
 
 const ok = (data: unknown) => ({ success: true, data });
+// feature:totp,passkeys:start
+const IDENTITY_USER = {
+  id: 'account-1',
+  email: 'account@example.test',
+  name: 'Account',
+  role: 'user',
+  permissions: [],
+  authProvider: 'email',
+  linkedProviders: ['email'],
+  isVerified: true,
+  // feature:totp:start
+  twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
+  passkeyCount: 0,
+  // feature:passkeys:end
+};
+// feature:totp,passkeys:end
 
 describe('identity envelope', () => {
   it('reads the signed-out branch with no user', () => {
@@ -22,6 +40,33 @@ describe('identity envelope', () => {
     expect(error.code).toBe('UNKNOWN_ERROR');
     expect(error.status).toBe(200);
   });
+
+  // feature:totp:start
+  it('rejects a non-boolean two-factor state', () => {
+    const error = apiErrorFrom(() =>
+      unwrapIdentityBody(
+        ok({
+          authenticated: true,
+          user: { ...IDENTITY_USER, twoFactorEnabled: 'false' },
+        }),
+      ),
+    );
+
+    expect(error.code).toBe('UNKNOWN_ERROR');
+    expect(error.status).toBe(200);
+  });
+  // feature:totp:end
+
+  // feature:passkeys:start
+  it('rejects a negative passkey count', () => {
+    const error = apiErrorFrom(() =>
+      unwrapIdentityBody(ok({ authenticated: true, user: { ...IDENTITY_USER, passkeyCount: -1 } })),
+    );
+
+    expect(error.code).toBe('UNKNOWN_ERROR');
+    expect(error.status).toBe(200);
+  });
+  // feature:passkeys:end
 
   it.each([
     [401, 'SESSION_INVALID'],

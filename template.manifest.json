@@ -290,7 +290,8 @@
       "docs": [
         "docs/operations/deployment.md",
         "docs/operations/deployment-custom-domain.md",
-        "docs/operations/PRODUCTION-SETUP.md"
+        "docs/operations/PRODUCTION-SETUP.md",
+        "docs/operations/production-security.md"
       ],
       "catalogueKeys": []
     },
@@ -534,7 +535,9 @@
         "backend/test/auth/two-factor-http.e2e-spec.ts",
         "backend/test/utils/auth/two-factor-enrolment.ts",
         "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx",
-        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.ts"
+        "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.ts",
+        "frontend/src/modules/auth/utils/twoFactorLock.ts",
+        "frontend/src/modules/auth/utils/__tests__/twoFactorLock.test.ts"
       ],
       "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],

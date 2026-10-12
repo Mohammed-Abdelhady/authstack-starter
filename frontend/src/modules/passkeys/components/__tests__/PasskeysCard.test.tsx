@@ -49,8 +49,8 @@ const IDENTITY_USER = {
   ...USER,
   authProvider: 'email',
   isVerified: true,
-  twoFactorEnabled: false,
-  passkeyCount: 0,
+  twoFactorEnabled: false, // feature:totp
+  passkeyCount: 0, // feature:passkeys
   linkedProviders: ['email'],
 };
 const REMOVE = `DELETE ${passkeyPath(PASSKEY.id)}`;
@@ -157,6 +157,7 @@ describe.each([
     ).toHaveLength(1);
   });
 
+  // feature:totp:start
   it('uses the server lock duration and blocks another registration request', async () => {
     let optionRequests = 0;
     const requests = stubNetwork((_request, path) => {
@@ -217,6 +218,7 @@ describe.each([
       requests.filter((request) => request.includes(PASSKEY_PATHS.REGISTER_OPTIONS)),
     ).toHaveLength(2);
   });
+  // feature:totp:end
 
   it('sends each requested fresh proof and verifies the exact browser response', async () => {
     const writes: Array<[string, unknown]> = [];

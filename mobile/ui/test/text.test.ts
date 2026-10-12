@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AR } from '../src/i18n/ar'; // feature:locale-ar
 import { EN } from '../src/i18n/en';
 import {
-  createTranslate,
+  createTranslate, // feature:locale-ar
   placeholdersOf,
   resolveLocale,
   translate,
@@ -164,6 +164,20 @@ describe('session activity formatting', () => {
     ip: '192.0.2.1',
     activity,
     lastActiveAt: Date.UTC(2026, 5, 10, 13, 5),
+  });
+
+  it.each([
+    ['today', 'sessions.activeToday', 'time'],
+    ['earlier', 'sessions.activeEarlier', 'date'],
+  ] as const)('formats the %s activity with its message argument', (activity, message, part) => {
+    const { asked, t } = recorder();
+    const text = activityText(t, 'en', row(activity));
+    const [key, values] = asked[0] ?? [];
+
+    expect(key).toBe(message);
+    expect(text).toBe(message);
+    expect(Object.keys(values ?? {})).toEqual([part]);
+    expect(values?.[part]).toMatch(/[0-9]/);
   });
 
   // feature:locale-ar:start

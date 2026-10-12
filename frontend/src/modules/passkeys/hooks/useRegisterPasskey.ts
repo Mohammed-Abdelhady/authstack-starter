@@ -14,7 +14,9 @@ import type {
 import { currentDeviceLabelKey } from '../utils/deviceLabel';
 import { createPasskey, webAuthnMessageKey } from '../utils/webauthn';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+// feature:totp:start
 import { twoFactorLockSeconds } from '@/modules/auth/utils/twoFactorLock';
+// feature:totp:end
 import { useCooldown } from '@/modules/auth/hooks/useCooldown';
 
 export interface RegisterPasskeyState {
@@ -46,7 +48,13 @@ export function useRegisterPasskey(): RegisterPasskeyState {
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [requiredProof, setRequiredProof] = useState<PasskeyRegistrationRequirement | null>(null);
-  const { isCooling, secondsLeft, start: startCooldown } = useCooldown(0);
+  const {
+    isCooling,
+    secondsLeft,
+    // feature:totp:start
+    start: startCooldown,
+    // feature:totp:end
+  } = useCooldown(0);
 
   const runCeremony = useCallback(
     async (proof: PasskeyRegistrationProof = {}) => {
@@ -85,12 +93,18 @@ export function useRegisterPasskey(): RegisterPasskeyState {
             return null;
           }
         }
+        // feature:totp:start
         const retryAfter = twoFactorLockSeconds(err);
         if (retryAfter !== null) {
           startCooldown(retryAfter);
           return null;
         }
-        setError(code === ErrorCode.TWO_FACTOR_LOCKED ? tRegistration('locked') : tCodes(code));
+        if (code === ErrorCode.TWO_FACTOR_LOCKED) {
+          setError(tRegistration('locked'));
+          return null;
+        }
+        // feature:totp:end
+        setError(tCodes(code));
         return null;
       } finally {
         setIsBusy(false);
@@ -100,12 +114,12 @@ export function useRegisterPasskey(): RegisterPasskeyState {
       createOptions,
       handleFeatureDisabled,
       isCooling,
-      startCooldown,
+      startCooldown, // feature:totp
       storePasskey,
       t,
       tCodes,
       tDevices,
-      tRegistration,
+      tRegistration, // feature:totp
     ],
   );
 

@@ -57,7 +57,7 @@ describe('AdminPermissionsService (S-03)', () => {
     isDeleted: false,
     sessionVersion: 0,
     addressGeneration: 0,
-    twoFactorEnabled: false,
+    twoFactorEnabled: false, // feature:totp
     createdAt: new Date(0),
     updatedAt: new Date(0),
   };
@@ -117,7 +117,7 @@ describe('AdminPermissionsService (S-03)', () => {
       isDeleted: false,
       sessionVersion: 0,
       addressGeneration: 0,
-      twoFactorEnabled: false,
+      twoFactorEnabled: false, // feature:totp
       createdAt: new Date(0),
       updatedAt: new Date(0),
     };

@@ -29,7 +29,7 @@ const IDENTITY_USER: User = {
   authProvider: 'email',
   isVerified: true,
   twoFactorEnabled: true,
-  passkeyCount: 0,
+  passkeyCount: 0, // feature:passkeys
   linkedProviders: ['email'],
 };
 const USER: SignedInUser = {
