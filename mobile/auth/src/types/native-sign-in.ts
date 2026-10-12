@@ -67,6 +67,16 @@ export type NativePromptResult<T> =
   | { kind: 'unavailable' }
   | { kind: 'failed'; reason: 'sdk' | 'invalidResponse' };
 
+export interface NativeInteractivePromptRequest<T> {
+  controller: { signal: AbortSignalPort; abort(): void };
+  expiresAt: number;
+  start: () => Promise<NativePromptResult<T>>;
+}
+
+export type NativeInteractivePrompt = <T>(
+  request: NativeInteractivePromptRequest<T>,
+) => Promise<NativePromptResult<T> | { kind: 'expired' }>;
+
 export interface ProviderSignInPort {
   available(method: NativeProviderMethod): Promise<boolean>;
   authenticate(

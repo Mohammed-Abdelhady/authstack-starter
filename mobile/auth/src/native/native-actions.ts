@@ -5,15 +5,18 @@ import type {
   NativeMethods,
   NativeProviderMethod,
 } from '@app/sdk';
+import { TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { PortAbortController } from '../runtime/abort-controller';
+import { withPortDeadline } from '../runtime/deadlines';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort, SignInOutcome } from '../types/auth';
 import type {
   BrowserSignInOptions,
   NativeSignInAction,
   NativeSignInOutcome,
+  NativeInteractivePrompt,
 } from '../types/native-sign-in';
-import { constantTimeEqual } from '../storage/persistence';
+import { constantTimeEqual, transactionExpired } from '../storage/persistence';
 
 type NativeActionResult =
   | { kind: 'server'; result: NativeAttemptResult }
@@ -21,6 +24,8 @@ type NativeActionResult =
 
 interface NativeActionContext {
   runtime: AuthRuntime;
+  prompt: NativeInteractivePrompt;
+  requestTimeoutMs: number;
   client: ApiClient<AbortSignalPort>;
   methods: (signal?: AbortSignalPort) => Promise<NativeMethods>;
   cancel: () => Promise<NativeSignInOutcome>;
@@ -100,17 +105,29 @@ async function performProvider(
   const native = context.runtime.record?.nativeAttempt;
   const transaction = context.runtime.record?.transaction;
   if (!native || !transaction) return outcome({ kind: 'signedOut' });
-  const prompt = await port.authenticate(
-    { method, nonceDigest: native.nonceDigest, state: transaction.state },
-    controller.signal,
-  );
+  if (transactionExpired(transaction, context.runtime.wallTime()))
+    return outcome({ kind: 'expired' });
+  const prompt = await context.prompt({
+    controller,
+    expiresAt: transaction.expiresAt,
+    start: () =>
+      port.authenticate(
+        { method, nonceDigest: native.nonceDigest, state: transaction.state },
+        controller.signal,
+      ),
+  });
+  if (prompt.kind === 'expired') return outcome({ kind: 'expired' });
+  const stale = promptAttemptOutcome(context, controller, attempt);
+  if (stale) return outcome(stale);
   if (prompt.kind !== 'success') return outcome(promptOutcome(prompt.kind));
   if (!credentialMatches(method, prompt.value, native.nonceDigest))
     return outcome({ kind: 'apiFailure' });
   return server(
-    await context.client.nativeAuth.provider(attempt, prompt.value, {
-      signal: controller.signal,
-    }),
+    await request(context, controller, () =>
+      context.client.nativeAuth.provider(attempt, prompt.value, {
+        signal: controller.signal,
+      }),
+    ),
   );
 }
 
@@ -120,24 +137,39 @@ async function performPasskey(
   attempt: NativeAttempt,
 ): Promise<NativeActionResult> {
   const port = context.runtime.dependencies.passkeys;
-  if (!port || !(await safeAvailable(() => port.available())))
+  if (!port || !(await request(context, controller, () => safeAvailable(() => port.available()))))
     return outcome({ kind: 'unavailable' });
-  const options = await context.client.nativeAuth.passkeyOptions(attempt, {
-    signal: controller.signal,
+  const options = await request(context, controller, () =>
+    context.client.nativeAuth.passkeyOptions(attempt, {
+      signal: controller.signal,
+    }),
+  );
+  const beforePrompt = promptAttemptOutcome(context, controller, attempt);
+  if (beforePrompt) return outcome(beforePrompt);
+  const transaction = context.runtime.record?.transaction;
+  if (!transaction) return outcome({ kind: 'signedOut' });
+  const prompt = await context.prompt({
+    controller,
+    expiresAt: transaction.expiresAt,
+    start: () => port.authenticate(options, controller.signal),
   });
-  const prompt = await port.authenticate(options, controller.signal);
+  if (prompt.kind === 'expired') return outcome({ kind: 'expired' });
+  const stale = promptAttemptOutcome(context, controller, attempt);
+  if (stale) return outcome(stale);
   if (prompt.kind !== 'success') return outcome(promptOutcome(prompt.kind));
   const isSecondFactor = context.runtime.snapshot.nativeAttempt?.stage === 'secondFactorRequired';
   return server(
-    isSecondFactor
-      ? await context.client.nativeAuth.secondFactor(
-          attempt,
-          { passkeyResponse: prompt.value },
-          { signal: controller.signal },
-        )
-      : await context.client.nativeAuth.passkeyVerify(attempt, prompt.value, {
-          signal: controller.signal,
-        }),
+    await request(context, controller, () =>
+      isSecondFactor
+        ? context.client.nativeAuth.secondFactor(
+            attempt,
+            { passkeyResponse: prompt.value },
+            { signal: controller.signal },
+          )
+        : context.client.nativeAuth.passkeyVerify(attempt, prompt.value, {
+            signal: controller.signal,
+          }),
+    ),
   );
 }
 
@@ -166,6 +198,7 @@ function credentialMatches(
 }
 
 function promptOutcome(kind: string): NativeSignInOutcome {
+  if (kind === 'expired') return { kind: 'expired' };
   if (kind === 'cancelled') return { kind: 'cancelled' };
   return kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'apiFailure' };
 }
@@ -173,7 +206,7 @@ function promptOutcome(kind: string): NativeSignInOutcome {
 function mapBrowserResult(result: SignInOutcome): NativeSignInOutcome {
   if (result.kind === 'signedIn') return result;
   if (result.kind === 'cancelled' || result.kind === 'dismissed') return { kind: 'cancelled' };
-  if (result.kind === 'disposed') return result;
+  if (result.kind === 'disposed' || result.kind === 'expired') return result;
   if (result.kind === 'storageFailure') return { kind: 'storageFailure' };
   if (result.kind === 'transportFailure') return { kind: 'transportFailure' };
   return { kind: 'apiFailure' };
@@ -193,4 +226,35 @@ function outcome(value: NativeSignInOutcome): NativeActionResult {
 
 function server(result: NativeAttemptResult): NativeActionResult {
   return { kind: 'server', result };
+}
+
+function request<T>(
+  context: NativeActionContext,
+  controller: PortAbortController,
+  call: () => Promise<T>,
+): Promise<T> {
+  return withPortDeadline(
+    context.runtime.dependencies.timer,
+    context.requestTimeoutMs,
+    () => {
+      if (controller.signal.aborted) throw new TransportError(TRANSPORT_FAILURE.ABORTED);
+      return call();
+    },
+    'native.action',
+    () => controller.abort(),
+  );
+}
+
+function promptAttemptOutcome(
+  context: NativeActionContext,
+  controller: PortAbortController,
+  attempt: NativeAttempt,
+): NativeSignInOutcome | undefined {
+  if (context.runtime.disposed) return { kind: 'disposed' };
+  if (controller.signal.aborted) return { kind: 'signedOut' };
+  const record = context.runtime.record;
+  if (record?.nativeAttempt?.id !== attempt.id || !record.transaction) return { kind: 'signedOut' };
+  if (transactionExpired(record.transaction, context.runtime.wallTime()))
+    return { kind: 'expired' };
+  return undefined;
 }
