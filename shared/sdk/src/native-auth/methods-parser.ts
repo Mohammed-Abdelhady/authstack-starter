@@ -117,18 +117,27 @@ function parseProviderMethods(
     }
 
     const sdk = parseSdkConfiguration(provider.sdk, `${field}.sdk`, status);
-    if (provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN && sdk.kind === 'google') {
+    if (
+      provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN &&
+      id === 'google' &&
+      sdk.kind === 'google'
+    ) {
       exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
       return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN, sdk };
     }
     if (
       provider.mode === NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE &&
+      id === 'apple' &&
       sdk.kind === 'apple'
     ) {
       exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
       return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE, sdk };
     }
-    if (provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK && sdk.kind === 'facebook') {
+    if (
+      provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK &&
+      id === 'facebook' &&
+      sdk.kind === 'facebook'
+    ) {
       exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
       return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.FACEBOOK, sdk };
     }
@@ -141,6 +150,12 @@ export function parseNativeMethods(data: unknown, status: number): NativeMethods
   exactKeys(record, ['nativeEnabled', 'methods', 'capabilities', 'providers'], 'data', status);
   const nativeEnabled = booleanValue(record.nativeEnabled, 'nativeEnabled', status);
   const methodRecord = requireObject(record.methods, 'methods', status);
+  exactKeys(
+    methodRecord,
+    ['password', 'magicLink', 'twoFactor', 'passkeys', 'oauth'],
+    'methods',
+    status,
+  );
   const authMethods = unwrapAuthMethodsBody({
     success: true,
     data: { methods: methodRecord },
