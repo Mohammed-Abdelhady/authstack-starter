@@ -38,10 +38,11 @@ function parseFactors<T extends string>(
   value: unknown,
   field: string,
   isAllowed: (value: string) => value is T,
-  status: number,
+  bounds: { status: number; minimum: number },
 ): T[] {
+  const { status, minimum } = bounds;
   const items = requireArray(value, field, status);
-  if (items.length === 0 || items.length > NATIVE_AUTH_LIMITS.FACTOR_COUNT) {
+  if (items.length < minimum || items.length > NATIVE_AUTH_LIMITS.FACTOR_COUNT) {
     fail(status, field, 'has an invalid number of factors');
   }
   const seen = new Set<string>();
@@ -123,7 +124,7 @@ export function parseAttemptResult(
         attemptId,
         stage: NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED,
         expiresAt,
-        factors: parseFactors(record.factors, 'factors', isFirstFactor, status),
+        factors: parseFactors(record.factors, 'factors', isFirstFactor, { status, minimum: 0 }),
         ...(record.email === undefined ? {} : { email: email(record.email, 'email', status) }),
       };
       return view;
@@ -164,7 +165,7 @@ export function parseAttemptResult(
         attemptId,
         stage: NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED,
         expiresAt,
-        factors: parseFactors(record.factors, 'factors', isSecondFactor, status),
+        factors: parseFactors(record.factors, 'factors', isSecondFactor, { status, minimum: 1 }),
         ...(activationCompleted === undefined ? {} : { activationCompleted }),
       };
     case NATIVE_AUTH_STAGE.CONSENT_REQUIRED:
