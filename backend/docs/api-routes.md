@@ -157,6 +157,91 @@ The permission in the table opens the route. Three routes also hold the caller t
 
 A request over that limit is answered 403 with the code `FORBIDDEN`, and nothing is stored. Removing a direct permission has no such limit, as removing a permission from a role has none: the caller needs `permissions:revoke:all` and a level above the account's.
 
+<!-- feature:native-core:start -->
+
+## Native account journeys (`/api/auth/native`)
+
+These JSON routes reject browser cookies and Origin headers. They create no browser
+session. Routes containing `:attemptId` require its secret in `X-Native-Attempt`.
+Native sessions, the registered application and its selected methods must be enabled.
+The application settings and SDK requirements are in [mobile setup](../../docs/setup/setup-mobile-sign-in.md).
+
+| Method | Path                                           | Who may call it | Closed by | What it does                                                                              |
+| ------ | ---------------------------------------------- | --------------- | --------- | ----------------------------------------------------------------------------------------- |
+| GET    | `/api/auth/native/methods`                     | Public          |           | Lists native capabilities for the supplied `clientId`                                     |
+| POST   | `/api/auth/native/attempts`                    | Public          |           | Starts an attempt bound to the client, callback, scopes and S256 PKCE                     |
+| GET    | `/api/auth/native/attempts/:attemptId`         | Public          |           | Resumes the attempt and returns its current step                                          |
+| POST   | `/api/auth/native/attempts/:attemptId/consent` | Public          |           | Approves the verified account's app grant and returns the existing code exchange callback |
+| POST   | `/api/auth/native/attempts/:attemptId/cancel`  | Public          |           | Cancels the attempt and invalidates its unfinished proofs                                 |
+
+<!-- feature:email-password:start -->
+
+### Native password and account lifecycle
+
+Password sign-in also checks the password feature at runtime. Registration and
+recovery return generic email-code steps without revealing whether an address exists.
+Activation reports a persisted account separately from a later sign-in failure.
+Recovery updates the password and invalidates all sessions without signing in.
+
+| Method | Path                                                    | Who may call it | Closed by               | What it does                                                  |
+| ------ | ------------------------------------------------------- | --------------- | ----------------------- | ------------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/password`         | Public          |                         | Verifies password and advances to MFA or consent              |
+| POST   | `/api/auth/native/attempts/:attemptId/register`         | Public          | `AUTH_PASSWORD_ENABLED` | Requests the signup email code                                |
+| POST   | `/api/auth/native/attempts/:attemptId/activate`         | Public          | `AUTH_PASSWORD_ENABLED` | Spends the matching signup generation and creates the account |
+| POST   | `/api/auth/native/attempts/:attemptId/recovery/request` | Public          | `AUTH_PASSWORD_ENABLED` | Requests the password recovery code                           |
+| POST   | `/api/auth/native/attempts/:attemptId/recovery/confirm` | Public          | `AUTH_PASSWORD_ENABLED` | Commits the password reset and session invalidation           |
+
+<!-- feature:email-password:end -->
+<!-- feature:magic-link:start -->
+
+### Native email links
+
+| Method | Path                                                      | Who may call it | Closed by            | What it does                                            |
+| ------ | --------------------------------------------------------- | --------------- | -------------------- | ------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/email-link/request` | Public          | `MAGIC_LINK_ENABLED` | Sends an attempt-bound link to the registered callback  |
+| POST   | `/api/auth/native/attempts/:attemptId/email-link/verify`  | Public          | `MAGIC_LINK_ENABLED` | Spends the matching link and advances to MFA or consent |
+
+<!-- feature:magic-link:end -->
+<!-- feature:totp:start -->
+
+### Native second factor
+
+This route checks second-factor policy and the current account version at runtime.
+Its answer must belong to the current attempt. A consumed recovery code cannot be reused.
+
+| Method | Path                                                 | Who may call it | Closed by | What it does                                               |
+| ------ | ---------------------------------------------------- | --------------- | --------- | ---------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/second-factor` | Public          |           | Verifies an eligible second factor and advances to consent |
+
+<!-- feature:totp:end -->
+<!-- feature:passkeys:start -->
+
+### Native passkeys
+
+These routes require enabled passkeys and the registered native RP and origin policy.
+The assertion and challenge are bound to this attempt rather than a browser cookie.
+
+| Method | Path                                                   | Who may call it | Closed by | What it does                                                        |
+| ------ | ------------------------------------------------------ | --------------- | --------- | ------------------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/passkey/options` | Public          |           | Creates the native assertion challenge                              |
+| POST   | `/api/auth/native/attempts/:attemptId/passkey/verify`  | Public          |           | Verifies the assertion and commits its counter and completed factor |
+
+<!-- feature:passkeys:end -->
+<!-- feature:oauth-core:start -->
+
+### Native provider proof
+
+Only configured native SDK modes are accepted. System-sheet providers use the
+existing OAuth browser flow. The server verifies SDK artifacts before resolving
+the account; client-supplied account identity is not accepted.
+
+| Method | Path                                            | Who may call it | Closed by | What it does                                                     |
+| ------ | ----------------------------------------------- | --------------- | --------- | ---------------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/provider` | Public          |           | Verifies the configured SDK proof and advances to MFA or consent |
+
+<!-- feature:oauth-core:end -->
+<!-- feature:native-core:end -->
+
 ## Mobile app sign-in (`/api/oauth`)
 
 | Method | Path                                   | Who may call it | Closed by | What it does                                                  |
