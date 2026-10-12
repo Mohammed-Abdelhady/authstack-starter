@@ -31,7 +31,7 @@ import { toast } from '@/lib/toast';
 import { authApi } from '@/modules/auth/store/authApi';
 
 /** The query that answers whether the session is still valid. */
-const SESSION_CHECK_ENDPOINT = 'getCurrentUser';
+const SESSION_CHECK_ENDPOINT = 'getIdentity';
 
 interface Announcement extends LocalizedToastMessageProps {
   duration: number;
@@ -169,7 +169,7 @@ export const errorInterceptor: Middleware<object, unknown, InterceptorDispatch> 
       const result = next(action);
       if (meta.endpointName !== SESSION_CHECK_ENDPOINT && isSignedIn(getState())) {
         void dispatch(
-          authApi.endpoints.getCurrentUser.initiate(undefined, {
+          authApi.endpoints.getIdentity.initiate(undefined, {
             forceRefetch: true,
             subscribe: false,
           }),

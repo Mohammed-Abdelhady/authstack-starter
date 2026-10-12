@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback } from 'react';
+import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { ErrorCode } from '@app/core';
+import { HTTP_STATUS } from '@/constants/httpStatus';
 import { useRouter } from '@/i18n/navigation';
 import { useAppDispatch } from '@/store/hooks';
 import { authApi } from '../store/authApi';
@@ -19,8 +22,8 @@ export type CompleteSignIn = (outcome: SignInOutcome, redirect?: string | null) 
  * The last step of every sign-in the client drives.
  *
  * A challenged account goes to the code page with its redirect intact.
- * Otherwise the session cookie is already set, so the profile is refetched
- * when the reply did not carry the account, and the browser moves on.
+ * Otherwise the session cookie is already set. When the reply did not carry
+ * the account, identity must confirm the session before the browser moves on.
  */
 export function useCompleteSignIn(): CompleteSignIn {
   const router = useRouter();
@@ -33,11 +36,23 @@ export function useCompleteSignIn(): CompleteSignIn {
         return;
       }
 
-      const user =
-        outcome.user ??
-        (await dispatch(
-          authApi.endpoints.getCurrentUser.initiate(undefined, { forceRefetch: true }),
-        ).unwrap());
+      let user = outcome.user;
+      if (!user) {
+        const identity = await dispatch(
+          authApi.endpoints.getIdentity.initiate(undefined, { forceRefetch: true }),
+        ).unwrap();
+        if (!identity.authenticated) {
+          const refusal: FetchBaseQueryError = {
+            status: HTTP_STATUS.UNAUTHORIZED,
+            data: {
+              success: false,
+              error: { code: ErrorCode.SESSION_REQUIRED, message: ErrorCode.SESSION_REQUIRED },
+            },
+          };
+          throw refusal;
+        }
+        user = identity.user;
+      }
 
       router.replace(signedInPath(user, redirect));
     },
