@@ -11,7 +11,10 @@ import { NativeAuthorizeReadyView } from '../NativeAuthorizeReadyView';
 afterEach(cleanup);
 registerRtlDocument();
 
-const LOCALES = ['en', 'ar'] as const; // feature:locale-ar
+const LOCALES = [
+  'en',
+  'ar', // feature:locale-ar
+] as const;
 const messages: Partial<Record<(typeof LOCALES)[number], AbstractIntlMessages>> = {};
 
 beforeAll(async () => {
