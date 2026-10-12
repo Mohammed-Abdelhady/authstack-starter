@@ -18,6 +18,8 @@ import { EmailChangeConfirmationService } from './services/registration/email-ch
 import { PasswordResetCodeService } from './services/codes/password-reset-code.service';
 import { AuthMailService } from './services/mail/auth-mail.service';
 import { AuthFeaturesService } from './services/features/auth-features.service';
+import { ActivationAccounts } from './pending-codes/activation-accounts';
+import { PasswordSignInStore } from './stores/password-sign-in.store';
 import { FeatureEnabledGuard } from './guards/feature-enabled.guard';
 import { CommonModule } from '../common/common.module';
 import { MailModule } from '../mail/mail.module';
@@ -80,6 +82,11 @@ import {
     Sessions,
     SessionCookieService,
     VerificationCodeService,
+    RegistrationService,
+    MailCounterService,
+    PasswordResetCodeService,
+    ActivationAccounts,
+    PasswordSignInStore,
     AuthMailService,
     AuthFeaturesService,
     // feature:totp:start
