@@ -3,7 +3,7 @@ import { ApiError, TransportError } from '@app/sdk';
 import { AUTH_OPERATION, SESSION_STATUS } from '../constants';
 import { createCallbackProcessor } from '../callbacks/callback-processing';
 import { PortAbortController } from '../runtime/abort-controller';
-import { withPortDeadline } from '../runtime/deadlines';
+import { PortDeadlineError, withPortDeadline } from '../runtime/deadlines';
 import { transactionExpired } from '../storage/persistence';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort, SignInOutcome } from '../types/auth';
@@ -59,7 +59,12 @@ export function createNativeController(
     if (runtime.disposed) return { kind: 'disposed' };
     if (busy) return { kind: 'busy' };
     if (runtime.snapshot.status === SESSION_STATUS.SIGNED_IN) return { kind: 'signedOut' };
-    if (runtime.snapshot.status !== SESSION_STATUS.SIGNED_OUT) return { kind: 'busy' };
+    if (
+      runtime.snapshot.status !== SESSION_STATUS.SIGNED_OUT &&
+      runtime.snapshot.status !== SESSION_STATUS.REAUTH_REQUIRED
+    )
+      return { kind: 'busy' };
+    const previousStatus = runtime.snapshot.status;
     busy = true;
     let controller = new PortAbortController();
     active = controller;
@@ -79,7 +84,15 @@ export function createNativeController(
         return await withPortDeadline(
           runtime.dependencies.timer,
           NATIVE_CALL_TIMEOUT_MS,
-          () => beginNativeAttempt(runtime, client, action.flow, epoch, controller.signal),
+          () =>
+            beginNativeAttempt(
+              runtime,
+              client,
+              action.flow,
+              previousStatus,
+              epoch,
+              controller.signal,
+            ),
           'native.start',
           () => controller.abort(),
         );
@@ -103,6 +116,7 @@ export function createNativeController(
         'native.action',
         () => controller.abort(),
       );
+      if (runtime.disposed) return { kind: 'disposed' };
       if (!runtime.isEpochCurrent(epoch)) {
         return answer.kind === 'outcome' ? answer.outcome : { kind: 'signedOut' };
       }
@@ -111,6 +125,12 @@ export function createNativeController(
         : applyNativeResult(runtime, callbacks, answer.result, epoch);
     } catch (error) {
       if (runtime.disposed) return { kind: 'disposed' };
+      if (action.kind === 'start' && error instanceof PortDeadlineError) {
+        const cancelled = await cancelNativeSignIn();
+        return cancelled.kind === 'storageFailure'
+          ? { kind: 'storageFailure' }
+          : { kind: 'transportFailure' };
+      }
       if (!runtime.isEpochCurrent(operationEpoch)) return { kind: 'signedOut' };
       if (error instanceof TransportError) return { kind: 'transportFailure' };
       if (error instanceof ApiError) return { kind: 'apiFailure' };

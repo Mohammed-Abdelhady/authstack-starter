@@ -158,7 +158,8 @@ function credentialMatches(
 }
 
 function promptOutcome(kind: string): NativeSignInOutcome {
-  return kind === 'cancelled' ? { kind: 'cancelled' } : { kind: 'unavailable' };
+  if (kind === 'cancelled') return { kind: 'cancelled' };
+  return kind === 'unavailable' ? { kind: 'unavailable' } : { kind: 'apiFailure' };
 }
 
 function mapBrowserResult(result: SignInOutcome): NativeSignInOutcome {
