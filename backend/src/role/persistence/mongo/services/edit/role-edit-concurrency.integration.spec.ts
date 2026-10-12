@@ -1,5 +1,6 @@
-import { ClientSessionOptions, Model, Types } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { RoleService } from '../../../../role.service';
+import { RoleEditService } from '../../../../services/edit/role-edit.service';
 import { Role } from '../../schemas/role.schema';
 import { UserDocument } from '../../../../../user/persistence/mongo/schemas/user.schema';
 import { SecurityEventDocument } from '../../../../../session/persistence/mongo/schemas/security-event.schema';
@@ -113,14 +114,16 @@ describe('role edit concurrency', () => {
     return { user, token: issued.sessionToken };
   }
 
-  function beforeTxn(before: () => Promise<void>): jest.SpyInstance {
-    const original = harness.connection.startSession.bind(harness.connection);
+  function beforeCommit(before: () => Promise<void>): jest.SpyInstance {
+    const original = harness.edit.commit.bind(harness.edit);
     return jest
-      .spyOn(harness.connection, 'startSession')
-      .mockImplementationOnce(async (options?: ClientSessionOptions) => {
-        await before();
-        return original(options);
-      });
+      .spyOn(harness.edit, 'commit')
+      .mockImplementationOnce(
+        async (...args: Parameters<RoleEditService['commit']>) => {
+          await before();
+          return original(...args);
+        },
+      );
   }
 
   async function storedRole(slug: string): Promise<Role | null> {
@@ -145,7 +148,7 @@ describe('role edit concurrency', () => {
   it('matches holders on the fresh slug when a rename landed before a permission edit', async () => {
     await seedRole();
     const holder = await seedHolder('s1@example.test');
-    const spy = beforeTxn(async () => {
+    const spy = beforeCommit(async () => {
       await service.update(ROLE_SLUG, { name: 'Content Lead' }, actorId);
     });
 
@@ -175,7 +178,7 @@ describe('role edit concurrency', () => {
     await seedRole();
     const holder = await seedHolder('s1b@example.test');
     let fresh: string | undefined;
-    const spy = beforeTxn(async () => {
+    const spy = beforeCommit(async () => {
       await service.update(ROLE_SLUG, { name: 'Content Lead' }, actorId);
       const issued = await harness.sessionService.createSession(
         holder.user._id,
@@ -207,7 +210,7 @@ describe('role edit concurrency', () => {
   it('applies a second rename on top of a rename that landed first', async () => {
     await seedRole();
     const holder = await seedHolder('s2@example.test');
-    const spy = beforeTxn(async () => {
+    const spy = beforeCommit(async () => {
       await service.update(ROLE_SLUG, { name: 'Content Lead' }, actorId);
     });
 
