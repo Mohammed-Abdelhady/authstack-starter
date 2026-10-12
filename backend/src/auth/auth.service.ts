@@ -128,6 +128,11 @@ export class AuthService {
 
   /** Same generic request path with a generation commitment for native use. */
   async forgotPasswordForNative(email: string): Promise<string | null> {
+    const candidate = await this.accounts.findForPasswordCheck(email);
+    if (!candidate?.passwordHash) {
+      await this.spendCodeHashingTime();
+      return null;
+    }
     const issued = await this.issuePasswordReset(email);
     return issued?.generationHash ?? null;
   }
