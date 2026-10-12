@@ -186,21 +186,38 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
   reserveAttempt(
     account: SecondFactorAccount,
     attempt: CountedAttempt,
+    expectedSessionVersion?: number,
   ): Promise<AttemptReservation> {
     const id = toUuid(account.id);
     return autocommit(NO_CONSTRAINTS, async () => {
-      const counted = await this.database
-        .updateTable('user_two_factor')
-        .set({
-          failed_attempts: attempt.failedAttempts,
-          locked_until: attempt.lockedUntil,
-        })
-        .where('user_id', '=', id)
-        .where('failed_attempts', '=', account.twoFactor.failedAttempts)
-        .executeTakeFirst();
-      return counted.numUpdatedRows === 1n
-        ? ATTEMPT_RESERVATION.RESERVED
-        : ATTEMPT_RESERVATION.REFUSED;
+      const reserve = async (
+        db: Kysely<PostgresTables> | Transaction<PostgresTables>,
+      ) => {
+        const counted = await db
+          .updateTable('user_two_factor')
+          .set({
+            failed_attempts: attempt.failedAttempts,
+            locked_until: attempt.lockedUntil,
+          })
+          .where('user_id', '=', id)
+          .where('failed_attempts', '=', account.twoFactor.failedAttempts)
+          .executeTakeFirst();
+        return counted.numUpdatedRows === 1n
+          ? ATTEMPT_RESERVATION.RESERVED
+          : ATTEMPT_RESERVATION.REFUSED;
+      };
+      if (expectedSessionVersion === undefined) return reserve(this.database);
+      return this.database.transaction().execute(async (work) => {
+        const owner = await work
+          .selectFrom('users')
+          .select('session_version')
+          .where('id', '=', id)
+          .forUpdate()
+          .executeTakeFirst();
+        if (owner?.session_version !== expectedSessionVersion)
+          return ATTEMPT_RESERVATION.REFUSED;
+        return reserve(work);
+      });
     });
   }
 

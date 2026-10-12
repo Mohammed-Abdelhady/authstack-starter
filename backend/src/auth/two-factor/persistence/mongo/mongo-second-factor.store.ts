@@ -241,6 +241,7 @@ export class MongoSecondFactorStore extends SecondFactorStore {
   async reserveAttempt(
     account: SecondFactorAccount,
     attempt: CountedAttempt,
+    expectedSessionVersion?: number,
   ): Promise<AttemptReservation> {
     const user = secondFactorDocumentOf(account);
     const readWith = account.twoFactor.failedAttempts;
@@ -250,6 +251,9 @@ export class MongoSecondFactorStore extends SecondFactorStore {
       this.userModel.updateOne(
         {
           _id: user._id,
+          ...(expectedSessionVersion === undefined
+            ? {}
+            : { sessionVersion: expectedSessionVersion }),
           'twoFactor.failedAttempts':
             readWith === 0 ? { $in: [0, null] } : readWith,
         },

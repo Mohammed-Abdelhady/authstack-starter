@@ -70,12 +70,13 @@ export class TwoFactorVerificationService {
   async prepareNativeSecondFactor(
     user: SecondFactorAccount,
     input: SecondFactorInput,
+    expectedSessionVersion: number,
   ): Promise<(unitOfWork: UnitOfWork) => Promise<void>> {
     const plaintext =
       input.code && user.twoFactor.secret
         ? await this.readSecret(user, user.twoFactor.secret)
         : null;
-    await this.reserve(user);
+    await this.reserve(user, expectedSessionVersion);
     return async (unitOfWork) => {
       if (input.code && plaintext) {
         await this.spendCode(user, plaintext, input.code, unitOfWork);
@@ -151,7 +152,10 @@ export class TwoFactorVerificationService {
     else await this.accounts.clearFailedAttempts(user);
   }
 
-  private async reserve(user: SecondFactorAccount): Promise<void> {
+  private async reserve(
+    user: SecondFactorAccount,
+    expectedSessionVersion?: number,
+  ): Promise<void> {
     const now = Date.now();
     const { failedAttempts, lockedUntil } = user.twoFactor;
     if (lockedUntil && lockedUntil.getTime() > now) {
@@ -160,10 +164,14 @@ export class TwoFactorVerificationService {
 
     const counted = failedAttempts + 1;
     const lockMs = lockDurationMs(counted);
-    const reservation = await this.accounts.reserveAttempt(user, {
-      failedAttempts: counted,
-      lockedUntil: lockMs > 0 ? new Date(now + lockMs) : null,
-    });
+    const reservation = await this.accounts.reserveAttempt(
+      user,
+      {
+        failedAttempts: counted,
+        lockedUntil: lockMs > 0 ? new Date(now + lockMs) : null,
+      },
+      expectedSessionVersion,
+    );
     if (reservation !== ATTEMPT_RESERVATION.RESERVED) {
       throw this.invalidCode('another answer was counted for the account');
     }

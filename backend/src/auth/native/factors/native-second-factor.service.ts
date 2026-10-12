@@ -64,9 +64,20 @@ export class NativeSecondFactorService {
       );
       if (!account || account.isDeleted || !account.twoFactor.enabled)
         throw wrongStage();
+      const beforeReservation = await this.accounts.findProfile(
+        principal.userId,
+      );
+      if (
+        !beforeReservation ||
+        beforeReservation.isDeleted ||
+        !beforeReservation.twoFactorEnabled ||
+        beforeReservation.sessionVersion !== principal.userVersion
+      )
+        throw wrongStage();
       const verify = await this.verification.prepareNativeSecondFactor(
         account,
         input,
+        principal.userVersion,
       );
       const completed = await runLeavingFailuresAsRaised(
         this.runner,
