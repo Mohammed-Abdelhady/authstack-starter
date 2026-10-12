@@ -1,31 +1,26 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Connection, Model } from 'mongoose';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../../common/persistence/unit-of-work';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { Clock } from '../../../common/services/clock';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { APPLICATION_PLATFORM } from '../../constants/client-ids';
 import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
 import {
   NATIVE_DPOP_FAILURE_REASON,
   NATIVE_DPOP_TOKEN_PATH,
 } from '../../constants/session-policy';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../schemas/application.schema';
-import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../schemas/native-credential.schema';
-import { Session, SessionDocument } from '../../schemas/session.schema';
-import {
-  UserApplicationGrant,
-  UserApplicationGrantDocument,
-} from '../../schemas/user-application-grant.schema';
-import { currentSessionDeadlines } from '../../utils/authority/current-session-authority';
+import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
+import { currentSessionDeadlines } from '../../utils/authority/session-authority-rule';
 import { hashToken } from '../../utils/hashing/token-hash';
-import { withMajorityTransaction } from '../../utils/transactions/mongo-transaction';
+import { ApplicationRegistry } from '../../applications/application-registry';
+import {
+  NativeCredentialStore,
+  NativeFamilySession,
+  StoredNativeCredential,
+} from '../credentials/native-credential.store';
+import { NativeRotationStore } from '../credentials/native-rotation.store';
 import { resolveNativeBoundThumbprint } from '../proof/native-bound-thumbprint';
 import { NativeBoundRetryService } from '../retry/native-bound-retry.service';
 import { asAuthorityUnavailable } from '../../utils/authority/authority-unavailable';
@@ -38,7 +33,7 @@ import {
   RefreshAuthority,
 } from './native-refresh-rotation.service';
 import { nativeDpopOauthFailure } from '../proof/native-dpop-oauth';
-import { isNativeDpopProofIdConflict } from '../proof/native-dpop.service';
+import { isNativeProofIdReplay } from '../proof/native-dpop.service';
 import {
   ClientMeta,
   OAUTH_ERROR,
@@ -52,16 +47,11 @@ type ProofEventContext = BoundProofEventContext;
 @Injectable()
 export class NativeRefreshService {
   constructor(
-    @InjectConnection() private readonly connection: Connection,
-    @InjectModel(NativeCredential.name)
-    private readonly credentials: Model<NativeCredentialDocument>,
-    @InjectModel(Session.name)
-    private readonly sessions: Model<SessionDocument>,
-    @InjectModel(User.name) private readonly users: Model<UserDocument>,
-    @InjectModel(Application.name)
-    private readonly applications: Model<ApplicationDocument>,
-    @InjectModel(UserApplicationGrant.name)
-    private readonly grants: Model<UserApplicationGrantDocument>,
+    private readonly unitOfWork: UnitOfWorkRunner,
+    private readonly credentials: NativeCredentialStore,
+    private readonly rotations: NativeRotationStore,
+    private readonly registry: ApplicationRegistry,
+    private readonly issuance: BrowserIssuanceStore,
     private readonly rotation: NativeRefreshRotationService,
     private readonly retries: NativeBoundRetryService,
     private readonly boundProofs: NativeBoundProofService,
@@ -83,11 +73,11 @@ export class NativeRefreshService {
     const now = this.clock.now();
     let refusalContext: ProofEventContext | undefined;
     try {
-      return await withMajorityTransaction(this.connection, async (db) => {
-        const presented = await this.credentials
-          .findOne({ tokenHash: hashToken(presentedToken) })
-          .session(db)
-          .exec();
+      return await this.unitOfWork.run(async (db) => {
+        const presented = await this.credentials.findPresentedCredential(
+          db,
+          hashToken(presentedToken),
+        );
         if (
           !presented ||
           presented.purpose !== CREDENTIAL_PURPOSE.NATIVE_REFRESH ||
@@ -96,13 +86,13 @@ export class NativeRefreshService {
         ) {
           return this.invalidGrant();
         }
-        const session = await this.sessions
-          .findById(presented.sessionId)
-          .session(db)
-          .exec();
+        const session = await this.credentials.findFamilySession(
+          db,
+          presented.sessionId,
+        );
         const binding = resolveNativeBoundThumbprint(
-          session?.proofKeyThumbprint,
-          presented.proofKeyThumbprint,
+          session?.proofKeyThumbprint ?? undefined,
+          presented.proofKeyThumbprint ?? undefined,
         );
         if (binding.inconsistent) {
           refusalContext = this.proofEventContext(presented, session);
@@ -150,7 +140,7 @@ export class NativeRefreshService {
         );
       });
     } catch (error) {
-      if (isNativeDpopProofIdConflict(error) && refusalContext) {
+      if (isNativeProofIdReplay(error) && refusalContext) {
         await this.boundProofs.recordRefusal(
           undefined,
           refusalContext,
@@ -167,9 +157,9 @@ export class NativeRefreshService {
   }
 
   private async rotateBound(
-    db: ClientSession,
-    presented: NativeCredentialDocument,
-    session: SessionDocument | null,
+    db: UnitOfWork,
+    presented: StoredNativeCredential,
+    session: NativeFamilySession | null,
     token: string,
     clientId: string,
     meta: ClientMeta,
@@ -209,7 +199,7 @@ export class NativeRefreshService {
     if (presented.spent) {
       await this.boundProofs.reserve(db, verification.result.jti, now);
       return this.retries.retryOrReplay({
-        db,
+        unitOfWork: db,
         presented,
         ...authority,
         meta,
@@ -223,16 +213,7 @@ export class NativeRefreshService {
     }
     await this.boundProofs.reserve(db, verification.result.jti, now);
     if (!authority.session.proofKeyThumbprint) {
-      await this.sessions
-        .updateOne(
-          {
-            _id: authority.session._id,
-            proofKeyThumbprint: { $exists: false },
-          },
-          { $set: { proofKeyThumbprint: thumbprint } },
-        )
-        .session(db)
-        .exec();
+      await this.rotations.bindSessionKey(db, authority.session.id, thumbprint);
     }
     return this.rotation.claimAndRotate(
       db,
@@ -245,9 +226,9 @@ export class NativeRefreshService {
   }
 
   private async rotateUnbound(
-    db: ClientSession,
-    presented: NativeCredentialDocument,
-    session: SessionDocument | null,
+    db: UnitOfWork,
+    presented: StoredNativeCredential,
+    session: NativeFamilySession | null,
     clientId: string,
     meta: ClientMeta,
     now: Date,
@@ -266,33 +247,27 @@ export class NativeRefreshService {
   }
 
   private async loadAuthority(
-    db: ClientSession,
+    db: UnitOfWork,
     clientId: string,
-    session: SessionDocument | null,
+    session: NativeFamilySession | null,
     now: Date,
   ): Promise<RefreshAuthority | undefined> {
     if (!session || session.clientId !== clientId) {
       return undefined;
     }
-    const user = await this.users.findById(session.user).session(db).exec();
-    const application = await this.applications
-      .findOne({ clientId, environment: this.authEpoch.environment() })
-      .session(db)
-      .exec();
-    const grant = user
-      ? await this.grants
-          .findOne({ userId: user._id, clientId })
-          .session(db)
-          .exec()
+    const account = await this.issuance.findAccount(db, session.userId);
+    const application = await this.registry.findClientIn(db, clientId);
+    const grant = account
+      ? await this.issuance.findGrant(db, account.id, clientId)
       : null;
     if (
-      !user ||
+      !account ||
       !application ||
       application.platform !== APPLICATION_PLATFORM.NATIVE ||
       !grant ||
       !currentSessionDeadlines(
         session,
-        user,
+        account,
         application,
         grant,
         now,
@@ -302,16 +277,16 @@ export class NativeRefreshService {
     ) {
       return undefined;
     }
-    return { session, user, application, grant };
+    return { session, account, application, grant };
   }
 
   private proofEventContext(
-    presented: NativeCredentialDocument,
-    session: SessionDocument | null,
+    presented: StoredNativeCredential,
+    session: NativeFamilySession | null,
   ): ProofEventContext {
     return {
-      ...(session ? { targetUserId: session.user.toString() } : {}),
-      sessionId: presented.sessionId.toString(),
+      ...(session ? { targetUserId: session.userId } : {}),
+      sessionId: presented.sessionId,
       clientId: presented.clientId,
     };
   }

@@ -1,4 +1,8 @@
 import { SIGN_IN_SITE_ID, SIGN_IN_SITE_LABEL } from '../constants/index.js';
+import { MOBILE_FLAGS, MOBILE_IDENTITY_FIELDS } from '../constants/mobile.js';
+import { availableTargetIds } from '../manifest/dimensions.js';
+import { isMobileTarget } from '../manifest/select.js';
+import { callbackAddress } from '../mobile/identity.js';
 import type { Plan, PlanError } from '../manifest/plan.js';
 import type { Manifest } from '../types.js';
 
@@ -10,6 +14,7 @@ function labelFor(manifest: Manifest, id: string): string {
     manifest.databases[id]?.label ??
     manifest.options[id]?.label ??
     manifest.features[id]?.label ??
+    manifest.shared[id]?.label ??
     id
   );
 }
@@ -28,6 +33,13 @@ export function buildSummary(manifest: Manifest, plan: Plan): string[] {
     `Sign-in    ${labels(manifest, visibleFeatures)}`,
   ];
 
+  if (plan.mobile !== undefined) {
+    lines.push(
+      `Mobile     ${plan.mobile.name} (slug ${plan.mobile.slug})`,
+      `App id     ${plan.mobile.appId}`,
+      `Returns to ${callbackAddress(plan.mobile.scheme)}`,
+    );
+  }
   if (plan.options.length > 0) {
     lines.push(`Options    ${labels(manifest, plan.options)}`);
   }
@@ -55,6 +67,17 @@ export function buildSummary(manifest: Manifest, plan: Plan): string[] {
     }
   }
   return lines;
+}
+
+function flagFor(field: string): string {
+  const known = MOBILE_IDENTITY_FIELDS.find((name) => name === field);
+  return known === undefined ? field : MOBILE_FLAGS[known];
+}
+
+function mobileTargetIds(manifest: Manifest): string {
+  return availableTargetIds(manifest)
+    .filter((id) => isMobileTarget(manifest.targets[id]))
+    .join(' or ');
 }
 
 /** One line per resolver error, in the order the resolver recorded them. */
@@ -87,6 +110,10 @@ export function describePlanErrors(manifest: Manifest, errors: PlanError[]): str
       }
       case 'locales':
         return '--locales must include "en".';
+      case 'identity':
+        return `${flagFor(error.id)}: ${error.message ?? 'The value is not valid.'}`;
+      case 'identity-unused':
+        return `${flagFor(error.id)} names a mobile app, and no mobile client was chosen. Add ${mobileTargetIds(manifest)} to --targets or leave it out.`;
     }
   });
 }

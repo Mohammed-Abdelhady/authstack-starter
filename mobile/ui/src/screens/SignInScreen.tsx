@@ -9,9 +9,10 @@ import { useSignIn } from '../hooks/use-sign-in';
 import { SPACE } from '../theme/tokens';
 
 const styles = StyleSheet.create({
-  // The words and the one action sit together at the bottom, under the thumb.
-  content: { flex: 1, justifyContent: 'flex-end', gap: SPACE.XL },
+  // The title opens the screen where the account title will be. The action stays under the thumb.
+  content: { flex: 1, justifyContent: 'space-between', gap: SPACE.XL },
   intro: { gap: SPACE.SM },
+  action: { gap: SPACE.XL },
 });
 
 export function SignInScreen() {
@@ -25,23 +26,25 @@ export function SignInScreen() {
           <Heading level="screen">{t('signIn.title', { appName })}</Heading>
           <Description>{t('signIn.description')}</Description>
         </View>
-        {notice === undefined ? null : (
-          <Notice
-            testID={TEST_ID.SIGN_IN_NOTICE}
-            title={notice.title}
-            description={notice.description}
-            tone={notice.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
+        <View style={styles.action}>
+          {notice === undefined ? null : (
+            <Notice
+              testID={TEST_ID.SIGN_IN_NOTICE}
+              title={notice.title}
+              description={notice.description}
+              tone={notice.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
+            />
+          )}
+          <Button
+            testID={TEST_ID.SIGN_IN_ACTION}
+            variant={BUTTON_VARIANT.PRIMARY}
+            stretch
+            label={actionLabel}
+            accessibilityHint={t('signIn.actionHint')}
+            busy={!canAct}
+            onPress={act}
           />
-        )}
-        <Button
-          testID={TEST_ID.SIGN_IN_ACTION}
-          variant={BUTTON_VARIANT.PRIMARY}
-          stretch
-          label={actionLabel}
-          accessibilityHint={t('signIn.actionHint')}
-          busy={!canAct}
-          onPress={act}
-        />
+        </View>
       </View>
     </Screen>
   );

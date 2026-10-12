@@ -21,7 +21,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 import {
   DPOP_TEST_NONCE,
   DPOP_TEST_PUBLIC_KEY_B,

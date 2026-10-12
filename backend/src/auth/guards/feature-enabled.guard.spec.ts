@@ -178,19 +178,23 @@ describe('FeatureEnabledGuard', () => {
 describe('password route gating', () => {
   const reflector = new Reflector();
 
-  it.each(['register', 'login', 'forgotPassword', 'resetPassword'])(
-    'should tie %s to the password method',
-    (handler) => {
-      expect(
-        reflector.get(
-          AUTH_FEATURE_KEY,
-          handlerOf(AuthController.prototype, handler),
-        ),
-      ).toBe(AuthFeature.PASSWORD);
-    },
-  );
+  it.each([
+    'register',
+    'activate',
+    'resendActivation',
+    'login',
+    'forgotPassword',
+    'resetPassword',
+  ])('should tie %s to the password method', (handler) => {
+    expect(
+      reflector.get(
+        AUTH_FEATURE_KEY,
+        handlerOf(AuthController.prototype, handler),
+      ),
+    ).toBe(AuthFeature.PASSWORD);
+  });
 
-  it.each(['activate', 'resendActivation', 'logout'])(
+  it.each(['logout'])(
     'should leave %s open, since it does not need a password',
     (handler) => {
       expect(

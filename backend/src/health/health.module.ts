@@ -1,16 +1,15 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { HealthController } from './health.controller';
 import { HealthService } from './health.service';
+import { HEALTH_PERSISTENCE_PROVIDERS } from './persistence/health-persistence';
 
 /**
  * Health check module
  * Provides health monitoring endpoints for the application
  */
 @Module({
-  imports: [MongooseModule],
   controllers: [HealthController],
-  providers: [HealthService],
+  providers: [HealthService, ...HEALTH_PERSISTENCE_PROVIDERS],
   exports: [HealthService],
 })
 export class HealthModule {}

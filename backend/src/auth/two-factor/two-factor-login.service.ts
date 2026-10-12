@@ -1,20 +1,20 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { Request, Response } from 'express';
-import { User, UserDocument } from '../../user/schemas/user.schema';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { LoginResponseDto } from '../dto/login-response.dto';
-import { SignInService } from '../services/sessions/sign-in.service';
 import { VerifyTwoFactorDto } from './dto/verify-two-factor.dto';
 import { TwoFactorChallengeService } from './services/two-factor-challenge.service';
 import { TwoFactorVerificationService } from './services/two-factor-verification.service';
 import {
   SECOND_FACTOR_VERIFIERS,
+  SecondFactorAttempt,
   SecondFactorVerifier,
 } from './services/second-factor-verifiers';
+import { SecondFactorAccount } from './stores/second-factor-account';
+import { SecondFactorSignIn } from './stores/second-factor-sign-in';
+import { SecondFactorStore } from './stores/second-factor.store';
 
 /**
  * The second half of a sign-in that was held for a code. The first half left a
@@ -22,17 +22,19 @@ import {
  *
  * The answer is a TOTP code, a recovery code, or whatever a registered second
  * factor verifier accepts. A passkey is one of those: it proves possession of
- * a key the account registered, which is what a code from the app proves.
+ * a key the account registered, which is what a code from the app proves. A
+ * verifier is told what the first step proved, so it can refuse an answer
+ * that proves the same thing again.
  */
 @Injectable()
 export class TwoFactorLoginService {
   private readonly logger = new Logger(TwoFactorLoginService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: SecondFactorStore,
     private readonly challengeService: TwoFactorChallengeService,
     private readonly verificationService: TwoFactorVerificationService,
-    private readonly signInService: SignInService,
+    private readonly signIn: SecondFactorSignIn,
     @Inject(SECOND_FACTOR_VERIFIERS)
     private readonly verifiers: SecondFactorVerifier[],
   ) {}
@@ -49,9 +51,9 @@ export class TwoFactorLoginService {
     response: Response,
   ): Promise<ApiResponse<LoginResponseDto>> {
     const challenge = await this.challengeService.claim(request);
-    const user = await this.userModel.findById(challenge.userId);
+    const user = await this.accounts.findChallengedAccount(challenge.userId);
 
-    if (!user || user.isDeleted || !user.twoFactor?.enabled) {
+    if (!user || user.isDeleted || !user.twoFactor.enabled) {
       await this.discard(challenge.challengeId, response);
       throw new AppException(
         ErrorCode.TWO_FACTOR_CHALLENGE_INVALID,
@@ -61,16 +63,18 @@ export class TwoFactorLoginService {
     }
 
     try {
-      await this.checkSecondFactor(dto, user, request, response);
+      await this.checkSecondFactor(dto, user, request, response, {
+        firstFactor: challenge.firstFactor,
+      });
     } catch (error) {
       await this.challengeService.registerFailure(challenge.challengeId);
       throw error;
     }
 
     await this.discard(challenge.challengeId, response);
-    const summary = await this.signInService.issueSession(user, response);
+    const summary = await this.signIn.issueSession(user, response);
 
-    this.logger.log(`Second factor accepted: userId=${user._id.toString()}`);
+    this.logger.log(`Second factor accepted: userId=${user.id}`);
     return LoginResponseDto.success(summary);
   }
 
@@ -80,9 +84,10 @@ export class TwoFactorLoginService {
    */
   private async checkSecondFactor(
     dto: VerifyTwoFactorDto,
-    user: UserDocument,
+    user: SecondFactorAccount,
     request: Request,
     response: Response,
+    attempt: SecondFactorAttempt,
   ): Promise<void> {
     const verifier = this.verifiers.find((candidate) =>
       candidate.supports(dto),
@@ -93,11 +98,11 @@ export class TwoFactorLoginService {
       return;
     }
 
-    await verifier.verify(dto, user, request, response);
+    await verifier.verify(dto, user, request, response, attempt);
   }
 
   private async discard(
-    challengeId: Types.ObjectId,
+    challengeId: string,
     response: Response,
   ): Promise<void> {
     await this.challengeService.consume(challengeId);

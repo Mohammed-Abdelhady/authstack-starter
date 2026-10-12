@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import * as React from 'react';
 import { useFormContext, type FieldPath, type FieldValues } from 'react-hook-form';
 import {
@@ -55,6 +56,7 @@ export const FormSelect = <TFieldValues extends FieldValues = FieldValues>({
   className,
   onValueChange: consumerOnValueChange,
 }: FormSelectProps<TFieldValues>): React.JSX.Element => {
+  const t = useTranslations('common');
   const { control } = useFormContext<TFieldValues>();
 
   return (
@@ -75,7 +77,7 @@ export const FormSelect = <TFieldValues extends FieldValues = FieldValues>({
           >
             <FormControl>
               <SelectTrigger className={cn(getInputClassName())}>
-                <SelectValue placeholder={placeholder || 'Select an option'} />
+                <SelectValue placeholder={placeholder || t('selectOption')} />
               </SelectTrigger>
             </FormControl>
             <SelectContent>

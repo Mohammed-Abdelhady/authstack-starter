@@ -2,6 +2,7 @@ import { OAUTH_ERROR as SDK_OAUTH_ERROR } from '@app/sdk';
 import { OAUTH_ERROR } from '../../src/session/native/oauth/native-oauth.types';
 import { SEED_USER } from '../constants/seed-users';
 import { loginAs } from '../utils/e2e-app';
+import { ISSUED_ID_FORM } from '../utils/route-id-answers';
 import {
   publicClient,
   apiErrorOf,
@@ -16,9 +17,7 @@ import {
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
-
-const OBJECT_ID = /^[0-9a-f]{24}$/;
+} from '../utils/hook-timeouts';
 
 function isIsoDate(value: unknown): boolean {
   return typeof value === 'string' && new Date(value).toISOString() === value;
@@ -59,7 +58,7 @@ describe('sdk contract over a cookie transport', () => {
       isVerified: true,
       linkedProviders: ['email'],
     });
-    expect(profile.id).toMatch(OBJECT_ID);
+    expect(profile.id).toMatch(ISSUED_ID_FORM);
     expect(profile.permissions).toEqual(
       expect.arrayContaining(['profile:read:own', 'profile:update:own']),
     );
@@ -101,7 +100,7 @@ describe('sdk contract over a cookie transport', () => {
       true,
     ]);
     for (const session of list.sessions) {
-      expect(session.id).toMatch(OBJECT_ID);
+      expect(session.id).toMatch(ISSUED_ID_FORM);
       expect(session.userAgent.length).toBeGreaterThan(0);
       expect(session.ip.length).toBeGreaterThan(0);
       expect(isIsoDate(session.createdAt)).toBe(true);
@@ -128,6 +127,32 @@ describe('sdk contract over a cookie transport', () => {
     ]);
   });
 
+  it('refuses to revoke the current session whatever the case of its id', async () => {
+    const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
+    const [current] = (await client.sessions.list()).sessions;
+    const upper = current.id.toUpperCase();
+    // Every other character upper, so the id is neither form the server issues.
+    const mixed = [...current.id]
+      .map((character, index) =>
+        index % 2 === 0 ? character.toUpperCase() : character,
+      )
+      .join('');
+    expect(upper).not.toBe(current.id);
+    expect(mixed).not.toBe(current.id);
+
+    for (const sessionId of [upper, mixed]) {
+      const refused = await apiErrorOf(client.sessions.revoke(sessionId));
+      expect(refused.status).toBe(400);
+      expect(refused.code).toBe('CANNOT_REVOKE_CURRENT_SESSION');
+    }
+
+    // The session that asked is still signed in.
+    const remaining = await client.sessions.list();
+    expect(remaining.sessions.map((session) => session.id)).toEqual([
+      current.id,
+    ]);
+  });
+
   it('revokes every other session and reports how many', async () => {
     const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
     await loginAs(e2e.httpServer, SEED_USER);
@@ -140,7 +165,11 @@ describe('sdk contract over a cookie transport', () => {
   it('reads the sign-in methods without a session', async () => {
     const methods = await publicClient(e2e).auth.methods();
 
-    expect(methods.password).toBe(true);
+    // Written by hand: a project that left password sign-in out never offers it.
+    const carried: string[] = [
+      'password', // feature:email-password
+    ];
+    expect(methods.password).toBe(carried.includes('password'));
     expect(methods.magicLink).toBe(false);
     expect(methods.twoFactor).toBe(true); // feature:totp
     expect(methods.passkeys).toBe(true); // feature:passkeys

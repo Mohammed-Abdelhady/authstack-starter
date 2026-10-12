@@ -1,7 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model } from 'mongoose';
-import { Role, RoleDocument } from '../schemas/role.schema';
+import { UnitOfWork } from '../../common/persistence/unit-of-work';
+import { RoleCatalogStore } from '../stores/role-catalog.store';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { UNKNOWN_ROLE_LEVEL } from '../../common/utils/role-hierarchy';
@@ -10,24 +9,22 @@ import { RoleLevelSource, resolveRoleLevel } from '../utils/role.util';
 type RoleLevelProjection = RoleLevelSource;
 
 /**
- * Reads role hierarchy levels from the roles collection.
+ * Reads role hierarchy levels from the stored roles.
  * The hardcoded map in common/utils/role-hierarchy only seeds the system roles
- * and serves as a fallback for documents written before the level field existed.
+ * and serves as a fallback for roles written before the level field existed.
  */
 @Injectable()
 export class RoleHierarchyService {
-  constructor(
-    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
-  ) {}
+  constructor(private readonly catalog: RoleCatalogStore) {}
 
   /**
    * Level of a role slug.
    *
    * @param slug - Role slug to resolve
-   * @returns The stored level, or 0 when the slug has no role document
+   * @returns The stored level, or 0 when the slug has no role
    */
-  async getLevel(slug: string, session?: ClientSession): Promise<number> {
-    const role = await this.findLevel(slug, session);
+  async getLevel(slug: string, unitOfWork?: UnitOfWork): Promise<number> {
+    const role = await this.findLevel(slug, unitOfWork);
     return role ? resolveRoleLevel(role) : UNKNOWN_ROLE_LEVEL;
   }
 
@@ -53,32 +50,24 @@ export class RoleHierarchyService {
 
   /**
    * Slugs of every role whose level is at or below the given level.
-   * Filtering happens in memory because older documents have no level field.
+   * Filtering happens in memory because older roles have no level field.
    *
    * @param level - Inclusive upper bound
    */
   async getSlugsAtOrBelow(level: number): Promise<string[]> {
-    const roles = await this.roleModel
-      .find()
-      .select('slug level')
-      .lean<RoleLevelProjection[]>()
-      .exec();
+    const roles = await this.catalog.listRoleLevels();
 
     return roles
       .filter((role) => resolveRoleLevel(role) <= level)
       .map((role) => role.slug);
   }
 
-  private async findLevel(
+  private findLevel(
     slug: string,
-    session?: ClientSession,
+    unitOfWork?: UnitOfWork,
   ): Promise<RoleLevelProjection | null> {
-    const query = this.roleModel
-      .findOne({ slug: { $eq: slug } })
-      .select('slug level');
-    if (session) {
-      query.session(session);
-    }
-    return query.lean<RoleLevelProjection | null>().exec();
+    return unitOfWork
+      ? this.catalog.readRoleLevelInWork(unitOfWork, slug)
+      : this.catalog.readRoleLevel(slug);
   }
 }

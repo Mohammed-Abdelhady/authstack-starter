@@ -1,16 +1,13 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Request, Response } from 'express';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { LoginResponseDto } from '../../dto/login-response.dto';
-import { SignInService } from '../../services/sessions/sign-in.service';
 import { VerifyPasskeyLoginDto } from '../dto/verify-passkey-login.dto';
 import { PasskeyAssertionService } from './passkey-assertion.service';
 import { PasskeyRequestOptions } from './webauthn.adapter';
+import { PasskeyAccounts, PasskeySignIn } from '../stores/passkey-accounts';
 
 /**
  * Signing in with a passkey and nothing else.
@@ -20,16 +17,18 @@ import { PasskeyRequestOptions } from './webauthn.adapter';
  * only its owner can supply. That sign-in is let through even on an account
  * with TOTP on, which is the behaviour WebAuthn is designed for and matches
  * what the platforms do. A passkey that only proved possession, silent or
- * usernameless without user verification, still owes the TOTP code.
+ * usernameless without user verification, still owes a second factor. The
+ * held sign-in is told a passkey opened it, because another touch of a key is
+ * not a second factor.
  */
 @Injectable()
 export class PasskeyLoginService {
   private readonly logger = new Logger(PasskeyLoginService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: PasskeyAccounts,
     private readonly assertions: PasskeyAssertionService,
-    private readonly signInService: SignInService,
+    private readonly signIn: PasskeySignIn,
   ) {}
 
   async createOptions(
@@ -53,7 +52,7 @@ export class PasskeyLoginService {
       response,
     );
 
-    const user = await this.userModel.findById(passkey.user);
+    const user = await this.accounts.findAccount(passkey.userId);
 
     if (!user || user.isDeleted) {
       throw new AppException(
@@ -64,23 +63,23 @@ export class PasskeyLoginService {
     }
 
     if (userVerified) {
-      const summary = await this.signInService.issueSession(user, response);
+      const summary = await this.signIn.issueSession(user, response);
       this.logger.log(
-        `Passkey sign-in with user verification: userId=${user._id.toString()}`,
+        `Passkey sign-in with user verification: userId=${user.id}`,
       );
       return LoginResponseDto.success(summary);
     }
 
-    const outcome = await this.signInService.completeSignIn(user, response);
+    const outcome = await this.signIn.completeSignIn(user, response);
 
     if (outcome.requiresTwoFactor) {
       this.logger.log(
-        `Passkey accepted, second factor owed: userId=${user._id.toString()}`,
+        `Passkey accepted, second factor owed: userId=${user.id}`,
       );
       return LoginResponseDto.twoFactorRequired();
     }
 
-    this.logger.log(`Passkey sign-in: userId=${user._id.toString()}`);
+    this.logger.log(`Passkey sign-in: userId=${user.id}`);
     return LoginResponseDto.success(outcome.user);
   }
 }

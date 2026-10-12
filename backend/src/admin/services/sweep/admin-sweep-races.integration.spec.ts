@@ -5,7 +5,7 @@ import {
   LEAD_SLUG,
   FRESH_SLUG,
   useAdminRoundFour,
-} from '../admin-round-four.harness-spec';
+} from '../../persistence/mongo/services/admin-round-four.harness-spec';
 
 const DESTINATION_CHANGES = ['rename', 'delete', 'rename back'] as const;
 
@@ -16,16 +16,17 @@ describe('role sweep destinations remain live', () => {
       const { h } = fixture;
       const holder = await fixture.seed('holder@example.test', EDITOR_SLUG);
       const target = await fixture.seed('straggler@example.test');
-      const mainGate = new RaceGate();
+      await fixture.assign(target._id.toString());
+      const postCommitGate = new RaceGate();
       const repairGate = new RaceGate();
-      const originalMove = h.users.collection.updateMany.bind(
-        h.users.collection,
-      );
+      const start = h.connection.startSession.bind(h.connection);
+      let sessions = 0;
       jest
-        .spyOn(h.users.collection, 'updateMany')
-        .mockImplementationOnce(async (...args) => {
-          await mainGate.hold();
-          return originalMove(...args);
+        .spyOn(h.connection, 'startSession')
+        .mockImplementation(async (...args) => {
+          sessions += 1;
+          if (sessions === 2) await postCommitGate.hold();
+          return start(...args);
         });
       const originalRoleWrite = h.roleModel.collection.updateOne.bind(
         h.roleModel.collection,
@@ -73,9 +74,12 @@ describe('role sweep destinations remain live', () => {
         }
       }
       try {
-        await reachOrDiagnose(mainGate, 'primary holder move');
-        await fixture.assign(target._id.toString());
-        mainGate.release();
+        await reachOrDiagnose(postCommitGate, 'post-commit repair start');
+        await h.users.collection.updateOne(
+          { _id: target._id },
+          { $set: { role: EDITOR_SLUG } },
+        );
+        postCommitGate.release();
         await reachOrDiagnose(repairGate, 'destination fence');
         if (change === 'delete') {
           await fixture.assign(holder._id.toString(), UserRole.USER);
@@ -90,7 +94,7 @@ describe('role sweep destinations remain live', () => {
           );
         }
       } finally {
-        mainGate.release();
+        postCommitGate.release();
         repairGate.release();
         await firstSettled;
       }
@@ -104,19 +108,19 @@ describe('role sweep destinations remain live', () => {
             : FRESH_SLUG,
       );
       expect(await h.roleModel.findOne({ slug: stored?.role })).not.toBeNull();
-      expect(stored?.sessionVersion).toBe(change === 'rename back' ? 1 : 2);
+      expect(stored?.sessionVersion).toBe(change === 'rename back' ? 2 : 3);
       const events = await h.events
         .find({ targetUserId: target._id.toString() })
         .sort({ _id: 1 })
         .lean();
       expect(events.map((event) => event.actorId)).toEqual(
         change === 'rename back'
-          ? [fixture.actorId]
-          : [fixture.actorId, fixture.roleActorId],
+          ? [fixture.actorId, fixture.roleActorId]
+          : [fixture.actorId, fixture.roleActorId, fixture.roleActorId],
       );
       expect(
         await h.events.countDocuments({ targetUserId: target._id.toString() }),
-      ).toBe(change === 'rename back' ? 1 : 2);
+      ).toBe(change === 'rename back' ? 2 : 3);
     });
   }
 });

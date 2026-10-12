@@ -19,6 +19,7 @@ import {
   transformBoolean,
   transformOptionalString,
 } from '../common/utils/environment-transform';
+import { ProductionPublicUrlConstraint } from './env.production.constraints';
 import {
   NATIVE_API_ORIGIN_MESSAGE,
   isNativeApiOrigin,
@@ -68,6 +69,7 @@ export class NativeEnvironmentVariables extends OAuthEnvironmentVariables {
   @IsNotEmpty()
   @IsUrl({ require_protocol: true, require_tld: false })
   @Validate(NativeApiOriginConstraint)
+  @Validate(ProductionPublicUrlConstraint)
   API_URL?: string;
 
   @Transform(transformOptionalString)

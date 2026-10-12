@@ -24,11 +24,14 @@
     "test:cov": "node ./test/run-jest.mjs --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "node ./test/run-jest.mjs --config ./test/jest-e2e.json --runInBand",
+    "test:e2e:postgres": "node ./test/run-jest.mjs --config ./test/jest-e2e-postgres.json --runInBand",
     "ci": "pnpm run lint && pnpm run build && pnpm run test",
     "migration:create": "migrate-mongo create",
     "migration:up": "migrate-mongo up",
     "migration:down": "migrate-mongo down",
     "migration:status": "migrate-mongo status",
+    "migration:postgres:up": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts up",
+    "migration:postgres:status": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts status",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
     "seed:reset": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts --reset"
   },
@@ -48,9 +51,11 @@
     "cookie-parser": "^1.4.7",
     "helmet": "^8.3.0",
     "jose": "^6.2.12",
+    "kysely": "0.28.17",
     "mongoose": "^8.24.4",
     "nodemailer": "^10.0.3",
     "otplib": "^13.5.0",
+    "pg": "8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "express": "5.2.1",
@@ -70,7 +75,9 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^22.20.2",
     "@types/nodemailer": "^7.0.12",
+    "@types/pg": "8.23.1",
     "@types/supertest": "^7.2.1",
+    "embedded-postgres": "18.4.0-beta.17",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
@@ -103,7 +110,8 @@
         "ts-jest",
         {
           "tsconfig": {
-            "allowJs": true
+            "allowJs": true,
+            "isolatedModules": true
           }
         }
       ]

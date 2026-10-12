@@ -1,13 +1,14 @@
 'use client';
 
 import { Heading } from '@/components/design-system';
+import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useGetEnabledProvidersQuery, getProviderDisplayName } from '@/modules/oauth';
 import { useGetLinkedProvidersQuery } from '../api';
+import { EMAIL_PROVIDER } from '../types';
 import { LinkedAccountCard } from './LinkedAccountCard';
 import { LinkProviderButton } from './LinkProviderButton';
 
@@ -17,6 +18,8 @@ import { LinkProviderButton } from './LinkProviderButton';
  */
 export function LinkedAccounts() {
   const t = useTranslations('settings.accounts');
+  // Takes focus once an account is unlinked: its card and buttons are gone.
+  const linkedHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const {
     data: linkedProvidersData,
@@ -34,7 +37,9 @@ export function LinkedAccounts() {
     (provider) => !linkedProviders.includes(provider.id),
   );
 
-  const canUnlink = linkedProviders.length > 1;
+  const unlinkHints = linkedProvidersData?.unlinkHints;
+  const primaryHints = linkedProvidersData?.primaryHints;
+  const emailSignIn = linkedProvidersData?.emailSignIn;
 
   if (isLoadingLinked || isLoadingEnabled) {
     return (
@@ -60,34 +65,36 @@ export function LinkedAccounts() {
       <CardContent className="space-y-6">
         {linkedProviders.length > 0 && (
           <div className="space-y-4">
-            <Heading level={3} variant="subsectionTitle">
+            <Heading level={4} variant="subsectionTitle" ref={linkedHeadingRef} tabIndex={-1}>
               {t('linkedAccountsLabel')}
             </Heading>
-            <div className="space-y-3">
+            <div role="list" className="space-y-3">
               {linkedProviders.map((providerId) => (
-                <LinkedAccountCard
-                  key={providerId}
-                  providerId={providerId}
-                  displayName={getProviderDisplayName(providerId, enabledProviders)}
-                  isPrimary={providerId === primaryProvider}
-                  canUnlink={canUnlink}
-                  onChange={refetch}
-                />
+                <div role="listitem" key={providerId}>
+                  <LinkedAccountCard
+                    providerId={providerId}
+                    displayName={
+                      // The server names providers only. Email sign-in is named here.
+                      providerId === EMAIL_PROVIDER
+                        ? t('emailSignInName')
+                        : getProviderDisplayName(providerId, enabledProviders)
+                    }
+                    isPrimary={providerId === primaryProvider}
+                    unlinkHint={unlinkHints?.[providerId]}
+                    primaryHint={primaryHints?.[providerId]}
+                    emailSignIn={providerId === EMAIL_PROVIDER ? emailSignIn : undefined}
+                    onChange={refetch}
+                    landing={linkedHeadingRef}
+                  />
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        {!canUnlink && linkedProviders.length > 0 && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{t('cannotUnlinkWarning')}</AlertDescription>
-          </Alert>
-        )}
-
         {availableProviders.length > 0 && (
           <div className="space-y-4">
-            <Heading level={3} variant="subsectionTitle">
+            <Heading level={4} variant="subsectionTitle">
               {t('availableProvidersLabel')}
             </Heading>
             <div className="flex items-center gap-2 flex-wrap">
@@ -99,7 +106,7 @@ export function LinkedAccounts() {
         )}
 
         {availableProviders.length === 0 && linkedProviders.length > 0 && (
-          <Alert>
+          <Alert role="note">
             <AlertDescription>{t('allProvidersLinked')}</AlertDescription>
           </Alert>
         )}

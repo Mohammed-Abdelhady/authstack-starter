@@ -1,29 +1,20 @@
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
-import {
-  AuthorizationTransaction,
-  AuthorizationTransactionDocument,
-} from '../../../src/session/schemas/authorization-transaction.schema';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
 import { SEED_USER } from '../../constants/seed-users';
 import {
   beginNativeAuthorization,
   createNativeApplication,
   NATIVE_CLIENT_ID,
+  seedUserId,
 } from '../../utils/native/native-authorize.fixtures';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
-import { nativeAuthorizeQuery } from '../../../src/session/native/harness/native-oauth.harness-spec';
+import { nativeAuthorizeQuery } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import type { AuthorizeQuery } from '../../../src/session/native/oauth/native-oauth.types';
 
 interface ApiErrorBody {
@@ -58,35 +49,20 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
   });
 
   it('answers invalid_request for missing, empty, repeated, and array query values', async () => {
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
     const baseline = nativeAuthorizeQuery('a'.repeat(43));
 
     for (const parameter of AUTHORIZE_PARAMETERS) {
       const missing = authorizeParameters(baseline);
       missing.delete(parameter);
-      await expectInvalidAuthorizeQuery(
-        e2e.httpServer,
-        missing.toString(),
-        transactions,
-      );
+      await expectInvalidAuthorizeQuery(e2e, missing.toString());
 
       const empty = authorizeParameters(baseline);
       empty.set(parameter, '');
-      await expectInvalidAuthorizeQuery(
-        e2e.httpServer,
-        empty.toString(),
-        transactions,
-      );
+      await expectInvalidAuthorizeQuery(e2e, empty.toString());
 
       const repeated = authorizeParameters(baseline);
       repeated.append(parameter, String(baseline[parameter]));
-      await expectInvalidAuthorizeQuery(
-        e2e.httpServer,
-        repeated.toString(),
-        transactions,
-      );
+      await expectInvalidAuthorizeQuery(e2e, repeated.toString());
 
       const arrayQuery: Record<string, string | string[]> = {
         ...baseline,
@@ -97,7 +73,7 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
         .query(arrayQuery);
       expect(arrayResponse.status).toBe(400);
       expect(arrayResponse.body).toEqual({ error: 'invalid_request' });
-      expect(await transactions.countDocuments()).toBe(0);
+      expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
     }
   });
 
@@ -119,10 +95,8 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
     if (!transactionId) {
       throw new Error('Native authorization redirect has no transaction id');
     }
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
-    const transaction = await transactions.findOne({ transactionId });
+    const transaction =
+      await e2e.state.native.authorizationRequest(transactionId);
 
     expect(transaction?.requestedScopes).toEqual(['api']);
   });
@@ -141,10 +115,7 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
           .query(arrayQuery);
         expect(response.status).toBe(400);
         expect(response.body).toEqual({ error: 'invalid_request' });
-        const transactions = e2e.app.get<
-          Model<AuthorizationTransactionDocument>
-        >(getModelToken(AuthorizationTransaction.name));
-        expect(await transactions.countDocuments()).toBe(0);
+        expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
         return;
       }
 
@@ -154,25 +125,14 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
       } else {
         query.append('scope', 'other');
       }
-      const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-        getModelToken(AuthorizationTransaction.name),
-      );
-      await expectInvalidAuthorizeQuery(
-        e2e.httpServer,
-        query.toString(),
-        transactions,
-      );
+      await expectInvalidAuthorizeQuery(e2e, query.toString());
     },
   );
 
   it('rejects an unsafe redirect at authorize start without storing a transaction', async () => {
-    const applications = e2e.app.get<Model<ApplicationDocument>>(
-      getModelToken(Application.name),
-    );
-    await applications.collection.updateOne(
-      { clientId: NATIVE_CLIENT_ID },
-      { $set: { redirectUris: ['javascript:alert(1)'] } },
-    );
+    await e2e.state.applications.storeApplicationRedirects(NATIVE_CLIENT_ID, [
+      'javascript:alert(1)',
+    ]);
     const response = await request(e2e.httpServer)
       .get('/api/oauth/authorize')
       .query(
@@ -183,10 +143,7 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'invalid_request' });
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
-    expect(await transactions.countDocuments()).toBe(0);
+    expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
   });
 
   it.each(['approve', 'deny'] as const)(
@@ -194,33 +151,29 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
     async (action) => {
       const browser = await loginAs(e2e.httpServer, SEED_USER);
       const started = await beginNativeAuthorization(e2e);
-      const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-        getModelToken(AuthorizationTransaction.name),
-      );
-      const applications = e2e.app.get<Model<ApplicationDocument>>(
-        getModelToken(Application.name),
-      );
       const unsafeRedirect = 'JaVaScRiPt:alert(1)';
-      await applications.collection.updateOne(
-        { clientId: NATIVE_CLIENT_ID },
-        { $set: { redirectUris: [unsafeRedirect] } },
-      );
-      await transactions.collection.updateOne(
-        { transactionId: started.transactionId },
-        { $set: { redirectUri: unsafeRedirect } },
+      await e2e.state.applications.storeApplicationRedirects(NATIVE_CLIENT_ID, [
+        unsafeRedirect,
+      ]);
+      await e2e.state.native.storeAuthorizationRedirect(
+        started.transactionId,
+        unsafeRedirect,
       );
 
       const response = await browser
         .post(`/api/oauth/authorize/${action}`)
-        .send({ transactionId: started.transactionId });
+        .send({
+          transactionId: started.transactionId,
+          expectedUserId: await seedUserId(e2e),
+        });
 
       expect(response.status).toBe(404);
       expect((response.body as ApiErrorBody).error.code).toBe(
         ErrorCode.NATIVE_TRANSACTION_EXPIRED,
       );
-      const transaction = await transactions.findOne({
-        transactionId: started.transactionId,
-      });
+      const transaction = await e2e.state.native.authorizationRequest(
+        started.transactionId,
+      );
       expect(transaction?.consumed).toBe(false);
       expect(transaction?.codeHash).toBeUndefined();
     },
@@ -238,28 +191,20 @@ describe('native authorization input and stored data guardrails (e2e)', () => {
   ])('deny rechecks a $label', async ({ patch }) => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const started = await beginNativeAuthorization(e2e);
-    const applications = e2e.app.get<Model<ApplicationDocument>>(
-      getModelToken(Application.name),
-    );
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
-    await applications.updateOne(
-      { clientId: NATIVE_CLIENT_ID },
-      { $set: patch },
-    );
+    await e2e.state.applications.changeApplication(NATIVE_CLIENT_ID, patch);
 
-    const response = await browser
-      .post('/api/oauth/authorize/deny')
-      .send({ transactionId: started.transactionId });
+    const response = await browser.post('/api/oauth/authorize/deny').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
 
     expect(response.status).toBe(404);
     expect((response.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
     );
-    const transaction = await transactions.findOne({
-      transactionId: started.transactionId,
-    });
+    const transaction = await e2e.state.native.authorizationRequest(
+      started.transactionId,
+    );
     expect(transaction?.consumed).toBe(false);
   });
 });
@@ -275,14 +220,13 @@ function authorizeParameters(query: AuthorizeQuery): URLSearchParams {
 }
 
 async function expectInvalidAuthorizeQuery(
-  httpServer: E2eApp['httpServer'],
+  e2e: E2eApp,
   query: string,
-  transactions: Model<AuthorizationTransactionDocument>,
 ): Promise<void> {
-  const response = await request(httpServer).get(
+  const response = await request(e2e.httpServer).get(
     `/api/oauth/authorize?${query}`,
   );
   expect(response.status).toBe(400);
   expect(response.body).toEqual({ error: 'invalid_request' });
-  expect(await transactions.countDocuments()).toBe(0);
+  expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
 }

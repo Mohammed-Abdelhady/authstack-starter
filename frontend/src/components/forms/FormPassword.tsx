@@ -10,13 +10,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Input, type InputProps } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { getInputClassName, FORM_STYLES } from '@/lib/config/form-styles';
 import { PasswordVisibilityToggle } from './PasswordVisibilityToggle';
 
 export interface FormPasswordProps<TFieldValues extends FieldValues = FieldValues> extends Omit<
-  React.ComponentProps<'input'>,
+  InputProps,
   'name' | 'type'
 > {
   name: FieldPath<TFieldValues>;
@@ -56,6 +56,7 @@ export const FormPassword = <TFieldValues extends FieldValues = FieldValues>({
                   {...restField}
                   {...restInputProps}
                   type={showPassword ? 'text' : 'password'}
+                  dir="ltr"
                   onChange={(e) => {
                     consumerOnChange?.(e);
                     fieldOnChange(e);

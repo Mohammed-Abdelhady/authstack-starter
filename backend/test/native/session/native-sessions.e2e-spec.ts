@@ -1,7 +1,5 @@
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { CREDENTIAL_PURPOSE } from '../../../src/session/constants/credential-purpose';
@@ -12,15 +10,14 @@ import {
   NATIVE_META,
   NATIVE_REDIRECT,
   nativeAuthorizeQuery,
-} from '../../../src/session/native/harness/native-oauth.harness-spec';
-import { User, UserDocument } from '../../../src/user/schemas/user.schema';
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_ADMIN, SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import { createNativeApplication } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
 
 interface ApiErrorBody {
@@ -267,8 +264,7 @@ async function issueNativeGrantFor(
   e2e: E2eApp,
   email: string,
 ): Promise<NativeGrant> {
-  const users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
-  const user = await users.findOne({ email }).exec();
+  const user = await e2e.state.accounts.accountIdFor(email);
   if (!user) {
     throw new Error('seed user is missing');
   }
@@ -278,11 +274,9 @@ async function issueNativeGrantFor(
   if (!begun.ok) {
     throw new Error(begun.error);
   }
-  const approved = await authorize.approve(
-    user._id.toString(),
-    begun.transactionId,
-    ['password'],
-  );
+  const approved = await authorize.approve(user, begun.transactionId, [
+    'password',
+  ]);
   const code = new URL(approved.redirectUri).searchParams.get('code');
   if (!code) {
     throw new Error('authorization code is missing');

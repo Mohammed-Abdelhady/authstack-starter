@@ -2,6 +2,7 @@ import * as React from 'react';
 import { vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
+import type { User } from '@app/sdk';
 import { renderForm, success, stubNetwork } from '@/tests/serverRejectionHarness';
 import { ActivationForm } from '@/modules/auth/components/ActivationForm';
 
@@ -18,14 +19,25 @@ vi.mock('@/i18n/navigation', () => ({
   Link: ({ children, ...props }: { children?: React.ReactNode }) =>
     React.createElement('a', props, children),
 }));
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
-export const SIGNED_IN_USER = {
+export const SIGNED_IN_USER: User = {
   id: 'user-1',
   email: 'layla@example.com',
   name: 'Layla Haddad',
   role: 'user',
   permissions: [],
+  authProvider: 'email',
+  isVerified: true,
+  // feature:totp:start
+  twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
+  passkeyCount: 0,
+  // feature:passkeys:end
+  linkedProviders: ['email'],
 };
 export const NATIVE_CONTINUATION = '/auth/native/authorize?transaction=txn-1';
 export const ACTIVATION_BODY = {

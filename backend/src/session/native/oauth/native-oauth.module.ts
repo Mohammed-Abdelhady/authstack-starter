@@ -11,11 +11,13 @@ import { NativeBoundProofService } from '../proof/native-bound-proof.service';
 import { NativeRefreshRotationService } from '../refresh/native-refresh-rotation.service';
 import { NativeBoundRetryService } from '../retry/native-bound-retry.service';
 import { NativeRevokeService } from '../revoke/native-revoke.service';
+import { NATIVE_OAUTH_PERSISTENCE_PROVIDERS } from '../persistence/native-oauth-persistence';
 
 @Module({
   imports: [SessionModule],
   controllers: [NativeOAuthController],
   providers: [
+    ...NATIVE_OAUTH_PERSISTENCE_PROVIDERS,
     NativeAuthorizeService,
     NativeAuthorizeBrowserService,
     NativeCredentialIssuer,

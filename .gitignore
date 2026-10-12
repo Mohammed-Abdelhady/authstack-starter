@@ -19,6 +19,7 @@ out/
 # pnpm --filter create-nest-next-auth run build
 packages/create-nest-next-auth/template/
 packages/create-nest-next-auth/template.manifest.json
+packages/create-nest-next-auth/template.rewrites.json
 packages/create-nest-next-auth/template.identity.json
 
 # Environment files
@@ -35,11 +36,13 @@ test-results/
 playwright-report/
 blob-report/
 .auth/
+# feature:mongodb:start
 .mongodb-binaries/
 mongodb-memory-server/
 
 # Local MongoDB replica set data (created by the local start steps)
 mongodb-data/
+# feature:mongodb:end
 
 # Logs
 *.log
@@ -67,3 +70,7 @@ Thumbs.db
 mobile/expo/ios/
 mobile/expo/android/
 mobile/expo/.expo/
+
+# Native projects generated for the bare shell (mobile/cli/NATIVE_PROJECTS.md)
+mobile/cli/ios/
+mobile/cli/android/

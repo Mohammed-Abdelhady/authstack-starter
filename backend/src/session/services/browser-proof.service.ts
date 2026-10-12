@@ -1,8 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
 import { CookieOptions, Request, Response } from 'express';
-import { Model } from 'mongoose';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { Clock } from '../../common/services/clock';
@@ -11,9 +9,9 @@ import {
   browserProofCookieName,
 } from '../constants/browser-proof';
 import {
-  BrowserProof,
-  BrowserProofDocument,
-} from '../schemas/browser-proof.schema';
+  BROWSER_PROOF_CLAIM,
+  BrowserProofStore,
+} from '../proofs/browser-proof.store';
 import {
   hashEquals,
   hashToken,
@@ -23,8 +21,7 @@ import {
 @Injectable()
 export class BrowserProofService {
   constructor(
-    @InjectModel(BrowserProof.name)
-    private readonly proofModel: Model<BrowserProofDocument>,
+    private readonly store: BrowserProofStore,
     private readonly configService: ConfigService,
     private readonly clock: Clock,
   ) {}
@@ -33,11 +30,10 @@ export class BrowserProofService {
     const proofId = randomSecret();
     const token = randomSecret();
     const now = this.clock.now();
-    await this.proofModel.create({
+    await this.store.issueBrowserProof({
       proofIdHash: hashToken(proofId),
       tokenHash: hashToken(token),
       expiresAt: new Date(now.getTime() + BROWSER_PROOF_TTL_MS),
-      spent: false,
     });
     response.cookie(this.cookieName(), proofId, this.cookieOptions());
     return token;
@@ -53,31 +49,18 @@ export class BrowserProofService {
       );
     }
 
-    const now = this.clock.now();
-    const proof = await this.proofModel
-      .findOne({
-        proofIdHash: hashToken(proofId),
-        spent: false,
-        expiresAt: { $gt: now },
-      })
-      .exec();
+    const proofIdHash = hashToken(proofId);
+    const proof = await this.store.findIssuedBrowserProof(proofIdHash);
     if (!proof || !hashEquals(presented, proof.tokenHash)) {
-      throw new AppException(
-        ErrorCode.CSRF_INVALID,
-        'Browser proof is invalid',
-        HttpStatus.FORBIDDEN,
-      );
+      throw invalidProof();
     }
 
-    const consumed = await this.proofModel
-      .updateOne({ _id: proof._id, spent: false }, { $set: { spent: true } })
-      .exec();
-    if (consumed.modifiedCount !== 1) {
-      throw new AppException(
-        ErrorCode.CSRF_INVALID,
-        'Browser proof is invalid',
-        HttpStatus.FORBIDDEN,
-      );
+    const claim = await this.store.claimBrowserProof(
+      proofIdHash,
+      this.clock.now(),
+    );
+    if (claim !== BROWSER_PROOF_CLAIM.CLAIMED) {
+      throw invalidProof();
     }
   }
 
@@ -105,4 +88,12 @@ export class BrowserProofService {
     }
     return undefined;
   }
+}
+
+function invalidProof(): AppException {
+  return new AppException(
+    ErrorCode.CSRF_INVALID,
+    'Browser proof is invalid',
+    HttpStatus.FORBIDDEN,
+  );
 }

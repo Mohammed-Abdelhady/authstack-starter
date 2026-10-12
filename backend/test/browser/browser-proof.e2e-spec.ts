@@ -1,12 +1,6 @@
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
 import request, { type Response as SupertestResponse } from 'supertest';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SessionModule } from '../../src/session/session.module';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../src/session/schemas/application.schema';
 import {
   BROWSER_PROOF_COOKIE,
   BROWSER_PROOF_TTL_MS,
@@ -21,7 +15,7 @@ import {
 import { SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, E2E_CLIENT_URL, type E2eApp } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
-import * as SESSION_AUTHORITY_TIMEOUTS from '../utils/session-authority-harness';
+import * as SESSION_AUTHORITY_TIMEOUTS from '../utils/hook-timeouts';
 
 interface ErrorBody {
   error: { code: string };
@@ -49,6 +43,7 @@ describe('browser proof (e2e)', () => {
     await e2e?.close();
   }, SESSION_AUTHORITY_TIMEOUTS.SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
+  // feature:email-password:start
   it('rejects login without a proof and rejects a spent proof without a session cookie', async () => {
     const missing = await request(e2e.httpServer)
       .post('/api/auth/login')
@@ -78,7 +73,9 @@ describe('browser proof (e2e)', () => {
     expect(replay.status).toBe(403);
     expect((replay.body as ErrorBody).error.code).toBe(ErrorCode.CSRF_INVALID);
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('accepts a fresh pre-session proof with a stale session cookie on login', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -94,7 +91,9 @@ describe('browser proof (e2e)', () => {
 
     expect(login.status).toBe(200);
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('rejects a pre-session proof on a protected route with a valid session', async () => {
     const agent = request.agent(e2e.httpServer);
     const sessionProof = await agent.get('/api/auth/browser-proof').expect(200);
@@ -118,7 +117,9 @@ describe('browser proof (e2e)', () => {
       ErrorCode.CSRF_INVALID,
     );
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('accepts either valid proof on public routes with a valid session cookie', async () => {
     const agent = request.agent(e2e.httpServer);
     const preSession = await agent.get('/api/auth/browser-proof').expect(200);
@@ -154,6 +155,7 @@ describe('browser proof (e2e)', () => {
       .send({ email: SEED_USER.email });
     expect(acceptedPreSession.status).toBe(200);
   });
+  // feature:email-password:end
 
   it('clears the session cookie when a protected request has an invalid session', async () => {
     const response = await request(e2e.httpServer)
@@ -194,22 +196,16 @@ describe('browser proof (e2e)', () => {
   it('allows the configured origin in production without seeding applications', async () => {
     const production = await bootE2eApp(0, { nodeEnv: 'production' });
     try {
-      const applications = production.app.get<Model<ApplicationDocument>>(
-        getModelToken(Application.name),
-      );
+      const applications = production.state.applications;
       const sessionModule = production.app.get(SessionModule);
-      await applications
-        .deleteMany({ environment: PRODUCTION_ENVIRONMENT })
-        .exec();
+      await applications.removeApplicationsIn(PRODUCTION_ENVIRONMENT);
 
       await sessionModule.onModuleInit();
       expect(
-        await applications.countDocuments({
-          environment: PRODUCTION_ENVIRONMENT,
-        }),
+        await applications.applicationCountIn(PRODUCTION_ENVIRONMENT),
       ).toBe(0);
 
-      await applications.create({
+      await applications.registerBrowserApplication({
         clientId: WEB_CLIENT_ID,
         displayName: 'Web',
         platform: APPLICATION_PLATFORM.WEB,
@@ -217,7 +213,7 @@ describe('browser proof (e2e)', () => {
         clientType: APPLICATION_CLIENT_TYPE.PUBLIC,
         allowedOrigins: [],
       });
-      await applications.create({
+      await applications.registerBrowserApplication({
         clientId: ADMIN_CLIENT_ID,
         displayName: 'Admin',
         platform: APPLICATION_PLATFORM.ADMIN,
@@ -246,20 +242,14 @@ describe('browser proof (e2e)', () => {
       );
 
       await sessionModule.onModuleInit();
-      const web = await applications
-        .findOne({
-          clientId: WEB_CLIENT_ID,
-          environment: PRODUCTION_ENVIRONMENT,
-        })
-        .lean()
-        .exec();
-      const admin = await applications
-        .findOne({
-          clientId: ADMIN_CLIENT_ID,
-          environment: PRODUCTION_ENVIRONMENT,
-        })
-        .lean()
-        .exec();
+      const web = await applications.application(
+        WEB_CLIENT_ID,
+        PRODUCTION_ENVIRONMENT,
+      );
+      const admin = await applications.application(
+        ADMIN_CLIENT_ID,
+        PRODUCTION_ENVIRONMENT,
+      );
       expect(web?.allowedOrigins).toEqual(['http://127.0.0.1:3107']);
       expect(admin?.allowedOrigins).toEqual(['http://127.0.0.1:3107']);
     } finally {
@@ -267,6 +257,7 @@ describe('browser proof (e2e)', () => {
     }
   });
 
+  // feature:email-password:start
   it('rejects a public browser-session route carrying both a cookie and a bearer', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -289,7 +280,9 @@ describe('browser proof (e2e)', () => {
       ErrorCode.MIXED_CREDENTIALS,
     );
   });
+  // feature:email-password:end
 
+  // feature:email-password:start
   it('rejects a foreign origin and an invalid bearer sent with a cookie', async () => {
     const proof = await request(e2e.httpServer)
       .get('/api/auth/browser-proof')
@@ -326,6 +319,7 @@ describe('browser proof (e2e)', () => {
       ErrorCode.NATIVE_AUTH_DISABLED,
     );
   });
+  // feature:email-password:end
 });
 
 function cookiePair(response: SupertestResponse, name: string): string {

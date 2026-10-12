@@ -1,14 +1,12 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../schemas/user.schema';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { ApiResponse } from '../../common/dto/api-response.dto';
+import { AccountPermissionStore } from '../stores/account-permission.store';
 import {
+  assertAccountId,
   assertActiveUser,
-  assertValidObjectId,
-} from '../utils/user-lookup.util';
+} from '../utils/account-lookup.util';
 
 interface UserPermissionsData {
   userId: string;
@@ -27,9 +25,7 @@ interface UserPermissionsWithRole extends UserPermissionsData {
 export class UserPermissionsService {
   private readonly logger = new Logger(UserPermissionsService.name);
 
-  constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-  ) {}
+  constructor(private readonly accounts: AccountPermissionStore) {}
 
   /**
    * Get the direct permissions and role of a user.
@@ -37,19 +33,22 @@ export class UserPermissionsService {
   async getUserPermissions(
     userId: string,
   ): Promise<ApiResponse<UserPermissionsWithRole>> {
-    assertValidObjectId(userId, 'Invalid user ID format');
+    this.assertAccountId(userId);
 
-    const user = await this.userModel
-      .findById(userId)
-      .select('permissions role')
-      .exec();
+    const grants = await this.accounts.findGrants(userId);
 
-    assertActiveUser(user);
+    if (!grants) {
+      throw new AppException(
+        ErrorCode.USER_NOT_FOUND,
+        'User not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
 
     return ApiResponse.success({
-      userId: user._id.toString(),
-      permissions: user.permissions || [],
-      role: user.role,
+      userId: grants.id,
+      permissions: grants.permissions,
+      role: grants.role,
     });
   }
 
@@ -60,9 +59,9 @@ export class UserPermissionsService {
     userId: string,
     permission: string,
   ): Promise<ApiResponse<UserPermissionsData>> {
-    assertValidObjectId(userId, 'Invalid user ID format');
+    this.assertAccountId(userId);
 
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.accounts.findAccount(userId);
     assertActiveUser(user);
 
     if (user.permissions.includes(permission)) {
@@ -73,16 +72,13 @@ export class UserPermissionsService {
       );
     }
 
-    user.permissions.push(permission);
-    await user.save();
+    const permissions = await this.accounts.grantPermission(user, permission);
 
-    this.logger.log(
-      `Permission ${permission} added: userId=${user._id.toString()}`,
-    );
+    this.logger.log(`Permission ${permission} added: userId=${user.id}`);
     return ApiResponse.success(
       {
-        userId: user._id.toString(),
-        permissions: user.permissions,
+        userId: user.id,
+        permissions,
       },
       'Permission added successfully',
     );
@@ -95,9 +91,9 @@ export class UserPermissionsService {
     userId: string,
     permission: string,
   ): Promise<ApiResponse<UserPermissionsData>> {
-    assertValidObjectId(userId, 'Invalid user ID format');
+    this.assertAccountId(userId);
 
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.accounts.findAccount(userId);
     assertActiveUser(user);
 
     if (!user.permissions.includes(permission)) {
@@ -108,18 +104,22 @@ export class UserPermissionsService {
       );
     }
 
-    user.permissions = user.permissions.filter((p) => p !== permission);
-    await user.save();
+    const permissions = await this.accounts.revokePermission(user, permission);
 
-    this.logger.log(
-      `Permission ${permission} removed: userId=${user._id.toString()}`,
-    );
+    this.logger.log(`Permission ${permission} removed: userId=${user.id}`);
     return ApiResponse.success(
       {
-        userId: user._id.toString(),
-        permissions: user.permissions,
+        userId: user.id,
+        permissions,
       },
       'Permission removed successfully',
+    );
+  }
+
+  private assertAccountId(userId: string): void {
+    assertAccountId(
+      this.accounts.isAccountId(userId),
+      'Invalid user ID format',
     );
   }
 }

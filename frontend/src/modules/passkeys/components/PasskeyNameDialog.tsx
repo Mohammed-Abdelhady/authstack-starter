@@ -15,10 +15,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useFeatureDisabledHandler } from '@/modules/auth/hooks/useFeatureDisabled';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { useRenamePasskeyMutation } from '../api';
 import { PASSKEY_NAME_MAX_LENGTH } from '../constants';
 import { PASSKEY_NAME_MODE, type PasskeyNameTarget } from '../types';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 
 interface PasskeyNameDialogProps {
   open: boolean;
@@ -46,7 +48,7 @@ type NameFormData = z.infer<ReturnType<typeof createNameSchema>>;
  */
 export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogProps) {
   const t = useTranslations('settings.passkeys');
-  const tCodes = useTranslations('errors.codes');
+  const refusalText = useRefusalText();
   const [renamePasskey, { isLoading }] = useRenamePasskeyMutation();
   const handleFeatureDisabled = useFeatureDisabledHandler();
 
@@ -71,13 +73,13 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
     }
   }, [target, reset]);
 
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: NameFormData) => {
       if (!target) {
         return;
       }
       try {
-        await renamePasskey({ id: target.passkey.id, name: data.name }).unwrap();
+        await showsOwnRefusal(renamePasskey({ id: target.passkey.id, name: data.name })).unwrap();
         onClose();
       } catch (err) {
         // The gate takes the card off the page once the refetch lands.
@@ -85,16 +87,17 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
           onClose();
           return;
         }
-        setError('root', { type: 'manual', message: tCodes(translatableErrorCode(err)) });
+        setError('root', { type: 'manual', message: refusalText(err) });
       }
     },
-    [handleFeatureDisabled, onClose, renamePasskey, setError, tCodes, target],
+    [handleFeatureDisabled, onClose, refusalText, renamePasskey, setError, target],
   );
+  const onSubmit = useSingleFlight(submit);
 
   const isCreate = target?.mode === PASSKEY_NAME_MODE.CREATE;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={open} busy={isLoading} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md" data-testid="passkey-name-dialog">
         <DialogHeader>
           <DialogTitle>{isCreate ? t('name.title') : t('rename.title')}</DialogTitle>
@@ -120,7 +123,8 @@ export function PasskeyNameDialog({ open, target, onClose }: PasskeyNameDialogPr
               name="name"
               label={t('name.field')}
               maxLength={PASSKEY_NAME_MAX_LENGTH}
-              disabled={isLoading}
+              dir="auto"
+              busy={isLoading}
               autoFocus
               data-testid="passkey-name-input"
             />

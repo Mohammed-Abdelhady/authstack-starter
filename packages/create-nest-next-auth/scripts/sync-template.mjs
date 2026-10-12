@@ -27,11 +27,12 @@ const REPOSITORY_TEST_PATHS = TEMPLATE_TEST_POLICY.EXCLUDED_PATH_PATTERNS.map(
 const REPO_ROOT = dirname(dirname(PACKAGE_DIR));
 const TEMPLATE_DIR = join(PACKAGE_DIR, 'template');
 const MANIFEST_NAME = 'template.manifest.json';
+// Each database's rewrites, read with the manifest. Mirrors REWRITES_FILE in src/constants.
+const REWRITES_NAME = 'template.rewrites.json';
 // Mirrors TEMPLATE_IDENTITY_FILE in src/constants: the template's content
 // hash, shipped next to template/ and recorded in generated projects.
 const TEMPLATE_IDENTITY_FILE = 'template.identity.json';
 const INSTRUCTION_FILES = new Set(['AGENTS.md', 'CLAUDE.md']);
-const UNSHIPPED_TEMPLATE_SCOPE = 'mobile';
 
 // Directory names dropped wherever they appear.
 const EXCLUDED_DIRS = new Set([
@@ -69,6 +70,7 @@ const EXCLUDED_PATHS = new Set([
   'packages',
   ...INSTRUCTION_FILES,
   MANIFEST_NAME,
+  REWRITES_NAME,
   join('.husky', '_'),
 ]);
 
@@ -118,15 +120,6 @@ export function templateContent(relativePath, bytes) {
     });
     return Buffer.from(kept.join(''));
   }
-  if (relativePath === 'commitlint.config.cjs') {
-    const content = bytes.toString('utf8');
-    const scopeStart = content.indexOf("'scope-enum':");
-    if (scopeStart === -1) return bytes;
-    const beforeScopes = content.slice(0, scopeStart);
-    const scopeConfig = content.slice(scopeStart);
-    const scopeLine = new RegExp(`^[\\t ]*'${UNSHIPPED_TEMPLATE_SCOPE}',\\r?\\n`, 'm');
-    return Buffer.from(beforeScopes + scopeConfig.replace(scopeLine, ''));
-  }
   if (relativePath === PACKAGE_MANAGER_CONFIG.PNPM_LOCKFILE) return removeInstallerImporter(bytes);
   if (relativePath === TEMPLATE_TEST_POLICY.POLICY_PATH) {
     const content = bytes.toString('utf8');
@@ -146,6 +139,11 @@ export function templateContent(relativePath, bytes) {
     config.gates = config.gates
       .filter((gate) => !gate.repositoryOnly)
       .map(({ repositoryOnly, ...gate }) => gate);
+    // A group whose gates were all repository-only is not a group of the project.
+    if (Array.isArray(config.groups))
+      config.groups = config.groups.filter((group) =>
+        config.gates.some((gate) => gate.group === group),
+      );
     return Buffer.from(`${JSON.stringify(config, null, 2)}\n`);
   }
   const workflow = TEMPLATE_TEST_POLICY.WORKFLOW_PATHS.includes(relativePath);
@@ -298,6 +296,17 @@ async function main() {
     throw new Error(`template.manifest.json is invalid:\n  ${problems.join('\n  ')}`);
   }
   await writeFile(join(PACKAGE_DIR, MANIFEST_NAME), manifest, 'utf8');
+
+  // The rewrites decide what the files become as much as the manifest does,
+  // so they ship beside it and count toward the identity.
+  await rm(join(PACKAGE_DIR, REWRITES_NAME), { force: true });
+  const rewritesPath = join(REPO_ROOT, REWRITES_NAME);
+  if (trackedPaths.includes(REWRITES_NAME)) {
+    const rewritesBytes = await readFile(rewritesPath);
+    JSON.parse(rewritesBytes.toString('utf8'));
+    await writeFile(join(PACKAGE_DIR, REWRITES_NAME), rewritesBytes);
+    hashes.push(entryLine(REWRITES_NAME, (await stat(rewritesPath)).mode, rewritesBytes));
+  }
 
   // One identity for what ships: every template file's shipped path,
   // executable bit and content digest, plus the manifest that decides what

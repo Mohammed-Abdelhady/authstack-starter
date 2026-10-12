@@ -1,4 +1,5 @@
 import { forwardRef, HTMLAttributes } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 export interface StatusBadgeProps extends HTMLAttributes<HTMLSpanElement> {
@@ -45,6 +46,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
     { status, size = 'md', variant = 'soft', pulse = false, className, children, ...props },
     ref,
   ) => {
+    const t = useTranslations('common.status');
     const statusColors = {
       verified: {
         solid: 'bg-success text-success-foreground',
@@ -105,7 +107,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
           sizeClasses[size],
           variantClasses[variant],
           statusColors[status][variant],
-          pulse && 'animate-pulse',
+          pulse && 'motion-safe:animate-pulse',
           className,
         )}
         {...props}
@@ -114,7 +116,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
         {pulse && (
           <span
             className={cn(
-              'h-1.5 w-1.5 rounded-full animate-pulse',
+              'h-1.5 w-1.5 rounded-full motion-safe:animate-pulse',
               status === 'active' && 'bg-status-success',
               status === 'verified' && 'bg-status-success',
             )}
@@ -122,7 +124,7 @@ export const StatusBadge = forwardRef<HTMLSpanElement, StatusBadgeProps>(
           />
         )}
 
-        {children || status.charAt(0).toUpperCase() + status.slice(1)}
+        {children || t(status)}
       </span>
     );
   },

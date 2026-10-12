@@ -5,7 +5,9 @@ import {
   PRODUCTION_OPTION_ID,
   RULES_POLICIES,
 } from '../constants/index.js';
+import { MOBILE_FLAGS } from '../constants/mobile.js';
 import type { CliOptions, RulesPolicy } from '../types.js';
+import type { MobileIdentityRequest } from '../types/mobile.js';
 
 interface RawOptions {
   yes?: boolean;
@@ -16,6 +18,10 @@ interface RawOptions {
   preset?: string;
   config?: string;
   locales?: string;
+  mobileName?: string;
+  mobileSlug?: string;
+  mobileAppId?: string;
+  mobileScheme?: string;
   docker?: boolean;
   production?: boolean;
   dryRun?: boolean;
@@ -44,11 +50,15 @@ export function buildProgram(version: string): Command {
       ]),
     )
     .option('--features <list>', 'comma separated feature ids, skips the feature prompt')
-    .option('--targets <list>', 'comma separated client ids, skips the client prompt')
+    .option('--targets <list>', 'comma separated client ids: web, native-expo')
     .option('--database <list>', 'database id; more than one is an error')
     .option('--preset <id>', 'apply a preset (minimal, standard, everything)')
     .option('--config <file>', 'JSON file with the same selection keys')
     .option('--locales <list>', 'locale ids; "en" is required, "ar" adds Arabic')
+    .option(`${MOBILE_FLAGS.name} <name>`, 'mobile app: the name under the icon')
+    .option(`${MOBILE_FLAGS.slug} <slug>`, 'mobile app: the Expo project slug')
+    .option(`${MOBILE_FLAGS.appId} <id>`, 'mobile app: iOS and Android id, like com.example.app')
+    .option(`${MOBILE_FLAGS.scheme} <scheme>`, 'mobile app: the scheme sign-in returns through')
     .option('--no-docker', 'leave out the Docker files')
     .option('--no-production', 'leave out the production nginx and compose files')
     .option('--dry-run', 'print the resolved plan and write nothing')
@@ -56,6 +66,16 @@ export function buildProgram(version: string): Command {
     .option('--no-git', 'skip git init and the first commit')
     .allowExcessArguments(false)
     .exitOverride();
+}
+
+/** The identity fields that were typed. A value is kept as typed, so validation sees it. */
+function mobileRequest(raw: RawOptions): MobileIdentityRequest | undefined {
+  const given: MobileIdentityRequest = {};
+  if (raw.mobileName !== undefined) given.name = raw.mobileName;
+  if (raw.mobileSlug !== undefined) given.slug = raw.mobileSlug;
+  if (raw.mobileAppId !== undefined) given.appId = raw.mobileAppId;
+  if (raw.mobileScheme !== undefined) given.scheme = raw.mobileScheme;
+  return Object.keys(given).length === 0 ? undefined : given;
 }
 
 /** Parses user arguments. Throws CommanderError on bad input, --help and --version. */
@@ -83,6 +103,7 @@ export function parseCliOptions(argv: string[], version = '0.0.0'): CliOptions {
     config: raw.config,
     dryRun: raw.dryRun === true,
     locales: raw.locales === undefined ? undefined : splitList(raw.locales),
+    mobile: mobileRequest(raw),
     optionOverrides,
     install: raw.install,
     git: raw.git,

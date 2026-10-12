@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { AR } from '../src/i18n/ar';
+import { AR } from '../src/i18n/ar'; // feature:locale-ar
 import { EN } from '../src/i18n/en';
 import {
+  createTranslate, // feature:locale-ar
   placeholdersOf,
   resolveLocale,
   translate,
@@ -10,10 +11,10 @@ import {
   type Translate,
 } from '../src/i18n';
 import { signInActionText, signInNotice } from '../src/logic/sign-in-text';
-import { deviceText, failureText, roleText } from '../src/logic/session-text';
-import type { SignInView } from '../src/types';
+import { activityText, deviceText, failureText, roleText } from '../src/logic/session-text';
+import type { SessionRow, SignInView } from '../src/types';
 
-const ARABIC_LETTER = /[؀-ۿ]/;
+const ARABIC_LETTER = /[؀-ۿ]/; // feature:locale-ar
 
 /** Records the key and arguments asked for, so no test depends on the wording. */
 function recorder() {
@@ -25,11 +26,12 @@ function recorder() {
   return { asked, t };
 }
 
-describe('the two catalogues', () => {
+describe('the catalogues', () => {
   it('finds unique sorted arguments and handles an argument-free message', () => {
     expect([placeholdersOf('{b} {a} {b}'), placeholdersOf('')]).toEqual([['a', 'b'], []]);
   });
 
+  // feature:locale-ar:start
   it('hold the same keys', () => {
     expect(Object.keys(AR).sort()).toEqual(Object.keys(EN).sort());
   });
@@ -43,23 +45,25 @@ describe('the two catalogues', () => {
 
     expect(differing).toEqual([]);
   });
+  // feature:locale-ar:end
 
-  it('leave no message empty and no Arabic message untranslated', () => {
+  it('leave no message empty and none untranslated', () => {
     const empty = Object.entries({ ...EN }).filter(([, text]) => text.trim() === '');
-    const untranslated = Object.entries(AR).filter(([, text]) => !ARABIC_LETTER.test(text));
+    const untranslated = Object.entries(AR).filter(([, text]) => !ARABIC_LETTER.test(text)); // feature:locale-ar
 
-    expect({ empty, untranslated }).toEqual({ empty: [], untranslated: [] });
+    expect(empty).toEqual([]);
+    expect(untranslated).toEqual([]); // feature:locale-ar
   });
 });
 
 describe('reading a message', () => {
-  it('fills each argument in both languages', () => {
+  it('fills each argument in every language', () => {
     expect([
       translate('en', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }),
-      translate('ar', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }),
+      translate('ar', 'sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }), // feature:locale-ar
     ]).toEqual([
       EN['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'),
-      AR['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'),
+      AR['sessions.browserOnSystem'].replace('{browser}', 'Edge').replace('{system}', 'Windows'), // feature:locale-ar
     ]);
   });
 
@@ -74,9 +78,9 @@ describe('reading a message', () => {
   });
 
   it.each([
-    ['ar', 'ar'],
-    ['ar-SA', 'ar'],
-    ['AR_eg', 'ar'],
+    ['ar', 'ar'], // feature:locale-ar
+    ['ar-SA', 'ar'], // feature:locale-ar
+    ['AR_eg', 'ar'], // feature:locale-ar
     ['arc', 'en'],
     ['en-GB', 'en'],
     ['', 'en'],
@@ -92,6 +96,7 @@ describe('which message a state asks for', () => {
     action: 'signIn',
     canAct: true,
     sessionEnded: false,
+    switchedOff: false,
     ...overrides,
   });
 
@@ -127,7 +132,7 @@ describe('which message a state asks for', () => {
       ['sessions.browserOnSystem', { browser: 'Edge', system: 'Windows' }],
       ['sessions.unknownDevice', undefined],
     ]);
-    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('Work laptop');
+    expect(deviceText(t, { kind: 'named', name: 'Work laptop' })).toBe('\u2068Work laptop\u2069');
   });
 
   it('translates a known role and shows a custom one as the server spells it', () => {
@@ -135,7 +140,7 @@ describe('which message a state asks for', () => {
 
     expect([roleText(t, 'admin'), roleText(t, 'night-shift')]).toEqual([
       'role.admin',
-      'night-shift',
+      '\u2066night-shift\u2069',
     ]);
   });
 
@@ -148,4 +153,39 @@ describe('which message a state asks for', () => {
       failureText(t, undefined),
     ]).toEqual(['common.offline', 'common.serverError', 'common.serverError']);
   });
+});
+
+describe('session activity formatting', () => {
+  const row = (activity: SessionRow['activity']): SessionRow => ({
+    id: 'session',
+    isCurrent: false,
+    device: { kind: 'named', name: 'legacy' },
+    kind: undefined,
+    ip: '192.0.2.1',
+    activity,
+    lastActiveAt: Date.UTC(2026, 5, 10, 13, 5),
+  });
+
+  it.each([
+    ['today', 'sessions.activeToday', 'time'],
+    ['earlier', 'sessions.activeEarlier', 'date'],
+  ] as const)('formats the %s activity with its message argument', (activity, message, part) => {
+    const { asked, t } = recorder();
+    const text = activityText(t, 'en', row(activity));
+    const [key, values] = asked[0] ?? [];
+
+    expect(key).toBe(message);
+    expect(text).toBe(message);
+    expect(Object.keys(values ?? {})).toEqual([part]);
+    expect(values?.[part]).toMatch(/[0-9]/);
+  });
+
+  // feature:locale-ar:start
+  it.each(['today', 'earlier'] as const)('uses Latin digits in Arabic %s activity', (activity) => {
+    const text = activityText(createTranslate('ar'), 'ar', row(activity));
+
+    expect(text).toMatch(/[0-9]/);
+    expect(text).not.toMatch(/[٠-٩]/);
+  });
+  // feature:locale-ar:end
 });

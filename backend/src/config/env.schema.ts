@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsISO8601, // feature:passkeys
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -11,9 +12,19 @@ import {
   Matches,
   Max,
   Min,
+  MinLength, // feature:passkeys
+  Validate,
 } from 'class-validator';
-import { OAuthEnvironmentConfig } from './env.oauth.schema';
-import { NativeEnvironmentVariables } from './env.native.schema';
+import {
+  BCRYPT_ROUNDS_DEFAULT,
+  BcryptRoundsConstraint,
+} from './bcrypt-rounds.constraint';
+import {
+  ProductionPublicUrlConstraint,
+  ProductionSwaggerConstraint,
+  ProductionThrottleConstraint,
+} from './env.production.constraints';
+import { ProductionGuardEnvironmentVariables } from './env.production.schema';
 import {
   transformBoolean,
   transformOptionalString,
@@ -31,59 +42,12 @@ import {
   MAIL_MAX_PENDING_SENDS,
 } from '../mail/constants/mail.constants';
 
-export interface EnvironmentConfig extends OAuthEnvironmentConfig {
-  NODE_ENV: 'development' | 'production' | 'test';
-  PORT: number;
-  MONGO_URI: string;
-  CLIENT_URL: string;
-  API_URL?: string;
-  THROTTLE_TTL: number;
-  THROTTLE_LIMIT: number;
+export { EnvironmentConfig } from './types/environment-config.type';
 
-  SMTP_HOST?: string;
-  SMTP_PORT?: number;
-  SMTP_SECURE?: boolean;
-  SMTP_USER?: string;
-  SMTP_PASS?: string;
-  EMAIL_FROM?: string;
-  MAIL_MAX_PENDING_SENDS?: number;
-  MAIL_DRAIN_DEADLINE_MS?: number;
+/** 32 bytes in base64: 43 characters and one of padding. */
+const TOTP_KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/;
 
-  BCRYPT_ROUNDS?: number;
-
-  SESSION_COOKIE_NAME?: string;
-  SESSION_COOKIE_MAX_AGE?: number;
-
-  AUTH_EPOCH?: number;
-  AUTH_NATIVE_ENABLED?: boolean;
-  AUTH_NATIVE_DPOP_REQUIRED?: boolean;
-  AUTH_NATIVE_DPOP_NONCE_SECRET?: string;
-  AUTH_NATIVE_APPLICATIONS?: string;
-  AUTH_NATIVE_ALLOW_CUSTOM_SCHEME?: boolean;
-
-  ACTIVATION_CODE_EXPIRES_IN?: number;
-  ACTIVATION_MAX_ATTEMPTS?: number;
-
-  AUTH_PASSWORD_ENABLED?: boolean;
-
-  MAGIC_LINK_ENABLED?: boolean;
-  MAGIC_LINK_EXPIRES_IN?: number;
-  MAGIC_LINK_MAX_PER_HOUR?: number;
-
-  TWO_FACTOR_ENABLED?: boolean;
-  TOTP_ENCRYPTION_KEY?: string;
-
-  PASSKEYS_ENABLED?: boolean;
-  WEBAUTHN_RP_ID?: string;
-  WEBAUTHN_RP_NAME?: string;
-  WEBAUTHN_ORIGIN?: string;
-
-  SWAGGER_ENABLED?: boolean;
-  PROFILE_SYNC_ENABLED?: boolean;
-  PROFILE_SYNC_FIELDS?: string;
-}
-
-export class EnvironmentVariables extends NativeEnvironmentVariables {
+export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @IsEnum(['development', 'production', 'test'])
   @IsOptional()
   NODE_ENV: 'development' | 'production' | 'test' = 'development';
@@ -97,15 +61,8 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
 
   @IsString()
   @IsNotEmpty()
-  @Matches(/^mongodb(\+srv)?:\/\/.+$/, {
-    message:
-      'MONGO_URI must be a valid MongoDB connection string starting with mongodb:// or mongodb+srv://',
-  })
-  MONGO_URI!: string;
-
-  @IsString()
-  @IsNotEmpty()
   @IsUrl({ require_protocol: true, require_tld: false })
+  @Validate(ProductionPublicUrlConstraint)
   @IsOptional()
   CLIENT_URL: string = 'http://localhost:3000';
 
@@ -120,6 +77,7 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   @IsInt()
   @Min(1)
   @Max(1000)
+  @Validate(ProductionThrottleConstraint)
   @IsOptional()
   THROTTLE_LIMIT: number = 60;
 
@@ -166,11 +124,9 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   MAIL_DRAIN_DEADLINE_MS: number = MAIL_DRAIN_DEADLINE_MS;
 
   @Type(() => Number)
-  @IsInt()
-  @Min(4)
-  @Max(12)
+  @Validate(BcryptRoundsConstraint)
   @IsOptional()
-  BCRYPT_ROUNDS: number = 10;
+  BCRYPT_ROUNDS: number = BCRYPT_ROUNDS_DEFAULT;
 
   @IsString()
   @IsOptional()
@@ -250,16 +206,53 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
   @Transform(transformOptionalString)
   @IsString()
   @IsOptional()
-  @Matches(/^[A-Za-z0-9+/]{43}=$/, {
+  @Matches(TOTP_KEY_PATTERN, {
     message:
       'TOTP_ENCRYPTION_KEY must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
   })
   TOTP_ENCRYPTION_KEY?: string;
 
+  /**
+   * The key before TOTP_ENCRYPTION_KEY, set only while that key is being
+   * replaced. To rotate: move the current key here, put a new key in
+   * TOTP_ENCRYPTION_KEY and restart. A secret still stored under the old key
+   * is read with it and written again under the new one the next time its
+   * account answers a code. Remove this setting once no stored secret names
+   * the old key: a secret left under it stops working then. Sign-ins waiting
+   * for a code when the key changes start again.
+   */
+  @Transform(transformOptionalString)
+  @IsString()
+  @IsOptional()
+  @Matches(TOTP_KEY_PATTERN, {
+    message:
+      'TOTP_ENCRYPTION_KEY_PREVIOUS must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
+  })
+  TOTP_ENCRYPTION_KEY_PREVIOUS?: string;
+
   @Transform(transformBoolean(true))
   @IsBoolean()
   @IsOptional()
   PASSKEYS_ENABLED: boolean = true;
+
+  // feature:passkeys:start
+  @Transform(transformOptionalString)
+  @IsString()
+  @MinLength(32)
+  @IsOptional()
+  PASSKEY_CHALLENGE_SECRET?: string;
+
+  @Transform(transformOptionalString)
+  @IsString()
+  @MinLength(32)
+  @IsOptional()
+  PASSKEY_CHALLENGE_SECRET_PREVIOUS?: string;
+
+  @Transform(transformOptionalString)
+  @IsISO8601()
+  @IsOptional()
+  PASSKEY_CHALLENGE_LEGACY_UNTIL?: string;
+  // feature:passkeys:end
 
   /**
    * Domain the credentials are bound to. Left unset it follows the hostname of
@@ -287,6 +280,7 @@ export class EnvironmentVariables extends NativeEnvironmentVariables {
 
   @Transform(transformBoolean(false))
   @IsBoolean()
+  @Validate(ProductionSwaggerConstraint)
   @IsOptional()
   SWAGGER_ENABLED: boolean = false;
 

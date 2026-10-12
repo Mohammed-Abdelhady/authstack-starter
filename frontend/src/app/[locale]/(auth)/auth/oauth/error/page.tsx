@@ -1,7 +1,7 @@
 'use client';
 
 import { Description, Heading } from '@/components/design-system';
-import { Link, useRouter } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { AlertCircle } from 'lucide-react';
@@ -17,11 +17,6 @@ const REASON_KEYS = ['reasonCancelled', 'reasonTimeout', 'reasonProvider', 'reas
  */
 export default function OAuthErrorPage() {
   const t = useTranslations('auth.oauth.errorPage');
-  const router = useRouter();
-
-  const handleTryAgain = () => {
-    router.push('/auth/login');
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -59,20 +54,16 @@ export default function OAuthErrorPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button
-            onClick={handleTryAgain}
-            className="w-full sm:w-auto"
-            data-testid="try-again-button"
-          >
-            {t('tryAgain')}
+          <Button asChild className="w-full sm:w-auto" data-testid="try-again-button">
+            <Link href="/auth/login">{t('tryAgain')}</Link>
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push('/')}
+            asChild
             className="w-full sm:w-auto"
             data-testid="go-home-button"
           >
-            {t('goHome')}
+            <Link href="/">{t('goHome')}</Link>
           </Button>
         </div>
 

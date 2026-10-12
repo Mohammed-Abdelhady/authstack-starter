@@ -15,10 +15,30 @@ const KEY_LINE = /^(\s*)"((?:[^"\\]|\\.)*)"(\s*):/gm;
 const TAG = '@@';
 
 function readMessages(locale: string): string {
-  return readFileSync(
-    fileURLToPath(new URL(`../messages/${locale}.json`, import.meta.url)),
-    'utf8',
+  const filenames = [
+    `${locale}.json`,
+    ...[
+      'pagination',
+      'home',
+      'nav',
+      'auth',
+      'toast',
+      'settings',
+      'errors',
+      'dashboard',
+      'sessions',
+      'users',
+      'roles',
+      'permissions',
+      'validation',
+    ].map((topic) => `${topic}.${locale}.json`),
+  ];
+  const bodies = filenames.map((filename) =>
+    readFileSync(fileURLToPath(new URL(`../messages/${filename}`, import.meta.url)), 'utf8')
+      .trim()
+      .slice(1, -1),
   );
+  return `{${bodies.join(',')}}`;
 }
 
 /**

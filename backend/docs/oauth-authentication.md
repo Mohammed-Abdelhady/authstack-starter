@@ -77,11 +77,12 @@ Returns the list of OAuth providers that have credentials configured in backend 
 
 **Endpoint:** `GET /api/auth/oauth/:provider/start?redirect={path}`
 
-Initiates the OAuth handshake. Generates a random state token and PKCE code verifier (if supported by the provider), sets a signed `oauth_state` HTTP-only cookie, and issues an HTTP 302 redirect to the provider's authorization URL.
+Initiates the OAuth handshake. Generates a random state token and PKCE code verifier (if supported by the provider), sets a signed HTTP-only state cookie, and issues an HTTP 302 redirect to the provider's authorization URL. The cookie is named `oauth_<provider>` in development and `__Host-oauth_<provider>` in production, where it is `Secure` and on path `/`.
 
 **Query parameters:**
 
 - `redirect` (optional): Frontend path to redirect to after successful login (for example `/dashboard`). Paths must be relative to prevent open-redirect vulnerabilities.
+- `intent` (optional): `link` attaches the provider to the signed-in account and needs the session cookie on this request. The account and the session are written into the signed state here, because the callback is a navigation the provider's site starts and a browser sends no `SameSite=Strict` cookie with it. The callback completes the link from the state when that session is still live, and answers `SESSION_INVALID` when it was ended since.
 
 ### 3. Handle provider callback
 
@@ -94,6 +95,7 @@ Receives the authorization code and state parameter from the third-party provide
 3. Retrieves the normalized user profile from the provider.
 4. Finds an existing account by provider account ID or verified email address.
 5. If an account is found, records the provider identity in `linkedAccounts`. If no account exists, creates a new user.
+   An account found by its address alone is attached to only when the provider states, for each address, that it verified it, and when the account's own address was verified by this server. Facebook sends no such statement, so a first Facebook sign-in cannot create an account or join one by address. The person signs in another way and links Facebook in the settings. An already linked Facebook identity can still sign in.
 6. Clears the `oauth_state` cookie, issues a session cookie (`sid` in development, `__Host-sid` in production), and redirects the browser to the destination path.
 
 **Endpoint:** `POST /api/auth/oauth/:provider/callback`
@@ -105,6 +107,54 @@ Handles Apple OAuth callbacks that use the `form_post` response mode.
 **Endpoint:** `POST /api/auth/oauth/callback`
 
 This legacy endpoint is retired. Requests to this route return HTTP 410 Gone.
+
+### 5. Linked providers and unlink hints
+
+```http
+GET    /api/user/linked-providers
+DELETE /api/user/unlink-provider/:provider
+POST   /api/user/set-primary-provider
+```
+
+The list answers with the sign-in methods on the account and, for each one, what an unlink would be told now:
+
+```json
+{
+  "providers": ["email", "google"],
+  "primaryProvider": "google",
+  "unlinkHints": { "email": "not_removable", "google": "allowed" },
+  "primaryHints": { "email": "no_profile_to_sync", "google": "allowed" },
+  "emailSignIn": "usable"
+}
+```
+
+| Hint                  | Meaning                                                                      |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `allowed`             | The unlink would go through.                                                 |
+| `last_sign_in_method` | The unlink would be refused with `400 CANNOT_UNLINK_LAST_PROVIDER`.          |
+| `not_removable`       | Email sign-in is not a link. An unlink of it answers `400 VALIDATION_ERROR`. |
+
+Email sign-in counts as a remaining way in only while password sign-in or magic links are enabled. With both off, the last provider stays. Passkeys do not count for an unlink.
+
+`unlinkHints` comes from the rule the unlink asks, and it is advice: the unlink still decides, so a page handles a refusal as well. The field is optional. A client that does not know it can ignore it.
+
+`primaryHints` says the same for choosing the provider that profile sync follows:
+
+| Hint                 | Meaning                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `allowed`            | The choice would go through. This includes the provider that is primary already.   |
+| `no_profile_to_sync` | Email sign-in has no provider profile. Choosing it answers `400 VALIDATION_ERROR`. |
+
+Every linked provider can be primary, so only email sign-in is refused. A provider that is not linked answers `400 PROVIDER_NOT_LINKED` and is not listed. The field is optional and is advice in the same way.
+
+`providers` lists `email` on every account that was created for an address, whatever the deployment has switched on. `emailSignIn` says whether that address can sign in now:
+
+| Value          | Meaning                                                                           |
+| -------------- | --------------------------------------------------------------------------------- |
+| `usable`       | Password sign-in or magic links are enabled.                                      |
+| `switched_off` | Both are off. The address still identifies the account and nobody signs in by it. |
+
+It comes from the same reading the unlink rule counts email sign-in with. The field is absent when `providers` has no `email`, and a client that does not know it can ignore it.
 
 ## Adding a new OAuth provider
 

@@ -3,7 +3,8 @@ import {
   WEB_ABSOLUTE_LIFETIME_MS,
   WEB_IDLE_LIFETIME_MS,
 } from './constants/session-policy';
-import { ApplicationRegistryService } from './services/application-registry.service';
+import { ApplicationRegistryService } from './persistence/mongo/application-registry.service';
+import { SecurityEventService } from './persistence/mongo/security-event.service';
 import { hashToken } from './utils/hashing/token-hash';
 import { SESSION_LAST_USED_UPDATE_INTERVAL_MS } from '../common/constants/session';
 import { startMemoryReplSet } from '../../test/utils/memory-replset';
@@ -15,7 +16,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
   SessionAuthorityHarness,
 } from '../../test/utils/session-authority-harness';
-import { RaceBarrier } from '../../test/utils/race-gate';
+import { RaceBarrier, holdBefore } from '../../test/utils/race-gate';
 
 describe('idle extension against revocation race', () => {
   let mongo: Awaited<ReturnType<typeof startMemoryReplSet>>;
@@ -56,108 +57,110 @@ describe('idle extension against revocation race', () => {
     );
   });
 
-  it(
-    'does not revive a session revoked while the extension is paused',
-    async () => {
-      const issued = await login('extension-race@example.test');
-      const before = await harness.sessions.findOne({
-        tokenHash: hashToken(issued.token),
-      });
-      if (!before) {
-        throw new Error('expected a session');
-      }
-      // Move past the last-used update interval so the extension really writes.
-      harness.clock.set(
-        new Date(
-          TEST_NOW.getTime() + SESSION_LAST_USED_UPDATE_INTERVAL_MS + 60_000,
-        ),
-      );
+  it('does not revive a session whose revocation commits while the extension holds its read', async () => {
+    const issued = await login('extension-race@example.test');
+    const before = await harness.sessions.findOne({
+      tokenHash: hashToken(issued.token),
+    });
+    if (!before) {
+      throw new Error('expected a session');
+    }
+    // Move past the last-used update interval so the extension really writes.
+    harness.clock.set(
+      new Date(
+        TEST_NOW.getTime() + SESSION_LAST_USED_UPDATE_INTERVAL_MS + 60_000,
+      ),
+    );
 
-      const applications = harness.app.get(ApplicationRegistryService);
-      const findByClientId = applications.findByClientId.bind(applications);
-      const barrier = new RaceBarrier();
-      const read = barrier.point('authority-read');
-      const spy = jest
-        .spyOn(applications, 'findByClientId')
-        .mockImplementation(async (clientId) => {
-          await read.hold();
-          return findByClientId(clientId);
-        });
+    const applications = harness.app.get(ApplicationRegistryService);
+    const events = harness.app.get(SecurityEventService);
+    const barrier = new RaceBarrier();
+    // The extension has read the session as live and has not written yet.
+    const extensionRead = barrier.point('extension-read');
+    // The revocation has written inside its transaction and has not committed.
+    const revocationWritten = barrier.point('revocation-written');
+    const restoreRead = holdBefore(applications, 'findByClientId', (call) =>
+      call === 0 ? extensionRead : undefined,
+    );
+    const restoreEvent = holdBefore(events, 'record', () => revocationWritten);
 
-      let validation: Promise<unknown> | undefined;
-      try {
-        validation = harness.authority.validate(issued.token, {
-          extendIdle: true,
-        });
-        await read.reached(1);
-        await harness.revocation.revokeByToken(issued.token);
-        read.release();
-        // Accepted boundary: a validation that began before the revocation completed may return its pre-revocation read; the next validation must not.
-        await validation;
-      } finally {
-        read.release();
-        spy.mockRestore();
-      }
-
-      const after = await harness.sessions.findById(before._id);
-      expect({
-        sessionValid: after?.isValid,
-        revoked: after?.revokedAt instanceof Date,
-        idleExpiresAt: after?.idleExpiresAt.getTime(),
-        lastActivityAt: after?.lastActivityAt.getTime(),
-        validationAfterRevocation: await harness.authority.validate(
-          issued.token,
-          {
-            extendIdle: false,
-          },
-        ),
-      }).toEqual({
-        sessionValid: false,
-        revoked: true,
-        idleExpiresAt: before.idleExpiresAt.getTime(),
-        lastActivityAt: before.lastActivityAt.getTime(),
-        validationAfterRevocation: null,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
-
-  it(
-    'refuses to extend or validate a session revoked before the validation',
-    async () => {
-      const issued = await login('revoked-first@example.test');
-      const before = await harness.sessions.findOne({
-        tokenHash: hashToken(issued.token),
-      });
-      if (!before) {
-        throw new Error('expected a session');
-      }
-      harness.clock.set(
-        new Date(
-          TEST_NOW.getTime() + SESSION_LAST_USED_UPDATE_INTERVAL_MS + 60_000,
-        ),
-      );
-
-      await harness.revocation.revokeByToken(issued.token);
-      const validation = await harness.authority.validate(issued.token, {
+    let validationAfterRevocation: unknown;
+    try {
+      const extension = harness.authority.validate(issued.token, {
         extendIdle: true,
       });
-      const after = await harness.sessions.findById(before._id);
+      await extensionRead.reached(1);
+      const revocation = harness.revocation.revokeByToken(issued.token);
+      await revocationWritten.reached(1);
 
-      expect({
-        validation,
-        sessionValid: after?.isValid,
-        idleExpiresAt: after?.idleExpiresAt.getTime(),
-        lastActivityAt: after?.lastActivityAt.getTime(),
-      }).toEqual({
-        validation: null,
-        sessionValid: false,
-        idleExpiresAt: before.idleExpiresAt.getTime(),
-        lastActivityAt: before.lastActivityAt.getTime(),
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+      revocationWritten.release();
+      await revocation;
+      validationAfterRevocation = await harness.authority.validate(
+        issued.token,
+        { extendIdle: true },
+      );
+      extensionRead.release();
+      // Accepted boundary: a validation that began before the revocation completed may return its pre-revocation read; the next validation must not.
+      await extension;
+    } finally {
+      extensionRead.release();
+      revocationWritten.release();
+      restoreRead();
+      restoreEvent();
+    }
+
+    const after = await harness.sessions.findById(before._id);
+    expect({
+      validationAfterRevocation,
+      sessionValid: after?.isValid,
+      revoked: after?.revokedAt instanceof Date,
+      idleExpiresAt: after?.idleExpiresAt.getTime(),
+      lastActivityAt: after?.lastActivityAt.getTime(),
+      laterValidation: await harness.authority.validate(issued.token, {
+        extendIdle: false,
+      }),
+    }).toEqual({
+      validationAfterRevocation: null,
+      sessionValid: false,
+      revoked: true,
+      idleExpiresAt: before.idleExpiresAt.getTime(),
+      lastActivityAt: before.lastActivityAt.getTime(),
+      laterValidation: null,
+    });
+  });
+
+  it('refuses to extend or validate a session revoked before the validation', async () => {
+    const issued = await login('revoked-first@example.test');
+    const before = await harness.sessions.findOne({
+      tokenHash: hashToken(issued.token),
+    });
+    if (!before) {
+      throw new Error('expected a session');
+    }
+    harness.clock.set(
+      new Date(
+        TEST_NOW.getTime() + SESSION_LAST_USED_UPDATE_INTERVAL_MS + 60_000,
+      ),
+    );
+
+    await harness.revocation.revokeByToken(issued.token);
+    const validation = await harness.authority.validate(issued.token, {
+      extendIdle: true,
+    });
+    const after = await harness.sessions.findById(before._id);
+
+    expect({
+      validation,
+      sessionValid: after?.isValid,
+      idleExpiresAt: after?.idleExpiresAt.getTime(),
+      lastActivityAt: after?.lastActivityAt.getTime(),
+    }).toEqual({
+      validation: null,
+      sessionValid: false,
+      idleExpiresAt: before.idleExpiresAt.getTime(),
+      lastActivityAt: before.lastActivityAt.getTime(),
+    });
+  });
 
   async function login(email: string): Promise<{ token: string }> {
     const user = await createTestUser(harness.users, email);

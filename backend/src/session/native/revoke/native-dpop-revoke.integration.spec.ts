@@ -24,7 +24,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 import { OAUTH_ERROR } from '../oauth/native-oauth.types';
 
 const REVOKE_ADDRESS = 'https://api.example.test/api/oauth/revoke';

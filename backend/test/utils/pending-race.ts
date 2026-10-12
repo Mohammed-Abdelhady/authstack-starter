@@ -1,54 +1,25 @@
-import type { Model } from 'mongoose';
 import type { Response } from 'supertest';
 import type { MailOptions } from '../../src/mail/interfaces/mail-options.interface';
-import { RaceGate, pauseQuery } from './race-gate';
-
-type QueryMethod =
-  'findOneAndUpdate' | 'updateOne' | 'deleteOne' | 'findOneAndDelete';
+import { AsyncMethodName, RaceGate, holdBefore } from './race-gate';
 
 /**
- * Hold the model call at `callIndex` on its gate. The gate is placed on the
- * query or promise the caller is about to run, so the request is past every
- * earlier step and has not run this one yet.
+ * For `holdBefore`: hold the call at `callIndex` of a store method on the gate
+ * and let every other call through. The request is then past every earlier
+ * step and has not run this one yet.
  */
-export function pauseQueryCall<DocType>(
-  model: Model<DocType>,
-  method: QueryMethod,
+export function onCall(
   gate: RaceGate,
   callIndex: number,
-): () => void {
-  const original = model[method].bind(model);
-  let call = 0;
-  const spy = jest
-    .spyOn(model, method)
-    .mockImplementation((...args: unknown[]) => {
-      const query = Reflect.apply(original, model, args);
-      if (call === callIndex) {
-        pauseQuery(query as { exec: () => Promise<unknown> }, gate);
-      }
-      call += 1;
-      return query as ReturnType<typeof original>;
-    });
-  return () => spy.mockRestore();
+): (call: number) => RaceGate | undefined {
+  return (call) => (call === callIndex ? gate : undefined);
 }
 
-/** Hold the model's `create` at `callIndex` on its gate. */
-export function pauseCreateCall<DocType>(
-  model: Model<DocType>,
-  gate: RaceGate,
-  callIndex: number,
-): () => void {
-  const original = model.create.bind(model);
-  let call = 0;
-  const spy = jest
-    .spyOn(model, 'create')
-    .mockImplementation((...args: Parameters<typeof original>) => {
-      const run = () => original(...args);
-      const current = call;
-      call += 1;
-      return current === callIndex ? gate.hold().then(run) : run();
-    });
-  return () => spy.mockRestore();
+/** Hold the call at `callIndex` of a store method on the gate. */
+export function holdStoreCall<
+  Store extends object,
+  Name extends AsyncMethodName<Store>,
+>(store: Store, method: Name, gate: RaceGate, callIndex: number): () => void {
+  return holdBefore(store, method, onCall(gate, callIndex));
 }
 
 /** The 6-digit code the last captured mail carried. */

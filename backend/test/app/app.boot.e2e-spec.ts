@@ -5,7 +5,7 @@ import { browserAgent } from '../utils/e2e-app'; // feature:magic-link,totp,pass
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 // feature:oauth-core:start
 import {
   OAUTH_BOOT_PROVIDER_IDS,

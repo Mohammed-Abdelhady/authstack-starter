@@ -1,25 +1,19 @@
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
-import { MailCounter } from '../../src/auth/schemas/mail-counter.schema';
 import {
   MAIL_COUNTER_PURPOSE,
   PENDING_PURPOSE,
 } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import type { E2ePendingRegistrationFields } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
 import { RaceGate } from '../utils/race-gate';
-import {
-  inWindow,
-  pauseCreateCall,
-  pauseQueryCall,
-} from '../utils/pending-race';
+import { holdStoreCall, inWindow } from '../utils/pending-race';
+import { PendingRegistrationStore } from '../../src/auth/pending-codes/pending-registration.store';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const CODE = '123456';
 const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 15 * 60 * 1000);
@@ -27,17 +21,11 @@ const EXPIRED_EXPIRY = new Date(TEST_NOW.getTime() - 1000);
 
 describe('Pending registration windows (e2e)', () => {
   let e2e: E2eApp;
-  let pendingRegistrations: Model<PendingRegistration>;
-  let mailCounters: Model<MailCounter>;
+  let registrationStore: PendingRegistrationStore;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
-    mailCounters = e2e.app.get<Model<MailCounter>>(
-      getModelToken('MailCounter'),
-    );
+    registrationStore = e2e.app.get(PendingRegistrationStore);
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -61,7 +49,7 @@ describe('Pending registration windows (e2e)', () => {
     return agent.post(path).send(body);
   }
 
-  function pendingFields(overrides: Record<string, unknown> = {}) {
+  function pendingFields(overrides: E2ePendingRegistrationFields = {}) {
     return {
       purpose: PENDING_PURPOSE.SIGNUP,
       hashedCode: 'old-code',
@@ -73,10 +61,10 @@ describe('Pending registration windows (e2e)', () => {
 
   async function seedPendingRegistration(
     email: string,
-    overrides: Record<string, unknown> = {},
+    overrides: E2ePendingRegistrationFields = {},
   ): Promise<string> {
     const hashedCode = await bcrypt.hash(CODE, 4);
-    await pendingRegistrations.create({
+    await e2e.state.auth.storePendingRegistration({
       email,
       ...pendingFields({ hashedCode, ...overrides }),
     });
@@ -84,9 +72,7 @@ describe('Pending registration windows (e2e)', () => {
   }
 
   async function storedRegistration(email: string) {
-    const record = await pendingRegistrations
-      .findOne({ email })
-      .select('+hashedCode');
+    const record = await e2e.state.auth.pendingRegistrationFor(email);
     if (!record) throw new Error(`expected a stored record for ${email}`);
     return record;
   }
@@ -96,14 +82,13 @@ describe('Pending registration windows (e2e)', () => {
     await seedPendingRegistration(email, { expiresAt: EXPIRED_EXPIRY });
 
     const response = await inWindow(
-      (gate) =>
-        pauseQueryCall(pendingRegistrations, 'findOneAndUpdate', gate, 1),
+      (gate) => holdStoreCall(registrationStore, 'replaceExpiredCode', gate, 0),
       () => post('/api/auth/register', { email }),
-      () => pendingRegistrations.deleteOne({ email }),
+      () => e2e.state.auth.removePendingRegistration(email),
     );
 
     expect(response.status).toBe(200);
-    expect(await pendingRegistrations.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(1);
     const record = await storedRegistration(email);
     expect(record.purpose).toBe(PENDING_PURPOSE.SIGNUP);
     expect(
@@ -115,10 +100,10 @@ describe('Pending registration windows (e2e)', () => {
     const email = 'window-create@example.test';
 
     const response = await inWindow(
-      (gate) => pauseCreateCall(pendingRegistrations, gate, 0),
+      (gate) => holdStoreCall(registrationStore, 'insertRecord', gate, 0),
       () => post('/api/auth/register', { email }),
       () =>
-        pendingRegistrations.create({
+        e2e.state.auth.storePendingRegistration({
           email,
           ...pendingFields({
             hashedCode: 'inserted-code',
@@ -127,13 +112,13 @@ describe('Pending registration windows (e2e)', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await pendingRegistrations.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(1);
     const record = await storedRegistration(email);
     expect(record.purpose).toBe(PENDING_PURPOSE.SIGNUP);
-    const counter = await mailCounters.findOne({
+    const counter = await e2e.state.auth.mailCounterFor(
       email,
-      purpose: MAIL_COUNTER_PURPOSE.SIGNUP,
-    });
+      MAIL_COUNTER_PURPOSE.SIGNUP,
+    );
     expect(counter?.mailedCodes).toBe(1);
     expect(
       await bcrypt.compare(await e2e.mailedCode(), record.hashedCode),
@@ -148,23 +133,17 @@ describe('Pending registration windows (e2e)', () => {
     const firstGate = new RaceGate();
     const secondGate = new RaceGate();
     const retryGate = new RaceGate();
-    const originalCreate =
-      pendingRegistrations.create.bind(pendingRegistrations);
-    let createCall = 0;
-    const createSpy = jest
-      .spyOn(pendingRegistrations, 'create')
-      .mockImplementation((...args) => {
-        const gate = createCall === 0 ? firstGate : secondGate;
-        createCall += 1;
-        return gate.hold().then(() => originalCreate(...args));
-      });
-    // The loser's second pass reaches this live refresh (call 4) after its
-    // create lost the unique index.
-    const restoreQuery = pauseQueryCall(
-      pendingRegistrations,
-      'findOneAndUpdate',
+    const restoreCreate = e2e.state.auth.holdPendingRegistrationInserts(
+      firstGate,
+      secondGate,
+    );
+    // The loser's second pass reaches this live refresh (the third one made)
+    // after its create lost the unique index.
+    const restoreQuery = holdStoreCall(
+      registrationStore,
+      'rotateLiveCode',
       retryGate,
-      4,
+      2,
     );
 
     try {
@@ -181,17 +160,17 @@ describe('Pending registration windows (e2e)', () => {
       const firstResult = await first;
       secondGate.release();
       await retryGate.reached(1);
-      await pendingRegistrations.deleteOne({ email });
+      await e2e.state.auth.removePendingRegistration(email);
       retryGate.release();
       const secondResult = await second;
 
       expect([firstResult.status, secondResult.status]).toEqual([200, 200]);
     } finally {
-      createSpy.mockRestore();
+      restoreCreate();
       restoreQuery();
     }
 
-    expect(await pendingRegistrations.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(1);
     const record = await storedRegistration(email);
     expect(record.purpose).toBe(PENDING_PURPOSE.SIGNUP);
     expect(

@@ -59,3 +59,10 @@ export const TRANSPORT_FAILURE_MESSAGE: Record<TransportFailure, string> = {
 
 /** Path segments a URL parser would resolve away or drop. */
 export const UNSAFE_PATH_SEGMENTS: ReadonlySet<string> = new Set(['', '.', '..']);
+
+/** Language-neutral kinds on the session-list wire. */
+export const DEVICE_KIND = {
+  BROWSER: 'browser',
+  MOBILE_APP: 'mobileApp',
+  UNKNOWN: 'unknown',
+} as const;

@@ -169,3 +169,35 @@ describe('API_PATHS.user.session', () => {
     expect(API_PATHS.user.session(sessionId)).toBe(path);
   });
 });
+
+describe('session device parts compatibility', () => {
+  it('passes optional device parts through the real response reader', () => {
+    const body = ok({
+      sessions: [
+        {
+          ...SESSION,
+          deviceName: 'Legacy phrase',
+          deviceParts: {
+            kind: 'browser',
+            browserName: 'Chrome',
+            browserMajorVersion: '140',
+            platformName: 'macOS',
+            platformVersion: '10.15',
+          },
+        },
+      ],
+      total: 1,
+    });
+    const session = unwrapSessionListBody(body).sessions[0];
+    expect({ deviceName: session?.deviceName, deviceParts: session?.deviceParts }).toEqual({
+      deviceName: 'Legacy phrase',
+      deviceParts: {
+        kind: 'browser',
+        browserName: 'Chrome',
+        browserMajorVersion: '140',
+        platformName: 'macOS',
+        platformVersion: '10.15',
+      },
+    });
+  });
+});

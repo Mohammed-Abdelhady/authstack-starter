@@ -78,7 +78,7 @@ describe('screens take their text styles from the type roles', () => {
 
   it('has every screen title and section heading go through Heading', () => {
     const withoutHeading = sources
-      .filter(({ source }) => !/<Heading level="screen">/.test(source))
+      .filter(({ source }) => !/<Heading level="screen"(?:\s[^>]*)?>/.test(source))
       .map(({ file }) => file);
 
     expect(withoutHeading).toEqual([]);

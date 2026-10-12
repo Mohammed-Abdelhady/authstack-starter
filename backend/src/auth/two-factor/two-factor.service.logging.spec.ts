@@ -21,6 +21,7 @@ import {
 } from '../../../test/utils/logging-services';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+  SESSION_AUTHORITY_RESET_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../test/utils/session-authority-harness';
 
@@ -31,7 +32,7 @@ describe('TwoFactorService and TwoFactorLoginService logging with real repositor
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
   beforeEach(async () => {
     await fixture.reset();
-  });
+  }, SESSION_AUTHORITY_RESET_TIMEOUT_MS);
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -93,7 +94,10 @@ describe('TwoFactorService and TwoFactorLoginService logging with real repositor
     const log = captureLogs();
     await fixture.module
       .get(TwoFactorService)
-      .regenerateRecoveryCodes(LOGGING_USER_ID, { code: '123456' });
+      .regenerateRecoveryCodes(LOGGING_USER_ID, {
+        code: '123456',
+        password: LOGGING_PASSWORD,
+      });
     expect(loggedCalls(log)).toContain('userId=507f1f77bcf86cd799439011');
     expect(loggedCalls(log)).not.toContain('user@example.com');
   });
@@ -102,7 +106,11 @@ describe('TwoFactorService and TwoFactorLoginService logging with real repositor
     const { request, response } = loggingResponse();
     await fixture.module
       .get(TwoFactorChallengeService)
-      .issue((await fixture.users.findById(LOGGING_USER_ID))!._id, response);
+      .issue(
+        (await fixture.users.findById(LOGGING_USER_ID))!._id,
+        response,
+        'password',
+      );
     const log = captureLogs();
     await fixture.module
       .get(TwoFactorLoginService)

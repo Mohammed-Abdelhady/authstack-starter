@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Role, RoleDocument } from '../../role/schemas/role.schema';
 import { ROLE_HIERARCHY } from '../../common/utils/role-hierarchy';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions';
+import { ROLE_SEED, SeedRole, SeedStore } from './seed.store';
 
 /**
  * Seed service for default system roles.
@@ -11,15 +9,13 @@ import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions';
  */
 @Injectable()
 export class RoleSeedService {
-  constructor(
-    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
-  ) {}
+  constructor(private readonly store: SeedStore) {}
 
   /**
    * Seed default roles if they don't exist
    */
   async seed(): Promise<void> {
-    const defaultRoles = [
+    const defaultRoles: SeedRole[] = [
       {
         name: 'User',
         slug: 'user',
@@ -59,25 +55,13 @@ export class RoleSeedService {
     ];
 
     for (const roleData of defaultRoles) {
-      const exists = await this.roleModel.findOne({ slug: roleData.slug });
+      const outcome = await this.store.seedRole(roleData);
 
-      if (!exists) {
-        await this.roleModel.create(roleData);
+      if (outcome === ROLE_SEED.CREATED) {
         console.log(`Created default role: ${roleData.name}`);
         continue;
       }
 
-      // Existing installs predate the level field and the protection flags
-      await this.roleModel.updateOne(
-        { slug: roleData.slug },
-        {
-          $set: {
-            isSystemRole: roleData.isSystemRole,
-            isProtected: roleData.isProtected,
-            level: roleData.level,
-          },
-        },
-      );
       console.log(`Role "${roleData.name}" exists, flags refreshed`);
     }
 
@@ -108,10 +92,7 @@ export class RoleSeedService {
     ];
 
     for (const update of updates) {
-      await this.roleModel.updateOne(
-        { slug: update.slug },
-        { $set: { permissions: update.permissions } },
-      );
+      await this.store.replaceRolePermissions(update.slug, update.permissions);
       console.log(`Updated permissions for role: ${update.slug}`);
     }
 

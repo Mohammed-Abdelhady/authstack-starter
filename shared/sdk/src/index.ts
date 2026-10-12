@@ -4,6 +4,7 @@ export * from './errors';
 export { unwrapEnvelope, unwrapEnvelopeBody, unwrapOAuth } from './envelope';
 export { unwrapObject, unwrapObjectBody } from './shapes';
 export * from './auth-methods';
+export * from './identity';
 export * from './sessions';
 export * from './tokens';
 export * from './paths';

@@ -1,0 +1,26 @@
+{
+  "toast": {
+    "success": {
+      "logoutSuccess": "Signed out successfully",
+      "registrationSuccess": "Account created! Check your email",
+      "activationSuccess": "Email verified successfully!",
+      "resendSuccess": "New activation code sent to your email",
+      "resetLinkSent": "If the email is registered, you'll receive a reset link",
+      "passwordReset": "Password updated successfully. You can now sign in"
+    },
+    "error": {
+      "networkError": "Network error. Please check your connection",
+      "timeoutError": "Request timed out. Please try again",
+      "unauthorized": "You are not authorized to access this resource",
+      "forbidden": "Access denied. You don't have permission",
+      "validationFailed": "Validation failed. Please check your input",
+      "invalidInput": "Invalid input. Please correct the errors",
+      "serverError": "Something went wrong. Please try again later",
+      "serviceUnavailable": "Service temporarily unavailable",
+      "unknownError": "An unexpected error occurred",
+      "notFound": "Resource not found",
+      "tooManyRequests": "Too many requests. Please slow down",
+      "badGateway": "Bad gateway. Please try again"
+    }
+  }
+}

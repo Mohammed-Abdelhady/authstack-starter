@@ -4,11 +4,13 @@ import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AbstractIntlMessages } from 'next-intl';
 import { loadMessages } from '@/i18n/load-messages';
 import { clearBrowserProof, rememberBrowserProof } from '@/store/api/browser-proof';
+import { availability, IDLE } from '@/tests/busyControls';
 import {
   OTHER_USER,
   TEST_USER,
   codeTranslator,
   errorResponse,
+  identityResponse,
   installFetch,
   jsonResponse,
   makeStore,
@@ -29,7 +31,7 @@ const LOCALES = [
   'ar', // feature:locale-ar
 ] as const;
 
-const PROFILE_PATH = '/api/user/profile';
+const IDENTITY_PATH = '/api/auth/identity';
 const APPROVE_PATH = '/api/oauth/authorize/approve';
 const DENY_PATH = '/api/oauth/authorize/deny';
 const MISMATCH = 'NATIVE_AUTHORIZE_ACCOUNT_MISMATCH';
@@ -77,7 +79,9 @@ function redirectResponse(): Response {
 async function renderReady(locale: (typeof LOCALES)[number] = 'en') {
   const store = makeStore();
   await seedReady(store);
-  return renderPanel({ locale, messages: messages[locale], store });
+  const view = renderPanel({ locale, messages: messages[locale], store });
+  await screen.findByTestId('native-authorize-ready');
+  return view;
 }
 
 describe('NativeAuthorizePanel account on screen', () => {
@@ -98,7 +102,7 @@ describe('NativeAuthorizePanel account on screen', () => {
     expect(bodies).toEqual([{ transactionId: 'txn-abc123', expectedUserId: 'user-1' }]);
   });
 
-  it('reads the profile again before the approve request leaves', async () => {
+  it('reads identity again before the approve request leaves', async () => {
     const requests = installFetch((request) =>
       request.method === 'POST' ? redirectResponse() : transactionResponse(),
     );
@@ -107,15 +111,21 @@ describe('NativeAuthorizePanel account on screen', () => {
     fireEvent.click(screen.getByTestId('native-authorize-approve'));
 
     await screen.findByTestId('native-authorize-returning');
-    expect(requests).toEqual([PROFILE_PATH, APPROVE_PATH]);
+    expect(requests).toEqual([IDENTITY_PATH, IDENTITY_PATH, APPROVE_PATH]);
   });
 
   it.each(LOCALES)(
     'stops approve and shows the new account with a notice in %s',
     async (locale) => {
+      let identityReads = 0;
       const requests = installFetch(
         (request) => (request.method === 'POST' ? redirectResponse() : transactionResponse()),
-        { profile: () => userResponse(OTHER_USER) },
+        {
+          identity: () => {
+            identityReads += 1;
+            return userResponse(identityReads === 1 ? TEST_USER : OTHER_USER);
+          },
+        },
       );
       await renderReady(locale);
       expect(screen.queryByTestId(NOTICE)).toBeNull();
@@ -128,9 +138,9 @@ describe('NativeAuthorizePanel account on screen', () => {
       expect(screen.getByTestId('native-authorize-ready').textContent).toContain(
         'omar@example.com',
       );
-      expect(requests).toEqual([PROFILE_PATH]);
+      expect(requests).toEqual([IDENTITY_PATH, IDENTITY_PATH]);
       expect(assignMock).not.toHaveBeenCalled();
-      expect(screen.getByTestId('native-authorize-approve').hasAttribute('disabled')).toBe(false);
+      expect(availability(screen.getByTestId('native-authorize-approve'))).toEqual(IDLE);
     },
   );
 
@@ -146,7 +156,7 @@ describe('NativeAuthorizePanel account on screen', () => {
           }
           return transactionResponse();
         },
-        { profile: () => userResponse(refused ? OTHER_USER : TEST_USER) },
+        { identity: () => userResponse(refused ? OTHER_USER : TEST_USER) },
       );
       await renderReady();
 
@@ -157,10 +167,37 @@ describe('NativeAuthorizePanel account on screen', () => {
         'omar@example.com',
       );
       expect(requests.filter((request) => request === path)).toHaveLength(1);
-      expect(requests.at(-1)).toBe(PROFILE_PATH);
+      expect(requests.at(-1)).toBe(IDENTITY_PATH);
       expect(assignMock).not.toHaveBeenCalled();
       expect(screen.queryByTestId('native-authorize-returning')).toBeNull();
       expect(screen.queryByTestId('native-authorize-error')).toBeNull();
+    },
+  );
+
+  it.each(ACTIONS)(
+    'returns focus to the card heading after a refused %s',
+    async (_action, control) => {
+      let refused = false;
+      installFetch(
+        (request) => {
+          if (request.method === 'POST') {
+            refused = true;
+            return errorResponse(MISMATCH, 409);
+          }
+          return transactionResponse();
+        },
+        { identity: () => userResponse(refused ? OTHER_USER : TEST_USER) },
+      );
+      await renderReady();
+      const pressed = screen.getByTestId(control);
+      pressed.focus();
+
+      fireEvent.click(pressed);
+
+      await screen.findByTestId(NOTICE);
+      await waitFor(() =>
+        expect(document.activeElement).toBe(screen.getByRole('heading', { level: 1 })),
+      );
     },
   );
 
@@ -174,7 +211,7 @@ describe('NativeAuthorizePanel account on screen', () => {
         bodies.push(await request.json());
         return bodies.length === 1 ? errorResponse(MISMATCH, 409) : redirectResponse();
       },
-      { profile: () => userResponse(bodies.length === 0 ? TEST_USER : OTHER_USER) },
+      { identity: () => userResponse(bodies.length === 0 ? TEST_USER : OTHER_USER) },
     );
     await renderReady();
 
@@ -202,7 +239,7 @@ describe('NativeAuthorizePanel account on screen', () => {
         return transactionResponse();
       },
       {
-        profile: () => (refused ? errorResponse('INTERNAL_ERROR', 500) : userResponse(TEST_USER)),
+        identity: () => (refused ? errorResponse('INTERNAL_ERROR', 500) : userResponse(TEST_USER)),
       },
     );
     await renderReady();
@@ -214,10 +251,38 @@ describe('NativeAuthorizePanel account on screen', () => {
     expect(screen.queryByTestId('native-authorize-approve')).toBeNull();
   });
 
-  it('goes to sign-in without approving when the profile check is refused', async () => {
+  it('goes to sign-in without approving when the identity check is refused', async () => {
+    let identityReads = 0;
     const requests = installFetch(
       (request) => (request.method === 'POST' ? redirectResponse() : transactionResponse()),
-      { profile: () => errorResponse('SESSION_INVALID', 401) },
+      {
+        identity: () => {
+          identityReads += 1;
+          return identityReads === 1
+            ? userResponse(TEST_USER)
+            : errorResponse('SESSION_INVALID', 401);
+        },
+      },
+    );
+    await renderReady();
+
+    fireEvent.click(screen.getByTestId('native-authorize-approve'));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
+    expect(requests).not.toContain(APPROVE_PATH);
+    expect(assignMock).not.toHaveBeenCalled();
+  });
+
+  it('goes to sign-in without approving when identity confirms signed out', async () => {
+    let identityReads = 0;
+    const requests = installFetch(
+      (request) => (request.method === 'POST' ? redirectResponse() : transactionResponse()),
+      {
+        identity: () => {
+          identityReads += 1;
+          return identityReads === 1 ? userResponse(TEST_USER) : identityResponse(null);
+        },
+      },
     );
     await renderReady();
 

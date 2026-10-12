@@ -78,13 +78,21 @@ test('the repository gate list has separate quality, install and installer selec
       'Full-tree hard bans',
       'Package-manager inventory',
       'Workspace dependency check',
+      'Colour contrast',
       'Lint',
       'Typecheck',
       'Unit and config tests',
       'Complete config regressions',
       'Build',
       'Backend end-to-end',
+      'Backend end-to-end on PostgreSQL',
       'Installer combinations',
+      'Installer PostgreSQL projects',
+      'Installer MongoDB projects',
+      'Install test browser',
+      'Browser test frontend build',
+      'Frontend browser checks',
+      'Complete authentication browser journeys',
     ],
   );
   assert.deepEqual(
@@ -93,13 +101,24 @@ test('the repository gate list has separate quality, install and installer selec
       ['node', ['scripts/check-hard-bans.mjs', '--all']],
       ['node', ['scripts/check-package-manager.mjs']],
       ['node', ['scripts/check-workspace-dependencies.mjs']],
+      ['node', ['scripts/check-contrast.mjs']],
       ['pnpm', ['run', 'lint']],
       ['pnpm', ['run', 'typecheck']],
       ['pnpm', ['test']],
       ['pnpm', ['run', 'test:config:all']],
       ['pnpm', ['run', 'build']],
       ['pnpm', ['--filter', 'backend', 'run', 'test:e2e']],
+      ['pnpm', ['--filter', 'backend', 'run', 'test:e2e:postgres']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
+      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
+      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+      ['pnpm', ['--filter', 'frontend', 'exec', 'playwright', 'install', 'chromium']],
+      ['pnpm', ['--filter', 'frontend', 'run', 'build']],
+      [
+        'pnpm',
+        ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.frontend.config.ts'],
+      ],
+      ['pnpm', ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.config.ts']],
     ],
   );
   assert.deepEqual(
@@ -107,11 +126,62 @@ test('the repository gate list has separate quality, install and installer selec
     [['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
   );
   assert.deepEqual(
+    selectGates(config, '--installer-postgres').map((g) => g.args),
+    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
+  );
+  assert.deepEqual(
+    selectGates(config, '--installer-mongodb').map((g) => g.args),
+    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+  );
+  const browser = selectGates(config, '--browser');
+  assert.equal(browser.length, 4);
+  assert.deepEqual(browser[1].env, { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:5107' });
+  assert.equal(
+    browser.every((gate) => gate.repositoryOnly === true),
+    true,
+  );
+  assert.deepEqual(
     selectGates(config, '--install').map((g) => [g.command, g.args]),
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
   assert.equal(selectGates(config, '--quality').length, 9);
+  assert.deepEqual(
+    selectGates(config, '--api').map((g) => g.args),
+    [
+      ['--filter', 'backend', 'run', 'test:e2e'],
+      ['--filter', 'backend', 'run', 'test:e2e:postgres'],
+    ],
+  );
+  // Every gate sits in a listed group, and no listed group is empty.
+  assert.deepEqual(config.groups, [
+    'quality',
+    'api',
+    'installer',
+    'installer-postgres',
+    'installer-mongodb',
+    'browser',
+  ]);
+  assert.deepEqual([...new Set(config.gates.map((g) => g.group))], config.groups);
   assert.throws(() => selectGates(config, '--unknown'), /Unknown CI mode/);
+  assert.throws(() => selectGates(config, 'quality'), /Unknown CI mode/);
+});
+
+test('a mode that names no group and a group with no gate are told apart', () => {
+  const config = {
+    groups: ['quality', 'empty'],
+    gates: [{ name: 'Lint', group: 'quality', command: 'pnpm', args: ['run', 'lint'] }],
+  };
+
+  assert.throws(() => selectGates(config, '--missing'), {
+    message: 'Unknown CI mode: --missing. The gate list has the groups: quality, empty',
+  });
+  assert.throws(() => selectGates(config, '--empty'), {
+    message: 'No gates for CI mode: --empty. The group "empty" is listed with no gate',
+  });
+  // A list written before groups were named: its groups are the ones its gates use.
+  const older = { gates: config.gates };
+  assert.deepEqual(selectGates(older, '--quality'), config.gates);
+  assert.throws(() => selectGates(older, '--empty'), /^Error: Unknown CI mode: --empty\./);
 });
 
 test('gate-specific environment reaches the real subprocess', async (t) => {

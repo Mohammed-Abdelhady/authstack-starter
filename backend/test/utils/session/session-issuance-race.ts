@@ -1,19 +1,18 @@
-import { Model } from 'mongoose';
-import { UserDocument } from '../../../src/user/schemas/user.schema';
+import { BrowserIssuanceStore } from '../../../src/session/issuance/browser-issuance.store';
 import { SessionIssuanceService } from '../../../src/session/services/session-issuance.service';
 
 export async function runForcedIssuanceRace<TFirst, TSecond>(
   issuance: SessionIssuanceService,
-  users: Model<UserDocument>,
+  accounts: BrowserIssuanceStore,
   firstOperation: () => Promise<TFirst>,
   secondOperation: () => Promise<TSecond>,
 ): Promise<[PromiseSettledResult<TFirst>, PromiseSettledResult<TSecond>]> {
   const countGate = pauseAfterFirstSessionCount(issuance);
-  let userReadGate: ReturnType<typeof pauseNextUserRead> | undefined;
+  let userReadGate: ReturnType<typeof pauseNextAccountRead> | undefined;
   try {
     const first = firstOperation();
     await countGate.reached;
-    userReadGate = pauseNextUserRead(users);
+    userReadGate = pauseNextAccountRead(accounts);
     const second = secondOperation();
     await userReadGate.reached;
     countGate.release();
@@ -56,7 +55,8 @@ function pauseAfterFirstSessionCount(issuance: SessionIssuanceService) {
   };
 }
 
-function pauseNextUserRead(users: Model<UserDocument>) {
+/** Holds the next issuance, of either kind, once it has read its account. */
+function pauseNextAccountRead(accounts: BrowserIssuanceStore) {
   let announceReached = () => {};
   let releaseRead = () => {};
   const reached = new Promise<void>((resolve) => {
@@ -65,19 +65,15 @@ function pauseNextUserRead(users: Model<UserDocument>) {
   const blocked = new Promise<void>((resolve) => {
     releaseRead = resolve;
   });
-  const originalFindById = users.findById.bind(users);
-  const spy = jest.spyOn(users, 'findById');
-  spy.mockImplementation((...args) => {
-    const query = originalFindById(...args);
-    const originalExec = query.exec.bind(query);
-    jest.spyOn(query, 'exec').mockImplementation(async (...execArgs) => {
-      const user = await originalExec(...execArgs);
+  const readAccount = accounts.readAccountForIssuance.bind(accounts);
+  const spy = jest
+    .spyOn(accounts, 'readAccountForIssuance')
+    .mockImplementation(async (unitOfWork, userId) => {
+      const account = await readAccount(unitOfWork, userId);
       announceReached();
       await blocked;
-      return user;
+      return account;
     });
-    return query;
-  });
 
   return {
     reached,

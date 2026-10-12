@@ -8,6 +8,7 @@ describe('parseUserAgent', () => {
       browser: 'Unknown Browser',
       os: 'Unknown OS',
       name: 'Unknown device',
+      parts: { kind: 'unknown' },
     });
 
     const label = getDeviceLabel('');
@@ -102,4 +103,94 @@ describe('parseUserAgent', () => {
     const result = parseUserAgent(ua);
     expect(result.browser).toBe('Samsung 23');
   });
+});
+
+describe('language-neutral device parts', () => {
+  it.each([
+    [
+      'Starter/42 CFNetwork/3826.500.111 Darwin/25.0.0',
+      { kind: 'mobileApp', platformName: 'iOS' },
+    ],
+    ['okhttp/4.12.0', { kind: 'mobileApp', platformName: 'Android' }],
+    [
+      'Dalvik/2.1.0 (Linux; U; Android 14; Pixel 8)',
+      { kind: 'mobileApp', platformName: 'Android', platformVersion: '14' },
+    ],
+    [
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/140.0 Safari/537.36',
+      {
+        kind: 'browser',
+        browserName: 'Chrome',
+        browserMajorVersion: '140',
+        platformName: 'macOS',
+        platformVersion: '10.15',
+      },
+    ],
+    [
+      'Mozilla/5.0 (Windows NT 10.0) Chrome/140.0 Safari/537.36 Edg/140.0',
+      {
+        kind: 'browser',
+        browserName: 'Edge',
+        browserMajorVersion: '140',
+        platformName: 'Windows',
+        platformVersion: '10/11',
+      },
+    ],
+    [
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) Version/17.2 Safari/604.1',
+      {
+        kind: 'browser',
+        browserName: 'Safari',
+        browserMajorVersion: '17',
+        platformName: 'iOS',
+        platformVersion: '17',
+      },
+    ],
+    [
+      'Mozilla/5.0 (Windows NT 10.0) Chrome/140.0 Safari/537.36',
+      {
+        kind: 'browser',
+        browserName: 'Chrome',
+        browserMajorVersion: '140',
+        platformName: 'Windows',
+        platformVersion: '10/11',
+      },
+    ],
+    [
+      'Mozilla/5.0 (X11; Ubuntu; Linux x86_64) Firefox/140.0',
+      {
+        kind: 'browser',
+        browserName: 'Firefox',
+        browserMajorVersion: '140',
+        platformName: 'Ubuntu',
+      },
+    ],
+    [
+      'Mozilla/5.0 (Linux; Android 14) Chrome/140.0 Mobile Safari/537.36',
+      {
+        kind: 'browser',
+        browserName: 'Chrome',
+        browserMajorVersion: '140',
+        platformName: 'Android',
+        platformVersion: '14',
+      },
+    ],
+    ['', { kind: 'unknown' }],
+    ['   ', { kind: 'unknown' }],
+    ['<script>alert("$& {system}")</script>', { kind: 'unknown' }],
+    ['x'.repeat(512) + ' Chrome/140.0 Android 14', { kind: 'unknown' }],
+    ['x'.repeat(100000) + ' okhttp/4.12.0', { kind: 'unknown' }],
+  ] as const)('derives parts from %s', (agent, parts) => {
+    expect(parseUserAgent(agent).parts).toEqual(parts);
+  });
+
+  it.each(['x'.repeat(498), 'x'.repeat(499), 'x'.repeat(500)])(
+    'recognizes tokens before the limit',
+    (padding) => {
+      expect(parseUserAgent('okhttp/4.12.0' + padding).parts).toEqual({
+        kind: 'mobileApp',
+        platformName: 'Android',
+      });
+    },
+  );
 });

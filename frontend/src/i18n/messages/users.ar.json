@@ -1,0 +1,87 @@
+{
+  "users": {
+    "addUser": "إضافة مستخدم",
+    "title": "المستخدمون",
+    "count": "{count, plural, zero {لا يوجد مستخدمون مسجلون} one {مستخدم واحد مسجل} two {مستخدمان مسجلان} few {{count} مستخدمين مسجلين} many {{count} مستخدماً مسجلاً} other {{count} مستخدم مسجل}}",
+    "refresh": "تحديث",
+    "searchPlaceholder": "البحث بالاسم أو البريد الإلكتروني...",
+    "searchLabel": "البحث عن المستخدمين",
+    "allRoles": "جميع الأدوار",
+    "loading": "جارٍ تحميل المستخدمين...",
+    "loadError": "فشل في تحميل المستخدمين.",
+    "tryAgain": "يرجى المحاولة مرة أخرى.",
+    "retry": "إعادة المحاولة",
+    "noUsers": "لم يتم العثور على مستخدمين",
+    "noUsersYet": "لا يوجد مستخدمون بعد",
+    "noUsersHint": "حاول تعديل معايير البحث أو التصفية.",
+    "noUsersYetHint": "سيظهر المستخدمون هنا بمجرد تسجيلهم.",
+    "verifiedUsers": "المستخدمون الموثقون",
+    "pendingVerification": "في انتظار التحقق",
+    "showingCount": "المعروض {filtered} من أصل {total}",
+    "createUser": {
+      "title": "إنشاء مستخدم جديد",
+      "description": "إضافة مستخدم جديد إلى النظام بدور وصلاحيات محددة.",
+      "email": "البريد الإلكتروني",
+      "emailPlaceholder": "user@example.com",
+      "name": "الاسم الكامل",
+      "namePlaceholder": "محمد أحمد",
+      "password": "كلمة المرور",
+      "role": "دور المستخدم",
+      "selectRole": "اختر دوراً",
+      "systemRole": "(نظام)",
+      "submit": "إنشاء مستخدم",
+      "creating": "جارٍ الإنشاء...",
+      "success": "تم إنشاء المستخدم بنجاح",
+      "error": "فشل في إنشاء المستخدم"
+    },
+    "editUser": {
+      "title": "تعديل المستخدم",
+      "description": "تحديث معلومات المستخدم. سيتم حفظ التغييرات فوراً.",
+      "name": "الاسم الكامل",
+      "namePlaceholder": "محمد عبد الله",
+      "email": "البريد الإلكتروني",
+      "emailPlaceholder": "user@example.com",
+      "cancel": "إلغاء",
+      "save": "حفظ التغييرات",
+      "saving": "جارٍ الحفظ...",
+      "noChanges": "لا توجد تغييرات لحفظها",
+      "success": "تم تحديث المستخدم بنجاح",
+      "error": "فشل تحديث المستخدم",
+      "errors": {
+        "emailRequired": "البريد الإلكتروني مطلوب",
+        "emailInvalid": "صيغة البريد الإلكتروني غير صالحة",
+        "nameRequired": "الاسم مطلوب",
+        "nameMinLength": "يجب أن يتكون الاسم من حرفين على الأقل"
+      }
+    },
+    "actions": {
+      "menuLabel": "إجراءات",
+      "menuLabelForUser": "إجراءات المستخدم ⁨{name}⁩",
+      "editUser": "تعديل المستخدم",
+      "managePermissions": "إدارة الصلاحيات",
+      "activateUser": "تفعيل المستخدم",
+      "deactivateUser": "تعطيل الحساب",
+      "activateTitle": "تفعيل المستخدم؟",
+      "activateDescription": "هل أنت متأكد من رغبتك في تفعيل <strong>{name}</strong>؟ سيؤدي ذلك إلى استعادة وصوله إلى النظام.",
+      "activateConfirm": "تفعيل",
+      "deactivateTitle": "تعطيل الحساب؟",
+      "deactivateDescription": "هل أنت متأكد من رغبتك في تعطيل حساب <strong>{name}</strong>؟ سيفقد الوصول إلى النظام، ويمكن تفعيل حسابه لاحقاً.",
+      "deactivateConfirm": "تعطيل الحساب",
+      "cancel": "إلغاء",
+      "activateSuccess": "تم تفعيل ⁨{name}⁩ بنجاح",
+      "deactivateSuccess": "تم تعطيل حساب ⁨{name}⁩ بنجاح"
+    },
+    "card": {
+      "role": "الدور:",
+      "pendingEmail": "البريد الإلكتروني الجديد بانتظار التأكيد: ⁨{email}⁩",
+      "joined": "انضم في {date}"
+    },
+    "list": {
+      "emptyGroup": "لا يوجد مستخدمون في هذه المجموعة"
+    },
+    "roleFilterTitle": "التصفية حسب الدور",
+    "roleFilterHint": "ابحث عن الأدوار أو استعرضها، ثم اختر دورًا لتصفية المستخدمين.",
+    "roleFilterTriggerLabel": "تصفية المستخدمين حسب الدور: ⁨{role}⁩",
+    "roleFilterError": "تعذر تحميل الأدوار. يرجى المحاولة مرة أخرى."
+  }
+}

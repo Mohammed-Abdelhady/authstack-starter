@@ -4,6 +4,8 @@
       "browser": "Browser",
       "nativeApp": "Mobile app"
     },
-    "unknownDevice": "Unknown device"
+    "unknownDevice": "Unknown device",
+    "browserOnSystem": "⁦{browser}⁩ on ⁦{system}⁩",
+    "mobileAppOnSystem": "Mobile app on ⁦{system}⁩"
   }
 }

@@ -21,15 +21,13 @@ import {
   startNativeOauth,
   stopNativeOauth,
   nativeHttpServer,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 import {
   createTestUser,
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/utils/session-authority-harness';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
-
-jest.setTimeout(60000);
 
 describe('native authorization (plan 04)', () => {
   let ctx: NativeOauthHarness;

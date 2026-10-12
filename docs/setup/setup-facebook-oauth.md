@@ -21,7 +21,9 @@ Facebook Login allows users to sign in with their Facebook account. The applicat
 3. User authorizes the app
 4. Facebook redirects back with authorization code
 5. Backend exchanges code for access token and user info
-6. User is logged in
+6. An account with this Facebook identity already linked is logged in
+
+Facebook does not give this application a reliable proof that the returned email address belongs to the person signing in. A new Facebook identity cannot create an account or attach itself by matching an address. First create and sign in to an account through another configured method, then link Facebook in account settings. An identity linked before this policy continues to sign in. A fresh database with Facebook as its only method has no first-account path.
 
 ---
 
@@ -134,10 +136,10 @@ The app requests only default permissions that **DO NOT require App Review**.
 
 ### Required Permissions (Default - No Review Needed)
 
-| Permission       | What It Provides                   | Used For                                       |
-| ---------------- | ---------------------------------- | ---------------------------------------------- |
-| `email`          | User's email address               | Account creation and identification (REQUIRED) |
-| `public_profile` | Name, profile picture, Facebook ID | User profile sync                              |
+| Permission       | What It Provides                   | Used For                                     |
+| ---------------- | ---------------------------------- | -------------------------------------------- |
+| `email`          | User's email address               | Profile data; not proof of address ownership |
+| `public_profile` | Name, profile picture, Facebook ID | User profile sync                            |
 
 **Important Notes**:
 
@@ -262,7 +264,7 @@ Before testing, ensure your app is in Development mode:
 
 6. Authorize the application
 
-7. You should be redirected back and logged in
+7. If the Facebook identity was already linked, you should be redirected back and logged in. Otherwise, sign in another way and link it in account settings before retrying.
 
 ### Manual Testing
 

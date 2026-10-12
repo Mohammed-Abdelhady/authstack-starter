@@ -1,8 +1,5 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { Response } from 'express';
-import { User, UserDocument } from '../user/schemas/user.schema';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -14,13 +11,18 @@ import { HashService } from '../common/services/hash.service';
 import { AppException } from '../common/exceptions/app.exception';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { AuthMailService } from './services/mail/auth-mail.service';
-import { SessionService } from './services/sessions/session.service';
+import { Sessions } from './services/sessions/sessions';
 import { PasswordResetCodeService } from './services/codes/password-reset-code.service';
 import { MailCounterService } from './services/mail/mail-counter.service';
-import { SignInService } from './services/sessions/sign-in.service';
-import { assertValidObjectId } from '../user/utils/user-lookup.util';
+import { FIRST_FACTOR } from './services/sessions/first-factor'; // feature:totp
+import { SignInCompletion } from './services/sessions/sign-in-completion';
+import { IdFormat } from '../common/persistence/id-format';
+import { assertValidId } from '../user/utils/user-lookup.util';
+import { PasswordSignInStore } from './stores/password-sign-in.store';
 import { generateVerificationCode } from './utils/verification-code.util';
 import { MAIL_COUNTER_PURPOSE } from './constants/registration';
+import { SecurityNoticeService } from '../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../user/constants/security-notice.constants';
 
 /**
  * Password sign-in and the password lifecycle. The sign-up code flows live in
@@ -32,24 +34,27 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: PasswordSignInStore,
+    private readonly ids: IdFormat,
     private readonly hashService: HashService,
     private readonly authMailService: AuthMailService,
-    private readonly sessionService: SessionService,
+    private readonly sessionService: Sessions,
     private readonly passwordResetCodeService: PasswordResetCodeService,
     private readonly mailCounterService: MailCounterService,
-    private readonly signInService: SignInService,
+    private readonly signInService: SignInCompletion,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   async login(
     dto: LoginDto,
     response: Response,
   ): Promise<ApiResponse<LoginResponseDto>> {
-    const user = await this.userModel
-      .findOne({ email: { $eq: dto.email }, isDeleted: { $ne: true } })
-      .select('+password');
+    const candidate = await this.accounts.findForPasswordCheck(dto.email);
 
-    if (!user || !user.password) {
+    if (!candidate || !candidate.passwordHash) {
+      // The same one comparison a stored password costs, so the answer does
+      // not arrive sooner for an address with no account or no password.
+      await this.hashService.spendComparison(dto.password);
       throw new AppException(
         ErrorCode.INVALID_CREDENTIALS,
         'Invalid email or password',
@@ -59,7 +64,7 @@ export class AuthService {
 
     const isPasswordValid = await this.hashService.compare(
       dto.password,
-      user.password,
+      candidate.passwordHash,
     );
 
     if (!isPasswordValid) {
@@ -70,16 +75,21 @@ export class AuthService {
       );
     }
 
-    const outcome = await this.signInService.completeSignIn(user, response);
+    const user = candidate.account;
+    const outcome = await this.signInService.completeSignIn(
+      user,
+      response,
+      FIRST_FACTOR.PASSWORD, // feature:totp
+    );
 
     if (outcome.requiresTwoFactor) {
       this.logger.log(
-        `Password accepted, second factor owed: userId=${user._id.toString()}`,
+        `Password accepted, second factor owed: userId=${user.id}`,
       );
       return LoginResponseDto.twoFactorRequired();
     }
 
-    this.logger.log(`User logged in: userId=${user._id.toString()}`);
+    this.logger.log(`User logged in: userId=${user.id}`);
     return LoginResponseDto.success(outcome.user);
   }
 
@@ -105,11 +115,11 @@ export class AuthService {
     sessionId: string,
     userId: string,
   ): Promise<ApiResponse<{ message: string }>> {
-    assertValidObjectId(userId, 'Invalid user ID format');
-    assertValidObjectId(sessionId, 'Invalid session ID format');
+    assertValidId(this.ids, userId, 'Invalid user ID format');
+    assertValidId(this.ids, sessionId, 'Invalid session ID format');
 
     const invalidated = await this.sessionService.invalidateNativeSession(
-      new Types.ObjectId(userId),
+      userId,
       sessionId,
     );
 
@@ -132,10 +142,7 @@ export class AuthService {
   async forgotPassword(
     dto: ForgotPasswordDto,
   ): Promise<ApiResponse<ForgotPasswordResponseDto>> {
-    const user = await this.userModel.findOne({
-      email: { $eq: dto.email },
-      isDeleted: { $ne: true },
-    });
+    const user = await this.accounts.findActiveByAddress(dto.email);
 
     if (!user) {
       await this.spendCodeHashingTime();
@@ -179,10 +186,7 @@ export class AuthService {
       throw this.passwordResetCodeService.invalidCode();
     }
 
-    const user = await this.userModel.findOne({
-      email: { $eq: dto.email },
-      isDeleted: { $ne: true },
-    });
+    const user = await this.accounts.findActiveByAddress(dto.email);
     if (!user) {
       throw new AppException(
         ErrorCode.USER_NOT_FOUND_FOR_RESET,
@@ -192,11 +196,11 @@ export class AuthService {
     }
 
     const hashedPassword = await this.hashService.hash(dto.newPassword);
-    user.password = hashedPassword;
-    await user.save();
+    await this.accounts.storeNewPassword(user, hashedPassword);
 
-    await this.sessionService.invalidateAllSessions(user._id);
-    this.logger.log(`Password reset successful: userId=${user._id.toString()}`);
+    await this.sessionService.invalidateAllSessions(user.id);
+    this.notices?.defer(user.id, SECURITY_NOTICE.PASSWORD_RESET);
+    this.logger.log(`Password reset successful: userId=${user.id}`);
 
     return ResetPasswordResponseDto.success();
   }

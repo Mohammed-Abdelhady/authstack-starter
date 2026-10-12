@@ -1,5 +1,5 @@
 import { ApiResponse } from '../../common/dto/api-response.dto';
-import { AuthenticatedUserSummary } from '../utils/authenticated-user.util';
+import { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
 
 /**
  * Body of every sign-in route that answers with JSON. When a second factor is

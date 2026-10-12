@@ -1,20 +1,17 @@
 'use client';
 
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
+import { useCallback, type MouseEvent } from 'react';
+import { Button } from '@/components/ui/button';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { routing } from '@/i18n/routing';
-import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
-import { cn } from '@/lib/utils';
 
 const LOCALE_OPTIONS = [
-  { locale: 'en', label: 'English', labelKey: 'switchToEnglish' },
-  { locale: 'ar', label: 'العربية', labelKey: 'switchToArabic' }, // feature:locale-ar
+  { locale: 'en', label: 'English' },
+  { locale: 'ar', label: 'العربية' }, // feature:locale-ar
 ] as const;
 
-type SwitchableLocale = (typeof LOCALE_OPTIONS)[number]['locale'];
-
 export function LanguageSwitcher() {
-  const t = useTranslations('common');
   const pathname = usePathname();
   const router = useRouter();
   const currentLocale = useLocale();
@@ -23,36 +20,36 @@ export function LanguageSwitcher() {
   // single-button switcher would do nothing.
   const routed = new Set<string>(routing.locales);
   const options = LOCALE_OPTIONS.filter((option) => routed.has(option.locale));
+  const handleLanguageChange = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      const option = LOCALE_OPTIONS.find(
+        ({ locale }) => locale === event.currentTarget.dataset.locale,
+      );
+      if (option) router.replace(pathname, { locale: option.locale });
+    },
+    [pathname, router],
+  );
   if (options.length < 2) return null;
-
-  const handleLanguageChange = (newLocale: SwitchableLocale) => {
-    router.replace(pathname, { locale: newLocale });
-  };
 
   return (
     <div className="flex gap-2 items-center" data-testid="language-switcher">
-      {options.map(({ locale, label, labelKey }) => {
+      {options.map(({ locale, label }) => {
         const isCurrent = currentLocale === locale;
 
         return (
-          <button
+          <Button
             key={locale}
             type="button"
-            lang={locale}
-            onClick={() => handleLanguageChange(locale)}
+            onClick={handleLanguageChange}
+            data-locale={locale}
             aria-current={isCurrent ? 'true' : undefined}
-            aria-label={t(labelKey)}
             data-testid={`language-switcher-${locale}`}
-            className={cn(
-              'rounded px-3 py-1 text-sm',
-              isCurrent
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground',
-              FOCUS_RING_CLASSES,
-            )}
+            variant={isCurrent ? 'default' : 'secondary'}
+            size="sm"
+            className={isCurrent ? 'forced-colors:underline' : undefined}
           >
-            {label}
-          </button>
+            <span lang={locale}>{label}</span>
+          </Button>
         );
       })}
     </div>

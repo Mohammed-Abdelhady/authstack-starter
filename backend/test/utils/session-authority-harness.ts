@@ -9,32 +9,36 @@ import { Test, TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import { Connection, Model } from 'mongoose';
 import { Clock } from '../../src/common/services/clock';
-import { SessionService } from '../../src/auth/services/sessions/session.service';
+import { SessionService } from '../../src/auth/persistence/mongo/session.service';
+import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { SessionModule } from '../../src/session/session.module';
 import { NativeOAuthModule } from '../../src/session/native/oauth/native-oauth.module';
 import {
   Session,
   SessionDocument,
-} from '../../src/session/schemas/session.schema';
+} from '../../src/session/persistence/mongo/schemas/session.schema';
 import {
   Application,
   ApplicationDocument,
-} from '../../src/session/schemas/application.schema';
+} from '../../src/session/persistence/mongo/schemas/application.schema';
 import {
   UserApplicationGrant,
   UserApplicationGrantDocument,
-} from '../../src/session/schemas/user-application-grant.schema';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
-import { SessionAuthorityService } from '../../src/session/services/session-authority.service';
-import { SessionRevocationService } from '../../src/session/services/session-revocation.service';
-import { ApplicationAccessService } from '../../src/session/services/application-access.service';
+} from '../../src/session/persistence/mongo/schemas/user-application-grant.schema';
+import {
+  User,
+  UserDocument,
+} from '../../src/user/persistence/mongo/schemas/user.schema';
+import { SessionAuthorityService } from '../../src/session/persistence/mongo/session-authority.service';
+import { SessionRevocationService } from '../../src/session/persistence/mongo/session-revocation.service';
+import { ApplicationAccessService } from '../../src/session/persistence/mongo/application-access.service';
 import { FrozenClock } from './frozen-clock';
 
-/** Jest hook budget for database startup and application boot under load. */
-export const SESSION_AUTHORITY_BOOT_TIMEOUT_MS = 60000;
-
-/** Jest hook budget for database teardown and application shutdown under load. */
-export const SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS = 60000;
+export {
+  SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+  SESSION_AUTHORITY_RESET_TIMEOUT_MS,
+  SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
+} from './hook-timeouts';
 
 export interface SessionAuthorityHarness {
   app: INestApplication;
@@ -86,7 +90,7 @@ export async function bootSessionAuthority(
       SessionModule,
       ...(options?.withNativeHttp ? [NativeOAuthModule] : []),
     ],
-    providers: [SessionService],
+    providers: [SessionService, Sessions],
   })
     .overrideProvider(Clock)
     .useValue(clock)

@@ -34,7 +34,9 @@ export function LinkProviderButton({ provider, disabled = false }: LinkProviderB
     <Button
       variant="outline"
       onClick={handleLinkClick}
-      disabled={disabled || isRedirecting}
+      disabled={disabled}
+      busy={isRedirecting}
+      aria-busy={isRedirecting}
       className="w-fit justify-start"
       data-testid={`link-provider-${provider.id}`}
     >

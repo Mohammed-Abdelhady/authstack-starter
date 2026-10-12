@@ -1,19 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { User } from '@app/sdk';
-import { useGetCurrentUserQuery, useGetNativeAuthorizeTransactionQuery } from '../store/authApi';
+import type { Identity } from '@app/sdk';
+import { useGetIdentityQuery, useGetNativeAuthorizeTransactionQuery } from '../store/authApi';
 import type { NativeAuthorizeTransaction } from '../types/nativeAuthorize.types';
 
 export interface NativeAuthorizeReads {
-  account: User | undefined;
+  account: Identity['user'] | undefined;
+  accountSignedOut: boolean;
   transactionData: NativeAuthorizeTransaction | undefined;
   isTransactionLoading: boolean;
   /** Failures answered during this visit; `undefined` while there is none. */
   accountError: unknown;
   transactionError: unknown;
   /** Reads the signed-in account from the server, bypassing the cache. */
-  readAccount: () => Promise<User>;
+  readAccount: () => Promise<Identity>;
   refetchAll: () => void;
 }
 
@@ -29,7 +30,10 @@ export function useNativeAuthorizeReads(
   paused: boolean,
 ): NativeAuthorizeReads {
   const hasTransaction = transaction.length > 0;
-  const accountQuery = useGetCurrentUserQuery(undefined, { skip: paused });
+  const accountQuery = useGetIdentityQuery(undefined, {
+    skip: paused,
+    refetchOnMountOrArgChange: true,
+  });
   const transactionQuery = useGetNativeAuthorizeTransactionQuery(transaction, {
     skip: paused || !hasTransaction,
   });
@@ -50,7 +54,8 @@ export function useNativeAuthorizeReads(
   // An inherited request that fails after mount is not refetched by the query
   // hook, so ask again here. A cached failure is already being refetched and
   // the second call joins that request.
-  const accountStale = !paused && accountQuery.isError && accountInherited;
+  const accountStale =
+    !paused && accountInherited && (accountQuery.isSuccess || accountQuery.isError);
   const transactionStale =
     !paused && hasTransaction && transactionQuery.isError && transactionInherited;
   useEffect(() => {
@@ -74,7 +79,15 @@ export function useNativeAuthorizeReads(
   }, [hasTransaction, refetchAccount, refetchTransaction]);
 
   return {
-    account: accountQuery.data,
+    account:
+      !accountQuery.isError && accountQuery.data?.authenticated
+        ? accountQuery.data.user
+        : undefined,
+    accountSignedOut:
+      !accountQuery.isFetching &&
+      !accountQuery.isError &&
+      !accountInherited &&
+      accountQuery.data?.authenticated === false,
     transactionData: transactionQuery.data,
     isTransactionLoading: transactionQuery.isLoading,
     accountError: accountFailed ? accountQuery.error : undefined,

@@ -15,6 +15,11 @@ export function isAvailable(entry: { status?: FeatureStatus }): boolean {
   return entry.status !== 'planned';
 }
 
+/** A mobile app signs in through the browser, so it is the target that needs the sign-in site. */
+export function isMobileTarget(target: { needsSignInSite?: boolean } | undefined): boolean {
+  return target?.needsSignInSite === true;
+}
+
 export function availableFeatures(manifest: Manifest): FeatureEntry[] {
   return Object.entries(manifest.features)
     .filter(([, feature]) => isAvailable(feature))

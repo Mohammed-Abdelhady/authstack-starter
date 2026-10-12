@@ -57,6 +57,7 @@ export const REPOSITORY_LIKE: Record<string, FixturePackage> = {
     },
     devDependencies: { '@app/metro-config': 'workspace:*' },
   },
+  // feature:native-cli:start
   'mobile/cli': {
     name: '@app/mobile-cli',
     dependencies: {
@@ -67,6 +68,7 @@ export const REPOSITORY_LIKE: Record<string, FixturePackage> = {
     },
     devDependencies: { '@app/metro-config': 'workspace:*' },
   },
+  // feature:native-cli:end
   'mobile/adapters': {
     name: '@app/native-adapters',
     dependencies: { '@app/native-auth': 'workspace:*', '@app/sdk': 'workspace:*' },

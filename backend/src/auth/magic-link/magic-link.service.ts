@@ -1,40 +1,49 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { Request, Response } from 'express';
+import { MagicLinkStore, UnspentMagicLink } from './stores/magic-link.store';
+import { MagicLinkBrowserService } from './magic-link-browser.service';
 import {
-  PendingMagicLink,
-  PendingMagicLinkDocument,
-} from './schemas/pending-magic-link.schema';
+  MagicLinkAccount,
+  MagicLinkAccounts,
+  MagicLinkSignIn,
+} from './stores/magic-link-accounts';
 import { RequestMagicLinkDto } from './dto/request-magic-link.dto';
 import { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
 import { MagicLinkRequestResponseDto } from './dto/magic-link-request-response.dto';
 import {
   MAGIC_LINK_CLIENT_PATH,
+  MAGIC_LINK_CONFIRM_MESSAGE,
   MAGIC_LINK_RATE_WINDOW_MS,
 } from './constants/magic-link.constants';
 import {
   createMagicLinkToken,
   deriveNameFromEmail,
   hashMagicLinkToken,
+  sameHash,
 } from './utils/magic-link-token.util';
 import { buildClientUrl } from '../../common/utils/client-url.util';
 import { LoginResponseDto } from '../dto/login-response.dto';
 import { AuthMailService } from '../services/mail/auth-mail.service';
-import { SignInService } from '../services/sessions/sign-in.service';
-import { User, UserDocument } from '../../user/schemas/user.schema';
-import { AuthProvider } from '../../user/enums/auth-provider.enum';
+import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../constants/auth-messages';
+import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { isMongoDuplicateKeyError } from '../../common/utils/mongo-error.util';
+import { UniqueConflictError } from '../../common/persistence/persistence-errors';
 import { Clock } from '../../common/services/clock';
 import { currentRequestId } from '../../common/context/request-context';
+import { maskEmail } from './utils/mask-email.util';
 import { getAllowedNativeAuthorizeContinuation } from './utils/magic-link-continuation.util';
 
 const MILLISECONDS_PER_MINUTE = 60000;
-type MagicLinkLoginResponseData = LoginResponseDto & { redirect?: string };
+type MagicLinkLoginResponseData = LoginResponseDto & {
+  redirect?: string;
+  /** True when the link was not spent and a person has to confirm it. */
+  requiresConfirmation?: true;
+  /** The address the link belongs to, masked, for the confirmation screen. */
+  email?: string;
+};
 
 /**
  * Passwordless sign-in. A request mails a one-time link; verifying it creates
@@ -47,12 +56,13 @@ export class MagicLinkService {
   private readonly maxPerHour: number;
 
   constructor(
-    @InjectModel(PendingMagicLink.name)
-    private readonly pendingMagicLinkModel: Model<PendingMagicLinkDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly links: MagicLinkStore,
+    private readonly accounts: MagicLinkAccounts,
     private readonly configService: ConfigService,
     private readonly authMailService: AuthMailService,
-    private readonly signInService: SignInService,
+    private readonly mailDispatcher: MailDispatcherService,
+    private readonly signIn: MagicLinkSignIn,
+    private readonly browser: MagicLinkBrowserService,
     private readonly clock: Clock,
   ) {
     this.expiresIn = this.configService.get<number>(
@@ -66,55 +76,49 @@ export class MagicLinkService {
    * Mail a sign-in link. An address without an account gets one too, because
    * following it is how a passwordless account is created. A soft-deleted
    * account and an address over the hourly cap get the reply and no mail.
+   *
+   * Every request does the same work, so the time an answer takes says
+   * nothing about the address: one account read, one slot taken from the cap,
+   * one link stored. A request that mails nothing stores a link that is
+   * already spent and whose token is thrown away. The mail leaves through the
+   * dispatcher, so no answer waits on SMTP. Every answer also leaves the nonce
+   * that ties the link to this browser.
    */
   async request(
     dto: RequestMagicLinkDto,
     request: Request,
+    response: Response,
   ): Promise<ApiResponse<MagicLinkRequestResponseDto>> {
     const now = this.clock.now();
-    const user = await this.userModel.findOne({ email: { $eq: dto.email } });
-
-    if (user?.isDeleted) {
-      this.spendTokenHashingTime();
-      this.logger.warn('Magic link request for a deleted account');
-      return MagicLinkRequestResponseDto.success(dto.email);
-    }
-
-    const recentLinks = await this.pendingMagicLinkModel.countDocuments({
-      email: { $eq: dto.email },
-      createdAt: { $gte: new Date(now.getTime() - MAGIC_LINK_RATE_WINDOW_MS) },
+    const requestNonceHash = this.browser.bind(request, response);
+    const deleted = await this.accounts.hasDeletedAccount(dto.email);
+    const underCap = await this.links.takeRequestSlot(dto.email, {
+      now,
+      windowMs: MAGIC_LINK_RATE_WINDOW_MS,
+      limit: this.maxPerHour,
     });
-
-    if (recentLinks >= this.maxPerHour) {
-      this.spendTokenHashingTime();
-      this.logger.warn(
-        `Magic link hourly cap reached requestId=${currentRequestId() ?? 'unknown'}`,
-      );
-      return MagicLinkRequestResponseDto.success(dto.email);
-    }
+    const mailed = !deleted && underCap;
 
     const token = createMagicLinkToken();
     const redirect = getAllowedNativeAuthorizeContinuation(dto.redirect);
-    await this.pendingMagicLinkModel.create({
+    await this.links.insertLink({
       email: dto.email,
       tokenHash: hashMagicLinkToken(token),
       expiresAt: new Date(now.getTime() + this.expiresIn),
-      consumedAt: null,
       requestIp: request.ip,
       userAgent: request.headers['user-agent'],
+      requestNonceHash,
       ...(redirect ? { redirect } : {}),
+      ...(mailed ? {} : { consumedAt: now }),
     });
 
-    const sent = await this.authMailService.sendMagicLink(
-      dto.email,
-      this.buildLink(token),
-      Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
-    );
-
-    if (sent) {
-      this.logger.log(
-        `Magic link sent requestId=${currentRequestId() ?? 'unknown'}`,
-      );
+    const requestId = currentRequestId() ?? 'unknown';
+    if (mailed) {
+      this.deferLink(dto.email, token, requestId);
+    } else if (deleted) {
+      this.logger.warn('Magic link request for a deleted account');
+    } else {
+      this.logger.warn(`Magic link hourly cap reached requestId=${requestId}`);
     }
     return MagicLinkRequestResponseDto.success(dto.email);
   }
@@ -123,19 +127,45 @@ export class MagicLinkService {
    * Spend a link and sign its owner in. An account with a second factor gets
    * the challenge cookie and `requiresTwoFactor` instead of a session.
    *
+   * A token alone signs nobody in. Unless the caller says a person confirmed
+   * it, the link is spent only in the browser that asked for it, and only when
+   * that browser is not signed in to another account. Otherwise the answer is
+   * `requiresConfirmation` with the masked address, and the link stays unspent.
+   *
    * @throws AppException MAGIC_LINK_INVALID when the token is unknown, already
    * spent, expired, or belongs to a deleted account
    */
   async verify(
     dto: VerifyMagicLinkDto,
+    request: Request,
     response: Response,
   ): Promise<ApiResponse<MagicLinkLoginResponseData>> {
     const now = this.clock.now();
-    const link = await this.pendingMagicLinkModel.findOneAndUpdate(
-      { tokenHash: hashMagicLinkToken(dto.token), consumedAt: null },
-      { $set: { consumedAt: now } },
-      { new: true },
-    );
+    const tokenHash = hashMagicLinkToken(dto.token);
+
+    if (dto.confirm !== true) {
+      const pending = await this.links.findUnspentLink(tokenHash);
+      if (!pending) {
+        throw this.invalidLink('token is unknown or already used');
+      }
+      if (pending.expiresAt.getTime() <= now.getTime()) {
+        throw this.invalidLink('token has expired');
+      }
+      if (await this.needsConfirmation(pending, request)) {
+        this.logger.log('Magic link awaits confirmation');
+        return ApiResponse.success(
+          {
+            requiresTwoFactor: false,
+            user: null,
+            requiresConfirmation: true,
+            email: maskEmail(pending.email),
+          },
+          MAGIC_LINK_CONFIRM_MESSAGE,
+        );
+      }
+    }
+
+    const link = await this.links.claimLink(tokenHash, now);
 
     if (!link) {
       throw this.invalidLink('token is unknown or already used');
@@ -146,18 +176,15 @@ export class MagicLinkService {
     }
 
     const user = await this.resolveUser(link.email);
-    const outcome = await this.signInService.completeSignIn(user, response);
+    const outcome = await this.signIn.complete(user, response);
+    this.browser.release(response);
 
     let loginResponse: ApiResponse<LoginResponseDto>;
     if (outcome.requiresTwoFactor) {
-      this.logger.log(
-        `Link spent, second factor owed: userId=${user._id.toString()}`,
-      );
+      this.logger.log(`Link spent, second factor owed: userId=${user.id}`);
       loginResponse = LoginResponseDto.twoFactorRequired();
     } else {
-      this.logger.log(
-        `User signed in with a magic link: userId=${user._id.toString()}`,
-      );
+      this.logger.log(`User signed in with a magic link: userId=${user.id}`);
       loginResponse = LoginResponseDto.success(outcome.user);
     }
 
@@ -169,11 +196,36 @@ export class MagicLinkService {
   }
 
   /**
+   * True when the token did not come back to the browser that asked for it,
+   * or that browser is signed in to an account the link does not belong to.
+   */
+  private async needsConfirmation(
+    pending: UnspentMagicLink,
+    request: Request,
+  ): Promise<boolean> {
+    const presented = this.browser.presentedNonceHash(request);
+    if (
+      !presented ||
+      !pending.requestNonceHash ||
+      !sameHash(presented, pending.requestNonceHash)
+    ) {
+      return true;
+    }
+
+    const sessionAccountId = await this.browser.sessionAccountId(request);
+    if (sessionAccountId === null) {
+      return false;
+    }
+    const owner = await this.accounts.findByEmail(pending.email);
+    return owner?.id !== sessionAccountId;
+  }
+
+  /**
    * The account behind a spent link. Following the link proves control of the
    * address, so it both creates the account and verifies an existing one.
    */
-  private async resolveUser(email: string): Promise<UserDocument> {
-    const existing = await this.userModel.findOne({ email: { $eq: email } });
+  private async resolveUser(email: string): Promise<MagicLinkAccount> {
+    const existing = await this.accounts.findByEmail(email);
 
     if (existing?.isDeleted) {
       throw this.invalidLink('account is deleted');
@@ -181,8 +233,7 @@ export class MagicLinkService {
 
     if (existing) {
       if (!existing.isVerified) {
-        existing.isVerified = true;
-        await existing.save();
+        await this.accounts.markVerified(existing);
       }
       return existing;
     }
@@ -194,27 +245,26 @@ export class MagicLinkService {
    * Create the passwordless account. It carries no password hash, which is how
    * the rest of the application tells that password sign-in does not apply.
    */
-  private async createUser(email: string): Promise<UserDocument> {
+  private async createUser(email: string): Promise<MagicLinkAccount> {
     try {
-      const user = await this.userModel.create({
+      const user = await this.accounts.createPasswordless({
         email,
         name: deriveNameFromEmail(email),
-        isVerified: true,
-        authProvider: AuthProvider.EMAIL,
-        primaryProvider: AuthProvider.EMAIL,
       });
 
       this.logger.log('Created a new account from a magic link');
       return user;
     } catch (error) {
-      if (!isMongoDuplicateKeyError(error)) {
+      if (!(error instanceof UniqueConflictError)) {
         throw error;
       }
 
       // Two links for the same new address were spent at once.
-      const created = await this.userModel.findOne({ email: { $eq: email } });
+      const created = await this.accounts.findByEmail(email);
       if (!created) {
-        throw error;
+        // Still the database's own refusal, which is what the global filter
+        // answers with a conflict.
+        throw error.cause instanceof Error ? error.cause : error;
       }
       return created;
     }
@@ -226,12 +276,18 @@ export class MagicLinkService {
     });
   }
 
-  /**
-   * Spend the work a real link would have cost, so a request that mails
-   * nothing does not answer faster than one that does.
-   */
-  private spendTokenHashingTime(): void {
-    hashMagicLinkToken(createMagicLinkToken());
+  /** Start the mail and return at once. A dropped send is logged, not thrown. */
+  private deferLink(email: string, token: string, requestId: string): void {
+    this.mailDispatcher.dispatch(async () => {
+      const sent = await this.authMailService.sendMagicLink(
+        email,
+        this.buildLink(token),
+        Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
+      );
+      if (sent) {
+        this.logger.log(`Magic link sent requestId=${requestId}`);
+      }
+    }, SIGN_IN_LINK_EMAIL_FAILED_MESSAGE);
   }
 
   private invalidLink(reason: string): AppException {

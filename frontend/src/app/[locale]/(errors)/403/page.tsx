@@ -27,7 +27,7 @@ export default function Forbidden() {
       actions={
         <>
           <Button asChild className="w-full sm:w-auto" data-testid="forbidden-dashboard-button">
-            <Link href="/">
+            <Link href="/dashboard">
               <Home className="w-5 h-5 me-2" />
               {t('goDashboard')}
             </Link>

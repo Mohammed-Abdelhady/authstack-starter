@@ -8,20 +8,21 @@
 
 ```
 GET    /api/roles           - List all roles
-GET    /api/roles/:slug     - Get role by slug
+GET    /api/roles/:idOrSlug - Get role by id or slug
 POST   /api/roles           - Create new role
-PATCH  /api/roles/:slug     - Update role
-DELETE /api/roles/:slug     - Delete role
+PATCH  /api/roles/:idOrSlug - Update role
+DELETE /api/roles/:idOrSlug - Delete role
 ```
 
 **Permission Management**:
 
 ```
-GET    /api/admin/users/:id/permissions       - Get user permissions
-PUT    /api/admin/users/:id/permissions       - Replace all permissions
-POST   /api/admin/users/:id/permissions       - Add permissions
-DELETE /api/admin/users/:id/permissions       - Remove permissions
+GET    /api/admin/users/:id/permissions              - Get user permissions
+POST   /api/admin/users/:id/permissions              - Add one permission
+DELETE /api/admin/users/:id/permissions/:permission  - Remove one permission
 ```
+
+Every route with its guard is in [API routes](../../backend/docs/api-routes.md).
 
 ---
 
@@ -177,9 +178,11 @@ Create a new role.
 }
 ```
 
+The name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 characters long. A name in another script is refused with a validation error.
+
 **Response**: Created role object (201)
 
-#### PATCH /api/roles/:slug
+#### PATCH /api/roles/:idOrSlug
 
 Update role properties.
 
@@ -196,7 +199,7 @@ Update role properties.
 
 **Response**: Updated role object (200)
 
-#### DELETE /api/roles/:slug
+#### DELETE /api/roles/:idOrSlug
 
 Delete a role.
 
@@ -222,25 +225,9 @@ Get user's permissions.
 }
 ```
 
-#### PUT /api/admin/users/:id/permissions
-
-Replace all user permissions.
-
-**Permission**: `permissions:manage:all`
-
-**Request Body**:
-
-```json
-{
-  "permissions": ["users:read:all", "roles:read:all"]
-}
-```
-
-**Response**: Updated user object (200)
-
 #### POST /api/admin/users/:id/permissions
 
-Add permissions to user (no duplicates).
+Add one direct permission to a user. The wildcard `*` cannot be granted here. The caller must hold the permission itself, or hold `*`. Otherwise the answer is 403 with the code `FORBIDDEN`. The caller cannot target itself or a user at or above its own role level.
 
 **Permission**: `permissions:grant:all`
 
@@ -248,27 +235,19 @@ Add permissions to user (no duplicates).
 
 ```json
 {
-  "permissions": ["reports:read:all"]
+  "permission": "reports:read:all"
 }
 ```
 
-**Response**: Updated user object (200)
+**Response**: The user id and the permissions the user now has (200)
 
-#### DELETE /api/admin/users/:id/permissions
+#### DELETE /api/admin/users/:id/permissions/:permission
 
-Remove specific permissions from user.
+Remove one direct permission from a user. The permission is part of the address and the request has no body. The caller does not need to hold the permission. It cannot target itself or a user at or above its own role level.
 
 **Permission**: `permissions:revoke:all`
 
-**Request Body**:
-
-```json
-{
-  "permissions": ["reports:read:all"]
-}
-```
-
-**Response**: Updated user object (200)
+**Response**: The user id and the permissions the user now has (200)
 
 ---
 

@@ -27,6 +27,10 @@ export function toPlanRequest(options: CliOptions, config?: ConfigSelection): Pl
   const locales = options.locales ?? config?.locales;
   if (locales !== undefined) request.locales = locales;
 
+  // Field by field: a flag for the name leaves the config file's scheme in place.
+  const mobile = { ...(config?.mobile ?? {}), ...(options.mobile ?? {}) };
+  if (Object.keys(mobile).length > 0) request.mobile = mobile;
+
   const overrides = { ...(config?.options ?? {}), ...options.optionOverrides };
   if (Object.keys(overrides).length > 0) request.options = overrides;
 

@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { Clock } from '../../../common/services/clock';
 import { SECURITY_EVENT_ACTION } from '../../constants/security-event-action';
@@ -9,18 +9,17 @@ import {
   NATIVE_DPOP_FAILURE_REASON,
   NATIVE_DPOP_REVOKE_PATH,
 } from '../../constants/session-policy';
-import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../schemas/native-credential.schema';
-import { Session, SessionDocument } from '../../schemas/session.schema';
-import { withMajorityTransaction } from '../../utils/transactions/mongo-transaction';
 import { hashToken } from '../../utils/hashing/token-hash';
+import {
+  NativeCredentialStore,
+  NativeFamilySession,
+  StoredNativeCredential,
+} from '../credentials/native-credential.store';
 import { NativeBoundProofService } from '../proof/native-bound-proof.service';
 import { resolveNativeBoundThumbprint } from '../proof/native-bound-thumbprint';
 import { NativeCredentialIssuer } from '../token/native-credential.issuer';
 import { nativeDpopOauthFailure } from '../proof/native-dpop-oauth';
-import { isNativeDpopProofIdConflict } from '../proof/native-dpop.service';
+import { isNativeProofIdReplay } from '../proof/native-dpop.service';
 import {
   REVOKE_REQUEST_FIELDS,
   readStringFields,
@@ -41,11 +40,8 @@ interface ProofEventContext {
 @Injectable()
 export class NativeRevokeService {
   constructor(
-    @InjectConnection() private readonly connection: Connection,
-    @InjectModel(NativeCredential.name)
-    private readonly credentials: Model<NativeCredentialDocument>,
-    @InjectModel(Session.name)
-    private readonly sessions: Model<SessionDocument>,
+    private readonly unitOfWork: UnitOfWorkRunner,
+    private readonly credentials: NativeCredentialStore,
     private readonly issuer: NativeCredentialIssuer,
     private readonly boundProofs: NativeBoundProofService,
     private readonly clock: Clock,
@@ -77,24 +73,24 @@ export class NativeRevokeService {
     const now = this.clock.now();
     let refusalContext: ProofEventContext | undefined;
     try {
-      return await withMajorityTransaction(this.connection, async (db) => {
-        const credential = await this.credentials
-          .findOne({ tokenHash: hashToken(token) })
-          .session(db)
-          .exec();
+      return await this.unitOfWork.run(async (db) => {
+        const credential = await this.credentials.findPresentedCredential(
+          db,
+          hashToken(token),
+        );
         if (
           !credential ||
           (body.client_id && body.client_id !== credential.clientId)
         ) {
           return { ok: true };
         }
-        const session = await this.sessions
-          .findById(credential.sessionId)
-          .session(db)
-          .exec();
+        const session = await this.credentials.findFamilySession(
+          db,
+          credential.sessionId,
+        );
         const binding = resolveNativeBoundThumbprint(
-          session?.proofKeyThumbprint,
-          credential.proofKeyThumbprint,
+          session?.proofKeyThumbprint ?? undefined,
+          credential.proofKeyThumbprint ?? undefined,
         );
         if (binding.inconsistent) {
           const context = this.proofEventContext(credential, session);
@@ -141,7 +137,7 @@ export class NativeRevokeService {
         return { ok: true };
       });
     } catch (error) {
-      if (isNativeDpopProofIdConflict(error) && refusalContext) {
+      if (isNativeProofIdReplay(error) && refusalContext) {
         await this.boundProofs.recordRefusal(
           undefined,
           refusalContext,
@@ -149,17 +145,17 @@ export class NativeRevokeService {
         );
         return this.invalidProof(NATIVE_DPOP_FAILURE_REASON.PROOF_REPLAYED);
       }
-      throw error;
+      throw storeFailureCause(error);
     }
   }
 
   private proofEventContext(
-    credential: NativeCredentialDocument,
-    session: SessionDocument | null,
+    credential: StoredNativeCredential,
+    session: NativeFamilySession | null,
   ): ProofEventContext {
     return {
-      ...(session ? { targetUserId: session.user.toString() } : {}),
-      sessionId: credential.sessionId.toString(),
+      ...(session ? { targetUserId: session.userId } : {}),
+      sessionId: credential.sessionId,
       clientId: credential.clientId,
     };
   }

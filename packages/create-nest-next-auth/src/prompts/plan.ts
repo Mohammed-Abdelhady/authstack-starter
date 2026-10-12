@@ -9,6 +9,7 @@ import {
 import { type PlanRequest, resolvePlan } from '../manifest/plan.js';
 import type { Manifest } from '../types.js';
 import { askFeatures, CANCELLED } from './index.js';
+import { askMobileIdentity, missingMobileFields } from './mobile.js';
 
 export interface PlanPromptNeeds {
   rules: boolean;
@@ -16,12 +17,17 @@ export interface PlanPromptNeeds {
   database: boolean;
   features: boolean;
   options: boolean;
+  /** A mobile app is already chosen and some of its identity is still open. */
+  mobile: boolean;
 }
 
 /**
  * A dimension is prompted only when a flag or file did not fix it and the
  * manifest offers more than one available choice. A preset carries targets,
  * features and options but never a database, so it does not suppress that prompt.
+ * The rules level and the database came after the first command lines were
+ * written, so without a terminal each falls back to its default instead of
+ * refusing to run.
  */
 export function planPromptNeeds(
   manifest: Manifest,
@@ -29,12 +35,17 @@ export function planPromptNeeds(
   terminal = true,
 ): PlanPromptNeeds {
   const presetGiven = request.preset !== undefined;
+  const chosen = resolvePlan(manifest, request);
   return {
+    mobile: chosen.mobile !== undefined && missingMobileFields(request.mobile ?? {}).length > 0,
     // Without a terminal the level is not asked for: the plan falls back to its default.
     rules: terminal && request.rules === undefined,
     targets:
       !presetGiven && request.targets === undefined && availableTargetIds(manifest).length > 1,
-    database: request.databases === undefined && availableDatabaseIds(manifest).length > 1,
+    // Without a terminal the database is not asked for either: a command line
+    // written before there was a choice still gets the default.
+    database:
+      terminal && request.databases === undefined && availableDatabaseIds(manifest).length > 1,
     features: !presetGiven && request.features === undefined,
     options:
       !presetGiven && request.options === undefined && availableOptionIds(manifest).length > 1,
@@ -50,6 +61,9 @@ async function askTargets(
     options: availableTargetIds(manifest).map((id) => ({
       value: id,
       label: manifest.targets[id].label,
+      ...(manifest.targets[id].description === undefined
+        ? {}
+        : { hint: manifest.targets[id].description }),
     })),
     initialValues: initial,
     required: true,
@@ -58,12 +72,14 @@ async function askTargets(
   return answer;
 }
 
+export const DATABASE_QUESTION = 'Which database?';
+
 async function askDatabase(
   manifest: Manifest,
   initial: string,
 ): Promise<string | typeof CANCELLED> {
   const answer = await select({
-    message: 'Which database?',
+    message: DATABASE_QUESTION,
     options: availableDatabaseIds(manifest).map((id) => ({
       value: id,
       label: manifest.databases[id].label,
@@ -117,6 +133,15 @@ export async function askPlan(
     const targets = await askTargets(manifest, baseline.targets);
     if (targets === CANCELLED) return CANCELLED;
     answers.targets = targets;
+  }
+
+  // Asked as soon as the clients are known, and only when one of them is a mobile app.
+  const withTargets = resolvePlan(manifest, { ...request, ...answers });
+  if (withTargets.mobile !== undefined) {
+    const given = request.mobile ?? {};
+    const mobile = await askMobileIdentity(withTargets.mobile, given);
+    if (mobile === CANCELLED) return CANCELLED;
+    answers.mobile = { ...given, ...mobile };
   }
 
   if (needs.database) {

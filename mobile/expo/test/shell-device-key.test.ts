@@ -86,7 +86,11 @@ function device(hardware: FakeHardware, challenge = false, challengeRefresh = fa
         },
       },
       {
-        configuration: resolveConfig({ apiOrigin: undefined, development: true }),
+        configuration: resolveConfig({
+          apiOrigin: undefined,
+          development: true,
+          scheme: 'com.example.mobile',
+        }),
         ephemeralBrowserSession: true,
         keyProtection,
       },

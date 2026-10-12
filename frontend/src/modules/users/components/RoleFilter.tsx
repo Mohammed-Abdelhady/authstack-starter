@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,10 +13,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { SearchBar } from '@/components/design-system';
+import { SearchBar, TruncatedText } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { useDebounce } from '@/hooks/useDebounce';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
+import type { Role } from '@/modules/roles/types';
 
 export function RoleFilter({
   value,
@@ -30,18 +34,31 @@ export function RoleFilter({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // The filter value is a slug. Its name comes from the role picked here, or
+  // from the list of every role once the page has read it.
+  const [picked, setPicked] = useState<Pick<Role, 'slug' | 'name'> | null>(null);
+  const { roles: allRoles } = useAllRoles();
   const query = useDebounce(search, 300);
-  const { currentData, isFetching, isError, refetch } = useListRolesQuery(
+  const { currentData, isFetching, isError, error, refetch } = useListRolesQuery(
     { page, limit: 20, search: query.trim() || undefined },
     { skip: !open },
   );
   const lastPage = Math.max(1, currentData?.totalPages ?? page);
   if (!isFetching && !isError && page > lastPage) setPage(lastPage);
 
-  function choose(role: string) {
-    onChange(role);
+  // The failure stays while a retry runs, and Retry hands the focus to the search field.
+  const hasFailed = error !== undefined;
+  const searchRef = useRef<HTMLInputElement>(null);
+  const retry = useRetryHandOff(hasFailed, refetch, searchRef);
+
+  function choose(role: Pick<Role, 'slug' | 'name'> | null) {
+    setPicked(role);
+    onChange(role?.slug ?? 'all');
     setOpen(false);
   }
+
+  const known = picked?.slug === value ? picked : allRoles.find((role) => role.slug === value);
+  const pickedName = known?.name ?? null;
 
   function changeSearch(next: string) {
     setSearch(next);
@@ -54,11 +71,22 @@ export function RoleFilter({
         <Button
           variant="outline"
           className="w-full sm:w-50 justify-between"
+          aria-label={t('roleFilterTriggerLabel', {
+            role: value === 'all' ? t('allRoles') : (pickedName ?? value),
+          })}
           data-testid="role-filter"
         >
-          <span className="truncate">
-            {value === 'all' ? t('allRoles') : value.charAt(0).toUpperCase() + value.slice(1)}
-          </span>
+          {value === 'all' ? (
+            <span className="truncate">{t('allRoles')}</span>
+          ) : (
+            <span className="flex min-w-0 flex-1">
+              <TruncatedText
+                value={pickedName ?? value}
+                dir={pickedName === null ? 'ltr' : 'auto'}
+                testId="role-filter-value"
+              />
+            </span>
+          )}
           <ChevronDown className="ms-2 h-4 w-4 shrink-0" aria-hidden="true" />
         </Button>
       </DialogTrigger>
@@ -68,17 +96,21 @@ export function RoleFilter({
           <DialogDescription>{t('roleFilterHint')}</DialogDescription>
         </DialogHeader>
         <SearchBar
+          ref={searchRef}
+          className={FREE_TEXT_SEARCH_CLASSES}
           value={search}
           onChange={(event) => changeSearch(event.target.value)}
           onClear={() => changeSearch('')}
           showClear={search.length > 0}
-          placeholder={rolesText('searchPlaceholder')}
+          // A browser cuts the placeholder of a focused field without an ellipsis,
+          // and this field opens focused: one word fits, the label says the rest.
+          placeholder={common('search')}
           aria-label={rolesText('searchPlaceholder')}
           data-testid="role-filter-search"
         />
         <Button
           variant={value === 'all' ? 'secondary' : 'ghost'}
-          onClick={() => choose('all')}
+          onClick={() => choose(null)}
           aria-pressed={value === 'all'}
           data-testid="role-filter-all"
         >
@@ -86,30 +118,33 @@ export function RoleFilter({
         </Button>
         <div aria-busy={isFetching}>
           {isFetching && <p role="status">{rolesText('loading')}</p>}
-          {isError ? (
+          {hasFailed ? (
             <div role="alert" className="space-y-2">
               <p>{t('roleFilterError')}</p>
               <Button
-                onClick={() => refetch()}
-                disabled={isFetching}
+                onClick={retry}
+                busy={isFetching}
+                aria-busy={isFetching}
                 data-testid="role-filter-retry"
               >
                 {common('retry')}
               </Button>
             </div>
           ) : (
-            <div className="grid gap-1" data-testid="role-filter-results">
+            <div className="grid grid-cols-1 gap-1" data-testid="role-filter-results">
               {currentData?.roles.map((role) => (
                 <Button
                   key={role.id}
                   variant={value === role.slug ? 'secondary' : 'ghost'}
-                  className="justify-start"
-                  disabled={isFetching}
+                  className="h-auto min-h-10 justify-start whitespace-normal text-start [overflow-wrap:anywhere]"
+                  busy={isFetching}
                   aria-pressed={value === role.slug}
-                  onClick={() => choose(role.slug)}
+                  onClick={() => choose(role)}
                   data-testid={`role-filter-option-${role.slug}`}
                 >
-                  {role.name}
+                  <span className="min-w-0">
+                    <span dir="auto">{role.name}</span>
+                  </span>
                 </Button>
               ))}
               {!isFetching && currentData?.roles.length === 0 && (

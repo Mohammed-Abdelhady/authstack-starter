@@ -1,4 +1,7 @@
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, ShellPaint } from '@app/native-ui';
+import { isolateLtr } from '@app/native-ui/host';
+import { useTheme } from '@app/native-ui/theme';
+import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import type { StartedShellAuth } from '../shell';
 import { DIRECTION, translate, type Locale, type MessageKey } from '../i18n/messages';
 import { OPERATION_KEY, REASON_KEY, STATUS_KEY, STORAGE_WARNING_KEY } from '../logic/outcome-keys';
@@ -17,6 +20,7 @@ export const TEST_ID = {
   REFRESH: 'auth-refresh',
   LOAD_PROFILE: 'auth-load-profile',
   SIGN_OUT: 'auth-sign-out',
+  CLOSE: 'auth-close',
 } as const;
 
 const SPACING = 16;
@@ -29,9 +33,10 @@ const styles = StyleSheet.create({
 interface DebugScreenProps {
   auth: StartedShellAuth;
   locale: Locale;
+  onClose: () => void;
 }
 
-export function DebugScreen({ auth, locale }: DebugScreenProps) {
+export function DebugScreen({ auth, locale, onClose }: DebugScreenProps) {
   const {
     snapshot,
     lastOutcome,
@@ -42,20 +47,26 @@ export function DebugScreen({ auth, locale }: DebugScreenProps) {
     loadProfile,
     signOut,
   } = useAuthDebug(auth);
+  const { colors, statusBarStyle } = useTheme();
   const direction = DIRECTION[locale];
   const text = (key: MessageKey, value?: string): string => translate(locale, key, value);
   const none = text('none');
   const keyState = describeDeviceKey(locale, auth.deviceKey);
-  const line = { writingDirection: direction } as const;
+  const line = { writingDirection: direction, color: colors.text } as const;
   const reason = snapshot.reason === undefined ? none : text(REASON_KEY[snapshot.reason]);
   const warning =
     snapshot.warning === undefined || storageWarning === undefined
       ? undefined
       : text(STORAGE_WARNING_KEY[storageWarning]);
   const outcome = lastOutcome === undefined ? none : render(locale, lastOutcome);
+  const account = snapshot.profile === undefined ? none : isolateLtr(snapshot.profile.email);
 
   return (
-    <ScrollView contentContainerStyle={[styles.content, { direction }]}>
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={[styles.content, { direction }]}
+    >
+      <StatusBar barStyle={statusBarStyle} />
       <Text accessibilityRole="header" style={line}>
         {text('title')}
       </Text>
@@ -70,7 +81,7 @@ export function DebugScreen({ auth, locale }: DebugScreenProps) {
           {text('operation', text(OPERATION_KEY[snapshot.operation]))}
         </Text>
         <Text style={line}>{text('reason', reason)}</Text>
-        <Text style={line}>{text('account', snapshot.profile?.email ?? none)}</Text>
+        <Text style={line}>{text('account', account)}</Text>
         {warning === undefined ? null : (
           <Text testID={TEST_ID.WARNING} style={line}>
             {text('warning', warning)}
@@ -83,30 +94,43 @@ export function DebugScreen({ auth, locale }: DebugScreenProps) {
           {text('refreshTokenRequests', String(refreshTokenRequests))}
         </Text>
       </View>
-      <Button
-        testID={TEST_ID.SIGN_IN}
-        title={text('signIn')}
-        accessibilityLabel={text('signInLabel')}
-        onPress={signIn}
-      />
-      <Button
-        testID={TEST_ID.REFRESH}
-        title={text('refresh')}
-        accessibilityLabel={text('refreshLabel')}
-        onPress={refresh}
-      />
-      <Button
-        testID={TEST_ID.LOAD_PROFILE}
-        title={text('loadProfile')}
-        accessibilityLabel={text('loadProfileLabel')}
-        onPress={loadProfile}
-      />
-      <Button
-        testID={TEST_ID.SIGN_OUT}
-        title={text('signOut')}
-        accessibilityLabel={text('signOutLabel')}
-        onPress={signOut}
-      />
+      <ShellPaint direction={direction}>
+        <Button
+          testID={TEST_ID.SIGN_IN}
+          stretch
+          label={text('signIn')}
+          accessibilityLabel={text('signInLabel')}
+          onPress={signIn}
+        />
+        <Button
+          testID={TEST_ID.REFRESH}
+          stretch
+          label={text('refresh')}
+          accessibilityLabel={text('refreshLabel')}
+          onPress={refresh}
+        />
+        <Button
+          testID={TEST_ID.LOAD_PROFILE}
+          stretch
+          label={text('loadProfile')}
+          accessibilityLabel={text('loadProfileLabel')}
+          onPress={loadProfile}
+        />
+        <Button
+          testID={TEST_ID.SIGN_OUT}
+          stretch
+          label={text('signOut')}
+          accessibilityLabel={text('signOutLabel')}
+          onPress={signOut}
+        />
+        <Button
+          testID={TEST_ID.CLOSE}
+          stretch
+          label={text('close')}
+          accessibilityLabel={text('closeLabel')}
+          onPress={onClose}
+        />
+      </ShellPaint>
     </ScrollView>
   );
 }

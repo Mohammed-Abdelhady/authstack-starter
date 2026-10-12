@@ -4,12 +4,15 @@ import { basename, resolve } from 'node:path';
 import { cancel, intro, log, note, outro } from '@clack/prompts';
 import { CommanderError } from 'commander';
 import { BROKEN_PACKAGE_EXIT_CODE, CLI_NAME, USAGE_EXIT_CODE } from './constants/index.js';
+import { MOBILE_DEFAULT_PROJECT_NAME } from './constants/mobile.js';
 import { ConfigFileError, readConfigFile } from './flags/config-file.js';
 import { parseCliOptions } from './flags/options.js';
 import { toPlanRequest } from './flags/request.js';
 import { CliError, BrokenPackageError } from './errors.js';
 import { loadManifest } from './manifest/load.js';
 import { resolvePlan } from './manifest/plan.js';
+import type { PlanError } from './manifest/plan-types.js';
+import { resolveMobileIdentity } from './mobile/identity.js';
 import { packageRoot } from './paths.js';
 import { askDirectory, CANCELLED } from './prompts/index.js';
 import { askPlan, type PlanPromptNeeds, planPromptNeeds } from './prompts/plan.js';
@@ -67,6 +70,7 @@ function requireInteractive(options: CliOptions, needs: PromptNeeds): void {
     needs.database ||
     needs.features ||
     needs.options ||
+    needs.mobile ||
     needs.rules;
   if (!needsPrompt || options.yes || process.stdin.isTTY === true) return;
   throw new CliError('No terminal to prompt in. Pass --yes or the matching flags.');
@@ -94,17 +98,29 @@ export async function main(
 
     // Flags and the config file are authoritative. Report their errors before
     // any prompt, so an invalid run never asks a question first.
-    const requested = resolvePlan(manifest, request);
-    if (requested.errors.length > 0) {
-      for (const line of describePlanErrors(manifest, requested.errors)) log.error(line);
+    const terminal = process.stdin.isTTY === true;
+    const needs: PromptNeeds = {
+      directory: !options.dryRun && options.directory === undefined,
+      ...planPromptNeeds(manifest, request, terminal),
+    };
+    // A mobile flag may be waiting for the clients question, so whether it is used is judged
+    // after the answer. Its value is wrong whatever the answer, so that is judged now.
+    const asksClients = needs.targets && !options.yes && terminal;
+    const requested: PlanError[] = resolvePlan(manifest, request).errors.filter(
+      (error) => !(asksClients && error.reason === 'identity-unused'),
+    );
+    if (asksClients && !requested.some((error) => error.reason === 'identity')) {
+      const given = request.mobile ?? {};
+      for (const { field, message } of resolveMobileIdentity(given, MOBILE_DEFAULT_PROJECT_NAME)
+        .problems) {
+        requested.push({ id: field, reason: 'identity', message });
+      }
+    }
+    if (requested.length > 0) {
+      for (const line of describePlanErrors(manifest, requested)) log.error(line);
       outro('Nothing was written.');
       return USAGE_EXIT_CODE;
     }
-
-    const needs: PromptNeeds = {
-      directory: !options.dryRun && options.directory === undefined,
-      ...planPromptNeeds(manifest, request, process.stdin.isTTY === true),
-    };
     requireInteractive(options, needs);
 
     const target = options.dryRun
@@ -112,6 +128,8 @@ export async function main(
         ? ''
         : await validateTarget(options.directory)
       : await resolveTarget(options);
+    // The mobile app's defaults are built from the name the project was given.
+    if (target !== '') request.projectName = basename(target);
 
     if (!options.yes) {
       const answers = await askPlan(manifest, request, needs);

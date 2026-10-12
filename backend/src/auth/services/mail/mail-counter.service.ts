@@ -1,13 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import {
-  MailCounter,
-  MailCounterDocument,
-} from '../../schemas/mail-counter.schema';
 import { Clock } from '../../../common/services/clock';
-import { isMongoDuplicateKeyError } from '../../../common/utils/mongo-error.util';
+import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
@@ -15,6 +9,10 @@ import {
   MailCounterPurpose,
   mailedCodeWindowMs,
 } from '../../constants/registration';
+import {
+  MAIL_RECORD,
+  MailCounterStore,
+} from '../../pending-codes/mail-counter.store';
 
 /**
  * Caps every per-address mail with its own counter, keyed by address and
@@ -27,8 +25,7 @@ export class MailCounterService {
   private readonly windowMs: number;
 
   constructor(
-    @InjectModel(MailCounter.name)
-    private readonly mailCounterModel: Model<MailCounterDocument>,
+    private readonly store: MailCounterStore,
     private readonly configService: ConfigService,
     private readonly clock: Clock,
   ) {
@@ -46,67 +43,28 @@ export class MailCounterService {
     purpose: MailCounterPurpose,
   ): Promise<boolean> {
     const now = this.clock.now();
-    const windowRolledOver = {
-      $gte: [{ $subtract: [now, '$windowStartedAt'] }, this.windowMs],
-    };
+    const key = { email, purpose };
 
     for (let pass = 0; pass < PENDING_STORE_PASSES; pass += 1) {
-      const updated = await this.mailCounterModel.findOneAndUpdate(
-        {
-          email: { $eq: email },
-          purpose,
-          $or: [
-            {
-              windowStartedAt: {
-                $lte: new Date(now.getTime() - this.windowMs),
-              },
-            },
-            { mailedCodes: { $lt: MAILED_CODE_LIMIT_PER_ADDRESS } },
-          ],
-        },
-        [
-          {
-            $set: {
-              mailedCodes: {
-                $cond: [windowRolledOver, 1, { $add: ['$mailedCodes', 1] }],
-              },
-              windowStartedAt: {
-                $cond: [windowRolledOver, now, '$windowStartedAt'],
-              },
-              expiresAt: {
-                $add: [
-                  { $cond: [windowRolledOver, now, '$windowStartedAt'] },
-                  this.windowMs,
-                ],
-              },
-            },
-          },
-        ],
-        { new: true, select: '_id' },
-      );
-      if (updated) {
+      const recorded = await this.store.recordWithinCap(key, {
+        now,
+        windowMs: this.windowMs,
+        limit: MAILED_CODE_LIMIT_PER_ADDRESS,
+      });
+      if (recorded === MAIL_RECORD.RECORDED) {
         return true;
       }
 
-      const existing = await this.mailCounterModel.exists({
-        email: { $eq: email },
-        purpose,
-      });
-      if (existing) {
+      // A counter that is left is full inside its window.
+      if (await this.store.hasCounter(key)) {
         return false;
       }
 
       try {
-        await this.mailCounterModel.create({
-          email,
-          purpose,
-          mailedCodes: 1,
-          windowStartedAt: now,
-          expiresAt: new Date(now.getTime() + this.windowMs),
-        });
+        await this.store.openCounter(key, { now, windowMs: this.windowMs });
         return true;
       } catch (error) {
-        if (!isMongoDuplicateKeyError(error)) throw error;
+        if (!(error instanceof UniqueConflictError)) throw error;
       }
     }
 

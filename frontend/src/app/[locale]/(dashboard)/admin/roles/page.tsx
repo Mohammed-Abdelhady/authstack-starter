@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useMemo, useCallback, Activity } from 'react';
+import { useState, useMemo, useCallback, useRef, Activity } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Description, Heading, SearchBar, SplitView } from '@/components/design-system';
 import { PaginationControl } from '@/components/pagination';
 import { useListRolesQuery } from '@/modules/roles/api/rolesApi';
@@ -12,7 +11,11 @@ import { RoleSidebarNav } from '@/modules/permissions/components/roles/RoleSideb
 import { RoleDetailPanel } from '@/modules/permissions/components/roles/RoleDetailPanel';
 import { RoleSplitViewSkeleton, RoleDialogs } from '@/modules/roles/components';
 import { RoutePermissionGuard } from '@/modules/permissions';
-import { ROLE_PERMISSIONS, parseApiError } from '@app/core';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
+import { MAX_ADMIN_SEARCH_LENGTH } from '@/modules/permissions/constants/search';
+import { ROLE_PERMISSIONS } from '@app/core';
+import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';
+import { useListReadState } from '@/hooks/useListReadState';
 import { Plus, Shield } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -28,19 +31,33 @@ export default function RolesPage() {
   const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
 
   const debouncedSearch = useDebounce(searchTerm, 300);
+  // Takes focus once a role is deleted: its delete button then stands for another role.
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const { data, currentData, isLoading, isFetching, isError, error, refetch } = useListRolesQuery({
+  const listParams = {
     page,
     limit: 20,
     search: debouncedSearch.trim() || undefined,
+  };
+  const { data, currentData, isLoading, isFetching, error, refetch } =
+    useListRolesQuery(listParams);
+
+  const lastAvailablePage = Math.max(1, currentData?.totalPages ?? page);
+  const hasSettledCurrentPage = currentData?.page === page && !isFetching && error === undefined;
+  if (hasSettledCurrentPage && page > lastAvailablePage) setPage(lastAvailablePage);
+
+  // A list already on screen stays when a later read of it fails.
+  const { showSkeleton, showLoadError, isStale, retry } = useListReadState({
+    isLoading,
+    error,
+    hasData: currentData !== undefined,
+    refetch,
+    landing: titleRef,
   });
 
   const roles = useMemo(() => data?.roles || [], [data?.roles]);
   const totalPages = data?.totalPages || 1;
   const totalCount = data?.total ?? roles.length;
-
-  const lastPage = Math.max(1, currentData?.totalPages ?? page);
-  if (!isFetching && !isError && page > lastPage) setPage(lastPage);
 
   const effectiveSelectedRoleId = roles.some((role) => role.id === selectedRoleId)
     ? selectedRoleId
@@ -78,10 +95,12 @@ export default function RolesPage() {
         <div className="my-8">
           <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
             <div>
-              <Heading level={1} variant="pageTitle">
+              <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
                 {t('title')}
               </Heading>
-              <Description className="mt-1">{t('count', { count: totalCount })}</Description>
+              <Description className="mt-1" role="status">
+                {t('count', { count: totalCount })}
+              </Description>
             </div>
             <Button onClick={() => setCreateDialogOpen(true)} data-testid="create-role-button">
               <Plus className="me-2 h-4 w-4" aria-hidden="true" />
@@ -90,10 +109,13 @@ export default function RolesPage() {
           </div>
 
           <SearchBar
+            className={FREE_TEXT_SEARCH_CLASSES}
+            aria-label={t('searchLabel')}
             placeholder={t('searchPlaceholder')}
+            maxLength={MAX_ADMIN_SEARCH_LENGTH}
             value={searchTerm}
             onChange={(e) => {
-              setSearchTerm(e.target.value);
+              setSearchTerm(e.target.value.slice(0, MAX_ADMIN_SEARCH_LENGTH));
               setPage(1);
             }}
             onClear={() => {
@@ -106,31 +128,35 @@ export default function RolesPage() {
         </div>
 
         {/* State 1: Skeleton Loading */}
-        <Activity mode={isLoading ? 'visible' : 'hidden'}>
+        <Activity mode={showSkeleton ? 'visible' : 'hidden'}>
           <RoleSplitViewSkeleton />
         </Activity>
 
-        {/* State 2: Error */}
-        <Activity mode={!isLoading && isError ? 'visible' : 'hidden'}>
-          <Alert variant="destructive" data-testid="error-state">
-            <AlertDescription className="flex items-center justify-between">
-              <span>
-                {tCommon('loading')} {error ? parseApiError(error).message : tCommon('retry')}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => refetch()}
-                data-testid="retry-roles-button"
-              >
-                {tCommon('retry')}
-              </Button>
-            </AlertDescription>
-          </Alert>
+        {/* State 2: Error, nothing loaded for this view */}
+        <Activity mode={showLoadError ? 'visible' : 'hidden'}>
+          <ListLoadError
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-roles-button"
+          >
+            {t('loadError')}
+          </ListLoadError>
         </Activity>
 
+        {isStale && (
+          <StaleListNotice
+            error={error}
+            onRetry={retry}
+            isRetrying={isFetching}
+            retryTestId="retry-refresh-roles-button"
+          />
+        )}
+
         {/* State 3: Empty */}
-        <Activity mode={!isLoading && !isError && roles.length === 0 ? 'visible' : 'hidden'}>
+        <Activity
+          mode={!showSkeleton && !showLoadError && roles.length === 0 ? 'visible' : 'hidden'}
+        >
           <div
             className="flex flex-col items-center justify-center py-16 text-center"
             data-testid="empty-state"
@@ -167,7 +193,7 @@ export default function RolesPage() {
         </Activity>
 
         {/* State 4: Data */}
-        <Activity mode={!isLoading && !isError && roles.length > 0 ? 'visible' : 'hidden'}>
+        <Activity mode={!showSkeleton && !showLoadError && roles.length > 0 ? 'visible' : 'hidden'}>
           <div className="space-y-6">
             <SplitView
               sidebar={
@@ -180,6 +206,7 @@ export default function RolesPage() {
               content={
                 <RoleDetailPanel role={selectedRole} onEdit={handleEdit} onDelete={handleDelete} />
               }
+              sidebarLabel={t('title')}
               sidebarWidth="280px"
               stickySidebar
             />
@@ -203,6 +230,7 @@ export default function RolesPage() {
           onDeleteOpenChange={setDeleteDialogOpen}
           roleToEdit={roleToEdit}
           onSuccess={handleSuccess}
+          deleteLanding={titleRef}
         />
       </div>
     </RoutePermissionGuard>

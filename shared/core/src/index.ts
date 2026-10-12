@@ -5,4 +5,5 @@ export * from './api-error';
 export * from './permissions';
 export * from './permission-utils';
 export * from './password-rules';
+export * from './role-rules';
 export * from './validations/index';

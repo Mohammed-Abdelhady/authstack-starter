@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { DashboardNav } from './DashboardNav';
 import { SidebarBrand } from './SidebarBrand';
+import { SidebarCopyright } from './SidebarCopyright';
 
 export interface SidebarPanelProps {
   /** Called when a nav link is followed, so the mobile drawer can close itself. */
@@ -29,7 +30,7 @@ export function SidebarPanel({ onNavigate, headerAction }: SidebarPanelProps): R
       </div>
 
       <div className="border-t border-border p-4">
-        <p className="text-xs text-muted-foreground">© 2024 Auth App</p>
+        <SidebarCopyright />
       </div>
     </div>
   );

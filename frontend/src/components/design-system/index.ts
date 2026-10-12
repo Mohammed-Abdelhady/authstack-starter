@@ -6,6 +6,8 @@ export { SectionHeader, type SectionHeaderProps } from './SectionHeader';
 
 export { SearchBar, type SearchBarProps } from './SearchBar';
 
+export { TruncatedText, type TruncatedTextProps } from './TruncatedText';
+
 export { StatusBadge, type StatusBadgeProps } from './StatusBadge';
 
 export { SplitView, type SplitViewProps } from './layout/SplitView';

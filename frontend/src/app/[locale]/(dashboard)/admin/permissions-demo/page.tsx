@@ -1,3 +1,8 @@
+import type { Metadata } from 'next';
+import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CodeBlock } from '@/components/ui/code-block';
 import { Description, Heading } from '@/components/design-system';
 import { PermissionGuard, RoutePermissionGuard } from '@/modules/permissions';
 import {
@@ -10,6 +15,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Shield, Lock, Unlock, Users, Settings, Trash2, Edit, Eye } from 'lucide-react';
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'permissions.demo' });
+
+  return { title: t('title'), description: t('description') };
+}
+
 /**
  * Permissions Demo Page
  *
@@ -20,17 +36,17 @@ import { Shield, Lock, Unlock, Users, Settings, Trash2, Edit, Eye } from 'lucide
  * - Action button protection
  */
 export default function PermissionsDemoPage() {
+  const t = useTranslations('permissions.demo');
+  const tCommon = useTranslations('common');
   return (
     <RoutePermissionGuard permission={PERMISSION_PERMISSIONS.MANAGE_ALL}>
-      <div className="container mx-auto max-w-6xl space-y-8 py-8">
+      <div className="container mx-auto max-w-6xl space-y-8 px-4 py-8">
         {/* Page Header */}
         <div>
           <Heading level={1} variant="pageTitle" className="mt-8">
-            Permissions System Demo
+            {t('title')}
           </Heading>
-          <Description className="mt-2">
-            This page demonstrates how to use permission guards throughout the application.
-          </Description>
+          <Description className="mt-2">{t('description')}</Description>
         </div>
 
         {/* Single Permission Guard */}
@@ -38,29 +54,23 @@ export default function PermissionsDemoPage() {
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <Heading level={2} variant="sectionTitle">
-              Single Permission Guard
+              {t('singleTitle')}
             </Heading>
           </div>
-          <Description>
-            Elements wrapped in PermissionGuard are completely hidden if the user lacks permission.
-          </Description>
+          <Description>{t('singleDescription')}</Description>
 
           <div className="space-y-2">
             <PermissionGuard permission={USER_PERMISSIONS.LIST_ALL}>
-              <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-                <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm text-green-800 dark:text-green-200">
-                  ✓ You have USER_PERMISSIONS.LIST_ALL - this element is visible
-                </span>
+              <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+                <Unlock className="h-4 w-4 text-status-success" />
+                <span className="text-sm text-foreground">{t('singleAllowed')}</span>
               </div>
             </PermissionGuard>
 
             <PermissionGuard permission="fake:permission:that:nobody:has">
-              <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950">
-                <Lock className="h-4 w-4 text-red-600 dark:text-red-400" />
-                <span className="text-sm text-red-800 dark:text-red-200">
-                  ✗ This element requires fake:permission - you will never see this
-                </span>
+              <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 dark:bg-destructive/20">
+                <Lock className="h-4 w-4 text-status-danger" />
+                <span className="text-sm text-foreground">{t('singleDenied')}</span>
               </div>
             </PermissionGuard>
           </div>
@@ -71,29 +81,22 @@ export default function PermissionsDemoPage() {
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <Heading level={2} variant="sectionTitle">
-              Multiple Permissions (Require ALL)
+              {t('allTitle')}
             </Heading>
           </div>
-          <Description>
-            Use the <code className="rounded bg-muted px-1">permissions</code> prop to require ALL
-            listed permissions.
-          </Description>
+          <Description>{t('allDescription')}</Description>
 
           <PermissionGuard permissions={[USER_PERMISSIONS.LIST_ALL, ROLE_PERMISSIONS.LIST_ALL]}>
-            <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-              <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-green-800 dark:text-green-200">
-                ✓ You have both USER_PERMISSIONS.LIST_ALL AND ROLE_PERMISSIONS.LIST_ALL
-              </span>
+            <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+              <Unlock className="h-4 w-4 text-status-success" />
+              <span className="text-sm text-foreground">{t('allAllowed')}</span>
             </div>
           </PermissionGuard>
 
           <PermissionGuard permissions={[USER_PERMISSIONS.LIST_ALL, 'fake:permission']}>
-            <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 dark:bg-red-950">
-              <Lock className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-800 dark:text-red-200">
-                ✗ This requires fake:permission - hidden even if you have one permission
-              </span>
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 dark:bg-destructive/20">
+              <Lock className="h-4 w-4 text-status-danger" />
+              <span className="text-sm text-foreground">{t('allDenied')}</span>
             </div>
           </PermissionGuard>
         </section>
@@ -103,22 +106,17 @@ export default function PermissionsDemoPage() {
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <Heading level={2} variant="sectionTitle">
-              Any Permissions (Require ANY)
+              {t('anyTitle')}
             </Heading>
           </div>
-          <Description>
-            Use the <code className="rounded bg-muted px-1">anyPermissions</code> prop to show if
-            user has ANY of the listed permissions.
-          </Description>
+          <Description>{t('anyDescription')}</Description>
 
           <PermissionGuard
             anyPermissions={[SESSION_PERMISSIONS.READ_ALL, SESSION_PERMISSIONS.READ_OWN]}
           >
-            <div className="flex items-center gap-2 rounded-md bg-green-50 p-3 dark:bg-green-950">
-              <Unlock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-green-800 dark:text-green-200">
-                ✓ You have either READ_ALL or READ_OWN session permissions
-              </span>
+            <div className="flex items-center gap-2 rounded-md bg-success/10 p-3 dark:bg-success/20">
+              <Unlock className="h-4 w-4 text-status-success" />
+              <span className="text-sm text-foreground">{t('anyAllowed')}</span>
             </div>
           </PermissionGuard>
         </section>
@@ -128,57 +126,52 @@ export default function PermissionsDemoPage() {
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-primary" />
             <Heading level={2} variant="sectionTitle">
-              Action Buttons with Permission Guards
+              {t('actionsTitle')}
             </Heading>
           </div>
-          <Description>
-            Wrap action buttons with PermissionGuard to completely hide unauthorized actions.
-          </Description>
+          <Description>{t('actionsDescription')}</Description>
 
           {/* Sample user card */}
           <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
                   <Users className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <p className="font-medium">John Doe</p>
-                  <p className="text-sm text-muted-foreground">john@example.com</p>
+                  <p className="font-medium">{t('sampleName')}</p>
+                  <p className="text-sm text-muted-foreground">{t('sampleEmail')}</p>
                 </div>
               </div>
 
               {/* Action buttons - only shown if user has permissions */}
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <PermissionGuard permission={USER_PERMISSIONS.READ_ALL}>
                   <Button size="sm" variant="outline">
                     <Eye className="me-2 h-4 w-4" />
-                    View
+                    {tCommon('view')}
                   </Button>
                 </PermissionGuard>
 
                 <PermissionGuard permission={USER_PERMISSIONS.UPDATE_ALL}>
                   <Button size="sm" variant="outline">
                     <Edit className="me-2 h-4 w-4" />
-                    Edit
+                    {tCommon('edit')}
                   </Button>
                 </PermissionGuard>
 
                 <PermissionGuard permission={USER_PERMISSIONS.DELETE_ALL}>
                   <Button size="sm" variant="destructive">
                     <Trash2 className="me-2 h-4 w-4" />
-                    Delete
+                    {tCommon('delete')}
                   </Button>
                 </PermissionGuard>
               </div>
             </div>
           </div>
 
-          <div className="rounded-md bg-blue-50 p-3 dark:bg-blue-950">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              💡 <strong>Tip:</strong> Notice how buttons are completely hidden, not just disabled.
-              This prevents users from seeing actions they can&apos;t perform.
-            </p>
+          <div className="rounded-md bg-info/10 p-3 dark:bg-info/20">
+            <p className="text-sm text-foreground">{t('tip')}</p>
           </div>
         </section>
 
@@ -187,80 +180,69 @@ export default function PermissionsDemoPage() {
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             <Heading level={2} variant="sectionTitle">
-              Fallback Content
+              {t('fallbackTitle')}
             </Heading>
           </div>
-          <Description>
-            Use the <code className="rounded bg-muted px-1">fallback</code> prop to show alternative
-            content when permission is denied.
-          </Description>
+          <Description>{t('fallbackDescription')}</Description>
 
           <PermissionGuard
             permission="this:permission:does:not:exist"
             fallback={
               <div className="rounded-md border border-dashed border-muted-foreground/50 p-4 text-center">
                 <Lock className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  You don&apos;t have permission to view this content.
-                </p>
+                <p className="mt-2 text-sm text-muted-foreground">{t('fallbackDenied')}</p>
               </div>
             }
           >
-            <div className="rounded-md bg-green-50 p-4 dark:bg-green-950">
-              <p className="text-sm text-green-800 dark:text-green-200">
-                This secret content is only for authorized users!
-              </p>
+            <div className="rounded-md bg-success/10 p-4 dark:bg-success/20">
+              <p className="text-sm text-foreground">{t('secretContent')}</p>
             </div>
           </PermissionGuard>
         </section>
 
         {/* Wildcard Permission */}
-        <section className="space-y-4 rounded-lg border border-amber-200 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950">
+        <Alert variant="warningSoft" role="note" className="space-y-4 p-6">
           <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-            <Heading level={2} variant="sectionTitle">
-              Wildcard Permission (*)
+            <Shield className="h-5 w-5 text-status-warning" />
+            <Heading level={2} variant="sectionTitle" className="text-inherit">
+              {t('wildcardTitle')}
             </Heading>
           </div>
-          <Description>
-            The wildcard permission grants access to everything. Only assign to super admin users.
-          </Description>
+          <AlertDescription>{t('wildcardDescription')}</AlertDescription>
 
           <PermissionGuard permission={WILDCARD_PERMISSION}>
-            <div className="rounded-md bg-amber-100 p-4 dark:bg-amber-900">
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                ⚠️ You have wildcard permission - you can see and do everything!
-              </p>
-            </div>
+            <AlertDescription>
+              <p className="text-sm font-medium">{t('wildcardNotice')}</p>
+            </AlertDescription>
           </PermissionGuard>
-        </section>
+        </Alert>
 
         {/* Code Examples */}
         <section className="space-y-4 rounded-lg border border-border bg-card p-6">
           <Heading level={2} variant="sectionTitle">
-            Code Examples
+            {t('codeTitle')}
           </Heading>
 
           <div className="space-y-4">
             <div>
               <Heading level={3} variant="subsectionTitle" className="mb-2">
-                Component-level Guard:
+                {t('componentCodeTitle')}
               </Heading>
-              <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs">
+              <CodeBlock label={t('componentCodeTitle')}>
                 {`import { PermissionGuard } from '@/modules/permissions';
 import { USER_PERMISSIONS } from '@app/core';
 
 <PermissionGuard permission={USER_PERMISSIONS.DELETE_ALL}>
-  <Button variant="destructive">Delete User</Button>
+  <Button variant="destructive">{t('common.delete')}</Button>
 </PermissionGuard>`}
-              </pre>
+              </CodeBlock>
             </div>
 
             <div>
               <Heading level={3} variant="subsectionTitle" className="mb-2">
-                Route-level Guard:
+                {t('routeCodeTitle')}
               </Heading>
-              <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs">
+              <CodeBlock label={t('routeCodeTitle')}>
                 {`import { RoutePermissionGuard } from '@/modules/permissions';
 import { ROLE_PERMISSIONS } from '@app/core';
 
@@ -271,33 +253,33 @@ export default function RolesPage() {
     </RoutePermissionGuard>
   );
 }`}
-              </pre>
+              </CodeBlock>
             </div>
 
             <div>
               <Heading level={3} variant="subsectionTitle" className="mb-2">
-                Multiple Permissions (ALL):
+                {t('allCodeTitle')}
               </Heading>
-              <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs">
+              <CodeBlock label={t('allCodeTitle')}>
                 {`<PermissionGuard
   permissions={[USER_PERMISSIONS.LIST_ALL, ROLE_PERMISSIONS.LIST_ALL]}
 >
   <AdminPanel />
 </PermissionGuard>`}
-              </pre>
+              </CodeBlock>
             </div>
 
             <div>
               <Heading level={3} variant="subsectionTitle" className="mb-2">
-                Any Permissions (OR):
+                {t('anyCodeTitle')}
               </Heading>
-              <pre className="overflow-x-auto rounded-md bg-muted p-4 text-xs">
+              <CodeBlock label={t('anyCodeTitle')}>
                 {`<PermissionGuard
   anyPermissions={[SESSION_PERMISSIONS.READ_ALL, SESSION_PERMISSIONS.READ_OWN]}
 >
   <SessionsList />
 </PermissionGuard>`}
-              </pre>
+              </CodeBlock>
             </div>
           </div>
         </section>

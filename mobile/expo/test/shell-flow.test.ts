@@ -47,7 +47,11 @@ function device() {
         http: server,
       },
       {
-        configuration: resolveConfig({ apiOrigin: undefined, development: true }),
+        configuration: resolveConfig({
+          apiOrigin: undefined,
+          development: true,
+          scheme: 'com.example.mobile',
+        }),
         ephemeralBrowserSession: true,
       },
     );

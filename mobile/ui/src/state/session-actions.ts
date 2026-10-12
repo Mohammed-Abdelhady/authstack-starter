@@ -26,15 +26,25 @@ async function write(
 }
 
 /** This device signs out through the engine because the server refuses its revoke endpoint. */
+async function signOutThisDevice(runtime: Runtime, confirm?: Confirmation): Promise<RevokeResult> {
+  const started = runtime.epoch.current();
+  if (confirm !== undefined && !(await confirm())) return REVOKE_RESULT.CANCELLED;
+  if (runtime.epoch.current() !== started) return REVOKE_RESULT.SUPERSEDED;
+  try {
+    await runtime.engine.signOut();
+    return REVOKE_RESULT.SIGNED_OUT;
+  } catch {
+    // Reported as not done, so the screen says the device is still signed in.
+    return REVOKE_RESULT.UNDONE;
+  }
+}
+
 export async function revokeSession(
   runtime: Runtime,
   session: { id: string; isCurrent: boolean },
   confirm?: Confirmation,
 ): Promise<RevokeResult> {
-  if (session.isCurrent) {
-    await runtime.engine.signOut();
-    return REVOKE_RESULT.SIGNED_OUT;
-  }
+  if (session.isCurrent) return signOutThisDevice(runtime, confirm);
   return write(
     runtime,
     async () => {

@@ -9,6 +9,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['./src/tests/setup.ts'],
     // next-intl imports "next/navigation" without an extension, which Node
     // cannot resolve on its own. Transforming it lets Vite resolve the path.
     server: { deps: { inline: ['next-intl'] } },

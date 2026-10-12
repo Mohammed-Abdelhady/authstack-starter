@@ -15,12 +15,17 @@ import { ErrorCode } from '../enums/error-code.enum';
 import { ErrorResponse } from '../dto/api-response.dto';
 import { RequestWithId } from '../interfaces/request-with-id.interface';
 import {
+  MalformedIdError,
+  PersistenceUnavailableError,
+  UniqueConflictError,
+} from '../persistence/persistence-errors';
+import { sharedErrorOfSqlFailure } from '../persistence/sql-failure'; // feature:postgres
+import { describeDriverError, errorToken } from '../utils/describe-error.util';
+import {
   isCastError,
-  isMongoDuplicateKeyError,
+  isDuplicateKeyError,
   isDuplicateEmailError,
-  describeDriverError,
-  errorToken,
-} from '../utils/mongo-error.util';
+} from '../utils/driver-error-shape.util';
 
 /** What a driver CastError may carry: the field, never the offending value. */
 interface CastErrorFacts {
@@ -58,6 +63,20 @@ function describeDuplicateKeys(error: unknown): string {
     );
   }
   return 'unknown';
+}
+
+const EMAIL_RULE = /email/i;
+
+/**
+ * Whether a refused unique rule is the one on an account's address. The driver
+ * error under it decides, as it does when it arrives bare, and the rule's
+ * shared name decides for an adapter whose driver error says nothing.
+ */
+function isAddressConflict(conflict: UniqueConflictError): boolean {
+  return (
+    isDuplicateEmailError(conflict.cause) ||
+    EMAIL_RULE.test(conflict.constraint)
+  );
 }
 
 /** Facts an unknown exception may share in its log line without its text. */
@@ -106,13 +125,19 @@ function stackFrames(error: unknown): string | undefined {
 
 /**
  * Global exception filter that transforms exceptions into standardized error responses.
- * Handles AppException, ThrottlerException, HttpException, CastError, MongoServerError 11000, and unknown errors.
+ * Handles AppException, ThrottlerException, HttpException, CastError, MongoServerError 11000, the shared persistence errors, and unknown errors.
  */
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(raised: unknown, host: ArgumentsHost): void {
+    const exception =
+      // feature:postgres:start
+      // A SQL failure left as raised is answered as the shared error it is.
+      sharedErrorOfSqlFailure(raised) ??
+      // feature:postgres:end
+      raised;
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const requestId = ctx.getRequest<RequestWithId>().requestId;
@@ -142,6 +167,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         `Unknown transaction outcome: ${describeDriverError(exception)}${tag}`,
         stackFrames(exception),
       );
+    } else if (exception instanceof PersistenceUnavailableError) {
+      statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+      errorResponse = ErrorResponse.error(
+        ErrorCode.INTERNAL_ERROR,
+        'Service temporarily unavailable',
+      );
+      this.logger.error(
+        `Persistence unavailable: ${describeDriverError(exception)}${tag}`,
+        stackFrames(exception),
+      );
     } else if (exception instanceof ThrottlerException) {
       statusCode = HttpStatus.TOO_MANY_REQUESTS;
       const res = exception.getResponse();
@@ -164,6 +199,28 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       // Framework messages quote the raw request body, so the line names
       // the status and the mapped code and nothing of the payload.
       this.logger.warn(`HttpException (${statusCode}): ${code}${tag}`);
+    } else if (exception instanceof MalformedIdError) {
+      // The other shared errors answer as the driver errors under them do
+      // today, through the last branch.
+      statusCode = HttpStatus.BAD_REQUEST;
+      const cast = exception.cause;
+      errorResponse = ErrorResponse.error(
+        ErrorCode.INVALID_INPUT,
+        (isCastError(cast) && cast.message) || 'Invalid input',
+      );
+      this.logger.warn(
+        `MalformedIdError: ${isCastError(cast) ? describeCastError(cast) : describeDriverError(exception)}${tag}`,
+      );
+    } else if (exception instanceof UniqueConflictError) {
+      statusCode = HttpStatus.CONFLICT;
+      const isEmail = isAddressConflict(exception);
+      errorResponse = ErrorResponse.error(
+        isEmail ? ErrorCode.EMAIL_ALREADY_EXISTS : ErrorCode.CONFLICT,
+        isEmail ? 'Email already registered' : 'Resource conflict occurred',
+      );
+      this.logger.warn(
+        `UniqueConflictError: constraint=${errorToken(exception.constraint)} keys=${describeDuplicateKeys(exception.cause)}${tag}`,
+      );
     } else if (isCastError(exception)) {
       statusCode = HttpStatus.BAD_REQUEST;
       errorResponse = ErrorResponse.error(
@@ -171,7 +228,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         exception.message || 'Invalid input',
       );
       this.logger.warn(`CastError: ${describeCastError(exception)}${tag}`);
-    } else if (isMongoDuplicateKeyError(exception)) {
+    } else if (isDuplicateKeyError(exception)) {
       statusCode = HttpStatus.CONFLICT;
       const isEmail = isDuplicateEmailError(exception);
       const code = isEmail

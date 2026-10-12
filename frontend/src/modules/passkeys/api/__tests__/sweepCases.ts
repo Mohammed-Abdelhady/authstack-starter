@@ -109,7 +109,7 @@ export const UNTAGGED: MutationCase[] = [
   {
     name: 'createPasskeyOptions',
     reads: [readPasskeys, readProfile],
-    write: (store) => store.dispatch(passkeysApi.endpoints.createPasskeyOptions.initiate()),
+    write: (store) => store.dispatch(passkeysApi.endpoints.createPasskeyOptions.initiate({})),
     accepted: {
       rp: { name: 'Example', id: 'example.com' },
       user: { id: 'user-1', name: 'layla@example.com', displayName: 'Layla Haddad' },

@@ -9,10 +9,11 @@ import {
   AUTH_SCHEMA_VERSION,
   MAX_SESSIONS_PER_USER,
 } from '../../constants/session-policy';
+import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
 import { SessionIssuanceService } from '../../services/session-issuance.service';
 import { addMs, capIdleByAbsolute } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
-import { SessionDocument } from '../../schemas/session.schema';
+import { SessionDocument } from '../../persistence/mongo/schemas/session.schema';
 import request from 'supertest';
 import { OAUTH_ERROR } from '../oauth/native-oauth.types';
 import { runForcedIssuanceRace } from '../../../../test/utils/session/session-issuance-race';
@@ -26,7 +27,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 import {
   createTestUser,
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
@@ -59,7 +60,7 @@ describe('native session limit', () => {
 
     const results = await runForcedIssuanceRace(
       issuance,
-      ctx.harness.users,
+      ctx.harness.app.get(BrowserIssuanceStore),
       () => exchange(ctx, firstCode.code, firstCode.verifier),
       () => exchange(ctx, secondCode.code, secondCode.verifier),
     );
@@ -95,8 +96,13 @@ describe('native session limit', () => {
 
     const results = await runForcedIssuanceRace(
       issuance,
-      ctx.harness.users,
-      () => issuance.createBrowserSession(user._id, 'Browser/1', '127.0.0.1'),
+      ctx.harness.app.get(BrowserIssuanceStore),
+      () =>
+        issuance.createBrowserSession(
+          user._id.toString(),
+          'Browser/1',
+          '127.0.0.1',
+        ),
       () => exchange(ctx, approved.code, approved.verifier),
     );
 
@@ -181,7 +187,11 @@ describe('native session limit', () => {
     const issuance = ctx.harness.app.get(SessionIssuanceService);
 
     await expect(
-      issuance.createBrowserSession(user._id, 'Browser/1', '127.0.0.1'),
+      issuance.createBrowserSession(
+        user._id.toString(),
+        'Browser/1',
+        '127.0.0.1',
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.SESSION_LIMIT_REACHED });
     expect(
       await ctx.harness.sessions.countDocuments({
@@ -215,7 +225,11 @@ async function seedBrowserSessions(
   count: number,
 ): Promise<void> {
   const issuance = ctx.harness.app.get(SessionIssuanceService);
-  await issuance.createBrowserSession(userId, 'Browser/1', '127.0.0.1');
+  await issuance.createBrowserSession(
+    userId.toString(),
+    'Browser/1',
+    '127.0.0.1',
+  );
   const remaining = count - 1;
   if (remaining <= 0) {
     return;

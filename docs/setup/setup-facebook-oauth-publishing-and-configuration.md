@@ -48,7 +48,7 @@
 **Solution**:
 
 1. Copy App ID from **Settings** → **Basic**
-2. Update `FACEBOOK_APP_ID` in `.env`
+2. Update `OAUTH_FACEBOOK_CLIENT_ID` in `backend/.env`
 3. Restart servers
 
 ### Error: "Invalid OAuth access token"
@@ -57,7 +57,7 @@
 
 **Solution**:
 
-1. Verify `FACEBOOK_APP_SECRET` is correct
+1. Verify `OAUTH_FACEBOOK_CLIENT_SECRET` is correct
 2. Check token hasn't expired (short-lived tokens expire in 1-2 hours)
 3. Implement token refresh mechanism
 
@@ -131,8 +131,8 @@ Exchange short-lived token for long-lived (60 days):
 ```typescript
 const url = new URL('https://graph.facebook.com/oauth/access_token');
 url.searchParams.append('grant_type', 'fb_exchange_token');
-url.searchParams.append('client_id', process.env.FACEBOOK_APP_ID);
-url.searchParams.append('client_secret', process.env.FACEBOOK_APP_SECRET);
+url.searchParams.append('client_id', process.env.OAUTH_FACEBOOK_CLIENT_ID);
+url.searchParams.append('client_secret', process.env.OAUTH_FACEBOOK_CLIENT_SECRET);
 url.searchParams.append('fb_exchange_token', shortLivedToken);
 
 const response = await fetch(url);

@@ -1,6 +1,6 @@
 'use client';
 
-import { Description, Heading } from '@/components/design-system';
+import { Description } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import {
 import { getRedirectPath } from '@/modules/auth/utils/authHelpers';
 import { authPagePath } from '@/modules/auth/utils/signInRouting';
 import { toast } from '@/lib/toast';
+import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { AuthDivider } from '@/components/ui/auth-divider'; // feature:oauth-core
 import { OAuthButtons } from '@/modules/oauth'; // feature:oauth-core
 import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods'; // feature:oauth-core
@@ -83,17 +84,14 @@ export function RegisterForm() {
     setError,
   } = form;
   const formRef = useRef<HTMLFormElement>(null);
-  const inFlight = useRef(false);
   const applyServerFieldErrors = useServerFieldErrors(
     useFormFieldTarget(setError, formRef),
     isLoading,
   );
 
   // Memoize submit handler to prevent recreating on every render
-  const onSubmit = useCallback(
+  const submit = useCallback(
     async (data: RegisterFormData) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
       try {
         const result = await register({
           email: data.email,
@@ -114,26 +112,14 @@ export function RegisterForm() {
           type: 'manual',
           message: errorMessage,
         });
-      } finally {
-        inFlight.current = false;
       }
     },
     [applyServerFieldErrors, dispatch, redirect, register, router, setError, t, tCodes, tToast],
   );
+  const onSubmit = useSingleFlight(submit);
 
   return (
-    <section className="mt-12 flex flex-col items-center" aria-labelledby="register-heading">
-      {/* Title */}
-      <Heading
-        level={1}
-        variant="display"
-        id="register-heading"
-
-        data-testid="register-title"
-      >
-        {t('title')}
-      </Heading>
-
+    <div className="flex flex-col items-center">
       <Description variant="lead" className="mt-4 text-center max-w-md">
         {t('description')}
       </Description>
@@ -190,7 +176,8 @@ export function RegisterForm() {
               label={t('email')}
               placeholder={t('emailPlaceholder')}
               autoComplete="email"
-              disabled={isLoading}
+              required
+              busy={isLoading}
               autoFocus
             />
 
@@ -201,6 +188,6 @@ export function RegisterForm() {
           </form>
         </FormProvider>
       </div>
-    </section>
+    </div>
   );
 }

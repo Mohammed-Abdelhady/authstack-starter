@@ -1,6 +1,7 @@
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { MAGIC_LINK_SENT_MESSAGE } from './constants/magic-link.constants';
 import { hashMagicLinkToken } from './utils/magic-link-token.util';
+import { TEST_NOW } from '../../../test/utils/frozen-clock';
 import {
   MagicLinkHarness,
   MAGIC_LINK_MAX_PER_HOUR,
@@ -8,7 +9,7 @@ import {
   MOCK_RESPONSE,
   MOCK_USER,
   createMagicLinkHarness,
-} from './magic-link.harness-spec';
+} from './persistence/mongo/magic-link.harness-spec';
 
 const EMAIL = 'user@example.com';
 const TOKEN = 'a-token-from-the-mailed-link';
@@ -25,6 +26,7 @@ describe('MagicLinkService', () => {
       const result = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
 
       expect(harness.pendingModel.create).toHaveBeenCalledWith(
@@ -51,59 +53,64 @@ describe('MagicLinkService', () => {
       const unknown = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
 
       harness.userModel.findOne.mockResolvedValueOnce(MOCK_USER);
       const known = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
 
       expect(known).toEqual(unknown);
     });
 
     it('should send nothing for a soft-deleted account and answer the same way', async () => {
-      harness.userModel.findOne.mockResolvedValueOnce({
-        ...MOCK_USER,
-        isDeleted: true,
-      });
+      harness.userModel.exists.mockResolvedValueOnce({ _id: MOCK_USER._id });
 
       const result = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
 
-      expect(harness.pendingModel.create).not.toHaveBeenCalled();
+      expect(harness.pendingModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: EMAIL, consumedAt: TEST_NOW }),
+      );
       expect(harness.authMailService.sendMagicLink).not.toHaveBeenCalled();
       expect(result.data.email).toBe(EMAIL);
       expect(result.message).toBe(MAGIC_LINK_SENT_MESSAGE);
     });
 
-    it('should stop mailing once the address hits the hourly cap', async () => {
-      harness.pendingModel.countDocuments.mockResolvedValueOnce(
-        MAGIC_LINK_MAX_PER_HOUR,
-      );
+    it('should stop mailing once the address is past the hourly cap', async () => {
+      harness.counterModel.findOneAndUpdate.mockResolvedValueOnce({
+        mailedCodes: MAGIC_LINK_MAX_PER_HOUR + 1,
+      });
 
       const result = await harness.service.request(
         { email: EMAIL },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
 
-      expect(harness.pendingModel.countDocuments).toHaveBeenCalledWith({
-        email: { $eq: EMAIL },
-        createdAt: { $gte: expect.any(Date) as Date },
-      });
-      expect(harness.pendingModel.create).not.toHaveBeenCalled();
+      expect(harness.pendingModel.create).toHaveBeenCalledWith(
+        expect.objectContaining({ email: EMAIL, consumedAt: TEST_NOW }),
+      );
       expect(harness.authMailService.sendMagicLink).not.toHaveBeenCalled();
       expect(result.message).toBe(MAGIC_LINK_SENT_MESSAGE);
     });
 
-    it('should keep mailing while the address is under the cap', async () => {
-      harness.pendingModel.countDocuments.mockResolvedValueOnce(
-        MAGIC_LINK_MAX_PER_HOUR - 1,
-      );
+    it('should keep mailing up to the hourly cap', async () => {
+      harness.counterModel.findOneAndUpdate.mockResolvedValueOnce({
+        mailedCodes: MAGIC_LINK_MAX_PER_HOUR,
+      });
 
-      await harness.service.request({ email: EMAIL }, MOCK_REQUEST);
+      await harness.service.request(
+        { email: EMAIL },
+        MOCK_REQUEST,
+        MOCK_RESPONSE,
+      );
 
       expect(harness.authMailService.sendMagicLink).toHaveBeenCalledTimes(1);
     });
@@ -111,7 +118,11 @@ describe('MagicLinkService', () => {
     it('stores an allowed native continuation with the pending link', async () => {
       const redirect = '/en/auth/native/authorize?transaction=abc-123';
 
-      await harness.service.request({ email: EMAIL, redirect }, MOCK_REQUEST);
+      await harness.service.request(
+        { email: EMAIL, redirect },
+        MOCK_REQUEST,
+        MOCK_RESPONSE,
+      );
 
       expect(harness.pendingModel.create).toHaveBeenCalledWith(
         expect.objectContaining({ email: EMAIL, redirect }),
@@ -125,6 +136,7 @@ describe('MagicLinkService', () => {
           redirect: '/en/auth/native/authorize?transaction=abc&extra=yes',
         },
         MOCK_REQUEST,
+        MOCK_RESPONSE,
       );
       const createPayload = harness.pendingModel.create.mock.calls[0]?.[0] as
         Record<string, unknown> | undefined;
@@ -135,6 +147,14 @@ describe('MagicLinkService', () => {
   });
 
   describe('verify', () => {
+    /** Opened where no nonce is held, by someone who confirmed it. */
+    const verify = () =>
+      harness.service.verify(
+        { token: TOKEN, confirm: true },
+        MOCK_REQUEST,
+        MOCK_RESPONSE,
+      );
+
     function pendingLink(expiresAt: Date): {
       email: string;
       expiresAt: Date;
@@ -149,10 +169,7 @@ describe('MagicLinkService', () => {
       );
       harness.userModel.findOne.mockResolvedValueOnce(MOCK_USER);
 
-      const result = await harness.service.verify(
-        { token: TOKEN },
-        MOCK_RESPONSE,
-      );
+      const result = await verify();
 
       expect(harness.pendingModel.findOneAndUpdate).toHaveBeenCalledWith(
         { tokenHash: hashMagicLinkToken(TOKEN), consumedAt: null },
@@ -162,6 +179,7 @@ describe('MagicLinkService', () => {
       expect(harness.signInService.completeSignIn).toHaveBeenCalledWith(
         MOCK_USER,
         MOCK_RESPONSE,
+        'magic_link', // feature:totp
       );
       expect(result.data.requiresTwoFactor).toBe(false);
       expect(result.data.user).toMatchObject({
@@ -179,10 +197,7 @@ describe('MagicLinkService', () => {
         requiresTwoFactor: true,
       });
 
-      const result = await harness.service.verify(
-        { token: TOKEN },
-        MOCK_RESPONSE,
-      );
+      const result = await verify();
 
       expect(result.data).toEqual({ requiresTwoFactor: true, user: null });
     });
@@ -198,10 +213,7 @@ describe('MagicLinkService', () => {
         requiresTwoFactor: true,
       });
 
-      const result = await harness.service.verify(
-        { token: TOKEN },
-        MOCK_RESPONSE,
-      );
+      const result = await verify();
 
       expect(result.data).toEqual({
         requiresTwoFactor: true,
@@ -215,7 +227,7 @@ describe('MagicLinkService', () => {
         pendingLink(new Date(harness.clock.now().getTime() + 60000)),
       );
 
-      await harness.service.verify({ token: TOKEN }, MOCK_RESPONSE);
+      await verify();
 
       expect(harness.userModel.create).toHaveBeenCalledWith({
         email: EMAIL,
@@ -229,9 +241,7 @@ describe('MagicLinkService', () => {
     it('should reject a token that was already spent', async () => {
       harness.pendingModel.findOneAndUpdate.mockResolvedValueOnce(null);
 
-      await expect(
-        harness.service.verify({ token: TOKEN }, MOCK_RESPONSE),
-      ).rejects.toMatchObject({
+      await expect(verify()).rejects.toMatchObject({
         code: ErrorCode.MAGIC_LINK_INVALID,
         status: 400,
       });
@@ -246,10 +256,7 @@ describe('MagicLinkService', () => {
       });
       harness.userModel.findOne.mockResolvedValueOnce(MOCK_USER);
 
-      const result = await harness.service.verify(
-        { token: TOKEN },
-        MOCK_RESPONSE,
-      );
+      const result = await verify();
 
       expect(result.data.redirect).toBe(redirect);
     });
@@ -260,10 +267,7 @@ describe('MagicLinkService', () => {
       );
       harness.userModel.findOne.mockResolvedValueOnce(MOCK_USER);
 
-      const result = await harness.service.verify(
-        { token: TOKEN },
-        MOCK_RESPONSE,
-      );
+      const result = await verify();
 
       expect(result.data).not.toHaveProperty('redirect');
     });
@@ -273,9 +277,7 @@ describe('MagicLinkService', () => {
         pendingLink(new Date(harness.clock.now().getTime() - 1000)),
       );
 
-      await expect(
-        harness.service.verify({ token: TOKEN }, MOCK_RESPONSE),
-      ).rejects.toMatchObject({
+      await expect(verify()).rejects.toMatchObject({
         code: ErrorCode.MAGIC_LINK_INVALID,
       });
       expect(harness.userModel.findOne).not.toHaveBeenCalled();
@@ -290,9 +292,7 @@ describe('MagicLinkService', () => {
         isDeleted: true,
       });
 
-      await expect(
-        harness.service.verify({ token: TOKEN }, MOCK_RESPONSE),
-      ).rejects.toMatchObject({
+      await expect(verify()).rejects.toMatchObject({
         code: ErrorCode.MAGIC_LINK_INVALID,
       });
       expect(harness.signInService.completeSignIn).not.toHaveBeenCalled();
@@ -309,7 +309,7 @@ describe('MagicLinkService', () => {
       );
       harness.userModel.findOne.mockResolvedValueOnce(unverified);
 
-      await harness.service.verify({ token: TOKEN }, MOCK_RESPONSE);
+      await verify();
 
       expect(unverified.isVerified).toBe(true);
       expect(unverified.save).toHaveBeenCalled();

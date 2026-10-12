@@ -3,7 +3,7 @@ import { configureBackendPort, configureFrontendPort } from './lib/config-transf
 import { buildNextStepLines } from './lib/init-next-steps.js';
 import {
   createSetupSecrets,
-  generateBackendEnv,
+  writeBackendEnvironment,
   generateFrontendEnv,
 } from './lib/init-environment.js';
 import {
@@ -267,14 +267,10 @@ async function init() {
 
     // Create backend .env
     log.info('Creating backend/.env...');
-    const backendEnvPath = path.join(ROOT_DIR, 'backend', '.env');
-    if (fileExists(backendEnvPath)) {
-      const backupPath = backupFile(backendEnvPath);
-      if (backupPath) {
-        log.info(`Backed up backend/.env to ${path.basename(backupPath)}`);
-      }
+    const backendBackupPath = writeBackendEnvironment(config, ROOT_DIR);
+    if (backendBackupPath) {
+      log.info(`Backed up backend/.env to ${path.basename(backendBackupPath)}`);
     }
-    writeFile(backendEnvPath, generateBackendEnv(config), { mode: 0o600 });
     log.success('Backend .env created');
 
     // Create frontend .env.local

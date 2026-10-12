@@ -24,7 +24,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 import { signNativeDpopProof } from '../harness/native-dpop-test-vectors.harness-spec';
 import { OAUTH_ERROR, TokenSuccess } from '../oauth/native-oauth.types';
 

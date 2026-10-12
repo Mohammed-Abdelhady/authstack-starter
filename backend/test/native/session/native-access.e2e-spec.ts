@@ -1,7 +1,5 @@
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import {
@@ -13,18 +11,6 @@ import {
   NATIVE_ABSOLUTE_LIFETIME_MS,
   NATIVE_IDLE_LIFETIME_MS,
 } from '../../../src/session/constants/session-policy';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
-import {
-  AuthorizationTransaction,
-  AuthorizationTransactionDocument,
-} from '../../../src/session/schemas/authorization-transaction.schema';
-import {
-  NativeCredential,
-  NativeCredentialDocument,
-} from '../../../src/session/schemas/native-credential.schema';
 import { AuthEpochService } from '../../../src/common/services/auth-epoch.service';
 import { NativeAuthorizeService } from '../../../src/session/native/authorize/native-authorize.service';
 import { NativeTokenService } from '../../../src/session/native/token/native-token.service';
@@ -35,14 +21,14 @@ import {
   NATIVE_REDIRECT,
   approvalRedirectUri,
   nativeAuthorizeQuery,
-} from '../../../src/session/native/harness/native-oauth.harness-spec';
-import { User, UserDocument } from '../../../src/user/schemas/user.schema';
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_ADMIN, SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
+import { seedUserId } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
 
 interface ApiErrorBody {
@@ -112,7 +98,7 @@ describe('native access (e2e)', () => {
   it('refuses native OAuth while disabled and restores existing credentials', async () => {
     const grant = await issueNativeGrant(e2e);
     const user = await seedUser(e2e);
-    const approved = await approveNativeCode(e2e, user._id.toString());
+    const approved = await approveNativeCode(e2e, user);
     const pending = await beginNativeAuthorization(e2e);
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     e2e.app.get(ConfigService).set('auth.nativeEnabled', false);
@@ -129,16 +115,13 @@ describe('native access (e2e)', () => {
 
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: pending });
+      .send({ transactionId: pending, expectedUserId: await seedUserId(e2e) });
     expect(approval.status).toBe(403);
     expect((approval.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_AUTH_DISABLED,
     );
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
     expect(
-      (await transactions.findOne({ transactionId: pending }).exec())?.codeHash,
+      (await e2e.state.native.authorizationRequest(pending))?.codeHash,
     ).toBeUndefined();
 
     const exchange = await request(e2e.httpServer)
@@ -178,10 +161,7 @@ describe('native access (e2e)', () => {
       error_description: ErrorCode.NATIVE_AUTH_DISABLED,
     });
 
-    const credentials = e2e.app.get<Model<NativeCredentialDocument>>(
-      getModelToken(NativeCredential.name),
-    );
-    expect(await credentials.countDocuments()).toBe(2);
+    expect(await e2e.state.native.credentialCount()).toBe(2);
 
     const disabledAccess = await request(e2e.httpServer)
       .patch('/api/user/profile')
@@ -212,15 +192,12 @@ describe('native access (e2e)', () => {
       .send({ name: 'Native Access Restored' });
     expect(resumedAccess.status).toBe(200);
     expect(resumedAccess.body.data.name).toBe('Native Access Restored');
-    expect(await credentials.countDocuments()).toBe(4);
+    expect(await e2e.state.native.credentialCount()).toBe(4);
   });
 });
 
 async function createNativeApplication(e2e: E2eApp): Promise<void> {
-  const applications = e2e.app.get<Model<ApplicationDocument>>(
-    getModelToken(Application.name),
-  );
-  await applications.create({
+  await e2e.state.applications.createApplication({
     clientId: NATIVE_CLIENT_ID,
     displayName: 'Native test client',
     platform: APPLICATION_PLATFORM.NATIVE,
@@ -241,7 +218,7 @@ async function createNativeApplication(e2e: E2eApp): Promise<void> {
 
 async function issueNativeGrant(e2e: E2eApp): Promise<NativeGrant> {
   const user = await seedUser(e2e);
-  const approved = await approveNativeCode(e2e, user._id.toString());
+  const approved = await approveNativeCode(e2e, user);
   const result = await e2e.app.get(NativeTokenService).grant(
     {
       grant_type: 'authorization_code',
@@ -289,9 +266,8 @@ async function beginNativeAuthorization(e2e: E2eApp): Promise<string> {
   return begun.transactionId;
 }
 
-async function seedUser(e2e: E2eApp): Promise<UserDocument> {
-  const users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
-  const user = await users.findOne({ email: SEED_USER.email }).exec();
+async function seedUser(e2e: E2eApp): Promise<string> {
+  const user = await e2e.state.accounts.accountIdFor(SEED_USER.email);
   if (!user) {
     throw new Error('seed user is missing');
   }

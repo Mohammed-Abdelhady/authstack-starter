@@ -10,6 +10,7 @@ import {
   TEST_TRANSACTION,
   TEST_USER,
   codeTranslator,
+  identityResponse,
   installFetch,
   jsonResponse,
   makeStore,
@@ -18,6 +19,7 @@ import {
   seedTransaction,
   transactionPayload,
   translator,
+  userResponse,
 } from './harness';
 
 const { replaceMock } = vi.hoisted(() => ({ replaceMock: vi.fn() }));
@@ -161,9 +163,9 @@ describe('NativeAuthorizePanel states', () => {
     expectFocusedHeading(ready);
   });
 
-  it('shows the error state, not the card, when the profile fetch fails', async () => {
+  it('shows the error state, not the card, when the identity fetch fails', async () => {
     installFetch(() => jsonResponse({ success: true, data: transactionPayload('Acme Mobile') }), {
-      profile: 'fail',
+      identity: 'fail',
     });
     renderPanel({ locale: 'en', messages: messages.en, store: makeStore() });
 
@@ -172,17 +174,17 @@ describe('NativeAuthorizePanel states', () => {
     expect(screen.queryByTestId('native-authorize-approve')).toBeNull();
   });
 
-  it('reads the profile again when Retry follows a failed profile read', async () => {
-    let profileReads = 0;
+  it('reads identity again when Retry follows a failed read', async () => {
+    let identityReads = 0;
     installFetch(() => jsonResponse({ success: true, data: transactionPayload('Acme Mobile') }), {
-      profile: () => {
-        profileReads += 1;
-        return profileReads === 1
+      identity: () => {
+        identityReads += 1;
+        return identityReads === 1
           ? jsonResponse(
               { success: false, error: { code: 'INTERNAL_ERROR', message: 'down' } },
               503,
             )
-          : jsonResponse({ success: true, data: TEST_USER });
+          : userResponse(TEST_USER);
       },
     });
     renderPanel({ locale: 'en', messages: messages.en, store: makeStore() });
@@ -192,12 +194,12 @@ describe('NativeAuthorizePanel states', () => {
 
     const ready = await screen.findByTestId('native-authorize-ready');
     expect(ready.textContent).toContain('layla@example.com');
-    expect(profileReads).toBe(2);
+    expect(identityReads).toBe(2);
   });
 
   it('waits for the account before offering approval', async () => {
     installFetch(() => jsonResponse({ success: true, data: transactionPayload('Acme Mobile') }), {
-      profile: 'pending',
+      identity: 'pending',
     });
     const store = makeStore();
     await seedTransaction(store);
@@ -209,11 +211,13 @@ describe('NativeAuthorizePanel states', () => {
   });
 
   it('sends a signed-out visitor to sign-in with the continuation', async () => {
-    installFetch(() =>
-      jsonResponse(
-        { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
-        401,
-      ),
+    installFetch(
+      () =>
+        jsonResponse(
+          { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
+          401,
+        ),
+      { identity: () => identityResponse(null) },
     );
     renderPanel({ locale: 'en', messages: messages.en, store: makeStore() });
 
@@ -226,12 +230,14 @@ describe('NativeAuthorizePanel states', () => {
     expect(replaceMock).toHaveBeenCalledTimes(1);
   });
 
-  it('clears the auth state when the session is refused', async () => {
-    installFetch(() =>
-      jsonResponse(
-        { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
-        401,
-      ),
+  it('clears the auth state when identity confirms there is no session', async () => {
+    const requests = installFetch(
+      () =>
+        jsonResponse(
+          { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
+          401,
+        ),
+      { identity: () => identityResponse(null) },
     );
     const store = makeStore();
     store.dispatch(setUser(TEST_USER));
@@ -242,8 +248,9 @@ describe('NativeAuthorizePanel states', () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledTimes(1);
     });
-    expect(store.getState().auth.isAuthenticated).toBe(false);
+    await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(false));
     expect(store.getState().auth.user).toBeNull();
+    expect(requests).toContain('/api/auth/identity');
   });
 
   it('redirects to sign-in only once even when the card re-renders', async () => {

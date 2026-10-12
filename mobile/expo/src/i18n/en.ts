@@ -26,6 +26,8 @@ export const EN = {
   loadProfileLabel: 'Load the profile from the server',
   signOut: 'Sign out',
   signOutLabel: 'Sign out and end the session on the server',
+  close: 'Back to the app',
+  closeLabel: 'Close the sign-in check and go back to the app',
 
   statusRestoring: 'reading the saved session',
   statusSignedOut: 'signed out',

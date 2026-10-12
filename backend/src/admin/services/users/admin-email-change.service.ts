@@ -1,8 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { VerificationCodeService } from '../../../auth/services/codes/verification-code.service';
 import { AuthMailService } from '../../../auth/services/mail/auth-mail.service';
 import {
@@ -13,11 +10,13 @@ import {
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ADMIN_LEVEL } from '../../../common/utils/role-hierarchy';
+import { StoredAccount } from '../../../user/stores/stored-account';
+import { AdminAccountStore } from '../../stores/admin-account.store';
 
 /**
  * Admin-initiated email changes.
- * Only admins may move an account to another address, and the account always
- * drops back to unverified until the new mailbox confirms the code.
+ * Only admins may ask for an account to move to another address. The account
+ * keeps its own address until the new mailbox confirms the code.
  */
 @Injectable()
 export class AdminEmailChangeService {
@@ -25,7 +24,7 @@ export class AdminEmailChangeService {
   private readonly retryMinutes: number;
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly accounts: AdminAccountStore,
     private readonly verificationCodeService: VerificationCodeService,
     private readonly authMailService: AuthMailService,
     configService: ConfigService,
@@ -40,30 +39,31 @@ export class AdminEmailChangeService {
     );
   }
 
-  /**
-   * Point an account at a new address and mail a fresh verification code.
-   * The pending record is bound to this user and this address generation, so
-   * a later move supersedes it. The caller saves the document; the pending
-   * record and the mail are written first, and the account is left unchanged
-   * if the mail fails.
-   *
-   * @param user - Target user document, mutated in place
-   * @param email - New address
-   * @param actorLevel - Hierarchy level of the acting admin
-   * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_ALREADY_EXISTS,
-   * EMAIL_SEND_LIMIT_REACHED or EMAIL_SEND_FAILED
-   */
-  async apply(
-    user: UserDocument,
+  /** Refuse an active address before the account stores it as pending. */
+  async assertAddressAvailable(
     email: string,
     actorLevel: number,
   ): Promise<void> {
     this.assertAdmin(actorLevel);
 
-    const taken = await this.userModel
-      .findOne({ email: { $eq: email } })
-      .exec();
-    if (taken) {
+    if (await this.accounts.isAddressTaken(email)) {
+      throw new AppException(
+        ErrorCode.EMAIL_ALREADY_EXISTS,
+        'Email already in use',
+        HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /** Issue a code for the account's already-persisted pending address. */
+  async sendConfirmation(
+    user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
+    actorLevel: number,
+  ): Promise<void> {
+    this.assertAdmin(actorLevel);
+    const pending = this.pendingAddress(user.pendingEmail);
+
+    if (await this.accounts.isAddressTaken(pending)) {
       throw new AppException(
         ErrorCode.EMAIL_ALREADY_EXISTS,
         'Email already in use',
@@ -71,62 +71,52 @@ export class AdminEmailChangeService {
       );
     }
 
-    const addressGeneration = (user.addressGeneration ?? 0) + 1;
     const issued =
       await this.verificationCodeService.createOrUpdatePendingRegistration(
-        email,
+        pending,
         PENDING_PURPOSE.EMAIL_CHANGE,
-        { userId: user._id, addressGeneration },
+        { userId: user.id, addressGeneration: user.addressGeneration },
       );
 
     if (!issued) {
       throw this.limitReached();
     }
 
-    await this.sendCode(email, issued.code);
+    await this.sendCode(pending, issued.code);
+  }
 
-    user.addressGeneration = addressGeneration;
-    user.email = email;
-    user.isVerified = false;
+  /** Notify the active mailbox without delaying the admin response on SMTP. */
+  notifyPreviousAddress(email: string): void {
+    this.authMailService.deferEmailChangeNotice(email);
   }
 
   /**
-   * Re-send the confirmation for the account's current unverified address.
+   * Re-send the confirmation for the address the account waits to confirm.
    * Goes through the same refresh, so it gets a fresh code and resets the
    * attempt count, up to the per-address mail cap. Does not change the address
    * or the generation.
    *
-   * @param user - Target user document
+   * @param user - The target account as it was read
    * @param actorLevel - Hierarchy level of the acting admin
    * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_SEND_LIMIT_REACHED or
    * EMAIL_SEND_FAILED
    */
-  async resend(user: UserDocument, actorLevel: number): Promise<void> {
-    this.assertAdmin(actorLevel);
+  async resend(
+    user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
+    actorLevel: number,
+  ): Promise<void> {
+    await this.sendConfirmation(user, actorLevel);
+  }
 
-    if (user.isVerified) {
+  private pendingAddress(address: string | undefined): string {
+    if (address === undefined) {
       throw new AppException(
         ErrorCode.EMAIL_SEND_FAILED,
-        'This account has no unverified address to confirm',
+        'This account has no address waiting to be confirmed',
         HttpStatus.BAD_REQUEST,
       );
     }
-
-    const issued =
-      await this.verificationCodeService.createOrUpdatePendingRegistration(
-        user.email,
-        PENDING_PURPOSE.EMAIL_CHANGE,
-        {
-          userId: user._id,
-          addressGeneration: user.addressGeneration ?? 0,
-        },
-      );
-
-    if (!issued) {
-      throw this.limitReached();
-    }
-
-    await this.sendCode(user.email, issued.code);
+    return address;
   }
 
   private assertAdmin(actorLevel: number): void {

@@ -2,7 +2,7 @@
 
 import { HEADING_ROLE_CLASSES } from '@/constants/typography';
 import { Heading } from '@/components/design-system';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -25,12 +25,26 @@ import { UserPermissionsSummary } from './UserPermissionsSummary';
 import { Loader2, Plus, Trash2, Shield, User } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { useDialogRefusal } from '@/hooks/useFormRefusal';
+import { FormRootError } from '@/components/forms';
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
+import { cn } from '@/lib/utils';
+
+const SERVER_ERROR_STATUS_MIN = 500;
+
+function outcomeUnknown(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return true;
+  return typeof error.status !== 'number' || error.status >= SERVER_ERROR_STATUS_MIN;
+}
 
 export interface UserPermissionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId: string | null;
   userName?: string;
+  /** Runs when the dialog has closed, to put focus back on what opened it */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -41,8 +55,10 @@ export function UserPermissionsDialog({
   onOpenChange,
   userId,
   userName,
+  onCloseAutoFocus,
 }: UserPermissionsDialogProps) {
   const t = useTranslations('permissions.dialog');
+  const tCommon = useTranslations('common');
   // Component will remount when userId changes due to key prop on Dialog
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
@@ -56,16 +72,31 @@ export function UserPermissionsDialog({
     skip: !data?.role,
   });
 
-  const [addPermission, { isLoading: isAdding }] = useAddPermissionMutation();
-  const [removePermission, { isLoading: isRemoving }] = useRemovePermissionMutation();
+  const [addPermission] = useAddPermissionMutation();
+  const [removePermission] = useRemovePermissionMutation();
+  // One flag for the whole run of additions: the store's own drops between two of them.
+  const [isAdding, setIsAdding] = useState(false);
+  const addingPermissions = useRef(false);
+  // The permission being removed, so only its own button says so.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const removingPermission = useRef<string | null>(null);
+  const isRemoving = removing !== null;
+  const addRefusal = useDialogRefusal();
+  const removeRefusal = useDialogRefusal();
+  const directHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const handleAddPermissions = async () => {
-    if (!userId || availablePermissions.length === 0) return;
+    if (!userId || availablePermissions.length === 0 || addingPermissions.current) return;
 
+    addingPermissions.current = true;
+    addRefusal.clear();
+    setIsAdding(true);
+    let acceptedCount = 0;
     try {
       // Add permissions one by one
       for (const permission of availablePermissions) {
-        await addPermission({ userId, permission }).unwrap();
+        await showsOwnRefusal(addPermission({ userId, permission })).unwrap();
+        acceptedCount += 1;
       }
 
       toast.success(t('addSuccess', { count: availablePermissions.length }));
@@ -73,26 +104,35 @@ export function UserPermissionsDialog({
       // Reset state
       setSelectedPermissions([]);
       setSearchDialogOpen(false);
-
-      // Refresh data
-      refetch();
     } catch (error) {
+      if (acceptedCount > 0 || outcomeUnknown(error)) await refetch();
+      addRefusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      addingPermissions.current = false;
+      setIsAdding(false);
     }
   };
 
   const handleRemovePermission = async (permission: string) => {
-    if (!userId) return;
+    if (!userId || removingPermission.current !== null) return;
 
+    removingPermission.current = permission;
+    removeRefusal.clear();
+    setRemoving(permission);
     try {
-      await removePermission({ userId, permission }).unwrap();
+      await showsOwnRefusal(removePermission({ userId, permission })).unwrap();
 
       toast.success(t('removeSuccess'));
-
-      // Refresh data
-      refetch();
+      // The row and its button leave with the permission.
+      directHeadingRef.current?.focus();
     } catch (error) {
+      if (outcomeUnknown(error)) await refetch();
+      removeRefusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      removingPermission.current = null;
+      setRemoving(null);
     }
   };
 
@@ -112,8 +152,12 @@ export function UserPermissionsDialog({
 
   return (
     <>
-      <Dialog key={userId || 'no-user'} open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <Dialog key={userId || 'no-user'} open={open} busy={isRemoving} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="max-h-[90vh] max-w-3xl overflow-y-auto"
+          data-testid="user-permissions-dialog"
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
           <DialogHeader>
             <DialogTitle>{t('title')}</DialogTitle>
             <DialogDescription>
@@ -123,16 +167,18 @@ export function UserPermissionsDialog({
 
           <div className="space-y-6 py-6">
             {isLoading || isLoadingRole ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-12" role="status">
                 <Loader2
-                  className="h-8 w-8 motion-safe:animate-spin text-gray-400"
+                  className="h-8 w-8 motion-safe:animate-spin text-muted-foreground"
                   aria-hidden="true"
                 />
+                <span className="sr-only">{tCommon('loading')}</span>
               </div>
             ) : (
               <>
                 <UserPermissionsSummary
                   role={data?.role}
+                  roleName={roleData?.name}
                   totalCount={effectivePermissions.length}
                   inheritedCount={inheritedPermissions.length}
                   directCount={directPermissions.length}
@@ -142,13 +188,21 @@ export function UserPermissionsDialog({
 
                 {/* Inherited Permissions (Read-only) - Tree View */}
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <Heading level={3} variant="subsectionTitle">
-                      {t('inheritedFromRole', { role: data?.role || '' })}
-                    </Heading>
+                  {/* The badge moves to a line of its own before it is cut. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Shield className="h-4 w-4 shrink-0 text-info" />
+                      <Heading level={3} variant="subsectionTitle" data-testid="inherited-heading">
+                        {t('inheritedFromRole', { role: data?.role || '' })}
+                      </Heading>
+                    </div>
                     {data?.role && (
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge
+                        dir="ltr"
+                        variant="secondary"
+                        className="block min-w-0 truncate text-xs"
+                        data-testid="inherited-role-slug"
+                      >
                         {data.role}
                       </Badge>
                     )}
@@ -171,8 +225,13 @@ export function UserPermissionsDialog({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      <Heading level={3} variant="subsectionTitle">
+                      <User className="h-4 w-4 text-status-success" />
+                      <Heading
+                        level={3}
+                        variant="subsectionTitle"
+                        ref={directHeadingRef}
+                        tabIndex={-1}
+                      >
                         {t('directPermissions', { count: directPermissions.length })}
                       </Heading>
                     </div>
@@ -201,21 +260,34 @@ export function UserPermissionsDialog({
                       {/* Remove Actions Section */}
                       <div className="space-y-2 pt-2 border-t border-border">
                         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('removePermissions')}</p>
-                        <div className="grid gap-2">
+                        <FormRootError
+                          error={removeRefusal.alert}
+                          className="mb-0"
+                          testId="remove-permission-error"
+                        />
+                        <div className="grid grid-cols-1 gap-2">
                           {directPermissions.map((permission) => (
                             <div
                               key={permission}
                               className="flex items-center justify-between rounded-md border border-border p-2 bg-muted"
                               data-testid={`direct-permission-${permission}`}
                             >
-                              <code className="text-xs font-mono text-foreground">
+                              <code
+                                dir="ltr"
+                                className={cn(
+                                  'text-xs font-mono text-foreground',
+                                  WRAP_ANYWHERE_CLASSES,
+                                )}
+                              >
                                 {permission}
                               </code>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleRemovePermission(permission)}
-                                disabled={isRemoving}
+                                busy={isRemoving}
+                                aria-label={t('removePermission', { permission })}
+                                aria-busy={removing === permission}
                                 className="h-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
                                 data-testid={`remove-permission-${permission}`}
                               >
@@ -238,7 +310,11 @@ export function UserPermissionsDialog({
       {/* Permission Search Dialog */}
       <PermissionSearchDialog
         open={searchDialogOpen}
-        onOpenChange={setSearchDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) addRefusal.clear();
+          setSearchDialogOpen(next);
+        }}
+        refusal={addRefusal.alert}
         selectedPermissions={selectedPermissions}
         onChange={setSelectedPermissions}
         excludedPermissions={effectivePermissions}

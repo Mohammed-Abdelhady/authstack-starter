@@ -4,7 +4,7 @@ import {
 } from '../common/constants/permissions';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { UserRole } from '../user/enums/user-role.enum';
-import { useAdminRoundFour } from '../admin/services/admin-round-four.harness-spec';
+import { useAdminRoundFour } from '../admin/persistence/mongo/services/admin-round-four.harness-spec';
 
 const DESCRIPTION = 'Updated role description';
 const HIERARCHY_REFUSAL = {

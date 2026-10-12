@@ -4,7 +4,8 @@ const NATIVE_DPOP_NONCE_SECRET = 'native-dpop-test-secret-at-least-32-chars';
 
 const baseEnv: Record<string, unknown> = {
   NODE_ENV: 'test',
-  MONGO_URI: 'mongodb://localhost:27017/authboiler',
+  MONGO_URI: 'mongodb://localhost:27017/authboiler', // feature:mongodb
+  POSTGRES_URL: 'postgres://app:placeholder@localhost:5432/authboiler', // feature:postgres
   CLIENT_URL: 'http://localhost:3000',
   OAUTH_STATE_SECRET: 'a'.repeat(32),
 };
@@ -62,6 +63,7 @@ describe('API_URL with native sign-in enabled', () => {
     const result = validateEnvironment({
       ...nativeEnv,
       NODE_ENV: 'production',
+      CLIENT_URL: 'https://app.example.com',
       API_URL: 'https://api.example.com',
     });
 

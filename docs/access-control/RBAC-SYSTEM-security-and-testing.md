@@ -181,7 +181,7 @@ If upgrading from a role-based inheritance system:
    - Replace `@Roles()` decorator with `@RequirePermissions()`
    - Update guards to use `PermissionGuard`
 
-See [MIGRATION-GUIDE.md](../operations/MIGRATION-GUIDE.md) for detailed migration steps.
+See [MIGRATION-GUIDE.md](../operations/MIGRATION-GUIDE.md) for detailed migration steps. <!-- feature:mongodb -->
 
 ---
 

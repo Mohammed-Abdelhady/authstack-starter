@@ -1,0 +1,2 @@
+export const MAGIC_LINK_EXPIRES_IN = 900000;
+export const MAGIC_LINK_MAX_PER_HOUR = 5;

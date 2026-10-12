@@ -125,6 +125,10 @@ describe('the sign-in screen state', () => {
       { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'invalid_grant' }) },
       'generic',
     ],
+    [
+      { kind: 'oauthFailure', error: new OAuthError({ status: 400, error: 'access_denied' }) },
+      'sessionLimit',
+    ],
   ] as const satisfies readonly (readonly [SignInOutcome, string])[])(
     'a failed attempt says why: %o',
     (outcome, failure) => {
@@ -200,6 +204,18 @@ describe('the sign-in screen state', () => {
     const view = signInView(snapshot('signedOut', 'authorizing'), ended({ kind: 'cancelled' }));
 
     expect(view.state).toBe('inProgress');
+  });
+
+  it('says sign-in is switched off only for a signed-out session the service ended that way', () => {
+    const off = (status: AuthSnapshot['status'], reason?: AuthSnapshot['reason']): boolean =>
+      signInView({ status, operation: 'none', ...(reason ? { reason } : {}) }, IDLE).switchedOff;
+
+    expect([
+      off('signedOut', 'disabled'),
+      off('signedOut'),
+      off('signedOut', 'oauthFailure'),
+      off('reauthRequired', 'disabled'),
+    ]).toEqual([true, false, false, false]);
   });
 
   it('says the session ended when the engine needs a new sign-in', () => {

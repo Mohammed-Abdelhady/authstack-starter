@@ -34,6 +34,8 @@ test('the pinned pnpm reads workspace patterns, overrides and explicit build dec
     packages: ['backend', 'frontend', 'mobile/*', 'packages/*', 'shared/*'],
     overrides: { diff: '>=8.0.3', lodash: '^4.18.1', '@nestjs/platform-express>multer': '2.4.0' },
     allowBuilds: {
+      '@embedded-postgres/darwin-arm64': true, '@embedded-postgres/darwin-x64': true,
+      '@embedded-postgres/linux-arm64': true, '@embedded-postgres/linux-x64': true,
       '@parcel/watcher': true, '@scarf/scarf': false, '@swc/core': true,
       bcrypt: true, fsevents: true, 'mongodb-memory-server': true, 'unrs-resolver': true,
     },

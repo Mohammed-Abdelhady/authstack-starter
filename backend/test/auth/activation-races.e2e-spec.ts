@@ -1,20 +1,15 @@
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
-import { Types } from 'mongoose';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { HashService } from '../../src/common/services/hash.service';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
 import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
-import { RaceGate, pauseQuery } from '../utils/race-gate';
+import { RaceGate } from '../utils/race-gate';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const CODE = '123456';
 const PASSWORD = 'Password123!';
@@ -23,15 +18,9 @@ const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 15 * 60 * 1000);
 
 describe('Activation races and collisions (e2e)', () => {
   let e2e: E2eApp;
-  let users: Model<UserDocument>;
-  let pendingRegistrations: Model<PendingRegistration>;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -79,19 +68,7 @@ describe('Activation races and collisions (e2e)', () => {
     const code = await e2e.mailedCode();
 
     const gate = new RaceGate();
-    const original =
-      pendingRegistrations.findOneAndDelete.bind(pendingRegistrations);
-    let call = 0;
-    const spy = jest
-      .spyOn(pendingRegistrations, 'findOneAndDelete')
-      .mockImplementation((...args) => {
-        const query = original(...args);
-        if (call < 2) {
-          pauseQuery(query, gate);
-        }
-        call += 1;
-        return query;
-      });
+    const restore = e2e.state.auth.holdPendingRegistrationConsumes(gate, 2);
 
     let first: Response;
     let second: Response;
@@ -106,11 +83,11 @@ describe('Activation races and collisions (e2e)', () => {
       gate.release();
       [first, second] = await Promise.all([firstRequest, secondRequest]);
     } finally {
-      spy.mockRestore();
+      restore();
     }
 
     expect([first.status, second.status].sort()).toEqual([200, 400]);
-    expect(await users.countDocuments({ email })).toBe(1);
+    expect(await e2e.state.auth.countAccountsWithAddress(email)).toBe(1);
 
     const signIn = [
       await signInStatus(email, firstPassword),
@@ -154,7 +131,7 @@ describe('Activation races and collisions (e2e)', () => {
       spy.mockRestore();
     }
 
-    expect(await users.countDocuments({ email })).toBe(0);
+    expect(await e2e.state.auth.countAccountsWithAddress(email)).toBe(0);
   });
 
   it('lets an account created meanwhile win the collision, unchanged', async () => {
@@ -179,7 +156,7 @@ describe('Activation races and collisions (e2e)', () => {
         post('/api/auth/activate', activationBody(email, code, PASSWORD)),
       );
       await gate.reached(1);
-      const winner = await users.create({
+      const winner = await e2e.state.accounts.createAccount({
         email,
         name: 'Other Sign-In',
         isVerified: true,
@@ -192,7 +169,7 @@ describe('Activation races and collisions (e2e)', () => {
         error: { code: ErrorCode.ACTIVATION_CODE_INVALID },
       });
 
-      const stored = await users.findOne({ email });
+      const stored = await e2e.state.accounts.accountWithAddress(email);
       expect(stored?.name).toBe('Other Sign-In');
       expect(stored?._id.toString()).toBe(winner._id.toString());
     } finally {
@@ -202,19 +179,19 @@ describe('Activation races and collisions (e2e)', () => {
 
   it('refuses a stale address change end to end', async () => {
     const email = 'stale-change@example.test';
-    const target = await users.create({
+    const target = await e2e.state.accounts.createAccount({
       email,
       name: 'Target',
       isVerified: false,
       addressGeneration: 4,
     });
-    await pendingRegistrations.create({
+    await e2e.state.auth.storePendingRegistration({
       email,
       purpose: PENDING_PURPOSE.EMAIL_CHANGE,
       hashedCode: await bcrypt.hash(CODE, 4),
       attempts: 0,
       expiresAt: LIVE_EXPIRY,
-      userId: new Types.ObjectId(target._id),
+      userId: target._id,
       addressGeneration: 3,
     });
 
@@ -227,6 +204,8 @@ describe('Activation races and collisions (e2e)', () => {
     expect(response.body).toMatchObject({
       error: { code: ErrorCode.ACTIVATION_CODE_INVALID },
     });
-    expect((await users.findById(target._id))?.isVerified).toBe(false);
+    expect(
+      (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
+    ).toBe(false);
   });
 });

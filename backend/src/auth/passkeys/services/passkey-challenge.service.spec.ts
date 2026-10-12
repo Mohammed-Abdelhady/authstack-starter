@@ -5,9 +5,91 @@ import {
   createMockRequest,
   createMockResponse,
   USER_ID,
-} from '../passkeys.harness-spec';
+} from '../persistence/mongo/passkeys.harness-spec';
 
 describe('PasskeyChallengeService', () => {
+  it('signs new cookies with the dedicated key and refuses them under the old key alone', async () => {
+    const dedicated = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+      'passkeys.challengeSecret': 'n'.repeat(32),
+    });
+    const { response, cookies } = createMockResponse();
+    await dedicated.issue(response, 'login', 'new-key-challenge');
+    expect(dedicated.read(createMockRequest(cookies), 'login').challenge).toBe(
+      'new-key-challenge',
+    );
+    expect(() =>
+      createChallengeService({ 'oauth.stateSecret': 'o'.repeat(32) }).read(
+        createMockRequest(cookies),
+        'login',
+      ),
+    ).toThrow(
+      expect.objectContaining({
+        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
+      }) as Error,
+    );
+  });
+
+  it('reads a previous dedicated key during rotation', async () => {
+    const old = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+      'passkeys.challengeSecret': 'p'.repeat(32),
+    });
+    const { response, cookies } = createMockResponse();
+    await old.issue(response, 'login', 'rotation-challenge');
+    const rotated = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+      'passkeys.challengeSecret': 'n'.repeat(32),
+      'passkeys.previousChallengeSecret': 'p'.repeat(32),
+    });
+    expect(rotated.read(createMockRequest(cookies), 'login').challenge).toBe(
+      'rotation-challenge',
+    );
+  });
+
+  it('reads a legacy OAuth-derived cookie for its remaining lifetime', async () => {
+    const legacy = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+    });
+    const { response, cookies } = createMockResponse();
+    await legacy.issue(response, 'login', 'legacy-challenge');
+    const next = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+      'passkeys.challengeSecret': 'n'.repeat(32),
+      'passkeys.legacyChallengeUntil': new Date(
+        Date.now() + 60_000,
+      ).toISOString(),
+    });
+    expect(next.read(createMockRequest(cookies), 'login').challenge).toBe(
+      'legacy-challenge',
+    );
+  });
+
+  it('refuses legacy cookies when the bounded fallback is absent or over', async () => {
+    const legacy = createChallengeService({
+      'oauth.stateSecret': 'o'.repeat(32),
+    });
+    const { response, cookies } = createMockResponse();
+    await legacy.issue(response, 'login', 'old-challenge');
+    for (const legacyChallengeUntil of [
+      undefined,
+      new Date(Date.now() - 1000).toISOString(),
+    ]) {
+      const next = createChallengeService({
+        'oauth.stateSecret': 'o'.repeat(32),
+        'passkeys.challengeSecret': 'n'.repeat(32),
+        ...(legacyChallengeUntil
+          ? { 'passkeys.legacyChallengeUntil': legacyChallengeUntil }
+          : {}),
+      });
+      expect(() => next.read(createMockRequest(cookies), 'login')).toThrow(
+        expect.objectContaining({
+          code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
+        }) as Error,
+      );
+    }
+  });
+
   it('should hand out a signed cookie and read it back', async () => {
     const service = createChallengeService();
     const { response, cookies } = createMockResponse();

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, lazy, Suspense } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { UserPlus } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export interface CreateUserButtonProps {
  * ```
  */
 export function CreateUserButton({ onSuccess, className }: CreateUserButtonProps) {
+  const t = useTranslations('users');
   const [open, setOpen] = useState(false);
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -49,7 +51,7 @@ export function CreateUserButton({ onSuccess, className }: CreateUserButtonProps
     <>
       <Button onClick={() => setOpen(true)} className={className} data-testid="create-user-button">
         <UserPlus className="h-4 w-4 me-2" />
-        Add User
+        {t('addUser')}
       </Button>
 
       {/* Co-located dialog with lazy loading */}

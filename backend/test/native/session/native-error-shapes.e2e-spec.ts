@@ -4,14 +4,17 @@ import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import {
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
-} from '../../../src/session/native/harness/native-oauth.harness-spec';
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
-import { createNativeApplication } from '../../utils/native/native-authorize.fixtures';
+import {
+  createNativeApplication,
+  seedUserId,
+} from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
 
 /**
@@ -74,7 +77,10 @@ describe('native OAuth error shapes (e2e)', () => {
     const response = await browser
       .post('/api/oauth/authorize/approve')
       .set('X-Request-Id', 'shape-envelope-probe')
-      .send({ transactionId: 'unknown-transaction' });
+      .send({
+        transactionId: 'unknown-transaction',
+        expectedUserId: await seedUserId(e2e),
+      });
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({

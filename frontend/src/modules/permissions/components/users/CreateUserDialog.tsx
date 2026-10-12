@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -14,24 +14,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
-import { FieldError, PasswordVisibilityToggle, SubmitButton } from '@/components/forms';
+  FieldError,
+  FormRootError,
+  PasswordVisibilityToggle,
+  SubmitButton,
+} from '@/components/forms';
 import { useCreateUserMutation } from '@/store/api/userApi';
-import { useListRolesQuery } from '../../api/rolesApi';
+import { DEFAULT_ROLE_SLUG } from '@/modules/roles/constants';
+import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import { reportUnlessHandled } from '@/lib/requestFailure';
+import { useFormRefusal } from '@/hooks/useFormRefusal';
+import { showsOwnRefusal } from '@/lib/refusal';
+import { FREE_TEXT_FIELD_CLASSES } from '../../constants/freeText';
 import { validateCreateUserForm } from '../../utils/createUserValidation';
-import {
-  fieldElementId,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-} from '@/hooks/useServerFieldErrors';
+import { CreateUserRoleField } from './CreateUserRoleField';
+import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
 
 export interface CreateUserDialogProps {
   open: boolean;
@@ -45,7 +44,7 @@ export interface CreateUserDialogProps {
  *
  * Features:
  * - Email, name, password input fields
- * - Role selector (non-protected roles only)
+ * - Role selector: every role, with the ones this person may not assign held back
  * - Form validation
  * - Error handling
  * - Loading states
@@ -67,20 +66,15 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('user');
+  const [role, setRole] = useState(DEFAULT_ROLE_SLUG);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
 
   const [createUser, { isLoading }] = useCreateUserMutation();
-  const { data: rolesData, isLoading: isLoadingRoles } = useListRolesQuery(undefined);
+  const allRoles = useAllRoles();
 
-  const roles = rolesData?.roles || [];
-  const availableRoles = roles.filter((r) => !r.isProtected);
-
-  const applyServerFieldErrors = useServerFieldErrors(
-    useLocalFieldTarget(setErrors, uid),
-    isLoading,
-  );
+  const refusal = useFormRefusal(useLocalFieldTarget(setErrors, uid), isLoading);
 
   const validateForm = (): boolean => {
     const newErrors = validateCreateUserForm(
@@ -89,31 +83,41 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       tPassword,
     );
     setErrors(newErrors);
+    const firstInvalid = (['email', 'name', 'password', 'role'] as const).find((field) =>
+      Boolean(newErrors[field]),
+    );
+    if (firstInvalid) document.getElementById(fieldId(firstInvalid))?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || submissionInFlight.current) return;
 
     if (!validateForm()) {
       return;
     }
 
+    submissionInFlight.current = true;
+    refusal.clear();
     try {
-      await createUser({
-        email: email.trim(),
-        name: name.trim(),
-        password,
-        role,
-      }).unwrap();
+      await showsOwnRefusal(
+        createUser({
+          email: email.trim(),
+          name: name.trim(),
+          password,
+          role,
+        }),
+      ).unwrap();
 
       toast.success(t('success'));
       handleClose();
       onSuccess?.();
     } catch (error) {
-      // A dialog that was closed in the meantime has no fields left to mark.
-      applyServerFieldErrors(error);
+      refusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
@@ -121,14 +125,19 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     setEmail('');
     setName('');
     setPassword('');
-    setRole('user');
+    setRole(DEFAULT_ROLE_SLUG);
     setShowPassword(false);
     setErrors({});
+    refusal.clear();
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}>
+    <Dialog
+      open={open}
+      busy={isLoading}
+      onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}
+    >
       <DialogContent className="sm:max-w-[500px]" data-testid="create-user-dialog">
         <DialogHeader>
           <DialogTitle>{t('title')}</DialogTitle>
@@ -136,24 +145,27 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
         </DialogHeader>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <FormRootError error={refusal.alert} className="mb-0" testId="create-user-error" />
           {/* Email Field */}
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('email')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('email')}
             </Label>
             <Input
               id={fieldId('email')}
               type="email"
+              dir="ltr"
               placeholder={t('emailPlaceholder')}
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
                 if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
+              required
               aria-invalid={Boolean(errors.email)}
               aria-describedby={errors.email ? errorId('email') : undefined}
               className={errors.email ? 'border-destructive' : ''}
@@ -166,7 +178,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('name')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('name')}
             </Label>
@@ -179,10 +191,11 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 setName(e.target.value);
                 if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
               }}
-              disabled={isLoading}
+              busy={isLoading}
+              required
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? errorId('name') : undefined}
-              className={errors.name ? 'border-destructive' : ''}
+              className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
               data-testid="create-user-name-input"
             />
             <FieldError id={errorId('name')} message={errors.name} testId="name-error" />
@@ -192,24 +205,27 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('password')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('password')}
             </Label>
             <div className="relative">
               <Input
                 id={fieldId('password')}
+                dir="ltr"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
+                placeholder={tCommon('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                 }}
-                disabled={isLoading}
+                busy={isLoading}
+                required
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? errorId('password') : undefined}
                 className={errors.password ? 'border-destructive pe-10' : 'pe-10'}
+                autoComplete="new-password"
                 data-testid="create-user-password-input"
               />
               <PasswordVisibilityToggle
@@ -229,44 +245,21 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('role')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('role')}
             </Label>
-            <Select
+            <CreateUserRoleField
+              id={fieldId('role')}
               value={role}
-              onValueChange={(value) => {
+              onChange={(value) => {
                 setRole(value);
                 if (errors.role) setErrors((prev) => ({ ...prev, role: '' }));
               }}
-              disabled={isLoading || isLoadingRoles}
-            >
-              <SelectTrigger
-                id={fieldId('role')}
-                aria-invalid={Boolean(errors.role)}
-                aria-describedby={errors.role ? errorId('role') : undefined}
-                className={errors.role ? 'border-destructive' : ''}
-                data-testid="create-user-role-select"
-              >
-                {isLoadingRoles ? (
-                  <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
-                ) : (
-                  <SelectValue placeholder={t('selectRole')} />
-                )}
-              </SelectTrigger>
-              <SelectContent>
-                {availableRoles.map((r) => (
-                  <SelectItem key={r.id} value={r.slug} data-testid={`role-option-${r.slug}`}>
-                    <div className="flex items-center gap-2">
-                      <span>{r.name}</span>
-                      {r.isSystemRole && (
-                        <span className="text-xs text-tertiary">{t('systemRole')}</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              allRoles={allRoles}
+              busy={isLoading}
+              errorId={errors.role ? errorId('role') : undefined}
+            />
             <FieldError id={errorId('role')} message={errors.role} testId="role-error" />
           </div>
 
@@ -275,15 +268,16 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
               type="button"
               variant="ghost"
               onClick={handleClose}
-              disabled={isLoading}
+              busy={isLoading}
               data-testid="cancel-create-user-button"
             >
               {tCommon('cancel')}
             </Button>
             <SubmitButton
               isLoading={isLoading}
+              disabled={allRoles.isError}
               loadingText={t('creating')}
-              className="h-10 mt-0 w-auto py-2"
+              className="h-10 mt-0 w-auto py-2 rtl:tracking-normal"
               testId="submit-create-user-button"
             >
               {t('submit')}

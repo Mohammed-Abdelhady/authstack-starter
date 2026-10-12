@@ -140,10 +140,12 @@ it.each([
       'mobile/auth',
       'mobile/device-key',
       'mobile/metro',
+      'mobile/ui',
       'shared/core',
       'shared/sdk',
     ],
   ],
+  // feature:native-cli:start
   [
     'mobile/cli',
     [
@@ -151,11 +153,14 @@ it.each([
       'mobile/cli',
       'mobile/adapters',
       'mobile/auth',
+      'mobile/device-key',
       'mobile/metro',
+      'mobile/ui',
       'shared/core',
       'shared/sdk',
     ],
   ],
+  // feature:native-cli:end
 ])('gives %s in this repository its real reach', (shell, expected) => {
   expect(watched(REPOSITORY, shell)).toEqual(expected);
 });

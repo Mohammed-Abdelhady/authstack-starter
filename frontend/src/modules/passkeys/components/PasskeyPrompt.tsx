@@ -44,7 +44,7 @@ export function PasskeyPrompt({
         variant={variant}
         className="w-full"
         onClick={onRun}
-        disabled={isBusy}
+        busy={isBusy}
         aria-busy={isBusy}
         data-testid={testId}
       >

@@ -4,7 +4,6 @@ export const DEFAULT_AUTH_EPOCH = 1;
 
 export const USER_AGENT_MAX_LENGTH = 512;
 export const DEVICE_NAME_MAX_LENGTH = 64;
-export const LINEARIZABLE_QUERY_MAX_TIME_MS = 5000;
 
 export const WEB_ABSOLUTE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 export const WEB_IDLE_LIFETIME_MS = 30 * 60 * 1000;

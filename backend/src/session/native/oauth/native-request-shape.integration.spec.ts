@@ -17,7 +17,7 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
 
 const INVALID_REQUEST = { error: 'invalid_request' };
 
@@ -59,6 +59,7 @@ describe('native token and revoke request shape', () => {
 
   beforeAll(async () => {
     ctx = await startNativeOauth('native_request_shape');
+    await ctx.harness.app.listen(0, '127.0.0.1');
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {

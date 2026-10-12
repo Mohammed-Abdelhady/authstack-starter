@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
-import { UserSchema } from '../../user/schemas/user.schema';
-import { RoleSchema } from '../../role/schemas/role.schema';
 import { SeedService } from './seed.service';
 import { RoleSeedService } from './role.seed';
 import { SessionModule } from '../../session/session.module';
+import {
+  SEED_PERSISTENCE_IMPORTS,
+  SEED_PERSISTENCE_PROVIDERS,
+} from './persistence/seed-persistence';
 
 /**
  * Seed Module
@@ -15,22 +16,8 @@ import { SessionModule } from '../../session/session.module';
  * the SeedService for seeding operations.
  */
 @Module({
-  imports: [
-    ConfigModule,
-    // Import models for seeding operations
-    MongooseModule.forFeature([
-      {
-        name: 'User',
-        schema: UserSchema,
-      },
-      {
-        name: 'Role',
-        schema: RoleSchema,
-      },
-    ]),
-    SessionModule,
-  ],
-  providers: [SeedService, RoleSeedService],
+  imports: [ConfigModule, ...SEED_PERSISTENCE_IMPORTS, SessionModule],
+  providers: [SeedService, RoleSeedService, ...SEED_PERSISTENCE_PROVIDERS],
   exports: [SeedService],
 })
 export class SeedModule {}

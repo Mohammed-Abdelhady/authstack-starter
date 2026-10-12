@@ -1,7 +1,5 @@
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import request from 'supertest';
 import { AuthEpochService } from '../../../src/common/services/auth-epoch.service';
 import {
@@ -14,23 +12,16 @@ import {
   NATIVE_IDLE_LIFETIME_MS,
 } from '../../../src/session/constants/session-policy';
 import {
-  Application,
-  ApplicationDocument,
-} from '../../../src/session/schemas/application.schema';
-import {
-  AuthorizationTransaction,
-  AuthorizationTransactionDocument,
-} from '../../../src/session/schemas/authorization-transaction.schema';
-import {
   NATIVE_CLIENT_ID,
   nativeAuthorizeQuery,
-} from '../../../src/session/native/harness/native-oauth.harness-spec';
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_USER } from '../../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
+import { seedUserId } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../utils/session-authority-harness';
+} from '../../utils/hook-timeouts';
 import { TEST_NOW } from '../../utils/frozen-clock';
 
 const LOOPBACK_REGISTERED = 'http://127.0.0.1:3000/callback';
@@ -77,7 +68,7 @@ describe('native return addresses (e2e)', () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId })
+      .send({ transactionId, expectedUserId: await seedUserId(e2e) })
       .expect(200);
     const code = new URL(
       String(
@@ -115,9 +106,6 @@ describe('native return addresses (e2e)', () => {
 
   it('refuses a loopback address with a different path', async () => {
     await createLoopbackApplication(e2e, [LOOPBACK_REGISTERED]);
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
 
     const response = await request(e2e.httpServer)
       .get('/api/oauth/authorize')
@@ -129,14 +117,11 @@ describe('native return addresses (e2e)', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'invalid_request' });
-    expect(await transactions.countDocuments()).toBe(0);
+    expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
   });
 
   it('refuses a non-loopback address with a different port', async () => {
     await createLoopbackApplication(e2e, [HTTPS_REGISTERED]);
-    const transactions = e2e.app.get<Model<AuthorizationTransactionDocument>>(
-      getModelToken(AuthorizationTransaction.name),
-    );
 
     const response = await request(e2e.httpServer)
       .get('/api/oauth/authorize')
@@ -148,7 +133,7 @@ describe('native return addresses (e2e)', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: 'invalid_request' });
-    expect(await transactions.countDocuments()).toBe(0);
+    expect(await e2e.state.native.authorizationRequestCount()).toBe(0);
   });
 
   it('refuses a custom scheme in production without the setting at authorize time', async () => {
@@ -253,10 +238,7 @@ async function createLoopbackApplication(
   redirectUris: string[],
   environment?: string,
 ): Promise<void> {
-  const applications = e2e.app.get<Model<ApplicationDocument>>(
-    getModelToken(Application.name),
-  );
-  await applications.create({
+  await e2e.state.applications.createApplication({
     clientId: NATIVE_CLIENT_ID,
     displayName: 'Native loopback client',
     platform: APPLICATION_PLATFORM.NATIVE,

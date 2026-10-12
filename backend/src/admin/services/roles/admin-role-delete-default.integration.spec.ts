@@ -3,7 +3,7 @@ import { UserRole } from '../../../user/enums/user-role.enum';
 import {
   EDITOR_SLUG,
   useAdminRoundFour,
-} from '../admin-round-four.harness-spec';
+} from '../../persistence/mongo/services/admin-round-four.harness-spec';
 
 const ORDERS = ['before request', 'after request admission'] as const;
 

@@ -1,8 +1,5 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
 import { Response } from 'express';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { RegisterDto } from '../../dto/register.dto';
 import { ActivateDto } from '../../dto/activate.dto';
 import { ResendActivationDto } from '../../dto/resend-activation.dto';
@@ -16,17 +13,20 @@ import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { AuthMailService } from '../mail/auth-mail.service';
 import { VerificationCodeService } from '../codes/verification-code.service';
 import { MailCounterService } from '../mail/mail-counter.service';
-import { SignInService } from '../sessions/sign-in.service';
 import {
   createActivatedAccount,
   finishActivation,
 } from '../../utils/activation.util';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { generateVerificationCode } from '../../utils/verification-code.util';
+import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import {
-  isUnknownTransactionOutcome,
-  withMajorityTransaction,
-} from '../../../session/utils/transactions/mongo-transaction';
+  ActivatedAccount,
+  ActivationAccounts,
+  ActivationSignIn,
+} from '../../pending-codes/activation-accounts';
 import {
   PENDING_PURPOSE,
   MAIL_COUNTER_PURPOSE,
@@ -45,13 +45,13 @@ export class RegistrationService {
   private readonly logger = new Logger(RegistrationService.name);
 
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectConnection() private readonly connection: Connection,
+    private readonly accounts: ActivationAccounts,
+    private readonly runner: UnitOfWorkRunner,
     private readonly hashService: HashService,
     private readonly authMailService: AuthMailService,
     private readonly verificationCodeService: VerificationCodeService,
     private readonly mailCounterService: MailCounterService,
-    private readonly signInService: SignInService,
+    private readonly signIn: ActivationSignIn,
   ) {}
 
   /**
@@ -70,9 +70,7 @@ export class RegistrationService {
       );
     }
 
-    const existingUser = await this.userModel.findOne({
-      email: { $eq: dto.email },
-    });
+    const existingUser = await this.accounts.findAddressOwner(dto.email);
 
     if (existingUser) {
       await this.spendCodeHashingTime();
@@ -109,8 +107,8 @@ export class RegistrationService {
   /**
    * Prove the address with the mailed code, then create the account with the
    * password and name supplied in this same request. The code comparison and
-   * the password hash run outside the transaction; the consume and the insert
-   * run inside one, so a retry cannot spend another attempt or hash twice.
+   * the password hash run outside the unit of work; the consume and the insert
+   * run inside one, so a rerun cannot spend another attempt or hash twice.
    */
   async activate(
     dto: ActivateDto,
@@ -122,38 +120,35 @@ export class RegistrationService {
       PENDING_PURPOSE.SIGNUP,
     );
     const passwordHash = await this.hashService.hash(dto.password);
-    // Generate the id before the transaction, so an unknown commit can be
+    // Generate the id before the unit of work, so an unknown commit can be
     // resolved by looking this exact account up afterwards.
-    const accountId = new Types.ObjectId();
+    const accountId = this.accounts.newAccountId();
 
-    let user: UserDocument;
+    let user: ActivatedAccount;
     try {
-      user = await withMajorityTransaction(this.connection, async (session) => {
+      user = await this.runner.run(async (unitOfWork) => {
         const consumed = await this.verificationCodeService.consumeCode(
           reserved,
-          session,
+          unitOfWork,
         );
         if (!consumed) {
           throw activationCodeInvalid();
         }
-        return createActivatedAccount(
-          reserved,
+        return createActivatedAccount(this.accounts, unitOfWork, reserved, {
+          id: accountId,
           passwordHash,
-          dto.name,
-          this.userModel,
-          session,
-          accountId,
-        );
+          name: dto.name,
+        });
       });
     } catch (error) {
       if (isUnknownTransactionOutcome(error)) {
         return this.finishUnknownCommit(accountId, error);
       }
-      throw error;
+      throw storeFailureCause(error);
     }
 
-    this.logger.log(`Account activated: user ${user._id.toString()}`);
-    return finishActivation(this.signInService, user, response);
+    this.logger.log(`Account activated: user ${user.id}`);
+    return finishActivation(this.signIn, user, response);
   }
 
   /**
@@ -164,9 +159,7 @@ export class RegistrationService {
   async resendActivation(
     dto: ResendActivationDto,
   ): Promise<ApiResponse<ResendActivationResponseDto>> {
-    const existingUser = await this.userModel.findOne({
-      email: { $eq: dto.email },
-    });
+    const existingUser = await this.accounts.findAddressOwner(dto.email);
 
     if (existingUser) {
       await this.spendCodeHashingTime();
@@ -188,18 +181,18 @@ export class RegistrationService {
   /**
    * A commit whose result is unknown may or may not have landed. Only answer
    * "sign in" when this caller's own account — the id generated before the
-   * transaction — is really there. An absent or unreadable row remains an
+   * unit of work — is really there. An absent or unreadable row remains an
    * unknown outcome and answers with its 503 code. Looking up by address alone
    * could match an account a concurrent sign-in method created and tell this
    * caller to sign in to a password they never set.
    */
   private async finishUnknownCommit(
-    accountId: Types.ObjectId,
+    accountId: string,
     error: unknown,
   ): Promise<ApiResponse<ActivateResponseDto>> {
-    let committed: UserDocument | null = null;
+    let committed = false;
     try {
-      committed = await this.userModel.findById(accountId);
+      committed = await this.accounts.isStored(accountId);
     } catch {
       logUnknownCommit(this.logger, 'Activation', error);
       asAuthorityUnavailable(error);

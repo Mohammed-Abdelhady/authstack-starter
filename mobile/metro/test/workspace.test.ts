@@ -21,10 +21,10 @@ it('finds the workspace root above a nested shell folder', () => {
 it('stops at the nearest workspace file, not an outer one', () => {
   const outer = makeWorkspace(LONE_SHELL);
   const inner = join(outer, 'vendor/project');
-  mkdirSync(join(inner, 'mobile/cli'), { recursive: true });
+  mkdirSync(join(inner, 'mobile/expo'), { recursive: true });
   writeFileSync(join(inner, 'pnpm-workspace.yaml'), 'packages: [mobile/*]\n');
 
-  expect(findWorkspaceRoot(join(inner, 'mobile/cli'))).toBe(inner);
+  expect(findWorkspaceRoot(join(inner, 'mobile/expo'))).toBe(inner);
 });
 
 it('refuses a folder that is in no workspace', () => {
@@ -34,9 +34,9 @@ it('refuses a folder that is in no workspace', () => {
   expect(() => findWorkspaceRoot(lonely)).toThrow(/No pnpm-workspace\.yaml was found above/);
 });
 
-it('resolves both shells in this repository to the repository root', () => {
+it('resolves each shell in this repository to the repository root', () => {
   expect(findWorkspaceRoot(join(REPOSITORY, 'mobile/expo'))).toBe(REPOSITORY);
-  expect(findWorkspaceRoot(join(REPOSITORY, 'mobile/cli'))).toBe(REPOSITORY);
+  expect(findWorkspaceRoot(join(REPOSITORY, 'mobile/cli'))).toBe(REPOSITORY); // feature:native-cli
 });
 
 it('looks for packages in the shell before the root and keeps other lookup folders', () => {

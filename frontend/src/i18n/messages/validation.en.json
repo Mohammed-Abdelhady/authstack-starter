@@ -1,0 +1,9 @@
+{
+  "validation": {
+    "emailRequired": "Email is required",
+    "emailInvalid": "Invalid email format",
+    "nameRequired": "Name is required",
+    "nameMinLength": "Name must be at least 2 characters",
+    "roleRequired": "Role is required"
+  }
+}

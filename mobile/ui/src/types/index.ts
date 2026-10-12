@@ -18,6 +18,14 @@ export interface EdgeInsets {
   end: number;
 }
 
+/** The same space as a safe-area library reports it, by physical side. */
+export interface PhysicalInsets {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
 export interface ConfirmRequest {
   title: string;
   message: string;
@@ -62,6 +70,8 @@ export interface SignInView {
   failure?: SignInFailure;
   /** True when a session ended on its own and the person has not tried again yet. */
   sessionEnded: boolean;
+  /** True when the service switched sign-in from apps off and ended the session. */
+  switchedOff: boolean;
 }
 
 export type SnapshotInput = Pick<AuthSnapshot, 'status' | 'operation' | 'reason'>;
@@ -76,6 +86,7 @@ export interface ApiFailure {
 export type DeviceName =
   | { kind: 'named'; name: string }
   | { kind: 'browser'; browser: string; system: string }
+  | { kind: 'mobileApp'; system: string }
   | { kind: 'unknown' };
 
 export interface SessionRow {

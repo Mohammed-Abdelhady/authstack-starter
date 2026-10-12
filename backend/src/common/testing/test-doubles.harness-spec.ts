@@ -1,6 +1,5 @@
 import { ArgumentsHost, ExecutionContext } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ClientSession, Connection } from 'mongoose';
 
 /**
  * Test doubles for the collaborator types Nest and Express hand to guards,
@@ -67,28 +66,6 @@ export function createArgumentsHostMock<M extends object>(
   overrides: M,
 ): ArgumentsHost & M {
   return Object.assign(partialMock<ArgumentsHost>({}), overrides);
-}
-
-/**
- * A driver session double for the existing service unit fixtures.
- */
-function createClientSessionMock(): ClientSession {
-  return partialMock<ClientSession>({
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn().mockResolvedValue(undefined),
-    abortTransaction: jest.fn().mockResolvedValue(undefined),
-    endSession: jest.fn().mockResolvedValue(undefined),
-    inTransaction: jest.fn().mockReturnValue(true),
-  });
-}
-
-/**
- * A connection double that hands out the unit fixture's driver session.
- */
-export function createConnectionMock(): Connection {
-  return partialMock<Connection>({
-    startSession: jest.fn().mockResolvedValue(createClientSessionMock()),
-  });
 }
 
 /**

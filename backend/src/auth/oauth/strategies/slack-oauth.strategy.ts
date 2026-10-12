@@ -75,6 +75,7 @@ export class SlackOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = true;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   constructor(configService: ConfigService) {
     super(configService);

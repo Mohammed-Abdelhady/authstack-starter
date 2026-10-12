@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, IDLE } from '@/tests/busyControls';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
@@ -9,6 +10,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { ADMIN_LISTED, storeSignedInAs } from '@/tests/signedIn';
 import { useUserActions } from '../../../hooks/useUserActions';
 import { UserRoleSelector } from '../UserRoleSelector';
 
@@ -19,6 +21,7 @@ function role(slug: string, name: string) {
     id: `role-${slug}`,
     slug,
     name,
+    level: 1,
     permissions: [],
     isSystemRole: false,
     isProtected: false,
@@ -27,7 +30,11 @@ function role(slug: string, name: string) {
   };
 }
 
-const ROLES = { roles: [role('user', 'User'), role('editor', 'Editor')], total: 2, page: 1 };
+const ROLES = {
+  roles: [ADMIN_LISTED, role('user', 'User'), role('editor', 'Editor')],
+  total: 3,
+  page: 1,
+};
 
 const UPDATED_USER = {
   id: 'user-2',
@@ -56,7 +63,7 @@ function UserRoleControl() {
 
 async function changeRoleToEditor(locale: AppLocale, answer: () => Response) {
   const requests = stubNetwork((request) => (request.method === 'GET' ? success(ROLES) : answer()));
-  const form = await renderForm(locale, <UserRoleControl />);
+  const form = await renderForm(locale, <UserRoleControl />, storeSignedInAs('admin'));
 
   const trigger = screen.getByRole('combobox');
   await waitFor(() => {
@@ -103,12 +110,15 @@ describe.each([
       refusalWith(403, 'CANNOT_MODIFY_HIGHER_ROLE'),
     );
 
+    // The confirmation stays open and says why, once, and can be sent again.
     await waitFor(() => {
-      expect(errorToasts()).toEqual([message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE')]);
+      expect(screen.getByTestId('role-change-error').textContent).toBe(
+        message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
+      );
     });
-    // The selector is enabled again once the refusal has been handled.
+    expect(errorToasts()).toEqual([]);
     await waitFor(() => {
-      expect(screen.getByRole('combobox').hasAttribute('disabled')).toBe(false);
+      expect(availability(screen.getByTestId('confirm-role-change-button'))).toEqual(IDLE);
     });
     expect(successToasts()).toEqual([]);
   });

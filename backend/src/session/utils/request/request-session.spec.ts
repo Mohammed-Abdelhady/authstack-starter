@@ -1,18 +1,17 @@
-import { Types } from 'mongoose';
 import { requestSessionId } from './request-session';
 
 describe('requestSessionId', () => {
   it('reads the id from an authenticated cookie session', () => {
-    const id = new Types.ObjectId('507f1f77bcf86cd799439011');
+    const id = '507f1f77bcf86cd799439011';
 
-    expect(requestSessionId({ session: { _id: id } })).toBe(
+    expect(requestSessionId({ session: { id } })).toBe(
       '507f1f77bcf86cd799439011',
     );
   });
 
   it('reads the id from an authenticated bearer session', () => {
     expect(
-      requestSessionId({ session: { _id: '507f1f77bcf86cd799439012' } }),
+      requestSessionId({ session: { id: '507f1f77bcf86cd799439012' } }),
     ).toBe('507f1f77bcf86cd799439012');
   });
 
@@ -20,7 +19,7 @@ describe('requestSessionId', () => {
     ['missing session', {}],
     ['null session', { session: null }],
     ['missing id', { session: {} }],
-    ['empty id', { session: { _id: '' } }],
+    ['empty id', { session: { id: '' } }],
   ])('returns null for %s', (_label, request) => {
     expect(requestSessionId(request)).toBeNull();
   });

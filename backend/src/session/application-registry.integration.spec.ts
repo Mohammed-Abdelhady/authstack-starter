@@ -19,7 +19,7 @@ import {
   NATIVE_ABSOLUTE_LIFETIME_MS,
   NATIVE_IDLE_LIFETIME_MS,
 } from './constants/session-policy';
-import { ApplicationRegistryService } from './services/application-registry.service';
+import { ApplicationRegistryService } from './persistence/mongo/application-registry.service';
 
 const TEST_ENVIRONMENT = 'test';
 const NATIVE_REDIRECT = 'example-native://callback';

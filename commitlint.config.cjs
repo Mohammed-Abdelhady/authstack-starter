@@ -13,7 +13,7 @@ module.exports = {
         'backend',
         'frontend',
         'shared',
-        'mobile',
+        'mobile', // feature:native-core
         'packages',
         'root',
         'docs',

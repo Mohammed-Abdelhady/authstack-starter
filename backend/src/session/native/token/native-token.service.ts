@@ -1,45 +1,39 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Connection, Model, Types } from 'mongoose';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../../common/persistence/unit-of-work';
 import { Clock } from '../../../common/services/clock';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
 import { APPLICATION_PLATFORM } from '../../constants/client-ids';
 import {
   SECURITY_EVENT_ACTION,
   SECURITY_EVENT_OUTCOME,
 } from '../../constants/security-event-action';
 import { NATIVE_DPOP_FAILURE_REASON } from '../../constants/session-policy';
-import {
-  Application,
-  ApplicationDocument,
-} from '../../schemas/application.schema';
-import {
-  AuthorizationTransaction,
-  AuthorizationTransactionDocument,
-} from '../../schemas/authorization-transaction.schema';
-import {
-  UserApplicationGrant,
-  UserApplicationGrantDocument,
-} from '../../schemas/user-application-grant.schema';
+import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
 import { asAuthorityUnavailable } from '../../utils/authority/authority-unavailable';
 import { pkceMatches } from '../../utils/oauth/pkce';
-import { withMajorityTransaction } from '../../utils/transactions/mongo-transaction';
 import { hashToken } from '../../utils/hashing/token-hash';
 import { NativeCredentialIssuer } from './native-credential.issuer';
 import { NativeRefreshService } from '../refresh/native-refresh.service';
 import { NativeRevokeService } from '../revoke/native-revoke.service';
 import { SessionIssuanceService } from '../../services/session-issuance.service';
-import { SecurityEventService } from '../../services/security-event.service';
+import { ApplicationRegistry } from '../../applications/application-registry';
+import {
+  CODE_SPEND,
+  NativeAuthorizationStore,
+} from '../authorize/native-authorization.store';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
 import { NativeDpopProofResult } from '../proof/native-dpop-proof';
 import {
   TOKEN_REQUEST_FIELDS,
   readStringFields,
 } from '../oauth/native-request-shape';
 import {
-  isNativeDpopProofIdConflict,
+  isNativeProofIdReplay,
   NativeDpopService,
 } from '../proof/native-dpop.service';
 import {
@@ -55,20 +49,16 @@ import {
 @Injectable()
 export class NativeTokenService {
   constructor(
-    @InjectConnection() private readonly connection: Connection,
-    @InjectModel(AuthorizationTransaction.name)
-    private readonly transactions: Model<AuthorizationTransactionDocument>,
-    @InjectModel(User.name) private readonly users: Model<UserDocument>,
-    @InjectModel(Application.name)
-    private readonly applications: Model<ApplicationDocument>,
-    @InjectModel(UserApplicationGrant.name)
-    private readonly grants: Model<UserApplicationGrantDocument>,
+    private readonly unitOfWork: UnitOfWorkRunner,
+    private readonly authorizations: NativeAuthorizationStore,
+    private readonly registry: ApplicationRegistry,
+    private readonly issuance: BrowserIssuanceStore,
     private readonly issuer: NativeCredentialIssuer,
     private readonly refreshes: NativeRefreshService,
     private readonly revocations: NativeRevokeService,
     private readonly sessionIssuance: SessionIssuanceService,
     private readonly dpop: NativeDpopService,
-    private readonly events: SecurityEventService,
+    private readonly events: NativeSecurityEvents,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
   ) {}
@@ -164,9 +154,7 @@ export class NativeTokenService {
       }
       verifiedProof = verification.result;
     }
-    const pending = await this.transactions
-      .findOne({ codeHash: hashToken(code), consumed: false })
-      .exec();
+    const pending = await this.authorizations.findUnspentCode(hashToken(code));
     if (
       !pending ||
       pending.clientId !== clientId ||
@@ -178,18 +166,15 @@ export class NativeTokenService {
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
     }
     if (!pkceMatches(verifier, pending.codeChallenge)) {
-      await this.transactions.updateOne(
-        { _id: pending._id, consumed: false },
-        { $set: { consumed: true } },
-      );
+      await this.authorizations.spendCode(pending.id);
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
     }
     try {
-      return await withMajorityTransaction(this.connection, (db) =>
-        this.consumeCode(db, pending._id, meta, verifiedProof),
+      return await this.unitOfWork.run((unitOfWork) =>
+        this.consumeCode(unitOfWork, pending.id, meta, verifiedProof),
       );
     } catch (error) {
-      if (isNativeDpopProofIdConflict(error)) {
+      if (isNativeProofIdReplay(error)) {
         await this.recordProofRefusal(
           code,
           ErrorCode.NATIVE_DPOP_PROOF_REPLAYED,
@@ -211,88 +196,86 @@ export class NativeTokenService {
     }
   }
 
+  /**
+   * One unit of work with two deliberate outcomes. A full session cap throws,
+   * so nothing is stored and the code stays usable. A failed authority check
+   * returns its failure, so the spent code is stored with it.
+   */
   private async consumeCode(
-    db: ClientSession,
-    transactionId: Types.ObjectId,
+    unitOfWork: UnitOfWork,
+    codeId: string,
     meta: ClientMeta,
     proof?: Extract<NativeDpopProofResult, { ok: true }>,
   ): Promise<TokenSuccess | OauthFailure> {
     const now = this.clock.now();
-    const pending = await this.transactions
-      .findOne({ _id: transactionId, consumed: false })
-      .session(db)
-      .exec();
+    const pending = await this.authorizations.findUnspentCodeIn(
+      unitOfWork,
+      codeId,
+    );
     if (!pending || !pending.userId || !pending.codeExpiresAt) {
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
     }
     if (pending.codeExpiresAt.getTime() <= now.getTime()) {
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
     }
-    const user = await this.users.findById(pending.userId).session(db).exec();
-    const application = await this.applications
-      .findOne({
-        clientId: pending.clientId,
-        environment: this.authEpoch.environment(),
-      })
-      .session(db)
-      .exec();
-    const grant = await this.grants
-      .findOne({ userId: pending.userId, clientId: pending.clientId })
-      .session(db)
-      .exec();
+    const account = await this.issuance.readAccountForIssuance(
+      unitOfWork,
+      pending.userId,
+    );
+    const application = await this.registry.findClientIn(
+      unitOfWork,
+      pending.clientId,
+    );
+    const grant = await this.issuance.findGrant(
+      unitOfWork,
+      pending.userId,
+      pending.clientId,
+    );
     const validAuthority = Boolean(
-      user &&
-      !user.isDeleted &&
+      account &&
+      !account.isDeleted &&
       application &&
       application.enabled &&
       application.platform === APPLICATION_PLATFORM.NATIVE &&
       grant &&
       grant.allowed &&
-      (user.sessionVersion ?? 0) === (pending.capturedUserVersion ?? -1) &&
-      (application.sessionVersion ?? 0) ===
-        (pending.capturedClientVersion ?? -1) &&
-      (grant.sessionVersion ?? 0) === (pending.capturedGrantVersion ?? -1) &&
+      account.sessionVersion === (pending.capturedUserVersion ?? -1) &&
+      application.sessionVersion === (pending.capturedClientVersion ?? -1) &&
+      grant.sessionVersion === (pending.capturedGrantVersion ?? -1) &&
       pending.authEpoch === this.authEpoch.current(),
     );
-    if (validAuthority && user && application && grant) {
-      await this.users
-        .updateOne({ _id: user._id }, { $inc: { issuanceFence: 1 } })
-        .session(db)
-        .exec();
-      await this.sessionIssuance.assertSessionLimit(db, user, application, now);
+    if (validAuthority && account && application && grant) {
+      await this.issuance.markAccountIssuance(unitOfWork, account.id);
+      await this.sessionIssuance.assertSessionLimit(
+        unitOfWork,
+        account,
+        application,
+        now,
+      );
     }
-    const claimed = await this.transactions
-      .updateOne(
-        { _id: pending._id, consumed: false },
-        { $set: { consumed: true } },
-      )
-      .session(db)
-      .exec();
+    const spent = await this.authorizations.spendCodeIn(unitOfWork, pending.id);
     if (
-      claimed.modifiedCount !== 1 ||
+      spent !== CODE_SPEND.SPENT ||
       !validAuthority ||
-      !user ||
+      !account ||
       !application ||
       !grant
     ) {
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
     }
     if (proof) {
-      await this.dpop.reserveProofId(db, proof.jti, now);
+      await this.dpop.reserveProofId(unitOfWork, proof.jti, now);
     }
-    return this.issuer.issuePair(
-      db,
-      user,
+    return this.issuer.issuePair(unitOfWork, {
+      account,
       application,
       grant,
-      pending,
+      context: pending,
       meta,
       now,
-      1,
-      undefined,
-      undefined,
-      proof?.thumbprint,
-    );
+      generation: 1,
+      proofKeyThumbprint: proof?.thumbprint,
+    });
   }
 
   private async recordProofRefusal(
@@ -300,20 +283,16 @@ export class NativeTokenService {
     reason: string,
     now: Date,
   ): Promise<void> {
-    const pending = await this.transactions
-      .findOne({
-        codeHash: hashToken(code),
-        consumed: false,
-        codeExpiresAt: { $gt: now },
-      })
-      .select({ clientId: 1, userId: 1 })
-      .exec();
-    if (!pending) {
+    const holder = await this.authorizations.findCodeHolder(
+      hashToken(code),
+      now,
+    );
+    if (!holder) {
       return;
     }
-    await this.events.record({
-      targetUserId: pending.userId?.toString(),
-      clientId: pending.clientId,
+    await this.events.recordOutsideUnitOfWork({
+      targetUserId: holder.userId ?? undefined,
+      clientId: holder.clientId,
       action: SECURITY_EVENT_ACTION.NATIVE_DPOP_PROOF_REFUSED,
       reasonCode: reason,
       outcome: SECURITY_EVENT_OUTCOME.FAILED,

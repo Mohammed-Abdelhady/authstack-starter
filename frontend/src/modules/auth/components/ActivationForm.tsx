@@ -13,7 +13,7 @@ import {
 import { ShieldCheck, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { authPagePath } from '../utils/signInRouting';
-import { REGISTER_PATH, LOGIN_PATH, VERIFICATION_CODE_LENGTH } from '../constants/authMethods';
+import { REGISTER_PATH, LOGIN_PATH } from '../constants/authMethods';
 import { Link } from '@/i18n/navigation';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ import { AuthCompletionNotice } from './AuthCompletionNotice';
 
 export function ActivationForm() {
   const t = useTranslations('auth.activate');
+  const tCommon = useTranslations('common');
   const {
     form,
     formRef,
@@ -99,7 +100,8 @@ export function ActivationForm() {
               label={t('email')}
               placeholder={t('emailPlaceholder')}
               autoComplete="username"
-              disabled={isLoading || isResending}
+              required
+              busy={isLoading || isResending}
               data-testid="activate-email-input"
               readOnly={Boolean(emailInMemory)}
               className={emailInMemory ? 'bg-muted' : undefined}
@@ -116,8 +118,8 @@ export function ActivationForm() {
               label={t('code')}
               placeholder={t('codePlaceholder')}
               autoComplete="one-time-code"
-              disabled={isLoading || isResending}
-              maxLength={VERIFICATION_CODE_LENGTH}
+              required
+              busy={isLoading || isResending}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus={Boolean(emailInMemory)}
               onChange={handleCodeChange}
@@ -130,14 +132,18 @@ export function ActivationForm() {
               label={t('name')}
               placeholder={t('namePlaceholder')}
               autoComplete="name"
-              disabled={isLoading || isResending}
+              required
+              dir="auto"
+              busy={isLoading || isResending}
             />
             <FormPassword
               name="password"
               data-testid="activate-password-input"
               label={t('password')}
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading || isResending}
+              required
+              busy={isLoading || isResending}
               className={FORM_STYLES.authField}
             />
             <PasswordRules name="password" className="mt-3" />
@@ -145,8 +151,10 @@ export function ActivationForm() {
               name="confirmPassword"
               data-testid="activate-confirm-password-input"
               label={t('confirmPassword')}
+              placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
-              disabled={isLoading || isResending}
+              required
+              busy={isLoading || isResending}
               className={FORM_STYLES.authField}
             />
 
@@ -163,7 +171,7 @@ export function ActivationForm() {
             <Button
               type="button"
               onClick={handleResend}
-              disabled={isResendDisabled}
+              busy={isResendDisabled}
               variant="ghost"
               className="mt-4 w-full flex items-center justify-center gap-2"
               data-testid="resend-button"
@@ -177,7 +185,7 @@ export function ActivationForm() {
               aria-busy={isResending || cooldownSeconds > 0}
             >
               <RefreshCw
-                className={`w-4 h-4 ${isResending || cooldownSeconds > 0 ? 'animate-spin' : ''}`}
+                className={`w-4 h-4 ${isResending || cooldownSeconds > 0 ? 'motion-safe:animate-spin' : ''}`}
                 aria-hidden="true"
               />
               <span>

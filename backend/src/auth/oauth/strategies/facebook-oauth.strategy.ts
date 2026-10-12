@@ -42,6 +42,8 @@ export class FacebookOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = false;
   readonly emailAlwaysVerified = true;
+  // The Graph API states nothing about the address, so it is not proof enough.
+  readonly autoLinksByEmail = false;
 
   constructor(configService: ConfigService) {
     super(configService);

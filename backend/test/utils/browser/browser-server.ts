@@ -1,10 +1,16 @@
 import { bootE2eApp } from '../e2e-app';
 import { startLocalOAuth } from '../oauth/local-oauth';
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
-import type { PendingMagicLinkDocument } from '../../../src/auth/magic-link/schemas/pending-magic-link.schema';
+import {
+  startBrowserMongoE2eStorage,
+  watchMongoFixtureConnections,
+} from '../e2e-mongo-storage';
+import { useE2eStorage } from '../e2e-storage';
 
 async function main(): Promise<void> {
+  useE2eStorage({
+    start: startBrowserMongoE2eStorage,
+    watchConnections: watchMongoFixtureConnections,
+  });
   const oauth = await startLocalOAuth();
   const fixture = await bootE2eApp(5107, {
     browserStrategy: oauth.strategy,
@@ -43,9 +49,8 @@ async function main(): Promise<void> {
     } else if (message === 'mail') {
       process.send?.({ type: 'mail', messages: fixture.mail });
     } else if (message === 'expire-magic-links') {
-      void fixture.app
-        .get<Model<PendingMagicLinkDocument>>(getModelToken('PendingMagicLink'))
-        .updateMany({}, { expiresAt: new Date(0) })
+      void fixture.state.auth
+        .expireMagicLinks()
         .then(() => process.send?.('expired-magic-links'))
         .catch((error: unknown) => {
           console.error(error);

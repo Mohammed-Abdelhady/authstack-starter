@@ -1,5 +1,5 @@
 import { SECURITY_EVENT_ACTION } from '../../constants/security-event-action';
-import { NativeCredentialIssuer } from '../token/native-credential.issuer';
+import { hashToken } from '../../utils/hashing/token-hash';
 import {
   OAUTH_ERROR,
   TokenSuccess,
@@ -13,15 +13,36 @@ import {
   resetNativeClient,
   startNativeOauth,
   stopNativeOauth,
-} from '../harness/native-oauth.harness-spec';
+} from '../persistence/mongo/harness/native-oauth.harness-spec';
+import { NativeRefreshRotationService } from './native-refresh-rotation.service';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/utils/session-authority-harness';
-import { RaceBarrier, pauseQuery } from '../../../../test/utils/race-gate';
+import { RaceGate, holdBefore } from '../../../../test/utils/race-gate';
 
-describe('native refresh replay against rotation race', () => {
+type RefreshAnswer = TokenSuccess | OauthFailure;
+
+interface HeldRace {
+  spentToken: string;
+  successorToken: string;
+  replaying: Promise<RefreshAnswer>;
+  rotating: Promise<RefreshAnswer>;
+  /** The replay has read its token as spent and has not revoked yet. */
+  replayRead: RaceGate;
+  /** The rotation has read the successor as unspent and has not spent it yet. */
+  rotationRead: RaceGate;
+}
+
+const INVALID_GRANT = expect.objectContaining({
+  ok: false,
+  error: OAUTH_ERROR.INVALID_GRANT,
+});
+
+describe('a replayed refresh token against a rotation of its successor', () => {
   let ctx: NativeOauthHarness;
+  let restores: Array<() => void> = [];
+  let gates: RaceGate[] = [];
 
   beforeAll(async () => {
     ctx = await startNativeOauth('native_refresh_replay_rotation');
@@ -37,151 +58,149 @@ describe('native refresh replay against rotation race', () => {
     await resetNativeClient(ctx);
   });
 
-  it(
-    'revokes the family when the replay commits before the paused rotation spends',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      const successor = await rotate(ctx, granted.refreshToken);
-      if (!successor.ok) {
-        throw new Error('setup rotation failed');
-      }
+  afterEach(() => {
+    for (const gate of gates) {
+      gate.release();
+    }
+    for (const restore of restores) {
+      restore();
+    }
+    gates = [];
+    restores = [];
+  });
 
-      const barrier = new RaceBarrier();
-      const spend = barrier.point('successor-spend');
-      const updateOne = ctx.credentials.updateOne.bind(ctx.credentials);
-      const spendSpy = jest
-        .spyOn(ctx.credentials, 'updateOne')
-        .mockImplementation((...args) => {
-          const query = updateOne(...args);
-          pauseQuery(query, spend);
-          return query;
-        });
+  /** Hold the replay and the legitimate rotation at their decisive write. */
+  async function holdBoth(): Promise<HeldRace> {
+    const granted = await issueNativeGrant(ctx);
+    const successor = await rotate(ctx, granted.refreshToken);
+    if (!successor.ok) {
+      throw new Error('setup rotation failed');
+    }
+    const rotation = ctx.harness.app.get(NativeRefreshRotationService);
+    const replayRead = new RaceGate();
+    const rotationRead = new RaceGate();
+    gates = [replayRead, rotationRead];
+    restores = [
+      holdBefore(rotation, 'replay', (call) =>
+        call === 0 ? replayRead : undefined,
+      ),
+      holdBefore(rotation, 'claimAndRotate', (call) =>
+        call === 0 ? rotationRead : undefined,
+      ),
+    ];
 
-      let rotation: TokenSuccess | OauthFailure | undefined;
-      let replay: TokenSuccess | OauthFailure | undefined;
-      try {
-        const paused = rotate(ctx, successor.refreshToken);
-        await spend.reached(1);
-        replay = await rotate(ctx, granted.refreshToken);
-        spend.release();
-        rotation = await paused;
-      } finally {
-        spend.release();
-        spendSpy.mockRestore();
-      }
-      if (!rotation || !replay) {
-        throw new Error('replay race did not run');
-      }
+    const rotating = rotate(ctx, successor.refreshToken);
+    await rotationRead.reached(1);
+    const replaying = rotate(ctx, granted.refreshToken);
+    await replayRead.reached(1);
+    return {
+      spentToken: granted.refreshToken,
+      successorToken: successor.refreshToken,
+      replaying,
+      rotating,
+      replayRead,
+      rotationRead,
+    };
+  }
 
-      expect(replay).toMatchObject({
-        ok: false,
-        error: OAUTH_ERROR.INVALID_GRANT,
-      });
-      expect(rotation).toMatchObject({
-        ok: false,
-        error: OAUTH_ERROR.INVALID_GRANT,
-      });
-      expect(await familyState(ctx)).toEqual({
+  async function familyState() {
+    const session = await ctx.harness.sessions.findOne({
+      clientId: NATIVE_CLIENT_ID,
+    });
+    if (!session) {
+      throw new Error('expected a native session');
+    }
+    const credentials = await ctx.credentials
+      .find({ sessionId: session._id })
+      .lean()
+      .exec();
+    return {
+      sessionValid: session.isValid,
+      revokedReason: session.revokedReason,
+      credentialCount: credentials.length,
+      unspentCount: credentials.filter((row) => !row.spent).length,
+      unrevokedCount: credentials.filter(
+        (row) => !(row.revokedAt instanceof Date),
+      ).length,
+    };
+  }
+
+  it('has ended the family by the time the replay is answered, and the held rotation fails', async () => {
+    const race = await holdBoth();
+
+    race.replayRead.release();
+    const replay = await race.replaying;
+    const whenReplayAnswered = await familyState();
+    race.rotationRead.release();
+    const rotation = await race.rotating;
+
+    expect({
+      replay,
+      whenReplayAnswered,
+      rotation,
+      afterwards: await familyState(),
+      successorAfterwards: await rotate(ctx, race.successorToken),
+    }).toEqual({
+      replay: INVALID_GRANT,
+      whenReplayAnswered: {
         sessionValid: false,
         revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
         credentialCount: 4,
         unspentCount: 0,
         unrevokedCount: 0,
-      });
-      expect(await rotate(ctx, successor.refreshToken)).toMatchObject({
-        ok: false,
-        error: OAUTH_ERROR.INVALID_GRANT,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+      },
+      rotation: INVALID_GRANT,
+      afterwards: {
+        sessionValid: false,
+        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+        credentialCount: 4,
+        unspentCount: 0,
+        unrevokedCount: 0,
+      },
+      successorAfterwards: INVALID_GRANT,
+    });
+  });
 
-  it(
-    'revokes the family when the successor rotation commits before the paused replay',
-    async () => {
-      const granted = await issueNativeGrant(ctx);
-      const successor = await rotate(ctx, granted.refreshToken);
-      if (!successor.ok) {
-        throw new Error('setup rotation failed');
-      }
+  it('ends the family, new pair included, when the rotation commits before the held replay', async () => {
+    const race = await holdBoth();
 
-      const issuer = ctx.harness.app.get(NativeCredentialIssuer);
-      const revokeFamily = issuer.revokeFamily.bind(issuer);
-      const barrier = new RaceBarrier();
-      const replayRevoke = barrier.point('replay-revoke');
-      const replaySpy = jest
-        .spyOn(issuer, 'revokeFamily')
-        .mockImplementation(async (...args) => {
-          await replayRevoke.hold();
-          return revokeFamily(...args);
-        });
+    race.rotationRead.release();
+    const rotation = await race.rotating;
+    if (!rotation.ok) {
+      throw new Error(`the rotation did not win: ${rotation.error}`);
+    }
+    const newPairWhileReplayHeld = (
+      await ctx.credentials.findOne({
+        tokenHash: hashToken(rotation.refreshToken),
+      })
+    )?.spent;
+    race.replayRead.release();
+    const replay = await race.replaying;
 
-      let rotation: TokenSuccess | OauthFailure | undefined;
-      let replay: TokenSuccess | OauthFailure | undefined;
-      try {
-        const pausedReplay = rotate(ctx, granted.refreshToken);
-        await replayRevoke.reached(1);
-        rotation = await rotate(ctx, successor.refreshToken);
-        replayRevoke.release();
-        replay = await pausedReplay;
-      } finally {
-        replayRevoke.release();
-        replaySpy.mockRestore();
-      }
-      if (!rotation || !replay) {
-        throw new Error('replay race did not run');
-      }
-
-      expect(rotation.ok).toBe(true);
-      if (!rotation.ok) {
-        throw new Error('successor rotation did not succeed');
-      }
-      expect(replay).toMatchObject({
-        ok: false,
-        error: OAUTH_ERROR.INVALID_GRANT,
-      });
-      expect(await familyState(ctx)).toEqual({
+    expect({
+      newPairWhileReplayHeld,
+      replay,
+      whenReplayAnswered: await familyState(),
+      newPairAfterwards: await rotate(ctx, rotation.refreshToken),
+    }).toEqual({
+      newPairWhileReplayHeld: false,
+      replay: INVALID_GRANT,
+      whenReplayAnswered: {
         sessionValid: false,
         revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
         credentialCount: 6,
         unspentCount: 0,
         unrevokedCount: 0,
-      });
-      expect(await rotate(ctx, rotation.refreshToken)).toMatchObject({
-        ok: false,
-        error: OAUTH_ERROR.INVALID_GRANT,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
-});
-
-async function familyState(ctx: NativeOauthHarness) {
-  const session = await ctx.harness.sessions.findOne({
-    clientId: NATIVE_CLIENT_ID,
+      },
+      newPairAfterwards: INVALID_GRANT,
+    });
   });
-  if (!session) {
-    throw new Error('expected a native session');
-  }
-  const credentials = await ctx.credentials
-    .find({ sessionId: session._id })
-    .lean()
-    .exec();
-  return {
-    sessionValid: session.isValid,
-    revokedReason: session.revokedReason,
-    credentialCount: credentials.length,
-    unspentCount: credentials.filter((row) => !row.spent).length,
-    unrevokedCount: credentials.filter(
-      (row) => !(row.revokedAt instanceof Date),
-    ).length,
-  };
-}
+});
 
 function rotate(
   ctx: NativeOauthHarness,
   refreshToken: string,
-): Promise<TokenSuccess | OauthFailure> {
+): Promise<RefreshAnswer> {
   return ctx.tokens.grant(
     {
       grant_type: 'refresh_token',

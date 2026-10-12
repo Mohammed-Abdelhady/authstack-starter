@@ -8,7 +8,7 @@ import { USER_PERMISSIONS } from '@app/core';
 import { loginFulfilled } from '@/modules/auth/store/authSlice';
 import { loadMessages, type AppLocale } from '@/i18n/load-messages';
 import { lookupMessage } from '@/i18n/__tests__/message-tree';
-import { makeStore, toastText } from '@/tests/serverRejectionHarness';
+import { makeStore, stubNetwork, success, toastText } from '@/tests/serverRejectionHarness';
 import { UserCard, type User } from '../UserCard';
 
 export const TARGET_USER: User = {
@@ -20,6 +20,22 @@ export const TARGET_USER: User = {
   isDeleted: false,
   createdAt: '2026-10-01T12:00:00.000Z',
 };
+
+const ROLE_LIST_PATH = '/api/roles';
+
+/**
+ * The card reads the role list to name the role it shows. This answers that
+ * read with an empty list and hands every other request to `respond`.
+ */
+export function stubCardNetwork(
+  respond: (request: Request, path: string) => Response | Promise<Response>,
+): string[] {
+  return stubNetwork((request, path) =>
+    request.method === 'GET' && path === ROLE_LIST_PATH
+      ? success({ roles: [], total: 0, page: 1 })
+      : respond(request, path),
+  );
+}
 
 export async function adminContext(
   locale: AppLocale,
@@ -65,10 +81,7 @@ export async function renderAdminCard(
     ...context,
     rerenderUser: (nextUser: User) => view.rerender(<UserCard user={nextUser} />),
     openMenu: () => {
-      fireEvent.keyDown(
-        screen.getByRole('button', { name: context.message('users.actions.menuLabel') }),
-        { key: 'Enter' },
-      );
+      fireEvent.keyDown(screen.getByTestId(`user-actions-menu-${user._id}`), { key: 'Enter' });
     },
     resendItem: () =>
       screen.getByRole('menuitem', { name: context.message('users.actions.resendEmailChange') }),

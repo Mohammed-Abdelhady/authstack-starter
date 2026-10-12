@@ -1,0 +1,147 @@
+services:
+  postgres:
+    # The server needs PostgreSQL 18 or newer: new ids come from uuidv7().
+    image: postgres:18
+    container_name: authboiler-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    volumes:
+      # The image of version 18 keeps its data under this folder.
+      - postgres-data:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-authboiler}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    healthcheck:
+      # Over TCP: while the image sets up a new data folder its server listens on the socket only.
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready --host 127.0.0.1 --username "$$POSTGRES_USER" --dbname "$$POSTGRES_DB"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app-network
+
+  # Applies the pending migrations once and exits. The server only checks them
+  # when it starts and never applies one, so it waits for this to succeed.
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    container_name: authboiler-migrate
+    restart: 'no'
+    command: ['pnpm', 'run', 'migration:postgres:up']
+    # The same source the server reads, so a migration that was pulled is
+    # applied without rebuilding the image.
+    volumes:
+      - ./backend:/app/backend
+      - /app/node_modules
+      - /app/backend/node_modules
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      NODE_ENV: development
+      DATABASE_TYPE: postgres # feature:database-choice
+      POSTGRES_URL: postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-authboiler}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: development
+    container_name: authboiler-backend
+    restart: unless-stopped
+    ports:
+      - '5000:5000'
+    volumes:
+      - ./backend:/app/backend
+      - /app/node_modules
+      - /app/backend/node_modules
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_TYPE: postgres # feature:database-choice
+      POSTGRES_URL: postgres://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-authboiler}
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:3000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:5000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      target: development
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+    container_name: authboiler-frontend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./frontend:/app/frontend
+      - ./shared/core:/app/shared/core
+      - ./shared/sdk:/app/shared/sdk
+      - /app/node_modules
+      - /app/frontend/node_modules
+      - /app/frontend/.next
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:3000/en/auth/login',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

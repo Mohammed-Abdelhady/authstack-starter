@@ -1,18 +1,14 @@
-import { getModelToken } from '@nestjs/mongoose';
-import type { Model } from 'mongoose';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { HashService } from '../../src/common/services/hash.service';
 import { MailService } from '../../src/mail/mail.service';
-import { User, UserDocument } from '../../src/user/schemas/user.schema';
-import { PendingRegistration } from '../../src/auth/schemas/pending-registration.schema';
 import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../utils/session-authority-harness';
+} from '../utils/hook-timeouts';
 
 const CODE = '123456';
 const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 15 * 60 * 1000);
@@ -23,16 +19,10 @@ const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 15 * 60 * 1000);
  */
 describe('Anonymous mail is off the response path (e2e)', () => {
   let e2e: E2eApp;
-  let users: Model<UserDocument>;
-  let pendingRegistrations: Model<PendingRegistration>;
   let hashSpy: jest.SpyInstance;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
-    users = e2e.app.get<Model<UserDocument>>(getModelToken(User.name));
-    pendingRegistrations = e2e.app.get<Model<PendingRegistration>>(
-      getModelToken('PendingRegistration'),
-    );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -97,7 +87,7 @@ describe('Anonymous mail is off the response path (e2e)', () => {
   });
 
   it('register for a verified address hashes once and returns before the notice settles', async () => {
-    await users.create({
+    await e2e.state.accounts.createAccount({
       email: 'taken@example.test',
       name: 'Taken',
       isVerified: true,
@@ -109,7 +99,7 @@ describe('Anonymous mail is off the response path (e2e)', () => {
   });
 
   it('resend hashes once and returns before the mail settles', async () => {
-    await pendingRegistrations.create({
+    await e2e.state.auth.storePendingRegistration({
       email: 'pending@example.test',
       purpose: PENDING_PURPOSE.SIGNUP,
       hashedCode: await bcrypt.hash(CODE, 4),
@@ -123,7 +113,7 @@ describe('Anonymous mail is off the response path (e2e)', () => {
   });
 
   it('forgot-password for a known address hashes once and returns before the mail settles', async () => {
-    await users.create({
+    await e2e.state.accounts.createAccount({
       email: 'known@example.test',
       name: 'Known',
       isVerified: true,

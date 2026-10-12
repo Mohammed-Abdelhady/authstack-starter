@@ -1,6 +1,4 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { Clock } from '../../../common/services/clock';
@@ -9,36 +7,28 @@ import {
   APPLICATION_CLIENT_TYPE,
   APPLICATION_PLATFORM,
 } from '../../constants/client-ids';
+import { ApplicationAccess } from '../../applications/application-access';
+import { ApplicationRegistry } from '../../applications/application-registry';
+import { RegisteredClient } from '../../applications/application-registry.store';
 import {
-  Application,
-  ApplicationDocument,
-} from '../../schemas/application.schema';
-import {
-  AuthorizationTransaction,
-  AuthorizationTransactionDocument,
-} from '../../schemas/authorization-transaction.schema';
-import {
-  UserApplicationGrant,
-  UserApplicationGrantDocument,
-} from '../../schemas/user-application-grant.schema';
-import {
-  NATIVE_AUTH_INTENT,
   NativeAuthorizeTransactionDetails,
   OAUTH_ERROR,
 } from '../oauth/native-oauth.types';
 import { isAcceptableRedirectUri } from '../../utils/oauth/redirect-uri.util';
 import type { RedirectUriPolicy } from '../../utils/oauth/redirect-uri.util';
 import { matchesRegisteredRedirectUri } from '../../utils/oauth/redirect-uri.util';
+import {
+  AUTHORIZATION_DENIAL,
+  NativeAuthorizationStore,
+  PendingAuthorization,
+} from './native-authorization.store';
 
 @Injectable()
 export class NativeAuthorizeBrowserService {
   constructor(
-    @InjectModel(AuthorizationTransaction.name)
-    private readonly transactions: Model<AuthorizationTransactionDocument>,
-    @InjectModel(Application.name)
-    private readonly applications: Model<ApplicationDocument>,
-    @InjectModel(UserApplicationGrant.name)
-    private readonly grants: Model<UserApplicationGrantDocument>,
+    private readonly store: NativeAuthorizationStore,
+    private readonly registry: ApplicationRegistry,
+    private readonly access: ApplicationAccess,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
   ) {}
@@ -48,92 +38,64 @@ export class NativeAuthorizeBrowserService {
     transactionId: string,
   ): Promise<NativeAuthorizeTransactionDetails> {
     this.assertNativeEnabled();
-    const now = this.clock.now();
-    const transaction = await this.transactions
-      .findOne({
-        transactionId,
-        intent: NATIVE_AUTH_INTENT,
-        consumed: false,
-        codeHash: { $exists: false },
-        expiresAt: { $gt: now },
-      })
-      .exec();
+    const transaction = await this.store.findPending(
+      transactionId,
+      this.clock.now(),
+    );
     if (!transaction) {
       throw expiredTransaction();
     }
 
     const application = await this.applicationForTransaction(transaction);
 
-    const grant = await this.grants
-      .findOne({ userId, clientId: transaction.clientId })
-      .select('allowed')
-      .exec();
-
     return {
       applicationName: application.displayName,
       platform: application.platform,
       expiresAt: transaction.expiresAt.toISOString(),
-      alreadyGranted: grant?.allowed === true,
+      alreadyGranted: await this.access.isGrantAllowed(
+        userId,
+        transaction.clientId,
+      ),
     };
   }
 
   async deny(transactionId: string): Promise<{ redirectUri: string }> {
     this.assertNativeEnabled();
-    const pending = await this.transactions
-      .findOne({
-        transactionId,
-        intent: NATIVE_AUTH_INTENT,
-        consumed: false,
-        codeHash: { $exists: false },
-        expiresAt: { $gt: this.clock.now() },
-      })
-      .exec();
+    const pending = await this.store.findPending(
+      transactionId,
+      this.clock.now(),
+    );
     if (!pending) {
       throw expiredTransaction();
     }
     await this.applicationForTransaction(pending);
-    const transaction = await this.transactions
-      .findOneAndUpdate(
-        {
-          _id: pending._id,
-          transactionId: pending.transactionId,
-          intent: NATIVE_AUTH_INTENT,
-          consumed: false,
-          codeHash: { $exists: false },
-          expiresAt: { $gt: this.clock.now() },
-          redirectUri: pending.redirectUri,
-        },
-        { $set: { consumed: true } },
-        { new: true },
-      )
-      .exec();
-    if (!transaction) {
+    const denied = await this.store.deny(pending.id, {
+      transactionId: pending.transactionId,
+      redirectUri: pending.redirectUri,
+      now: this.clock.now(),
+    });
+    if (denied.outcome !== AUTHORIZATION_DENIAL.DENIED) {
       throw expiredTransaction();
     }
 
-    const target = new URL(transaction.redirectUri);
+    const target = new URL(denied.redirectUri);
     target.searchParams.set('error', OAUTH_ERROR.ACCESS_DENIED);
-    target.searchParams.set('state', transaction.state);
+    target.searchParams.set('state', denied.state);
     return { redirectUri: target.toString() };
   }
 
   private async applicationForTransaction(
-    transaction: AuthorizationTransactionDocument,
-  ): Promise<ApplicationDocument> {
+    transaction: PendingAuthorization,
+  ): Promise<RegisteredClient> {
     if (
       !isAcceptableRedirectUri(transaction.redirectUri, this.redirectPolicy())
     ) {
       throw expiredTransaction();
     }
-    const application = await this.applications
-      .findOne({
-        clientId: transaction.clientId,
-        environment: this.authEpoch.environment(),
-        enabled: true,
-      })
-      .exec();
+    const application = await this.registry.lookUpClient(transaction.clientId);
     if (
       !application ||
+      !application.enabled ||
       application.platform !== APPLICATION_PLATFORM.NATIVE ||
       application.clientType !== APPLICATION_CLIENT_TYPE.PUBLIC ||
       !application.redirectUris.some((registered) =>

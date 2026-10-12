@@ -1,38 +1,37 @@
-import { Model } from 'mongoose';
-import { UserDocument } from '../../user/schemas/user.schema';
-import { RoleDocument } from '../../role/schemas/role.schema';
-import { getEffectivePermissions } from './permissions.util';
+import type { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
+import { effectivePermissions } from './permissions.util';
 
-/** Account summary every sign-in route returns alongside the session cookie. */
-export interface AuthenticatedUserSummary {
+export type { AuthenticatedUserSummary };
+
+/** An account as the last step of a sign-in needs it. */
+export interface SignInAccount {
   id: string;
   email: string;
   name: string;
   role: string;
+  permissions: string[];
   authProvider: string;
   isVerified: boolean;
-  permissions: string[];
+  twoFactorEnabled: boolean; // feature:totp
 }
 
 /**
  * Build the summary of a signed-in account, permissions included.
  *
- * @param user - Account the session belongs to
- * @param roleModel - Role model used to resolve role permissions
+ * @param account - Account the session belongs to
+ * @param rolePermissions - What the account's role grants, null when no role carries its slug
  */
-export async function toAuthenticatedUser(
-  user: UserDocument,
-  roleModel: Model<RoleDocument>,
-): Promise<AuthenticatedUserSummary> {
-  const permissions = await getEffectivePermissions(user, roleModel);
-
+export function toAuthenticatedUser(
+  account: SignInAccount,
+  rolePermissions: string[] | null,
+): AuthenticatedUserSummary {
   return {
-    id: user._id.toString(),
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    authProvider: user.authProvider,
-    isVerified: user.isVerified,
-    permissions,
+    id: account.id,
+    email: account.email,
+    name: account.name,
+    role: account.role,
+    authProvider: account.authProvider,
+    isVerified: account.isVerified,
+    permissions: effectivePermissions(rolePermissions, account.permissions),
   };
 }

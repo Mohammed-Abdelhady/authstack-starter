@@ -4,8 +4,10 @@ RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack prepare pnpm@12.6.0 --activate
 
 WORKDIR /app
+# feature:mongodb:start
 # Containers use the configured database, not the test-only downloaded binary.
 ENV MONGOMS_DISABLE_POSTINSTALL=1
+# feature:mongodb:end
 
 FROM base AS deps
 

@@ -34,7 +34,7 @@ import { ApiResponse } from '../common/dto/api-response.dto';
 import { AdminUserDto, UserListData } from './dto/admin-user-response.dto';
 import { USER_PERMISSIONS } from '../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
-import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
+import { RouteIdPipe } from '../common/pipes/route-id.pipe';
 
 /**
  * Admin endpoints for user records.
@@ -63,8 +63,9 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Create a new user',
     description:
-      'Creates a new user account. The role must exist and sit below the ' +
-      "actor's own role level. ADMIN cannot be assigned through the API.",
+      'Creates a new user account. The role must exist, sit below the ' +
+      "actor's own role level and carry only permissions the actor holds. " +
+      'ADMIN cannot be assigned through the API.',
   })
   @ApiBody({ type: CreateUserDto })
   async createUser(
@@ -151,7 +152,7 @@ export class AdminUsersController {
     example: '507f1f77bcf86cd799439011',
   })
   async getUserById(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @CurrentUser('role') actorRole: string,
   ): Promise<ApiResponse<AdminUserDto>> {
     return this.adminUserQueriesService.getUserById(id, actorRole);
@@ -169,8 +170,8 @@ export class AdminUsersController {
     description:
       'Updates user name and/or email. Cannot modify users at or above the ' +
       "actor's role level, and cannot modify the actor's own account. " +
-      'Changing the email requires an admin actor and marks the account ' +
-      'unverified until the new address confirms a fresh code.',
+      'Changing the email requires an admin actor. The account keeps its ' +
+      'address until the new one confirms the code mailed to it.',
   })
   @ApiParam({
     name: 'id',
@@ -179,7 +180,7 @@ export class AdminUsersController {
   })
   @ApiBody({ type: UpdateUserDto })
   async updateUser(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @Body() dto: UpdateUserDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
@@ -188,7 +189,7 @@ export class AdminUsersController {
   }
 
   /**
-   * Re-send the confirmation code for a user's current unverified address.
+   * Re-send the confirmation code for the address a user waits to confirm.
    *
    * @example POST /admin/users/:id/resend-email-change
    */
@@ -198,8 +199,8 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Resend an email change confirmation',
     description:
-      'Re-sends the confirmation code for the account current unverified ' +
-      'address. The address and its generation are unchanged; a fresh code ' +
+      'Re-sends the confirmation code to the address the account waits to ' +
+      'confirm. The address and its generation are unchanged; a fresh code ' +
       'is issued up to the per-address mail cap.',
   })
   @ApiParam({
@@ -208,7 +209,7 @@ export class AdminUsersController {
     example: '507f1f77bcf86cd799439011',
   })
   async resendEmailChange(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
   ): Promise<ApiResponse<{ message: string }>> {
@@ -235,7 +236,7 @@ export class AdminUsersController {
   })
   @ApiBody({ type: UpdateUserStatusDto })
   async updateUserStatus(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @Body() dto: UpdateUserStatusDto,
     @CurrentUser('id') actorId: string,
   ): Promise<
@@ -254,8 +255,9 @@ export class AdminUsersController {
   @ApiOperation({
     summary: 'Update user role',
     description:
-      'Assigns a system or custom role. The role must exist and sit below ' +
-      "the actor's own level. ADMIN cannot be assigned through the API.",
+      'Assigns a system or custom role. The role must exist, sit below ' +
+      "the actor's own level and carry only permissions the actor holds. " +
+      'ADMIN cannot be assigned through the API.',
   })
   @ApiParam({
     name: 'id',
@@ -264,7 +266,7 @@ export class AdminUsersController {
   })
   @ApiBody({ type: UpdateUserRoleDto })
   async updateUserRole(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @Body() dto: UpdateUserRoleDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
@@ -292,7 +294,7 @@ export class AdminUsersController {
     example: '507f1f77bcf86cd799439011',
   })
   async deleteUser(
-    @Param('id', ParseObjectIdPipe) id: string,
+    @Param('id', RouteIdPipe) id: string,
     @CurrentUser('id') actorId: string,
   ): Promise<void> {
     return this.adminUsersService.deleteUser(id, actorId);

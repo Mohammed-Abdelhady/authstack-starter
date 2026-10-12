@@ -4,6 +4,8 @@
       "browser": "متصفح",
       "nativeApp": "تطبيق الهاتف"
     },
-    "unknownDevice": "جهاز غير معروف"
+    "unknownDevice": "جهاز غير معروف",
+    "browserOnSystem": "⁦{browser}⁩ على ⁦{system}⁩",
+    "mobileAppOnSystem": "تطبيق الهاتف على ⁦{system}⁩"
   }
 }

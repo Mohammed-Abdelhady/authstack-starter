@@ -1,5 +1,4 @@
 import { Module, forwardRef } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminPermissionsController } from './admin-permissions.controller';
 import { AdminUsersService } from './services/users/admin-users.service';
@@ -8,13 +7,16 @@ import { AdminUserQueriesService } from './services/users/admin-user-queries.ser
 import { AdminUserAccessService } from './services/users/admin-user-access.service';
 import { AdminEmailChangeService } from './services/users/admin-email-change.service';
 import { AdminPermissionsService } from './services/roles/admin-permissions.service';
-import { User, UserSchema } from '../user/schemas/user.schema';
-import { Role, RoleSchema } from '../role/schemas/role.schema';
 import { AuthModule } from '../auth/auth.module';
 import { MailModule } from '../mail/mail.module';
 import { SessionModule } from '../session/session.module';
 import { RoleModule } from '../role/role.module';
 import { UserModule } from '../user/user.module';
+import { CommonModule } from '../common/common.module';
+import {
+  ADMIN_PERSISTENCE_IMPORTS,
+  ADMIN_PERSISTENCE_PROVIDERS,
+} from './persistence/admin-persistence';
 
 /**
  * Admin module for user management operations.
@@ -23,10 +25,8 @@ import { UserModule } from '../user/user.module';
  */
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: Role.name, schema: RoleSchema },
-    ]),
+    CommonModule,
+    ...ADMIN_PERSISTENCE_IMPORTS,
     AuthModule,
     SessionModule,
     MailModule,
@@ -41,6 +41,7 @@ import { UserModule } from '../user/user.module';
     AdminUserAccessService,
     AdminEmailChangeService,
     AdminPermissionsService,
+    ...ADMIN_PERSISTENCE_PROVIDERS,
   ],
   exports: [AdminUsersService],
 })

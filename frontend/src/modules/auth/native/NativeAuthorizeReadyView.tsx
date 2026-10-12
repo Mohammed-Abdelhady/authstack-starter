@@ -1,5 +1,7 @@
 'use client';
 
+import { WRAP_ANYWHERE_CLASSES } from '@/constants/textWrap';
+import { cn } from '@/lib/utils';
 import { Description, Heading } from '@/components/design-system';
 import type { RefObject } from 'react';
 import { useTranslations } from 'next-intl';
@@ -54,14 +56,23 @@ export function NativeAuthorizeReadyView({
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{accountName}</p>
-          <p className="truncate text-sm text-muted-foreground">{accountEmail}</p>
+          <p
+            dir="auto"
+            className={cn(WRAP_ANYWHERE_CLASSES, 'text-sm font-medium text-foreground')}
+          >
+            {accountName}
+          </p>
+          <p className={cn(WRAP_ANYWHERE_CLASSES, 'text-sm text-muted-foreground')}>
+            <span dir="ltr" data-testid="native-authorize-account-email">
+              {accountEmail}
+            </span>
+          </p>
         </div>
         <Button
           type="button"
           variant="link"
           onClick={onNotYou}
-          disabled={busy}
+          busy={busy}
           className="h-11 shrink-0 px-2"
           data-testid="native-authorize-not-you"
         >
@@ -82,7 +93,7 @@ export function NativeAuthorizeReadyView({
           size="lg"
           className="w-full"
           onClick={onApprove}
-          disabled={busy}
+          busy={busy}
           aria-busy={action === 'approve'}
           data-testid="native-authorize-approve"
         >
@@ -99,7 +110,7 @@ export function NativeAuthorizeReadyView({
           size="lg"
           className="w-full"
           onClick={onDeny}
-          disabled={busy}
+          busy={busy}
           aria-busy={action === 'deny'}
           data-testid="native-authorize-deny"
         >

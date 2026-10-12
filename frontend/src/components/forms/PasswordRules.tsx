@@ -56,7 +56,7 @@ export function PasswordRules({
             data-passed={rule.passed}
             className={cn(
               'flex items-center gap-2 transition-colors',
-              rule.passed ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+              rule.passed ? 'text-status-success' : 'text-muted-foreground',
             )}
           >
             {rule.passed ? (

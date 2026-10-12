@@ -10,21 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Settings,
-  MoreHorizontal,
-  UserCheck,
-  UserX,
-  Trash2,
-  Loader2,
-  Pencil,
-  Mail,
-} from 'lucide-react';
+import { Settings, MoreHorizontal, UserCheck, UserX, Loader2, Pencil, Mail } from 'lucide-react';
 import { USER_PERMISSIONS } from '@app/core';
 import { cn } from '@/lib/utils';
+import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useUserActions } from '../../hooks/useUserActions';
 import { EditUserDialog } from './EditUserDialog';
 import { UserActionConfirmDialog, type UserConfirmAction } from './UserActionConfirmDialog';
+import { useRefusalText } from '@/hooks/useRefusalText';
 import { PermissionGuard } from '../guards/PermissionGuard';
 
 export interface UserActionsMenuUser {
@@ -39,10 +32,12 @@ export interface UserActionsMenuUser {
 export interface UserActionsMenuProps {
   /** User data */
   user: UserActionsMenuUser;
-  /** Callback when manage permissions is clicked */
-  onManagePermissions?: () => void;
+  /** Called when manage permissions is chosen, with the menu button to return focus to */
+  onManagePermissions?: (opener: HTMLElement | null) => void;
   /** Whether actions are disabled */
   disabled?: boolean;
+  /** Another request for this user is running: the button keeps focus and does not open */
+  busy?: boolean;
   /** Additional className */
   className?: string;
 }
@@ -51,8 +46,8 @@ export interface UserActionsMenuProps {
  * UserActionsMenu - Dropdown menu with user actions and co-located dialogs.
  *
  * Features:
- * - Edit, Manage Permissions, Activate/Deactivate, Delete actions
- * - Co-located confirmation dialogs for destructive actions
+ * - Edit, Manage Permissions, Activate/Deactivate actions
+ * - Co-located confirmation dialog for activate and deactivate
  * - Co-located edit dialog
  * - Loading states for async operations
  * - Role-based action visibility
@@ -69,42 +64,59 @@ export const UserActionsMenu = memo(function UserActionsMenu({
   user,
   onManagePermissions,
   disabled = false,
+  busy = false,
   className,
 }: UserActionsMenuProps) {
   const t = useTranslations('users.actions');
+  const refusalText = useRefusalText();
+  // Why the last attempt was refused, said in the confirmation, which stays open.
+  const [refusal, setRefusal] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<UserConfirmAction | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { handleStatusChange, handleDelete, handleResendEmailChange, isLoading } = useUserActions();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { handleStatusChange, handleResendEmailChange, isLoading } = useUserActions();
+  // The dialogs open from menu entries, which are gone by the time they close.
+  const [menuButtonRef, returnFocusToMenuButton] = useReturnFocus<HTMLButtonElement>();
 
   const isNormalUser = user.role === 'user';
+  const isBusy = busy || isLoading;
+  const changeMenuOpen = useCallback(
+    (next: boolean) => {
+      if (!(isBusy && next)) setMenuOpen(next);
+    },
+    [isBusy],
+  );
 
   // Handle confirmation action
   const handleConfirm = useCallback(async () => {
-    let success = false;
-
-    if (confirmAction === 'activate') {
-      success = await handleStatusChange(user._id, true, user.name);
-    } else if (confirmAction === 'deactivate') {
-      success = await handleStatusChange(user._id, false, user.name);
-    } else if (confirmAction === 'delete') {
-      success = await handleDelete(user._id, user.name);
-    }
+    if (confirmAction === null) return;
+    setRefusal(null);
+    const success = await handleStatusChange(
+      user._id,
+      confirmAction === 'activate',
+      user.name,
+      (error) => setRefusal(refusalText(error)),
+    );
 
     if (success) {
       setConfirmAction(null);
     }
-  }, [confirmAction, handleStatusChange, handleDelete, user._id, user.name]);
+  }, [confirmAction, handleStatusChange, refusalText, user._id, user.name]);
 
-  const handleCancelConfirm = useCallback(() => setConfirmAction(null), []);
+  const handleCancelConfirm = useCallback(() => {
+    setConfirmAction(null);
+    setRefusal(null);
+  }, []);
   const handleResend = useCallback(() => {
     void handleResendEmailChange(user._id);
   }, [handleResendEmailChange, user._id]);
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={changeMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
+            ref={menuButtonRef}
             variant="ghost"
             size="sm"
             className={cn(
@@ -113,7 +125,9 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               'transition-all duration-200',
               className,
             )}
-            disabled={disabled || isLoading}
+            disabled={disabled}
+            busy={isBusy}
+            aria-label={t('menuLabelForUser', { name: user.name })}
             aria-busy={isLoading}
             data-testid={`user-actions-menu-${user._id}`}
           >
@@ -149,7 +163,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
                 {t('editUser')}
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={onManagePermissions}
+                onClick={() => onManagePermissions?.(menuButtonRef.current)}
                 data-testid={`manage-permissions-${user._id}`}
               >
                 <Settings className="me-2 h-4 w-4" aria-hidden="true" />
@@ -165,10 +179,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               onClick={() => setConfirmAction('activate')}
               data-testid={`activate-user-${user._id}`}
             >
-              <UserCheck
-                className="me-2 h-4 w-4 text-green-600 dark:text-green-400"
-                aria-hidden="true"
-              />
+              <UserCheck className="me-2 h-4 w-4 text-status-success" aria-hidden="true" />
               <span>{t('activateUser')}</span>
             </DropdownMenuItem>
           ) : (
@@ -176,27 +187,9 @@ export const UserActionsMenu = memo(function UserActionsMenu({
               onClick={() => setConfirmAction('deactivate')}
               data-testid={`deactivate-user-${user._id}`}
             >
-              <UserX
-                className="me-2 h-4 w-4 text-amber-600 dark:text-amber-400"
-                aria-hidden="true"
-              />
+              <UserX className="me-2 h-4 w-4 text-status-warning" aria-hidden="true" />
               <span>{t('deactivateUser')}</span>
             </DropdownMenuItem>
-          )}
-
-          {/* Delete - only for non-user roles */}
-          {!isNormalUser && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setConfirmAction('delete')}
-                className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                data-testid={`delete-user-${user._id}`}
-              >
-                <Trash2 className="me-2 h-4 w-4" aria-hidden="true" />
-                <span>{t('deleteUser')}</span>
-              </DropdownMenuItem>
-            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -208,6 +201,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         currentEmail={user.email}
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
+        onCloseAutoFocus={returnFocusToMenuButton}
       />
 
       {/* Co-located Confirmation Dialog */}
@@ -215,8 +209,10 @@ export const UserActionsMenu = memo(function UserActionsMenu({
         action={confirmAction}
         userName={user.name}
         isLoading={isLoading}
+        refusal={refusal}
         onConfirm={handleConfirm}
         onCancel={handleCancelConfirm}
+        onCloseAutoFocus={returnFocusToMenuButton}
       />
     </>
   );

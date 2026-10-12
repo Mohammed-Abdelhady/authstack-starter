@@ -1,13 +1,12 @@
 import { randomUUID } from 'crypto';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model, Types } from 'mongoose';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { isDatabaseUnavailableError } from '../../../common/utils/mongo-error.util';
-import { withMajorityTransaction } from '../../../session/utils/transactions/mongo-transaction';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../../common/persistence/unit-of-work';
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
-import { SecurityEventService } from '../../../session/services/security-event.service';
 import { ROLE_PENDING_SWEEP_LIMIT } from '../../../common/constants/roles';
 import { ROLE_PERMISSIONS } from '../../../common/constants/permissions';
 import {
@@ -15,15 +14,13 @@ import {
   assertFreshRolePermission,
   assertOutranksRole,
 } from '../../utils/role-actor.util';
-import { moveRoleHolders } from '../../utils/holder-sweeps/role-holder.util';
-import { repairPendingRoleSweeps } from '../../utils/holder-sweeps/role-pending-sweep.util';
+import { isStoreOutage } from '../../utils/role-failure.util';
+import { moveRoleHolders } from '../../sweeps/role-holder-sweep';
+import { repairPendingRoleSweeps } from '../../sweeps/role-pending-repair';
 import { UserRole } from '../../../user/enums/user-role.enum';
-import { User, UserDocument } from '../../../user/schemas/user.schema';
-import {
-  PendingRoleSweep,
-  Role,
-  RoleDocument,
-} from '../../schemas/role.schema';
+import { RoleChangeStore } from '../../stores/role-change.store';
+import { PendingSweep, RoleEdit, StoredRole } from '../../stores/role-records';
+import { RoleSweepStore } from '../../stores/role-sweep.store';
 import { UpdateRoleDto } from '../../dto/update-role.dto';
 import {
   createRoleWithinCeiling,
@@ -36,27 +33,35 @@ import {
   samePermissions,
 } from '../../utils/role.util';
 
-interface RoleEditOutcome {
-  role: RoleDocument;
+export interface RoleEditOutcome {
+  role: StoredRole;
   usersMoved: number;
   previousSlug: string;
   nextSlug: string;
   renamed: boolean;
 }
 
+/** A stored id. Callers that still hold a database id object pass it as is. */
+type RoleIdInput = string | { toString(): string };
+
+interface RoleDeletionRepair {
+  ownerId: string;
+  refs: PendingSweep[];
+  recorded: boolean;
+}
+
 /**
- * The transactional half of a role rename or permission edit: the role document
- * and every holder's sessions move together, and one security event is recorded
+ * The transactional half of a role rename or permission edit: the role and
+ * every holder's sessions move together, and one security event is recorded
  * per affected holder.
  */
 @Injectable()
 export class RoleEditService {
   private readonly logger = new Logger(RoleEditService.name);
   constructor(
-    @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectConnection() private readonly connection: Connection,
-    private readonly events: SecurityEventService,
+    private readonly runner: UnitOfWorkRunner,
+    private readonly changes: RoleChangeStore,
+    private readonly sweeps: RoleSweepStore,
   ) {}
 
   /**
@@ -66,14 +71,10 @@ export class RoleEditService {
     dto: CreateRoleDto,
     slug: string,
     actorId: string,
-  ): Promise<RoleDocument> {
+  ): Promise<StoredRole> {
     try {
       return await createRoleWithinCeiling(
-        {
-          connection: this.connection,
-          userModel: this.userModel,
-          roleModel: this.roleModel,
-        },
+        { runner: this.runner, store: this.changes },
         dto,
         slug,
         actorId,
@@ -84,113 +85,24 @@ export class RoleEditService {
   }
 
   /**
-   * Save the role and end the sessions of every holder in one transaction.
+   * Save the role and end the sessions of every holder in one unit of work.
    * The role is re-read inside the work function and the previous slug and
    * rename flag are recomputed from it, so a rename that landed before this
-   * transaction cannot make the holder match miss.
+   * unit of work cannot make the holder match miss.
    */
   async commit(
-    roleId: Types.ObjectId,
+    roleId: RoleIdInput,
     dto: UpdateRoleDto,
     actorId: string,
   ): Promise<RoleEditOutcome> {
+    const id = roleId.toString();
     const requestedSlug = dto.name ? generateSlug(dto.name) : undefined;
     try {
-      const outcome = await withMajorityTransaction(
-        this.connection,
-        async (session) => {
-          const actor = await assertFreshRolePermission(
-            this.userModel,
-            this.roleModel,
-            actorId,
-            ROLE_PERMISSIONS.UPDATE_ALL,
-            session,
-          );
-          const current = await this.roleModel
-            .findById(roleId)
-            .session(session)
-            .exec();
-          if (!current) {
-            throw new AppException(
-              ErrorCode.ROLE_NOT_FOUND,
-              'Role no longer exists',
-              HttpStatus.NOT_FOUND,
-            );
-          }
-          assertOutranksRole(actor, current);
-          const addedPermissions = (dto.permissions ?? []).filter(
-            (permission) => !current.permissions.includes(permission),
-          );
-          assertCanGrant(actor, addedPermissions);
-          const previousSlug = current.slug;
-          const nextSlug = dto.name ? generateSlug(dto.name) : previousSlug;
-          const renamed = nextSlug !== previousSlug;
-          const permissionsChanged =
-            dto.permissions !== undefined &&
-            !samePermissions(current.permissions, dto.permissions);
-
-          if (dto.name && dto.name !== current.name) {
-            current.name = dto.name;
-            current.slug = nextSlug;
-          }
-          if (dto.description !== undefined) {
-            current.description = dto.description;
-          }
-          if (dto.permissions) {
-            current.permissions = dedupePermissions(dto.permissions);
-          }
-          if (renamed) {
-            if (
-              (current.pendingHolderSweeps ?? []).length >=
-              ROLE_PENDING_SWEEP_LIMIT
-            ) {
-              throw new AppException(
-                ErrorCode.AUTHORITY_UNAVAILABLE,
-                'Pending role repairs must finish before another rename',
-                HttpStatus.SERVICE_UNAVAILABLE,
-              );
-            }
-            current.pendingHolderSweeps = [
-              ...(current.pendingHolderSweeps ?? []),
-              {
-                roleId: current._id,
-                previousSlug,
-                actorId,
-                sweepId: randomUUID(),
-              },
-            ];
-          }
-          await current.save({ session });
-
-          if (!renamed && !permissionsChanged) {
-            return {
-              role: current,
-              usersMoved: 0,
-              previousSlug,
-              nextSlug,
-              renamed,
-            };
-          }
-
-          const usersMoved = await moveRoleHolders({
-            userModel: this.userModel,
-            events: this.events,
-            previousSlugs: [previousSlug],
-            nextSlug,
-            actorId,
-            session,
-          });
-          return {
-            role: current,
-            usersMoved: renamed ? usersMoved : 0,
-            previousSlug,
-            nextSlug,
-            renamed,
-          };
-        },
+      const outcome = await this.runner.runForAuthority(actorId, (unitOfWork) =>
+        this.editInWork(unitOfWork, id, dto, actorId),
       );
       outcome.usersMoved += await this.repair(
-        roleId,
+        id,
         outcome.role.pendingHolderSweeps ?? [],
       );
       return outcome;
@@ -199,129 +111,187 @@ export class RoleEditService {
     }
   }
 
-  async delete(roleId: Types.ObjectId, actorId: string): Promise<void> {
+  async delete(roleId: RoleIdInput, actorId: string): Promise<void> {
+    const id = roleId.toString();
     try {
-      const repairOwnerId = await withMajorityTransaction(
-        this.connection,
-        async (session) => {
-          await assertFreshRolePermission(
-            this.userModel,
-            this.roleModel,
-            actorId,
-            ROLE_PERMISSIONS.DELETE_ALL,
-            session,
-          );
-          const current = await this.roleModel
-            .findById(roleId)
-            .session(session)
-            .exec();
-          if (!current) {
-            throw new AppException(
-              ErrorCode.ROLE_NOT_FOUND,
-              'Role no longer exists',
-              HttpStatus.NOT_FOUND,
-            );
-          }
-          if (current.isSystemRole || current.isProtected) {
-            throw new AppException(
-              ErrorCode.ROLE_PROTECTED,
-              'Role is protected',
-              HttpStatus.FORBIDDEN,
-            );
-          }
-          const count = await this.userModel
-            .countDocuments({ role: current.slug })
-            .session(session)
-            .exec();
-          if (count > 0) {
-            throw new AppException(
-              ErrorCode.ROLE_HAS_USERS,
-              'Reassign role holders before deleting',
-              HttpStatus.BAD_REQUEST,
-              { count },
-            );
-          }
-          const fallback = await this.roleModel
-            .findOne({ slug: UserRole.USER })
-            .session(session)
-            .exec();
-          if (!fallback) {
-            throw new AppException(
-              ErrorCode.ROLE_NOT_FOUND,
-              'Default role does not exist',
-              HttpStatus.NOT_FOUND,
-            );
-          }
-          const ref = {
-            roleId: current._id,
-            previousSlug: current.slug,
-            actorId,
-            sweepId: randomUUID(),
-          };
-          const transferred = current.pendingHolderSweeps ?? [];
-          const recorded = transferred.length > 0;
-          if (recorded) {
-            const refs = [
-              ...(fallback.pendingHolderSweeps ?? []),
-              ref,
-              ...transferred,
-            ];
-            if (refs.length > ROLE_PENDING_SWEEP_LIMIT) {
-              throw new AppException(
-                ErrorCode.AUTHORITY_UNAVAILABLE,
-                'Pending role repairs must finish before deleting',
-                HttpStatus.SERVICE_UNAVAILABLE,
-              );
-            }
-            fallback.pendingHolderSweeps = refs;
-            await fallback.save({ session });
-          }
-          await this.events.recordRoleDeletion(
-            {
-              roleId: ref.roleId.toString(),
-              previousSlug: ref.previousSlug,
-              actorId,
-              sweepId: ref.sweepId,
-            },
-            session,
-          );
-          await this.roleModel
-            .deleteOne({ _id: current._id }, { session })
-            .exec();
-          return {
-            ownerId: fallback._id,
-            refs: [ref, ...transferred],
-            recorded,
-          };
-        },
+      const owed = await this.runner.runForAuthority(actorId, (unitOfWork) =>
+        this.deleteInWork(unitOfWork, id, actorId),
       );
-      await this.repair(
-        repairOwnerId.ownerId,
-        repairOwnerId.refs,
-        repairOwnerId.recorded,
-      );
+      await this.repair(owed.ownerId, owed.refs, owed.recorded);
     } catch (error) {
-      if (!isDatabaseUnavailableError(error)) {
+      if (!isStoreOutage(error)) {
         throw error;
       }
       asAuthorityUnavailable(error);
     }
   }
 
+  private async editInWork(
+    unitOfWork: UnitOfWork,
+    roleId: string,
+    dto: UpdateRoleDto,
+    actorId: string,
+  ): Promise<RoleEditOutcome> {
+    const actor = await assertFreshRolePermission(
+      this.changes,
+      unitOfWork,
+      actorId,
+      ROLE_PERMISSIONS.UPDATE_ALL,
+    );
+    const current = await this.changes.takeRoleForChange(unitOfWork, roleId);
+    if (!current) {
+      throw new AppException(
+        ErrorCode.ROLE_NOT_FOUND,
+        'Role no longer exists',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    assertOutranksRole(actor, current);
+    const addedPermissions = (dto.permissions ?? []).filter(
+      (permission) => !current.permissions.includes(permission),
+    );
+    assertCanGrant(actor, addedPermissions);
+    const previousSlug = current.slug;
+    const nextSlug = dto.name ? generateSlug(dto.name) : previousSlug;
+    const renamed = nextSlug !== previousSlug;
+    const permissionsChanged =
+      dto.permissions !== undefined &&
+      !samePermissions(current.permissions, dto.permissions);
+
+    const edit: RoleEdit = {};
+    if (dto.name && dto.name !== current.name) {
+      edit.name = dto.name;
+      edit.slug = nextSlug;
+    }
+    if (dto.description !== undefined) {
+      edit.description = dto.description;
+    }
+    if (dto.permissions) {
+      edit.permissions = dedupePermissions(dto.permissions);
+    }
+    if (renamed) {
+      const owed = current.pendingHolderSweeps ?? [];
+      if (owed.length >= ROLE_PENDING_SWEEP_LIMIT) {
+        throw new AppException(
+          ErrorCode.AUTHORITY_UNAVAILABLE,
+          'Pending role repairs must finish before another rename',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      edit.pendingHolderSweeps = [
+        ...owed,
+        { roleId: current.id, previousSlug, actorId, sweepId: randomUUID() },
+      ];
+    }
+    const role = await this.changes.saveRoleEdit(unitOfWork, roleId, edit);
+
+    if (!renamed && !permissionsChanged) {
+      return { role, usersMoved: 0, previousSlug, nextSlug, renamed };
+    }
+
+    const usersMoved = await moveRoleHolders(this.changes, unitOfWork, {
+      fromSlugs: [previousSlug],
+      toSlug: nextSlug,
+      actorId,
+    });
+    return {
+      role,
+      usersMoved: renamed ? usersMoved : 0,
+      previousSlug,
+      nextSlug,
+      renamed,
+    };
+  }
+
+  private async deleteInWork(
+    unitOfWork: UnitOfWork,
+    roleId: string,
+    actorId: string,
+  ): Promise<RoleDeletionRepair> {
+    await assertFreshRolePermission(
+      this.changes,
+      unitOfWork,
+      actorId,
+      ROLE_PERMISSIONS.DELETE_ALL,
+    );
+    const current = await this.changes.takeRoleForChange(unitOfWork, roleId);
+    if (!current) {
+      throw new AppException(
+        ErrorCode.ROLE_NOT_FOUND,
+        'Role no longer exists',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    if (current.isSystemRole || current.isProtected) {
+      throw new AppException(
+        ErrorCode.ROLE_PROTECTED,
+        'Role is protected',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    const count = await this.changes.countHoldersInWork(
+      unitOfWork,
+      current.slug,
+    );
+    if (count > 0) {
+      throw new AppException(
+        ErrorCode.ROLE_HAS_USERS,
+        'Reassign role holders before deleting',
+        HttpStatus.BAD_REQUEST,
+        { count },
+      );
+    }
+    const fallback = await this.changes.readRoleBySlug(
+      unitOfWork,
+      UserRole.USER,
+    );
+    if (!fallback) {
+      throw new AppException(
+        ErrorCode.ROLE_NOT_FOUND,
+        'Default role does not exist',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    const ref = {
+      roleId: current.id,
+      previousSlug: current.slug,
+      actorId,
+      sweepId: randomUUID(),
+    };
+    const transferred = current.pendingHolderSweeps ?? [];
+    const recorded = transferred.length > 0;
+    if (recorded) {
+      const refs = [
+        ...(fallback.pendingHolderSweeps ?? []),
+        ref,
+        ...transferred,
+      ];
+      if (refs.length > ROLE_PENDING_SWEEP_LIMIT) {
+        throw new AppException(
+          ErrorCode.AUTHORITY_UNAVAILABLE,
+          'Pending role repairs must finish before deleting',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      await this.changes.savePendingSweeps(unitOfWork, fallback.id, refs);
+    }
+    await this.changes.appendRoleDeletion(unitOfWork, ref);
+    await this.changes.removeRole(unitOfWork, current.id);
+    return {
+      ownerId: fallback.id,
+      refs: [ref, ...transferred],
+      recorded,
+    };
+  }
+
   private repair(
-    ownerId: Types.ObjectId,
-    refs: PendingRoleSweep[],
+    ownerId: string,
+    refs: PendingSweep[],
     recorded = true,
   ): Promise<number> {
-    return repairPendingRoleSweeps({
-      connection: this.connection,
-      roleModel: this.roleModel,
-      userModel: this.userModel,
-      events: this.events,
-      ownerId,
-      refs,
-      recorded,
-      logger: this.logger,
-    });
+    return repairPendingRoleSweeps(
+      { runner: this.runner, changes: this.changes, sweeps: this.sweeps },
+      { ownerId, refs, recorded, logger: this.logger },
+    );
   }
 }

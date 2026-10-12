@@ -2,7 +2,7 @@ import { HttpStatus, Logger } from '@nestjs/common';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { describeDriverError } from '../../../common/utils/mongo-error.util';
+import { describeDriverError } from '../../../common/utils/describe-error.util';
 
 const logger = new Logger('SessionAuthority');
 

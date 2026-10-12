@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { availability, HELD } from '@/tests/busyControls';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, screen, within } from '@testing-library/react';
 import type { AbstractIntlMessages } from 'next-intl';
@@ -49,11 +50,13 @@ function readResponse(): Response {
 
 async function renderReady(store: TestStore) {
   await seedReady(store);
-  return renderPanel({ locale: 'en', messages, store });
+  const view = renderPanel({ locale: 'en', messages, store });
+  screen.getByTestId('native-authorize-ready');
+  return view;
 }
 
 describe('NativeAuthorizePanel actions', () => {
-  it('disables every control and announces progress while approving', async () => {
+  it('holds every control and announces progress while approving', async () => {
     let resolveApprove: ((response: Response) => void) | undefined;
     const pending = new Promise<Response>((resolve) => {
       resolveApprove = resolve;
@@ -63,9 +66,9 @@ describe('NativeAuthorizePanel actions', () => {
 
     fireEvent.click(screen.getByTestId('native-authorize-approve'));
 
-    expect(screen.getByTestId('native-authorize-approve').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('native-authorize-deny').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('native-authorize-not-you').hasAttribute('disabled')).toBe(true);
+    expect(availability(screen.getByTestId('native-authorize-approve'))).toEqual(HELD);
+    expect(availability(screen.getByTestId('native-authorize-deny'))).toEqual(HELD);
+    expect(availability(screen.getByTestId('native-authorize-not-you'))).toEqual(HELD);
     expect(screen.getByTestId('native-authorize-approve').getAttribute('aria-busy')).toBe('true');
     expect(screen.getByTestId('native-authorize-deny').getAttribute('aria-busy')).toBe('false');
     expect(screen.getByTestId('native-authorize-status').textContent).toBe(
@@ -78,7 +81,7 @@ describe('NativeAuthorizePanel actions', () => {
     expect(assignMock).toHaveBeenCalledWith('myapp://done');
   });
 
-  it('announces the deny action and disables the others', async () => {
+  it('announces the deny action and holds the others', async () => {
     let resolveDeny: ((response: Response) => void) | undefined;
     const pending = new Promise<Response>((resolve) => {
       resolveDeny = resolve;
@@ -91,8 +94,8 @@ describe('NativeAuthorizePanel actions', () => {
     expect(screen.getByTestId('native-authorize-status').textContent).toBe(
       translator('en', messages)('denying'),
     );
-    expect(screen.getByTestId('native-authorize-deny').hasAttribute('disabled')).toBe(true);
-    expect(screen.getByTestId('native-authorize-approve').hasAttribute('disabled')).toBe(true);
+    expect(availability(screen.getByTestId('native-authorize-deny'))).toEqual(HELD);
+    expect(availability(screen.getByTestId('native-authorize-approve'))).toEqual(HELD);
     expect(screen.getByTestId('native-authorize-deny').getAttribute('aria-busy')).toBe('true');
     expect(screen.getByTestId('native-authorize-approve').getAttribute('aria-busy')).toBe('false');
 

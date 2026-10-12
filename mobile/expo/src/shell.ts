@@ -39,6 +39,8 @@ export interface ShellAuth {
   engine: AuthEngine;
   client: ApiClient<AbortSignalPort>;
   debug: DebugTransport;
+  /** Wall time from the same clock the engine reads. */
+  now(): number;
 }
 
 export interface StartModules<TAlgorithm, TSignal, THandle> extends ShellModules<
@@ -102,5 +104,10 @@ export function createShellAuth<TAlgorithm, TSignal, THandle>(
   });
   const [debug] = transports;
   if (debug === undefined) throw new Error(SHELL_FAILURE.NO_TRANSPORT);
-  return { engine, client: createApiClient(engine.transport), debug };
+  return {
+    engine,
+    client: createApiClient(engine.transport),
+    debug,
+    now: () => ports.clock.wallTime(),
+  };
 }

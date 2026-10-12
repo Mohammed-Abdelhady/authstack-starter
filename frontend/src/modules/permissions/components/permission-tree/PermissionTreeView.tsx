@@ -1,6 +1,9 @@
+import { useId } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { PermissionNode } from './PermissionNode';
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 import { Shield } from 'lucide-react';
 
 export interface PermissionTreeViewProps {
@@ -69,7 +72,9 @@ export function PermissionTreeView({
   className,
 }: PermissionTreeViewProps) {
   const t = useTranslations('permissions.tree');
+  const tSelector = useTranslations('permissions.selector');
   const groupedPermissions = groupPermissions(permissions);
+  const treeId = useId();
 
   // Check for wildcard
   const hasWildcard = permissions.includes('*');
@@ -82,12 +87,12 @@ export function PermissionTreeView({
     <div className={className} data-testid="permission-tree-view">
       {/* Wildcard Warning */}
       {hasWildcard && (
-        <div className="mb-4 p-3 rounded-lg bg-warning/10 border border-warning/30">
-          <p className="text-sm text-warning-foreground flex items-center gap-2">
-            <Shield className="h-4 w-4" aria-hidden="true" />
+        <Alert variant="warningSoft" role="note" className="mb-4">
+          <AlertDescription className="flex items-center gap-2">
+            <Shield className="h-4 w-4 shrink-0 text-status-warning" aria-hidden="true" />
             <strong>{t('wildcardLabel')}</strong> {t('wildcardNotice')}
-          </p>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Grouped Permissions */}
@@ -96,22 +101,34 @@ export function PermissionTreeView({
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
             {showHeaders && resource !== 'wildcard' && (
-              <Heading level={4} variant="eyebrow">
-                {resource}
+              <Heading
+                id={`${treeId}-group-${resource}`}
+                level={4}
+                variant="eyebrow"
+                data-testid={`permission-group-${resource}`}
+              >
+                {PERMISSION_GROUPS.some((group) => group.id === resource) ? (
+                  tSelector(`groups.${resource}`)
+                ) : (
+                  <span dir="ltr">{resource}</span>
+                )}
               </Heading>
             )}
 
             {/* Permission Nodes */}
-            <div className="space-y-1">
+            <ul
+              aria-labelledby={
+                showHeaders && resource !== 'wildcard' ? `${treeId}-group-${resource}` : undefined
+              }
+              className="m-0 list-none space-y-1 p-0"
+              data-testid={`permission-list-${resource}`}
+            >
               {perms.map((perm) => (
-                <PermissionNode
-                  key={perm}
-                  permission={perm}
-                  level={resource === 'wildcard' ? 0 : 0}
-                  variant={variant}
-                />
+                <li key={perm}>
+                  <PermissionNode permission={perm} level={0} variant={variant} />
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         ))}
       </div>

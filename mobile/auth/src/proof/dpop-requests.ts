@@ -1,5 +1,6 @@
 import { DPOP_PROOF_HEADER, OAUTH_ERROR } from '@app/sdk';
 import { OAuthError } from '@app/sdk';
+import { DPOP_CHALLENGES_ANSWERED_MAX } from '../constants';
 import { buildDpopProof } from './dpop-proof';
 import type { DpopProofDependencies } from './dpop-proof';
 import type { AbortSignalPort } from '../types/auth';
@@ -14,6 +15,12 @@ export interface DpopRequestInput extends DpopProofDependencies {
   signal?: AbortSignalPort;
   mayRetryChallenge?: () => boolean;
   onNonce?: (nonce: string) => void;
+  /** Shared by the calls of one operation, so they answer the limit between them. */
+  challenges?: ChallengeCount;
+}
+
+export interface ChallengeCount {
+  answered: number;
 }
 
 export interface DpopCallOptions {
@@ -26,7 +33,8 @@ export async function requestWithDpopNonceRetry<T>(
   send: (options: DpopCallOptions) => Promise<T>,
 ): Promise<{ value: T; thumbprint: string }> {
   let nonce = input.nonce;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const challenges = input.challenges ?? { answered: 0 };
+  for (let attempt = 0; attempt <= DPOP_CHALLENGES_ANSWERED_MAX; attempt += 1) {
     const proof = await buildDpopProof({
       crypto: input.crypto,
       clock: input.clock,
@@ -48,8 +56,10 @@ export async function requestWithDpopNonceRetry<T>(
       });
       return { value, thumbprint: proof.thumbprint };
     } catch (error) {
-      if (attempt !== 0 || !isNonceChallenge(error) || input.signal?.aborted) throw error;
+      if (!isNonceChallenge(error) || input.signal?.aborted) throw error;
+      if (challenges.answered >= DPOP_CHALLENGES_ANSWERED_MAX) throw error;
       if (input.mayRetryChallenge && !input.mayRetryChallenge()) throw error;
+      challenges.answered += 1;
       nonce = error.dpopNonce;
       input.onNonce?.(nonce);
     }
@@ -57,7 +67,9 @@ export async function requestWithDpopNonceRetry<T>(
   throw new Error('The DPoP nonce retry did not produce a result');
 }
 
-function isNonceChallenge(error: unknown): error is OAuthError & { readonly dpopNonce: string } {
+export function isNonceChallenge(
+  error: unknown,
+): error is OAuthError & { readonly dpopNonce: string } {
   return (
     error instanceof OAuthError &&
     error.error === OAUTH_ERROR.USE_DPOP_NONCE &&

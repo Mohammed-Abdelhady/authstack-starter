@@ -1,19 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model } from 'mongoose';
-import {
-  PendingRegistration,
-  PendingRegistrationDocument,
-} from '../../schemas/pending-registration.schema';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { HashService } from '../../../common/services/hash.service';
 import { Clock } from '../../../common/services/clock';
 import { currentRequestId } from '../../../common/context/request-context';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { generateVerificationCode } from '../../utils/verification-code.util';
-import { PendingRegistrationStore } from './pending-registration.store';
+import { PendingRegistrationIssuer } from './pending-registration-issuer';
+import {
+  CODE_CLAIM,
+  PendingRegistrationStore,
+} from '../../pending-codes/pending-registration.store';
 import { MailCounterService } from '../mail/mail-counter.service';
-import { PendingPurpose } from '../../constants/registration';
+import { CODE_GUESS_RULE, PendingPurpose } from '../../constants/registration';
 import {
   IssuedCode,
   RegistrationDetails,
@@ -22,27 +21,26 @@ import {
 
 /**
  * Activation code verification: reserve an attempt, compare the code once,
- * and consume the exact generation inside the caller's transaction. Opening
- * and refreshing records is the pending-record store's responsibility, and the
- * per-address mail cap is the mail counter's.
+ * and consume the exact generation inside the caller's unit of work. Opening
+ * and refreshing records is the issuer's responsibility, and the per-address
+ * mail cap is the mail counter's.
  */
 @Injectable()
 export class VerificationCodeService {
   private readonly logger = new Logger(VerificationCodeService.name);
   private readonly maxAttempts: number;
-  private readonly store: PendingRegistrationStore;
+  private readonly issuer: PendingRegistrationIssuer;
 
   constructor(
-    @InjectModel(PendingRegistration.name)
-    private readonly pendingRegistrationModel: Model<PendingRegistrationDocument>,
+    private readonly store: PendingRegistrationStore,
     private readonly hashService: HashService,
     configService: ConfigService,
     private readonly clock: Clock,
     private readonly mailCounterService: MailCounterService,
   ) {
     this.maxAttempts = configService.get<number>('activation.maxAttempts', 5);
-    this.store = new PendingRegistrationStore(
-      this.pendingRegistrationModel,
+    this.issuer = new PendingRegistrationIssuer(
+      this.store,
       this.hashService,
       configService,
       clock,
@@ -64,7 +62,7 @@ export class VerificationCodeService {
       return null;
     }
 
-    const stored = await this.store.createOrUpdate(email, purpose, details);
+    const stored = await this.issuer.createOrUpdate(email, purpose, details);
     if (stored !== null) {
       this.logger.log(
         `Opened ${purpose} code requestId=${currentRequestId() ?? 'unknown'}`,
@@ -88,7 +86,7 @@ export class VerificationCodeService {
       return null;
     }
 
-    const stored = await this.store.resend(email, purpose, details);
+    const stored = await this.issuer.resend(email, purpose, details);
     if (stored !== null) {
       this.logger.log(
         `Resent ${purpose} code requestId=${currentRequestId() ?? 'unknown'}`,
@@ -113,23 +111,13 @@ export class VerificationCodeService {
     purpose: PendingPurpose,
   ): Promise<ReservedCode> {
     const now = this.clock.now();
-    const reserved = await this.pendingRegistrationModel.findOneAndUpdate(
-      {
-        email: { $eq: email },
-        purpose,
-        expiresAt: { $gt: now },
-        attempts: { $lt: this.maxAttempts },
-      },
-      { $inc: { attempts: 1 } },
-      { new: true, select: '+hashedCode' },
+    const reserved = await this.store.reserveAttempt(
+      { email, purpose },
+      { now, maxAttempts: this.maxAttempts, guesses: CODE_GUESS_RULE },
     );
 
     if (!reserved) {
-      await this.pendingRegistrationModel.deleteOne({
-        email: { $eq: email },
-        purpose,
-        expiresAt: { $lte: now },
-      });
+      await this.store.dropExpiredRecord({ email, purpose }, now);
       await this.hashService.spendComparison(code);
       throw activationCodeInvalid();
     }
@@ -143,7 +131,7 @@ export class VerificationCodeService {
     }
 
     return {
-      id: reserved._id,
+      id: reserved.id,
       email: reserved.email,
       purpose,
       hashedCode: reserved.hashedCode,
@@ -154,27 +142,24 @@ export class VerificationCodeService {
 
   /**
    * Delete exactly the generation that was compared, inside the caller's
-   * transaction. A resend or a new registration changes hashedCode, so the
-   * stale caller matches nothing and the transaction rolls back.
+   * unit of work. A resend or a new registration changes hashedCode, so the
+   * stale caller matches nothing and the unit of work rolls back.
    *
    * @param reserved - The record returned by verifyCode
-   * @param session - Transaction the delete must join
+   * @param unitOfWork - Unit of work the delete must join
    * @returns True when this caller consumed the generation
    */
   async consumeCode(
     reserved: ReservedCode,
-    session: ClientSession,
+    unitOfWork: UnitOfWork,
   ): Promise<boolean> {
-    const consumed = await this.pendingRegistrationModel.findOneAndDelete(
-      {
-        _id: reserved.id,
-        purpose: reserved.purpose,
-        hashedCode: reserved.hashedCode,
-        expiresAt: { $gt: this.clock.now() },
-      },
-      { session },
-    );
-    return consumed !== null;
+    const claim = await this.store.claimCode(unitOfWork, {
+      id: reserved.id.toString(),
+      purpose: reserved.purpose,
+      hashedCode: reserved.hashedCode,
+      now: this.clock.now(),
+    });
+    return claim === CODE_CLAIM.CLAIMED;
   }
 
   /**

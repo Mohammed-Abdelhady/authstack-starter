@@ -30,13 +30,14 @@ export function readSessionCookie(
 
 /**
  * Refuses a consent action when the browser session changed to another
- * account after the page loaded. A client that sends no id is not checked.
+ * account after the page loaded. Every action names the account it was shown
+ * to: the request body is refused before this when it names none.
  */
 export function assertDisplayedAccount(
   sessionUserId: string,
-  expectedUserId: string | undefined,
+  expectedUserId: string,
 ): void {
-  if (expectedUserId === undefined || expectedUserId === sessionUserId) {
+  if (expectedUserId === sessionUserId) {
     return;
   }
   throw new AppException(

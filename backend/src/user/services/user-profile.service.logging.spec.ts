@@ -1,7 +1,7 @@
 import * as bcrypt from 'bcrypt';
 import { UserProfileService } from './user-profile.service';
 import { UserPermissionsService } from './user-permissions.service';
-import { SessionService } from '../../auth/services/sessions/session.service';
+import { SessionService } from '../../auth/persistence/mongo/session.service';
 import {
   bootLoggingServices,
   LoggingServices,
@@ -15,6 +15,7 @@ import {
 } from '../../../test/utils/logging-services';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+  SESSION_AUTHORITY_RESET_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../test/utils/session-authority-harness';
 
@@ -25,7 +26,7 @@ describe('UserProfileService and UserPermissionsService logging with real reposi
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
   beforeEach(async () => {
     await fixture.reset();
-  });
+  }, SESSION_AUTHORITY_RESET_TIMEOUT_MS);
   afterEach(() => {
     jest.restoreAllMocks();
   });

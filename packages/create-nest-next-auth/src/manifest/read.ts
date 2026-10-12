@@ -57,10 +57,15 @@ export function readStringArray(value: unknown, where: string, problems: string[
   return entries;
 }
 
+/** A posix path that stays inside the project. */
+export function isRelativePath(path: string): boolean {
+  return !(path.startsWith('/') || path.includes('..') || path.includes('\\'));
+}
+
 export function readPathArray(value: unknown, where: string, problems: string[]): string[] {
   const entries = readStringArray(value, where, problems);
   for (const entry of entries) {
-    if (entry.startsWith('/') || entry.includes('..') || entry.includes('\\')) {
+    if (!isRelativePath(entry)) {
       problems.push(`${where} entry "${entry}" must be a relative posix path inside the project`);
     }
   }

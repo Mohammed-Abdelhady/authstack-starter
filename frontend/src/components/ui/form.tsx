@@ -63,22 +63,40 @@ const useFormField = () => {
     formItemId: `${id}-form-item`,
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
+    hasDescription: itemContext.hasDescription,
+    setHasDescription: itemContext.setHasDescription,
     ...fieldState,
   };
 };
 
 type FormItemContextValue = {
   id: string;
+  /** True while a `FormDescription` is rendered inside the item. */
+  hasDescription: boolean;
+  setHasDescription: (present: boolean) => void;
 };
 
 const FormItemContext = React.createContext<FormItemContextValue | null>(null);
 
+function assignRef<T>(ref: React.ForwardedRef<T>, node: T | null): void {
+  if (typeof ref === 'function') {
+    ref(node);
+  } else if (ref) {
+    ref.current = node;
+  }
+}
+
 const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
     const id = React.useId();
+    const [hasDescription, setHasDescription] = React.useState(false);
+    const context = React.useMemo(
+      () => ({ id, hasDescription, setHasDescription }),
+      [id, hasDescription],
+    );
 
     return (
-      <FormItemContext.Provider value={{ id }}>
+      <FormItemContext.Provider value={context}>
         <div ref={ref} className={cn('space-y-2', className)} {...props} />
       </FormItemContext.Provider>
     );
@@ -107,14 +125,22 @@ const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
 >(({ className, ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
+  const { error, formItemId, formDescriptionId, formMessageId, hasDescription } = useFormField();
+  // Only ids of elements that are on the page: a reference to nothing is an
+  // error to an accessibility checker and noise to a screen reader.
+  const describedBy = [
+    hasDescription ? formDescriptionId : null,
+    error?.message ? formMessageId : null,
+  ]
+    .filter((id) => id !== null)
+    .join(' ');
 
   return (
     <Slot
       ref={ref}
       id={formItemId}
       className={cn(className)}
-      aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
+      aria-describedby={describedBy || undefined}
       aria-invalid={!!error}
       {...props}
     />
@@ -126,11 +152,19 @@ const FormDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => {
-  const { formDescriptionId } = useFormField();
+  const { formDescriptionId, setHasDescription } = useFormField();
+  // The control lists this id only while the paragraph is on the page.
+  const setNode = React.useCallback(
+    (node: HTMLParagraphElement | null) => {
+      setHasDescription(node !== null);
+      assignRef(ref, node);
+    },
+    [ref, setHasDescription],
+  );
 
   return (
     <p
-      ref={ref}
+      ref={setNode}
       id={formDescriptionId}
       className={cn(DESCRIPTION_ROLE_CLASSES.description, className)}
       {...props}

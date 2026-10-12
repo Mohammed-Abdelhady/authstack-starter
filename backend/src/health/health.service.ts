@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection, ConnectionStates } from 'mongoose';
 import {
   AUTH_SCHEMA_VERSION,
   DEFAULT_AUTH_EPOCH,
 } from '../session/constants/session-policy';
+import { STORE_HEALTH, StoreHealth } from './store-health';
 
 export type HealthStatus = 'healthy' | 'unhealthy';
 
@@ -19,14 +18,13 @@ export interface HealthResponse {
 @Injectable()
 export class HealthService {
   constructor(
-    @InjectConnection() private readonly connection: Connection,
+    private readonly store: StoreHealth,
     private readonly configService: ConfigService,
   ) {}
 
   checkDatabaseHealth(): { status: 'connected' | 'disconnected' | 'error' } {
     try {
-      const readyState = this.connection.readyState;
-      if (readyState === ConnectionStates.connected) {
+      if (this.store.current() === STORE_HEALTH.READY) {
         return { status: 'connected' };
       }
       return { status: 'disconnected' };

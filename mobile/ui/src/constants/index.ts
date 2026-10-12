@@ -18,6 +18,7 @@ export const SIGN_IN_FAILURE = {
   DENIED: 'denied',
   DISABLED: 'disabled',
   THROTTLED: 'throttled',
+  SESSION_LIMIT: 'sessionLimit',
   DEVICE_KEY: 'deviceKey',
   BROWSER: 'browser',
   STORAGE: 'storage',
@@ -57,8 +58,15 @@ export const REVOKE_RESULT = {
 } as const;
 export type RevokeResult = (typeof REVOKE_RESULT)[keyof typeof REVOKE_RESULT];
 
+/** Where this device's own sign-out stands. */
+export const SIGN_OUT_STATE = { IDLE: 'idle', PENDING: 'pending', FAILED: 'failed' } as const;
+export type SignOutState = (typeof SIGN_OUT_STATE)[keyof typeof SIGN_OUT_STATE];
+
 export const SESSION_KIND = { BROWSER: 'browser', NATIVE_APP: 'nativeApp' } as const;
 export type SessionKind = (typeof SESSION_KIND)[keyof typeof SESSION_KIND];
+
+/** What the server stored, in English, for a user agent it could not read. Never a name a person chose. */
+export const SERVER_UNKNOWN_DEVICE = 'Unknown device';
 
 export const ACTIVITY = { NOW: 'now', TODAY: 'today', EARLIER: 'earlier' } as const;
 export type Activity = (typeof ACTIVITY)[keyof typeof ACTIVITY];
@@ -84,10 +92,12 @@ export const TEST_ID = {
   ACCOUNT_RETRY: 'account-retry',
   ACCOUNT_SESSIONS_LINK: 'account-sessions-link',
   ACCOUNT_SIGN_OUT: 'account-sign-out',
+  ACCOUNT_SIGN_OUT_RETRY: 'account-sign-out-retry',
+  ACCOUNT_NOTICE: 'account-notice',
   SESSIONS_SCREEN: 'sessions-screen',
   SESSIONS_LIST: 'sessions-list',
   SESSIONS_BACK: 'sessions-back',
-  SESSIONS_RETRY: 'sessions-retry',
+  SESSIONS_REFRESH: 'sessions-refresh',
   SESSIONS_REVOKE_OTHERS: 'sessions-revoke-others',
   SESSIONS_NOTICE: 'sessions-notice',
   SESSION_ROW: 'session-row',

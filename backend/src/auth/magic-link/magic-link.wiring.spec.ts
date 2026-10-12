@@ -1,3 +1,4 @@
+// feature:totp:start
 // AuthModule reaches the otplib adapter through the two-factor services; this
 // spec only reads module metadata.
 jest.mock('../two-factor/utils/totp.util', () => ({
@@ -5,6 +6,7 @@ jest.mock('../two-factor/utils/totp.util', () => ({
   buildOtpauthUrl: jest.fn(),
   checkTotpDelta: jest.fn(),
 }));
+// feature:totp:end
 
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { MagicLinkModule } from './magic-link.module';
@@ -13,9 +15,8 @@ import { MagicLinkService } from './magic-link.service';
 import { AuthModule } from '../auth.module';
 import { AuthMailService } from '../services/mail/auth-mail.service';
 import { AuthFeaturesService } from '../services/features/auth-features.service';
-import { SessionService } from '../services/sessions/session.service';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
-import { SignInService } from '../services/sessions/sign-in.service';
+import { SignInService } from '../persistence/mongo/sign-in.service';
 import { FeatureEnabledGuard } from '../guards/feature-enabled.guard';
 
 /**
@@ -47,7 +48,6 @@ describe('Magic link wiring', () => {
   it.each([
     ['AuthMailService', AuthMailService],
     ['AuthFeaturesService', AuthFeaturesService],
-    ['SessionService', SessionService],
     ['SessionCookieService', SessionCookieService],
     ['SignInService', SignInService],
     ['FeatureEnabledGuard', FeatureEnabledGuard],

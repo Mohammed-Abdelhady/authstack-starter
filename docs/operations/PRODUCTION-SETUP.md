@@ -92,11 +92,9 @@ BACKEND_DOMAIN=api.example.com
 
 # Frontend Configuration
 NEXT_PUBLIC_API_URL=https://api.example.com
-NEXT_PUBLIC_APP_URL=https://www.example.com
 
 # Backend Configuration
 CLIENT_URL=https://www.example.com
-BACKEND_URL=http://backend:5000
 
 # MongoDB Configuration
 MONGO_USERNAME=admin
@@ -416,8 +414,8 @@ worker_connections 2048;
 # Keepalive timeout
 keepalive_timeout 65;
 
-# Client max body size
-client_max_body_size 20M;
+# Client max body size. The backend reads JSON up to 100 kB.
+client_max_body_size 1m;
 ```
 
 ### Docker Resources

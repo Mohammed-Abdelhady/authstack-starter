@@ -18,6 +18,7 @@ import {
 } from '../constants/rules.js';
 import { ceilingFolders, readCeilingPattern } from './ceiling.js';
 import { hasProjectScript } from './scripts.js';
+import { withoutMarkerComments } from '../prune/markers.js';
 import { pruneRules } from '../prune/rules.js';
 import { renderRulesText } from '../scaffold/rules-text.js';
 import { specializeCeilingText } from './ceiling.js';
@@ -29,7 +30,7 @@ async function moduleFiles(template: string): Promise<RulesFile[]> {
   const queue = [RULES_SCANNER_ENTRY, RULES_CI_ENTRY];
   for (const path of queue) {
     if (files.has(path)) continue;
-    const content = await readFile(join(template, path), 'utf8');
+    const content = withoutMarkerComments(await readFile(join(template, path), 'utf8'), path);
     files.set(path, content);
     for (const match of content.matchAll(/(?:from\s*|import\s*)['"](\.[^'"]+)['"]/g))
       queue.push(posix.normalize(posix.join(posix.dirname(path), match[1])));

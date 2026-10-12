@@ -16,7 +16,11 @@ export const SCAN_EXTENSIONS = [
   '.cts',
 ];
 export const SKIPPED_DIRECTORY_PARTS = ['node_modules', 'dist', '.next', '.expo'];
-export const SKIPPED_PATH_PREFIXES = ['mobile/expo/ios/', 'mobile/expo/android/', '.husky/_/'];
+export const SKIPPED_PATH_PREFIXES = [
+  'mobile/expo/ios/', // feature:native-expo
+  'mobile/expo/android/', // feature:native-expo
+  '.husky/_/',
+];
 export const PROTECTED_FILE_PATTERN =
   /(?:^|\/)(?:\.ssh\/.+|\.aws\/(?:credentials|config)|\.kube\/config|\.config\/gcloud\/.+)$/;
 export const PROTECTED_EXTENSION = /\.(pem|key|crt)$/;
@@ -109,8 +113,16 @@ export const BINARY_EXTENSIONS = [
   '.mp4',
   '.mp3',
 ];
-export const CAPPED_PATH =
-  /^(backend\/(src|test|scripts|migrations)|frontend\/(src|e2e)|packages\/[^/]+\/(src|test|scripts)|shared\/[^/]+\/src|mobile\/[^/]+\/(src|app|test|conformance)|scripts)\//;
+// One folder family per line, so a project without a family can drop its line.
+const CAPPED_FOLDERS = [
+  'backend\\/(src|test|scripts|migrations)',
+  'frontend\\/(src|e2e)',
+  'packages\\/[^/]+\\/(src|test|scripts)',
+  'shared\\/[^/]+\\/src',
+  'mobile\\/[^/]+\\/(src|app|test|conformance)', // feature:native-core
+  'scripts',
+];
+export const CAPPED_PATH = new RegExp(`^(${CAPPED_FOLDERS.join('|')})\\/`);
 export const DOM_TOKENS = [
   'dangerouslySetInnerHTML',
   'insertAdjacentHTML',

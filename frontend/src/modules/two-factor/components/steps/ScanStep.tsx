@@ -21,10 +21,10 @@ interface ScanStepProps {
  */
 export function ScanStep({ setup, onContinue }: ScanStepProps) {
   const t = useTranslations('settings.twoFactor.setup.scan');
-  const [copied, setCopied] = useState(false);
+  const [copyResult, setCopyResult] = useState<'copied' | 'failed' | null>(null);
 
   const onCopy = useCallback(async () => {
-    setCopied(await copyText(setup.secret));
+    setCopyResult((await copyText(setup.secret)) ? 'copied' : 'failed');
   }, [setup.secret]);
 
   return (
@@ -39,7 +39,11 @@ export function ScanStep({ setup, onContinue }: ScanStepProps) {
         <p className={HEADING_ROLE_CLASSES.eyebrow}>{t('secretLabel')}</p>
         <div className="flex items-center gap-2">
           <code
-            className="flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-sm"
+            dir="ltr"
+            role="group"
+            aria-label={t('secretLabel')}
+            tabIndex={0}
+            className="flex-1 overflow-x-auto rounded-md bg-muted px-3 py-2 font-mono text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             data-testid="two-factor-secret"
           >
             {setup.secret}
@@ -52,13 +56,21 @@ export function ScanStep({ setup, onContinue }: ScanStepProps) {
             aria-label={t('copySecret')}
             data-testid="two-factor-copy-secret"
           >
-            {copied ? (
+            {copyResult === 'copied' ? (
               <Check className="h-4 w-4" aria-hidden="true" />
             ) : (
               <Copy className="h-4 w-4" aria-hidden="true" />
             )}
           </Button>
         </div>
+        {copyResult !== null && (
+          <p
+            role={copyResult === 'failed' ? 'alert' : 'status'}
+            data-testid="two-factor-copy-secret-status"
+          >
+            {copyResult === 'copied' ? t('copySecretSuccess') : t('copySecretFailure')}
+          </p>
+        )}
       </div>
 
       <Button

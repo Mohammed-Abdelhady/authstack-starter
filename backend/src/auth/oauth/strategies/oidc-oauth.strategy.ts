@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthFailureReason } from '../oauth.constants';
-import { describeDriverError } from '../../../common/utils/mongo-error.util';
+import { describeDriverError } from '../../../common/utils/describe-error.util';
 import { GENERIC_OIDC_PROVIDER } from '../../../common/constants/oauth-providers';
 import { OAuthProviderConfig } from '../../../config/oauth.config';
 import { BaseOAuthStrategy, joseCodeOf } from '../base-oauth.strategy';
@@ -58,6 +58,7 @@ export class OidcOAuthStrategy
   readonly displayName: string;
   readonly usesOidc = true;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   private readonly settings: OidcSettings;
   private endpoints?: OidcEndpoints;

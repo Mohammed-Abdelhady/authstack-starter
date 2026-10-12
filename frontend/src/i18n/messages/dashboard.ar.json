@@ -1,0 +1,48 @@
+{
+  "dashboard": {
+    "nav": {
+      "dashboard": "لوحة التحكم",
+      "settings": "الإعدادات",
+      "admin": "الإدارة",
+      "users": "المستخدمون",
+      "roles": "الأدوار",
+      "permissionsDemo": "عرض توضيحي للصلاحيات",
+      "activity": "النشاط",
+      "sessions": "الجلسات"
+    },
+    "shell": {
+      "brandHome": "{name}، الانتقال إلى لوحة التحكم",
+      "openMenu": "فتح قائمة التنقل",
+      "closeMenu": "إغلاق قائمة التنقل",
+      "navigationTitle": "التنقل",
+      "navigationDescription": "روابط أقسام لوحة التحكم",
+      "mainNavigation": "التنقل الرئيسي",
+      "accountControls": "عناصر التحكم في الحساب",
+      "accountIdentity": "<nameText>{name}</nameText>، <roleText>{role}</roleText>"
+    },
+    "user": {
+      "title": "لوحة التحكم",
+      "description": "لوحة التحكم الشخصية",
+      "welcome": "مرحباً بك في لوحة التحكم. هذه الصفحة قيد الإنشاء.",
+      "featuresComingSoon": "ميزات لوحة التحكم قادمة قريباً..."
+    },
+    "admin": {
+      "title": "لوحة تحكم المسؤول",
+      "description": "لوحة تحكم المسؤول",
+      "welcome": "مرحباً بك في لوحة تحكم المسؤول. هذه الصفحة قيد الإنشاء.",
+      "featuresComingSoon": "ميزات المسؤول قادمة قريباً..."
+    },
+    "manager": {
+      "title": "لوحة تحكم المدير",
+      "description": "لوحة تحكم المدير",
+      "welcome": "مرحباً بك في لوحة تحكم المدير. هذه الصفحة قيد الإنشاء.",
+      "featuresComingSoon": "ميزات المدير قادمة قريباً..."
+    },
+    "support": {
+      "title": "لوحة تحكم الدعم",
+      "description": "لوحة تحكم الدعم الفني",
+      "welcome": "مرحباً بك في لوحة تحكم الدعم. هذه الصفحة قيد الإنشاء.",
+      "featuresComingSoon": "ميزات الدعم قادمة قريباً..."
+    }
+  }
+}

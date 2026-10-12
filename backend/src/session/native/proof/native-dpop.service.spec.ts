@@ -11,7 +11,7 @@ import { validateEnvironment } from '../../../config/env.validation';
 import { nativeDpopNonceCandidates } from './native-dpop-nonce';
 import { verifyNativeDpopProof } from './native-dpop-proof';
 import { signNativeDpopProof } from '../harness/native-dpop-test-vectors.harness-spec';
-import { NATIVE_DPOP_TEST_SECRET } from '../harness/native-oauth.harness-spec';
+import { NATIVE_DPOP_TEST_SECRET } from '../persistence/mongo/harness/native-oauth.harness-spec';
 
 describe('native DPoP token address', () => {
   it.each([

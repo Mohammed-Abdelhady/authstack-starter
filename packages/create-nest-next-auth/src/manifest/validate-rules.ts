@@ -1,4 +1,6 @@
 import type { FeatureStatus } from '../types.js';
+import { DATABASE_CHOICE_MARKER_ID, PACKAGE_MANIFEST } from '../constants/index.js';
+import { matchesAnyGlob } from '../utils/glob.js';
 import { isAvailable } from './select.js';
 import type { Dimensions } from './validate-dimensions.js';
 
@@ -70,7 +72,8 @@ function checkUniqueIds(dimensions: Dimensions, featureIds: string[], problems: 
     ['options', Object.keys(dimensions.options)],
     ['features', featureIds],
   ];
-  const seen = new Map<string, string>();
+  // The marker for lines that only choose between databases is no one's id.
+  const seen = new Map<string, string>([[DATABASE_CHOICE_MARKER_ID, 'the database choice marker']]);
   for (const [dimension, ids] of groups) {
     for (const id of ids) {
       const first = seen.get(id);
@@ -114,22 +117,51 @@ function rejectPlannedFiles(
   }
 }
 
-function checkPlannedFiles(dimensions: Dimensions, problems: string[]): void {
-  for (const [id, target] of Object.entries(dimensions.targets)) {
-    rejectPlannedFiles(
-      'targets',
-      id,
-      target.status,
-      [target.files, target.workspaces, target.envFiles],
-      problems,
-    );
+/**
+ * A workspace an owner lists has to sit under the files it owns, or leaving the
+ * owner out would delete nothing and keep the workspace.
+ */
+function checkOwnedWorkspaces(dimensions: Dimensions, problems: string[]): void {
+  const owners: [string, { files: string[]; workspaces: string[] }][] = [
+    ...Object.entries(dimensions.targets).map(([id, target]): [string, typeof target] => [
+      `targets.${id}`,
+      target,
+    ]),
+    ...Object.entries(dimensions.shared).map(([id, shared]): [string, typeof shared] => [
+      `shared.${id}`,
+      shared,
+    ]),
+  ];
+  for (const [where, owner] of owners) {
+    if (owner.files.length === 0) continue;
+    for (const workspace of owner.workspaces) {
+      if (!matchesAnyGlob(`${workspace}/${PACKAGE_MANIFEST}`, owner.files)) {
+        problems.push(`${where}.workspaces names "${workspace}", which its files do not cover`);
+      }
+    }
   }
+}
+
+// A planned target may own files: it is never part of a plan, so they are always removed.
+function checkPlannedFiles(dimensions: Dimensions, problems: string[]): void {
   for (const [id, database] of Object.entries(dimensions.databases)) {
     rejectPlannedFiles(
       'databases',
       id,
       database.status,
-      [database.files, database.envVars, database.composeServices],
+      [
+        database.files,
+        database.docs,
+        database.envVars,
+        database.packages,
+        database.scripts,
+        database.buildApprovals,
+        Object.keys(database.jsonKeys),
+        Object.keys(database.renames),
+        Object.keys(database.scriptRenames),
+        database.rewrites.map((rewrite) => rewrite.from),
+        database.envExamples.map((example) => example.path),
+      ],
       problems,
     );
   }
@@ -150,4 +182,5 @@ export function checkDimensions(
   checkUniqueIds(dimensions, featureIds, problems);
   checkDefaults(dimensions, problems);
   checkPlannedFiles(dimensions, problems);
+  checkOwnedWorkspaces(dimensions, problems);
 }

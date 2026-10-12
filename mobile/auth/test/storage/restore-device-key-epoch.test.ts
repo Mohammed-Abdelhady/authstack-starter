@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AuthSessionError } from '../../src';
 import type { DeviceKeyResult, Es256PublicJwk } from '../../src';
-import { establishBoundSession } from '../support/device-bound-support';
+import { challengeThen, establishBoundSession } from '../support/device-bound-support';
 import { createAuthEngine } from '../support/engine';
 import { HeldDeviceKey } from '../support/held-device-key';
 import { queuedWorkDone } from '../support/queued-work';
@@ -13,6 +13,9 @@ const KEY_READ: Record<string, DeviceKeyResult<Es256PublicJwk>> = {
   keyInvalidated: { kind: 'keyInvalidated' },
   unavailable: { kind: 'unavailable' },
 };
+
+/** A bound revoke is challenged first, so it takes two requests. */
+const REVOKE_ROUND_TRIPS = ['/api/oauth/revoke', '/api/oauth/revoke'];
 
 /** A fresh engine over a saved device-bound record, with its first key read held open. */
 async function restoreWithHeldKey() {
@@ -35,7 +38,7 @@ describe('restore across a device key read', () => {
     'stays signed out when sign-out lands before the key read answers %s',
     async (answer) => {
       const { engine, ports, transport, keyRead, restore } = await restoreWithHeldKey();
-      transport.enqueue({ status: 200, body: {} });
+      transport.enqueue(...challengeThen({ status: 200, body: {} }));
 
       const signedOut = await engine.signOut();
       const sentBySignOut = transport.sent.map(({ path }) => path);
@@ -44,7 +47,7 @@ describe('restore across a device key read', () => {
       const restored = await restore;
 
       expect(signedOut).toEqual({ kind: 'signedOut', revocation: 'revoked' });
-      expect(sentBySignOut).toEqual(['/api/oauth/revoke']);
+      expect(sentBySignOut).toEqual(REVOKE_ROUND_TRIPS);
       expect(restored).toEqual({ kind: 'restored', status: 'signedOut' });
       expect(engine.snapshot).toEqual({ status: 'signedOut', operation: 'none' });
       await expect(
@@ -52,7 +55,7 @@ describe('restore across a device key read', () => {
       ).rejects.toBeInstanceOf(AuthSessionError);
       expect(ports.credentials.value).toBeUndefined();
       expect(ports.credentials.events).toEqual(eventsBySignOut);
-      expect(transport.sent.map(({ path }) => path)).toEqual(['/api/oauth/revoke']);
+      expect(transport.sent.map(({ path }) => path)).toEqual(REVOKE_ROUND_TRIPS);
       expect(ports.callbacks.initialCalls).toBe(0);
     },
   );
