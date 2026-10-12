@@ -2,9 +2,6 @@
 import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import type { SafeMarkupProps } from '@/types/markup';
 
-import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
-import type { SafeMarkupProps } from '@/types/markup';
-
 import * as React from 'react';
 import * as SelectPrimitive from '@radix-ui/react-select';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
