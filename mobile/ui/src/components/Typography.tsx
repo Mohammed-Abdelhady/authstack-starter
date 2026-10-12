@@ -83,3 +83,7 @@ export function Body(props: TextProps) {
 export function Label(props: TextProps & { tone?: LabelTone; centered?: boolean }) {
   return <RoleText role={TYPE_ROLE_NAME.LABEL} {...props} />;
 }
+
+export function editableTextStyle(colors: Palette) {
+  return { ...ROLE_STYLE.body, color: colors.text };
+}
