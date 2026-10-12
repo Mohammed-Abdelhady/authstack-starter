@@ -63,7 +63,7 @@ export class MongoPasswordSignInStore extends PasswordSignInStore {
   ): Promise<boolean> {
     const versionFilter =
       expectedSessionVersion === 0
-        ? [{ sessionVersion: 0 }, { sessionVersion: { $exists: false } }]
+        ? [{ sessionVersion: 0 }, { sessionVersion: null }]
         : [{ sessionVersion: expectedSessionVersion }];
     const updated = await this.userModel.updateOne(
       {
