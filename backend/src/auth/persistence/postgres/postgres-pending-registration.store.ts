@@ -23,6 +23,10 @@ import {
   storedAddress,
 } from './postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import {
+  clearPostgresGuesses,
+  reservePostgresGuess,
+} from './postgres-code-guesses';
 
 const CONSTRAINTS = {
   pending_registration_email_purpose_unique:
@@ -168,6 +172,15 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
       if (!row) {
         return null;
       }
+      const counted = await reservePostgresGuess(
+        this.database,
+        key,
+        rule.now,
+        rule.guesses,
+      );
+      if (!counted) {
+        return null;
+      }
       return {
         id: row.id,
         email: row.email,
@@ -182,15 +195,23 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
     unitOfWork: UnitOfWork,
     claim: RegistrationCodeClaim,
   ): Promise<CodeClaim> {
-    const claimed = await postgresTransactionOf(unitOfWork)
+    const transaction = postgresTransactionOf(unitOfWork);
+    const claimed = await transaction
       .deleteFrom('pending_registrations')
       .where('id', '=', toUuid(claim.id))
       .where('purpose', '=', claim.purpose)
       .where('hashed_code', '=', claim.hashedCode)
       .where('expires_at', '>', claim.now)
-      .returning('id')
+      .returning('email')
       .executeTakeFirst();
-    return claimed ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
+    if (!claimed) {
+      return CODE_CLAIM.NOT_CLAIMABLE;
+    }
+    await clearPostgresGuesses(transaction, {
+      email: claimed.email,
+      purpose: claim.purpose,
+    });
+    return CODE_CLAIM.CLAIMED;
   }
 
   deleteExpiredBefore(cutoff: Date): Promise<number> {

@@ -32,6 +32,11 @@ import {
   insertOrConflict,
   singleStatement,
 } from '../../../common/persistence/mongo/mongo-unique-conflict';
+import {
+  MailCounter,
+  MailCounterDocument,
+} from './schemas/mail-counter.schema';
+import { clearMongoGuesses, reserveMongoGuess } from './mongo-code-guesses';
 
 const PENDING_REGISTRATION_INDEX_CONSTRAINTS = {
   email_1_purpose_1: PENDING_REGISTRATION_CONSTRAINT.ADDRESS_PURPOSE,
@@ -50,6 +55,8 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
   constructor(
     @InjectModel(PendingRegistration.name)
     private readonly pendingRegistrationModel: Model<PendingRegistrationDocument>,
+    @InjectModel(MailCounter.name)
+    private readonly mailCounterModel: Model<MailCounterDocument>,
   ) {
     super();
   }
@@ -173,6 +180,15 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
     if (!reserved) {
       return null;
     }
+    const counted = await reserveMongoGuess(
+      this.mailCounterModel,
+      key,
+      rule.now,
+      rule.guesses,
+    );
+    if (!counted) {
+      return null;
+    }
     return {
       id: reserved._id.toString(),
       email: reserved.email,
@@ -186,6 +202,7 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
     unitOfWork: UnitOfWork,
     claim: RegistrationCodeClaim,
   ): Promise<CodeClaim> {
+    const session = mongoSessionOf(unitOfWork);
     const consumed = await this.pendingRegistrationModel.findOneAndDelete(
       {
         _id: toObjectId(claim.id),
@@ -193,9 +210,17 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
         hashedCode: claim.hashedCode,
         expiresAt: { $gt: claim.now },
       },
-      { session: mongoSessionOf(unitOfWork) },
+      { session },
     );
-    return consumed !== null ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
+    if (consumed === null) {
+      return CODE_CLAIM.NOT_CLAIMABLE;
+    }
+    await clearMongoGuesses(
+      this.mailCounterModel,
+      { email: consumed.email, purpose: claim.purpose },
+      session,
+    );
+    return CODE_CLAIM.CLAIMED;
   }
 
   async deleteExpiredBefore(cutoff: Date): Promise<number> {

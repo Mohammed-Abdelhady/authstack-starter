@@ -20,12 +20,18 @@ import {
   removedRows,
   storedAddress,
 } from './postgres-pending-codes-database';
+import { MAIL_COUNTER_PURPOSE } from '../../constants/registration';
+import {
+  clearPostgresGuesses,
+  reservePostgresGuess,
+} from './postgres-code-guesses';
 
 const CONSTRAINTS = {
   pending_password_reset_email_unique: PASSWORD_RESET_CONSTRAINT.ADDRESS,
 } as const;
 
 const NONE = {} as const;
+const PURPOSE = MAIL_COUNTER_PURPOSE.PASSWORD_RESET;
 
 export class PostgresPasswordResetCodeStore extends PasswordResetCodeStore {
   constructor(private readonly database: Kysely<PostgresTables>) {
@@ -81,7 +87,16 @@ export class PostgresPasswordResetCodeStore extends PasswordResetCodeStore {
         .where('attempts', '<', rule.maxAttempts)
         .returning(['id', 'hashed_code'])
         .executeTakeFirst();
-      return row ? { id: row.id, hashedCode: row.hashed_code } : null;
+      if (!row) {
+        return null;
+      }
+      const counted = await reservePostgresGuess(
+        this.database,
+        { email, purpose: PURPOSE },
+        rule.now,
+        rule.guesses,
+      );
+      return counted ? { id: row.id, hashedCode: row.hashed_code } : null;
     });
   }
 
@@ -92,9 +107,16 @@ export class PostgresPasswordResetCodeStore extends PasswordResetCodeStore {
         .where('id', '=', toUuid(claim.id))
         .where('hashed_code', '=', claim.hashedCode)
         .where('expires_at', '>', claim.now)
-        .returning('id')
+        .returning('email')
         .executeTakeFirst();
-      return claimed ? CODE_CLAIM.CLAIMED : CODE_CLAIM.NOT_CLAIMABLE;
+      if (!claimed) {
+        return CODE_CLAIM.NOT_CLAIMABLE;
+      }
+      await clearPostgresGuesses(this.database, {
+        email: claimed.email,
+        purpose: PURPOSE,
+      });
+      return CODE_CLAIM.CLAIMED;
     });
   }
 
