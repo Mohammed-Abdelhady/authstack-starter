@@ -94,6 +94,9 @@ export function createFakeEngine(
           listeners.delete(listener);
         };
       },
+      methods: () => Promise.reject(new Error('Native discovery unavailable in legacy harness')),
+      nativeSignIn: () => Promise.resolve({ kind: 'unavailable' }),
+      cancelNativeSignIn: () => Promise.resolve({ kind: 'cancelled' }),
       signIn() {
         const pending = deferred<SignInOutcome>();
         fake.signIns.push(pending);
