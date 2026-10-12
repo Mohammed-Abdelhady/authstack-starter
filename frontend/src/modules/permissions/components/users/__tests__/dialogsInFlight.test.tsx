@@ -136,6 +136,9 @@ describe.each([
     });
 
     expect(view.requests.filter((entry) => entry.startsWith('DELETE')).length).toBe(1);
+    expect(
+      view.requests.filter((entry) => entry === 'GET /api/admin/users/user-7/permissions'),
+    ).toHaveLength(1);
     expect(screen.getByTestId('remove-permission-error').textContent).toBe(
       view.message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
     );
@@ -168,6 +171,122 @@ describe.each([
     fireEvent.keyDown(screen.getByTestId('permission-search-dialog'), { key: 'Escape' });
 
     await waitFor(() => expect(screen.queryByTestId('permission-search-dialog')).toBeNull());
+  });
+
+  it('reconciles the first permission when a later grant in the loop is refused', async () => {
+    const persisted = new Set([READS, EXPORTS]);
+    const heldFirstRefetch = heldAnswer();
+    const heldRefusal = heldAnswer();
+    const heldReconciliation = heldAnswer();
+    const bodies: unknown[] = [];
+    let writes = 0;
+    let permissionReads = 0;
+    stubNetwork(async (request, path) => {
+      if (request.method === 'POST') {
+        const body = (await request.json()) as { permission: string };
+        bodies.push(body);
+        writes += 1;
+        if (writes === 2) return heldRefusal.answer;
+        persisted.add(body.permission);
+        return success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] });
+      }
+      if (path.endsWith('/permissions')) {
+        permissionReads += 1;
+        if (permissionReads === 2) return heldFirstRefetch.answer;
+        if (permissionReads === 3) return heldReconciliation.answer;
+        return success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] });
+      }
+      return success({ id: 'role-night', slug: 'night-desk', name: 'Night Desk', permissions: [] });
+    });
+    const form = await renderForm(
+      locale,
+      <UserPermissionsDialog open onOpenChange={vi.fn()} userId="user-7" />,
+    );
+    await screen.findByTestId(`remove-permission-${READS}`);
+    fireEvent.click(screen.getByTestId('add-permission-button'));
+    await screen.findByTestId('permission-search-dialog');
+    fireEvent.click(screen.getByTestId('permission-checkbox-users:read:all'));
+    fireEvent.click(screen.getByTestId('permission-checkbox-users:create:all'));
+    const confirm = screen.getByTestId('confirm-add-permissions');
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    await waitFor(() => expect(permissionReads).toBe(2));
+    expect(isHeld(confirm)).toBe(true);
+    expect(screen.queryByTestId('add-permissions-error')).toBeNull();
+
+    heldFirstRefetch.settle(() =>
+      success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] }),
+    );
+    await screen.findByTestId('direct-permission-users:read:all');
+    expect(screen.queryByTestId('direct-permission-users:create:all')).toBeNull();
+
+    heldRefusal.settle(() => refusalWith(403, ErrorCode.CANNOT_MODIFY_HIGHER_ROLE));
+    await waitFor(() => expect(permissionReads).toBe(3));
+    expect(isHeld(confirm)).toBe(true);
+    expect(screen.queryByTestId('add-permissions-error')).toBeNull();
+
+    heldReconciliation.settle(() =>
+      success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] }),
+    );
+    await screen.findByTestId('direct-permission-users:read:all');
+    await screen.findByTestId('add-permissions-error');
+    await waitFor(() => expect(isHeld(confirm)).toBe(false));
+
+    expect(bodies).toEqual([{ permission: 'users:read:all' }, { permission: 'users:create:all' }]);
+    expect(screen.getByTestId('add-permissions-error').textContent).toBe(
+      form.message('errors.codes.CANNOT_MODIFY_HIGHER_ROLE'),
+    );
+    expect(screen.getByTestId('permission-search-dialog')).toBeTruthy();
+    expect(form.successToasts()).toEqual([]);
+  });
+
+  it('re-reads permissions after the server applies a grant but its response is lost', async () => {
+    const persisted = new Set([READS, EXPORTS]);
+    const heldRead = heldAnswer();
+    let writes = 0;
+    let permissionReads = 0;
+    stubNetwork(async (request, path) => {
+      if (request.method === 'POST') {
+        writes += 1;
+        persisted.add('users:read:all');
+        throw new TypeError('Failed to fetch');
+      }
+      if (path.endsWith('/permissions')) {
+        permissionReads += 1;
+        if (permissionReads > 1) return heldRead.answer;
+        return success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] });
+      }
+      return success({ id: 'role-night', slug: 'night-desk', name: 'Night Desk', permissions: [] });
+    });
+    const form = await renderForm(
+      locale,
+      <UserPermissionsDialog open onOpenChange={vi.fn()} userId="user-7" />,
+    );
+    await screen.findByTestId(`remove-permission-${READS}`);
+    fireEvent.click(screen.getByTestId('add-permission-button'));
+    await screen.findByTestId('permission-search-dialog');
+    fireEvent.click(screen.getByTestId('permission-checkbox-users:read:all'));
+    const confirm = screen.getByTestId('confirm-add-permissions');
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(permissionReads).toBe(2));
+    expect(isHeld(confirm)).toBe(true);
+    expect(screen.getByTestId('permission-search-dialog')).toBeTruthy();
+    expect(screen.queryByTestId('direct-permission-users:read:all')).toBeNull();
+
+    heldRead.settle(() =>
+      success({ userId: 'user-7', role: 'night-desk', permissions: [...persisted] }),
+    );
+
+    await screen.findByTestId('direct-permission-users:read:all');
+    await screen.findByTestId('add-permissions-error');
+    await waitFor(() => expect(isHeld(confirm)).toBe(false));
+
+    expect(writes).toBe(1);
+    expect(screen.getByTestId('add-permissions-error').textContent).toBe(
+      form.message('toast.error.networkError'),
+    );
   });
 
   it('names the role in the permissions dialog, not its code', async () => {

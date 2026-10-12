@@ -70,6 +70,34 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('CreateUserDialog refused by the server in %s', (locale) => {
+  it('focuses the first invalid field on an empty submit and marks required controls', async () => {
+    stubNetwork(() => success(ROLES));
+    const form = await renderForm(locale, <Host />);
+    const email = screen.getByRole('textbox', {
+      name: form.message('users.createUser.email'),
+    });
+    const name = screen.getByRole('textbox', {
+      name: form.message('users.createUser.name'),
+    });
+    const password = screen.getByLabelText(form.message('users.createUser.password'));
+    const role = screen.getByRole('combobox', {
+      name: form.message('users.createUser.role'),
+    });
+
+    const submit = screen.getByRole('button', {
+      name: form.message('users.createUser.submit'),
+    });
+    submit.focus();
+    fireEvent.click(submit);
+
+    await waitFor(() => expect(email.getAttribute('aria-invalid')).toBe('true'));
+    expect(document.activeElement).toBe(email);
+    expect(email.hasAttribute('required')).toBe(true);
+    expect(name.hasAttribute('required')).toBe(true);
+    expect(password.hasAttribute('required')).toBe(true);
+    expect(role.getAttribute('aria-required')).toBe('true');
+  });
+
   it('marks the rejected fields, focuses the first and raises no toast', async () => {
     refuseWrites(['role', 'name', 'nickname'], ROLES);
 

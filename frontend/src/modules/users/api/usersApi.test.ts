@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('a bodyless delete sends the session csrf token and refreshes the user list', async () => {
+test('a bodyless delete refreshes users using the admin response envelope and pending email', async () => {
   clearBrowserProof();
   let deleted = false;
   const requests: string[] = [];
@@ -34,7 +34,21 @@ test('a bodyless delete sends the session csrf token and refreshes the user list
     return Response.json({
       success: true,
       data: {
-        data: [{ id: 'fixture-user', name: 'Fixture User', isActive: !deleted }],
+        data: [
+          {
+            id: 'fixture-user',
+            name: 'Fixture User',
+            email: 'confirmed@example.test',
+            role: 'support',
+            isVerified: true,
+            isDeleted: deleted,
+            pendingEmail: deleted ? 'pending@example.test' : null,
+            authProvider: 'email',
+            linkedProviders: [],
+            createdAt: '2026-10-01T12:00:00.000Z',
+            updatedAt: '2026-10-01T12:00:00.000Z',
+          },
+        ],
         pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
       },
     });
@@ -45,12 +59,26 @@ test('a bodyless delete sends the session csrf token and refreshes the user list
   });
   const list = store.dispatch(usersApi.endpoints.getUsers.initiate({}));
   try {
-    expect((await list.unwrap()).users).toHaveLength(1);
+    const initial = await list.unwrap();
+    expect(initial.users).toHaveLength(1);
+    expect(initial).toMatchObject({
+      users: [{ email: 'confirmed@example.test', isVerified: true, pendingEmail: null }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    });
     const result = await store.dispatch(usersApi.endpoints.deleteUser.initiate('fixture-user'));
     expect(result).not.toHaveProperty('error');
     await vi.waitFor(() => {
       expect(usersApi.endpoints.getUsers.select({})(store.getState()).data?.users).toMatchObject([
-        { _id: 'fixture-user', isActive: false },
+        {
+          _id: 'fixture-user',
+          isDeleted: true,
+          isVerified: true,
+          email: 'confirmed@example.test',
+          pendingEmail: 'pending@example.test',
+        },
       ]);
     });
     expect(requests).toEqual(['GET', 'GET', 'DELETE', 'GET']);
