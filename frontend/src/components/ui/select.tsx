@@ -1,5 +1,4 @@
 'use client';
-
 import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
 import type { SafeMarkupProps } from '@/types/markup';
 
@@ -22,7 +21,7 @@ const SelectStateContext = React.createContext<SelectState | null>(null);
 /** The keys the library chooses an option with. */
 const CHOOSING_KEYS = new Set(['Enter', ' ']);
 
-interface SelectProps extends SafeMarkupProps<React.ComponentProps<typeof SelectPrimitive.Root>> {
+interface SelectProps extends React.ComponentProps<typeof SelectPrimitive.Root> {
   /**
    * A request that depends on it is running: the trigger keeps focus, the list
    * does not open and the value does not change.
@@ -78,7 +77,7 @@ const SelectTrigger = React.forwardRef<
       ref={ref}
       className={cn(
         // The gap keeps the chevron off the text when a name is cut at the chevron's side.
-        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
+        'flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:min-w-0 [&>span]:truncate',
         BUSY_FIELD_CLASSES,
         TEXT_CONTROL_FONT_SIZE,
         className,
@@ -219,7 +218,7 @@ const SelectItem = React.forwardRef<React.ElementRef<typeof SelectPrimitive.Item
         ref={ref}
         value={value}
         className={cn(
-          'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 aria-disabled:cursor-not-allowed',
+          'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 ps-8 pe-2 text-sm outline-hidden focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 aria-disabled:cursor-not-allowed',
           className,
         )}
         {...withoutUnsafeMarkup(props)}

@@ -17,7 +17,7 @@ export function CodeBlock({ children, testId, label }: CodeBlockProps) {
       aria-label={label ?? t('codeSample')}
       tabIndex={0}
       data-testid={testId}
-      className="overflow-x-auto rounded-md bg-muted p-4 text-xs text-start ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="overflow-x-auto rounded-md bg-muted p-4 text-xs text-start ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <code>{children}</code>
     </pre>
