@@ -17,7 +17,7 @@ import { Plus, Shield } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { FormRootError } from '@/components/forms';
 import { WILDCARD_PERMISSION } from '@app/core';
-import { FREE_TEXT_SEARCH_CLASSES } from '../../constants/freeText';
+import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
 import { MAX_ADMIN_SEARCH_LENGTH } from '../../constants/search';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
 import { SearchPermissionTabs } from './SearchPermissionTabs';

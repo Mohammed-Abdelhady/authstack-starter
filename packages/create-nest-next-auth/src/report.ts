@@ -57,3 +57,11 @@ export function describeUnexplainedRules(rules: string[]): string[] {
     ...rules,
   ];
 }
+
+/** Missing rule targets in a project that removed other template content. */
+export function describePossiblyPrunedRules(rules: string[]): string[] {
+  return [
+    'These database rules found nothing to change. A removed feature, option, client or the selected rules policy may explain a missing target. Check entries whose target remains in this project:',
+    ...rules,
+  ];
+}
