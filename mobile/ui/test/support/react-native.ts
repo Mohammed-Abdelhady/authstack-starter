@@ -185,6 +185,9 @@ export const Animated = {
 
 export const useColorScheme = (): string | null => device.scheme;
 
+const WINDOW_DIMENSIONS = { width: 390, height: 844, scale: 3, fontScale: 1 };
+export const useWindowDimensions = () => WINDOW_DIMENSIONS;
+
 export const AppState = {
   addEventListener: (event: string, listener: Listener): Subscription =>
     appState.add(event, listener),
