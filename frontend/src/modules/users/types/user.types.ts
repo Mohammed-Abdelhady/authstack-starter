@@ -8,6 +8,8 @@ export interface AdminUser {
   role: string;
   isVerified: boolean;
   isDeleted: boolean;
+  /** New address awaiting confirmation, absent or null when none is pending. */
+  pendingEmail?: string | null;
   /** 'email' or an OAuth provider id from the backend registry. */
   authProvider: string;
   linkedProviders: string[];

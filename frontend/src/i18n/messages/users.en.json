@@ -5,6 +5,7 @@
     "count": "{count} {count, plural, =1 {user} other {users}} registered",
     "refresh": "Refresh",
     "searchPlaceholder": "Search by name or email...",
+    "searchLabel": "Search users",
     "allRoles": "All Roles",
     "loading": "Loading users...",
     "loadError": "Failed to load users.",
@@ -72,6 +73,7 @@
     },
     "card": {
       "role": "Role:",
+      "pendingEmail": "New email waiting for confirmation: ⁨{email}⁩",
       "joined": "Joined {date}"
     },
     "list": {

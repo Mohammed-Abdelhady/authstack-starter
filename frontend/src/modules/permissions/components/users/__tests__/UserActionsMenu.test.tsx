@@ -77,7 +77,11 @@ describe.each([
   });
 
   it('deactivates through the status route after the confirmation', async () => {
-    const requests = stubNetwork(() => success({ id: USER._id, isDeleted: true }));
+    const bodies: unknown[] = [];
+    const requests = stubNetwork(async (request) => {
+      bodies.push(await request.json());
+      return success({ id: USER._id, isDeleted: true });
+    });
     const { format, successToasts } = await openMenu(locale);
 
     fireEvent.click(screen.getByTestId('deactivate-user-user-7'));
@@ -89,5 +93,6 @@ describe.each([
       ]);
     });
     expect(requests).toEqual(['PATCH /api/admin/users/user-7/status']);
+    expect(bodies).toEqual([{ isActive: false }]);
   });
 });

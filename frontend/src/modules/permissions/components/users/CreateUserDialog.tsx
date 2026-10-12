@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -69,6 +69,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
   const [role, setRole] = useState(DEFAULT_ROLE_SLUG);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const submissionInFlight = useRef(false);
 
   const [createUser, { isLoading }] = useCreateUserMutation();
   const allRoles = useAllRoles();
@@ -82,16 +83,22 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
       tPassword,
     );
     setErrors(newErrors);
+    const firstInvalid = (['email', 'name', 'password', 'role'] as const).find((field) =>
+      Boolean(newErrors[field]),
+    );
+    if (firstInvalid) document.getElementById(fieldId(firstInvalid))?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || submissionInFlight.current) return;
 
     if (!validateForm()) {
       return;
     }
 
+    submissionInFlight.current = true;
     refusal.clear();
     try {
       await showsOwnRefusal(
@@ -109,6 +116,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
     } catch (error) {
       refusal.show(error);
       reportUnlessHandled(error);
+    } finally {
+      submissionInFlight.current = false;
     }
   };
 
@@ -141,7 +150,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('email')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('email')}
             </Label>
@@ -156,6 +165,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
               }}
               busy={isLoading}
+              required
               aria-invalid={Boolean(errors.email)}
               aria-describedby={errors.email ? errorId('email') : undefined}
               className={errors.email ? 'border-destructive' : ''}
@@ -168,7 +178,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('name')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('name')}
             </Label>
@@ -182,6 +192,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                 if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
               }}
               busy={isLoading}
+              required
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? errorId('name') : undefined}
               className={cn(FREE_TEXT_FIELD_CLASSES, errors.name && 'border-destructive')}
@@ -194,13 +205,14 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('password')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('password')}
             </Label>
             <div className="relative">
               <Input
                 id={fieldId('password')}
+                dir="ltr"
                 type={showPassword ? 'text' : 'password'}
                 placeholder={tCommon('passwordPlaceholder')}
                 value={password}
@@ -209,6 +221,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
                   if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                 }}
                 busy={isLoading}
+                required
                 aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? errorId('password') : undefined}
                 className={errors.password ? 'border-destructive pe-10' : 'pe-10'}
@@ -232,7 +245,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
           <div className="space-y-2">
             <Label
               htmlFor={fieldId('role')}
-              className="text-xs uppercase tracking-widest text-muted-foreground"
+              className="text-xs uppercase tracking-widest rtl:tracking-normal text-muted-foreground"
             >
               {t('role')}
             </Label>
@@ -264,7 +277,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess }: CreateUserDi
               isLoading={isLoading}
               disabled={allRoles.isError}
               loadingText={t('creating')}
-              className="h-10 mt-0 w-auto py-2"
+              className="h-10 mt-0 w-auto py-2 rtl:tracking-normal"
               testId="submit-create-user-button"
             >
               {t('submit')}

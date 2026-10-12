@@ -55,6 +55,7 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
   isLoading = false,
 }: RoleSidebarNavProps) {
   const t = useTranslations('roles.sidebar');
+  const tDetail = useTranslations('roles.detail');
 
   // Group roles by type
   const systemRoles = roles.filter((r) => r.isSystemRole);
@@ -105,7 +106,13 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                   <span dir="auto">{role.name}</span>
                 </span>
                 {role.isProtected && (
-                  <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
+                  <>
+                    <Lock
+                      className="h-3 w-3 flex-shrink-0 text-status-warning"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">{tDetail('protectedBadge')}</span>
+                  </>
                 )}
               </button>
             ))}
@@ -140,7 +147,13 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
                   <span dir="auto">{role.name}</span>
                 </span>
                 {role.isProtected && (
-                  <Lock className="h-3 w-3 flex-shrink-0 text-status-warning" aria-hidden="true" />
+                  <>
+                    <Lock
+                      className="h-3 w-3 flex-shrink-0 text-status-warning"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">{tDetail('protectedBadge')}</span>
+                  </>
                 )}
               </button>
             ))}

@@ -27,7 +27,7 @@ const ROLES = [
   { ...listedRole('writer', 'Writer'), permissions: ['users:read:all'] },
 ];
 
-type Answer = () => Response;
+type Answer = (request?: Request) => Response;
 
 /** The roles page. Each kind of request answers as `server` says now. */
 async function renderPage(locale: AppLocale, firstList?: Answer) {
@@ -36,15 +36,21 @@ async function renderPage(locale: AppLocale, firstList?: Answer) {
     list: firstList ?? listed,
     change: () => success(ROLES[0]),
   };
-  const requests = stubNetwork((request) =>
-    request.method === 'GET' ? server.list() : server.change(),
-  );
+  const searchTerms: string[] = [];
+  const askedPages: number[] = [];
+  const requests = stubNetwork((request) => {
+    const params = new URL(request.url).searchParams;
+    askedPages.push(Number(params.get('page') ?? '1'));
+    const search = params.get('search');
+    if (search !== null) searchTerms.push(search);
+    return request.method === 'GET' ? server.list(request) : server.change();
+  });
   const page = await renderForm(
     locale,
     <RolesPage />,
     storeSignedInAs('admin', Object.values(ROLE_PERMISSIONS)),
   );
-  return { ...page, server, requests, listed };
+  return { ...page, server, requests, listed, searchTerms, askedPages };
 }
 
 /** jsdom has no layout, so the observer a checked Radix checkbox asks for never fires. */
@@ -65,6 +71,60 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the roles page when a read of the list fails in %s', (locale) => {
+  it('labels role search and clamps pasted Arabic text to the supported query length', async () => {
+    const page = await renderPage(locale);
+    await screen.findByTestId('role-detail-name');
+    const input = screen.getByRole('textbox', { name: page.message('roles.searchLabel') });
+    const overLimit = 'ب'.repeat(101);
+
+    expect(input).toHaveProperty('maxLength', 100);
+    fireEvent.change(input, { target: { value: overLimit } });
+
+    expect(input).toHaveProperty('value', 'ب'.repeat(100));
+    await waitFor(() => expect(page.searchTerms).toEqual(['ب'.repeat(100)]));
+  });
+
+  it('moves back from a now-empty last page when the list count shrinks', async () => {
+    const allRoles = Array.from({ length: 45 }, (_, index) => ({
+      ...listedRole(`role-${index + 1}`, `Role ${index + 1}`),
+      permissions: ['users:read:all'],
+    }));
+    const readPage = (request?: Request, total = 45, totalPages = 3) => {
+      const requestedPage = Number(
+        new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
+      );
+      const start = (requestedPage - 1) * 20;
+      return success({
+        roles: allRoles.slice(start, start + 20),
+        total,
+        page: requestedPage,
+        pages: totalPages,
+      });
+    };
+    const page = await renderPage(locale, readPage);
+    await screen.findByTestId('role-nav-item-role-1');
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await screen.findByTestId('role-nav-item-role-21');
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await screen.findByTestId('role-nav-item-role-41');
+
+    page.server.list = (request) => {
+      const requestedPage = Number(
+        new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
+      );
+      if (requestedPage === 3) return success({ roles: [], total: 40, page: 3, pages: 2 });
+      return readPage(request, 40, 2);
+    };
+    page.server.change = () => success(allRoles[40]);
+    fireEvent.click(screen.getByTestId('edit-role-button'));
+    await screen.findByTestId('edit-role-name-input');
+    fireEvent.click(screen.getByTestId('save-role-button'));
+
+    await screen.findByTestId('role-nav-item-role-21');
+    await waitFor(() => expect(page.askedPages).toContain(2));
+    expect(screen.queryByTestId('role-nav-item-role-41')).toBeNull();
+  });
+
   it('says what failed and why in the page language when the first load fails, then recovers', async () => {
     const page = await renderPage(locale, () => refusalWith(500, ErrorCode.INTERNAL_ERROR));
 

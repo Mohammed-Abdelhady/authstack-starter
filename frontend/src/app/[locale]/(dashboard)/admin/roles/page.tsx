@@ -12,6 +12,7 @@ import { RoleDetailPanel } from '@/modules/permissions/components/roles/RoleDeta
 import { RoleSplitViewSkeleton, RoleDialogs } from '@/modules/roles/components';
 import { RoutePermissionGuard } from '@/modules/permissions';
 import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
+import { MAX_ADMIN_SEARCH_LENGTH } from '@/modules/permissions/constants/search';
 import { ROLE_PERMISSIONS } from '@app/core';
 import { ListLoadError, StaleListNotice } from '@/components/layout/ListReadFailure';
 import { useListReadState } from '@/hooks/useListReadState';
@@ -33,10 +34,17 @@ export default function RolesPage() {
   // Takes focus once a role is deleted: its delete button then stands for another role.
   const titleRef = useRef<HTMLHeadingElement>(null);
 
-  const { data, currentData, isLoading, isFetching, isError, error, refetch } = useListRolesQuery({
+  const listParams = {
     page,
     limit: 20,
     search: debouncedSearch.trim() || undefined,
+  };
+  const requestedPage = useListRolesQuery(listParams);
+  const lastAvailablePage = Math.max(1, requestedPage.currentData?.totalPages ?? page);
+  const effectivePage = Math.min(page, lastAvailablePage);
+  const { data, currentData, isLoading, isFetching, error, refetch } = useListRolesQuery({
+    ...listParams,
+    page: effectivePage,
   });
 
   // A list already on screen stays when a later read of it fails.
@@ -51,9 +59,6 @@ export default function RolesPage() {
   const roles = useMemo(() => data?.roles || [], [data?.roles]);
   const totalPages = data?.totalPages || 1;
   const totalCount = data?.total ?? roles.length;
-
-  const lastPage = Math.max(1, currentData?.totalPages ?? page);
-  if (!isFetching && !isError && page > lastPage) setPage(lastPage);
 
   const effectiveSelectedRoleId = roles.some((role) => role.id === selectedRoleId)
     ? selectedRoleId
@@ -94,7 +99,9 @@ export default function RolesPage() {
               <Heading level={1} variant="pageTitle" ref={titleRef} tabIndex={-1}>
                 {t('title')}
               </Heading>
-              <Description className="mt-1">{t('count', { count: totalCount })}</Description>
+              <Description className="mt-1" role="status">
+                {t('count', { count: totalCount })}
+              </Description>
             </div>
             <Button onClick={() => setCreateDialogOpen(true)} data-testid="create-role-button">
               <Plus className="me-2 h-4 w-4" aria-hidden="true" />
@@ -104,10 +111,12 @@ export default function RolesPage() {
 
           <SearchBar
             className={FREE_TEXT_SEARCH_CLASSES}
+            aria-label={t('searchLabel')}
             placeholder={t('searchPlaceholder')}
+            maxLength={MAX_ADMIN_SEARCH_LENGTH}
             value={searchTerm}
             onChange={(e) => {
-              setSearchTerm(e.target.value);
+              setSearchTerm(e.target.value.slice(0, MAX_ADMIN_SEARCH_LENGTH));
               setPage(1);
             }}
             onClear={() => {
@@ -203,7 +212,7 @@ export default function RolesPage() {
             />
 
             <PaginationControl
-              currentPage={page}
+              currentPage={effectivePage}
               totalPages={totalPages}
               onPageChange={setPage}
               isLoading={isLoading || isFetching}

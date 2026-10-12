@@ -4,6 +4,7 @@
     "count": "{count} {count, plural, =1 {role} other {roles}} defined",
     "createRole": "Create Role",
     "searchPlaceholder": "Search roles by name, slug, or description...",
+    "searchLabel": "Search roles",
     "loading": "Loading roles...",
     "loadError": "Failed to load roles.",
     "noRoles": "No roles found",

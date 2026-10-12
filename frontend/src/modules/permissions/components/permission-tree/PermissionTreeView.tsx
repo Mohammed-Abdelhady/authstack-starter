@@ -2,7 +2,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { PermissionNode } from './PermissionNode';
-import { PERMISSION_GROUPS } from '../search/SearchPermissionTabs';
+import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 import { Shield } from 'lucide-react';
 
 export interface PermissionTreeViewProps {

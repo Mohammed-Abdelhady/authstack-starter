@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { RoleFilter } from './RoleFilter';
 import { SearchBar } from '@/components/design-system';
 import { FREE_TEXT_SEARCH_CLASSES } from '@/modules/permissions/constants/freeText';
+import { MAX_ADMIN_SEARCH_LENGTH } from '@/modules/permissions/constants/search';
 
 export interface UserListToolbarProps {
   searchQuery: string;
@@ -27,9 +28,11 @@ export function UserListToolbar({
       <div className="flex-1">
         <SearchBar
           className={FREE_TEXT_SEARCH_CLASSES}
+          aria-label={t('searchLabel')}
           placeholder={t('searchPlaceholder')}
+          maxLength={MAX_ADMIN_SEARCH_LENGTH}
           value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          onChange={(e) => onSearchChange(e.target.value.slice(0, MAX_ADMIN_SEARCH_LENGTH))}
           onClear={onSearchClear}
           showClear={searchQuery.length > 0}
           data-testid="search-users-input"
