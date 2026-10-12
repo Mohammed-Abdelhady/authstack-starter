@@ -82,11 +82,11 @@ export interface NativePasskeysApi {
 
 export interface NativeSignInModules {
   platform: NativeSignInPlatform;
-  google: GoogleSignInApi;
-  apple: AppleAuthenticationApi;
-  appleScopes: { fullName: number; email: number };
-  facebook: FacebookSignInApi;
-  passkeys: NativePasskeysApi;
+  google?: GoogleSignInApi;
+  apple?: AppleAuthenticationApi;
+  appleScopes?: { fullName: number; email: number };
+  facebook?: FacebookSignInApi;
+  passkeys?: NativePasskeysApi;
 }
 
 export interface NativeProviderAvailability {

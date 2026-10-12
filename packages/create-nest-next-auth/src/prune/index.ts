@@ -31,7 +31,7 @@ import { deleteMatchingFiles } from './files.js';
 import { formatChangedFiles } from './format.js';
 import { removeFeatureLines } from './markers.js';
 import { pruneMessageCatalogues } from './messages.js';
-import { pruneRootPackage } from './package-scripts.js';
+import { pruneFeaturePackages, pruneRootPackage } from './package-scripts.js';
 import { renderWorkspace } from '../scaffold/workspace.js';
 import { findDanglingReferences } from './references.js';
 
@@ -152,6 +152,14 @@ export async function prune(
     removedDatabases.flatMap((database) => database.buildApprovals),
   );
   const databaseJson = await removeDatabaseJson(root, removedDatabases, keptDatabases, unmatched);
+  const removedPackages = new Set(
+    removed
+      .flatMap((id) => manifest.features[id].packages ?? [])
+      .filter(
+        (name) => !selectedFeatures.some((id) => manifest.features[id].packages?.includes(name)),
+      ),
+  );
+  const featurePackages = await pruneFeaturePackages(root, removedPackages);
   const renamed = await renameDatabaseFiles(root, keptDatabases, unmatched);
   // A file one database gave up and the chosen one took the name of is there
   // again, so nothing that reads the deleted files may count it as gone.
@@ -177,6 +185,7 @@ export async function prune(
     ROOT_PACKAGE_JSON,
     FRONTEND_PACKAGE_JSON,
     ...databaseJson,
+    ...featurePackages,
     ...renamed,
     ...rewritten,
     ...(workspaceChanged ? [PNPM_WORKSPACE_FILE] : []),

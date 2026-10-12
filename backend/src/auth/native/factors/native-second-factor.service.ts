@@ -22,7 +22,7 @@ import {
 } from '../utils/native-attempt-errors';
 import { assertNativePolicy } from '../utils/native-policy.util';
 import { NativeMethodsService } from '../services/native-methods.service';
-import { NativePasskeyService } from './native-passkey.service';
+import { NativePasskeyService } from './native-passkey.service'; // feature:passkeys
 
 @Injectable()
 export class NativeSecondFactorService {
@@ -31,7 +31,7 @@ export class NativeSecondFactorService {
     private readonly stores: NativeAttemptStore,
     private readonly factors: SecondFactorStore,
     private readonly verification: TwoFactorVerificationService,
-    private readonly passkeys: NativePasskeyService,
+    private readonly passkeys: NativePasskeyService, // feature:passkeys
     private readonly features: AuthFeaturesService,
     private readonly runner: UnitOfWorkRunner,
     private readonly accounts: AccountProfileStore,
@@ -45,9 +45,11 @@ export class NativeSecondFactorService {
     input: NativeSecondFactorInput,
   ): Promise<NativeAttemptView> {
     if (!isInput(input)) throw invalidRequest();
+    // feature:passkeys:start
     if ('passkeyResponse' in input && input.passkeyResponse) {
       return this.passkeys.verify(attemptId, secret, input.passkeyResponse);
     }
+    // feature:passkeys:end
     if (!this.features.isEnabled(AuthFeature.TWO_FACTOR))
       throw featureDisabled();
     const claimed = await this.attempts.claim(
@@ -148,9 +150,12 @@ function isInput(input: unknown): input is NativeSecondFactorInput {
       typeof record.recoveryCode === 'string' &&
       NATIVE_FACTOR_INPUT_PATTERN.RECOVERY_CODE.test(record.recoveryCode)
     );
-  return (
-    name === 'passkeyResponse' &&
-    typeof record.passkeyResponse === 'object' &&
-    record.passkeyResponse !== null
-  );
+  // feature:passkeys:start
+  if (name === 'passkeyResponse')
+    return (
+      typeof record.passkeyResponse === 'object' &&
+      record.passkeyResponse !== null
+    );
+  // feature:passkeys:end
+  return false;
 }

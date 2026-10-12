@@ -380,7 +380,10 @@
         "frontend/src/modules/account/components/ProfileSyncStatus.tsx",
         "frontend/src/app/[locale]/(auth)/auth/oauth/**",
         "backend/test/auth/oauth-unlink-refused.e2e-spec.ts",
-        "backend/test/auth/oauth-auto-link-notice.e2e-spec.ts"
+        "backend/test/auth/oauth-auto-link-notice.e2e-spec.ts",
+        "backend/src/auth/native/providers/**",
+        "backend/src/session/native/authorize/native-browser-selectors.integration.spec.ts",
+        "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -415,6 +418,7 @@
         "frontend/src/app/[locale]/(auth)/auth/reset-password/**",
         "backend/test/auth/security-notices.e2e-spec.ts",
         "backend/test/auth/identity.e2e-spec.ts",
+        "backend/src/auth/native/factors/native-password.service.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts"
       ],
@@ -431,7 +435,11 @@
       "description": "Sign in with a Google account.",
       "kind": "oauth",
       "default": true,
-      "files": ["backend/src/auth/oauth/strategies/google-oauth.strategy.ts"],
+      "files": [
+        "backend/src/auth/oauth/strategies/google-oauth.strategy.ts",
+        "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts"
+      ],
+      "packages": ["react-native-nitro-google-signin", "react-native-nitro-modules"],
       "envVars": [
         "OAUTH_GOOGLE_CLIENT_ID",
         "OAUTH_GOOGLE_CLIENT_SECRET",
@@ -471,7 +479,11 @@
       "description": "Sign in with an already linked Facebook identity. A fresh database needs another sign-in method to create an account before linking Facebook in settings.",
       "kind": "oauth",
       "default": true,
-      "files": ["backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts"],
+      "files": [
+        "backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts",
+        "backend/src/auth/oauth/strategies/native-facebook.strategy.spec.ts"
+      ],
+      "packages": ["react-native-fbsdk-next"],
       "envVars": [
         "OAUTH_FACEBOOK_CLIENT_ID",
         "OAUTH_FACEBOOK_CLIENT_SECRET",
@@ -525,6 +537,7 @@
       "default": false,
       "files": [
         "backend/src/auth/two-factor/**",
+        "backend/src/auth/native/factors/native-second-factor.service.ts",
         "backend/src/user/persistence/mongo/schemas/two-factor.schema.ts",
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
@@ -553,6 +566,8 @@
       "default": false,
       "files": [
         "backend/src/auth/passkeys/**",
+        "backend/src/auth/native/factors/native-passkey.service.ts",
+        "backend/src/auth/native/factors/utils/native-passkey-assertion.ts",
         "backend/src/auth/passkeys/persistence/mongo/schemas/passkey.schema.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-registration.harness-spec.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-steps.harness-spec.ts",
@@ -577,6 +592,7 @@
         "PASSKEY_CHALLENGE_SECRET_PREVIOUS",
         "PASSKEY_CHALLENGE_LEGACY_UNTIL"
       ],
+      "packages": ["react-native-passkeys"],
       "requires": [],
       "docs": ["docs/setup/setup-passkeys.md"]
     },
@@ -606,11 +622,13 @@
       "files": [
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.spec.ts",
+        "backend/src/auth/oauth/strategies/native-apple.strategy.spec.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.spec.ts",
         "backend/src/auth/oauth/utils/apple-user-payload.util.ts",
         "backend/src/auth/oauth/utils/apple-user-payload.util.spec.ts"
       ],
+      "packages": ["expo-apple-authentication"],
       "envVars": [
         "OAUTH_APPLE_CLIENT_ID",
         "OAUTH_APPLE_CALLBACK_URL",

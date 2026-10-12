@@ -39,6 +39,7 @@ function googleConfigured(
   settings: NativeSignInSettings,
 ): boolean {
   if (
+    !modules.google ||
     method.id !== 'google' ||
     method.mode !== NATIVE_GOOGLE_MODE ||
     method.sdk?.kind !== 'google'
@@ -50,6 +51,8 @@ function googleConfigured(
   if (modules.platform === 'android') return true;
   return (
     modules.platform === 'ios' &&
+    modules.apple !== undefined &&
+    modules.appleScopes !== undefined &&
     nonEmptyString(sdk.iosClientId) &&
     settings.googleIosUrlScheme === googleClientScheme(sdk.iosClientId)
   );
@@ -78,6 +81,7 @@ function facebookAvailable(
 ): boolean {
   return (
     (modules.platform === 'ios' || modules.platform === 'android') &&
+    modules.facebook !== undefined &&
     method.id === 'facebook' &&
     method.mode === NATIVE_FACEBOOK_MODE &&
     method.sdk?.kind === 'facebook' &&
@@ -182,22 +186,24 @@ function createFacebookFlow(
   modules: NativeSignInModules,
   nonceDigest: string,
 ): Promise<FacebookFlowResult> {
+  const facebook = modules.facebook;
+  if (!facebook) return Promise.reject(new Error('Facebook module is unavailable'));
   const login =
     modules.platform === 'ios'
-      ? modules.facebook.loginManager.logInWithPermissions(
+      ? facebook.loginManager.logInWithPermissions(
           [...FACEBOOK_PERMISSIONS],
           'limited',
           nonceDigest,
         )
-      : modules.facebook.loginManager.logInWithPermissions([...FACEBOOK_PERMISSIONS]);
+      : facebook.loginManager.logInWithPermissions([...FACEBOOK_PERMISSIONS]);
   return login.then(async (loginResult) => {
     if (!isRecord(loginResult) || loginResult.isCancelled !== false) {
       return { login: loginResult, token: undefined };
     }
     const token =
       modules.platform === 'ios'
-        ? await modules.facebook.authenticationToken.getAuthenticationTokenIOS()
-        : await modules.facebook.accessToken.getCurrentAccessToken();
+        ? await facebook.authenticationToken.getAuthenticationTokenIOS()
+        : await facebook.accessToken.getCurrentAccessToken();
     return { login: loginResult, token };
   });
 }
@@ -212,7 +218,7 @@ export function createProviderSignInPort(
   const available = async (method: NativeProviderMethod): Promise<boolean> => {
     if (googleConfigured(method, modules, settings)) {
       try {
-        return await modules.google.isAvailable();
+        return (await modules.google?.isAvailable()) === true;
       } catch {
         return false;
       }
@@ -222,7 +228,7 @@ export function createProviderSignInPort(
     }
     if (!appleAvailable(method, modules, settings)) return false;
     try {
-      return await modules.apple.isAvailableAsync();
+      return (await modules.apple?.isAvailableAsync()) === true;
     } catch {
       return false;
     }
@@ -237,19 +243,21 @@ export function createProviderSignInPort(
       if (!(await available(method))) return { kind: 'unavailable' };
 
       if (method.mode === NATIVE_GOOGLE_MODE) {
+        const google = modules.google;
+        if (!google) return { kind: 'unavailable' };
         return lease.run<unknown, NativeProviderCredential>(
           signal,
           async () => {
             const sdk = method.sdk;
             if (!sdk || sdk.kind !== 'google') throw new Error('Google configuration is invalid');
-            await modules.google.configure({
+            await google.configure({
               webClientId: sdk.webClientId,
               ...(modules.platform === 'ios' && sdk.iosClientId
                 ? { iosClientId: sdk.iosClientId }
                 : {}),
               nonce: nonceDigest,
             });
-            return modules.google.presentExplicitSignIn();
+            return google.presentExplicitSignIn();
           },
           (value) => googleCredential(value, nonceDigest),
           providerFailure,
@@ -257,14 +265,17 @@ export function createProviderSignInPort(
       }
 
       if (method.mode === NATIVE_APPLE_MODE) {
+        const apple = modules.apple;
+        const scopes = modules.appleScopes;
+        if (!apple || !scopes) return { kind: 'unavailable' };
         if (!nonEmptyString(state)) return promptFailure('invalidResponse');
         return lease.run<unknown, NativeProviderCredential>(
           signal,
           () => {
             const sdk = method.sdk;
             if (!sdk || sdk.kind !== 'apple') throw new Error('Apple configuration is invalid');
-            return modules.apple.signInAsync({
-              requestedScopes: [modules.appleScopes.fullName, modules.appleScopes.email],
+            return apple.signInAsync({
+              requestedScopes: [scopes.fullName, scopes.email],
               state,
               nonce: nonceDigest,
             });
@@ -275,6 +286,8 @@ export function createProviderSignInPort(
       }
 
       if (method.mode === NATIVE_FACEBOOK_MODE) {
+        const facebook = modules.facebook;
+        if (!facebook) return { kind: 'unavailable' };
         return lease.run<FacebookFlowResult, NativeProviderCredential>(
           signal,
           () => {
@@ -282,14 +295,14 @@ export function createProviderSignInPort(
             if (!sdk || sdk.kind !== 'facebook')
               throw new Error('Facebook configuration is invalid');
             if (initializedFacebookAppId !== sdk.appId) {
-              modules.facebook.settings.setAppID(sdk.appId);
+              facebook.settings.setAppID(sdk.appId);
               if (settings.facebookClientToken) {
-                modules.facebook.settings.setClientToken(settings.facebookClientToken);
+                facebook.settings.setClientToken(settings.facebookClientToken);
               }
               if (settings.facebookDisplayName) {
-                modules.facebook.settings.setAppName(settings.facebookDisplayName);
+                facebook.settings.setAppName(settings.facebookDisplayName);
               }
-              modules.facebook.settings.initializeSDK();
+              facebook.settings.initializeSDK();
               initializedFacebookAppId = sdk.appId;
             }
             return createFacebookFlow(modules, nonceDigest);
