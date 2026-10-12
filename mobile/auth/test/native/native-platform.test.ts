@@ -143,6 +143,7 @@ describe('native platform credentials', () => {
         expiresAt,
         factors: ['passkey'],
       }),
+      methodsReply(),
       apiReply({ challenge: 'challenge-value', rpId: 'example.test' }),
       apiReply({
         attemptId: ATTEMPT_ID,
@@ -169,8 +170,8 @@ describe('native platform credentials', () => {
     const result = await engine.nativeSignIn({ kind: 'passkey' });
 
     expect(result.kind).toBe('continue');
-    expect(transport.sent[3].path).toBe('/api/auth/native/attempts/attempt-1/second-factor');
-    expect(transport.sent[3].body).toEqual({ passkeyResponse: assertion });
+    expect(transport.sent[4].path).toBe('/api/auth/native/attempts/attempt-1/second-factor');
+    expect(transport.sent[4].body).toEqual({ passkeyResponse: assertion });
     expect(transport.sent.some(({ path }) => path === '/api/oauth/token')).toBe(false);
   });
 
