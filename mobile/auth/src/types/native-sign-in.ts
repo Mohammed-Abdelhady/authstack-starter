@@ -11,6 +11,7 @@ import type {
   NativeSecondFactorInput,
 } from '@app/sdk';
 import type { AbortSignalPort, AuthProfile } from './auth';
+import type { NativeSignInLocale } from '../constants/native-sign-in-locale';
 
 type ReadonlyNativeView<V> = V extends { factors: infer F extends unknown[] }
   ? Omit<V, 'factors'> & { readonly factors: Readonly<F> }
@@ -27,7 +28,7 @@ export type NativeSafeAttemptView = ReadonlyNativeView<
 export interface BrowserSignInOptions {
   providerId?: string;
   flow?: NativeFlow;
-  locale?: 'en' | 'ar';
+  locale?: NativeSignInLocale;
 }
 
 export type NativeSignInAction =
