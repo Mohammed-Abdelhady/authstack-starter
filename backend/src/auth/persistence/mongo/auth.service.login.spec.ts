@@ -127,8 +127,13 @@ describe('AuthService sign-in and password reset (real database)', () => {
     });
   }
 
-  it('rejects a soft-deleted or unknown address without comparing a password', async () => {
-    await createUser({ email: 'deleted@example.com', isDeleted: true });
+  it('rejects a soft-deleted or unknown address after one comparison that never reads a stored password', async () => {
+    const storedHash = await bcrypt.hash(PASSWORD, ROUNDS);
+    await createUser({
+      email: 'deleted@example.com',
+      isDeleted: true,
+      password: storedHash,
+    });
 
     await expect(
       service.login(
@@ -143,7 +148,11 @@ describe('AuthService sign-in and password reset (real database)', () => {
       ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
 
-    expect(compareSpy).not.toHaveBeenCalled();
+    // One comparison an attempt, against the dummy hash both times.
+    const compared = compareSpy.mock.calls.map(([, hash]) => String(hash));
+    expect(compared).toHaveLength(2);
+    expect(compared[0]).toBe(compared[1]);
+    expect(compared).not.toContain(storedHash);
   });
 
   it('rejects an account with no password, such as an OAuth-only account', async () => {
@@ -155,7 +164,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
         response(),
       ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
-    expect(compareSpy).not.toHaveBeenCalled();
+    expect(compareSpy).toHaveBeenCalledTimes(1);
   });
 
   it('finishes a valid sign-in through the shared sign-in path', async () => {

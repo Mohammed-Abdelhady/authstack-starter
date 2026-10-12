@@ -400,6 +400,8 @@
         "backend/test/auth/registration-takeover.e2e-spec.ts",
         "backend/test/auth/sign-in-cookie-order.e2e-spec.ts",
         "backend/test/auth/user-password.e2e-spec.ts",
+        "backend/src/auth/passkeys/contract/passkeys-contract-reauth-password.harness-spec.ts",
+        "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/utils/stable-answer.ts",
         "frontend/src/modules/auth/methods/password/**",
         "frontend/src/app/[locale]/(auth)/auth/register/**",
@@ -513,6 +515,8 @@
         "backend/src/user/persistence/mongo/schemas/two-factor.schema.ts",
         "backend/test/postgres/postgres-two-factor-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0008_two_factor.sql",
+        "backend/src/common/persistence/postgres/migrations/0017_two_factor_lockout.sql",
+        "backend/test/auth/two-factor-route-limits.e2e-spec.ts",
         "frontend/src/modules/two-factor/**",
         "frontend/src/lib/qr/**",
         "frontend/src/app/[locale]/(auth)/auth/2fa/**"
@@ -530,8 +534,10 @@
       "files": [
         "backend/src/auth/passkeys/**",
         "backend/src/auth/passkeys/persistence/mongo/schemas/passkey.schema.ts",
+        "backend/src/auth/two-factor/contract/two-factor-contract-passkey-registration.harness-spec.ts",
         "backend/src/auth/two-factor/contract/two-factor-contract-passkey-steps.harness-spec.ts",
         "backend/test/auth/passkey-removal.e2e-spec.ts",
+        "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/postgres/postgres-passkeys-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0009_passkeys.sql",
         "frontend/src/modules/passkeys/**"

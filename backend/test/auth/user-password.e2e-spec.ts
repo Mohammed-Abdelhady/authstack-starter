@@ -112,6 +112,36 @@ describe('password change keeps the calling session (e2e)', () => {
     await loginWithOldPassword(e2e);
     expect(await loginWith(e2e, SEED_USER.email, NEW_PASSWORD)).toBe(200);
   });
+  it('refuses the eleventh attempt of one client in fifteen minutes, right password or not', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const attempt = (currentPassword: string) =>
+      browser
+        .post('/api/user/password')
+        .send({ currentPassword, newPassword: NEW_PASSWORD });
+
+    const guesses: { status: number; code: string }[] = [];
+    for (let guess = 0; guess < 10; guess += 1) {
+      const answer = await attempt('NotThePassword1!');
+      guesses.push({
+        status: answer.status,
+        code: (answer.body as { error: { code: string } }).error.code,
+      });
+    }
+    const eleventh = await attempt(SEED_USER.password);
+
+    expect(guesses).toEqual(
+      Array.from({ length: 10 }, () => ({
+        status: 400,
+        code: 'INVALID_CURRENT_PASSWORD',
+      })),
+    );
+    expect({
+      status: eleventh.status,
+      code: (eleventh.body as { error: { code: string } }).error.code,
+    }).toEqual({ status: 429, code: 'RATE_LIMIT_EXCEEDED' });
+    // The password the last attempt carried was not stored.
+    expect(await loginWith(e2e, SEED_USER.email, NEW_PASSWORD)).toBe(401);
+  });
 });
 
 async function loginWithOldPassword(e2e: E2eApp): Promise<void> {

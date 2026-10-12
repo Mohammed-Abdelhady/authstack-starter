@@ -18,9 +18,11 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import { Throttle } from '@nestjs/throttler';
+import { Response } from 'express';
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeyManagementService } from './services/passkey-management.service';
+import { PasskeyRegistrationOptionsDto } from './dto/passkey-registration-options.dto';
 import { VerifyPasskeyRegistrationDto } from './dto/verify-passkey-registration.dto';
 import { RenamePasskeyDto } from './dto/rename-passkey.dto';
 import {
@@ -31,7 +33,9 @@ import { PasskeyCreationOptions } from './services/webauthn.adapter';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import { RequiresFeature } from '../decorators/requires-feature.decorator';
 import { AuthFeature } from '../enums/auth-feature.enum';
+import { RequestWithUser } from '../guards/auth.guard';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
+import { THROTTLE_PASSKEY_REGISTER } from '../../common/constants/throttle';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { RouteIdPipe } from '../../common/pipes/route-id.pipe';
 
@@ -53,6 +57,7 @@ export class PasskeysController {
    * Start registering a passkey
    * POST /api/auth/passkeys/register/options
    */
+  @Throttle(THROTTLE_PASSKEY_REGISTER)
   @Post('register/options')
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
@@ -61,13 +66,26 @@ export class PasskeysController {
     description:
       'Returns the options to hand to navigator.credentials.create() and ' +
       'leaves the challenge in a five minute cookie. Passkeys already on the ' +
-      'account are excluded, so an authenticator holding one says so.',
+      'account are excluded, so an authenticator holding one says so. The ' +
+      'caller proves itself again first: accounts with a password send it in ' +
+      'the body, accounts without one need a session younger than five ' +
+      'minutes, and an account with two-factor on sends a code or a recovery ' +
+      'code as well. A missing proof answers 401 REAUTH_REQUIRED and names it ' +
+      'in details.required: password, recent_sign_in or second_factor.',
   })
+  @ApiBody({ type: PasskeyRegistrationOptionsDto })
   async registerOptions(
     @CurrentUser('id') userId: string,
+    @Body() dto: PasskeyRegistrationOptionsDto,
+    @Req() request: RequestWithUser,
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<PasskeyCreationOptions>> {
-    return this.registrationService.createOptions(userId, response);
+    return this.registrationService.createOptions(
+      userId,
+      dto,
+      request,
+      response,
+    );
   }
 
   /**
@@ -81,13 +99,15 @@ export class PasskeysController {
     summary: 'Store a registered passkey',
     description:
       'Checks the credential against the challenge cookie, the expected origin ' +
-      'and the relying party id, then stores it and returns its summary.',
+      'and the relying party id, then stores it and returns its summary. The ' +
+      'challenge is taken only from the session the options route issued it ' +
+      'to, so the proof given there cannot be reused by another session.',
   })
   @ApiBody({ type: VerifyPasskeyRegistrationDto })
   async registerVerify(
     @CurrentUser('id') userId: string,
     @Body() dto: VerifyPasskeyRegistrationDto,
-    @Req() request: Request,
+    @Req() request: RequestWithUser,
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<PasskeySummaryDto>> {
     return this.registrationService.verify(userId, dto, request, response);

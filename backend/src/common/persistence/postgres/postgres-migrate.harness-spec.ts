@@ -32,6 +32,7 @@ export const EVERY_MIGRATION = [
   '0012_retention_indexes.sql',
   '0013_magic_links.sql', // feature:magic-link
   '0014_code_guess_locks.sql',
+  '0017_two_factor_lockout.sql', // feature:totp
 ];
 
 export interface MigrateDatabases {

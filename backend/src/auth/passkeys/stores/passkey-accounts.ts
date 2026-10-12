@@ -15,10 +15,18 @@ export interface StoredSignInMethods {
   hasLinkedAccount: boolean;
 }
 
+/** What re-authentication reads of an account. */
+export interface PasskeyAccountPassword {
+  /** Absent on an account that signs in without a password. */
+  readonly passwordHash?: string;
+}
+
 /** The accounts passkeys are registered to and sign in. */
 export abstract class PasskeyAccounts {
   /** The account with this id, deactivated ones included. */
   abstract findAccount(userId: string): Promise<PasskeyAccount | null>;
+  /** The password hash of the account, for the check before a passkey is added. */
+  abstract findPassword(userId: string): Promise<PasskeyAccountPassword | null>;
   abstract findSignInMethods(
     userId: string,
   ): Promise<StoredSignInMethods | null>;

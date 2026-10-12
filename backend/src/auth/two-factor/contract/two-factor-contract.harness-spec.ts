@@ -26,6 +26,7 @@ import { TwoFactorLoginService } from '../two-factor-login.service';
 import { TwoFactorService } from '../two-factor.service';
 
 import {
+  StoredFailureFacts,
   StoredSecondFactorFacts,
   TwoFactorContractHarness,
 } from './two-factor-contract-database.harness-spec';
@@ -119,9 +120,13 @@ function recorded<Store extends object>(
 export function twoFactorServices(
   harness: TwoFactorContractHarness,
   verifiers: SecondFactorVerifier[] = [],
+  keys: { current?: string; previous?: string } = {},
 ): TwoFactorServices {
   const config = new ConfigService({
-    twoFactor: { encryptionKey: ENCRYPTION_KEY },
+    twoFactor: {
+      encryptionKey: keys.current ?? ENCRYPTION_KEY,
+      previousEncryptionKey: keys.previous,
+    },
     bcrypt: { rounds: BCRYPT_ROUNDS },
     NODE_ENV: 'test',
   });
@@ -256,6 +261,12 @@ export const NO_SECOND_FACTOR: StoredSecondFactorFacts = {
   confirmedAt: null,
   recoveryCodes: [],
   lastUsedStep: null,
+};
+
+/** An account no wrong answer is counted on. */
+export const NO_FAILURES: StoredFailureFacts = {
+  failedAttempts: 0,
+  lockedUntil: null,
 };
 
 /** Turns the factor on around the adapters, with two unspent recovery codes. */

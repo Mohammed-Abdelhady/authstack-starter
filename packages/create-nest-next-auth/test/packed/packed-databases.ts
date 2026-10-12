@@ -216,6 +216,7 @@ export function databaseCases(getPacked: () => Packed): void {
       ...CORE_MIGRATIONS.slice(7, 10),
       '0013_magic_links.sql',
       ...CORE_MIGRATIONS.slice(10),
+      '0017_two_factor_lockout.sql',
     ]);
   });
 

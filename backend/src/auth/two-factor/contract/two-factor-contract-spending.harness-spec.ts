@@ -83,11 +83,16 @@ export function spendingCases(
     const { verification, crypto } = twoFactorServices(harness());
     await seedEnabled(harness(), crypto, ownerId);
     const code = codeAt(harness().clock, TOTP_SECRET);
-    // Both requests read the account before either spends.
+    // Both requests read the account before either is counted, which is the
+    // first write an answer makes.
     const first = await readAccount(harness(), ownerId);
     const second = await readAccount(harness(), ownerId);
     const gate = new RaceGate();
-    const restore = holdBefore(harness().accounts, 'spendTotpStep', () => gate);
+    const restore = holdBefore(
+      harness().accounts,
+      'reserveAttempt',
+      () => gate,
+    );
 
     const attempts = [
       outcomeOf(verification.verifyTotpCode(first, code)),
@@ -169,7 +174,7 @@ export function spendingCases(
     const gate = new RaceGate();
     const restore = holdBefore(
       harness().accounts,
-      'spendRecoveryCode',
+      'reserveAttempt',
       () => gate,
     );
 

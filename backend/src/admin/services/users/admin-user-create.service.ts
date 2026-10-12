@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import { HashService } from '../../../common/services/hash.service';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
@@ -11,7 +11,6 @@ import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { CreateUserDto } from '../../dto/create-user.dto';
 import { AdminUserDto } from '../../dto/admin-user-response.dto';
-import { ADMIN_PASSWORD_SALT_ROUNDS } from '../../constants/admin-user.constants';
 import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
 import { AdminAccountStore } from '../../stores/admin-account.store';
 import { rethrowOrUnavailable } from '../../utils/admin-transaction.util';
@@ -34,6 +33,7 @@ export class AdminUserCreateService {
     private readonly roleChanges: RoleChangeStore,
     private readonly roleSweeps: RoleSweepStore,
     private readonly accessService: AdminUserAccessService,
+    private readonly hashService: HashService,
   ) {}
 
   /**
@@ -56,10 +56,7 @@ export class AdminUserCreateService {
 
     await this.accessService.assertCanAssignRole(actorRole, role);
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      ADMIN_PASSWORD_SALT_ROUNDS,
-    );
+    const hashedPassword = await this.hashService.hash(password);
     const roles = this.roleStores();
     let createdUserId: string | undefined;
     let assignmentRef: AssignedRoleRef | undefined;

@@ -12,6 +12,9 @@ import {
   StoredTotpSecret,
 } from '../../stores/second-factor-account';
 import {
+  ATTEMPT_RESERVATION,
+  AttemptReservation,
+  CountedAttempt,
   SecondFactorConfirmation,
   SecondFactorStore,
   SPEND_OUTCOME,
@@ -56,6 +59,8 @@ export function toSecondFactorAccount(user: UserDocument): SecondFactorAccount {
         usedAt: code.usedAt ?? null,
       })),
       lastUsedStep: state?.lastUsedStep ?? null,
+      failedAttempts: state?.failedAttempts ?? 0,
+      lockedUntil: state?.lockedUntil ?? null,
     },
   };
   DOCUMENTS.set(account, user);
@@ -117,6 +122,8 @@ export class MongoSecondFactorStore extends SecondFactorStore {
       confirmedAt: null,
       recoveryCodes: [],
       lastUsedStep: null,
+      failedAttempts: 0,
+      lockedUntil: null,
     };
     await singleStatement(() => user.save());
   }
@@ -141,6 +148,22 @@ export class MongoSecondFactorStore extends SecondFactorStore {
     await singleStatement(() => user.save());
   }
 
+  async replaceSecret(
+    account: SecondFactorAccount,
+    secret: StoredTotpSecret,
+  ): Promise<void> {
+    const readWith = account.twoFactor.secret;
+    if (!readWith) return;
+    const user = secondFactorDocumentOf(account);
+    // Written around the document, so a later save of it leaves this alone.
+    await singleStatement(() =>
+      this.userModel.updateOne(
+        { _id: user._id, 'twoFactor.secret.ciphertext': readWith.ciphertext },
+        { $set: { 'twoFactor.secret': secret } },
+      ),
+    );
+  }
+
   async clear(account: SecondFactorAccount): Promise<void> {
     const user = secondFactorDocumentOf(account);
     user.twoFactor = {
@@ -149,6 +172,8 @@ export class MongoSecondFactorStore extends SecondFactorStore {
       confirmedAt: null,
       recoveryCodes: [],
       lastUsedStep: null,
+      failedAttempts: 0,
+      lockedUntil: null,
     };
     await singleStatement(() => user.save());
   }
@@ -176,6 +201,49 @@ export class MongoSecondFactorStore extends SecondFactorStore {
     // when it held the document itself.
     user.twoFactor.lastUsedStep = step;
     return SPEND_OUTCOME.SPENT;
+  }
+
+  async reserveAttempt(
+    account: SecondFactorAccount,
+    attempt: CountedAttempt,
+  ): Promise<AttemptReservation> {
+    const user = secondFactorDocumentOf(account);
+    const readWith = account.twoFactor.failedAttempts;
+    // Written around the document, so a later save of it leaves the count
+    // alone. A state stored before the count existed holds none.
+    const counted = await singleStatement(() =>
+      this.userModel.updateOne(
+        {
+          _id: user._id,
+          'twoFactor.failedAttempts':
+            readWith === 0 ? { $in: [0, null] } : readWith,
+        },
+        {
+          $set: {
+            'twoFactor.failedAttempts': attempt.failedAttempts,
+            'twoFactor.lockedUntil': attempt.lockedUntil,
+          },
+        },
+      ),
+    );
+    return counted.modifiedCount === 1
+      ? ATTEMPT_RESERVATION.RESERVED
+      : ATTEMPT_RESERVATION.REFUSED;
+  }
+
+  async clearFailedAttempts(account: SecondFactorAccount): Promise<void> {
+    const user = secondFactorDocumentOf(account);
+    await singleStatement(() =>
+      this.userModel.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            'twoFactor.failedAttempts': 0,
+            'twoFactor.lockedUntil': null,
+          },
+        },
+      ),
+    );
   }
 
   async spendRecoveryCode(

@@ -4,6 +4,8 @@ import { counterCases } from './passkeys-contract-counter.harness-spec';
 import { managementCases } from './passkeys-contract-management.harness-spec';
 import { removalHintCases } from './passkeys-contract-removal-hint.harness-spec';
 import { removalRaceCases } from './passkeys-contract-removal-race.harness-spec';
+import { reauthPasswordCases } from './passkeys-contract-reauth-password.harness-spec'; // feature:email-password
+import { reauthCases } from './passkeys-contract-reauth.harness-spec';
 import { registrationRuleCases } from './passkeys-contract-registration-rules.harness-spec';
 import { registrationCases } from './passkeys-contract-registration.harness-spec';
 import { routeIdCases } from './passkeys-contract-route-ids.harness-spec';
@@ -78,6 +80,8 @@ export function describePasskeysContract(
 
     registrationCases(current, seeded);
     registrationRuleCases(current, seeded);
+    reauthCases(current, seeded);
+    reauthPasswordCases(current, seeded); // feature:email-password
     signInCases(current, seeded);
     signInRuleCases(current, seeded);
     counterCases(current, seeded);

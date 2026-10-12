@@ -9,6 +9,7 @@ import {
   PasskeysFixture,
   PasskeysHarnessSource,
   passkeyServices,
+  PASSWORD,
   refusalOf,
   sha256,
   signInBrowser,
@@ -89,6 +90,8 @@ export function signInRuleCases(
     const forRegistration = browser();
     await services.registration.createOptions(
       ownerId,
+      { password: PASSWORD },
+      forRegistration.request,
       forRegistration.response,
     );
     expect(await refusalOf(verify(forRegistration))).toEqual(CHALLENGE_INVALID);

@@ -9,6 +9,7 @@ import {
   createNativeApplication,
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
+  seedUserId,
 } from '../../utils/native/native-authorize.fixtures';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import {
@@ -94,11 +95,17 @@ describe('native browser authorization (e2e)', () => {
     const approval = await browser
       .post('/api/oauth/authorize/approve')
       .unset(CSRF_HEADER)
-      .send({ transactionId: started.transactionId });
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
     const denial = await browser
       .post('/api/oauth/authorize/deny')
       .unset(CSRF_HEADER)
-      .send({ transactionId: started.transactionId });
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
     for (const response of [approval, denial]) {
       expect(response.status).toBe(403);
       expect((response.body as ApiErrorBody).error.code).toBe(
@@ -124,7 +131,10 @@ describe('native browser authorization (e2e)', () => {
     const started = await beginNativeAuthorization(e2e);
     const approval = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId })
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      })
       .expect(200);
     const approvalBody = approval.body as AuthorizeActionBody;
     expect(approvalBody.success).toBe(true);
@@ -166,9 +176,10 @@ describe('native browser authorization (e2e)', () => {
       .expect(200);
     expect(alreadyGranted.body.data.alreadyGranted).toBe(true);
 
-    const repeated = await browser
-      .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId });
+    const repeated = await browser.post('/api/oauth/authorize/approve').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
     expect(repeated.status).toBe(404);
     expect((repeated.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
@@ -180,7 +191,10 @@ describe('native browser authorization (e2e)', () => {
     const started = await beginNativeAuthorization(e2e);
     const denied = await browser
       .post('/api/oauth/authorize/deny')
-      .send({ transactionId: started.transactionId })
+      .send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      })
       .expect(200);
     const deniedBody = denied.body as AuthorizeActionBody;
     const callback = new URL(deniedBody.data.redirectUri);
@@ -199,9 +213,10 @@ describe('native browser authorization (e2e)', () => {
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
     );
 
-    const approval = await browser
-      .post('/api/oauth/authorize/approve')
-      .send({ transactionId: started.transactionId });
+    const approval = await browser.post('/api/oauth/authorize/approve').send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
     expect(approval.status).toBe(404);
     expect((approval.body as ApiErrorBody).error.code).toBe(
       ErrorCode.NATIVE_TRANSACTION_EXPIRED,
@@ -223,10 +238,14 @@ describe('native browser authorization (e2e)', () => {
     );
     const expiredApprove = await browser
       .post('/api/oauth/authorize/approve')
-      .send({ transactionId: approveId.transactionId });
-    const expiredDeny = await browser
-      .post('/api/oauth/authorize/deny')
-      .send({ transactionId: denyId.transactionId });
+      .send({
+        transactionId: approveId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
+    const expiredDeny = await browser.post('/api/oauth/authorize/deny').send({
+      transactionId: denyId.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    });
 
     for (const response of [
       unknown,
@@ -265,12 +284,14 @@ describe('native browser authorization (e2e)', () => {
 
     const responses = await Promise.all([
       browser.get(`/api/oauth/authorize/transaction/${readId.transactionId}`),
-      browser
-        .post('/api/oauth/authorize/approve')
-        .send({ transactionId: approveId.transactionId }),
-      browser
-        .post('/api/oauth/authorize/deny')
-        .send({ transactionId: denyId.transactionId }),
+      browser.post('/api/oauth/authorize/approve').send({
+        transactionId: approveId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      }),
+      browser.post('/api/oauth/authorize/deny').send({
+        transactionId: denyId.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      }),
     ]);
     for (const response of responses) {
       expect(response.status).toBe(403);

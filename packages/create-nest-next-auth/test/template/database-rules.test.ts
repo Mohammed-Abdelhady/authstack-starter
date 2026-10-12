@@ -23,13 +23,13 @@ const markerIds = (database: string) => markerIdsOf(manifest, database);
 const removedGlobs = (database: string) => removedGlobsOf(manifest, database);
 
 /** The PostgreSQL tables an optional feature owns, written out by hand. */
-const FEATURE_TABLES: Record<string, { tables: string[]; migration: string }> = {
+const FEATURE_TABLES: Record<string, { tables: string[]; migrations: string[] }> = {
   totp: {
     tables: ['user_two_factor', 'user_recovery_codes', 'two_factor_challenges'],
-    migration: '0008_two_factor.sql',
+    migrations: ['0008_two_factor.sql', '0017_two_factor_lockout.sql'],
   },
-  passkeys: { tables: ['passkeys', 'passkey_challenges'], migration: '0009_passkeys.sql' },
-  'magic-link': { tables: ['pending_magic_links'], migration: '0013_magic_links.sql' },
+  passkeys: { tables: ['passkeys', 'passkey_challenges'], migrations: ['0009_passkeys.sql'] },
+  'magic-link': { tables: ['pending_magic_links'], migrations: ['0013_magic_links.sql'] },
 };
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -37,7 +37,7 @@ describe('the PostgreSQL tables of an optional feature', () => {
   it.each(Object.keys(FEATURE_TABLES))(
     'are named by nothing a PostgreSQL project keeps once %s is left out',
     async (feature) => {
-      const { tables, migration } = FEATURE_TABLES[feature];
+      const { tables, migrations } = FEATURE_TABLES[feature];
       const removed = [...removedGlobs('postgres'), ...manifest.features[feature].files];
       const { kept, known } = markerIds('postgres');
       kept.delete(feature);
@@ -62,9 +62,11 @@ describe('the PostgreSQL tables of an optional feature', () => {
 
       expect({
         naming,
-        migrationLeft: !matchesAnyGlob(`${MIGRATIONS}/${migration}`, removed),
+        migrationsLeft: migrations.filter(
+          (migration) => !matchesAnyGlob(`${MIGRATIONS}/${migration}`, removed),
+        ),
         checked: files.length > 50,
-      }).toEqual({ naming: [], migrationLeft: false, checked: true });
+      }).toEqual({ naming: [], migrationsLeft: [], checked: true });
     },
   );
 
@@ -72,7 +74,7 @@ describe('the PostgreSQL tables of an optional feature', () => {
     const all = (await listFiles(join(REPOSITORY, MIGRATIONS))).sort();
     const withoutOptional = all.filter(
       (file) =>
-        !Object.values(FEATURE_TABLES).some(({ migration }) => migration === file) &&
+        !Object.values(FEATURE_TABLES).some(({ migrations }) => migrations.includes(file)) &&
         file.endsWith('.sql'),
     );
 

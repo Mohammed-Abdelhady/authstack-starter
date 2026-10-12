@@ -22,6 +22,8 @@ import {
 // Backend-only error codes the web client maps by status code or a generic message instead.
 const BACKEND_ONLY_ERROR_CODES = [
   'ROLE_NOT_FOUND', // role seeding lookup; the web client surfaces generic NOT_FOUND.
+  // The web client does not read this one yet and shows its generic message.
+  'TWO_FACTOR_LOCKED', // feature:totp
 ];
 
 // Codes a client assigns itself and the server never sends.

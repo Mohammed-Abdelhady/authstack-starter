@@ -13,6 +13,10 @@ import {
   Min,
   Validate,
 } from 'class-validator';
+import {
+  BCRYPT_ROUNDS_DEFAULT,
+  BcryptRoundsConstraint,
+} from './bcrypt-rounds.constraint';
 import { OAuthEnvironmentConfig } from './env.oauth.schema';
 import {
   ProductionPublicUrlConstraint,
@@ -81,6 +85,7 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
 
   TWO_FACTOR_ENABLED?: boolean;
   TOTP_ENCRYPTION_KEY?: string;
+  TOTP_ENCRYPTION_KEY_PREVIOUS?: string;
 
   PASSKEYS_ENABLED?: boolean;
   WEBAUTHN_RP_ID?: string;
@@ -92,6 +97,9 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
   PROFILE_SYNC_ENABLED?: boolean;
   PROFILE_SYNC_FIELDS?: string;
 }
+
+/** 32 bytes in base64: 43 characters and one of padding. */
+const TOTP_KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/;
 
 export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @IsEnum(['development', 'production', 'test'])
@@ -170,11 +178,9 @@ export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   MAIL_DRAIN_DEADLINE_MS: number = MAIL_DRAIN_DEADLINE_MS;
 
   @Type(() => Number)
-  @IsInt()
-  @Min(4)
-  @Max(12)
+  @Validate(BcryptRoundsConstraint)
   @IsOptional()
-  BCRYPT_ROUNDS: number = 10;
+  BCRYPT_ROUNDS: number = BCRYPT_ROUNDS_DEFAULT;
 
   @IsString()
   @IsOptional()
@@ -254,11 +260,29 @@ export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @Transform(transformOptionalString)
   @IsString()
   @IsOptional()
-  @Matches(/^[A-Za-z0-9+/]{43}=$/, {
+  @Matches(TOTP_KEY_PATTERN, {
     message:
       'TOTP_ENCRYPTION_KEY must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
   })
   TOTP_ENCRYPTION_KEY?: string;
+
+  /**
+   * The key before TOTP_ENCRYPTION_KEY, set only while that key is being
+   * replaced. To rotate: move the current key here, put a new key in
+   * TOTP_ENCRYPTION_KEY and restart. A secret still stored under the old key
+   * is read with it and written again under the new one the next time its
+   * account answers a code. Remove this setting once no stored secret names
+   * the old key: a secret left under it stops working then. Sign-ins waiting
+   * for a code when the key changes start again.
+   */
+  @Transform(transformOptionalString)
+  @IsString()
+  @IsOptional()
+  @Matches(TOTP_KEY_PATTERN, {
+    message:
+      'TOTP_ENCRYPTION_KEY_PREVIOUS must be 32 bytes in base64, as produced by `openssl rand -base64 32`',
+  })
+  TOTP_ENCRYPTION_KEY_PREVIOUS?: string;
 
   @Transform(transformBoolean(true))
   @IsBoolean()

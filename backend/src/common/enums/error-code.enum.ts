@@ -53,6 +53,8 @@ export enum ErrorCode {
   TWO_FACTOR_SETUP_REQUIRED = 'TWO_FACTOR_SETUP_REQUIRED',
   /** TOTP_ENCRYPTION_KEY is missing or not 32 bytes */
   TWO_FACTOR_NOT_CONFIGURED = 'TWO_FACTOR_NOT_CONFIGURED',
+  /** Too many wrong codes on the account. No answer is checked until the lock ends */
+  TWO_FACTOR_LOCKED = 'TWO_FACTOR_LOCKED',
   // feature:totp:end
 
   // Passkey errors

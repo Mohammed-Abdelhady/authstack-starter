@@ -3,6 +3,7 @@ import { MalformedIdError } from '../../../common/persistence/persistence-errors
 import {
   challengedBrowser,
   MAX_WRONG_ANSWERS,
+  NO_FAILURES,
   NO_SECOND_FACTOR,
   OWNER_EMAIL,
   PASSWORD,
@@ -79,7 +80,7 @@ export function seamCases(
       email: OWNER_EMAIL,
       isDeleted: true,
       passwordHash: undefined,
-      twoFactor: NO_SECOND_FACTOR,
+      twoFactor: { ...NO_SECOND_FACTOR, ...NO_FAILURES },
     });
     expect(challenged).toEqual(plain);
     expect({ ...withPassword, passwordHash: undefined }).toEqual(plain);
@@ -109,19 +110,24 @@ export function seamCases(
       recoveryCodes: hashes.map((hash) => ({ hash, usedAt: null })),
       lastUsedStep: null,
     };
-    expect((await accounts.findAccount(ownerId))?.twoFactor).toEqual(expected);
+    expect((await accounts.findAccount(ownerId))?.twoFactor).toEqual({
+      ...expected,
+      ...NO_FAILURES,
+    });
     expect(await harness().secondFactor(ownerId)).toEqual(expected);
 
     await accounts.replaceRecoveryCodes(account, [RECOVERY_HASH]);
     expect((await accounts.findAccount(ownerId))?.twoFactor).toEqual({
       ...expected,
+      ...NO_FAILURES,
       recoveryCodes: [{ hash: RECOVERY_HASH, usedAt: null }],
     });
 
     await accounts.clear(account);
-    expect((await accounts.findAccount(ownerId))?.twoFactor).toEqual(
-      NO_SECOND_FACTOR,
-    );
+    expect((await accounts.findAccount(ownerId))?.twoFactor).toEqual({
+      ...NO_SECOND_FACTOR,
+      ...NO_FAILURES,
+    });
     expect(await harness().secondFactor(ownerId)).toEqual(NO_SECOND_FACTOR);
   });
 

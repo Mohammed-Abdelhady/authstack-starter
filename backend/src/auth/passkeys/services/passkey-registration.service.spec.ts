@@ -1,6 +1,10 @@
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { PASSKEY_CHALLENGE_COOKIE } from '../constants/passkeys.constants';
-import { PasskeyRegistrationService } from './passkey-registration.service';
+import { PasskeyRegistrationReauth } from './passkey-registration-reauth.service';
+import {
+  PasskeyRegistrationService,
+  SignedInRequest,
+} from './passkey-registration.service';
 import { MongoPasskeyAccounts } from '../persistence/mongo/mongo-passkey-accounts';
 import { MongoPasskeyStore } from '../persistence/mongo/mongo-passkey.store';
 import { PasskeyChallengeService } from './passkey-challenge.service';
@@ -38,6 +42,13 @@ const ATTESTATION = {
   deviceType: 'multiDevice',
   backedUp: true,
 };
+
+const SESSION = { id: 'session-one', createdAt: new Date(0) };
+
+/** A request on the session the challenge is issued to. */
+function signedIn(cookies: Record<string, string>): SignedInRequest {
+  return Object.assign(createMockRequest(cookies), { session: SESSION });
+}
 
 interface Harness {
   service: PasskeyRegistrationService;
@@ -101,6 +112,10 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
       partialMock<WebAuthnAdapter>(adapter),
       createPasskeyConfig(),
       challenges,
+      // The proof asked before a passkey is added has its own cases.
+      partialMock<PasskeyRegistrationReauth>({
+        assertMayAddPasskey: () => Promise.resolve(),
+      }),
     ),
     adapter,
     passkeyModel,
@@ -116,6 +131,8 @@ describe('PasskeyRegistrationService', () => {
 
       const result = await harness.service.createOptions(
         USER_ID.toString(),
+        {},
+        signedIn({}),
         response,
       );
 
@@ -139,9 +156,10 @@ describe('PasskeyRegistrationService', () => {
         'register',
         'challenge-value',
         USER_ID.toString(),
+        SESSION.id,
       );
 
-      const request = createMockRequest({
+      const request = signedIn({
         [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],
       });
       const verifying = createMockResponse();
@@ -228,7 +246,7 @@ describe('PasskeyRegistrationService', () => {
         harness.service.verify(
           USER_ID.toString(),
           { response: CREDENTIAL_BODY },
-          createMockRequest({}),
+          signedIn({}),
           response,
         ),
       ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });

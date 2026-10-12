@@ -17,6 +17,9 @@ import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
 import { RoleSweepStore } from '../../../../../role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../mongo-admin-stores';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
+import { HashService } from '../../../../../common/services/hash.service';
 
 interface CreatedDoc extends Record<string, unknown> {
   _id: Types.ObjectId;
@@ -77,6 +80,12 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminUserCreateService,
+        {
+          provide: HashService,
+          useValue: new HashService(
+            new ConfigService({ bcrypt: { rounds: 4 } }),
+          ),
+        },
         MONGO_ADMIN_ACCOUNT_STORE,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: RoleChangeStore, useClass: MongoRoleChangeStore },
@@ -116,6 +125,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
 
     expect(created[0].password).not.toBe(createUserDto.password);
     expect(String(created[0].password)).toMatch(/^\$2[aby]\$/);
+    expect(bcrypt.getRounds(String(created[0].password))).toBe(4);
   });
 
   it('should refuse an address that is already in use', async () => {

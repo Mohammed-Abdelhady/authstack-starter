@@ -86,6 +86,8 @@ export function describeSecondFactorAfterDeletion(
           { hash: SECOND_CODE, usedAt: null },
         ],
         lastUsedStep: SPENT_STEP,
+        failedAttempts: 0,
+        lockedUntil: null,
       };
       expect({
         left: await secondFactor.findAccount(userId),

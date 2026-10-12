@@ -151,7 +151,7 @@ describe('native authorize account check (e2e)', () => {
       expect(await transactionState(started.transactionId)).toEqual(PENDING);
     });
 
-    it('acts without an expected account', async () => {
+    it('refuses an action that names no account and leaves the request pending', async () => {
       const browser = await loginAs(e2e.httpServer, SEED_USER);
       const started = await beginNativeAuthorization(e2e);
 
@@ -159,8 +159,11 @@ describe('native authorize account check (e2e)', () => {
         .post(path)
         .send({ transactionId: started.transactionId });
 
-      expect(response.status).toBe(200);
-      expectCallback(response.body);
+      expect(response.status).toBe(400);
+      expect((response.body as { error: { code: string } }).error.code).toBe(
+        'VALIDATION_ERROR',
+      );
+      expect(await transactionState(started.transactionId)).toEqual(PENDING);
     });
   });
 });

@@ -104,6 +104,7 @@ export function servicesOn(
       harness.sessions,
       runner,
       harness.clock,
+      hash,
     ),
     permissions,
     adminPermissions: new AdminPermissionsService(access, permissions),
@@ -127,6 +128,7 @@ export function servicesOn(
       harness.roleChanges,
       harness.roleSweeps,
       access,
+      hash,
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(

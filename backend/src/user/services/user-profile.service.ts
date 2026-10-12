@@ -14,7 +14,7 @@ import {
   UnitOfWork,
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
-import { PASSWORD_SALT_ROUNDS } from '../constants/user.constants';
+import { HashService } from '../../common/services/hash.service';
 import { AccountProfileStore } from '../stores/account-profile.store';
 import { AccountSessions } from '../stores/account-sessions';
 import { StoredAccount } from '../stores/stored-account';
@@ -36,6 +36,7 @@ export class UserProfileService {
     private readonly sessions: AccountSessions,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly hashService: HashService,
   ) {}
 
   /**
@@ -130,10 +131,7 @@ export class UserProfileService {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(
-      dto.newPassword,
-      PASSWORD_SALT_ROUNDS,
-    );
+    const hashedPassword = await this.hashService.hash(dto.newPassword);
 
     // The password save and the revocation of the other sessions share one
     // unit of work: a revocation failure leaves the old password in place.
