@@ -4,7 +4,6 @@ import {
 } from '../../../test/postgres/postgres-startup-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../../test/postgres/server/postgres-test-server';
 import { describeStorageStartupContract } from '../../../test/utils/startup/storage-startup-contract';
@@ -25,12 +24,17 @@ jest.mock('@nestjs/mongoose', () => {
 describeStorageStartupContract('PostgreSQL', bootPostgresStartupHarness, {
   bootMs: POSTGRES_BOOT_TIMEOUT_MS,
   teardownMs: POSTGRES_TEARDOWN_TIMEOUT_MS,
-  caseMs: POSTGRES_RESET_TIMEOUT_MS,
   behind:
     'The database is behind this build. Apply these migrations in order, then start again: 9999_not_applied_yet.sql',
   ahead:
     'The database holds migrations this build does not carry: 0002_roles.sql. Start the build that carries them, or restore the database.',
 });
+
+/**
+ * The case starts a server of its own while other suites start theirs.
+ * Slowest measured: 33 seconds.
+ */
+const OWN_SERVER_CASE_MS = 70_000;
 
 describe('PostgreSQL storage start-up on a database nothing was applied to', () => {
   it(
@@ -44,6 +48,6 @@ describe('PostgreSQL storage start-up on a database nothing was applied to', () 
         record: null,
       });
     },
-    POSTGRES_BOOT_TIMEOUT_MS,
+    OWN_SERVER_CASE_MS,
   );
 });

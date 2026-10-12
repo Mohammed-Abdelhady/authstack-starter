@@ -10,6 +10,7 @@ import {
   TEST_TRANSACTION,
   TEST_USER,
   errorResponse,
+  identityResponse,
   installFetch,
   jsonResponse,
   makeStore,
@@ -62,15 +63,15 @@ function render(store: TestStore) {
   return renderPanel({ locale: 'en', messages, store });
 }
 
-/** Leaves both reads refused in the cache, as an earlier signed-out page would. */
-async function cacheRefusedReads(store: TestStore): Promise<void> {
+/** Leaves a completed signed-out identity in the cache, as an earlier visit would. */
+async function cacheSignedOutReads(store: TestStore): Promise<void> {
   const transaction = store.dispatch(
     authApi.endpoints.getNativeAuthorizeTransaction.initiate(TEST_TRANSACTION),
   );
-  const profile = store.dispatch(authApi.endpoints.getCurrentUser.initiate());
-  await Promise.all([transaction, profile]);
+  const identity = store.dispatch(authApi.endpoints.getIdentity.initiate());
+  await Promise.all([transaction, identity]);
   transaction.unsubscribe();
-  profile.unsubscribe();
+  identity.unsubscribe();
 }
 
 describe('NativeAuthorizePanel sign-in round trip', () => {
@@ -78,7 +79,7 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     let signedIn = false;
     const refused = () => errorResponse('SESSION_REQUIRED', 401);
     installFetch(() => (signedIn ? transactionResponse() : refused()), {
-      profile: () => (signedIn ? userResponse(TEST_USER) : refused()),
+      identity: () => (signedIn ? userResponse(TEST_USER) : identityResponse(null)),
     });
     const store = makeStore();
 
@@ -94,14 +95,14 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     expect(replaceMock).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores a refusal that was cached before this visit began', async () => {
+  it('refreshes a cached signed-out identity before deciding whether to redirect', async () => {
     let signedIn = false;
     const refused = () => errorResponse('SESSION_REQUIRED', 401);
     installFetch(() => (signedIn ? transactionResponse() : refused()), {
-      profile: () => (signedIn ? userResponse(TEST_USER) : refused()),
+      identity: () => (signedIn ? userResponse(TEST_USER) : identityResponse(null)),
     });
     const store = makeStore();
-    await cacheRefusedReads(store);
+    await cacheSignedOutReads(store);
 
     signedIn = true;
     render(store);
@@ -115,12 +116,16 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     installFetch(
       () => (signedInAs ? transactionResponse() : errorResponse('SESSION_REQUIRED', 401)),
       {
-        profile: () =>
-          signedInAs ? userResponse(signedInAs) : errorResponse('SESSION_REQUIRED', 401),
+        identity: () => (signedInAs ? userResponse(signedInAs) : identityResponse(null)),
       },
     );
     const store = makeStore();
-    await store.dispatch(authApi.util.upsertQueryData('getCurrentUser', undefined, TEST_USER));
+    await store.dispatch(
+      authApi.util.upsertQueryData('getIdentity', undefined, {
+        authenticated: true,
+        user: TEST_USER,
+      }),
+    );
 
     const expiredVisit = render(store);
     await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
@@ -134,7 +139,7 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     expect(card.textContent).not.toContain('layla@example.com');
   });
 
-  it.each(['profile', 'transaction'] as const)(
+  it.each(['identity', 'transaction'] as const)(
     'refetches an inherited pending %s refusal instead of redirecting',
     async (read) => {
       let answerOldRequest: (response: Response) => void = () => {
@@ -153,14 +158,14 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
       const requests = installFetch(
         () => (read === 'transaction' && !signedIn ? oldResponse() : transactionResponse()),
         {
-          profile: () =>
-            read === 'profile' && !signedIn ? oldResponse() : userResponse(TEST_USER),
+          identity: () =>
+            read === 'identity' && !signedIn ? oldResponse() : userResponse(TEST_USER),
         },
       );
       const store = makeStore();
       const oldRequest =
-        read === 'profile'
-          ? store.dispatch(authApi.endpoints.getCurrentUser.initiate())
+        read === 'identity'
+          ? store.dispatch(authApi.endpoints.getIdentity.initiate())
           : store.dispatch(
               authApi.endpoints.getNativeAuthorizeTransaction.initiate(TEST_TRANSACTION),
             );
@@ -178,8 +183,8 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
         requests.filter(
           (path) =>
             path ===
-            (read === 'profile'
-              ? '/api/user/profile'
+            (read === 'identity'
+              ? '/api/auth/identity'
               : '/api/oauth/authorize/transaction/txn-abc123'),
         ),
       ).toHaveLength(2);
@@ -187,9 +192,9 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     },
   );
 
-  it('requires sign-in when a transaction failure accompanies a refused profile', async () => {
+  it('requires sign-in when a transaction failure accompanies an invalid identity', async () => {
     installFetch(() => errorResponse('INTERNAL_ERROR', 500), {
-      profile: () => errorResponse('SESSION_INVALID', 401),
+      identity: () => errorResponse('SESSION_INVALID', 401),
     });
     render(makeStore());
 
@@ -198,7 +203,7 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
     expect(screen.queryByTestId('native-authorize-error')).toBeNull();
   });
 
-  it('redirects once when "Not you?" signs out and the profile read is then refused', async () => {
+  it('redirects once when "Not you?" signs out and identity confirms it', async () => {
     let signedOut = false;
     installFetch(
       (request) => {
@@ -209,19 +214,20 @@ describe('NativeAuthorizePanel sign-in round trip', () => {
         return transactionResponse();
       },
       {
-        profile: () => {
-          return signedOut ? errorResponse('SESSION_REQUIRED', 401) : userResponse(TEST_USER);
+        identity: () => {
+          return signedOut ? identityResponse(null) : userResponse(TEST_USER);
         },
       },
     );
     const store = makeStore();
     await seedReady(store);
     render(store);
+    await screen.findByTestId('native-authorize-ready');
 
     fireEvent.click(screen.getByTestId('native-authorize-not-you'));
 
     await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
-    // Sign-out invalidates the profile, so its refused refetch is already on
+    // Sign-out resets the cached identity, so its refetch is already on
     // the wire. A later request answering means that refetch has answered too.
     await store.dispatch(authApi.endpoints.getNativeAuthorizeTransaction.initiate('later'));
     await act(async () => {});
@@ -238,8 +244,8 @@ describe.each(SIGN_IN_CODES)('NativeAuthorizePanel answered 401 %s', (code) => {
     expect(assignMock).not.toHaveBeenCalled();
   }
 
-  it('goes to sign-in when the profile read is refused', async () => {
-    installFetch(() => transactionResponse(), { profile: () => errorResponse(code, 401) });
+  it('goes to sign-in when the identity read is refused', async () => {
+    installFetch(() => transactionResponse(), { identity: () => errorResponse(code, 401) });
     render(makeStore());
 
     await expectSignIn();
@@ -262,6 +268,7 @@ describe.each(SIGN_IN_CODES)('NativeAuthorizePanel answered 401 %s', (code) => {
     const store = makeStore();
     await seedReady(store);
     render(store);
+    await screen.findByTestId('native-authorize-ready');
 
     fireEvent.click(screen.getByTestId(control));
 

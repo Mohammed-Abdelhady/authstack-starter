@@ -13,7 +13,7 @@ import {
 } from '@/constants/api';
 import { HTTP_STATUS } from '@/constants/httpStatus';
 import { ErrorCode, getErrorCode } from '@app/core';
-import { API_PATHS } from '@app/sdk';
+import { API_PATHS, unwrapIdentityBody } from '@app/sdk';
 import {
   CSRF_HEADER,
   clearBrowserProof,
@@ -21,6 +21,7 @@ import {
   methodNeedsBrowserProof,
   rememberBrowserProof,
   rememberNoSession,
+  rememberSessionPresent,
   takeBrowserProof,
   type BrowserProofKind,
 } from './browser-proof';
@@ -121,34 +122,116 @@ function rememberIssuedProof(response: Response | undefined, data: unknown, url:
   }
 }
 
+type IdentityProofFence =
+  | { kind: 'legacy' }
+  | { kind: 'inactive' }
+  | { kind: 'request'; requestId: string; sessionGeneration: number };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function identityProofFence(state: unknown): IdentityProofFence {
+  if (!isRecord(state) || !('auth' in state) || !isRecord(state.auth)) {
+    return { kind: 'legacy' };
+  }
+
+  const auth = state.auth;
+  if (
+    !('sessionGeneration' in auth) ||
+    !('identityRequest' in auth) ||
+    typeof auth.sessionGeneration !== 'number'
+  ) {
+    return { kind: 'legacy' };
+  }
+
+  if (!isRecord(auth.identityRequest)) {
+    return { kind: 'inactive' };
+  }
+
+  const { requestId, sessionGeneration } = auth.identityRequest;
+  if (
+    typeof requestId !== 'string' ||
+    requestId.length === 0 ||
+    typeof sessionGeneration !== 'number' ||
+    sessionGeneration !== auth.sessionGeneration
+  ) {
+    return { kind: 'inactive' };
+  }
+
+  return { kind: 'request', requestId, sessionGeneration };
+}
+
+function identityProofFenceIsCurrent(state: unknown, started: IdentityProofFence): boolean {
+  const current = identityProofFence(state);
+  if (started.kind === 'legacy') {
+    return current.kind === 'legacy';
+  }
+  return (
+    started.kind === 'request' &&
+    current.kind === 'request' &&
+    started.requestId === current.requestId &&
+    started.sessionGeneration === current.sessionGeneration
+  );
+}
+
+function updateIdentityProofHint(result: Awaited<ReturnType<typeof rawBaseQuery>>): void {
+  try {
+    const identity = unwrapIdentityBody(result.data);
+    if (!identity.authenticated) {
+      clearBrowserProof();
+      rememberNoSession();
+    } else {
+      rememberSessionPresent();
+    }
+  } catch {
+    clearBrowserProof();
+  }
+}
+
 /**
  * Reads the session proof first (for a reloaded signed-in page) and falls back
  * to a fresh pre-session proof when there is no session. A pre-session proof
  * is stored and consumed inside this function, so no other request can take a
  * single-use proof that is already claimed.
  */
-async function loadBrowserProof(api: RawQueryApi, extra: RawQueryExtra): Promise<string> {
+type ProofResult = { proof: string; error?: never } | { proof?: never; error: FetchBaseQueryError };
+
+function missingProof(): ProofResult {
+  return { error: { status: 'CUSTOM_ERROR', error: 'Browser proof was not issued' } };
+}
+
+async function loadBrowserProof(api: RawQueryApi, extra: RawQueryExtra): Promise<ProofResult> {
   if (csrfLookupHint() !== 'no-session') {
     const session = await rawBaseQuery({ url: CSRF_ENDPOINT }, api, extra);
-    const sessionToken = issuedToken(session.meta?.response, session.data, CSRF_ENDPOINT);
-    if (sessionToken) {
-      rememberBrowserProof(sessionToken, 'session');
-      return sessionToken;
+    if (session.error) {
+      const hasNoSession =
+        session.error.status === HTTP_STATUS.UNAUTHORIZED ||
+        getErrorCode(session.error) === ErrorCode.CSRF_INVALID;
+      if (!hasNoSession) return { error: session.error };
+      rememberNoSession();
+    } else {
+      const sessionToken = issuedToken(session.meta?.response, session.data, CSRF_ENDPOINT);
+      if (sessionToken) {
+        rememberBrowserProof(sessionToken, 'session');
+        return { proof: sessionToken };
+      }
+      return missingProof();
     }
-    rememberNoSession();
   }
 
   const preSession = await rawBaseQuery({ url: BROWSER_PROOF_ENDPOINT }, api, extra);
+  if (preSession.error) return { error: preSession.error };
   const preSessionToken = issuedToken(
     preSession.meta?.response,
     preSession.data,
     BROWSER_PROOF_ENDPOINT,
   );
   if (!preSessionToken) {
-    return '';
+    return missingProof();
   }
   rememberBrowserProof(preSessionToken, 'pre-session');
-  return takeBrowserProof();
+  return { proof: takeBrowserProof() };
 }
 
 function isProofFailure(error: FetchBaseQueryError | undefined): boolean {
@@ -166,18 +249,24 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
 ) => {
   const url = requestUrl(args);
   const unsafe = methodNeedsBrowserProof(requestMethod(args));
+  const identityFence =
+    url === API_PATHS.auth.identity ? identityProofFence(api.getState()) : undefined;
 
   let proof = unsafe ? takeBrowserProof() : '';
   if (unsafe && !proof) {
-    proof = await loadBrowserProof(api, extra);
+    const loaded = await loadBrowserProof(api, extra);
+    if (loaded.error) return { error: loaded.error };
+    proof = loaded.proof;
   }
 
   let result = await rawBaseQuery(proof ? withBrowserProof(args, proof) : args, api, extra);
-  rememberIssuedProof(result.meta?.response, result.data, url);
-
-  // A refused session read already says there is no session proof to look up.
-  if (url === API_PATHS.user.profile && result.error?.status === HTTP_STATUS.UNAUTHORIZED) {
-    rememberNoSession();
+  if (identityFence) {
+    if (identityProofFenceIsCurrent(api.getState(), identityFence)) {
+      rememberIssuedProof(result.meta?.response, result.data, url);
+      updateIdentityProofHint(result);
+    }
+  } else {
+    rememberIssuedProof(result.meta?.response, result.data, url);
   }
 
   // A spent or stale proof must be replaced and the request retried exactly
@@ -185,7 +274,8 @@ const baseQuery: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQueryError> =
   if (unsafe && isProofFailure(result.error)) {
     clearBrowserProof();
     const retryProof = await loadBrowserProof(api, extra);
-    result = await rawBaseQuery(retryProof ? withBrowserProof(args, retryProof) : args, api, extra);
+    if (retryProof.error) return { error: retryProof.error };
+    result = await rawBaseQuery(withBrowserProof(args, retryProof.proof), api, extra);
     rememberIssuedProof(result.meta?.response, result.data, url);
   }
 

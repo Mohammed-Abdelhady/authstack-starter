@@ -10,10 +10,7 @@ import {
   ADMIN_CLIENT,
   WEB_CLIENT,
 } from '../issuance-contract/issuance-contract-support';
-import {
-  APPLICATIONS_CONTRACT_CASE_TIMEOUT_MS,
-  ApplicationsContractHarness,
-} from './applications-contract-harness';
+import { ApplicationsContractHarness } from './applications-contract-harness';
 import {
   accessOn,
   ApplicationsHarnessSource,
@@ -62,7 +59,6 @@ const NOTHING_STORED = {
 export function applicationAtomicityCases(
   harness: ApplicationsHarnessSource,
 ): void {
-  const budget = APPLICATIONS_CONTRACT_CASE_TIMEOUT_MS;
   let restores: Array<() => void> = [];
 
   afterEach(() => {
@@ -120,7 +116,6 @@ export function applicationAtomicityCases(
 
       expect(await observed(outcome, started)).toEqual(NOTHING_STORED);
     },
-    budget,
   );
 
   it.each(WORKFLOWS)(
@@ -139,6 +134,5 @@ export function applicationAtomicityCases(
 
       expect(await observed(outcome, started)).toEqual(NOTHING_STORED);
     },
-    budget,
   );
 }

@@ -9,7 +9,7 @@ import {
 } from './schemas/security-event.schema';
 import { ROLE_DELETION_EVENT_PREFIX } from '../../constants/security-event-action';
 import { RoleDeletionSweep } from '../../types/role-deletion-sweep';
-import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../constants/session-policy';
+import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../../common/persistence/mongo/linearizable-query';
 import { RoleAssignmentEvent } from '../../types/role-assignment-event';
 import {
   newSecurityEvent,

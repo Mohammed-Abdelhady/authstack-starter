@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
 import { availability, heldAnswer, HELD, IDLE, unreachable } from '@/tests/busyControls';
+import { askToClose, isOpen } from '@/tests/dialogBusy';
 import {
   refusalWith,
   registerFormTestLifecycle,
@@ -141,11 +142,11 @@ describe.each([
       expect(availability(card.opener)).toEqual(HELD);
       expect(card.requests.filter((sent) => !sent.startsWith('GET'))).toEqual([request]);
 
-      fireEvent.keyDown(screen.getByTestId(dialog), { key: 'Escape' });
+      await askToClose(dialog);
       fireEvent.click(card.confirm);
 
       await settled();
-      expect(screen.queryByTestId(dialog)).not.toBeNull();
+      expect(isOpen(dialog)).toBe(true);
       expect(card.requests.filter((sent) => !sent.startsWith('GET'))).toEqual([request]);
       card.settle(ENDINGS.accepted);
       await waitFor(() => expect(screen.queryByTestId(dialog)).toBeNull());
@@ -165,7 +166,7 @@ describe.each([
 
     it.each([
       ['refused', 'errors.codes.CANNOT_MODIFY_HIGHER_ROLE'],
-      ['unreachable', 'errors.codes.INTERNAL_ERROR'],
+      ['unreachable', 'toast.error.networkError'],
     ] as const)(
       'stays open when the change is %s, says why inside, and returns focus when closed',
       async (ending, reason) => {

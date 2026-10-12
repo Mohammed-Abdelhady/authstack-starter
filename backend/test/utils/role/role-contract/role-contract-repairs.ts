@@ -8,7 +8,6 @@ import {
   EDITOR_SLUG,
   LEAD_SLUG,
   revocationsOf,
-  roleCase,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -86,89 +85,80 @@ export function roleRepairCases(
     };
   }
 
-  roleCase(
-    'repairs an interrupted rename at start and signs each holder out once',
-    async () => {
-      const { holders, bystander } = await interruptedRename();
-      const before = (await harness().role(LEAD_SLUG))?.owedRepairs;
+  it('repairs an interrupted rename at start and signs each holder out once', async () => {
+    const { holders, bystander } = await interruptedRename();
+    const before = (await harness().role(LEAD_SLUG))?.owedRepairs;
 
-      await finishBootstrap([servicesOn(harness()).bootstrap()]);
-      const afterFirstStart = await storedRepair(holders, bystander);
-      await finishBootstrap([servicesOn(harness()).bootstrap()]);
+    await finishBootstrap([servicesOn(harness()).bootstrap()]);
+    const afterFirstStart = await storedRepair(holders, bystander);
+    await finishBootstrap([servicesOn(harness()).bootstrap()]);
 
-      expect({
-        before,
-        afterFirstStart,
-        afterSecondStart: await storedRepair(holders, bystander),
-      }).toEqual({
-        before: [`${EDITOR_SLUG} for ${fixture().editorRoleId}`],
-        afterFirstStart: repaired(holders, fixture().adminId),
-        afterSecondStart: repaired(holders, fixture().adminId),
-      });
-    },
-  );
+    expect({
+      before,
+      afterFirstStart,
+      afterSecondStart: await storedRepair(holders, bystander),
+    }).toEqual({
+      before: [`${EDITOR_SLUG} for ${fixture().editorRoleId}`],
+      afterFirstStart: repaired(holders, fixture().adminId),
+      afterSecondStart: repaired(holders, fixture().adminId),
+    });
+  });
 
-  roleCase(
-    'repairs an interrupted rename on the next edit of the role',
-    async () => {
-      const { holders, bystander } = await interruptedRename();
+  it('repairs an interrupted rename on the next edit of the role', async () => {
+    const { holders, bystander } = await interruptedRename();
 
-      const answer = await servicesOn(harness()).roles.update(
-        LEAD_SLUG,
-        { description: 'Leads content' },
-        fixture().adminId,
-      );
+    const answer = await servicesOn(harness()).roles.update(
+      LEAD_SLUG,
+      { description: 'Leads content' },
+      fixture().adminId,
+    );
 
-      expect({
-        usersMoved: answer.usersMoved,
-        stored: await storedRepair(holders, bystander),
-      }).toEqual({
-        usersMoved: 2,
-        stored: repaired(holders, fixture().adminId),
-      });
-    },
-  );
+    expect({
+      usersMoved: answer.usersMoved,
+      stored: await storedRepair(holders, bystander),
+    }).toEqual({
+      usersMoved: 2,
+      stored: repaired(holders, fixture().adminId),
+    });
+  });
 
-  roleCase(
-    'lets one of two instances repairing at once move the holders',
-    async () => {
-      const { holders, bystander } = await interruptedRename();
-      const reruns = holdReruns();
-      gates.push(reruns.refused);
-      const firstOwnsRole = gate();
-      const secondReachedHolders = gate();
-      holdHolderMoves(firstOwnsRole, secondReachedHolders);
+  it('lets one of two instances repairing at once move the holders', async () => {
+    const { holders, bystander } = await interruptedRename();
+    const reruns = holdReruns();
+    gates.push(reruns.refused);
+    const firstOwnsRole = gate();
+    const secondReachedHolders = gate();
+    holdHolderMoves(firstOwnsRole, secondReachedHolders);
 
-      const first = finishBootstrap([servicesOn(harness()).bootstrap()]);
-      await firstOwnsRole.reached(1);
-      const second = servicesOn(harness(), reruns.pause).bootstrap();
-      second.onApplicationBootstrap();
-      const secondWas = await Promise.race([
-        reruns.refused.reached(1).then(() => REFUSED_AT_THE_ROLE),
-        secondReachedHolders.reached(1).then(() => MOVED_UNDER_THE_FIRST),
-      ]);
-      const whileBothHeld = await accountsOf(harness(), holders);
+    const first = finishBootstrap([servicesOn(harness()).bootstrap()]);
+    await firstOwnsRole.reached(1);
+    const second = servicesOn(harness(), reruns.pause).bootstrap();
+    second.onApplicationBootstrap();
+    const secondWas = await Promise.race([
+      reruns.refused.reached(1).then(() => REFUSED_AT_THE_ROLE),
+      secondReachedHolders.reached(1).then(() => MOVED_UNDER_THE_FIRST),
+    ]);
+    const whileBothHeld = await accountsOf(harness(), holders);
 
-      firstOwnsRole.release();
-      secondReachedHolders.release();
-      await first;
-      reruns.refused.release();
-      await second.onApplicationShutdown();
+    firstOwnsRole.release();
+    secondReachedHolders.release();
+    await first;
+    reruns.refused.release();
+    await second.onApplicationShutdown();
 
-      expect({
-        secondWas,
-        whileBothHeld,
-        pauses: reruns.calls,
-        stored: await storedRepair(holders, bystander),
-      }).toEqual({
-        secondWas: REFUSED_AT_THE_ROLE,
-        whileBothHeld: [
-          { role: EDITOR_SLUG, sessionVersion: 0 },
-          { role: EDITOR_SLUG, sessionVersion: 0 },
-        ],
-        pauses: [1],
-        stored: repaired(holders, fixture().adminId),
-      });
-    },
-  );
+    expect({
+      secondWas,
+      whileBothHeld,
+      pauses: reruns.calls,
+      stored: await storedRepair(holders, bystander),
+    }).toEqual({
+      secondWas: REFUSED_AT_THE_ROLE,
+      whileBothHeld: [
+        { role: EDITOR_SLUG, sessionVersion: 0 },
+        { role: EDITOR_SLUG, sessionVersion: 0 },
+      ],
+      pauses: [1],
+      stored: repaired(holders, fixture().adminId),
+    });
+  });
 }

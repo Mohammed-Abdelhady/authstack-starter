@@ -12,12 +12,14 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { availability, IDLE, isHeld } from '@/tests/busyControls';
+import { askToClose, isOpen } from '@/tests/dialogBusy';
 import { clickTwiceInOneTick, writesOf } from '../../__tests__/submitTwice';
 import { useGetCurrentUserQuery } from '../../store/authApi';
 import { LogoutButton } from '../LogoutButton';
 
 vi.mock('sonner', () => ({
-  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn(), dismiss: vi.fn() },
 }));
 // jsdom follows a fragment and nothing else, so the sign-in address is one here.
 vi.mock('@/i18n/navigation', () => ({
@@ -55,7 +57,9 @@ function answerSignOut(
     attempts += 1;
     return answer();
   });
-  return () => writesOf(requests);
+  return Object.assign(() => writesOf(requests), {
+    allRequests: () => requests.allRequests,
+  });
 }
 
 /** What a server answers a read once it no longer knows the session. */
@@ -143,8 +147,8 @@ describe('a sign-out the server did not confirm', () => {
       name: page.message('auth.signOut.notConfirmedTitle'),
     });
     expect(dialog.textContent).toContain(page.message('auth.signOut.notConfirmedBody'));
-    expect(page.retry()).toHaveProperty('disabled', false);
-    expect(page.stay()).toHaveProperty('disabled', false);
+    expect(availability(page.retry())).toEqual(IDLE);
+    expect(availability(page.stay())).toEqual(IDLE);
   });
 
   it('keeps the notice up while the retry runs and signs out when it reaches the server', async () => {
@@ -157,6 +161,14 @@ describe('a sign-out the server did not confirm', () => {
     fireEvent.click(page.retry());
 
     await waitFor(() => expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]));
+    expect(writes.allRequests()).toEqual([
+      'GET /api/auth/csrf',
+      'GET /api/auth/browser-proof',
+      SIGN_OUT,
+      'GET /api/auth/csrf',
+      'GET /api/auth/browser-proof',
+      SIGN_OUT,
+    ]);
     expect(screen.getByRole('alertdialog')).toBeTruthy();
     expect(page.retry().getAttribute('aria-busy')).toBe('true');
     expect(page.isSignedIn()).toBe(true);
@@ -166,6 +178,30 @@ describe('a sign-out the server did not confirm', () => {
     expect(page.isSignedIn()).toBe(false);
     expect(page.successToasts()).toEqual([page.message('toast.success.logoutSuccess')]);
     expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]);
+  });
+
+  it('cannot be closed while the retry is in flight, and can once it failed', async () => {
+    const retried = Promise.withResolvers<Response>();
+    const writes = answerSignOut(sessionGone, unreachable, () => retried.promise);
+    const page = await renderSignedIn();
+    fireEvent.click(page.button());
+    await screen.findByTestId('sign-out-not-confirmed-dialog');
+    fireEvent.click(page.retry());
+    await waitFor(() => expect(writes()).toEqual([SIGN_OUT, SIGN_OUT]));
+
+    await askToClose('sign-out-not-confirmed-dialog');
+    fireEvent.click(page.stay());
+    await askToClose('sign-out-not-confirmed-dialog');
+
+    expect(isOpen('sign-out-not-confirmed-dialog')).toBe(true);
+    expect(isHeld(page.stay())).toBe(true);
+
+    retried.reject(new TypeError('Failed to fetch'));
+    await waitFor(() => expect(isHeld(page.stay())).toBe(false));
+    fireEvent.click(page.stay());
+
+    await waitFor(() => expect(screen.queryByTestId('sign-out-not-confirmed-dialog')).toBeNull());
+    expect(page.isSignedIn()).toBe(true);
   });
 
   it('keeps saying so when the retry fails as well', async () => {
@@ -288,11 +324,10 @@ describe('the reads of the page after a sign-out that was not confirmed', () => 
     return requests;
   }
 
-  it('are not asked again while the server cannot be reached', async () => {
+  it('are asked again when the sign-out answer is lost', async () => {
     const requests = await signOutWith(unreachable);
 
-    // The mutation has settled by the time the notice is up, so a refetch would be listed.
-    expect(requests).toEqual([PROFILE, SIGN_OUT]);
+    await waitFor(() => expect(requests).toEqual([PROFILE, SIGN_OUT, PROFILE]));
   });
 
   it('are asked again when the server answered with a failure', async () => {

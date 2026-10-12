@@ -3,6 +3,7 @@ export {
   authApi,
   useLoginMutation,
   useLogoutMutation,
+  useGetIdentityQuery,
   useGetCurrentUserQuery,
   useChangePasswordMutation,
   useUpdateProfileMutation,

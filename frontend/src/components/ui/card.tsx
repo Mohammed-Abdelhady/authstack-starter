@@ -1,5 +1,6 @@
 import * as React from 'react';
 
+import { FOCUS_LANDING_CLASSES } from '@/constants/focusStyles';
 import { DESCRIPTION_ROLE_CLASSES, HEADING_ROLE_CLASSES } from '@/constants/typography';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +24,16 @@ CardHeader.displayName = 'CardHeader';
 
 const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn(HEADING_ROLE_CLASSES.sectionTitle, className)} {...props} />
+    <h3
+      ref={ref}
+      // A title that can take focus is a landing for it, and shows the app's ring.
+      className={cn(
+        HEADING_ROLE_CLASSES.sectionTitle,
+        props.tabIndex !== undefined && FOCUS_LANDING_CLASSES,
+        className,
+      )}
+      {...props}
+    />
   ),
 );
 CardTitle.displayName = 'CardTitle';

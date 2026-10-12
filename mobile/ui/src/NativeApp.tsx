@@ -3,6 +3,7 @@ import { StatusBar, StyleSheet, View } from 'react-native';
 import { Provider } from 'react-redux';
 import { confirmWithAlert } from './components/confirm';
 import { ROOT_VIEW, ROUTE, SIGN_IN_ACTION } from './constants';
+import { PaintContext } from './context/paint-context';
 import { UiContext, type Ui } from './context/ui-context';
 import { useEngineSnapshot } from './hooks/use-engine-snapshot';
 import { useForegroundRestore } from './hooks/use-foreground-restore';
@@ -71,10 +72,12 @@ export function NativeApp({
   return (
     <Provider store={runtime.store}>
       <UiContext.Provider value={ui}>
-        <View style={[styles.root, { backgroundColor: colors.background, direction }]}>
-          <StatusBar barStyle={statusBarStyle} />
-          {rootView(snapshot) === ROOT_VIEW.SIGNED_IN ? <SignedInScreens /> : <SignInScreen />}
-        </View>
+        <PaintContext.Provider value={ui}>
+          <View style={[styles.root, { backgroundColor: colors.background, direction }]}>
+            <StatusBar barStyle={statusBarStyle} />
+            {rootView(snapshot) === ROOT_VIEW.SIGNED_IN ? <SignedInScreens /> : <SignInScreen />}
+          </View>
+        </PaintContext.Provider>
       </UiContext.Provider>
     </Provider>
   );

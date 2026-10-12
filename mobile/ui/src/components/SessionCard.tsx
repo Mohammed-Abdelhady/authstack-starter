@@ -22,9 +22,15 @@ const styles = StyleSheet.create({
 interface SessionCardProps {
   row: SessionRow;
   onRevoke: (row: SessionRow) => void;
+  /** True while this row's own sign-out is on its way. */
+  busy?: boolean;
 }
 
-export const SessionCard = memo(function SessionCard({ row, onRevoke }: SessionCardProps) {
+export const SessionCard = memo(function SessionCard({
+  row,
+  onRevoke,
+  busy = false,
+}: SessionCardProps) {
   const { t, locale, colors } = useUi();
   const device = deviceText(t, row.device);
   const kind = kindText(t, row.kind);
@@ -55,6 +61,7 @@ export const SessionCard = memo(function SessionCard({ row, onRevoke }: SessionC
           row.isCurrent ? t('account.signOut') : t('sessions.revokeLabel', { device })
         }
         accessibilityHint={row.isCurrent ? t('account.signOutHint') : undefined}
+        busy={busy}
         onPress={revoke}
       />
     </View>

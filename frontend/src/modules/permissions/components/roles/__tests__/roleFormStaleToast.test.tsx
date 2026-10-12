@@ -110,29 +110,26 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('the toasts of a role form in %s', (locale) => {
   describe.each(FORMS)('$form', (formCase) => {
-    it('takes the refusal toast down before announcing the corrected save', async () => {
+    it('raises no toast for the refusal, and one for the corrected save', async () => {
       refuseTheSlash();
-      const { submitName, format, generalMessage, errorToasts, successToasts } = await openForm(
-        locale,
-        formCase,
-      );
+      const { submitName, format, errorToasts, successToasts } = await openForm(locale, formCase);
 
       submitName(REFUSED_NAME);
+      const name = screen.getByTestId(formCase.nameField);
       await waitFor(() => {
-        expect(errorToasts()).toEqual([generalMessage]);
+        expect(name.getAttribute('aria-invalid')).toBe('true');
       });
-      expect(dismissalsAndSuccesses()).toEqual([]);
       await waitFor(() => {
-        expect(isHeld(screen.getByTestId(formCase.nameField))).toBe(false);
+        expect(isHeld(name)).toBe(false);
       });
+      // The field says why. No toast was raised, so none has to be taken down.
+      expect(errorToasts()).toEqual([]);
       submitName(ACCEPTED_NAME);
 
       await waitFor(() => {
         expect(successToasts()).toEqual([format(formCase.successKey, { name: ACCEPTED_NAME })]);
       });
-      expect(dismissalsAndSuccesses()).toEqual(['dismiss', 'success']);
-      // Called with no id: every toast on screen goes.
-      expect(vi.mocked(sonnerToast.dismiss).mock.calls).toEqual([[]]);
+      expect(dismissalsAndSuccesses()).toEqual(['success']);
     });
 
     it('dismisses nothing when the first save is accepted', async () => {

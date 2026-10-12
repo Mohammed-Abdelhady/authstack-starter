@@ -38,7 +38,7 @@ export function SubmitButton({
       aria-busy={isLoading}
       data-testid={testId}
       className={cn(
-        'h-14 mt-5 tracking-wide font-semibold w-full py-4 rounded-lg transition-all duration-300 ease-in-out flex items-center justify-center',
+        'h-14 mt-5 tracking-wide font-semibold w-full py-4 rounded-lg flex items-center justify-center',
         className,
       )}
       {...props}

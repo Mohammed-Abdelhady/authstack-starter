@@ -7,6 +7,7 @@ export interface E2eNewAccount {
   role?: string;
   isVerified?: boolean;
   isDeleted?: boolean;
+  pendingEmail?: string;
   addressGeneration?: number;
   /** Already hashed. */
   password?: string;
@@ -21,6 +22,7 @@ export interface E2eStoredAccount {
   permissions: string[];
   isVerified: boolean;
   isDeleted: boolean;
+  pendingEmail?: string;
   /** Absent on an account that was never deactivated or was reactivated. */
   deletedAt?: Date;
   addressGeneration: number;

@@ -15,15 +15,10 @@ import {
   SignInAccount,
   toAuthenticatedUser,
 } from '../../utils/authenticated-user.util';
+import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
 import { TwoFactorChallengeService } from '../../two-factor/services/two-factor-challenge.service'; // feature:totp
 
-/**
- * Either the sign-in finished and the caller has a session, or a second factor
- * is owed and the challenge cookie is already set.
- */
-export type SignInOutcome =
-  | { requiresTwoFactor: true }
-  | { requiresTwoFactor: false; user: AuthenticatedUserSummary };
+export type { SignInOutcome };
 
 // Log lines keep the context they were written under before this class existed.
 const LOG_CONTEXT = 'SignInService'; // feature:totp

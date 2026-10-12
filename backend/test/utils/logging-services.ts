@@ -13,7 +13,9 @@ import { AuthModule } from '../../src/auth/auth.module';
 import { AdminModule } from '../../src/admin/admin.module';
 import { DatabaseModule } from '../../src/database/database.module';
 import { RoleSeedService } from '../../src/database/seeds/role.seed';
+import { SessionService } from '../../src/auth/persistence/mongo/session.service';
 import { ApplicationRegistryService } from '../../src/session/persistence/mongo/application-registry.service';
+import { SessionModule } from '../../src/session/session.module';
 import {
   User,
   UserDocument,
@@ -83,8 +85,10 @@ export async function bootLoggingServices(
         AuthModule,
         AdminModule,
         DatabaseModule,
+        SessionModule,
         ...imports,
       ],
+      providers: [SessionService],
     })
       .overrideProvider(Clock)
       .useValue(clock)

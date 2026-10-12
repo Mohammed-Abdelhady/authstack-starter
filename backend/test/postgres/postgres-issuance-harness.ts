@@ -188,6 +188,7 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         clientVersion: row.client_version,
         grantVersion: row.grant_version,
         deviceName: row.device_name,
+        device: row.device,
         authenticatedAt: row.authenticated_at,
         expiresAt: row.expires_at,
         idleExpiresAt: row.idle_expires_at,

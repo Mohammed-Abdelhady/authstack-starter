@@ -7,6 +7,7 @@ const FAILURE_TEXT: Record<SignInFailure, MessageKey> = {
   denied: 'signIn.failed.denied',
   disabled: 'signIn.failed.disabled',
   throttled: 'signIn.failed.throttled',
+  sessionLimit: 'signIn.failed.sessionLimit',
   deviceKey: 'signIn.failed.deviceKey',
   browser: 'signIn.failed.browser',
   storage: 'signIn.failed.storage',
@@ -53,6 +54,9 @@ export function signInNotice(view: SignInView): NoticeText | undefined {
   if (view.sessionEnded) {
     return { title: 'signIn.reauth.title', description: 'signIn.reauth.description' };
   }
+  if (view.switchedOff) {
+    return { title: 'signIn.switchedOff.title', description: 'signIn.switchedOff.description' };
+  }
   const notice = STATE_NOTICE[view.state];
   if (notice === undefined || view.failure === undefined) return notice;
   return { ...notice, description: FAILURE_TEXT[view.failure] };
@@ -63,5 +67,5 @@ export function signInActionText(view: SignInView): MessageKey {
 }
 
 export function isProblem(view: SignInView): boolean {
-  return PROBLEM_STATES.includes(view.state);
+  return view.switchedOff || PROBLEM_STATES.includes(view.state);
 }

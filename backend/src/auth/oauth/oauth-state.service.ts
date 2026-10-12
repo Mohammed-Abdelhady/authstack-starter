@@ -4,6 +4,7 @@ import { CookieOptions, Request, Response } from 'express';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
+import { hostCookieName } from '../utils/cookie-name.util';
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   OAUTH_STATE_TTL_MS,
@@ -24,6 +25,8 @@ export interface OAuthStatePayload {
   intent: 'login' | 'link';
   /** Session user id stored when `intent` is `link`. */
   linkUserId?: string;
+  /** The session that asked for the link. It must still be live at the callback. */
+  linkSessionId?: string;
 }
 
 export interface OAuthStateRequest {
@@ -32,6 +35,7 @@ export interface OAuthStateRequest {
   usesOidc: boolean;
   intent?: 'login' | 'link';
   linkUserId?: string;
+  linkSessionId?: string;
 }
 
 export interface OAuthStateCreation {
@@ -40,6 +44,10 @@ export interface OAuthStateCreation {
 }
 
 const RANDOM_BYTES = 32;
+
+function isFilled(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
+}
 
 /**
  * Issues and verifies the short lived signed cookie that carries OAuth state,
@@ -51,7 +59,10 @@ export class OAuthStateService {
   constructor(private readonly configService: ConfigService) {}
 
   cookieName(provider: string): string {
-    return `${OAUTH_STATE_COOKIE_PREFIX}${provider}`;
+    return hostCookieName(
+      this.configService.get<string>('NODE_ENV'),
+      `${OAUTH_STATE_COOKIE_PREFIX}${provider}`,
+    );
   }
 
   create(request: OAuthStateRequest): OAuthStateCreation {
@@ -64,6 +75,7 @@ export class OAuthStateService {
 
     if (payload.intent === 'link') {
       payload.linkUserId = request.linkUserId;
+      payload.linkSessionId = request.linkSessionId;
     }
 
     if (request.usesOidc) {
@@ -163,8 +175,7 @@ export class OAuthStateService {
    * the cookie stays Lax and the POST callback drops it.
    */
   private cookieOptions(crossSite = false): CookieOptions {
-    const isProduction =
-      this.configService.get<string>('NODE_ENV') === 'production';
+    const isProduction = this.isProduction();
 
     return {
       httpOnly: true,
@@ -174,7 +185,18 @@ export class OAuthStateService {
     };
   }
 
+  private isProduction(): boolean {
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  /**
+   * The production name carries `__Host-`, which a browser only accepts on
+   * path `/`. Elsewhere the cookie stays on the callback path.
+   */
   private cookiePath(): string {
+    if (this.isProduction()) {
+      return '/';
+    }
     const baseUrl = this.configService.get<string>('oauth.callbackBaseUrl');
     if (!baseUrl) {
       return '/';
@@ -202,11 +224,8 @@ export class OAuthStateService {
         throw new Error('missing fields');
       }
       if (payload.intent === 'link') {
-        if (
-          typeof payload.linkUserId !== 'string' ||
-          payload.linkUserId.length === 0
-        ) {
-          throw new Error('missing link user');
+        if (!isFilled(payload.linkUserId) || !isFilled(payload.linkSessionId)) {
+          throw new Error('missing link user or session');
         }
       } else {
         payload.intent = 'login';

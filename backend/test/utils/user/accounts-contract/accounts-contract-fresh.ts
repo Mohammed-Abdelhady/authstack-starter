@@ -1,7 +1,6 @@
 import { holdBefore, RaceGate } from '../../race-gate';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import {
-  accountCase,
   AccountServices,
   AccountsFixture,
   AccountsHarnessSource,
@@ -9,6 +8,8 @@ import {
   DEFAULT_SLUG,
   EDITOR_SLUG,
   MANAGER_SLUG,
+  READ_POSTS,
+  READ_USERS,
   refusalOf,
   revocationsOf,
   servicesOn,
@@ -60,6 +61,26 @@ const MANAGER_MUTATIONS: Array<[string, Mutation]> = [
     (services, { userId, managerId }) =>
       services.adminUsers.deleteUser(userId, managerId),
   ],
+  [
+    'a permission grant',
+    (services, { userId, managerId }) =>
+      services.adminPermissions.addPermission(
+        userId,
+        READ_POSTS,
+        managerId,
+        MANAGER_SLUG,
+      ),
+  ],
+  [
+    'a permission revocation',
+    (services, { userId, managerId }) =>
+      services.adminPermissions.removePermission(
+        userId,
+        READ_USERS,
+        managerId,
+        MANAGER_SLUG,
+      ),
+  ],
 ];
 
 /**
@@ -94,6 +115,7 @@ async function expectUntouched(
   expect(await storedAccount(harness, userId)).toMatchObject({
     name: 'Plain Person',
     role: DEFAULT_SLUG,
+    permissions: [READ_USERS],
     isDeleted: false,
     sessionVersion: 0,
   });
@@ -109,7 +131,7 @@ export function accountFreshnessCases(
   fixture: () => AccountsFixture,
 ): void {
   describe.each(MANAGER_MUTATIONS)('%s', (_name, mutation) => {
-    accountCase('is refused when the actor was demoted meanwhile', async () => {
+    it('is refused when the actor was demoted meanwhile', async () => {
       const { userId, managerId } = fixture();
 
       const refusal = await withChangeAfterTheCheck(
@@ -122,110 +144,93 @@ export function accountFreshnessCases(
       await expectUntouched(harness(), userId);
     });
 
-    accountCase(
-      'is refused when the actor was deactivated meanwhile',
-      async () => {
-        const { userId, managerId } = fixture();
-
-        const refusal = await withChangeAfterTheCheck(
-          harness(),
-          () => mutation(servicesOn(harness()), fixture()),
-          () => harness().alterAccount(managerId, { deleted: true }),
-        );
-
-        expect(refusal).toEqual(ACTOR_GONE);
-        await expectUntouched(harness(), userId);
-      },
-    );
-
-    accountCase(
-      'is refused when the target was promoted meanwhile',
-      async () => {
-        const { userId } = fixture();
-
-        const refusal = await withChangeAfterTheCheck(
-          harness(),
-          () => mutation(servicesOn(harness()), fixture()),
-          () => harness().alterAccount(userId, { role: MANAGER_SLUG }),
-        );
-
-        expect(refusal).toEqual(HIGHER_ROLE);
-        expect(await storedAccount(harness(), userId)).toMatchObject({
-          name: 'Plain Person',
-          role: MANAGER_SLUG,
-          isDeleted: false,
-          sessionVersion: 0,
-        });
-      },
-    );
-
-    accountCase(
-      'is refused when the target was deactivated meanwhile',
-      async () => {
-        const { userId } = fixture();
-
-        const refusal = await withChangeAfterTheCheck(
-          harness(),
-          () => mutation(servicesOn(harness()), fixture()),
-          () => harness().alterAccount(userId, { deleted: true }),
-        );
-
-        expect(refusal).toEqual(NOT_FOUND);
-        expect(await storedAccount(harness(), userId)).toMatchObject({
-          name: 'Plain Person',
-          role: DEFAULT_SLUG,
-          sessionVersion: 0,
-        });
-      },
-    );
-
-    accountCase(
-      'changes nothing when the sign-out cannot be recorded',
-      async () => {
-        const { userId } = fixture();
-        const restore = await harness().refuseSecurityEvents();
-        try {
-          await mutation(servicesOn(harness()), fixture()).catch(
-            () => undefined,
-          );
-        } finally {
-          restore();
-        }
-
-        // A rename signs nobody out, so it is the one change that still lands.
-        const stored = await storedAccount(harness(), userId);
-        expect({
-          role: stored.role,
-          isDeleted: stored.isDeleted,
-          sessionVersion: stored.sessionVersion,
-        }).toEqual({ role: DEFAULT_SLUG, isDeleted: false, sessionVersion: 0 });
-      },
-    );
-  });
-
-  accountCase(
-    'refuses a reactivation by an actor demoted meanwhile',
-    async () => {
+    it('is refused when the actor was deactivated meanwhile', async () => {
       const { userId, managerId } = fixture();
-      await harness().alterAccount(userId, { deleted: true });
 
       const refusal = await withChangeAfterTheCheck(
         harness(),
-        () =>
-          servicesOn(harness()).adminUsers.updateUserStatus(
-            userId,
-            { isActive: true },
-            managerId,
-          ),
-        () => harness().alterAccount(managerId, { role: DEFAULT_SLUG }),
+        () => mutation(servicesOn(harness()), fixture()),
+        () => harness().alterAccount(managerId, { deleted: true }),
+      );
+
+      expect(refusal).toEqual(ACTOR_GONE);
+      await expectUntouched(harness(), userId);
+    });
+
+    it('is refused when the target was promoted meanwhile', async () => {
+      const { userId } = fixture();
+
+      const refusal = await withChangeAfterTheCheck(
+        harness(),
+        () => mutation(servicesOn(harness()), fixture()),
+        () => harness().alterAccount(userId, { role: MANAGER_SLUG }),
       );
 
       expect(refusal).toEqual(HIGHER_ROLE);
-      expect((await storedAccount(harness(), userId)).isDeleted).toBe(true);
-    },
-  );
+      expect(await storedAccount(harness(), userId)).toMatchObject({
+        name: 'Plain Person',
+        role: MANAGER_SLUG,
+        isDeleted: false,
+        sessionVersion: 0,
+      });
+    });
 
-  accountCase('refuses a creation by an actor demoted meanwhile', async () => {
+    it('is refused when the target was deactivated meanwhile', async () => {
+      const { userId } = fixture();
+
+      const refusal = await withChangeAfterTheCheck(
+        harness(),
+        () => mutation(servicesOn(harness()), fixture()),
+        () => harness().alterAccount(userId, { deleted: true }),
+      );
+
+      expect(refusal).toEqual(NOT_FOUND);
+      expect(await storedAccount(harness(), userId)).toMatchObject({
+        name: 'Plain Person',
+        role: DEFAULT_SLUG,
+        sessionVersion: 0,
+      });
+    });
+
+    it('does not change session state when security events cannot be recorded', async () => {
+      const { userId } = fixture();
+      const restore = await harness().refuseSecurityEvents();
+      try {
+        await mutation(servicesOn(harness()), fixture()).catch(() => undefined);
+      } finally {
+        restore();
+      }
+
+      // These account changes do not revoke the target's sessions.
+      const stored = await storedAccount(harness(), userId);
+      expect({
+        role: stored.role,
+        isDeleted: stored.isDeleted,
+        sessionVersion: stored.sessionVersion,
+      }).toEqual({ role: DEFAULT_SLUG, isDeleted: false, sessionVersion: 0 });
+    });
+  });
+
+  it('refuses a reactivation by an actor demoted meanwhile', async () => {
+    const { userId, managerId } = fixture();
+    await harness().alterAccount(userId, { deleted: true });
+
+    const refusal = await withChangeAfterTheCheck(
+      harness(),
+      () =>
+        servicesOn(harness()).adminUsers.updateUserStatus(
+          userId,
+          { isActive: true },
+          managerId,
+        ),
+      () => harness().alterAccount(managerId, { role: DEFAULT_SLUG }),
+    );
+
+    expect(refusal).toEqual(HIGHER_ROLE);
+    expect((await storedAccount(harness(), userId)).isDeleted).toBe(true);
+  });
+
+  it('refuses a creation by an actor demoted meanwhile', async () => {
     const { managerId } = fixture();
     const admitted = new RaceGate();
     const restore = holdBefore(harness().admin, 'readRoleBySlug', (call) =>
@@ -255,32 +260,29 @@ export function accountFreshnessCases(
     expect(await harness().accountIdByEmail('never@example.test')).toBeNull();
   });
 
-  accountCase(
-    'refuses an address change by an admin demoted meanwhile',
-    async () => {
-      const { userId, adminId } = fixture();
+  it('refuses an address change by an admin demoted meanwhile', async () => {
+    const { userId, adminId } = fixture();
 
-      const refusal = await withChangeAfterTheCheck(
-        harness(),
-        () =>
-          servicesOn(harness()).adminUsers.updateUser(
-            userId,
-            { email: 'moved@example.test' },
-            adminId,
-            ADMIN_SLUG,
-          ),
-        () => harness().alterAccount(adminId, { role: MANAGER_SLUG }),
-      );
+    const refusal = await withChangeAfterTheCheck(
+      harness(),
+      () =>
+        servicesOn(harness()).adminUsers.updateUser(
+          userId,
+          { email: 'moved@example.test' },
+          adminId,
+          ADMIN_SLUG,
+        ),
+      () => harness().alterAccount(adminId, { role: MANAGER_SLUG }),
+    );
 
-      expect(refusal).toEqual({
-        code: 'EMAIL_CHANGE_NOT_ALLOWED',
-        status: 403,
-      });
-      expect(await storedAccount(harness(), userId)).toMatchObject({
-        email: 'person@example.test',
-        isVerified: true,
-        addressGeneration: 0,
-      });
-    },
-  );
+    expect(refusal).toEqual({
+      code: 'EMAIL_CHANGE_NOT_ALLOWED',
+      status: 403,
+    });
+    expect(await storedAccount(harness(), userId)).toMatchObject({
+      email: 'person@example.test',
+      isVerified: true,
+      addressGeneration: 0,
+    });
+  });
 }

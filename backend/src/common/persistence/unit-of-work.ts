@@ -37,4 +37,12 @@ export abstract class UnitOfWorkRunner {
   abstract run<Result>(
     work: (unitOfWork: UnitOfWork) => Promise<Result>,
   ): Promise<Result>;
+
+  /** Lets an adapter coordinate concurrent operations from one actor. */
+  runForAuthority<Result>(
+    _actorId: string,
+    work: (unitOfWork: UnitOfWork) => Promise<Result>,
+  ): Promise<Result> {
+    return this.run(work);
+  }
 }

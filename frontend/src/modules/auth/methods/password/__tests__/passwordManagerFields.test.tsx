@@ -36,6 +36,7 @@ describe('fields a password manager reads', () => {
       <ChangePasswordCard />,
       signedInStore(),
     );
+    await screen.findByTestId('change-password-form');
     const label = (key: string) => message(`settings.password.${key}`);
     const username = screen.getByTestId('account-username');
     const currentPassword = screen.getByLabelText(label('currentPassword'));

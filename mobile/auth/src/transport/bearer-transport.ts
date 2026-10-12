@@ -10,7 +10,9 @@ import type { AbortSignalPort } from '../types/auth';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { RuntimeTokens } from '../types/record';
 import { AuthDisposedError, AuthSessionError, UnsafeRequestPathError } from '../errors/errors';
+import { SESSION_STATUS } from '../constants';
 import { abortedError, raceWithAbort } from '../runtime/abortable';
+import { endSwitchedOffSession, isKillSwitchResponse } from './kill-switch';
 
 export type EnsureCurrentTokens = (signal?: AbortSignalPort) => Promise<RuntimeTokens>;
 export type RefreshTokens = (signal?: AbortSignalPort) => Promise<RuntimeTokens>;
@@ -47,7 +49,7 @@ export function createBearerTransport(
     assertCurrentEpoch(runtime, epoch);
     const first = await sendWithToken(runtime, input, token, epoch);
     assertCurrentEpoch(runtime, epoch);
-    if (first.status !== 401) return first;
+    if (first.status !== 401) return afterKillSwitch(first);
 
     const current = runtime.tokens;
     const retryToken =
@@ -57,6 +59,14 @@ export function createBearerTransport(
     assertCurrentEpoch(runtime, epoch);
     const response = await sendWithToken(runtime, input, retryToken, epoch);
     assertCurrentEpoch(runtime, epoch);
+    return afterKillSwitch(response);
+  };
+
+  /** A sign-in in progress settles its own failed profile read, so only a live session ends here. */
+  const afterKillSwitch = async (response: TransportResponse): Promise<TransportResponse> => {
+    if (isKillSwitchResponse(response) && runtime.snapshot.status === SESSION_STATUS.SIGNED_IN) {
+      await endSwitchedOffSession(runtime);
+    }
     return response;
   };
   return { request };

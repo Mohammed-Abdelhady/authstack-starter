@@ -8,10 +8,7 @@ import {
   NewBrowserProof,
 } from '../../proofs/browser-proof.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
-import {
-  autocommit,
-  removedRows,
-} from '../../../auth/persistence/postgres/postgres-pending-codes-database';
+import { autocommit } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 
 const PROOF_CONSTRAINTS = {
   browser_proof_id_unique: BROWSER_PROOF_CONSTRAINT.PROOF_ID,
@@ -85,15 +82,5 @@ export class PostgresBrowserProofStore extends BrowserProofStore {
     return row.expires_at.getTime() <= now.getTime()
       ? BROWSER_PROOF_CLAIM.EXPIRED
       : BROWSER_PROOF_CLAIM.NOT_FOUND;
-  }
-
-  async deleteExpiredBrowserProofs(now: Date): Promise<number> {
-    const removed = await autocommit(NO_CONSTRAINTS, () =>
-      this.database
-        .deleteFrom('browser_proofs')
-        .where('expires_at', '<=', now)
-        .executeTakeFirst(),
-    );
-    return removedRows(removed);
   }
 }

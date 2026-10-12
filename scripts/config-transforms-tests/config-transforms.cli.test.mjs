@@ -53,7 +53,7 @@ test('init writes OAuth and native DPoP secrets into backend configuration', asy
   const randomSizes = [];
   const secrets = createSetupSecrets((size) => {
     randomSizes.push(size);
-    return Buffer.from(randomSizes.length === 1 ? 'A'.repeat(size) : 'B'.repeat(size));
+    return Buffer.from(String.fromCharCode(64 + randomSizes.length).repeat(size));
   });
   const backendEnv = generateBackendEnv(
     {
@@ -70,7 +70,11 @@ test('init writes OAuth and native DPoP secrets into backend configuration', asy
     'AUTH_NATIVE_APPLICATIONS=[]\n', // feature:native-core
   );
 
-  assert.deepEqual(randomSizes, [48, 48]);
+  assert.deepEqual(randomSizes, [
+    48,
+    48,
+    48, // feature:passkeys
+  ]);
   assert.equal(
     secrets.stateSecret,
     'QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB',
@@ -80,6 +84,12 @@ test('init writes OAuth and native DPoP secrets into backend configuration', asy
     'QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJC',
   );
   assert.notEqual(secrets.stateSecret, secrets.nativeDpopNonceSecret);
+  // feature:passkeys:start
+  assert.equal(secrets.passkeyChallengeSecret, 'Q0ND'.repeat(16));
+  assert.notEqual(secrets.passkeyChallengeSecret, secrets.stateSecret);
+  assert.notEqual(secrets.passkeyChallengeSecret, secrets.nativeDpopNonceSecret);
+  // feature:passkeys:end
+
   assert.match(backendEnv, /OAUTH_CALLBACK_BASE_URL=http:\/\/localhost:5001\/api\/auth\/oauth/);
   assert.ok(
     backendEnv.includes(

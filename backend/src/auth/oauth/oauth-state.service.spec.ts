@@ -146,7 +146,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'google', payload);
 
       expect(cookie).toHaveBeenCalledWith(
-        'oauth_google',
+        '__Host-oauth_google',
         expect.any(String),
         expect.objectContaining({ secure: true }),
       );
@@ -164,7 +164,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'apple', payload, true);
 
       expect(cookie).toHaveBeenCalledWith(
-        'oauth_apple',
+        '__Host-oauth_apple',
         expect.any(String),
         expect.objectContaining({ sameSite: 'none', secure: true }),
       );

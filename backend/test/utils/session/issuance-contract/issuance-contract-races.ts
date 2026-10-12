@@ -2,7 +2,6 @@ import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RetryableAbortError } from '../../../../src/common/persistence/persistence-errors';
 import { IssuedBrowserSession } from '../../../../src/session/services/session-issuance.service';
 import { holdBefore, RaceGate } from '../../race-gate';
-import { ISSUANCE_CONTRACT_CASE_TIMEOUT_MS } from './issuance-contract-harness';
 import {
   HarnessSource,
   holdReruns,
@@ -97,126 +96,45 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     };
   }
 
-  it(
-    'admits exactly one of two sign-ins at the last free slot',
-    async () => {
-      const userId = await harness().seedAccount();
-      await signInTimes(
-        harness().service(rerunAtOnce),
-        userId,
-        SESSION_CAP - 1,
-      );
+  it('admits exactly one of two sign-ins at the last free slot', async () => {
+    const userId = await harness().seedAccount();
+    await signInTimes(harness().service(rerunAtOnce), userId, SESSION_CAP - 1);
 
-      const race = await raceTwoSignIns(userId);
+    const race = await raceTwoSignIns(userId);
 
-      expect({ race, after: await storedCounts(harness(), userId) }).toEqual({
-        race: {
-          secondWas: REFUSED_AT_ACCOUNT,
-          whileBothHeld: {
-            sessions: 19,
-            grants: 1,
-            grantFences: [19],
-            accountFence: 19,
-            events: 19,
-          },
-          first: SIGNED_IN,
-          second: ErrorCode.SESSION_LIMIT_REACHED,
-          pauses: [1],
-        },
-        after: {
-          sessions: 20,
+    expect({ race, after: await storedCounts(harness(), userId) }).toEqual({
+      race: {
+        secondWas: REFUSED_AT_ACCOUNT,
+        whileBothHeld: {
+          sessions: 19,
           grants: 1,
-          grantFences: [20],
-          accountFence: 20,
-          events: 20,
+          grantFences: [19],
+          accountFence: 19,
+          events: 19,
         },
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+        first: SIGNED_IN,
+        second: ErrorCode.SESSION_LIMIT_REACHED,
+        pauses: [1],
+      },
+      after: {
+        sessions: 20,
+        grants: 1,
+        grantFences: [20],
+        accountFence: 20,
+        events: 20,
+      },
+    });
+  });
 
-  it(
-    'admits the refused sign-in on its rerun when a slot is still free',
-    async () => {
-      const userId = await harness().seedAccount();
+  it('admits the refused sign-in on its rerun when a slot is still free', async () => {
+    const userId = await harness().seedAccount();
 
-      const race = await raceTwoSignIns(userId);
+    const race = await raceTwoSignIns(userId);
 
-      expect({ race, after: await storedCounts(harness(), userId) }).toEqual({
-        race: {
-          secondWas: REFUSED_AT_ACCOUNT,
-          whileBothHeld: {
-            sessions: 0,
-            grants: 0,
-            grantFences: [],
-            accountFence: 0,
-            events: 0,
-          },
-          first: SIGNED_IN,
-          second: SIGNED_IN,
-          pauses: [1],
-        },
-        after: {
-          sessions: 2,
-          grants: 1,
-          grantFences: [2],
-          accountFence: 2,
-          events: 2,
-        },
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
-
-  it(
-    'gives up as a retryable abort after three refusals while the first still holds the account',
-    async () => {
-      const userId = await harness().seedAccount();
-      const firstCounted = gate();
-      holdInserts(firstCounted);
-      const first = outcomeOf(
-        harness()
-          .service(rerunAtOnce)
-          .createBrowserSession(userId, 'first/1', SIGN_IN_ADDRESS),
-      );
-      await firstCounted.reached(1);
-
-      const pauses: number[] = [];
-      let workRuns = 0;
-      const failure = await rejectionOf(
-        harness()
-          .runner((failedAttempts) => {
-            pauses.push(failedAttempts);
-            return Promise.resolve();
-          })
-          .run(async (unitOfWork) => {
-            workRuns += 1;
-            await harness().store.readAccountForIssuance(unitOfWork, userId);
-            await harness().store.markAccountIssuance(unitOfWork, userId);
-          }),
-      );
-      const second = await outcomeOf(
-        harness()
-          .service(rerunAtOnce)
-          .createBrowserSession(userId, 'second/1', SIGN_IN_ADDRESS),
-      );
-      const whileHeld = await storedCounts(harness(), userId);
-      firstCounted.release();
-
-      expect({
-        retryable: failure instanceof RetryableAbortError,
-        workRuns,
-        pauses,
-        second,
-        whileHeld,
-        first: await first,
-        after: await storedCounts(harness(), userId),
-      }).toEqual({
-        retryable: true,
-        workRuns: 3,
-        pauses: [1, 2],
-        second: ErrorCode.AUTHORITY_UNAVAILABLE,
-        whileHeld: {
+    expect({ race, after: await storedCounts(harness(), userId) }).toEqual({
+      race: {
+        secondWas: REFUSED_AT_ACCOUNT,
+        whileBothHeld: {
           sessions: 0,
           grants: 0,
           grantFences: [],
@@ -224,47 +142,107 @@ export function issuanceRaceCases(harness: HarnessSource): void {
           events: 0,
         },
         first: SIGNED_IN,
-        after: {
-          sessions: 1,
-          grants: 1,
-          grantFences: [1],
-          accountFence: 1,
-          events: 1,
-        },
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+        second: SIGNED_IN,
+        pauses: [1],
+      },
+      after: {
+        sessions: 2,
+        grants: 1,
+        grantFences: [2],
+        accountFence: 2,
+        events: 2,
+      },
+    });
+  });
 
-  it(
-    'lets another account sign in while the first holds its own',
-    async () => {
-      const heldUser = await harness().seedAccount();
-      const otherUser = await harness().seedAccount();
-      const firstCounted = gate();
-      holdInserts(firstCounted);
-      const first = outcomeOf(
-        harness()
-          .service(rerunAtOnce)
-          .createBrowserSession(heldUser, 'first/1', SIGN_IN_ADDRESS),
-      );
-      await firstCounted.reached(1);
+  it('gives up as a retryable abort after three refusals while the first still holds the account', async () => {
+    const userId = await harness().seedAccount();
+    const firstCounted = gate();
+    holdInserts(firstCounted);
+    const first = outcomeOf(
+      harness()
+        .service(rerunAtOnce)
+        .createBrowserSession(userId, 'first/1', SIGN_IN_ADDRESS),
+    );
+    await firstCounted.reached(1);
 
-      const other = await outcomeOf(
-        harness()
-          .service(rerunAtOnce)
-          .createBrowserSession(otherUser, 'other/1', SIGN_IN_ADDRESS),
-      );
-      const heldWhileOtherSignedIn = (await harness().sessions(heldUser))
-        .length;
-      firstCounted.release();
+    const pauses: number[] = [];
+    let workRuns = 0;
+    const failure = await rejectionOf(
+      harness()
+        .runner((failedAttempts) => {
+          pauses.push(failedAttempts);
+          return Promise.resolve();
+        })
+        .run(async (unitOfWork) => {
+          workRuns += 1;
+          await harness().store.readAccountForIssuance(unitOfWork, userId);
+          await harness().store.markAccountIssuance(unitOfWork, userId);
+        }),
+    );
+    const second = await outcomeOf(
+      harness()
+        .service(rerunAtOnce)
+        .createBrowserSession(userId, 'second/1', SIGN_IN_ADDRESS),
+    );
+    const whileHeld = await storedCounts(harness(), userId);
+    firstCounted.release();
 
-      expect({ other, heldWhileOtherSignedIn, first: await first }).toEqual({
-        other: SIGNED_IN,
-        heldWhileOtherSignedIn: 0,
-        first: SIGNED_IN,
-      });
-    },
-    ISSUANCE_CONTRACT_CASE_TIMEOUT_MS,
-  );
+    expect({
+      retryable: failure instanceof RetryableAbortError,
+      workRuns,
+      pauses,
+      second,
+      whileHeld,
+      first: await first,
+      after: await storedCounts(harness(), userId),
+    }).toEqual({
+      retryable: true,
+      workRuns: 3,
+      pauses: [1, 2],
+      second: ErrorCode.AUTHORITY_UNAVAILABLE,
+      whileHeld: {
+        sessions: 0,
+        grants: 0,
+        grantFences: [],
+        accountFence: 0,
+        events: 0,
+      },
+      first: SIGNED_IN,
+      after: {
+        sessions: 1,
+        grants: 1,
+        grantFences: [1],
+        accountFence: 1,
+        events: 1,
+      },
+    });
+  });
+
+  it('lets another account sign in while the first holds its own', async () => {
+    const heldUser = await harness().seedAccount();
+    const otherUser = await harness().seedAccount();
+    const firstCounted = gate();
+    holdInserts(firstCounted);
+    const first = outcomeOf(
+      harness()
+        .service(rerunAtOnce)
+        .createBrowserSession(heldUser, 'first/1', SIGN_IN_ADDRESS),
+    );
+    await firstCounted.reached(1);
+
+    const other = await outcomeOf(
+      harness()
+        .service(rerunAtOnce)
+        .createBrowserSession(otherUser, 'other/1', SIGN_IN_ADDRESS),
+    );
+    const heldWhileOtherSignedIn = (await harness().sessions(heldUser)).length;
+    firstCounted.release();
+
+    expect({ other, heldWhileOtherSignedIn, first: await first }).toEqual({
+      other: SIGNED_IN,
+      heldWhileOtherSignedIn: 0,
+      first: SIGNED_IN,
+    });
+  });
 }

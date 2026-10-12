@@ -11,9 +11,6 @@ import { PasswordResetCodeStore } from '../../../../src/auth/pending-codes/passw
 import { PendingRegistrationStore } from '../../../../src/auth/pending-codes/pending-registration.store';
 import { FrozenClock } from '../../frozen-clock';
 
-/** Jest budget for a contract case, the one the sign-in contract established. */
-export const PENDING_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 export interface StoredCounter {
   email: string;
   purpose: MailCounterPurpose;

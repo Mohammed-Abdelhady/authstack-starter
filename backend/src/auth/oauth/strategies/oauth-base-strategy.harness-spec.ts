@@ -18,6 +18,7 @@ export class ProbeStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = false;
   readonly emailAlwaysVerified = true;
+  readonly autoLinksByEmail = true;
 
   getAuthorizationUrl(_params: AuthorizationUrlParams): string {
     return 'https://probe.example/authorize';

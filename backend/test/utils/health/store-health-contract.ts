@@ -23,7 +23,7 @@ export interface StoreHealthHarness {
 export function describeStoreHealthContract(
   database: string,
   boot: () => Promise<StoreHealthHarness>,
-  budgets: { bootMs: number; teardownMs: number; caseMs: number },
+  budgets: { bootMs: number; teardownMs: number },
 ): void {
   describe(`store health contract on ${database}`, () => {
     let harness: StoreHealthHarness | undefined;
@@ -44,71 +44,59 @@ export function describeStoreHealthContract(
       await harness?.close();
     }, budgets.teardownMs);
 
-    it(
-      'answers ready for a reachable primary, and the service says healthy',
-      async () => {
-        await current().observe();
+    it('answers ready for a reachable primary, and the service says healthy', async () => {
+      await current().observe();
 
-        const answer = serviceOn(current().health).getHealth();
+      const answer = serviceOn(current().health).getHealth();
 
-        expect({
-          store: current().health.current(),
-          database: serviceOn(current().health).checkDatabaseHealth(),
-          status: answer.status,
-          authEpoch: answer.authEpoch,
-          keys: Object.keys(answer).sort(),
-        }).toEqual({
-          store: 'ready',
-          database: { status: 'connected' },
-          status: 'healthy',
-          authEpoch: 7,
-          keys: ['authEpoch', 'authSchemaVersion', 'status', 'timestamp'],
-        });
-      },
-      budgets.caseMs,
-    );
+      expect({
+        store: current().health.current(),
+        database: serviceOn(current().health).checkDatabaseHealth(),
+        status: answer.status,
+        authEpoch: answer.authEpoch,
+        keys: Object.keys(answer).sort(),
+      }).toEqual({
+        store: 'ready',
+        database: { status: 'connected' },
+        status: 'healthy',
+        authEpoch: 7,
+        keys: ['authEpoch', 'authSchemaVersion', 'status', 'timestamp'],
+      });
+    });
 
-    it(
-      'answers not writable where writes would be refused, and the service says unhealthy',
-      async () => {
-        const readOnly = await current().readOnly();
-        if (readOnly === null) {
-          // This adapter takes a connected driver as ready. The page of known
-          // differences says so.
-          expect(current().health.current()).toBe('ready');
-          return;
-        }
+    it('answers not writable where writes would be refused, and the service says unhealthy', async () => {
+      const readOnly = await current().readOnly();
+      if (readOnly === null) {
+        // This adapter takes a connected driver as ready. The page of known
+        // differences says so.
+        expect(current().health.current()).toBe('ready');
+        return;
+      }
 
-        expect({
-          store: readOnly.current(),
-          database: serviceOn(readOnly).checkDatabaseHealth(),
-          status: serviceOn(readOnly).getHealth().status,
-        }).toEqual({
-          store: 'not_writable',
-          database: { status: 'disconnected' },
-          status: 'unhealthy',
-        });
-      },
-      budgets.caseMs,
-    );
+      expect({
+        store: readOnly.current(),
+        database: serviceOn(readOnly).checkDatabaseHealth(),
+        status: serviceOn(readOnly).getHealth().status,
+      }).toEqual({
+        store: 'not_writable',
+        database: { status: 'disconnected' },
+        status: 'unhealthy',
+      });
+    });
 
-    it(
-      'answers unreachable once the store is cut off, and the service says unhealthy',
-      async () => {
-        await current().cutOff();
-        await current().observe();
+    it('answers unreachable once the store is cut off, and the service says unhealthy', async () => {
+      await current().cutOff();
+      await current().observe();
 
-        expect({
-          store: current().health.current(),
-          database: serviceOn(current().health).checkDatabaseHealth(),
-          status: serviceOn(current().health).getHealth().status,
-        }).toEqual({
-          store: 'unreachable',
-          database: { status: 'disconnected' },
-          status: 'unhealthy',
-        });
-      },
-      budgets.caseMs,
-    );
+      expect({
+        store: current().health.current(),
+        database: serviceOn(current().health).checkDatabaseHealth(),
+        status: serviceOn(current().health).getHealth().status,
+      }).toEqual({
+        store: 'unreachable',
+        database: { status: 'disconnected' },
+        status: 'unhealthy',
+      });
+    });
   });
 }

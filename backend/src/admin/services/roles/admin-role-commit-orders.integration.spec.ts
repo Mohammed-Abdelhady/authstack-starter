@@ -1,7 +1,7 @@
 import { UserRole } from '../../../user/enums/user-role.enum';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { REVOKED_REASON } from '../../../session/constants/revoked-reason';
-import { RaceGate } from '../../../../test/utils/race-gate';
+import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
 import {
   EDITOR_SLUG,
   LEAD_SLUG,
@@ -17,7 +17,7 @@ describe('role edits and assignments cover both commit orders', () => {
 
   for (const operation of OPERATIONS) {
     for (const caller of CALLERS) {
-      it(`${caller} finishes before an open ${operation} commits`, async () => {
+      it(`${caller} and ${operation} honor grant authority ordering`, async () => {
         const { h } = fixture;
         const target = await fixture.seed('target@example.test');
         if (operation === 'rename') {
@@ -33,16 +33,9 @@ describe('role edits and assignments cover both commit orders', () => {
           );
         }
         const gate = new RaceGate();
+        let restore: () => void = () => undefined;
         if (operation === 'rename') {
-          const original = h.users.collection.updateMany.bind(
-            h.users.collection,
-          );
-          jest
-            .spyOn(h.users.collection, 'updateMany')
-            .mockImplementationOnce(async (...args) => {
-              await gate.hold();
-              return original(...args);
-            });
+          restore = holdBefore(h.roles, 'update', () => gate);
         } else {
           const original = h.roleModel.collection.deleteOne.bind(
             h.roleModel.collection,
@@ -65,13 +58,51 @@ describe('role edits and assignments cover both commit orders', () => {
         try {
           await gate.reached();
           if (caller === 'assignment') {
-            await fixture.assign(target._id.toString());
+            if (operation === 'delete') {
+              await expect(
+                fixture.assign(target._id.toString()),
+              ).rejects.toMatchObject({
+                code: ErrorCode.AUTHORITY_UNAVAILABLE,
+                status: 503,
+              });
+            } else {
+              await fixture.assign(target._id.toString());
+            }
           } else {
-            await fixture.create('created@example.test');
+            if (operation === 'delete') {
+              await expect(
+                fixture.create('created@example.test'),
+              ).rejects.toMatchObject({
+                code: ErrorCode.AUTHORITY_UNAVAILABLE,
+                status: 503,
+              });
+            } else {
+              await fixture.create('created@example.test');
+            }
           }
         } finally {
           gate.release();
-          await edit;
+          try {
+            await edit;
+          } finally {
+            restore();
+          }
+        }
+        if (operation === 'delete') {
+          expect((await h.users.findById(target._id))?.role).toBe(
+            UserRole.USER,
+          );
+          expect((await h.users.findById(target._id))?.sessionVersion).toBe(0);
+          expect(
+            await h.users.countDocuments({ email: 'created@example.test' }),
+          ).toBe(0);
+          expect(
+            await h.events.countDocuments({
+              targetUserId: target._id.toString(),
+            }),
+          ).toBe(0);
+          expect(await h.roleModel.findOne({ slug: EDITOR_SLUG })).toBeNull();
+          return;
         }
         const stored = await h.users.findOne({
           email:
@@ -116,7 +147,7 @@ describe('role edits and assignments cover both commit orders', () => {
         );
       });
 
-      it(`${operation} commits before the open ${caller} writes`, async () => {
+      it(`${operation} refuses while the ${caller} grant holds authority`, async () => {
         const { h } = fixture;
         const target = await fixture.seed('target@example.test');
         const gate = new RaceGate();
@@ -124,10 +155,18 @@ describe('role edits and assignments cover both commit orders', () => {
           const original = h.users.collection.updateOne.bind(
             h.users.collection,
           );
+          let held = false;
           jest
             .spyOn(h.users.collection, 'updateOne')
-            .mockImplementationOnce(async (...args) => {
-              await gate.hold();
+            .mockImplementation(async (...args) => {
+              if (
+                !held &&
+                !Array.isArray(args[1]) &&
+                args[1]?.$set?.role === EDITOR_SLUG
+              ) {
+                held = true;
+                await gate.hold();
+              }
               return original(...args);
             });
         } else {
@@ -149,47 +188,76 @@ describe('role edits and assignments cover both commit orders', () => {
         try {
           await gate.reached();
           if (operation === 'rename') {
-            await h.roles.update(
-              EDITOR_SLUG,
-              { name: 'Content Lead' },
-              fixture.roleActorId,
-            );
+            await expect(
+              h.roles.update(
+                EDITOR_SLUG,
+                { name: 'Content Lead' },
+                fixture.roleActorId,
+              ),
+            ).rejects.toMatchObject({
+              code: ErrorCode.AUTHORITY_UNAVAILABLE,
+              status: 503,
+            });
           } else {
-            await h.roles.delete(EDITOR_SLUG, fixture.roleActorId);
+            await expect(
+              h.roles.delete(EDITOR_SLUG, fixture.roleActorId),
+            ).rejects.toMatchObject({
+              code: ErrorCode.AUTHORITY_UNAVAILABLE,
+              status: 503,
+            });
           }
         } finally {
           gate.release();
           await settled;
         }
-        if (operation === 'rename') {
-          const answer = await request;
-          expect(answer.data?.role).toBe(LEAD_SLUG);
-        } else {
-          await expect(request).rejects.toMatchObject({
-            code: ErrorCode.ROLE_NOT_FOUND,
-            status: 404,
-          });
-        }
+        const answer = await request;
+        expect(answer.data?.role).toBe(EDITOR_SLUG);
         const stored = await h.users.findOne({
           email:
             caller === 'assignment'
               ? 'target@example.test'
               : 'created@example.test',
         });
-        if (operation === 'delete' && caller === 'creation') {
-          expect(stored).toBeNull();
-          await fixture.create('created@example.test', UserRole.USER);
-          expect(
-            (await h.users.findOne({ email: 'created@example.test' }))?.role,
-          ).toBe(UserRole.USER);
-        } else {
-          expect(stored?.role).toBe(
-            operation === 'rename' ? LEAD_SLUG : UserRole.USER,
+        expect(stored?.role).toBe(EDITOR_SLUG);
+        expect(await h.roleModel.findOne({ slug: EDITOR_SLUG })).not.toBeNull();
+        expect(stored?.sessionVersion).toBe(caller === 'assignment' ? 1 : 0);
+        const grantEvents = await h.events
+          .find({ targetUserId: stored?._id.toString() })
+          .lean();
+        expect(
+          grantEvents.map((event) => ({
+            actorId: event.actorId,
+            reasonCode: event.reasonCode,
+          })),
+        ).toEqual(
+          caller === 'assignment'
+            ? [
+                {
+                  actorId: fixture.actorId,
+                  reasonCode: REVOKED_REASON.ADMIN_FORCED,
+                },
+              ]
+            : [],
+        );
+        if (operation === 'delete') {
+          if (!stored) throw new Error('grant did not persist its target');
+          await fixture.assign(stored._id.toString(), UserRole.USER);
+          await h.roles.delete(EDITOR_SLUG, fixture.roleActorId);
+          expect((await h.users.findById(stored._id))?.role).toBe(
+            UserRole.USER,
           );
-          expect(
-            await h.roleModel.findOne({ slug: stored?.role }),
-          ).not.toBeNull();
+          expect(await h.roleModel.findOne({ slug: EDITOR_SLUG })).toBeNull();
+        } else {
+          await h.roles.update(
+            EDITOR_SLUG,
+            { name: 'Content Lead' },
+            fixture.roleActorId,
+          );
+          expect((await h.users.findById(stored?._id))?.role).toBe(LEAD_SLUG);
         }
+        expect(
+          await h.roleModel.findOne({ slug: UserRole.USER }),
+        ).not.toBeNull();
       });
     }
   }

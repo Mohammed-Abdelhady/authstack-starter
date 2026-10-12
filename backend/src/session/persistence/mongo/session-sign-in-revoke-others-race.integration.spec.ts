@@ -144,149 +144,134 @@ describe('sign-in against "sign out everywhere else" race', () => {
     };
   }
 
-  it(
-    'admits the sign-in at the new version when the revocation commits first',
-    async () => {
-      const user = await twoSessions('revoke-first@example.test');
-      const signInRead = holdSignInAfterVersionRead();
-      const revokeWritten = holdRevokeOthersBeforeCommit();
+  it('admits the sign-in at the new version when the revocation commits first', async () => {
+    const user = await twoSessions('revoke-first@example.test');
+    const signInRead = holdSignInAfterVersionRead();
+    const revokeWritten = holdRevokeOthersBeforeCommit();
 
-      const signingIn = signIn(user.userId, 'new/1');
-      await signInRead.reached(1);
-      const revoking =
-        harness.sessionService.invalidateAllSessionsExceptSession(
-          user.userId,
-          user.keptId,
-        );
-      await revokeWritten.reached(1);
+    const signingIn = signIn(user.userId, 'new/1');
+    await signInRead.reached(1);
+    const revoking = harness.sessionService.invalidateAllSessionsExceptSession(
+      user.userId,
+      user.keptId,
+    );
+    await revokeWritten.reached(1);
 
-      revokeWritten.release();
-      const revokedCount = await revoking;
-      signInRead.release();
-      const issued = await signingIn;
+    revokeWritten.release();
+    const revokedCount = await revoking;
+    signInRead.release();
+    const issued = await signingIn;
 
-      expect({
-        revokedCount,
-        keptValidates: await validates(user.kept),
-        otherValidates: await validates(user.other),
-        newValidates: await validates(issued.sessionToken),
-        newUserVersion: (
-          await harness.sessions.findOne({
-            tokenHash: hashToken(issued.sessionToken),
-          })
-        )?.userVersion,
-        ...(await stored(user.userId)),
-      }).toEqual({
-        revokedCount: 1,
-        keptValidates: true,
-        otherValidates: false,
-        newValidates: true,
-        newUserVersion: 1,
-        sessions: 3,
-        issuedEvents: 3,
-        revokedOthersEvents: 1,
-        userSessionVersion: 1,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    expect({
+      revokedCount,
+      keptValidates: await validates(user.kept),
+      otherValidates: await validates(user.other),
+      newValidates: await validates(issued.sessionToken),
+      newUserVersion: (
+        await harness.sessions.findOne({
+          tokenHash: hashToken(issued.sessionToken),
+        })
+      )?.userVersion,
+      ...(await stored(user.userId)),
+    }).toEqual({
+      revokedCount: 1,
+      keptValidates: true,
+      otherValidates: false,
+      newValidates: true,
+      newUserVersion: 1,
+      sessions: 3,
+      issuedEvents: 3,
+      revokedOthersEvents: 1,
+      userSessionVersion: 1,
+    });
+  });
 
-  it(
-    'refuses the sign-in whole when it writes under the uncommitted revocation',
-    async () => {
-      const user = await twoSessions('sign-in-first@example.test');
-      const signInRead = holdSignInAfterVersionRead();
-      const revokeWritten = holdRevokeOthersBeforeCommit();
+  it('refuses the sign-in whole when it writes under the uncommitted revocation', async () => {
+    const user = await twoSessions('sign-in-first@example.test');
+    const signInRead = holdSignInAfterVersionRead();
+    const revokeWritten = holdRevokeOthersBeforeCommit();
 
-      const signingIn = signIn(user.userId, 'new/1');
-      await signInRead.reached(1);
-      const revoking =
-        harness.sessionService.invalidateAllSessionsExceptSession(
-          user.userId,
-          user.keptId,
-        );
-      await revokeWritten.reached(1);
+    const signingIn = signIn(user.userId, 'new/1');
+    await signInRead.reached(1);
+    const revoking = harness.sessionService.invalidateAllSessionsExceptSession(
+      user.userId,
+      user.keptId,
+    );
+    await revokeWritten.reached(1);
 
-      signInRead.release();
-      await expect(signingIn).rejects.toMatchObject({
-        code: ErrorCode.AUTHORITY_UNAVAILABLE,
-      });
-      const afterRefusal = await stored(user.userId);
-      revokeWritten.release();
-      const revokedCount = await revoking;
+    signInRead.release();
+    await expect(signingIn).rejects.toMatchObject({
+      code: ErrorCode.AUTHORITY_UNAVAILABLE,
+    });
+    const afterRefusal = await stored(user.userId);
+    revokeWritten.release();
+    const revokedCount = await revoking;
 
-      expect({
-        afterRefusal,
-        revokedCount,
-        keptValidates: await validates(user.kept),
-        otherValidates: await validates(user.other),
-        issuanceFence: (await harness.users.findById(user.userId))
-          ?.issuanceFence,
-        ...(await stored(user.userId)),
-      }).toEqual({
-        afterRefusal: {
-          sessions: 2,
-          issuedEvents: 2,
-          revokedOthersEvents: 0,
-          userSessionVersion: 0,
-        },
-        revokedCount: 1,
-        keptValidates: true,
-        otherValidates: false,
-        issuanceFence: 2,
+    expect({
+      afterRefusal,
+      revokedCount,
+      keptValidates: await validates(user.kept),
+      otherValidates: await validates(user.other),
+      issuanceFence: (await harness.users.findById(user.userId))?.issuanceFence,
+      ...(await stored(user.userId)),
+    }).toEqual({
+      afterRefusal: {
         sessions: 2,
         issuedEvents: 2,
-        revokedOthersEvents: 1,
-        userSessionVersion: 1,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
-
-  it(
-    'refuses the revocation whole while a sign-in holds the account',
-    async () => {
-      const user = await twoSessions('sign-in-holds@example.test');
-      // Past the account write: the sign-in owns the row until it commits.
-      const signInWritten = new RaceGate();
-      gates.push(signInWritten);
-      restores.push(
-        holdBefore(
-          harness.app.get(SessionIssuanceService),
-          'assertSessionLimit',
-          (call) => (call === 0 ? signInWritten : undefined),
-        ),
-      );
-
-      const signingIn = signIn(user.userId, 'new/1');
-      await signInWritten.reached(1);
-      await expect(
-        harness.sessionService.invalidateAllSessionsExceptSession(
-          user.userId,
-          user.keptId,
-        ),
-      ).rejects.toMatchObject({ code: ErrorCode.AUTHORITY_UNAVAILABLE });
-      signInWritten.release();
-      const issued = await signingIn;
-
-      expect({
-        keptValidates: await validates(user.kept),
-        otherValidates: await validates(user.other),
-        newValidates: await validates(issued.sessionToken),
-        keptUserVersion: (await harness.sessions.findById(user.keptId))
-          ?.userVersion,
-        ...(await stored(user.userId)),
-      }).toEqual({
-        keptValidates: true,
-        otherValidates: true,
-        newValidates: true,
-        keptUserVersion: 0,
-        sessions: 3,
-        issuedEvents: 3,
         revokedOthersEvents: 0,
         userSessionVersion: 0,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+      },
+      revokedCount: 1,
+      keptValidates: true,
+      otherValidates: false,
+      issuanceFence: 2,
+      sessions: 2,
+      issuedEvents: 2,
+      revokedOthersEvents: 1,
+      userSessionVersion: 1,
+    });
+  });
+
+  it('refuses the revocation whole while a sign-in holds the account', async () => {
+    const user = await twoSessions('sign-in-holds@example.test');
+    // Past the account write: the sign-in owns the row until it commits.
+    const signInWritten = new RaceGate();
+    gates.push(signInWritten);
+    restores.push(
+      holdBefore(
+        harness.app.get(SessionIssuanceService),
+        'assertSessionLimit',
+        (call) => (call === 0 ? signInWritten : undefined),
+      ),
+    );
+
+    const signingIn = signIn(user.userId, 'new/1');
+    await signInWritten.reached(1);
+    await expect(
+      harness.sessionService.invalidateAllSessionsExceptSession(
+        user.userId,
+        user.keptId,
+      ),
+    ).rejects.toMatchObject({ code: ErrorCode.AUTHORITY_UNAVAILABLE });
+    signInWritten.release();
+    const issued = await signingIn;
+
+    expect({
+      keptValidates: await validates(user.kept),
+      otherValidates: await validates(user.other),
+      newValidates: await validates(issued.sessionToken),
+      keptUserVersion: (await harness.sessions.findById(user.keptId))
+        ?.userVersion,
+      ...(await stored(user.userId)),
+    }).toEqual({
+      keptValidates: true,
+      otherValidates: true,
+      newValidates: true,
+      keptUserVersion: 0,
+      sessions: 3,
+      issuedEvents: 3,
+      revokedOthersEvents: 0,
+      userSessionVersion: 0,
+    });
+  });
 });

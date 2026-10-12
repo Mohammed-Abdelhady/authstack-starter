@@ -15,6 +15,16 @@ const PROFILE = {
   updatedAt: '2026-01-16T08:00:00.000Z',
 };
 
+const IDENTITY_PROFILE = {
+  ...PROFILE,
+  // feature:totp:start
+  twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
+  passkeyCount: 0,
+  // feature:passkeys:end
+};
+
 const TOKEN_BODY = {
   access_token: 'at-1',
   token_type: 'Bearer',
@@ -32,6 +42,31 @@ const TOKEN_SET = {
 };
 
 describe('createApiClient routes', () => {
+  it('reads a signed-out identity without requesting the protected profile', async () => {
+    const transport = answering(200, {
+      success: true,
+      data: { authenticated: false, user: null },
+    });
+
+    expect(await createApiClient(transport).auth.identity()).toEqual({
+      authenticated: false,
+      user: null,
+    });
+    expect(transport.sent).toStrictEqual([{ method: 'GET', path: '/api/auth/identity' }]);
+  });
+
+  it('reads an authenticated identity', async () => {
+    const transport = answering(200, {
+      success: true,
+      data: { authenticated: true, user: IDENTITY_PROFILE },
+    });
+
+    expect(await createApiClient(transport).auth.identity()).toEqual({
+      authenticated: true,
+      user: IDENTITY_PROFILE,
+    });
+  });
+
   it('reads the profile', async () => {
     const transport = answering(200, { success: true, data: PROFILE });
 

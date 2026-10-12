@@ -91,7 +91,13 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
         aria-labelledby="login-heading"
         aria-describedby={errors.root?.message ? 'login-error' : undefined}
       >
-        <FormRootError id="login-error" error={errors.root?.message} testId="login-error" />
+        <FormRootError
+          id="login-error"
+          error={errors.root?.message}
+          // Clear of the control above it, which is not part of this form.
+          className="mt-4"
+          testId="login-error"
+        />
 
         <FormInput
           containerClassName={FORM_STYLES.authField}
@@ -100,6 +106,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           label={t('email')}
           placeholder={tCommon('emailPlaceholder')}
           autoComplete="username"
+          required
           busy={isLoading}
           autoFocus
           onBlur={onEmailBlur}
@@ -111,6 +118,7 @@ export function PasswordSignInForm({ redirect }: AuthMethodFormProps) {
           label={t('password')}
           placeholder={tCommon('passwordPlaceholder')}
           autoComplete="current-password"
+          required
           busy={isLoading}
           showToggle={false}
           onBlur={onPasswordBlur}

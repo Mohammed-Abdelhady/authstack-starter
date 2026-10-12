@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
-import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../../session/constants/session-policy';
+import { LINEARIZABLE_QUERY_MAX_TIME_MS } from '../../../common/persistence/mongo/linearizable-query';
 import { SecurityEventService } from '../../../session/persistence/mongo/security-event.service';
 import {
   User,

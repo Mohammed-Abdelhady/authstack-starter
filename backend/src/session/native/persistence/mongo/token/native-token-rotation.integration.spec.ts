@@ -34,8 +34,6 @@ import {
 } from '../../../../../../test/utils/session-authority-harness';
 import { TEST_NOW } from '../../../../../../test/utils/frozen-clock';
 
-jest.setTimeout(60000);
-
 describe('native token rotation (plan 04)', () => {
   let ctx: NativeOauthHarness;
 

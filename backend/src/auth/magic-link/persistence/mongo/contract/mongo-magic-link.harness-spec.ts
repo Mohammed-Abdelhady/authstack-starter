@@ -10,6 +10,10 @@ import {
   User,
   UserSchema,
 } from '../../../../../user/persistence/mongo/schemas/user.schema';
+import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../../../persistence/mongo/schemas/mail-counter.schema';
 import { MongoMagicLinkAccounts } from '../mongo-magic-link-accounts';
 import { MongoMagicLinkStore } from '../mongo-magic-link.store';
 import {
@@ -20,14 +24,22 @@ import { MagicLinkAccounts } from '../../../stores/magic-link-accounts';
 import { MagicLinkStore } from '../../../stores/magic-link.store';
 import { MagicLinkContractHarness } from '../../../contract/magic-link-contract.harness-spec';
 
-export async function bootMongoMagicLinkHarness(): Promise<MagicLinkContractHarness> {
+/** `onCommand` hears the name of every command the driver sends. */
+export async function bootMongoMagicLinkHarness(
+  onCommand?: (commandName: string) => void,
+): Promise<MagicLinkContractHarness> {
   const mongo = await startMemoryReplSet();
-  const connection = await createConnection(
-    mongo.uri('magic_link_contract'),
-  ).asPromise();
+  const connection = await createConnection(mongo.uri('magic_link_contract'), {
+    monitorCommands: onCommand !== undefined,
+  }).asPromise();
+  connection.getClient().on('commandStarted', (command) => {
+    onCommand?.(command.commandName);
+  });
   const links = connection.model(PendingMagicLink.name, PendingMagicLinkSchema);
   const users = connection.model(User.name, UserSchema);
+  const counters = connection.model(MailCounter.name, MailCounterSchema);
   await links.init();
+  await counters.init();
   await users.init();
   // Built the way the application builds them: each adapter over its model.
   const module = await Test.createTestingModule({
@@ -36,6 +48,7 @@ export async function bootMongoMagicLinkHarness(): Promise<MagicLinkContractHarn
       { provide: MagicLinkAccounts, useClass: MongoMagicLinkAccounts },
       { provide: getModelToken(PendingMagicLink.name), useValue: links },
       { provide: getModelToken(User.name), useValue: users },
+      { provide: getModelToken(MailCounter.name), useValue: counters },
     ],
   }).compile();
 
@@ -88,6 +101,7 @@ export async function bootMongoMagicLinkHarness(): Promise<MagicLinkContractHarn
 
     reset: async () => {
       await links.deleteMany({});
+      await counters.deleteMany({});
       await users.deleteMany({});
     },
     close: async () => {

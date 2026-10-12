@@ -17,7 +17,7 @@ export class PendingMagicLink {
 
   /**
    * When the link stops working. The TTL index removes the record an hour
-   * after that, which keeps it available to the hourly request count.
+   * after that.
    */
   @Prop({
     required: true,
@@ -38,6 +38,10 @@ export class PendingMagicLink {
   @Prop()
   redirect?: string;
 
+  /** sha256 of the nonce left with the browser that asked, hex encoded. */
+  @Prop()
+  requestNonceHash?: string;
+
   // Timestamp fields (automatically managed by Mongoose with timestamps: true)
   createdAt!: Date;
   updatedAt!: Date;
@@ -48,5 +52,5 @@ export type PendingMagicLinkDocument = HydratedDocument<PendingMagicLink>;
 export const PendingMagicLinkSchema: MongooseSchema<PendingMagicLink> =
   SchemaFactory.createForClass(PendingMagicLink);
 
-// Serves the per-address hourly count.
+// One address's links, newest first.
 PendingMagicLinkSchema.index({ email: 1, createdAt: -1 });

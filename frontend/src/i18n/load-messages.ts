@@ -30,7 +30,28 @@ export function mergeMessageTrees(
 }
 
 export async function loadMessages(locale: AppLocale): Promise<AbstractIntlMessages> {
-  const base = (await import(`./messages/${locale}.json`)).default;
+  const common = (await import(`./messages/${locale}.json`)).default;
+  const topics = await Promise.all(
+    [
+      'pagination',
+      'home',
+      'nav',
+      'auth',
+      'toast',
+      'settings',
+      'errors',
+      'dashboard',
+      'sessions',
+      'users',
+      'roles',
+      'permissions',
+      'validation',
+    ].map(async (topic) => (await import(`./messages/${topic}.${locale}.json`)).default),
+  );
+  const base = topics.reduce<AbstractIntlMessages>((messages, topic: unknown) => {
+    if (!isMessageTree(topic)) throw new Error(`Locale messages for ${locale} are not objects`);
+    return mergeMessageTrees(messages, topic);
+  }, common);
   const sessionAuthority = (await import(`./messages/session-authority.${locale}.json`)).default;
   const browserProof = (await import(`./messages/browser-proof.${locale}.json`)).default;
   const nativeAuth = (await import(`./messages/native-auth.${locale}.json`)).default;

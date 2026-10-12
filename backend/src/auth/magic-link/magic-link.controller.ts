@@ -46,11 +46,16 @@ export class MagicLinkController {
     summary: 'Request a sign-in link',
     description:
       'Mails a one-time sign-in link. The reply is the same whether or not the ' +
-      'address has an account, and whether or not a link was mailed.',
+      'address has an account, and whether or not a link was mailed. It sets ' +
+      'an HttpOnly cookie that ties the link to this browser.',
   })
   @ApiBody({ type: RequestMagicLinkDto })
-  async request(@Body() dto: RequestMagicLinkDto, @Req() request: Request) {
-    return this.magicLinkService.request(dto, request);
+  async request(
+    @Body() dto: RequestMagicLinkDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    return this.magicLinkService.request(dto, request, response);
   }
 
   /**
@@ -65,7 +70,10 @@ export class MagicLinkController {
     summary: 'Sign in with a link token',
     description:
       'Spends the token, sets the session cookie and returns the account. ' +
-      'The token works once; a spent or expired one answers MAGIC_LINK_INVALID.',
+      'The token works once; a spent or expired one answers MAGIC_LINK_INVALID. ' +
+      'In another browser than the one that asked, or over a session of ' +
+      'another account, it answers requiresConfirmation with the masked ' +
+      'address and spends nothing until it is sent again with confirm.',
   })
   @ApiBody({ type: VerifyMagicLinkDto })
   @ApiOkResponse({
@@ -83,6 +91,16 @@ export class MagicLinkController {
               nullable: true,
               additionalProperties: true,
             },
+            requiresConfirmation: {
+              type: 'boolean',
+              description:
+                'Present and true when the link was not spent and the person has to confirm',
+            },
+            email: {
+              type: 'string',
+              description:
+                'Masked address of the link, present only with requiresConfirmation',
+            },
             redirect: {
               type: 'string',
               description:
@@ -96,8 +114,12 @@ export class MagicLinkController {
       required: ['success', 'data'],
     },
   })
-  async verify(@Body() dto: VerifyMagicLinkDto, @Res() response: Response) {
-    const result = await this.magicLinkService.verify(dto, response);
+  async verify(
+    @Body() dto: VerifyMagicLinkDto,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    const result = await this.magicLinkService.verify(dto, request, response);
     return response.status(HttpStatus.OK).json(result);
   }
 }

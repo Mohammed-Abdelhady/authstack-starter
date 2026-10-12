@@ -1,82 +1,25 @@
 /**
- * Toast Message Constants
- *
- * Centralized toast message templates with i18n keys.
- * All messages use next-intl translation keys for multilingual support.
- */
-
-/**
- * Success message keys
- */
-export const SUCCESS_MESSAGES = {
-  // Authentication
-  LOGIN_SUCCESS: 'toast.success.loginSuccess',
-  LOGOUT_SUCCESS: 'toast.success.logoutSuccess',
-  REGISTRATION_SUCCESS: 'toast.success.registrationSuccess',
-  EMAIL_VERIFIED: 'toast.success.emailVerified',
-  PASSWORD_RESET_SENT: 'toast.success.passwordResetSent',
-  PASSWORD_CHANGED: 'toast.success.passwordChanged',
-
-  // Profile
-  PROFILE_UPDATED: 'toast.success.profileUpdated',
-  AVATAR_UPLOADED: 'toast.success.avatarUploaded',
-
-  // Generic
-  SAVE_SUCCESS: 'toast.success.saveSuccess',
-  DELETE_SUCCESS: 'toast.success.deleteSuccess',
-  COPY_SUCCESS: 'toast.success.copySuccess',
-} as const;
-
-/**
  * Error message keys
  */
 export const ERROR_MESSAGES = {
   // Network errors
   NETWORK_ERROR: 'toast.error.networkError',
   TIMEOUT_ERROR: 'toast.error.timeoutError',
-  CONNECTION_LOST: 'toast.error.connectionLost',
 
   // Authentication errors
-  INVALID_CREDENTIALS: 'toast.error.invalidCredentials',
-  SESSION_EXPIRED: 'toast.error.sessionExpired',
   UNAUTHORIZED: 'toast.error.unauthorized',
   FORBIDDEN: 'toast.error.forbidden',
 
   // Validation errors
   VALIDATION_FAILED: 'toast.error.validationFailed',
   INVALID_INPUT: 'toast.error.invalidInput',
-  REQUIRED_FIELDS: 'toast.error.requiredFields',
 
   // Server errors
   SERVER_ERROR: 'toast.error.serverError',
   SERVICE_UNAVAILABLE: 'toast.error.serviceUnavailable',
-  MAINTENANCE_MODE: 'toast.error.maintenanceMode',
 
   // Generic
   UNKNOWN_ERROR: 'toast.error.unknownError',
-  OPERATION_FAILED: 'toast.error.operationFailed',
-} as const;
-
-/**
- * Warning message keys
- */
-export const WARNING_MESSAGES = {
-  UNSAVED_CHANGES: 'toast.warning.unsavedChanges',
-  SLOW_CONNECTION: 'toast.warning.slowConnection',
-  SESSION_EXPIRING: 'toast.warning.sessionExpiring',
-  QUOTA_LIMIT: 'toast.warning.quotaLimit',
-  DEPRECATED_FEATURE: 'toast.warning.deprecatedFeature',
-} as const;
-
-/**
- * Info message keys
- */
-export const INFO_MESSAGES = {
-  LOADING: 'toast.info.loading',
-  PROCESSING: 'toast.info.processing',
-  PLEASE_WAIT: 'toast.info.pleaseWait',
-  FEATURE_COMING_SOON: 'toast.info.featureComingSoon',
-  TIP_OF_THE_DAY: 'toast.info.tipOfTheDay',
 } as const;
 
 /**

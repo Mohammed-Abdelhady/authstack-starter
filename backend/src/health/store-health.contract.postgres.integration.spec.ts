@@ -4,7 +4,6 @@ import {
 } from '../../test/postgres/postgres-health-harness';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_RESET_TIMEOUT_MS,
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../test/postgres/server/postgres-test-server';
 import { describeStoreHealthContract } from '../../test/utils/health/store-health-contract';
@@ -34,7 +33,6 @@ describeStoreHealthContract(
   {
     bootMs: POSTGRES_BOOT_TIMEOUT_MS,
     teardownMs: POSTGRES_TEARDOWN_TIMEOUT_MS,
-    caseMs: POSTGRES_RESET_TIMEOUT_MS,
   },
 );
 

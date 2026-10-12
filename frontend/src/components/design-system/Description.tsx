@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 import { DESCRIPTION_ROLE_CLASSES, type DescriptionVariant } from '@/constants/typography';
-import { type UnsafeMarkupProp, withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import { withoutUnsafeMarkup } from '@/lib/unsafeMarkup';
+import type { UnsafeMarkupProp } from '@/types/markup';
 import { cn } from '@/lib/utils';
 
 export interface DescriptionProps extends Omit<

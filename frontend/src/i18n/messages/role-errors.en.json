@@ -1,7 +1,7 @@
 {
   "errors": {
     "codes": {
-      "ROLE_NAME_TAKEN": "A role with this name already exists",
+      "ROLE_NAME_TAKEN": "Another role already uses this name, or the code made from it",
       "ROLE_PROTECTED": "This role is protected and cannot be deleted",
       "ROLE_HAS_USERS": "{count, plural, =1 {1 user still has this role} other {{count} users still have this role}}. Reassign them first",
       "SYSTEM_ROLE_RENAME_FORBIDDEN": "A system role cannot be renamed",

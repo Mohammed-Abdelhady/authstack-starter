@@ -29,6 +29,15 @@ export interface RegisterPasskeyRequest {
   name?: string;
 }
 
+/** Fresh proof accepted by the registration-options endpoint. */
+export interface PasskeyRegistrationProof {
+  password?: string;
+  code?: string;
+  recoveryCode?: string;
+}
+
+export type PasskeyRegistrationRequirement = 'password' | 'recent_sign_in' | 'second_factor';
+
 /** Body of POST /auth/passkeys/login/verify. */
 export interface PasskeyLoginRequest {
   response: AuthenticationResponseJSON;

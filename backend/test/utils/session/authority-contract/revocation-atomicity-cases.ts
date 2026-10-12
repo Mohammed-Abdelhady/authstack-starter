@@ -1,10 +1,7 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { holdBefore } from '../../race-gate';
 import { rerunAtOnce } from '../issuance-contract/issuance-contract-support';
-import {
-  AUTHORITY_CONTRACT_CASE_TIMEOUT_MS,
-  AuthorityContractHarness,
-} from './authority-contract-harness';
+import { AuthorityContractHarness } from './authority-contract-harness';
 import {
   ABORT_AFTER_EVENT,
   AuthorityHarnessSource,
@@ -65,7 +62,6 @@ const NOTHING_STORED = {
 export function revocationAtomicityCases(
   harness: AuthorityHarnessSource,
 ): void {
-  const budget = AUTHORITY_CONTRACT_CASE_TIMEOUT_MS;
   let restores: Array<() => void> = [];
 
   afterEach(() => {
@@ -109,7 +105,6 @@ export function revocationAtomicityCases(
       restore();
       expect(await observed(outcome, user)).toEqual(NOTHING_STORED);
     },
-    budget,
   );
 
   it.each(WORKFLOWS)(
@@ -128,7 +123,6 @@ export function revocationAtomicityCases(
       restore();
       expect(await observed(outcome, user)).toEqual(NOTHING_STORED);
     },
-    budget,
   );
 
   /** Counts how often the work reached its one guarded write. */
@@ -143,66 +137,56 @@ export function revocationAtomicityCases(
     return () => calls;
   }
 
-  it(
-    'reports a sign-out as done, and never runs it again, when the answer to a commit that landed is lost',
-    async () => {
-      const user = await twoSessions();
-      const revocations = countRevocations();
-      const lost = harness().issuance.loseCommitAnswers({
-        lands: true,
-        times: 1,
-      });
-      restores.push(lost.restore);
-      const outcome = await outcomeOf(
-        harness().revoker(rerunAtOnce).revokeByToken(user.other.token),
-      );
-      lost.restore();
-      expect({
-        outcome,
-        workRuns: revocations(),
-        otherValidates: await validates(harness(), user.other.token),
-        events: (
-          await storedFor(harness(), user.userId, [user.other.sessionId])
-        ).events,
-      }).toEqual({
-        outcome: true,
-        workRuns: 1,
-        otherValidates: false,
-        events: [ISSUED, ISSUED, REVOKED],
-      });
-    },
-    budget,
-  );
+  it('reports a sign-out as done, and never runs it again, when the answer to a commit that landed is lost', async () => {
+    const user = await twoSessions();
+    const revocations = countRevocations();
+    const lost = harness().issuance.loseCommitAnswers({
+      lands: true,
+      times: 1,
+    });
+    restores.push(lost.restore);
+    const outcome = await outcomeOf(
+      harness().revoker(rerunAtOnce).revokeByToken(user.other.token),
+    );
+    lost.restore();
+    expect({
+      outcome,
+      workRuns: revocations(),
+      otherValidates: await validates(harness(), user.other.token),
+      events: (await storedFor(harness(), user.userId, [user.other.sessionId]))
+        .events,
+    }).toEqual({
+      outcome: true,
+      workRuns: 1,
+      otherValidates: false,
+      events: [ISSUED, ISSUED, REVOKED],
+    });
+  });
 
-  it(
-    'still signs out exactly once when the answer is lost before the commit landed',
-    async () => {
-      const user = await twoSessions();
-      const lost = harness().issuance.loseCommitAnswers({
-        lands: false,
-        times: 1,
-      });
-      restores.push(lost.restore);
-      const outcome = await outcomeOf(
-        harness().revoker(rerunAtOnce).revokeByToken(user.other.token),
-      );
-      lost.restore();
-      expect({
-        outcome,
-        otherValidates: await validates(harness(), user.other.token),
-        keptValidates: await validates(harness(), user.kept.token),
-        events: (
-          await storedFor(harness(), user.userId, [user.other.sessionId])
-        ).events,
-      }).toEqual({
-        outcome: true,
-        otherValidates: false,
-        keptValidates: true,
-        events: [ISSUED, ISSUED, REVOKED],
-      });
-    },
-    budget,
-  );
+  it('still signs out exactly once when the answer is lost before the commit landed', async () => {
+    const user = await twoSessions();
+    const lost = harness().issuance.loseCommitAnswers({
+      lands: false,
+      times: 1,
+    });
+    restores.push(lost.restore);
+    const outcome = await outcomeOf(
+      harness().revoker(rerunAtOnce).revokeByToken(user.other.token),
+    );
+    lost.restore();
+    expect({
+      outcome,
+      otherValidates: await validates(harness(), user.other.token),
+      keptValidates: await validates(harness(), user.kept.token),
+      events: (await storedFor(harness(), user.userId, [user.other.sessionId]))
+        .events,
+    }).toEqual({
+      outcome: true,
+      otherValidates: false,
+      keptValidates: true,
+      events: [ISSUED, ISSUED, REVOKED],
+    });
+  });
 
   it.each([
     { lands: true, validatesAfter: false, events: [ISSUED, ISSUED, REVOKED] },
@@ -232,6 +216,5 @@ export function revocationAtomicityCases(
         events,
       });
     },
-    budget,
   );
 }

@@ -10,8 +10,32 @@ const SRC = fileURLToPath(new URL('..', import.meta.url));
  * Not native controls: an entry of the library's menu takes `disabled` as
  * `aria-disabled` on an element that is gone once the menu closes.
  */
-const MENU_ENTRIES: Record<string, string[]> = {
-  'modules/permissions/components/users/UserActionsMenu.tsx': ['isLoading'],
+const KNOWN_DISABLED: Record<string, string[]> = {
+  'components/forms/FormCheckbox.tsx': ['disabled', 'disabled || option.disabled'],
+  'components/forms/FormSelect.tsx': ['disabled'],
+  'components/forms/SubmitButton.tsx': ['disabled'],
+  'components/pagination/PaginationControl.tsx': ['isFirstPage', 'isLastPage'],
+  'modules/account/components/LinkProviderButton.tsx': ['disabled'],
+  'modules/account/components/ProfileSyncStatus.tsx': ['!canSync'],
+  'modules/oauth/components/OAuthButton.tsx': ['disabled'],
+  'modules/oauth/components/OAuthButtons.tsx': ['disabled'],
+  'modules/permissions/components/roles/EditRoleForm.tsx': [
+    'isProtected || isBaseRole',
+    'isBaseRole',
+  ],
+  'modules/permissions/components/roles/RoleDetailPanel.tsx': ['isBaseRole', 'role.isProtected'],
+  'modules/permissions/components/search/PermissionSearchDialog.tsx': ['availableCount === 0'],
+  'modules/permissions/components/search/SearchPermissionTabs.tsx': ['groupPerms.length === 0'],
+  'modules/permissions/components/users/CreateUserDialog.tsx': ['allRoles.isError'],
+  'modules/permissions/components/users/CreateUserRoleField.tsx': ['isLoadingRoles'],
+  'modules/permissions/components/users/UserActionsMenu.tsx': ['disabled', 'isLoading'],
+  'modules/permissions/components/users/UserCard.tsx': ['isAdminRole'],
+  'modules/permissions/components/users/UserRoleSelector.tsx': ['disabled || isLoadingRoles'],
+  // Server lock deadlines disable submission after the request has finished.
+  'modules/passkeys/components/PasskeyRegistrationProofForm.tsx': ['isCooling'],
+  'modules/two-factor/components/RegenerateCodesDialog.tsx': ['isCooling'],
+  'modules/two-factor/components/TwoFactorChallengePanel.tsx': ['isCooling'],
+  'modules/two-factor/components/steps/RecoveryCodesStep.tsx': ['!acknowledged'],
 };
 
 function componentFiles(directory: string): string[] {
@@ -33,27 +57,26 @@ describe('finding controls that are disabled while a request runs', () => {
     expect(disabledWhileRequestRuns(source)).toEqual(found);
   });
 
-  it.each([
-    'busy={isLoading}',
-    'aria-disabled={isRetrying}',
-    'disabled={isFirstPage}',
-    'disabled={!acknowledged}',
-    'disabled={isLoadingRoles}',
-    'disabled={role.isProtected}',
-    'isDisabled={isLoading}',
-  ])('accepts %s', (source) => {
-    expect(disabledWhileRequestRuns(source)).toEqual([]);
-  });
+  it.each(['busy={isLoading}', 'aria-disabled={isRetrying}', 'isDisabled={isLoading}'])(
+    'accepts %s',
+    (source) => {
+      expect(disabledWhileRequestRuns(source)).toEqual([]);
+    },
+  );
 
   it('finds none in the components of this application', () => {
     const offenders = componentFiles(SRC).flatMap((path) => {
       const file = relative(SRC, path).split('\\').join('/');
-      const allowed = MENU_ENTRIES[file] ?? [];
-      return disabledWhileRequestRuns(readFileSync(path, 'utf8'))
-        .filter((expression) => !allowed.includes(expression))
-        .map((expression) => `${file}: disabled={${expression}}`);
+      const found = disabledWhileRequestRuns(readFileSync(path, 'utf8'));
+      const known = KNOWN_DISABLED[file] ?? [];
+      return found.join('\n') === known.join('\n') ? [] : [`${file}: ${found.join(', ')}`];
     });
 
     expect(offenders).toEqual([]);
+  });
+
+  it('reports a new request-state alias regardless of its name', () => {
+    expect(disabledWhileRequestRuns('disabled={pending}')).toEqual(['pending']);
+    expect(disabledWhileRequestRuns('disabled={isVerifying}')).toEqual(['isVerifying']);
   });
 });

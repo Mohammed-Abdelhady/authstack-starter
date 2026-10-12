@@ -41,19 +41,15 @@ export interface CreatedAccountMark {
   sessionVersion: number;
 }
 
-/**
- * The address an admin moves an account to and the generation it opens. The
- * account is unverified until the new mailbox confirms the code.
- */
-export interface AddressMove {
+/** The pending address a code is allowed to confirm. */
+export interface PendingAddress {
   email: string;
   addressGeneration: number;
-  isVerified: false;
 }
 
 export interface AccountIdentityEdit {
   name?: string;
-  address?: AddressMove;
+  address?: PendingAddress;
 }
 
 /**
@@ -107,6 +103,12 @@ export abstract class AdminAccountStore {
     unitOfWork: UnitOfWork,
     account: StoredAccount,
     edit: AccountIdentityEdit,
+  ): Promise<StoredAccount>;
+  /** Replace the direct permission list inside the account's unit of work. */
+  abstract savePermissions(
+    unitOfWork: UnitOfWork,
+    account: StoredAccount,
+    permissions: string[],
   ): Promise<StoredAccount>;
   /** A taken address is refused with a unique conflict named for the address. */
   abstract insertAccount(

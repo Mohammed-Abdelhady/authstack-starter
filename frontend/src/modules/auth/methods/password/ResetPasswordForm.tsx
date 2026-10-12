@@ -14,19 +14,19 @@ import {
   SubmitButton,
 } from '@/components/forms';
 import { useResetPasswordMutation } from '@/modules/auth/store/authApi';
-import { ErrorCode, NETWORK_ERROR_CODE, parseApiError } from '@app/core';
+import { ErrorCode, parseApiError } from '@app/core';
 import { KeyRound } from 'lucide-react';
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
+import { showsOwnRefusal } from '@/lib/refusal';
 import { createPasswordSchema } from '@/modules/auth/utils/passwordSchema';
 import { filterDigits } from '@/modules/auth/utils/digitFilter';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
 import { cn } from '@/lib/utils';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
-import { useRefusalToast } from '@/hooks/useRefusalToast';
 
 /**
  * Reset password form validation schema
@@ -80,12 +80,21 @@ export function ResetPasswordForm() {
   const tCommon = useTranslations('common');
   const tPassword = useTranslations('auth.passwordRules.errors');
   const tToast = useTranslations('toast');
-  const tCodes = useTranslations('errors.codes');
   const router = useRouter();
   const searchParams = useSearchParams();
   const [resetPassword, { isLoading }] = useResetPasswordMutation();
-  const refusalToast = useRefusalToast();
+  const refusalText = useRefusalText();
   const [showRequestNew, setShowRequestNew] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (redirectTimer.current !== null) {
+        clearTimeout(redirectTimer.current);
+      }
+    },
+    [],
+  );
 
   // Get email from URL params (passed from forgot password page)
   const emailFromUrl = searchParams.get('email') || '';
@@ -128,34 +137,27 @@ export function ResetPasswordForm() {
 
   const submit = useCallback(
     async (data: ResetPasswordFormData) => {
-      refusalToast.clearStale();
       try {
-        await resetPassword({
-          email: data.email,
-          code: data.code,
-          newPassword: data.password,
-        }).unwrap();
+        await showsOwnRefusal(
+          resetPassword({
+            email: data.email,
+            code: data.code,
+            newPassword: data.password,
+          }),
+        ).unwrap();
 
         // Show success message
         toast.success(tToast('success.passwordReset'));
 
         // Redirect to login after short delay
-        setTimeout(() => {
+        redirectTimer.current = setTimeout(() => {
+          redirectTimer.current = null;
           router.push('/auth/login');
         }, 1500);
       } catch (err: unknown) {
-        refusalToast.noteRefusal();
         const parsed = parseApiError(err);
-        const code = translatableErrorCode(err, '');
         // The server answers one code for a wrong, missing, expired or locked
         // code. The person gets one message and can request a new code below.
-        let errorMessage = t('errors.serverError');
-
-        if (parsed.code === NETWORK_ERROR_CODE) {
-          errorMessage = t('errors.networkError');
-        } else if (code) {
-          errorMessage = tCodes(code);
-        }
 
         if (parsed.code === ErrorCode.PASSWORD_RESET_CODE_INVALID) {
           setShowRequestNew(true);
@@ -163,14 +165,14 @@ export function ResetPasswordForm() {
 
         setError('root', {
           type: 'manual',
-          message: errorMessage,
+          message: refusalText(err),
         });
 
         // Any other refusal leaves the code usable, so what was typed stays.
         if (CODE_SPENT_ERRORS.has(parsed.code)) setValue('code', '');
       }
     },
-    [refusalToast, resetPassword, router, setError, setValue, t, tCodes, tToast],
+    [refusalText, resetPassword, router, setError, setValue, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -221,6 +223,7 @@ export function ResetPasswordForm() {
               label={t('email')}
               placeholder={tCommon('emailPlaceholder')}
               autoComplete="username"
+              required
               busy={isLoading}
               readOnly
               className="bg-muted"
@@ -236,8 +239,8 @@ export function ResetPasswordForm() {
               label={t('code')}
               placeholder={tCommon('codePlaceholder')}
               autoComplete="one-time-code"
+              required
               busy={isLoading}
-              maxLength={6}
               className={cn('text-center tracking-widest', CODE_ENTRY_FONT_SIZE)}
               autoFocus
               onChange={handleCodeChange}
@@ -250,6 +253,7 @@ export function ResetPasswordForm() {
               label={t('password')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
+              required
               busy={isLoading}
               className={FORM_STYLES.authField}
             />
@@ -263,6 +267,7 @@ export function ResetPasswordForm() {
               label={t('confirmPassword')}
               placeholder={tCommon('passwordPlaceholder')}
               autoComplete="new-password"
+              required
               busy={isLoading}
               className={FORM_STYLES.authField}
             />

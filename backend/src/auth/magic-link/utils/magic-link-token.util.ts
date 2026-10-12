@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'crypto';
 import { MAGIC_LINK_TOKEN_BYTES } from '../constants/magic-link.constants';
 
 /** A fresh token for one link. Mailed once, never stored. */
@@ -9,6 +9,13 @@ export function createMagicLinkToken(): string {
 /** Hex sha256 of a token, which is what the pending record holds. */
 export function hashMagicLinkToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
+}
+
+/** True when two hex hashes are the same, compared in constant time. */
+export function sameHash(left: string, right: string): boolean {
+  const a = Buffer.from(left, 'hex');
+  const b = Buffer.from(right, 'hex');
+  return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
 }
 
 /**

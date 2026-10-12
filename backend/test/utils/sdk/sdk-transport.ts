@@ -12,6 +12,7 @@ import {
   beginNativeAuthorization,
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
+  seedUserId,
 } from '../native/native-authorize.fixtures';
 
 type Verb = 'get' | 'post' | 'patch' | 'delete';
@@ -99,7 +100,10 @@ export async function signInNative(e2e: E2eApp): Promise<NativeSignIn> {
   const started = await beginNativeAuthorization(e2e);
   const approval = await browser
     .post('/api/oauth/authorize/approve')
-    .send({ transactionId: started.transactionId })
+    .send({
+      transactionId: started.transactionId,
+      expectedUserId: await seedUserId(e2e),
+    })
     .expect(200);
   const callback = new URL(
     (approval.body as AuthorizeActionBody).data.redirectUri,

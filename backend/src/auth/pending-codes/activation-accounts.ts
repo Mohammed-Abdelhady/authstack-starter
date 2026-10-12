@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
-import { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
+import { SignInOutcome } from '../interfaces/authenticated-user.interface';
 
 /** Shared names of the unique rules an activation can run into. */
 export const ACTIVATION_CONSTRAINT = {
@@ -29,21 +29,24 @@ export abstract class ActivatedAccount {
   abstract readonly id: string;
 }
 
-/** An account whose moved address a code is about to confirm. */
+/** An account whose pending address a code is about to confirm. */
 export abstract class MovedAccount {
   abstract readonly email: string;
+  abstract readonly pendingEmail: string | undefined;
   abstract readonly addressGeneration: number;
 }
 
 /** What a commit with no answer is resolved against. */
 export interface AddressConfirmation {
+  email: string;
+  pendingEmail?: string;
   isVerified: boolean;
   addressGeneration: number;
 }
 
 /**
  * The account side of the two code flows that write an account: activating a
- * sign-up and confirming an address an admin moved. The methods that take a
+ * sign-up and confirming an address an admin asked for. The methods that take a
  * unit of work commit or roll back with the code they spend.
  */
 export abstract class ActivationAccounts {
@@ -74,15 +77,19 @@ export abstract class ActivationAccounts {
     unitOfWork: UnitOfWork,
     userId: string,
   ): Promise<MovedAccount | null>;
-  abstract markAddressVerified(
+  /**
+   * Puts the account on the confirmed address, clears its pending address,
+   * and marks it verified. An
+   * address another account took first is a `UniqueConflictError`.
+   */
+  abstract confirmAddress(
     unitOfWork: UnitOfWork,
     account: MovedAccount,
+    email: string,
   ): Promise<void>;
 }
 
-export type ActivationSignInOutcome =
-  | { requiresTwoFactor: true }
-  | { requiresTwoFactor: false; user: AuthenticatedUserSummary };
+export type ActivationSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account just activated. */
 export abstract class ActivationSignIn {

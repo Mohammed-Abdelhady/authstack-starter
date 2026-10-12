@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegistrationService } from './services/registration/registration.service';
 import { AuthController } from './auth.controller';
+import { IdentityController } from './identity.controller';
 import { Sessions } from './services/sessions/sessions';
 import { SessionCookieService } from './services/sessions/session-cookie.service';
 import { SignInCompletion } from './services/sessions/sign-in-completion';
@@ -39,7 +40,7 @@ import {
     forwardRef(() => UserModule),
     SessionModule,
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, IdentityController],
   providers: [
     AuthService,
     RegistrationService,

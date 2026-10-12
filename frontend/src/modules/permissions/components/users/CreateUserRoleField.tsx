@@ -1,6 +1,8 @@
 'use client';
 
+import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { Loader2 } from 'lucide-react';
 import {
   Select,
@@ -41,17 +43,29 @@ export function CreateUserRoleField({
   errorId,
 }: CreateUserRoleFieldProps) {
   const t = useTranslations('users.createUser');
-  const { roles, isLoading: isLoadingRoles, isError, retry, refusalFor } = allRoles;
+  const { roles, isLoading: isLoadingRoles, isError, isRetrying, retry, refusalFor } = allRoles;
+  // Retry leaves with the failure, and the field it stood in for takes the focus.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const retryAndFollow = useRetryHandOff(isError, retry, triggerRef);
   const selected = roles.find((role) => role.slug === value);
 
   if (isError) {
-    return <RoleListError announce onRetry={retry} testId="create-user-roles-error" />;
+    return (
+      <RoleListError
+        announce
+        onRetry={retryAndFollow}
+        isRetrying={isRetrying}
+        testId="create-user-roles-error"
+      />
+    );
   }
 
   return (
-    <Select value={value} onValueChange={onChange} disabled={isLoadingRoles} busy={busy}>
+    <Select value={value} onValueChange={onChange} disabled={isLoadingRoles} busy={busy} required>
       <SelectTrigger
+        ref={triggerRef}
         id={id}
+        aria-required="true"
         aria-invalid={errorId !== undefined}
         aria-describedby={errorId}
         className={errorId ? 'border-destructive' : ''}
@@ -77,7 +91,7 @@ export function CreateUserRoleField({
             <SelectItem
               key={role.id}
               value={role.slug}
-              disabled={refusal !== null}
+              unavailableReason={refusal ? <RoleRefusalBadge refusal={refusal} /> : undefined}
               data-testid={`role-option-${role.slug}`}
             >
               <div className="flex items-center gap-2">
@@ -85,7 +99,6 @@ export function CreateUserRoleField({
                 {role.isSystemRole && (
                   <span className="text-xs text-tertiary">{t('systemRole')}</span>
                 )}
-                {refusal && <RoleRefusalBadge refusal={refusal} />}
               </div>
             </SelectItem>
           );

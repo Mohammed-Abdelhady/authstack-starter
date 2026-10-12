@@ -34,13 +34,21 @@ export function compositeOver(tintRgb, backdropRgb, alpha) {
   return tintRgb.map((channel, index) => channel * alpha + backdropRgb[index] * (1 - alpha));
 }
 
-/** The ratio of a pair in one theme, or null when a token is missing. */
-export function pairRatio({ token, background, tint }, tokens, theme) {
+/**
+ * The ratio of a pair in one theme, or null when a token is missing. A pair
+ * with `opacity` is a whole control toned down over `page`: its text and its
+ * fill are both blended with the page before they are compared.
+ */
+export function pairRatio({ token, background, tint, opacity, page }, tokens, theme) {
   const fill = tint?.[theme];
   if (!tokens[token] || !tokens[background] || (fill && !tokens[fill.token])) return null;
   const backdrop = hslToRgb(...tokens[background]);
   const surface = fill
     ? compositeOver(hslToRgb(...tokens[fill.token]), backdrop, fill.alpha)
     : backdrop;
-  return contrastRatio(hslToRgb(...tokens[token]), surface);
+  const text = hslToRgb(...tokens[token]);
+  if (opacity === undefined) return contrastRatio(text, surface);
+  if (!tokens[page]) return null;
+  const behind = hslToRgb(...tokens[page]);
+  return contrastRatio(compositeOver(text, behind, opacity), compositeOver(surface, behind, opacity));
 }

@@ -74,76 +74,67 @@ describe('browser proof single use race', () => {
     );
   });
 
-  it(
-    'accepts exactly one of two uses that both read the proof unspent',
-    async () => {
-      const proofId = randomSecret();
-      const presented = randomSecret();
-      await proofs.create({
+  it('accepts exactly one of two uses that both read the proof unspent', async () => {
+    const proofId = randomSecret();
+    const presented = randomSecret();
+    await proofs.create({
+      proofIdHash: hashToken(proofId),
+      tokenHash: hashToken(presented),
+      expiresAt: new Date(TEST_NOW.getTime() + BROWSER_PROOF_TTL_MS),
+      spent: false,
+    });
+    const request = {
+      cookies: { [browserProofCookieName(process.env.NODE_ENV)]: proofId },
+    } as Request;
+
+    // Both consumes read the unspent proof before either writes: each is
+    // held at the store's guarded claim, after its read and its comparison.
+    const barrier = new RaceBarrier();
+    const firstSpend = barrier.point('first-spend');
+    const secondSpend = barrier.point('second-spend');
+    const restore = holdBefore(store, 'claimBrowserProof', (call) =>
+      call === 0 ? firstSpend : secondSpend,
+    );
+
+    let first: Promise<void> | undefined;
+    let second: Promise<void> | undefined;
+    let results: PromiseSettledResult<void>[] | undefined;
+    try {
+      first = service.consume(request, presented);
+      await firstSpend.reached(1);
+      second = service.consume(request, presented);
+      await secondSpend.reached(1);
+
+      // Order the writes: the first spends, then the second is let go.
+      firstSpend.release();
+      await first;
+      harness.clock.advance(1000);
+      secondSpend.release();
+      results = await Promise.allSettled([first, second]);
+    } finally {
+      firstSpend.release();
+      secondSpend.release();
+      restore();
+    }
+    if (!results) {
+      throw new Error('browser proof race did not run');
+    }
+
+    expect(results.filter((row) => row.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((row) => row.status === 'rejected')).toHaveLength(1);
+    expect(results.find((row) => row.status === 'rejected')).toMatchObject({
+      status: 'rejected',
+      reason: { code: ErrorCode.CSRF_INVALID },
+    });
+    expect({
+      proofCount: await proofs.countDocuments({
         proofIdHash: hashToken(proofId),
-        tokenHash: hashToken(presented),
-        expiresAt: new Date(TEST_NOW.getTime() + BROWSER_PROOF_TTL_MS),
+      }),
+      unspentCount: await proofs.countDocuments({
+        proofIdHash: hashToken(proofId),
         spent: false,
-      });
-      const request = {
-        cookies: { [browserProofCookieName(process.env.NODE_ENV)]: proofId },
-      } as Request;
-
-      // Both consumes read the unspent proof before either writes: each is
-      // held at the store's guarded claim, after its read and its comparison.
-      const barrier = new RaceBarrier();
-      const firstSpend = barrier.point('first-spend');
-      const secondSpend = barrier.point('second-spend');
-      const restore = holdBefore(store, 'claimBrowserProof', (call) =>
-        call === 0 ? firstSpend : secondSpend,
-      );
-
-      let first: Promise<void> | undefined;
-      let second: Promise<void> | undefined;
-      let results: PromiseSettledResult<void>[] | undefined;
-      try {
-        first = service.consume(request, presented);
-        await firstSpend.reached(1);
-        second = service.consume(request, presented);
-        await secondSpend.reached(1);
-
-        // Order the writes: the first spends, then the second is let go.
-        firstSpend.release();
-        await first;
-        harness.clock.advance(1000);
-        secondSpend.release();
-        results = await Promise.allSettled([first, second]);
-      } finally {
-        firstSpend.release();
-        secondSpend.release();
-        restore();
-      }
-      if (!results) {
-        throw new Error('browser proof race did not run');
-      }
-
-      expect(results.filter((row) => row.status === 'fulfilled')).toHaveLength(
-        1,
-      );
-      expect(results.filter((row) => row.status === 'rejected')).toHaveLength(
-        1,
-      );
-      expect(results.find((row) => row.status === 'rejected')).toMatchObject({
-        status: 'rejected',
-        reason: { code: ErrorCode.CSRF_INVALID },
-      });
-      expect({
-        proofCount: await proofs.countDocuments({
-          proofIdHash: hashToken(proofId),
-        }),
-        unspentCount: await proofs.countDocuments({
-          proofIdHash: hashToken(proofId),
-          spent: false,
-        }),
-        spent: (await proofs.findOne({ proofIdHash: hashToken(proofId) }))
-          ?.spent,
-      }).toEqual({ proofCount: 1, unspentCount: 0, spent: true });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+      }),
+      spent: (await proofs.findOne({ proofIdHash: hashToken(proofId) }))?.spent,
+    }).toEqual({ proofCount: 1, unspentCount: 0, spent: true });
+  });
 });

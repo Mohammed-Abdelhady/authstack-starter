@@ -77,11 +77,10 @@ describe.each([
     ['create', submitCreate],
     ['edit', submitEdit],
   ] as const)('%s', (_form, submit) => {
-    it('marks the refused name, focuses it and raises one localized toast', async () => {
+    it('marks the refused name, focuses it and raises no toast', async () => {
       refuseWrites(['name']);
 
-      const { name, description, fieldMessage, generalMessage, errorToasts, format } =
-        await submit(locale);
+      const { name, description, fieldMessage, errorToasts, format } = await submit(locale);
 
       await waitFor(() => {
         expect(name.getAttribute('aria-invalid')).toBe('true');
@@ -89,6 +88,7 @@ describe.each([
       // The rule for a name stays on the field, with the refusal after it.
       expect(descriptions(name)).toEqual([
         format('roles.form.nameHint', NAME_LENGTHS),
+        format('roles.form.codePreview', { code: 'reserved-name' }),
         fieldMessage,
       ]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
@@ -96,7 +96,8 @@ describe.each([
       await waitFor(() => {
         expect(document.activeElement).toBe(name);
       });
-      expect(errorToasts()).toEqual([generalMessage]);
+      // The marked field says it. No toast repeats it.
+      expect(errorToasts()).toEqual([]);
       expect(document.body.textContent).not.toContain(SERVER_TEXT);
     });
 
@@ -115,14 +116,14 @@ describe.each([
       });
     });
 
-    it('marks no field when the refusal names none of this form', async () => {
+    it('says so in the form, and marks no field, when the refusal names none of this form', async () => {
       refuseWrites(['nickname']);
 
       const { name, description, generalMessage, errorToasts } = await submit(locale);
 
-      await waitFor(() => {
-        expect(errorToasts()).toEqual([generalMessage]);
-      });
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toBe(generalMessage);
+      expect(errorToasts()).toEqual([]);
       expect(name.getAttribute('aria-invalid')).toBe('false');
       expect(description.getAttribute('aria-invalid')).toBe('false');
     });
@@ -138,7 +139,10 @@ describe.each([
       fireEvent.change(description, { target: { value: 'Around the clock' } });
 
       expect(name.getAttribute('aria-invalid')).toBe('false');
-      expect(descriptions(name)).toEqual([format('roles.form.nameHint', NAME_LENGTHS)]);
+      expect(descriptions(name)).toEqual([
+        format('roles.form.nameHint', NAME_LENGTHS),
+        format('roles.form.codePreview', { code: '24-7-support' }),
+      ]);
       expect(description.getAttribute('aria-invalid')).toBe('false');
       expect(descriptions(description)).toEqual([]);
     });

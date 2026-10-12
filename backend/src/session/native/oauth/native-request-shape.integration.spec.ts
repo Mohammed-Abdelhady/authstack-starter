@@ -59,6 +59,7 @@ describe('native token and revoke request shape', () => {
 
   beforeAll(async () => {
     ctx = await startNativeOauth('native_request_shape');
+    await ctx.harness.app.listen(0, '127.0.0.1');
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {

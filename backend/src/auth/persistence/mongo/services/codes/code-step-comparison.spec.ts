@@ -34,6 +34,10 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../../../test/utils/session-authority-harness';
+import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../schemas/mail-counter.schema';
 
 const CODE = '123456';
 const WRONG_CODE = '000000';
@@ -53,6 +57,7 @@ function costOf(hash: string): number {
 describe('code-step comparison count', () => {
   let mongo: MemoryReplSet;
   let connection: Connection;
+  let guessCounters: Model<MailCounter>;
   let registrations: Model<PendingRegistration>;
   let resets: Model<PendingPasswordReset>;
   let verification: VerificationCodeService;
@@ -77,6 +82,8 @@ describe('code-step comparison count', () => {
       get: (key: string, fallback?: number) =>
         key === 'bcrypt.rounds' ? ROUNDS : fallback,
     };
+    guessCounters = connection.model(MailCounter.name, MailCounterSchema);
+    await guessCounters.init();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MONGO_PENDING_REGISTRATION_STORE,
@@ -98,6 +105,7 @@ describe('code-step comparison count', () => {
           provide: MailCounterService,
           useValue: { tryRecord: jest.fn().mockResolvedValue(true) },
         },
+        { provide: getModelToken(MailCounter.name), useValue: guessCounters },
       ],
     }).compile();
     verification = module.get<VerificationCodeService>(VerificationCodeService);
@@ -118,6 +126,7 @@ describe('code-step comparison count', () => {
   beforeEach(async () => {
     await registrations.deleteMany({});
     await resets.deleteMany({});
+    await guessCounters.deleteMany({});
     compareSpy.mockClear();
   });
 

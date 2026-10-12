@@ -41,7 +41,8 @@ export class PostgresMailCounterStore extends MailCounterStore {
         .set({
           mailed_codes: sql<number>`CASE WHEN window_started_at <= ${rolledOverBefore} THEN 1 ELSE mailed_codes + 1 END`,
           window_started_at: windowStart,
-          expires_at: sql<Date>`${windowStart} + ${rule.windowMs} * interval '1 millisecond'`,
+          // Never earlier than the guess count on this row is still needed.
+          expires_at: sql<Date>`GREATEST(${windowStart} + ${rule.windowMs} * interval '1 millisecond', guess_state_expires_at)`,
         })
         .where('email', '=', storedAddress(key.email))
         .where('purpose', '=', key.purpose)

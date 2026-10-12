@@ -7,6 +7,7 @@ import {
   PostgresTestServer,
   startPostgresTestServer,
 } from '../../../../../test/postgres/server/postgres-test-server';
+import { ignoreSessionEnd } from '../../../../../test/postgres/postgres-connection';
 import { FrozenClock, TEST_NOW } from '../../../../../test/utils/frozen-clock';
 import { commitCheckedPool } from '../../../../common/persistence/postgres/postgres-commit-tag';
 import {
@@ -50,6 +51,7 @@ describe('passkey removal on a PostgreSQL pool of one connection', () => {
   }, POSTGRES_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
+    pool?.on('error', ignoreSessionEnd);
     try {
       await pool?.end();
     } finally {

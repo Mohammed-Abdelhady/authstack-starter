@@ -1,8 +1,11 @@
+import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export function SessionTimelineSkeleton() {
+  const t = useTranslations('sessions');
   return (
     <div role="status" aria-live="polite" className="space-y-4" data-testid="sessions-skeleton">
+      <span className="sr-only">{t('loading')}</span>
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="p-4 rounded-lg bg-card border border-border space-y-3">
           <div className="flex items-start justify-between">

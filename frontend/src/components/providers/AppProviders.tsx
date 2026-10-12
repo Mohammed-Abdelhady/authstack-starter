@@ -5,6 +5,7 @@ interface AppProvidersProps {
   readonly children: React.ReactNode;
   /** Announced while the persisted store rehydrates. */
   readonly loadingLabel: string;
+  readonly nonce?: string;
 }
 
 /**
@@ -14,9 +15,9 @@ interface AppProvidersProps {
  * state on the server, and the theme script has to be in the server's HTML to
  * run before the first paint.
  */
-export function AppProviders({ children, loadingLabel }: AppProvidersProps) {
+export function AppProviders({ children, loadingLabel, nonce }: AppProvidersProps) {
   return (
-    <ThemeProvider>
+    <ThemeProvider nonce={nonce}>
       <ReduxProvider loadingLabel={loadingLabel}>{children}</ReduxProvider>
     </ThemeProvider>
   );

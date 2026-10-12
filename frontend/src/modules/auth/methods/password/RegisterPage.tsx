@@ -20,10 +20,7 @@ interface NoPasswordHintProps {
   createsAccountByLink: boolean;
 }
 
-/**
- * Shown where passwords are off. A magic link creates the account by itself;
- * with only OAuth left, the provider does, so the copy differs.
- */
+/** Registration guidance when password sign-up is unavailable. */
 function NoPasswordHint({ createsAccountByLink }: NoPasswordHintProps) {
   const t = useTranslations('auth.register');
   const redirect = useSearchParams().get(REDIRECT_PARAM);

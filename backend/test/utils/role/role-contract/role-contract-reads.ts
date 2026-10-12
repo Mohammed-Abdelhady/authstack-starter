@@ -10,7 +10,6 @@ import {
   EDITOR_SLUG,
   MANAGER_SLUG,
   READ_POSTS,
-  roleCase,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -28,7 +27,7 @@ export function roleReadCases(
   const roles = () => servicesOn(harness()).roles;
   const hierarchy = () => servicesOn(harness()).hierarchy;
 
-  roleCase('finds a role by the id it was given and by its slug', async () => {
+  it('finds a role by the id it was given and by its slug', async () => {
     const byId = await roles().findOne(fixture().editorRoleId);
     const bySlug = await roles().findOne(EDITOR_SLUG);
     const missing = await rejectionOf(roles().findOne(harness().absentId()));
@@ -47,7 +46,7 @@ export function roleReadCases(
     });
   });
 
-  roleCase('lists roles newest first, a page at a time', async () => {
+  it('lists roles newest first, a page at a time', async () => {
     await harness().reset();
     for (const [name, slug, createdAt] of [
       ['Alpha', 'alpha', OLDEST],
@@ -76,40 +75,37 @@ export function roleReadCases(
     });
   });
 
-  roleCase(
-    'searches name and slug without case and takes the text literally',
-    async () => {
-      await harness().seedRole({
-        name: 'Billing 100% (EU)',
-        slug: 'billing-100-eu',
-        permissions: [],
-      });
-      const found = async (search: string) => {
-        const listed = await roles().findAll({ page: 1, limit: 10, search });
-        return listed.roles.map((role) => role.slug).sort();
-      };
+  it('searches name and slug without case and takes the text literally', async () => {
+    await harness().seedRole({
+      name: 'Billing 100% (EU)',
+      slug: 'billing-100-eu',
+      permissions: [],
+    });
+    const found = async (search: string) => {
+      const listed = await roles().findAll({ page: 1, limit: 10, search });
+      return listed.roles.map((role) => role.slug).sort();
+    };
 
-      expect({
-        byName: await found('CONTENT ed'),
-        bySlug: await found('tent-EDIT'),
-        percent: await found('100%'),
-        parenthesis: await found('(eu)'),
-        anyCharacter: await found('.*'),
-        underscore: await found('_'),
-        nothing: await found('no such role'),
-      }).toEqual({
-        byName: [EDITOR_SLUG],
-        bySlug: [EDITOR_SLUG],
-        percent: ['billing-100-eu'],
-        parenthesis: ['billing-100-eu'],
-        anyCharacter: [],
-        underscore: [],
-        nothing: [],
-      });
-    },
-  );
+    expect({
+      byName: await found('CONTENT ed'),
+      bySlug: await found('tent-EDIT'),
+      percent: await found('100%'),
+      parenthesis: await found('(eu)'),
+      anyCharacter: await found('.*'),
+      underscore: await found('_'),
+      nothing: await found('no such role'),
+    }).toEqual({
+      byName: [EDITOR_SLUG],
+      bySlug: [EDITOR_SLUG],
+      percent: ['billing-100-eu'],
+      parenthesis: ['billing-100-eu'],
+      anyCharacter: [],
+      underscore: [],
+      nothing: [],
+    });
+  });
 
-  roleCase('counts the holders of a slug', async () => {
+  it('counts the holders of a slug', async () => {
     await harness().seedAccount({ role: EDITOR_SLUG });
     await harness().seedAccount({ role: EDITOR_SLUG });
 
@@ -121,63 +117,57 @@ export function roleReadCases(
     }).toEqual({ editors: 2, assigned: true, nobody: 0, unassigned: false });
   });
 
-  roleCase(
-    'reads hierarchy levels with the fallbacks for older roles',
-    async () => {
-      await harness().seedRole({
-        name: 'Support',
-        slug: 'support',
-        permissions: [],
-      });
-      const missing = await rejectionOf(hierarchy().getLevelOrFail('ghost'));
+  it('reads hierarchy levels with the fallbacks for older roles', async () => {
+    await harness().seedRole({
+      name: 'Support',
+      slug: 'support',
+      permissions: [],
+    });
+    const missing = await rejectionOf(hierarchy().getLevelOrFail('ghost'));
 
-      expect({
-        stored: await hierarchy().getLevel(MANAGER_SLUG),
-        seedMap: await hierarchy().getLevel('support'),
-        custom: await hierarchy().getLevel(EDITOR_SLUG),
-        unknown: await hierarchy().getLevel('ghost'),
-        mustExist: await hierarchy().getLevelOrFail(ADMIN_SLUG),
-        missing: answerOf(missing),
-        atOrBelowTwo: (await hierarchy().getSlugsAtOrBelow(2)).sort(),
-        atOrBelowZero: await hierarchy().getSlugsAtOrBelow(0),
-      }).toEqual({
-        stored: 3,
-        seedMap: 2,
-        custom: 1,
-        unknown: 0,
-        mustExist: 4,
-        missing: { code: ErrorCode.ROLE_NOT_FOUND, status: 404 },
-        atOrBelowTwo: [EDITOR_SLUG, 'support', DEFAULT_SLUG].sort(),
-        atOrBelowZero: [],
-      });
-    },
-  );
+    expect({
+      stored: await hierarchy().getLevel(MANAGER_SLUG),
+      seedMap: await hierarchy().getLevel('support'),
+      custom: await hierarchy().getLevel(EDITOR_SLUG),
+      unknown: await hierarchy().getLevel('ghost'),
+      mustExist: await hierarchy().getLevelOrFail(ADMIN_SLUG),
+      missing: answerOf(missing),
+      atOrBelowTwo: (await hierarchy().getSlugsAtOrBelow(2)).sort(),
+      atOrBelowZero: await hierarchy().getSlugsAtOrBelow(0),
+    }).toEqual({
+      stored: 3,
+      seedMap: 2,
+      custom: 1,
+      unknown: 0,
+      mustExist: 4,
+      missing: { code: ErrorCode.ROLE_NOT_FOUND, status: 404 },
+      atOrBelowTwo: [EDITOR_SLUG, 'support', DEFAULT_SLUG].sort(),
+      atOrBelowZero: [],
+    });
+  });
 
-  roleCase(
-    'reads a level inside a unit of work that the committed read cannot see yet',
-    async () => {
-      const levels = await harness()
-        .runner(rerunAtOnce)
-        .run(async (unitOfWork) => {
-          await harness().changes.insertCustomRole(unitOfWork, {
-            name: 'Draft',
-            slug: 'draft',
-            level: 2,
-            permissions: [READ_POSTS],
-          });
-          return {
-            inWork: await hierarchy().getLevel('draft', unitOfWork),
-            committed: await hierarchy().getLevel('draft'),
-          };
+  it('reads a level inside a unit of work that the committed read cannot see yet', async () => {
+    const levels = await harness()
+      .runner(rerunAtOnce)
+      .run(async (unitOfWork) => {
+        await harness().changes.insertCustomRole(unitOfWork, {
+          name: 'Draft',
+          slug: 'draft',
+          level: 2,
+          permissions: [READ_POSTS],
         });
-
-      expect({
-        levels,
-        afterCommit: await hierarchy().getLevel('draft'),
-      }).toEqual({
-        levels: { inWork: 2, committed: 0 },
-        afterCommit: 2,
+        return {
+          inWork: await hierarchy().getLevel('draft', unitOfWork),
+          committed: await hierarchy().getLevel('draft'),
+        };
       });
-    },
-  );
+
+    expect({
+      levels,
+      afterCommit: await hierarchy().getLevel('draft'),
+    }).toEqual({
+      levels: { inWork: 2, committed: 0 },
+      afterCommit: 2,
+    });
+  });
 }

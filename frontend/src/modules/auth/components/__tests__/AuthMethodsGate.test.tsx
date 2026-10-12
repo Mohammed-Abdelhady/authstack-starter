@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
+import { availability, heldAnswer, IDLE } from '@/tests/busyControls';
 import {
   refusalWith,
   registerFormTestLifecycle,
@@ -12,7 +13,9 @@ import {
 } from '@/tests/serverRejectionHarness';
 import { AuthMethodsGate } from '../AuthMethodsGate';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 const METHODS_READ = 'GET /api/auth/methods';
 const PASSWORD_ONLY = {
@@ -29,7 +32,7 @@ function unreachable(): Response {
 }
 
 /** Answers each read of the methods with the next entry, repeating the last. */
-function answerMethods(...answers: Array<() => Response>) {
+function answerMethods(...answers: Array<() => Response | Promise<Response>>) {
   let reads = 0;
   return stubNetwork(() => {
     const answer = answers[Math.min(reads, answers.length - 1)];
@@ -91,7 +94,7 @@ describe('the sign-in methods gate', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(gate.message('auth.methods.loadFailed'));
-    expect(gate.retryButton()).toHaveProperty('disabled', false);
+    expect(availability(gate.retryButton())).toEqual(IDLE);
     expect(screen.queryByRole('status')).toBeNull();
     expect(screen.queryByTestId('methods-known')).toBeNull();
     expect(requests).toEqual([METHODS_READ]);
@@ -107,7 +110,7 @@ describe('the sign-in methods gate', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(gate.message('auth.methods.loadFailed'));
-    expect(gate.retryButton()).toHaveProperty('disabled', false);
+    expect(availability(gate.retryButton())).toEqual(IDLE);
   });
 
   it('reads again on retry and shows the methods when the read succeeds', async () => {
@@ -123,7 +126,8 @@ describe('the sign-in methods gate', () => {
   });
 
   it('keeps the failure and the focus on the retry when the read fails again', async () => {
-    const requests = answerMethods(unreachable);
+    const held = heldAnswer();
+    const requests = answerMethods(unreachable, () => held.answer);
     const gate = await renderGate();
     await screen.findByRole('alert');
     gate.retryButton().focus();
@@ -131,6 +135,8 @@ describe('the sign-in methods gate', () => {
     fireEvent.click(gate.retryButton());
 
     await waitFor(() => expect(requests).toEqual([METHODS_READ, METHODS_READ]));
+    expect(screen.getByTestId('auth-methods-loading')).toBeDefined();
+    held.settle(unreachable);
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe(gate.message('auth.methods.loadFailed'));
     expect(document.activeElement).toBe(gate.retryButton());

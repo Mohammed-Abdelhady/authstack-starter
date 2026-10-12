@@ -2,9 +2,6 @@ import { ApplicationAccessStore } from '../../../../src/session/applications/app
 import { ApplicationRegistryStore } from '../../../../src/session/applications/application-registry.store';
 import { AuthorityContractHarness } from '../authority-contract/authority-contract-harness';
 
-/** Jest budget for one contract case, the budget the sign-in contract set. */
-export const APPLICATIONS_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 export interface StoredApplication {
   clientId: string;
   environment: string;

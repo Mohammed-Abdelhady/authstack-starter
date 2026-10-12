@@ -5,6 +5,7 @@ import {
   beginNativeAuthorization,
   createNativeApplication,
   pauseNextNativeAuthorizationRead,
+  seedUserId,
 } from '../../utils/native/native-authorize.fixtures';
 import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
 import {
@@ -43,12 +44,16 @@ describe('native authorization claim races (e2e)', () => {
     try {
       const approval = browser
         .post('/api/oauth/authorize/approve')
-        .send({ transactionId: started.transactionId })
+        .send({
+          transactionId: started.transactionId,
+          expectedUserId: await seedUserId(e2e),
+        })
         .then((response) => response);
       await gate.reached;
-      const denial = await browser
-        .post('/api/oauth/authorize/deny')
-        .send({ transactionId: started.transactionId });
+      const denial = await browser.post('/api/oauth/authorize/deny').send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
       gate.release();
       const approvalResponse = await approval;
 
@@ -76,12 +81,16 @@ describe('native authorization claim races (e2e)', () => {
     try {
       const denial = browser
         .post('/api/oauth/authorize/deny')
-        .send({ transactionId: started.transactionId })
+        .send({
+          transactionId: started.transactionId,
+          expectedUserId: await seedUserId(e2e),
+        })
         .then((response) => response);
       await gate.reached;
-      const approval = await browser
-        .post('/api/oauth/authorize/approve')
-        .send({ transactionId: started.transactionId });
+      const approval = await browser.post('/api/oauth/authorize/approve').send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
       gate.release();
       const denialResponse = await denial;
 
@@ -109,12 +118,16 @@ describe('native authorization claim races (e2e)', () => {
     try {
       const first = browser
         .post('/api/oauth/authorize/approve')
-        .send({ transactionId: started.transactionId })
+        .send({
+          transactionId: started.transactionId,
+          expectedUserId: await seedUserId(e2e),
+        })
         .then((response) => response);
       await gate.reached;
-      const second = await browser
-        .post('/api/oauth/authorize/approve')
-        .send({ transactionId: started.transactionId });
+      const second = await browser.post('/api/oauth/authorize/approve').send({
+        transactionId: started.transactionId,
+        expectedUserId: await seedUserId(e2e),
+      });
       gate.release();
       const firstResponse = await first;
 

@@ -58,6 +58,7 @@ export class OidcOAuthStrategy
   readonly displayName: string;
   readonly usesOidc = true;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   private readonly settings: OidcSettings;
   private endpoints?: OidcEndpoints;

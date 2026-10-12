@@ -11,7 +11,7 @@ import {
   selectValidationErrorStatus,
   selectValidationStatus,
 } from '@/modules/auth/store/authSlice';
-import { useGetCurrentUserQuery } from '@/modules/auth/store/authApi';
+import { useGetIdentityQuery } from '@/modules/auth/store/authApi';
 
 interface AuthGuardProps {
   readonly children: React.ReactNode;
@@ -39,7 +39,7 @@ export function AuthGuard({ children }: Readonly<AuthGuardProps>) {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const validationStatus = useAppSelector(selectValidationStatus);
   const validationErrorStatus = useAppSelector(selectValidationErrorStatus);
-  const { refetch } = useGetCurrentUserQuery();
+  const { refetch } = useGetIdentityQuery();
 
   const waiting = validationStatus === 'idle' || validationStatus === 'pending';
   const unavailable = validationStatus === 'failed' && validationErrorStatus !== 401;

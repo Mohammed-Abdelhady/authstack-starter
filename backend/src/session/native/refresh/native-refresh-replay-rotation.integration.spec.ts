@@ -125,84 +125,76 @@ describe('a replayed refresh token against a rotation of its successor', () => {
     };
   }
 
-  it(
-    'has ended the family by the time the replay is answered, and the held rotation fails',
-    async () => {
-      const race = await holdBoth();
+  it('has ended the family by the time the replay is answered, and the held rotation fails', async () => {
+    const race = await holdBoth();
 
-      race.replayRead.release();
-      const replay = await race.replaying;
-      const whenReplayAnswered = await familyState();
-      race.rotationRead.release();
-      const rotation = await race.rotating;
+    race.replayRead.release();
+    const replay = await race.replaying;
+    const whenReplayAnswered = await familyState();
+    race.rotationRead.release();
+    const rotation = await race.rotating;
 
-      expect({
-        replay,
-        whenReplayAnswered,
-        rotation,
-        afterwards: await familyState(),
-        successorAfterwards: await rotate(ctx, race.successorToken),
-      }).toEqual({
-        replay: INVALID_GRANT,
-        whenReplayAnswered: {
-          sessionValid: false,
-          revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-          credentialCount: 4,
-          unspentCount: 0,
-          unrevokedCount: 0,
-        },
-        rotation: INVALID_GRANT,
-        afterwards: {
-          sessionValid: false,
-          revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-          credentialCount: 4,
-          unspentCount: 0,
-          unrevokedCount: 0,
-        },
-        successorAfterwards: INVALID_GRANT,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    expect({
+      replay,
+      whenReplayAnswered,
+      rotation,
+      afterwards: await familyState(),
+      successorAfterwards: await rotate(ctx, race.successorToken),
+    }).toEqual({
+      replay: INVALID_GRANT,
+      whenReplayAnswered: {
+        sessionValid: false,
+        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+        credentialCount: 4,
+        unspentCount: 0,
+        unrevokedCount: 0,
+      },
+      rotation: INVALID_GRANT,
+      afterwards: {
+        sessionValid: false,
+        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+        credentialCount: 4,
+        unspentCount: 0,
+        unrevokedCount: 0,
+      },
+      successorAfterwards: INVALID_GRANT,
+    });
+  });
 
-  it(
-    'ends the family, new pair included, when the rotation commits before the held replay',
-    async () => {
-      const race = await holdBoth();
+  it('ends the family, new pair included, when the rotation commits before the held replay', async () => {
+    const race = await holdBoth();
 
-      race.rotationRead.release();
-      const rotation = await race.rotating;
-      if (!rotation.ok) {
-        throw new Error(`the rotation did not win: ${rotation.error}`);
-      }
-      const newPairWhileReplayHeld = (
-        await ctx.credentials.findOne({
-          tokenHash: hashToken(rotation.refreshToken),
-        })
-      )?.spent;
-      race.replayRead.release();
-      const replay = await race.replaying;
+    race.rotationRead.release();
+    const rotation = await race.rotating;
+    if (!rotation.ok) {
+      throw new Error(`the rotation did not win: ${rotation.error}`);
+    }
+    const newPairWhileReplayHeld = (
+      await ctx.credentials.findOne({
+        tokenHash: hashToken(rotation.refreshToken),
+      })
+    )?.spent;
+    race.replayRead.release();
+    const replay = await race.replaying;
 
-      expect({
-        newPairWhileReplayHeld,
-        replay,
-        whenReplayAnswered: await familyState(),
-        newPairAfterwards: await rotate(ctx, rotation.refreshToken),
-      }).toEqual({
-        newPairWhileReplayHeld: false,
-        replay: INVALID_GRANT,
-        whenReplayAnswered: {
-          sessionValid: false,
-          revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
-          credentialCount: 6,
-          unspentCount: 0,
-          unrevokedCount: 0,
-        },
-        newPairAfterwards: INVALID_GRANT,
-      });
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+    expect({
+      newPairWhileReplayHeld,
+      replay,
+      whenReplayAnswered: await familyState(),
+      newPairAfterwards: await rotate(ctx, rotation.refreshToken),
+    }).toEqual({
+      newPairWhileReplayHeld: false,
+      replay: INVALID_GRANT,
+      whenReplayAnswered: {
+        sessionValid: false,
+        revokedReason: SECURITY_EVENT_ACTION.REFRESH_REPLAYED,
+        credentialCount: 6,
+        unspentCount: 0,
+        unrevokedCount: 0,
+      },
+      newPairAfterwards: INVALID_GRANT,
+    });
+  });
 });
 
 function rotate(

@@ -4,10 +4,7 @@ import {
   UniqueConflictError,
 } from '../persistence-errors';
 import { isMongoDuplicateKeyError } from './mongo-error.util';
-import { mapMongoError } from '../../../session/persistence/mongo/mongo-persistence-errors';
-
-const INDEX_NAME_PATTERN = / index: (\S+) dup key/;
-const UNNAMED_CONSTRAINT = 'unnamed';
+import { mapMongoDriverError, mongoConstraintOf } from './mongo-driver-errors';
 
 /**
  * Runs one insert that commits by itself and turns a refused unique rule into
@@ -25,11 +22,7 @@ export async function insertOrConflict<Result>(
     if (!isMongoDuplicateKeyError(error)) {
       throw outageOr(error);
     }
-    const index = INDEX_NAME_PATTERN.exec(error.message)?.[1];
-    const constraint = index
-      ? (constraints[index] ?? index)
-      : UNNAMED_CONSTRAINT;
-    throw new UniqueConflictError(constraint, error);
+    throw new UniqueConflictError(mongoConstraintOf(error, constraints), error);
   }
 }
 
@@ -50,7 +43,7 @@ export async function singleStatement<Result>(
 }
 
 function outageOr(error: unknown): unknown {
-  const mapped = mapMongoError(error);
+  const mapped = mapMongoDriverError(error);
   return mapped instanceof PersistenceUnavailableError ||
     mapped instanceof PersistenceTimeoutError
     ? mapped

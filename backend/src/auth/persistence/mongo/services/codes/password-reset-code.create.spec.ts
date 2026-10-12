@@ -26,6 +26,10 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../../../test/utils/session-authority-harness';
+import {
+  MailCounter,
+  MailCounterSchema,
+} from '../../schemas/mail-counter.schema';
 
 const ROUNDS = 4;
 const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 600000);
@@ -38,6 +42,7 @@ const EXPIRED_EXPIRY = new Date(TEST_NOW.getTime() - 1000);
 describe('PasswordResetCodeService pending reset', () => {
   let mongo: MemoryReplSet;
   let connection: Connection;
+  let guessCounters: Model<MailCounter>;
   let resets: Model<PendingPasswordReset>;
   let service: PasswordResetCodeService;
 
@@ -54,6 +59,8 @@ describe('PasswordResetCodeService pending reset', () => {
       get: (key: string, fallback?: number) =>
         key === 'bcrypt.rounds' ? ROUNDS : fallback,
     };
+    guessCounters = connection.model(MailCounter.name, MailCounterSchema);
+    await guessCounters.init();
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MONGO_PASSWORD_RESET_CODE_STORE,
@@ -65,6 +72,7 @@ describe('PasswordResetCodeService pending reset', () => {
           provide: getModelToken(PendingPasswordReset.name),
           useValue: resets,
         },
+        { provide: getModelToken(MailCounter.name), useValue: guessCounters },
       ],
     }).compile();
     service = module.get<PasswordResetCodeService>(PasswordResetCodeService);
@@ -77,6 +85,7 @@ describe('PasswordResetCodeService pending reset', () => {
 
   beforeEach(async () => {
     await resets.deleteMany({});
+    await guessCounters.deleteMany({});
   });
 
   async function stored(email: string) {

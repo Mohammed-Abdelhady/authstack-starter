@@ -1,0 +1,48 @@
+{
+  "dashboard": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "settings": "Settings",
+      "admin": "Admin",
+      "users": "Users",
+      "roles": "Roles",
+      "permissionsDemo": "Permissions Demo",
+      "activity": "Activity",
+      "sessions": "Sessions"
+    },
+    "shell": {
+      "brandHome": "{name}, go to dashboard",
+      "openMenu": "Open navigation menu",
+      "closeMenu": "Close navigation menu",
+      "navigationTitle": "Navigation",
+      "navigationDescription": "Links to the dashboard sections",
+      "mainNavigation": "Main navigation",
+      "accountControls": "Account controls",
+      "accountIdentity": "<nameText>{name}</nameText> (<roleText>{role}</roleText>)"
+    },
+    "user": {
+      "title": "Dashboard",
+      "description": "Your personal dashboard",
+      "welcome": "Welcome to your dashboard. This page is under construction.",
+      "featuresComingSoon": "Dashboard features coming soon..."
+    },
+    "admin": {
+      "title": "Admin Dashboard",
+      "description": "Admin control panel",
+      "welcome": "Welcome to the admin control panel. This page is under construction.",
+      "featuresComingSoon": "Admin features coming soon..."
+    },
+    "manager": {
+      "title": "Manager Dashboard",
+      "description": "Manager control panel",
+      "welcome": "Welcome to the manager dashboard. This page is under construction.",
+      "featuresComingSoon": "Manager features coming soon..."
+    },
+    "support": {
+      "title": "Support Dashboard",
+      "description": "Support control panel",
+      "welcome": "Welcome to the support dashboard. This page is under construction.",
+      "featuresComingSoon": "Support features coming soon..."
+    }
+  }
+}

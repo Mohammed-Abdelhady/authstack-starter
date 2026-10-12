@@ -1,5 +1,9 @@
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import {
+  PERMISSION_PERMISSIONS,
+  USER_PERMISSIONS,
+} from '../../../../src/common/constants/permissions';
 import { AdminPermissionsService } from '../../../../src/admin/services/roles/admin-permissions.service';
 import { AdminEmailChangeService } from '../../../../src/admin/services/users/admin-email-change.service';
 import { AdminUserAccessService } from '../../../../src/admin/services/users/admin-user-access.service';
@@ -20,10 +24,7 @@ import { RoleHierarchyService } from '../../../../src/role/services/role-hierarc
 import { UserPermissionsService } from '../../../../src/user/services/user-permissions.service';
 import { UserProfileService } from '../../../../src/user/services/user-profile.service';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
-import {
-  ACCOUNTS_CONTRACT_CASE_TIMEOUT_MS,
-  AccountsContractHarness,
-} from './accounts-contract-harness';
+import { AccountsContractHarness } from './accounts-contract-harness';
 
 export type AccountsHarnessSource = () => AccountsContractHarness;
 
@@ -101,15 +102,28 @@ export function servicesOn(
     new RoleHierarchyService(harness.roleCatalog),
   );
   const permissions = new UserPermissionsService(harness.permissions);
+  const emailChanges = new AdminEmailChangeService(
+    harness.admin,
+    verification,
+    authMail,
+    config,
+  );
   return {
     profile: new UserProfileService(
       harness.profiles,
       harness.sessions,
       runner,
       harness.clock,
+      hash,
     ),
     permissions,
-    adminPermissions: new AdminPermissionsService(access, permissions),
+    adminPermissions: new AdminPermissionsService(
+      harness.admin,
+      access,
+      permissions,
+      runner,
+      harness.roleChanges,
+    ),
     adminUsers: new AdminUsersService(
       harness.admin,
       harness.sessions,
@@ -117,12 +131,7 @@ export function servicesOn(
       harness.roleChanges,
       harness.roleSweeps,
       access,
-      new AdminEmailChangeService(
-        harness.admin,
-        verification,
-        authMail,
-        config,
-      ),
+      emailChanges,
     ),
     adminCreate: new AdminUserCreateService(
       harness.admin,
@@ -130,6 +139,7 @@ export function servicesOn(
       harness.roleChanges,
       harness.roleSweeps,
       access,
+      hash,
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(
@@ -145,6 +155,7 @@ export function servicesOn(
       harness.activation,
       runner,
       verification,
+      harness.sessions,
     ),
     verification,
     mail,
@@ -183,7 +194,14 @@ export async function seedAccountsFixture(
     name: 'Manager',
     slug: MANAGER_SLUG,
     level: 3,
-    permissions: [READ_USERS],
+    // What the admin services ask of an acting manager, and what it hands out.
+    permissions: [
+      READ_USERS,
+      READ_POSTS,
+      USER_PERMISSIONS.UPDATE_ALL,
+      PERMISSION_PERMISSIONS.GRANT_ALL,
+      PERMISSION_PERMISSIONS.REVOKE_ALL,
+    ],
   });
   await harness.seedRole({
     name: 'Support',
@@ -259,11 +277,6 @@ export async function refusalOf(
     return answerOf(error);
   }
   throw new Error('expected a refusal');
-}
-
-/** A contract case with the budget a database case gets. */
-export function accountCase(name: string, body: () => Promise<void>): void {
-  it(name, body, ACCOUNTS_CONTRACT_CASE_TIMEOUT_MS);
 }
 
 /** Who was signed out, by whom and why, sorted so storage order does not matter. */

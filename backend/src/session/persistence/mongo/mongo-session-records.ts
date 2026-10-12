@@ -10,7 +10,7 @@ import {
   AuthorityAccount,
   StoredSession,
 } from '../../authority/session-authority.store';
-import { SessionDeviceLabel } from '../../issuance/browser-issuance.store';
+import { deviceLabelOf } from '../../issuance/browser-issuance.store';
 import { RevocableSession } from '../../revocation/session-revocation.store';
 import { LeanSession, SessionDocument } from './schemas/session.schema';
 import { toIssuanceAccount } from './mongo-issuance-mappers';
@@ -34,15 +34,6 @@ function ownerIdOf(record: SessionRecord): string {
   return owner instanceof Types.ObjectId
     ? owner.toString()
     : owner._id.toString();
-}
-
-function deviceLabelOf(device: SessionDeviceLabel): SessionDeviceLabel {
-  return {
-    type: device.type,
-    browser: device.browser,
-    os: device.os,
-    name: device.name,
-  };
 }
 
 /** Stored values go across as they are: the service judges what is missing. */

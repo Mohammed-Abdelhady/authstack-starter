@@ -37,6 +37,7 @@ declare module 'node:crypto' {
 declare module 'node:buffer' {
   export class Buffer extends Uint8Array {
     static from(value: string): Buffer;
+    static from(value: Uint8Array): Buffer;
     static from(value: string, encoding: 'base64url' | 'utf8'): Buffer;
     toString(encoding?: 'utf8'): string;
   }

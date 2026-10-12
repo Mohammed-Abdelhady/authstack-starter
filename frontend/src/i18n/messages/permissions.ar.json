@@ -1,0 +1,126 @@
+{
+  "permissions": {
+    "demo": {
+      "title": "عرض نظام الصلاحيات",
+      "description": "توضح هذه الصفحة كيفية استخدام حواجز الصلاحيات في التطبيق.",
+      "singleTitle": "حاجز صلاحية واحدة",
+      "singleDescription": "تُخفى العناصر داخل PermissionGuard بالكامل إذا لم يكن لدى المستخدم الصلاحية المطلوبة.",
+      "singleAllowed": "لديك صلاحية ⁨USER_PERMISSIONS.LIST_ALL⁩، لذلك يظهر هذا العنصر.",
+      "singleDenied": "يتطلب هذا العنصر صلاحية ⁨fake:permission⁩، لذلك لا يظهر.",
+      "allTitle": "صلاحيات متعددة، جميع الصلاحيات مطلوبة",
+      "allDescription": "استخدم الخاصية permissions لاشتراط جميع الصلاحيات المدرجة.",
+      "allAllowed": "لديك كلتا الصلاحيتين ⁨USER_PERMISSIONS.LIST_ALL⁩ و⁨ROLE_PERMISSIONS.LIST_ALL⁩.",
+      "allDenied": "لا يظهر هذا العنصر لعدم توفر صلاحية ⁨fake:permission⁩.",
+      "anyTitle": "صلاحيات متعددة، إحدى الصلاحيات مطلوبة",
+      "anyDescription": "استخدم الخاصية anyPermissions لإظهار العنصر إذا كانت لدى المستخدم إحدى الصلاحيات المدرجة.",
+      "anyAllowed": "تتضمن صلاحيات الجلسة ⁨READ_ALL⁩ أو ⁨READ_OWN⁩.",
+      "actionsTitle": "أزرار الإجراءات مع حواجز الصلاحيات",
+      "actionsDescription": "ضع أزرار الإجراءات داخل PermissionGuard لإخفاء الإجراءات غير المصرح بها بالكامل.",
+      "sampleName": "مستخدم تجريبي",
+      "sampleEmail": "john@example.com",
+      "tip": "تُخفى الأزرار بالكامل لمنع المستخدمين من رؤية الإجراءات غير المصرح لهم بتنفيذها.",
+      "fallbackTitle": "المحتوى البديل",
+      "fallbackDescription": "استخدم الخاصية fallback لإظهار محتوى بديل عند رفض الصلاحية.",
+      "fallbackDenied": "ليست لديك صلاحية عرض هذا المحتوى.",
+      "secretContent": "هذا المحتوى مخصص للمستخدمين المصرح لهم فقط.",
+      "wildcardTitle": "صلاحية الوصول الشامل (*)",
+      "wildcardDescription": "تمنح صلاحية الوصول الشامل الوصول إلى جميع الموارد. يجب إسنادها إلى المسؤولين ذوي الصلاحيات الكاملة فقط.",
+      "wildcardNotice": "تمنح صلاحية الوصول الشامل إمكانية الوصول إلى جميع الموارد وتنفيذ كل الإجراءات.",
+      "codeTitle": "أمثلة الشفرة",
+      "componentCodeTitle": "حاجز على مستوى المكوّن",
+      "routeCodeTitle": "حاجز على مستوى المسار",
+      "allCodeTitle": "صلاحيات متعددة، جميع الصلاحيات",
+      "anyCodeTitle": "صلاحيات متعددة، إحدى الصلاحيات"
+    },
+    "actions": {
+      "read": "قراءة",
+      "list": "عرض",
+      "create": "إنشاء",
+      "update": "تحديث",
+      "delete": "حذف",
+      "manage": "إدارة",
+      "grant": "منح",
+      "revoke": "سحب"
+    },
+    "scopes": {
+      "own": "الخاصة به",
+      "all": "الكل"
+    },
+    "permissionLabelWithScope": "{action} ({scope})",
+    "tree": {
+      "empty": "لا توجد صلاحيات معينة",
+      "wildcardLabel": "صلاحية شاملة (*)",
+      "wildcardNotice": "هذا الدور يملك جميع الصلاحيات"
+    },
+    "dialog": {
+      "title": "إدارة صلاحيات المستخدم",
+      "descriptionWithUser": "إدارة صلاحيات ⁨{name}⁩",
+      "descriptionGeneric": "إضافة أو إزالة صلاحيات لهذا المستخدم",
+      "noRole": "لا يوجد",
+      "currentRole": "الدور الحالي:",
+      "totalPermissions": "{count, plural, zero {لا توجد صلاحيات} one {صلاحية واحدة إجمالاً} two {صلاحيتان إجمالاً} few {{count} صلاحيات إجمالية} many {{count} صلاحية إجمالية} other {{count} صلاحية إجمالية}}",
+      "summary": "{total}، منها {inherited} موروثة و{direct} مباشرة",
+      "wildcardTitle": "صلاحية شاملة (*):",
+      "wildcardDescription": "هذا المستخدم لديه جميع الصلاحيات.",
+      "inheritedFromRole": "موروثة من الدور ⁦({role})⁩",
+      "noInheritedPermissions": "لا توجد صلاحيات موروثة من الدور",
+      "directPermissions": "الصلاحيات المباشرة ({count})",
+      "addPermissions": "إضافة صلاحيات",
+      "noDirectPermissions": "لا توجد صلاحيات مباشرة معينة",
+      "removePermissions": "إزالة الصلاحيات",
+      "remove": "إزالة",
+      "removePermission": "إزالة الصلاحية ⁨{permission}⁩",
+      "addSuccess": "{count, plural, zero {لم تتم إضافة أي صلاحيات} one {تمت إضافة صلاحية واحدة بنجاح} two {تمت إضافة صلاحيتين بنجاح} few {تمت إضافة {count} صلاحيات بنجاح} many {تمت إضافة {count} صلاحية بنجاح} other {تمت إضافة {count} صلاحية بنجاح}}",
+      "removeSuccess": "تمت إزالة الصلاحية بنجاح"
+    },
+    "userRole": {
+      "selectorLabel": "الدور: {role}",
+      "refusal": {
+        "admin": "لا يمكن تعيينه",
+        "level": "في مستوى دورك أو أعلى منه"
+      },
+      "changeTitle": "تغيير دور المستخدم؟",
+      "thisUser": "هذا المستخدم",
+      "changeDescription": "أنت على وشك تغيير دور <strong>{name}</strong> من <strong>{from}</strong> إلى <strong>{to}</strong>.",
+      "changeWarning": "سيؤدي هذا إلى تحديث صلاحياته ومستويات وصوله فوراً.",
+      "cancel": "إلغاء",
+      "changing": "جارٍ التغيير...",
+      "changeRole": "تغيير الدور",
+      "changeSuccess": "تم تغيير دور المستخدم إلى ⁨{role}⁩"
+    },
+    "selector": {
+      "groups": {
+        "profile": "الملف الشخصي",
+        "users": "المستخدمون",
+        "roles": "الأدوار",
+        "permissions": "الصلاحيات",
+        "sessions": "الجلسات",
+        "reports": "التقارير"
+      },
+      "allTab": "الكل",
+      "selectAll": "تحديد الكل",
+      "deselectAll": "إلغاء تحديد الكل",
+      "selectAllForGroup": "تحديد جميع صلاحيات {group}",
+      "deselectAllForGroup": "إلغاء تحديد جميع صلاحيات {group}",
+      "wildcardTitle": "صلاحية شاملة (*)",
+      "wildcardDescription": "تمنح جميع الصلاحيات. تُستخدم للمسؤولين ذوي الصلاحيات الكاملة فقط.",
+      "wildcardNotice": "تم تحديد الصلاحية الشاملة. يتم منح جميع الصلاحيات الأخرى تلقائياً.",
+      "wildcardSelected": "تم منح جميع الصلاحيات عبر الصلاحية الشاملة (*)",
+      "permissionsAvailable": "{count, plural, zero {لا توجد صلاحيات متاحة} one {صلاحية واحدة متاحة} two {صلاحيتان متاحتان} few {{count} صلاحيات متاحة} many {{count} صلاحية متاحة} other {{count} صلاحية متاحة}}",
+      "permissionsSelected": "{count, plural, zero {لم يتم تحديد أي صلاحيات} one {تم تحديد صلاحية واحدة} two {تم تحديد صلاحيتين} few {تم تحديد {count} صلاحيات} many {تم تحديد {count} صلاحية} other {تم تحديد {count} صلاحية}}"
+    },
+    "searchDialog": {
+      "title": "إضافة صلاحيات",
+      "description": "ابحث وحدد الصلاحيات لإضافتها. استخدم علامات التبويب للتصفح حسب الفئة.",
+      "searchLabel": "البحث عن الصلاحيات",
+      "searchPlaceholder": "البحث في الصلاحيات...",
+      "noPermissionsMatch": "لم يتم العثور على صلاحيات تطابق \"⁦{query}⁩\"",
+      "noCategoryPermissionsMatch": "لم يتم العثور على صلاحيات في فئة «⁦{category}⁩» تطابق «⁦{query}⁩»",
+      "categoryAllAssigned": "جميع الصلاحيات في فئة «{category}» معيّنة بالفعل",
+      "selectedCount": "{count, plural, zero {لم يتم تحديد أي صلاحيات جديدة} one {تم تحديد صلاحية جديدة واحدة} two {تم تحديد صلاحيتين جديدتين} few {تم تحديد {count} صلاحيات جديدة} many {تم تحديد {count} صلاحية جديدة} other {تم تحديد {count} صلاحية جديدة}}",
+      "allGrantedWildcard": "تم منح جميع الصلاحيات عبر الصلاحية الشاملة (*)",
+      "cancel": "إلغاء",
+      "addCount": "{count, plural, zero {إضافة صلاحيات} one {إضافة صلاحية واحدة} two {إضافة صلاحيتين} few {إضافة {count} صلاحيات} many {إضافة {count} صلاحية} other {إضافة {count} صلاحية}}"
+    }
+  }
+}

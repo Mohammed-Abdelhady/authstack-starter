@@ -12,6 +12,7 @@ import { MailModule } from '../mail/mail.module';
 import { SessionModule } from '../session/session.module';
 import { RoleModule } from '../role/role.module';
 import { UserModule } from '../user/user.module';
+import { CommonModule } from '../common/common.module';
 import {
   ADMIN_PERSISTENCE_IMPORTS,
   ADMIN_PERSISTENCE_PROVIDERS,
@@ -24,6 +25,7 @@ import {
  */
 @Module({
   imports: [
+    CommonModule,
     ...ADMIN_PERSISTENCE_IMPORTS,
     AuthModule,
     SessionModule,

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import {
   SERVER_TEXT,
   refusalWith,
@@ -30,7 +30,7 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('DeleteRoleDialog refused by the server in %s', (locale) => {
-  it('says once, in the catalogue, how many users still hold the role', async () => {
+  it('says once, inside the dialog, how many users still hold the role', async () => {
     const requests = stubNetwork(() => refusalWith(400, 'ROLE_HAS_USERS', { count: 3 }));
     const onOpenChange = vi.fn();
 
@@ -40,11 +40,14 @@ describe.each([
     );
     fireEvent.click(screen.getByRole('button', { name: message('roles.delete.confirm') }));
 
-    await waitFor(() => {
-      expect(errorToasts()).toEqual([format('errors.codes.ROLE_HAS_USERS', { count: 3 })]);
-    });
-    expect(errorToasts()[0]).toContain('3');
-    expect(errorToasts()[0]).not.toContain(SERVER_TEXT);
+    const reason = await screen.findByTestId('delete-role-error');
+    expect(reason.textContent).toBe(format('errors.codes.ROLE_HAS_USERS', { count: 3 }));
+    expect(reason.textContent).toContain('3');
+    expect(reason.getAttribute('role')).toBe('alert');
+    expect(screen.getByTestId('delete-role-dialog').contains(reason)).toBe(true);
+    expect(document.body.textContent).not.toContain(SERVER_TEXT);
+    // Said once, where the person is looking.
+    expect(errorToasts()).toEqual([]);
     expect(successToasts()).toEqual([]);
     expect(requests).toEqual(['DELETE /api/roles/role-editor']);
     expect(onOpenChange).not.toHaveBeenCalled();

@@ -51,6 +51,16 @@ export class AdminUserDto {
   isVerified!: boolean;
 
   @ApiProperty({
+    description:
+      'Address an admin asked the account to move to. The account keeps ' +
+      'its own address until this one confirms its code. Absent when no ' +
+      'address waits.',
+    example: 'new.address@example.com',
+    required: false,
+  })
+  pendingEmail?: string;
+
+  @ApiProperty({
     description: 'Whether the user account is deleted (soft delete)',
     example: false,
   })

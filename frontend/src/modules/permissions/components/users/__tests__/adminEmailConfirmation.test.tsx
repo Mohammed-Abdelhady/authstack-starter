@@ -26,10 +26,8 @@ describe.each([
   });
 
   it('hides resend from an actor without the update permission', async () => {
-    const card = await renderAdminCard(locale, TARGET_USER, [USER_PERMISSIONS.READ_ALL]);
-    expect(
-      screen.queryByRole('button', { name: card.message('users.actions.menuLabel') }),
-    ).toBeNull();
+    await renderAdminCard(locale, TARGET_USER, [USER_PERMISSIONS.READ_ALL]);
+    expect(screen.queryByTestId(`user-actions-menu-${TARGET_USER._id}`)).toBeNull();
   });
 
   it('hides resend for a deleted account', async () => {
@@ -40,6 +38,30 @@ describe.each([
       screen.queryByRole('menuitem', { name: card.message('users.actions.resendEmailChange') }),
     ).toBeNull();
   });
+
+  it('keeps the confirmed address and verification state while an email change waits', async () => {
+    stubCardNetwork(() => success({}));
+    const pendingEmail = 'new.address@example.test';
+    const user = { ...TARGET_USER, email: 'current@example.test', isVerified: true, pendingEmail };
+    const card = await renderAdminCard(locale, user);
+
+    expect(screen.getByTestId('user-card-email').textContent).toBe(user.email);
+    expect(screen.getByTestId('user-card-pending-email').textContent).toContain(pendingEmail);
+    expect(screen.getByTestId('user-verification-badge').textContent).toContain(
+      card.message('common.status.verified'),
+    );
+  });
+
+  it.each([undefined, null])(
+    'shows no pending address when the API returns %s',
+    async (pendingEmail) => {
+      stubCardNetwork(() => success({}));
+      await renderAdminCard(locale, { ...TARGET_USER, pendingEmail });
+
+      expect(screen.queryByTestId('user-card-pending-email')).toBeNull();
+      expect(screen.getByTestId('user-card-email').textContent).toBe(TARGET_USER.email);
+    },
+  );
 
   it('posts the current account id without an email or body and announces success', async () => {
     const sent: Array<{ method: string; path: string; body: string }> = [];
@@ -119,7 +141,7 @@ describe.each([
     const card = await renderAdminCard(locale);
     card.openMenu();
     fireEvent.click(card.resendItem());
-    const trigger = screen.getByRole('button', { name: card.message('users.actions.menuLabel') });
+    const trigger = screen.getByTestId(`user-actions-menu-${TARGET_USER._id}`);
     await waitFor(() => expect(availability(trigger)).toEqual(HELD));
     await act(async () => release(success({ message: 'sent' })));
     await waitFor(() => expect(availability(trigger)).toEqual(IDLE));

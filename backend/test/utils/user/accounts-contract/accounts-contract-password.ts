@@ -1,6 +1,5 @@
 import * as bcrypt from 'bcrypt';
 import {
-  accountCase,
   AccountsFixture,
   AccountsHarnessSource,
   DEFAULT_SLUG,
@@ -20,57 +19,48 @@ export function accountPasswordCases(
   harness: AccountsHarnessSource,
   fixture: () => AccountsFixture,
 ): void {
-  accountCase(
-    'finds the active account of an address for a password check, with its hash',
-    async () => {
-      const { userId } = fixture();
+  it('finds the active account of an address for a password check, with its hash', async () => {
+    const { userId } = fixture();
 
-      const found = await harness().passwords.findForPasswordCheck(PERSON);
+    const found = await harness().passwords.findForPasswordCheck(PERSON);
 
-      expect({
-        id: found?.account.id,
-        email: found?.account.email,
-        name: found?.account.name,
-        role: found?.account.role,
-        permissions: found?.account.permissions,
-        authProvider: found?.account.authProvider,
-        isVerified: found?.account.isVerified,
-        isDeleted: found?.account.isDeleted,
-        matchesOld: await bcrypt.compare(
-          OLD_PASSWORD,
-          found?.passwordHash ?? '',
-        ),
-      }).toEqual({
-        id: userId,
-        email: PERSON,
-        name: 'Plain Person',
-        role: DEFAULT_SLUG,
-        permissions: [READ_USERS],
-        authProvider: 'email',
-        isVerified: true,
-        isDeleted: false,
-        matchesOld: true,
-      });
-    },
-  );
+    expect({
+      id: found?.account.id,
+      email: found?.account.email,
+      name: found?.account.name,
+      role: found?.account.role,
+      permissions: found?.account.permissions,
+      authProvider: found?.account.authProvider,
+      isVerified: found?.account.isVerified,
+      isDeleted: found?.account.isDeleted,
+      matchesOld: await bcrypt.compare(OLD_PASSWORD, found?.passwordHash ?? ''),
+    }).toEqual({
+      id: userId,
+      email: PERSON,
+      name: 'Plain Person',
+      role: DEFAULT_SLUG,
+      permissions: [READ_USERS],
+      authProvider: 'email',
+      isVerified: true,
+      isDeleted: false,
+      matchesOld: true,
+    });
+  });
 
-  accountCase(
-    'answers an account stored without a password with no hash',
-    async () => {
-      const { supportId } = fixture();
+  it('answers an account stored without a password with no hash', async () => {
+    const { supportId } = fixture();
 
-      const found = await harness().passwords.findForPasswordCheck(
-        'support@example.test',
-      );
+    const found = await harness().passwords.findForPasswordCheck(
+      'support@example.test',
+    );
 
-      expect({ id: found?.account.id, hash: found?.passwordHash }).toEqual({
-        id: supportId,
-        hash: undefined,
-      });
-    },
-  );
+    expect({ id: found?.account.id, hash: found?.passwordHash }).toEqual({
+      id: supportId,
+      hash: undefined,
+    });
+  });
 
-  accountCase('finds nothing for an unknown or an empty address', async () => {
+  it('finds nothing for an unknown or an empty address', async () => {
     const { passwords } = harness();
 
     expect({
@@ -86,21 +76,18 @@ export function accountPasswordCases(
     });
   });
 
-  accountCase(
-    'finds an address whatever its case and the space around it',
-    async () => {
-      const { userId } = fixture();
-      const { passwords } = harness();
+  it('finds an address whatever its case and the space around it', async () => {
+    const { userId } = fixture();
+    const { passwords } = harness();
 
-      expect({
-        check: (await passwords.findForPasswordCheck('  Person@Example.TEST '))
-          ?.account.id,
-        plain: (await passwords.findActiveByAddress('PERSON@example.test'))?.id,
-      }).toEqual({ check: userId, plain: userId });
-    },
-  );
+    expect({
+      check: (await passwords.findForPasswordCheck('  Person@Example.TEST '))
+        ?.account.id,
+      plain: (await passwords.findActiveByAddress('PERSON@example.test'))?.id,
+    }).toEqual({ check: userId, plain: userId });
+  });
 
-  accountCase('never finds a deactivated account by its address', async () => {
+  it('never finds a deactivated account by its address', async () => {
     const { userId } = fixture();
     await harness().alterAccount(userId, { deleted: true });
 
@@ -110,58 +97,52 @@ export function accountPasswordCases(
     }).toEqual({ check: null, plain: null });
   });
 
-  accountCase(
-    'finds the active account of an address without its hash',
-    async () => {
-      const { userId } = fixture();
+  it('finds the active account of an address without its hash', async () => {
+    const { userId } = fixture();
 
-      const found = await harness().passwords.findActiveByAddress(PERSON);
+    const found = await harness().passwords.findActiveByAddress(PERSON);
 
-      expect({
-        id: found?.id,
-        name: found?.name,
-        email: found?.email,
-        carriesHash: JSON.stringify(found ?? {}).includes('$2'),
-      }).toEqual({
-        id: userId,
-        name: 'Plain Person',
-        email: PERSON,
-        carriesHash: false,
-      });
-    },
-  );
+    expect({
+      id: found?.id,
+      name: found?.name,
+      email: found?.email,
+      carriesHash: JSON.stringify(found ?? {}).includes('$2'),
+    }).toEqual({
+      id: userId,
+      name: 'Plain Person',
+      email: PERSON,
+      carriesHash: false,
+    });
+  });
 
-  accountCase(
-    'stores a new password on that account and leaves the rest as it was',
-    async () => {
-      const { userId, managerId } = fixture();
-      const managerHash = await passwordHash('ManagerPassword1!');
-      const newHash = await passwordHash(NEW_PASSWORD);
-      const before = await storedAccount(harness(), userId);
-      const account = await harness().passwords.findActiveByAddress(PERSON);
-      if (!account) throw new Error('the account was not found');
-      const manager = await harness().passwords.findActiveByAddress(
-        'manager@example.test',
-      );
-      if (!manager) throw new Error('the manager was not found');
-      await harness().passwords.storeNewPassword(manager, managerHash);
+  it('stores a new password on that account and leaves the rest as it was', async () => {
+    const { userId, managerId } = fixture();
+    const managerHash = await passwordHash('ManagerPassword1!');
+    const newHash = await passwordHash(NEW_PASSWORD);
+    const before = await storedAccount(harness(), userId);
+    const account = await harness().passwords.findActiveByAddress(PERSON);
+    if (!account) throw new Error('the account was not found');
+    const manager = await harness().passwords.findActiveByAddress(
+      'manager@example.test',
+    );
+    if (!manager) throw new Error('the manager was not found');
+    await harness().passwords.storeNewPassword(manager, managerHash);
 
-      await harness().passwords.storeNewPassword(account, newHash);
+    await harness().passwords.storeNewPassword(account, newHash);
 
-      const after = await storedAccount(harness(), userId);
-      expect({
-        hash: after.passwordHash,
-        rest: { ...after, passwordHash: null },
-        manager: (await storedAccount(harness(), managerId)).passwordHash,
-      }).toEqual({
-        hash: newHash,
-        rest: { ...before, passwordHash: null },
-        manager: managerHash,
-      });
-    },
-  );
+    const after = await storedAccount(harness(), userId);
+    expect({
+      hash: after.passwordHash,
+      rest: { ...after, passwordHash: null },
+      manager: (await storedAccount(harness(), managerId)).passwordHash,
+    }).toEqual({
+      hash: newHash,
+      rest: { ...before, passwordHash: null },
+      manager: managerHash,
+    });
+  });
 
-  accountCase('reads what a role grants by its slug', async () => {
+  it('reads what a role grants by its slug', async () => {
     const { rolePermissions } = harness();
 
     expect({

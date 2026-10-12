@@ -14,6 +14,7 @@ import { DEVELOPMENT_CONTENT_SECURITY_POLICY } from './common/security/content-s
 import { browserCors } from './common/security/browser-cors';
 import { buildOpenApiDocument } from './common/swagger/build-openapi-document';
 import { createValidationPipe } from './common/pipes/validation-pipe.factory';
+import { startupEnvironmentWarning } from './config/utils/production-environment.util';
 
 /**
  * Bootstrap the NestJS application
@@ -81,6 +82,10 @@ async function bootstrap() {
 
   // 8. Startup Logging
   logger.log(`Environment: ${environment}`);
+  const environmentWarning = startupEnvironmentWarning(environment, clientUrl);
+  if (environmentWarning) {
+    logger.warn(environmentWarning);
+  }
   logger.log(`Server URL: http://localhost:${port}`);
   logger.log(`Health check: http://localhost:${port}/health`);
   logger.log(`CORS origin: ${clientUrl}`);

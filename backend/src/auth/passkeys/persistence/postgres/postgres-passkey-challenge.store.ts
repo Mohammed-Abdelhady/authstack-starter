@@ -67,15 +67,4 @@ export class PostgresPasskeyChallengeStore extends PasskeyChallengeStore {
         : CHALLENGE_USE.REFUSED;
     });
   }
-
-  deleteExpired(now: Date): Promise<number> {
-    return autocommit(CHALLENGE_CONSTRAINTS, async () =>
-      removedRows(
-        await this.database
-          .deleteFrom('passkey_challenges')
-          .where('expires_at', '<=', now)
-          .executeTakeFirst(),
-      ),
-    );
-  }
 }

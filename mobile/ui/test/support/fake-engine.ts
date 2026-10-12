@@ -51,6 +51,10 @@ export interface FakeEngine {
   publish(snapshot: AuthSnapshot): void;
   signIns: Deferred<SignInOutcome>[];
   signOuts: number;
+  /** The next sign-out waits for the test, and ends the session only when it is answered. */
+  holdSignOut(): Deferred<SignOutOutcome>;
+  /** The next sign-out rejects with this and leaves the session as it was. */
+  failSignOut(error: unknown): void;
   restores: number;
 }
 
@@ -61,9 +65,19 @@ export function createFakeEngine(
 ): FakeEngine {
   let snapshot = initial;
   const listeners = new Set<(snapshot: AuthSnapshot) => void>();
+  const heldSignOuts: Deferred<SignOutOutcome>[] = [];
+  const signOutFailures: { error: unknown }[] = [];
   const fake: FakeEngine = {
     signIns: [],
     signOuts: 0,
+    holdSignOut() {
+      const held = deferred<SignOutOutcome>();
+      heldSignOuts.push(held);
+      return held;
+    },
+    failSignOut(error) {
+      signOutFailures.push({ error });
+    },
     restores: 0,
     publish(next) {
       snapshot = next;
@@ -87,6 +101,15 @@ export function createFakeEngine(
       },
       signOut(): Promise<SignOutOutcome> {
         fake.signOuts += 1;
+        const failure = signOutFailures.shift();
+        if (failure !== undefined) return Promise.reject(failure.error);
+        const held = heldSignOuts.shift();
+        if (held !== undefined) {
+          return held.promise.then((outcome) => {
+            fake.publish(SIGNED_OUT);
+            return outcome;
+          });
+        }
         fake.publish({ status: 'signedOut', operation: 'signingOut' });
         return Promise.resolve({ kind: 'signedOut', revocation: 'revoked' });
       },

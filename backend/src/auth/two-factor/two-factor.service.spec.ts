@@ -188,6 +188,8 @@ describe('TwoFactorService', () => {
         confirmedAt: null,
         recoveryCodes: [],
         lastUsedStep: null,
+        failedAttempts: 0,
+        lockedUntil: null,
       });
     });
 
@@ -251,6 +253,7 @@ describe('TwoFactorService', () => {
 
       const result = await harness.service.regenerateRecoveryCodes(USER_ID, {
         code: '123456',
+        password: 'Password123!',
       });
 
       expect(result.data.recoveryCodes).toHaveLength(RECOVERY_CODE_COUNT);
@@ -266,7 +269,10 @@ describe('TwoFactorService', () => {
       delta.mockReturnValue(null);
 
       await expect(
-        harness.service.regenerateRecoveryCodes(USER_ID, { code: '000000' }),
+        harness.service.regenerateRecoveryCodes(USER_ID, {
+          code: '000000',
+          password: 'Password123!',
+        }),
       ).rejects.toMatchObject({ code: ErrorCode.TWO_FACTOR_CODE_INVALID });
       expect(user.twoFactor.recoveryCodes).toBe(previous);
     });

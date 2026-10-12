@@ -1,19 +1,13 @@
-import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
-import { NativeAuthorizeService } from '../../src/session/native/authorize/native-authorize.service';
-import { NativeTokenService } from '../../src/session/native/token/native-token.service';
 import { RaceGate } from '../utils/race-gate';
-import {
-  NATIVE_CLIENT_ID,
-  NATIVE_META,
-  NATIVE_REDIRECT,
-  nativeAuthorizeQuery,
-} from '../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../utils/e2e-app';
-import { createNativeApplication } from '../utils/native/native-authorize.fixtures';
+import {
+  createNativeApplication,
+  issueNativeGrantFor,
+} from '../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -21,11 +15,6 @@ import {
 import { TEST_NOW } from '../utils/frozen-clock';
 
 const NEW_PASSWORD = 'NewPassword123!';
-
-interface NativeGrant {
-  accessToken: string;
-  refreshToken: string;
-}
 
 describe('password change keeps the calling session (e2e)', () => {
   let e2e: E2eApp;
@@ -112,6 +101,36 @@ describe('password change keeps the calling session (e2e)', () => {
     await loginWithOldPassword(e2e);
     expect(await loginWith(e2e, SEED_USER.email, NEW_PASSWORD)).toBe(200);
   });
+  it('refuses the eleventh attempt of one client in fifteen minutes, right password or not', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    const attempt = (currentPassword: string) =>
+      browser
+        .post('/api/user/password')
+        .send({ currentPassword, newPassword: NEW_PASSWORD });
+
+    const guesses: { status: number; code: string }[] = [];
+    for (let guess = 0; guess < 10; guess += 1) {
+      const answer = await attempt('NotThePassword1!');
+      guesses.push({
+        status: answer.status,
+        code: (answer.body as { error: { code: string } }).error.code,
+      });
+    }
+    const eleventh = await attempt(SEED_USER.password);
+
+    expect(guesses).toEqual(
+      Array.from({ length: 10 }, () => ({
+        status: 400,
+        code: 'INVALID_CURRENT_PASSWORD',
+      })),
+    );
+    expect({
+      status: eleventh.status,
+      code: (eleventh.body as { error: { code: string } }).error.code,
+    }).toEqual({ status: 429, code: 'RATE_LIMIT_EXCEEDED' });
+    // The password the last attempt carried was not stored.
+    expect(await loginWith(e2e, SEED_USER.email, NEW_PASSWORD)).toBe(401);
+  });
 });
 
 async function loginWithOldPassword(e2e: E2eApp): Promise<void> {
@@ -131,43 +150,4 @@ async function loginWith(
     .set(CSRF_HEADER, token)
     .send({ email, password });
   return response.status;
-}
-
-async function issueNativeGrantFor(
-  e2e: E2eApp,
-  email: string,
-): Promise<NativeGrant> {
-  const user = await e2e.state.accounts.accountWithAddress(email);
-  if (!user) {
-    throw new Error('seed user is missing');
-  }
-  const verifier = randomBytes(32).toString('base64url');
-  const authorize = e2e.app.get(NativeAuthorizeService);
-  const begun = await authorize.begin(nativeAuthorizeQuery(verifier));
-  if (!begun.ok) {
-    throw new Error(begun.error);
-  }
-  const approved = await authorize.approve(
-    user._id.toString(),
-    begun.transactionId,
-    ['password'],
-  );
-  const code = new URL(approved.redirectUri).searchParams.get('code');
-  if (!code) {
-    throw new Error('authorization code is missing');
-  }
-  const result = await e2e.app.get(NativeTokenService).grant(
-    {
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: NATIVE_REDIRECT,
-      client_id: NATIVE_CLIENT_ID,
-      code_verifier: verifier,
-    },
-    NATIVE_META,
-  );
-  if (!result.ok) {
-    throw new Error(result.error);
-  }
-  return { accessToken: result.accessToken, refreshToken: result.refreshToken };
 }

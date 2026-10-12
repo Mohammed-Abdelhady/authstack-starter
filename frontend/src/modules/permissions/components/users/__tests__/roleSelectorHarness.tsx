@@ -53,9 +53,11 @@ function SelectorOnCard({ onRoleChange, heard }: SelectorOnCardProps) {
 }
 
 /** Renders the selector for a user whose role is "User", with its list loaded. */
-export async function renderSelector(locale: AppLocale) {
+export async function renderSelector(locale: AppLocale, change?: Promise<void>) {
   const requests = stubNetwork(() => success(ROLES));
-  const onRoleChange = vi.fn<(role: string) => Promise<void>>(async () => undefined);
+  const onRoleChange = vi.fn<(role: string) => Promise<void>>(async () => {
+    await change;
+  });
   const heard: string[] = [];
   const form = await renderForm(
     locale,
@@ -70,8 +72,8 @@ export async function renderSelector(locale: AppLocale) {
 }
 
 /** Opens the role list by keyboard and puts focus on the "Editor" option. */
-export async function focusEditorOption(locale: AppLocale) {
-  const view = await renderSelector(locale);
+export async function focusEditorOption(locale: AppLocale, change?: Promise<void>) {
+  const view = await renderSelector(locale, change);
   view.trigger.focus();
   fireEvent.keyDown(view.trigger, { key: 'Enter' });
   (await screen.findByRole('option', { name: 'Editor' })).focus();

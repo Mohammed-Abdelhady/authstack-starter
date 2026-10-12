@@ -65,27 +65,28 @@ export function LinkedAccounts() {
       <CardContent className="space-y-6">
         {linkedProviders.length > 0 && (
           <div className="space-y-4">
-            <Heading level={3} variant="subsectionTitle" ref={linkedHeadingRef} tabIndex={-1}>
+            <Heading level={4} variant="subsectionTitle" ref={linkedHeadingRef} tabIndex={-1}>
               {t('linkedAccountsLabel')}
             </Heading>
-            <div className="space-y-3">
+            <div role="list" className="space-y-3">
               {linkedProviders.map((providerId) => (
-                <LinkedAccountCard
-                  key={providerId}
-                  providerId={providerId}
-                  displayName={
-                    // The server names providers only. Email sign-in is named here.
-                    providerId === EMAIL_PROVIDER
-                      ? t('emailSignInName')
-                      : getProviderDisplayName(providerId, enabledProviders)
-                  }
-                  isPrimary={providerId === primaryProvider}
-                  unlinkHint={unlinkHints?.[providerId]}
-                  primaryHint={primaryHints?.[providerId]}
-                  emailSignIn={providerId === EMAIL_PROVIDER ? emailSignIn : undefined}
-                  onChange={refetch}
-                  landing={linkedHeadingRef}
-                />
+                <div role="listitem" key={providerId}>
+                  <LinkedAccountCard
+                    providerId={providerId}
+                    displayName={
+                      // The server names providers only. Email sign-in is named here.
+                      providerId === EMAIL_PROVIDER
+                        ? t('emailSignInName')
+                        : getProviderDisplayName(providerId, enabledProviders)
+                    }
+                    isPrimary={providerId === primaryProvider}
+                    unlinkHint={unlinkHints?.[providerId]}
+                    primaryHint={primaryHints?.[providerId]}
+                    emailSignIn={providerId === EMAIL_PROVIDER ? emailSignIn : undefined}
+                    onChange={refetch}
+                    landing={linkedHeadingRef}
+                  />
+                </div>
               ))}
             </div>
           </div>
@@ -93,7 +94,7 @@ export function LinkedAccounts() {
 
         {availableProviders.length > 0 && (
           <div className="space-y-4">
-            <Heading level={3} variant="subsectionTitle">
+            <Heading level={4} variant="subsectionTitle">
               {t('availableProvidersLabel')}
             </Heading>
             <div className="flex items-center gap-2 flex-wrap">
@@ -105,7 +106,7 @@ export function LinkedAccounts() {
         )}
 
         {availableProviders.length === 0 && linkedProviders.length > 0 && (
-          <Alert>
+          <Alert role="note">
             <AlertDescription>{t('allProvidersLinked')}</AlertDescription>
           </Alert>
         )}

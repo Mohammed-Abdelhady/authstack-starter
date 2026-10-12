@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
 import {
   Select,
@@ -27,7 +28,7 @@ import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useKeyReleaseGuard } from '@/hooks/useKeyReleaseGuard';
 import { FormRootError } from '@/components/forms';
-import { translatableErrorCode } from '@/modules/auth/utils/errorCodeMessage';
+import { useRefusalText } from '@/hooks/useRefusalText';
 import { TruncatedText } from '../shared/TruncatedText';
 
 interface UserRoleSelectorProps {
@@ -52,7 +53,8 @@ export function UserRoleSelector({
 }: UserRoleSelectorProps) {
   const t = useTranslations('permissions.userRole');
   const tCommon = useTranslations('common');
-  const tCodes = useTranslations('errors.codes');
+  const tRoles = useTranslations('roles.detail');
+  const refusalText = useRefusalText();
   // Why the last attempt was refused, said in the confirmation, which stays open.
   const [changeRefusal, setChangeRefusal] = useState<string | null>(null);
   const [pendingRole, setPendingRole] = useState<string | null>(null);
@@ -64,9 +66,13 @@ export function UserRoleSelector({
     roles,
     isLoading: isLoadingRoles,
     isError: rolesFailed,
+    isRetrying: isRetryingRoles,
     retry: retryRoles,
     refusalFor,
   } = useAllRoles();
+  // Retry leaves with the failure, and the selector it stood in for takes the focus.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const retryAndFollow = useRetryHandOff(rolesFailed, retryRoles, triggerRef);
 
   const handleRoleSelect = (newRole: string) => {
     if (newRole === currentRole) {
@@ -97,16 +103,15 @@ export function UserRoleSelector({
       toast.success(t('changeSuccess', { role: roleName }));
       setPendingRole(null);
     } catch (error) {
-      setChangeRefusal(tCodes(translatableErrorCode(error)));
+      setChangeRefusal(refusalText(error));
       reportUnlessHandled(error);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  // The confirmation stays until the request has an answer.
+  // The dialog holds itself open until the request has an answer.
   const handleCancelRoleChange = () => {
-    if (isUpdating) return;
     setPendingRole(null);
     setChangeRefusal(null);
   };
@@ -121,7 +126,11 @@ export function UserRoleSelector({
         <span dir="ltr" className="text-xs font-medium">
           {currentRole}
         </span>
-        <RoleListError onRetry={retryRoles} testId={`user-role-list-error-${userId}`} />
+        <RoleListError
+          onRetry={retryAndFollow}
+          isRetrying={isRetryingRoles}
+          testId={`user-role-list-error-${userId}`}
+        />
       </div>
     );
   }
@@ -135,6 +144,7 @@ export function UserRoleSelector({
         busy={isUpdating}
       >
         <SelectTrigger
+          ref={triggerRef}
           // As wide as its column allows, so it never runs under the actions button.
           className="w-full sm:max-w-[200px]"
           aria-label={t('selectorLabel', { role: currentRoleName })}
@@ -164,14 +174,16 @@ export function UserRoleSelector({
               <SelectItem
                 key={role.id}
                 value={role.slug}
-                disabled={refusal !== null}
+                unavailableReason={refusal ? <RoleRefusalBadge refusal={refusal} /> : undefined}
                 data-testid={`role-option-${role.slug}`}
               >
                 <div className="flex items-center gap-2">
-                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" />}
-                  {role.isProtected && <ShieldAlert className="h-3 w-3 text-status-warning" />}
+                  {role.isSystemRole && <Shield className="h-3 w-3 text-info" aria-hidden="true" />}
+                  {role.isProtected && (
+                    <ShieldAlert className="h-3 w-3 text-status-warning" aria-hidden="true" />
+                  )}
                   <span dir="auto">{role.name}</span>
-                  {refusal && <RoleRefusalBadge refusal={refusal} />}
+                  {role.isProtected && <span className="sr-only">{tRoles('protectedBadge')}</span>}
                 </div>
               </SelectItem>
             );
@@ -180,7 +192,11 @@ export function UserRoleSelector({
       </Select>
 
       {/* Confirmation Dialog */}
-      <AlertDialog open={!!pendingRole} onOpenChange={(open) => !open && handleCancelRoleChange()}>
+      <AlertDialog
+        open={!!pendingRole}
+        busy={isUpdating}
+        onOpenChange={(open) => !open && handleCancelRoleChange()}
+      >
         <AlertDialogContent data-testid="role-change-confirm-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('changeTitle')}</AlertDialogTitle>

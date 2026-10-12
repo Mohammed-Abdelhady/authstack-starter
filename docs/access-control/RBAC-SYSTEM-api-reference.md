@@ -227,7 +227,7 @@ Get user's permissions.
 
 #### POST /api/admin/users/:id/permissions
 
-Add one direct permission to a user. The wildcard `*` cannot be granted here.
+Add one direct permission to a user. The wildcard `*` cannot be granted here. The caller must hold the permission itself, or hold `*`. Otherwise the answer is 403 with the code `FORBIDDEN`. The caller cannot target itself or a user at or above its own role level.
 
 **Permission**: `permissions:grant:all`
 
@@ -243,7 +243,7 @@ Add one direct permission to a user. The wildcard `*` cannot be granted here.
 
 #### DELETE /api/admin/users/:id/permissions/:permission
 
-Remove one direct permission from a user. The permission is part of the address and the request has no body.
+Remove one direct permission from a user. The permission is part of the address and the request has no body. The caller does not need to hold the permission. It cannot target itself or a user at or above its own role level.
 
 **Permission**: `permissions:revoke:all`
 

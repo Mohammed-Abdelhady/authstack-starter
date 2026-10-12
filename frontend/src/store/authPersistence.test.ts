@@ -11,6 +11,8 @@ const initial: AuthState = {
   error: null,
   validationStatus: 'idle',
   validationErrorStatus: null,
+  sessionGeneration: 0,
+  identityRequest: null,
 };
 
 function memoryStorage(saved?: Record<string, unknown>): {

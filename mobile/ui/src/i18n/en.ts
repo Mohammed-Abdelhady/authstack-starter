@@ -2,9 +2,10 @@ export const EN = {
   'common.tryAgain': 'Try again',
   'common.cancel': 'Cancel',
   'common.offline': 'Check your internet connection, then try again.',
+  'common.starting': 'Starting',
   'common.serverError': 'The server did not answer as expected. Try again.',
 
-  'signIn.title': 'Sign in to {appName}',
+  'signIn.title': 'Sign in to \u2068{appName}\u2069',
   'signIn.description': 'Your browser opens to sign you in, then brings you back here.',
   'signIn.action': 'Continue in browser',
   'signIn.actionHint': 'Opens your browser to sign in',
@@ -23,12 +24,17 @@ export const EN = {
   'signIn.failed.denied': 'The sign-in was refused.',
   'signIn.failed.disabled': 'Sign-in from this app is turned off on the server.',
   'signIn.failed.throttled': 'Too many attempts. Wait a moment, then try again.',
+  'signIn.failed.sessionLimit':
+    'Your account has reached its limit of signed-in devices. Sign out on another device, then try again.',
   'signIn.failed.deviceKey': 'This device could not confirm its identity. Try again.',
   'signIn.failed.browser': 'The browser could not open.',
   'signIn.failed.storage': 'The app could not read or save the sign-in on this device.',
   'signIn.failed.generic': 'Something went wrong. Try again.',
   'signIn.reauth.title': 'Your session ended',
   'signIn.reauth.description': 'Sign in again to continue.',
+  'signIn.switchedOff.title': 'Sign-in from this app is switched off',
+  'signIn.switchedOff.description':
+    'The service has switched off sign-in from mobile apps for now. Try again later.',
 
   'account.title': 'Account',
   'account.description': 'The details the server holds for you.',
@@ -45,6 +51,8 @@ export const EN = {
   'account.sessions.action': 'Manage devices',
   'account.signOut': 'Sign out',
   'account.signOutHint': 'Signs you out on this device',
+  'account.signOutFailed.title': 'You are still signed in',
+  'account.signOutFailed.description': 'This device could not sign out. Try again.',
 
   'role.user': 'User',
   'role.support': 'Support',
@@ -64,7 +72,7 @@ export const EN = {
   'sessions.activeNow': 'Active now',
   'sessions.activeToday': 'Active today at {time}',
   'sessions.activeEarlier': 'Last active {date}',
-  'sessions.address': 'IP address {ip}',
+  'sessions.address': 'IP address \u2066{ip}\u2069',
   'sessions.revoke': 'Sign out',
   'sessions.revokeLabel': 'Sign out {device}',
   'sessions.revokeOthers': 'Sign out all other devices',

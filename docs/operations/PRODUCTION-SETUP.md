@@ -414,8 +414,8 @@ worker_connections 2048;
 # Keepalive timeout
 keepalive_timeout 65;
 
-# Client max body size
-client_max_body_size 20M;
+# Client max body size. The backend reads JSON up to 100 kB.
+client_max_body_size 1m;
 ```
 
 ### Docker Resources

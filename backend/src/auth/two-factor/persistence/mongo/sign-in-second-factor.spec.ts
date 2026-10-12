@@ -93,6 +93,8 @@ function userWith(twoFactorEnabled: boolean): UserDocument {
       confirmedAt: null,
       recoveryCodes: [],
       lastUsedStep: null,
+      failedAttempts: 0,
+      lockedUntil: null,
     },
   });
 }

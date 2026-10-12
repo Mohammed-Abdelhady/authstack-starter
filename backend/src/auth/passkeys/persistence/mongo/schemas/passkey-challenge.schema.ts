@@ -13,7 +13,7 @@ export class PasskeyChallenge {
   @Prop({ required: true, unique: true })
   challengeHash!: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   purpose!: PasskeyChallengePurpose;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })

@@ -28,9 +28,6 @@ function generateApiServerBlock(backendDomain) {
         resolver 8.8.8.8 8.8.4.4 valid=300s;
         resolver_timeout 5s;
 
-        # HSTS
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-
         # Proxy to backend upstream
         location / {
             limit_req zone=api burst=30 nodelay;

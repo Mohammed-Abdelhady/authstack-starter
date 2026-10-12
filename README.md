@@ -157,14 +157,19 @@ Endpoints:
 | Variable                        | Description                                                                       | Default                                               |
 | ------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `PORT`                          | API server port. Example file sets `5001`.                                        | `3000` when unset                                     |
-| `NODE_ENV`                      | Environment name                                                                  | `development`                                         |
+| `NODE_ENV`                      | Environment name. `production` turns on the start checks and secure cookies       | `development`                                         |
 | `MONGO_URI`                     | MongoDB address, starting with `mongodb://` or `mongodb+srv://`                   | None, required                                        | <!-- feature:mongodb -->             |
-| `CLIENT_URL`                    | Frontend origin for CORS and cookie domain                                        | `http://localhost:3000`                               |
+| `CLIENT_URL`                    | Frontend origin for CORS and mailed links. Must be `https` in production          | `http://localhost:3000`                               |
 | `OAUTH_STATE_SECRET`            | Secret used to sign OAuth state cookies, at least 32 characters                   | None, required                                        | <!-- feature:oauth-core,passkeys --> |
 | `AUTH_NATIVE_DPOP_NONCE_SECRET` | HMAC secret for DPoP nonces; required when `AUTH_NATIVE_ENABLED=true`             | At least 32 characters when native sign-in is enabled | <!-- feature:native-core -->         |
 | `API_URL`                       | Public API origin used for OAuth callbacks and native sign-in                     | `http://localhost:<PORT>`. Use https in production    | <!-- feature:native-core -->         |
 | `AUTH_NATIVE_DPOP_REQUIRED`     | Reject native exchanges without DPoP and refreshes of unbound families            | `false`                                               | <!-- feature:native-core -->         |
 | `TOTP_ENCRYPTION_KEY`           | 32 bytes in base64 that encrypt TOTP secrets. `openssl rand -base64 32` makes one | None. Two-step verification needs it                  | <!-- feature:totp -->                |
+
+| `TOTP_ENCRYPTION_KEY_PREVIOUS` | Previous 32-byte base64 TOTP key, used during rotation | Unset | <!-- feature:totp --> |
+| `PASSKEY_CHALLENGE_SECRET` | Independent passkey challenge signing key, at least 32 characters | Falls back to the OAuth state secret when unset | <!-- feature:passkeys --> |
+| `PASSKEY_CHALLENGE_SECRET_PREVIOUS` | Previous passkey challenge key, used during rotation | Unset | <!-- feature:passkeys --> |
+| `PASSKEY_CHALLENGE_LEGACY_UNTIL` | ISO timestamp ending legacy challenge acceptance, at most five minutes ahead | Unset, legacy challenges refused | <!-- feature:passkeys --> |
 
 <!-- feature:postgres:start -->
 
@@ -211,6 +216,7 @@ Endpoints:
 | `NEXT_PUBLIC_API_URL` | Backend origin without `/api` suffix. Set it to the address the backend runs on | Port 5000 on `localhost` when unset |
 
 See [docs/README.md](docs/README.md) for provider-specific credentials and mail settings.
+See [production security settings](docs/operations/production-security.md) for what a production start refuses. <!-- feature:production -->
 
 <!-- feature:mongodb:start -->
 

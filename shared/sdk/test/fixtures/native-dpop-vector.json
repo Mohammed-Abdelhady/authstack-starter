@@ -1,0 +1,54 @@
+{
+  "format": 1,
+  "about": "DPoP proofs built by the mobile sign-in engine for a fixed key, clock, proof id and nonce. The server verifier must accept each one at server.nowMs.",
+  "key": {
+    "publicJwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "kEkTQfzZyf-oZboWzbjN20L1Dq7hNYukIyvH3msY394",
+      "y": "Dhwd2dUIhY_-YTgJDQNh7VMP7CMF7LhiwZAwaFo17BM",
+      "alg": "ES256"
+    },
+    "thumbprint": "2Z-ICOWJ-osZEZ-v5VqCUGhisbZ2H1ilwlEG3R_VECU"
+  },
+  "server": {
+    "apiOrigin": "https://api.example.test",
+    "nonceSecret": "native-dpop-test-secret-at-least-32-chars",
+    "nowMs": 4070952000000
+  },
+  "vectors": [
+    {
+      "name": "code exchange",
+      "method": "POST",
+      "path": "/api/oauth/token",
+      "token": null,
+      "nonce": "67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74",
+      "jtiBytesHex": "000102030405060708090a0b0c0d0e0f",
+      "header": "{\"typ\":\"dpop+jwt\",\"alg\":\"ES256\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"kEkTQfzZyf-oZboWzbjN20L1Dq7hNYukIyvH3msY394\",\"y\":\"Dhwd2dUIhY_-YTgJDQNh7VMP7CMF7LhiwZAwaFo17BM\",\"alg\":\"ES256\"}}",
+      "payload": "{\"htm\":\"POST\",\"htu\":\"https://api.example.test/api/oauth/token\",\"iat\":4070952000,\"jti\":\"AAECAwQFBgcICQoLDA0ODw\",\"nonce\":\"67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74\"}",
+      "proof": "eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4Ijoia0VrVFFmelp5Zi1vWmJvV3piak4yMEwxRHE3aE5ZdWtJeXZIM21zWTM5NCIsInkiOiJEaHdkMmRVSWhZXy1ZVGdKRFFOaDdWTVA3Q01GN0xoaXdaQXdhRm8xN0JNIiwiYWxnIjoiRVMyNTYifX0.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS50ZXN0L2FwaS9vYXV0aC90b2tlbiIsImlhdCI6NDA3MDk1MjAwMCwianRpIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EdyIsIm5vbmNlIjoiNjc4NDkyMDAuRDM5RWlVWHRaelhvOXBNTnR1c2pTakNsSFhSWTgxbTZ4bWtvbXA5bGk3NCJ9.bxbamVG7ZrKWkVV74tJ6WC3PTpN-TEjs9uWDC3vbXxmoYYu3y3e_qrVRYcxAWrt4VsPYLkrS64A3gfA843Uyaw"
+    },
+    {
+      "name": "bound refresh",
+      "method": "POST",
+      "path": "/api/oauth/token",
+      "token": "refresh-secret-0",
+      "nonce": "67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74",
+      "jtiBytesHex": "000102030405060708090a0b0c0d0e0f",
+      "header": "{\"typ\":\"dpop+jwt\",\"alg\":\"ES256\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"kEkTQfzZyf-oZboWzbjN20L1Dq7hNYukIyvH3msY394\",\"y\":\"Dhwd2dUIhY_-YTgJDQNh7VMP7CMF7LhiwZAwaFo17BM\",\"alg\":\"ES256\"}}",
+      "payload": "{\"htm\":\"POST\",\"htu\":\"https://api.example.test/api/oauth/token\",\"iat\":4070952000,\"jti\":\"AAECAwQFBgcICQoLDA0ODw\",\"nonce\":\"67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74\",\"ath\":\"yK6EyKNSH5RItCpXKrDWeIK6RzWXczHH8o4TS0pCDKI\"}",
+      "proof": "eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4Ijoia0VrVFFmelp5Zi1vWmJvV3piak4yMEwxRHE3aE5ZdWtJeXZIM21zWTM5NCIsInkiOiJEaHdkMmRVSWhZXy1ZVGdKRFFOaDdWTVA3Q01GN0xoaXdaQXdhRm8xN0JNIiwiYWxnIjoiRVMyNTYifX0.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS50ZXN0L2FwaS9vYXV0aC90b2tlbiIsImlhdCI6NDA3MDk1MjAwMCwianRpIjoiQUFFQ0F3UUZCZ2NJQ1FvTERBME9EdyIsIm5vbmNlIjoiNjc4NDkyMDAuRDM5RWlVWHRaelhvOXBNTnR1c2pTakNsSFhSWTgxbTZ4bWtvbXA5bGk3NCIsImF0aCI6InlLNkV5S05TSDVSSXRDcFhLckRXZUlLNlJ6V1hjekhIOG80VFMwcENES0kifQ.zsFrxZYDMkGFuuFWSEYap8amxe7TjD9e-lO5-3rDOSI56iJ24Nn0f9sAxqx_vhV4DREylF_XkgebQ5KMzLkpoQ"
+    },
+    {
+      "name": "bound revoke",
+      "method": "POST",
+      "path": "/api/oauth/revoke",
+      "token": "refresh-secret-0",
+      "nonce": "67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74",
+      "jtiBytesHex": "000102030405060708090a0b0c0d0e0f",
+      "header": "{\"typ\":\"dpop+jwt\",\"alg\":\"ES256\",\"jwk\":{\"kty\":\"EC\",\"crv\":\"P-256\",\"x\":\"kEkTQfzZyf-oZboWzbjN20L1Dq7hNYukIyvH3msY394\",\"y\":\"Dhwd2dUIhY_-YTgJDQNh7VMP7CMF7LhiwZAwaFo17BM\",\"alg\":\"ES256\"}}",
+      "payload": "{\"htm\":\"POST\",\"htu\":\"https://api.example.test/api/oauth/revoke\",\"iat\":4070952000,\"jti\":\"AAECAwQFBgcICQoLDA0ODw\",\"nonce\":\"67849200.D39EiUXtZzXo9pMNtusjSjClHXRY81m6xmkomp9li74\",\"ath\":\"yK6EyKNSH5RItCpXKrDWeIK6RzWXczHH8o4TS0pCDKI\"}",
+      "proof": "eyJ0eXAiOiJkcG9wK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4Ijoia0VrVFFmelp5Zi1vWmJvV3piak4yMEwxRHE3aE5ZdWtJeXZIM21zWTM5NCIsInkiOiJEaHdkMmRVSWhZXy1ZVGdKRFFOaDdWTVA3Q01GN0xoaXdaQXdhRm8xN0JNIiwiYWxnIjoiRVMyNTYifX0.eyJodG0iOiJQT1NUIiwiaHR1IjoiaHR0cHM6Ly9hcGkuZXhhbXBsZS50ZXN0L2FwaS9vYXV0aC9yZXZva2UiLCJpYXQiOjQwNzA5NTIwMDAsImp0aSI6IkFBRUNBd1FGQmdjSUNRb0xEQTBPRHciLCJub25jZSI6IjY3ODQ5MjAwLkQzOUVpVVh0WnpYbzlwTU50dXNqU2pDbEhYUlk4MW02eG1rb21wOWxpNzQiLCJhdGgiOiJ5SzZFeUtOU0g1Ukl0Q3BYS3JEV2VJSzZSeldYY3pISDhvNFRTMHBDREtJIn0.COnssjs1TjgJG7ySoJU4--f4fGXCGGnGw19485P7qFnkDPCd3FRMZYaD-Ezo9tzGi5DMT39aEe0LhG1IUJIH3Q"
+    }
+  ]
+}

@@ -73,4 +73,31 @@ describe('HashService', () => {
       await expect(service.compare('plain', 'hash')).resolves.toBe(false);
     });
   });
+
+  it('warms the dummy hash before the first request reaches the service', async () => {
+    mockedBcrypt.hash.mockImplementation(() => 'dummy-hash');
+    mockedBcrypt.compare.mockImplementation(() => false);
+    const module = await Test.createTestingModule({
+      providers: [
+        HashService,
+        {
+          provide: ConfigService,
+          useValue: new ConfigService({ bcrypt: { rounds: 4 } }),
+        },
+      ],
+    }).compile();
+
+    await module.init();
+    expect(mockedBcrypt.hash).toHaveBeenCalledTimes(1);
+    mockedBcrypt.hash.mockClear();
+    mockedBcrypt.compare.mockClear();
+
+    await module.get(HashService).spendComparison('first attempt');
+    expect(mockedBcrypt.hash).not.toHaveBeenCalled();
+    expect(mockedBcrypt.compare).toHaveBeenCalledWith(
+      'first attempt',
+      'dummy-hash',
+    );
+    await module.close();
+  });
 });

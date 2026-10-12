@@ -70,6 +70,8 @@ export interface SignInView {
   failure?: SignInFailure;
   /** True when a session ended on its own and the person has not tried again yet. */
   sessionEnded: boolean;
+  /** True when the service switched sign-in from apps off and ended the session. */
+  switchedOff: boolean;
 }
 
 export type SnapshotInput = Pick<AuthSnapshot, 'status' | 'operation' | 'reason'>;

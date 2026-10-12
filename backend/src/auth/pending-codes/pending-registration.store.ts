@@ -1,5 +1,6 @@
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { PendingPurpose } from '../constants/registration';
+import { CodeGuessRule } from './code-guesses';
 
 /** Shared names of the unique rules a pending code record can run into. */
 export const PENDING_REGISTRATION_CONSTRAINT = {
@@ -44,6 +45,8 @@ export interface PendingCodeGeneration {
 export interface AttemptRule {
   now: Date;
   maxAttempts: number;
+  /** The lock the address and purpose is counted against. */
+  guesses: CodeGuessRule;
 }
 
 /** The record an attempt was counted on, as it is stored after the count. */
@@ -117,8 +120,12 @@ export abstract class PendingRegistrationStore {
   abstract clearLegacyBlocker(email: string): Promise<LegacyBlocker>;
 
   /**
-   * Counts one attempt on a live record that is under the cap, and returns the
-   * record. Null when there is no record, it has expired, or it is at the cap.
+   * Counts one attempt on a live record that is under the cap, then one guess
+   * at the address and purpose, and returns the record. Null when there is no
+   * record, it has expired, it is at the cap, or the address is locked. The
+   * guess is counted before the code is compared, in one statement, so guesses
+   * sent at once cannot pass the limit. A guess with no live record is not
+   * counted.
    */
   abstract reserveAttempt(
     key: PendingRegistrationKey,
@@ -127,13 +134,11 @@ export abstract class PendingRegistrationStore {
 
   /**
    * Removes exactly the generation that was compared, when it has not expired.
-   * Of two units of work that claim one generation, one is answered `claimed`.
+   * Of two units of work that claim one generation, one is answered `claimed`,
+   * and its unit of work also forgets the address's wrong codes and locks.
    */
   abstract claimCode(
     unitOfWork: UnitOfWork,
     claim: RegistrationCodeClaim,
   ): Promise<CodeClaim>;
-
-  /** Removes records that expired at or before `cutoff`. */
-  abstract deleteExpiredBefore(cutoff: Date): Promise<number>;
 }

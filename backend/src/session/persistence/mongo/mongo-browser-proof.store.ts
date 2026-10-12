@@ -75,11 +75,4 @@ export class MongoBrowserProofStore extends BrowserProofStore {
       ? BROWSER_PROOF_CLAIM.EXPIRED
       : BROWSER_PROOF_CLAIM.NOT_FOUND;
   }
-
-  async deleteExpiredBrowserProofs(now: Date): Promise<number> {
-    const removed = await singleStatement(() =>
-      this.proofModel.deleteMany({ expiresAt: { $lte: now } }).exec(),
-    );
-    return removed.deletedCount;
-  }
 }

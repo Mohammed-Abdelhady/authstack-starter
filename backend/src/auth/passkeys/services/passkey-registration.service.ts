@@ -3,20 +3,34 @@ import { Request, Response } from 'express';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { PasskeyRegistrationOptionsDto } from '../dto/passkey-registration-options.dto';
 import { PasskeySummaryDto } from '../dto/passkey-summary.dto';
 import { VerifyPasskeyRegistrationDto } from '../dto/verify-passkey-registration.dto';
 import { toPasskeySummary } from '../utils/passkey-summary.util';
 import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyConfigService } from './passkey-config.service';
+import { PasskeyRegistrationReauth } from './passkey-registration-reauth.service';
 import { PasskeyCreationOptions, WebAuthnAdapter } from './webauthn.adapter';
 import { PASSKEY_DEFAULT_NAME } from '../constants/passkeys.constants';
 import { PasskeyAccounts } from '../stores/passkey-accounts';
 import { PasskeyStore } from '../stores/passkey.store';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
+
+/** A request as the guard left it. The session it arrived on is all that is read. */
+export type SignedInRequest = Request & {
+  session?: { id: string; createdAt: Date };
+};
 
 /**
  * Adding a passkey to an account that is already signed in. The challenge the
  * authenticator signs over is handed out by the options route and checked by
  * the verify route, so a response captured elsewhere cannot be replayed here.
+ *
+ * The options route hands a challenge out only to a caller that proved itself
+ * again, and the challenge names the session that did. The verify route takes
+ * a challenge from that session and no other, so the two routes cannot be
+ * called under different conditions.
  */
 @Injectable()
 export class PasskeyRegistrationService {
@@ -28,15 +42,23 @@ export class PasskeyRegistrationService {
     private readonly adapter: WebAuthnAdapter,
     private readonly config: PasskeyConfigService,
     private readonly challenges: PasskeyChallengeService,
+    private readonly reauth: PasskeyRegistrationReauth,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
    * Options for navigator.credentials.create(). Credentials already on the
    * account are excluded, so an authenticator that holds one says so instead
    * of registering a second.
+   *
+   * @throws AppException REAUTH_REQUIRED, INVALID_CURRENT_PASSWORD,
+   * TWO_FACTOR_CODE_INVALID or TWO_FACTOR_LOCKED when the caller did not prove
+   * itself again
    */
   async createOptions(
     userId: string,
+    proof: PasskeyRegistrationOptionsDto,
+    request: SignedInRequest,
     response: Response,
   ): Promise<ApiResponse<PasskeyCreationOptions>> {
     const user = await this.accounts.findAccount(userId);
@@ -48,6 +70,8 @@ export class PasskeyRegistrationService {
         HttpStatus.NOT_FOUND,
       );
     }
+
+    await this.reauth.assertMayAddPasskey(user.id, proof, request.session);
 
     const existing = await this.passkeys.listDescriptors(user.id);
 
@@ -68,6 +92,7 @@ export class PasskeyRegistrationService {
       'register',
       options.challenge,
       user.id,
+      request.session?.id,
     );
 
     return ApiResponse.success(options);
@@ -75,14 +100,15 @@ export class PasskeyRegistrationService {
 
   /**
    * @throws AppException PASSKEY_CHALLENGE_INVALID when the cookie belongs to
-   * another account or another ceremony
+   * another account, another ceremony, or a session other than the one that
+   * proved itself for it
    * @throws AppException PASSKEY_VERIFICATION_FAILED when the attestation does
    * not check out, or the credential is already registered
    */
   async verify(
     userId: string,
     dto: VerifyPasskeyRegistrationDto,
-    request: Request,
+    request: SignedInRequest,
     response: Response,
   ): Promise<ApiResponse<PasskeySummaryDto>> {
     const challenge = this.challenges.read(request, 'register');
@@ -92,7 +118,12 @@ export class PasskeyRegistrationService {
       this.challenges.clear(response);
     }
 
-    if (challenge.sub !== userId) {
+    const sessionId = request.session?.id;
+    if (
+      challenge.sub !== userId ||
+      sessionId === undefined ||
+      challenge.sid !== sessionId
+    ) {
       throw new AppException(
         ErrorCode.PASSKEY_CHALLENGE_INVALID,
         'This passkey attempt is no longer valid. Start again.',
@@ -125,6 +156,7 @@ export class PasskeyRegistrationService {
     });
 
     this.logger.log(`Passkey registered for user ${userId}`);
+    this.notices?.defer(userId, SECURITY_NOTICE.PASSKEY_ADDED);
     return ApiResponse.success(toPasskeySummary(passkey), 'Passkey added');
   }
 

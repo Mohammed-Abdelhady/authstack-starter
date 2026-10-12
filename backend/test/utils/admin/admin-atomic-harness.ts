@@ -3,6 +3,9 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import { AdminUsersService } from '../../../src/admin/services/users/admin-users.service';
 import { AdminUserCreateService } from '../../../src/admin/services/users/admin-user-create.service';
+import { AdminPermissionsService } from '../../../src/admin/services/roles/admin-permissions.service';
+import { UserPermissionsService } from '../../../src/user/services/user-permissions.service';
+import { HashService } from '../../../src/common/services/hash.service';
 import { AdminUserAccessService } from '../../../src/admin/services/users/admin-user-access.service';
 import { AdminEmailChangeService } from '../../../src/admin/services/users/admin-email-change.service';
 import { RoleHierarchyService } from '../../../src/role/services/role-hierarchy.service';
@@ -29,7 +32,10 @@ import { RoleChangeStore } from '../../../src/role/stores/role-change.store';
 import { RoleSweepStore } from '../../../src/role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../../src/admin/persistence/mongo/mongo-admin-stores';
-import { MONGO_ACCOUNT_SESSIONS } from '../../../src/user/persistence/mongo/mongo-account-stores';
+import {
+  MONGO_ACCOUNT_PERMISSION_STORE,
+  MONGO_ACCOUNT_SESSIONS,
+} from '../../../src/user/persistence/mongo/mongo-account-stores';
 import { FrozenClock, TEST_NOW } from '../frozen-clock';
 import {
   bootSessionAuthority,
@@ -39,6 +45,7 @@ import {
 export interface AdminAtomicHarness extends SessionAuthorityHarness {
   service: AdminUsersService;
   createService: AdminUserCreateService;
+  permissions: AdminPermissionsService;
   roles: RoleService;
   roleModel: Model<Role>;
   events: Model<SecurityEventDocument>;
@@ -56,6 +63,9 @@ export async function bootAdminAtomic(
     providers: [
       AdminUsersService,
       AdminUserCreateService,
+      AdminPermissionsService,
+      UserPermissionsService,
+      { provide: HashService, useValue: harness.app.get(HashService) },
       AdminUserAccessService,
       RoleHierarchyService,
       RoleService,
@@ -66,6 +76,7 @@ export async function bootAdminAtomic(
       { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
       MONGO_ADMIN_ACCOUNT_STORE,
       MONGO_ACCOUNT_SESSIONS,
+      MONGO_ACCOUNT_PERMISSION_STORE,
       { provide: getModelToken(User.name), useValue: harness.users },
       {
         provide: getModelToken(Role.name),
@@ -81,7 +92,12 @@ export async function bootAdminAtomic(
       },
       {
         provide: AdminEmailChangeService,
-        useValue: partialMock<AdminEmailChangeService>(),
+        useValue: partialMock<AdminEmailChangeService>({
+          assertAddressAvailable: jest.fn().mockResolvedValue(undefined),
+          notifyPreviousAddress: jest.fn(),
+          sendConfirmation: jest.fn().mockResolvedValue(undefined),
+          resend: jest.fn().mockResolvedValue(undefined),
+        }),
       },
     ],
   }).compile();
@@ -92,6 +108,7 @@ export async function bootAdminAtomic(
   return Object.assign(harness, {
     service: module.get(AdminUsersService),
     createService: module.get(AdminUserCreateService),
+    permissions: module.get(AdminPermissionsService),
     roles: module.get(RoleService),
     roleModel,
     events: harness.app.get<Model<SecurityEventDocument>>(

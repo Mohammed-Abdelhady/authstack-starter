@@ -8,7 +8,6 @@ import {
   NOW,
   OTHER_CREDENTIAL_ID,
   OWNER_EMAIL,
-  passkeyCase,
   PasskeysFixture,
   PasskeysHarnessSource,
   rejectionOf,
@@ -40,96 +39,85 @@ export function seamCases(
   harness: PasskeysHarnessSource,
   fixture: () => PasskeysFixture,
 ): void {
-  passkeyCase(
-    'hands ids out and takes them back as the same strings',
-    async () => {
-      const { ownerId } = fixture();
-      const { passkeys, accounts } = harness();
+  it('hands ids out and takes them back as the same strings', async () => {
+    const { ownerId } = fixture();
+    const { passkeys, accounts } = harness();
 
-      const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
+    const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
 
-      const [facts] = await harness().storedPasskeys();
-      expect({ id: stored.id, userId: stored.userId }).toEqual({
-        id: facts.id,
-        userId: ownerId,
-      });
-      expect([
-        (await passkeys.findOwned(ownerId, stored.id))?.id,
-        (await passkeys.findByCredentialId(CREDENTIAL_ID))?.id,
-        (await passkeys.listForAccount(ownerId)).map((passkey) => passkey.id),
-        (await accounts.findAccount(ownerId))?.id,
-      ]).toEqual([stored.id, stored.id, [stored.id], ownerId]);
-      expect(await passkeys.countForAccount(ownerId)).toBe(1);
-    },
-  );
+    const [facts] = await harness().storedPasskeys();
+    expect({ id: stored.id, userId: stored.userId }).toEqual({
+      id: facts.id,
+      userId: ownerId,
+    });
+    expect([
+      (await passkeys.findOwned(ownerId, stored.id))?.id,
+      (await passkeys.findByCredentialId(CREDENTIAL_ID))?.id,
+      (await passkeys.listForAccount(ownerId)).map((passkey) => passkey.id),
+      (await accounts.findAccount(ownerId))?.id,
+    ]).toEqual([stored.id, stored.id, [stored.id], ownerId]);
+    expect(await passkeys.countForAccount(ownerId)).toBe(1);
+  });
 
-  passkeyCase(
-    'stores key bytes, a counter past a signed integer, and an absent device type as they are',
-    async () => {
-      const { ownerId } = fixture();
-      const { passkeys } = harness();
+  it('stores key bytes, a counter past a signed integer, and an absent device type as they are', async () => {
+    const { ownerId } = fixture();
+    const { passkeys } = harness();
 
-      const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
-      const read = await passkeys.findByCredentialId(CREDENTIAL_ID);
+    const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
+    const read = await passkeys.findByCredentialId(CREDENTIAL_ID);
 
-      const expected = {
-        id: stored.id,
-        userId: ownerId,
-        credentialId: CREDENTIAL_ID,
-        counter: HIGH_COUNTER,
-        transports: ['usb', 'nfc'],
-        deviceType: undefined,
-        backedUp: false,
-        name: 'Seam key',
-        lastUsedAt: null,
-      };
-      expect(stored).toMatchObject(expected);
-      expect(read).toMatchObject(expected);
-      expect(
-        Buffer.from(read?.publicKey ?? []).equals(
-          Buffer.from([0, 255, 1, 128]),
-        ),
-      ).toBe(true);
-      expect(read?.createdAt).toBeInstanceOf(Date);
-      expect(await passkeys.listDescriptors(ownerId)).toEqual([
-        { credentialId: CREDENTIAL_ID, transports: ['usb', 'nfc'] },
-      ]);
-    },
-  );
+    const expected = {
+      id: stored.id,
+      userId: ownerId,
+      credentialId: CREDENTIAL_ID,
+      counter: HIGH_COUNTER,
+      transports: ['usb', 'nfc'],
+      deviceType: undefined,
+      backedUp: false,
+      name: 'Seam key',
+      lastUsedAt: null,
+    };
+    expect(stored).toMatchObject(expected);
+    expect(read).toMatchObject(expected);
+    expect(
+      Buffer.from(read?.publicKey ?? []).equals(Buffer.from([0, 255, 1, 128])),
+    ).toBe(true);
+    expect(read?.createdAt).toBeInstanceOf(Date);
+    expect(await passkeys.listDescriptors(ownerId)).toEqual([
+      { credentialId: CREDENTIAL_ID, transports: ['usb', 'nfc'] },
+    ]);
+  });
 
-  passkeyCase(
-    'reads an account as stored and the ways in it carries itself',
-    async () => {
-      const { ownerId } = fixture();
-      const { accounts } = harness();
-      const bareId = await harness().seedAccount({
-        email: 'bare@example.test',
-      });
-      const linkedId = await harness().seedAccount({
-        email: 'linked@example.test',
-        linked: true,
-      });
-      await harness().setDeleted(ownerId, true);
+  it('reads an account as stored and the ways in it carries itself', async () => {
+    const { ownerId } = fixture();
+    const { accounts } = harness();
+    const bareId = await harness().seedAccount({
+      email: 'bare@example.test',
+    });
+    const linkedId = await harness().seedAccount({
+      email: 'linked@example.test',
+      linked: true,
+    });
+    await harness().setDeleted(ownerId, true);
 
-      expect(await accounts.findAccount(ownerId)).toEqual({
-        id: ownerId,
-        email: OWNER_EMAIL,
-        name: 'Contract Tester',
-        isDeleted: true,
-      });
-      expect([
-        await accounts.findSignInMethods(ownerId),
-        await accounts.findSignInMethods(bareId),
-        await accounts.findSignInMethods(linkedId),
-      ]).toEqual([
-        { hasPassword: true, hasLinkedAccount: false },
-        { hasPassword: false, hasLinkedAccount: false },
-        { hasPassword: false, hasLinkedAccount: true },
-      ]);
-    },
-  );
+    expect(await accounts.findAccount(ownerId)).toEqual({
+      id: ownerId,
+      email: OWNER_EMAIL,
+      name: 'Contract Tester',
+      isDeleted: true,
+    });
+    expect([
+      await accounts.findSignInMethods(ownerId),
+      await accounts.findSignInMethods(bareId),
+      await accounts.findSignInMethods(linkedId),
+    ]).toEqual([
+      { hasPassword: true, hasLinkedAccount: false },
+      { hasPassword: false, hasLinkedAccount: false },
+      { hasPassword: false, hasLinkedAccount: true },
+    ]);
+  });
 
-  passkeyCase('answers with nothing for an id that names nothing', async () => {
+  it('answers with nothing for an id that names nothing', async () => {
     const { ownerId } = fixture();
     const { passkeys, accounts } = harness();
     const absent = harness().absentId();
@@ -149,129 +137,99 @@ export function seamCases(
     ]).toEqual([null, null, null, [], [], 0, false, true, null, null]);
   });
 
-  passkeyCase(
-    'refuses a malformed id before anything is read or written',
-    async () => {
-      const { ownerId } = fixture();
-      const { passkeys, accounts } = harness();
-      const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
+  it('refuses a malformed id before anything is read or written', async () => {
+    const { ownerId } = fixture();
+    const { passkeys, accounts } = harness();
+    const stored = await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
 
-      for (const id of ['not-an-id', '', harness().foreignId()]) {
-        const refusals = await Promise.all([
-          rejectionOf(passkeys.listDescriptors(id)),
-          rejectionOf(passkeys.insert(newPasskey(id, OTHER_CREDENTIAL_ID))),
-          rejectionOf(passkeys.listForAccount(id)),
-          rejectionOf(passkeys.findOwned(id, stored.id)),
-          rejectionOf(passkeys.findOwned(ownerId, id)),
-          rejectionOf(passkeys.countForAccount(id)),
-          rejectionOf(accounts.findAccount(id)),
-          rejectionOf(accounts.findSignInMethods(id)),
-        ]);
-
-        expect(
-          refusals.map((refusal) => refusal instanceof MalformedIdError),
-        ).toEqual([true, true, true, true, true, true, true, true]);
-      }
-      expect(await harness().storedPasskeys()).toHaveLength(1);
-    },
-  );
-
-  passkeyCase(
-    'refuses a credential id that is already stored, by the name of the rule',
-    async () => {
-      const { ownerId, otherId } = fixture();
-      const { passkeys } = harness();
-      await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
-
-      for (const userId of [ownerId, otherId]) {
-        const refused = await rejectionOf(
-          passkeys.insert(newPasskey(userId, CREDENTIAL_ID)),
-        );
-        expect(refused).toBeInstanceOf(UniqueConflictError);
-        expect(refused).toMatchObject({ constraint: CREDENTIAL_RULE });
-      }
-      expect(await harness().storedPasskeys()).toMatchObject([
-        { userId: ownerId, credentialId: CREDENTIAL_ID },
+    for (const id of ['not-an-id', '', harness().foreignId()]) {
+      const refusals = await Promise.all([
+        rejectionOf(passkeys.listDescriptors(id)),
+        rejectionOf(passkeys.insert(newPasskey(id, OTHER_CREDENTIAL_ID))),
+        rejectionOf(passkeys.listForAccount(id)),
+        rejectionOf(passkeys.findOwned(id, stored.id)),
+        rejectionOf(passkeys.findOwned(ownerId, id)),
+        rejectionOf(passkeys.countForAccount(id)),
+        rejectionOf(accounts.findAccount(id)),
+        rejectionOf(accounts.findSignInMethods(id)),
       ]);
-    },
-  );
 
-  passkeyCase(
-    'spends a challenge once, for its own ceremony, before its expiry',
-    async () => {
-      const { challenges } = harness();
-      await harness().seedChallenge({
-        challengeHash: HASH,
-        purpose: 'login',
+      expect(
+        refusals.map((refusal) => refusal instanceof MalformedIdError),
+      ).toEqual([true, true, true, true, true, true, true, true]);
+    }
+    expect(await harness().storedPasskeys()).toHaveLength(1);
+  });
+
+  it('refuses a credential id that is already stored, by the name of the rule', async () => {
+    const { ownerId, otherId } = fixture();
+    const { passkeys } = harness();
+    await passkeys.insert(newPasskey(ownerId, CREDENTIAL_ID));
+
+    for (const userId of [ownerId, otherId]) {
+      const refused = await rejectionOf(
+        passkeys.insert(newPasskey(userId, CREDENTIAL_ID)),
+      );
+      expect(refused).toBeInstanceOf(UniqueConflictError);
+      expect(refused).toMatchObject({ constraint: CREDENTIAL_RULE });
+    }
+    expect(await harness().storedPasskeys()).toMatchObject([
+      { userId: ownerId, credentialId: CREDENTIAL_ID },
+    ]);
+  });
+
+  it('spends a challenge once, for its own ceremony, before its expiry', async () => {
+    const { challenges } = harness();
+    await harness().seedChallenge({
+      challengeHash: HASH,
+      purpose: 'login',
+      expiresAt: at(60_000),
+    });
+    const key = { challengeHash: HASH, purpose: 'login' as const };
+
+    expect([
+      await challenges.consume(key, at(60_000)),
+      await challenges.consume(key, at(60_001)),
+      await challenges.consume({ ...key, purpose: 'register' }, at(0)),
+      await challenges.consume(
+        { ...key, challengeHash: 'e'.repeat(64) },
+        at(0),
+      ),
+    ]).toEqual(['refused', 'refused', 'refused', 'refused']);
+    expect(await harness().storedChallenges()).toHaveLength(1);
+
+    expect(await challenges.consume(key, at(59_999))).toBe('consumed');
+    expect(await harness().storedChallenges()).toEqual([]);
+    expect(await challenges.consume(key, at(0))).toBe('refused');
+  });
+
+  it('refuses a challenge that is already stored, and stores one without an account when the id is not its own', async () => {
+    const { ownerId } = fixture();
+    const { challenges } = harness();
+    const open = (challengeHash: string, userId?: string): Promise<void> =>
+      challenges.open({
+        challengeHash,
+        purpose: 'register',
+        userId,
         expiresAt: at(60_000),
       });
-      const key = { challengeHash: HASH, purpose: 'login' as const };
+    await open(HASH, ownerId);
 
-      expect([
-        await challenges.consume(key, at(60_000)),
-        await challenges.consume(key, at(60_001)),
-        await challenges.consume({ ...key, purpose: 'register' }, at(0)),
-        await challenges.consume(
-          { ...key, challengeHash: 'e'.repeat(64) },
-          at(0),
-        ),
-      ]).toEqual(['refused', 'refused', 'refused', 'refused']);
-      expect(await harness().storedChallenges()).toHaveLength(1);
+    const refused = await rejectionOf(open(HASH, ownerId));
+    await open('1'.repeat(64), 'not-an-id');
+    await open('2'.repeat(64), harness().foreignId());
 
-      expect(await challenges.consume(key, at(59_999))).toBe('consumed');
-      expect(await harness().storedChallenges()).toEqual([]);
-      expect(await challenges.consume(key, at(0))).toBe('refused');
-    },
-  );
-
-  passkeyCase(
-    'refuses a challenge that is already stored, and stores one without an account when the id is not its own',
-    async () => {
-      const { ownerId } = fixture();
-      const { challenges } = harness();
-      const open = (challengeHash: string, userId?: string): Promise<void> =>
-        challenges.open({
-          challengeHash,
-          purpose: 'register',
-          userId,
-          expiresAt: at(60_000),
-        });
-      await open(HASH, ownerId);
-
-      const refused = await rejectionOf(open(HASH, ownerId));
-      await open('1'.repeat(64), 'not-an-id');
-      await open('2'.repeat(64), harness().foreignId());
-
-      expect(refused).toBeInstanceOf(UniqueConflictError);
-      expect(refused).toMatchObject({ constraint: CHALLENGE_RULE });
-      expect(
-        (await harness().storedChallenges()).map((challenge) => ({
-          challengeHash: challenge.challengeHash,
-          userId: challenge.userId,
-        })),
-      ).toEqual([
-        { challengeHash: '1'.repeat(64), userId: null },
-        { challengeHash: '2'.repeat(64), userId: null },
-        { challengeHash: HASH, userId: ownerId },
-      ]);
-    },
-  );
-
-  passkeyCase(
-    'delete-expired removes what lapsed and nothing else',
-    async () => {
-      const seed = (challengeHash: string, expiresAt: Date): Promise<void> =>
-        harness().seedChallenge({ challengeHash, purpose: 'login', expiresAt });
-      await seed('1'.repeat(64), at(-1));
-      await seed('2'.repeat(64), at(0));
-      await seed('3'.repeat(64), at(1));
-
-      expect(await harness().challenges.deleteExpired(at(0))).toBe(2);
-
-      expect(await harness().storedChallenges()).toMatchObject([
-        { challengeHash: '3'.repeat(64), expiresAt: at(1) },
-      ]);
-      expect(await harness().challenges.deleteExpired(at(0))).toBe(0);
-    },
-  );
+    expect(refused).toBeInstanceOf(UniqueConflictError);
+    expect(refused).toMatchObject({ constraint: CHALLENGE_RULE });
+    expect(
+      (await harness().storedChallenges()).map((challenge) => ({
+        challengeHash: challenge.challengeHash,
+        userId: challenge.userId,
+      })),
+    ).toEqual([
+      { challengeHash: '1'.repeat(64), userId: null },
+      { challengeHash: '2'.repeat(64), userId: null },
+      { challengeHash: HASH, userId: ownerId },
+    ]);
+  });
 }

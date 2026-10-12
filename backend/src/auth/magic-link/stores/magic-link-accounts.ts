@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
+import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
 
 /** Shared names of the unique rules creating an account can run into. */
 export const MAGIC_LINK_ACCOUNT_CONSTRAINT = {
@@ -30,6 +30,12 @@ export abstract class MagicLinkAccounts {
   /** The account with this address, deleted ones included. */
   abstract findByEmail(email: string): Promise<MagicLinkAccount | null>;
 
+  /**
+   * True when the address belongs to a deleted account. One statement of the
+   * same size whether or not any account has the address.
+   */
+  abstract hasDeletedAccount(email: string): Promise<boolean>;
+
   abstract markVerified(account: MagicLinkAccount): Promise<void>;
 
   /**
@@ -41,9 +47,7 @@ export abstract class MagicLinkAccounts {
   ): Promise<MagicLinkAccount>;
 }
 
-export type MagicLinkSignInOutcome =
-  | { requiresTwoFactor: true }
-  | { requiresTwoFactor: false; user: AuthenticatedUserSummary };
+export type MagicLinkSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account a link proved. */
 export abstract class MagicLinkSignIn {

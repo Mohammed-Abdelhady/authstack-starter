@@ -1,10 +1,7 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { holdBefore } from '../../race-gate';
 import { failAfter } from '../../session/authority-contract/authority-contract-support';
-import {
-  NATIVE_CONTRACT_CASE_TIMEOUT_MS,
-  NativeContractHarness,
-} from './native-contract-harness';
+import { NativeContractHarness } from './native-contract-harness';
 import {
   ABORTED,
   actions,
@@ -29,7 +26,6 @@ const ROTATED_ONCE = { ...FIRST_PAIR, tokens: 4, unrevoked: 3 };
 
 /** A rotation or a replay that fails part way, and a commit whose answer is lost. */
 export function refreshAtomicityCases(harness: NativeHarnessSource): void {
-  const budget = NATIVE_CONTRACT_CASE_TIMEOUT_MS;
   let restores: Array<() => void> = [];
 
   afterEach(() => {
@@ -49,30 +45,26 @@ export function refreshAtomicityCases(harness: NativeHarnessSource): void {
     return () => calls;
   }
 
-  it(
-    'stores nothing of a rotation aborted after its new pair was stored',
-    async () => {
-      const signedIn = await signInNative(harness());
-      restores.push(
-        failAfter(
-          harness().stores.credentials,
-          'insertCredentialPair',
-          new Error(ABORTED),
-        ),
-      );
-      const outcome = await outcomeOf(
-        refresh(harness().services(), signedIn.tokens.refreshToken),
-      );
-      expect({
-        outcome,
-        family: await familyState(harness(), signedIn.sessionId),
-      }).toEqual({
-        outcome: ErrorCode.AUTHORITY_UNAVAILABLE,
-        family: FIRST_PAIR,
-      });
-    },
-    budget,
-  );
+  it('stores nothing of a rotation aborted after its new pair was stored', async () => {
+    const signedIn = await signInNative(harness());
+    restores.push(
+      failAfter(
+        harness().stores.credentials,
+        'insertCredentialPair',
+        new Error(ABORTED),
+      ),
+    );
+    const outcome = await outcomeOf(
+      refresh(harness().services(), signedIn.tokens.refreshToken),
+    );
+    expect({
+      outcome,
+      family: await familyState(harness(), signedIn.sessionId),
+    }).toEqual({
+      outcome: ErrorCode.AUTHORITY_UNAVAILABLE,
+      family: FIRST_PAIR,
+    });
+  });
 
   it.each([
     {
@@ -110,33 +102,28 @@ export function refreshAtomicityCases(harness: NativeHarnessSource): void {
         events: ['session_issued'],
       });
     },
-    budget,
   );
 
-  it(
-    'rotates once, and never again, when the answer to a commit that landed is lost',
-    async () => {
-      const signedIn = await signInNative(harness());
-      const claims = countClaims();
-      const lost = harness().issuance.loseCommitAnswers({
-        lands: true,
-        times: 1,
-      });
-      restores.push(lost.restore);
-      const answer = await outcomeOf(
-        refresh(harness().services(), signedIn.tokens.refreshToken).then(
-          answerOf,
-        ),
-      );
-      lost.restore();
-      expect({
-        answer,
-        claims: claims(),
-        family: await familyState(harness(), signedIn.sessionId),
-      }).toEqual({ answer: 'ok', claims: 1, family: ROTATED_ONCE });
-    },
-    budget,
-  );
+  it('rotates once, and never again, when the answer to a commit that landed is lost', async () => {
+    const signedIn = await signInNative(harness());
+    const claims = countClaims();
+    const lost = harness().issuance.loseCommitAnswers({
+      lands: true,
+      times: 1,
+    });
+    restores.push(lost.restore);
+    const answer = await outcomeOf(
+      refresh(harness().services(), signedIn.tokens.refreshToken).then(
+        answerOf,
+      ),
+    );
+    lost.restore();
+    expect({
+      answer,
+      claims: claims(),
+      family: await familyState(harness(), signedIn.sessionId),
+    }).toEqual({ answer: 'ok', claims: 1, family: ROTATED_ONCE });
+  });
 
   it.each([
     { lands: true, family: ROTATED_ONCE },
@@ -162,6 +149,5 @@ export function refreshAtomicityCases(harness: NativeHarnessSource): void {
         family,
       });
     },
-    budget,
   );
 }

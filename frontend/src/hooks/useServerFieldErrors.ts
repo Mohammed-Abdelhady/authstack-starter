@@ -82,6 +82,26 @@ function inDocumentOrder(a: HTMLElement, b: HTMLElement): number {
 }
 
 /**
+ * Focuses a field once the request that named it has ended: the store reports
+ * the end of a request a frame after its rejection reaches the form.
+ */
+export function useFocusFieldAfterSubmit(
+  getFieldElement: ServerFieldErrorTarget['getFieldElement'],
+  isSubmitting: boolean,
+): (name: string) => void {
+  const [focusRequest, setFocusRequest] = useState<{ name: string } | null>(null);
+  const focusedRequest = useRef<{ name: string } | null>(null);
+
+  useEffect(() => {
+    if (focusRequest === null || isSubmitting || focusedRequest.current === focusRequest) return;
+    focusedRequest.current = focusRequest;
+    getFieldElement(focusRequest.name)?.focus();
+  }, [focusRequest, isSubmitting, getFieldElement]);
+
+  return useCallback((name: string) => setFocusRequest({ name }), []);
+}
+
+/**
  * Marks the fields a rejected mutation names in `details.fields` and focuses
  * the first of them as they appear on screen. Names the form has no control
  * for are ignored. Returns whether any field was marked.
@@ -105,16 +125,7 @@ export function useServerFieldErrors(
   isSubmitting: boolean,
 ): (error: unknown) => boolean {
   const t = useTranslations();
-  const [focusRequest, setFocusRequest] = useState<{ name: string } | null>(null);
-  const focusedRequest = useRef<{ name: string } | null>(null);
-
-  // The fields are held while the request runs, and the store reports its end
-  // a frame after the rejection reaches the form.
-  useEffect(() => {
-    if (focusRequest === null || isSubmitting || focusedRequest.current === focusRequest) return;
-    focusedRequest.current = focusRequest;
-    getFieldElement(focusRequest.name)?.focus();
-  }, [focusRequest, isSubmitting, getFieldElement]);
+  const focusField = useFocusFieldAfterSubmit(getFieldElement, isSubmitting);
 
   return useCallback(
     (error: unknown): boolean => {
@@ -134,9 +145,9 @@ export function useServerFieldErrors(
       for (const { name } of marked) {
         setError(name, { type: SERVER_FIELD_ERROR_TYPE, message });
       }
-      setFocusRequest({ name: first.name });
+      focusField(first.name);
       return true;
     },
-    [getFieldElement, setError, t],
+    [getFieldElement, setError, t, focusField],
   );
 }

@@ -1,7 +1,13 @@
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
 import { REQUEST_ID_HEADER } from '../../src/common/constants/request-id';
-import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
+import { SEED_USER } from '../constants/seed-users';
+import {
+  bootE2eApp,
+  browserAgent,
+  loginAs,
+  type E2eApp,
+} from '../utils/e2e-app';
 import type { E2ePendingPasswordResetCode } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
 import { RaceGate } from '../utils/race-gate';
@@ -310,5 +316,30 @@ describe('Password reset code step and pending reset windows (e2e)', () => {
     expect(await e2e.state.auth.countPendingPasswordResets(email)).toBe(1);
     const record = await storedReset(email);
     expect(await bcrypt.compare('654321', record.hashedCode)).toBe(true);
+  });
+
+  it('refuses a newly mailed code for a locked address and still signs that account in by password', async () => {
+    const email = SEED_USER.email;
+    await seedPendingPasswordReset(email);
+    for (let guess = 0; guess < MAX_ATTEMPTS; guess += 1) {
+      await post('/api/auth/reset-password', {
+        email,
+        code: WRONG_CODE,
+        newPassword: PASSWORD,
+      });
+    }
+    await post('/api/auth/forgot-password', { email });
+
+    const locked = await post('/api/auth/reset-password', {
+      email,
+      code: await e2e.mailedCode(),
+      newPassword: PASSWORD,
+    });
+    const signedIn = await loginAs(e2e.httpServer, SEED_USER);
+    const account = await signedIn.get('/api/user/profile');
+
+    expect(locked.status).toBe(400);
+    expect(locked.body).toMatchObject(RESET_BODY);
+    expect(account.status).toBe(200);
   });
 });

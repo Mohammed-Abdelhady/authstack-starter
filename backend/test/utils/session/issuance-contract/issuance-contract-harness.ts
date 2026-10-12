@@ -7,9 +7,6 @@ import { IssuanceApplications } from '../../../../src/session/issuance/issuance-
 import { SessionIssuanceService } from '../../../../src/session/services/session-issuance.service';
 import { FrozenClock } from '../../frozen-clock';
 
-/** Jest budget for a contract case: some sign in up to the cap, one at a time. */
-export const ISSUANCE_CONTRACT_CASE_TIMEOUT_MS = 60000;
-
 export const CONTRACT_ENVIRONMENT = 'test';
 export const CONTRACT_AUTH_EPOCH = 1;
 
@@ -39,6 +36,8 @@ export interface StoredSession {
   clientVersion: number;
   grantVersion: number;
   deviceName: string | null;
+  /** The device label exactly as the database holds it, every stored field. */
+  device: unknown;
   authenticatedAt: Date;
   expiresAt: Date;
   idleExpiresAt: Date;

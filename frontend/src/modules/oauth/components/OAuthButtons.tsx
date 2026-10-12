@@ -16,12 +16,18 @@ interface OAuthButtonsProps {
  */
 export function OAuthButtons({ redirect, disabled = false }: OAuthButtonsProps) {
   const t = useTranslations('auth.oauth');
+  const tCommon = useTranslations('common');
   const { data: providers = [], isLoading } = useGetEnabledProvidersQuery();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-4" data-testid="oauth-loading">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      <div
+        className="flex items-center justify-center py-4"
+        data-testid="oauth-loading"
+        role="status"
+      >
+        <span className="sr-only">{tCommon('loading')}</span>
+        <Loader2 className="h-5 w-5 motion-safe:animate-spin text-muted-foreground" />
       </div>
     );
   }

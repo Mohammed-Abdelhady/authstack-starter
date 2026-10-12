@@ -20,8 +20,20 @@ async function consent(expectedUserId?: unknown): Promise<void> {
 }
 
 describe('native consent account validation handoff', () => {
-  it.each([SESSION_USER_ID, undefined])('accepts account %p', async (id) => {
-    await expect(consent(id)).resolves.toBeUndefined();
+  it('accepts the signed-in account', async () => {
+    await expect(consent(SESSION_USER_ID)).resolves.toBeUndefined();
+  });
+
+  it('refuses an action that names no account before comparison', async () => {
+    const body = createValidationPipe().transform(
+      { transactionId: TRANSACTION_ID },
+      { type: 'body', metatype: NativeAuthorizeActionDto },
+    );
+
+    await expect(body).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+    });
   });
 
   it.each(['another-user', ''])(

@@ -7,6 +7,7 @@ import {
 } from '../mail/constants/mail.constants';
 import type { NativeApplicationConfiguration } from './types/native-application.type';
 import { parseNativeApplications } from './utils/native-application-config.util';
+import { defaultSessionCookieName } from './utils/production-environment.util';
 
 export { EnvironmentConfig, EnvironmentVariables } from './env.schema';
 
@@ -68,9 +69,13 @@ export interface Configuration {
   twoFactor: {
     enabled: boolean;
     encryptionKey?: string;
+    previousEncryptionKey?: string;
   };
   passkeys: {
     enabled: boolean;
+    challengeSecret?: string;
+    previousChallengeSecret?: string;
+    legacyChallengeUntil?: string;
     rpId: string;
     rpName: string;
     origin: string;
@@ -155,7 +160,7 @@ const configuration = (): Configuration => {
     session: {
       cookieName:
         process.env.SESSION_COOKIE_NAME ||
-        (process.env.NODE_ENV === 'production' ? '__Host-sid' : 'sid'),
+        defaultSessionCookieName(process.env.NODE_ENV, clientUrl),
       cookieMaxAge: Number.parseInt(
         process.env.SESSION_COOKIE_MAX_AGE || '604800000',
         10,
@@ -204,9 +209,13 @@ const configuration = (): Configuration => {
     twoFactor: {
       enabled: process.env.TWO_FACTOR_ENABLED !== 'false',
       encryptionKey: process.env.TOTP_ENCRYPTION_KEY,
+      previousEncryptionKey: process.env.TOTP_ENCRYPTION_KEY_PREVIOUS,
     },
     passkeys: {
       enabled: process.env.PASSKEYS_ENABLED !== 'false',
+      challengeSecret: process.env.PASSKEY_CHALLENGE_SECRET,
+      previousChallengeSecret: process.env.PASSKEY_CHALLENGE_SECRET_PREVIOUS,
+      legacyChallengeUntil: process.env.PASSKEY_CHALLENGE_LEGACY_UNTIL,
       rpId: process.env.WEBAUTHN_RP_ID || clientUrlPart(clientUrl, 'hostname'),
       rpName: process.env.WEBAUTHN_RP_NAME || APP_NAME,
       // Through the same reader as the default: a configured origin with a

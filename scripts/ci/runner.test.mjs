@@ -78,6 +78,7 @@ test('the repository gate list has separate quality, install and installer selec
       'Full-tree hard bans',
       'Package-manager inventory',
       'Workspace dependency check',
+      'Colour contrast',
       'Lint',
       'Typecheck',
       'Unit and config tests',
@@ -88,6 +89,10 @@ test('the repository gate list has separate quality, install and installer selec
       'Installer combinations',
       'Installer PostgreSQL projects',
       'Installer MongoDB projects',
+      'Install test browser',
+      'Browser test frontend build',
+      'Frontend browser checks',
+      'Complete authentication browser journeys',
     ],
   );
   assert.deepEqual(
@@ -96,6 +101,7 @@ test('the repository gate list has separate quality, install and installer selec
       ['node', ['scripts/check-hard-bans.mjs', '--all']],
       ['node', ['scripts/check-package-manager.mjs']],
       ['node', ['scripts/check-workspace-dependencies.mjs']],
+      ['node', ['scripts/check-contrast.mjs']],
       ['pnpm', ['run', 'lint']],
       ['pnpm', ['run', 'typecheck']],
       ['pnpm', ['test']],
@@ -106,6 +112,13 @@ test('the repository gate list has separate quality, install and installer selec
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
       ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+      ['pnpm', ['--filter', 'frontend', 'exec', 'playwright', 'install', 'chromium']],
+      ['pnpm', ['--filter', 'frontend', 'run', 'build']],
+      [
+        'pnpm',
+        ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.frontend.config.ts'],
+      ],
+      ['pnpm', ['--filter', 'frontend', 'run', 'test:e2e', '--config=playwright.config.ts']],
     ],
   );
   assert.deepEqual(
@@ -120,11 +133,18 @@ test('the repository gate list has separate quality, install and installer selec
     selectGates(config, '--installer-mongodb').map((g) => g.args),
     [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
   );
+  const browser = selectGates(config, '--browser');
+  assert.equal(browser.length, 4);
+  assert.deepEqual(browser[1].env, { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:5107' });
+  assert.equal(
+    browser.every((gate) => gate.repositoryOnly === true),
+    true,
+  );
   assert.deepEqual(
     selectGates(config, '--install').map((g) => [g.command, g.args]),
     [['pnpm', ['install', '--frozen-lockfile']]],
   );
-  assert.equal(selectGates(config, '--quality').length, 8);
+  assert.equal(selectGates(config, '--quality').length, 9);
   assert.deepEqual(
     selectGates(config, '--api').map((g) => g.args),
     [
@@ -139,6 +159,7 @@ test('the repository gate list has separate quality, install and installer selec
     'installer',
     'installer-postgres',
     'installer-mongodb',
+    'browser',
   ]);
   assert.deepEqual([...new Set(config.gates.map((g) => g.group))], config.groups);
   assert.throws(() => selectGates(config, '--unknown'), /Unknown CI mode/);

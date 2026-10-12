@@ -1,6 +1,10 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function UserListSkeleton() {
+export interface UserListSkeletonProps {
+  label: string;
+}
+
+export function UserListSkeleton({ label }: UserListSkeletonProps) {
   return (
     <div
       role="status"
@@ -8,6 +12,7 @@ export function UserListSkeleton() {
       className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       data-testid="loading-skeleton"
     >
+      <span className="sr-only">{label}</span>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="p-4 rounded-lg bg-card border border-border space-y-3">
           <div className="flex items-start gap-3">

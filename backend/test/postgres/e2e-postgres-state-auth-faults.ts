@@ -75,7 +75,7 @@ export function postgresAuthFaults(
       jest
         .spyOn(accounts, 'findAddressConfirmation')
         .mockImplementation((id) => {
-          lookups();
+          lookups(id);
           return findConfirmation(id);
         });
       return lookups;

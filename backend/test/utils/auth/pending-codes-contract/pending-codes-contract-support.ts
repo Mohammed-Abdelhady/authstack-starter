@@ -21,6 +21,14 @@ export const MAIL_WINDOW_MS = 900_000;
 export const CODE = '123456';
 export const WRONG_CODE = '000000';
 export const BCRYPT_ROUNDS = 4;
+/** Five guesses, then 15 minutes that double up to a day, kept for a day. */
+export const GUESS_RULE = {
+  limit: 5,
+  lockBaseMs: 900_000,
+  lockMaxMs: 86_400_000,
+  maxLockLevel: 7,
+  memoryMs: 86_400_000,
+};
 
 export const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + CODE_LIFETIME_MS);
 export const EXPIRED_EXPIRY = new Date(TEST_NOW.getTime() - 1000);

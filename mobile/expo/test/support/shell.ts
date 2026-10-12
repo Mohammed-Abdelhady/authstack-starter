@@ -15,11 +15,15 @@ import { createShellAuth, type StartedShellAuth } from '../../src/shell';
 /** A real engine over the adapter fakes, with the key already answered. Dispose it when done. */
 export function startShell(): { auth: StartedShellAuth } {
   const clock = new FakeTime();
+  const server = new FakeServer();
+  const webBrowser = new FakeWebBrowser();
+  // The browser comes straight back with the server's answer, as it does after a sign-in.
+  webBrowser.respond = (url) => ({ type: 'success', url: server.authorize(url) });
   const auth = createShellAuth(
     {
       secureStore: new FakeSecureStore(),
       keychainOptions: { keychainAccessible: 4 },
-      webBrowser: new FakeWebBrowser(),
+      webBrowser,
       crypto: new FakeCrypto(),
       sha256Algorithm: FAKE_SHA256,
       linking: new FakeLinking(null),
@@ -28,7 +32,7 @@ export function startShell(): { auth: StartedShellAuth } {
       uuid: new FakeUuid(),
       clock,
       timers: clock,
-      http: new FakeServer(),
+      http: server,
     },
     {
       configuration: resolveConfig({

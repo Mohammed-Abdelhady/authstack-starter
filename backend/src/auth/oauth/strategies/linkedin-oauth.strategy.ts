@@ -53,6 +53,7 @@ export class LinkedInOAuthStrategy extends BaseOAuthStrategy {
   readonly supportsPkce = false;
   readonly usesOidc = false;
   readonly emailAlwaysVerified = false;
+  readonly autoLinksByEmail = true;
 
   constructor(configService: ConfigService) {
     super(configService);

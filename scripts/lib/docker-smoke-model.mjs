@@ -27,8 +27,10 @@ export function smokeModel(original, fixtureDirectory) {
     NODE_ENV: 'production',
     PORT: '5000',
     MONGO_URI: 'mongodb://mongodb:27017/smoke',
-    CLIENT_URL: 'http://127.0.0.1',
-    API_URL: 'http://backend:5000',
+    // A production start refuses an http or loopback address. Nothing in the
+    // smoke network resolves these names: the probes call the services directly.
+    CLIENT_URL: 'https://smoke.example.test',
+    API_URL: 'https://api.smoke.example.test',
     OAUTH_STATE_SECRET: 'synthetic-docker-smoke-state-000000000000',
     AUTH_PASSWORD_ENABLED: 'true',
     MAGIC_LINK_ENABLED: 'false',

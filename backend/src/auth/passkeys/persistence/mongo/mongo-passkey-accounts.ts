@@ -14,6 +14,7 @@ import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // featu
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
   PasskeyAccount,
+  PasskeyAccountPassword,
   PasskeyAccounts,
   PasskeySignIn,
   PasskeySignInOutcome,
@@ -61,6 +62,13 @@ export class MongoPasskeyAccounts extends PasskeyAccounts {
     };
     DOCUMENTS.set(account, user);
     return account;
+  }
+
+  async findPassword(userId: string): Promise<PasskeyAccountPassword | null> {
+    const user = await accountStatement(() =>
+      this.userModel.findById(userId).select('+password'),
+    );
+    return user ? { passwordHash: user.password || undefined } : null;
   }
 
   async findSignInMethods(userId: string): Promise<StoredSignInMethods | null> {

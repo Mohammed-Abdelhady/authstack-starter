@@ -2,7 +2,6 @@ import { createHash } from 'crypto';
 import { createAuthEngine } from '@app/native-auth';
 import type {
   AbortSignalPort,
-  AuthBrowserResult,
   AuthDependencies,
   AuthEngine,
   ClockPort,
@@ -27,6 +26,10 @@ import { NATIVE_CLIENT_ID, NATIVE_REDIRECT } from './native-authorize.fixtures';
 import { buildDpopProof } from '../../../../mobile/auth/src/proof/dpop-proof';
 import { parseStoredRecord } from '../../../../mobile/auth/src/storage/persistence';
 import { SoftwareDeviceKey } from '../../../../mobile/auth/test/support/software-device-key';
+import {
+  authorizeWithBrowser,
+  type BrowserConsentAttempt,
+} from './native-auth-engine-consent';
 
 export const ENGINE_SERVER_BASE_ADDRESS = 'http://127.0.0.1:5107';
 const CONFIG = {
@@ -55,6 +58,7 @@ export interface EngineHarness {
   requests: TransportRequest<AbortSignalPort>[];
   responses: TransportResponse[];
   authorizationAddresses: string[];
+  consentAttempts: BrowserConsentAttempt[];
   serverClock: E2eApp['clock'];
 }
 
@@ -68,17 +72,20 @@ export async function openEngine(
   redirectUri = CONFIG.redirectUri,
   authorizationChoice: 'approve' | 'deny' = 'approve',
   deviceKey?: SoftwareDeviceKey,
+  browserAgent?: TestAgent,
 ): Promise<EngineHarness> {
-  const browser = await loginAs(e2eApp.httpServer, SEED_USER);
+  const browser = browserAgent ?? (await loginAs(e2eApp.httpServer, SEED_USER));
   const requests: TransportRequest<AbortSignalPort>[] = [];
   const responses: TransportResponse[] = [];
   const authorizationAddresses: string[] = [];
+  const consentAttempts: BrowserConsentAttempt[] = [];
   const ports = makePorts(
     browser,
     e2eApp,
     requests,
     responses,
     authorizationAddresses,
+    consentAttempts,
     authorizationChoice,
     deviceKey,
   );
@@ -90,6 +97,7 @@ export async function openEngine(
     requests,
     responses,
     authorizationAddresses,
+    consentAttempts,
     serverClock: e2eApp.clock,
   };
 }
@@ -164,6 +172,7 @@ function makePorts(
   requests: TransportRequest<AbortSignalPort>[],
   responses: TransportResponse[],
   authorizationAddresses: string[],
+  consentAttempts: BrowserConsentAttempt[],
   authorizationChoice: 'approve' | 'deny',
   deviceKey?: SoftwareDeviceKey,
 ): EnginePorts {
@@ -209,7 +218,12 @@ function makePorts(
         _signal: AbortSignalPort,
       ) => {
         authorizationAddresses.push(address);
-        return authorizeWithBrowser(browser, address, authorizationChoice);
+        return authorizeWithBrowser(
+          browser,
+          address,
+          authorizationChoice,
+          consentAttempts,
+        );
       },
     },
     crypto: {
@@ -300,45 +314,4 @@ class TestTimer implements TimerPort {
     this.callbacks.set(id, callback);
     return () => this.callbacks.delete(id);
   }
-}
-
-async function authorizeWithBrowser(
-  browser: TestAgent,
-  address: string,
-  choice: 'approve' | 'deny',
-): Promise<AuthBrowserResult> {
-  const authorize = new URL(address);
-  const response = await browser
-    .get(`${authorize.pathname}${authorize.search}`)
-    .redirects(0);
-  const location = response.headers.location;
-  if (response.status !== 302 || typeof location !== 'string') {
-    return {
-      kind: 'failed',
-      reason: 'Authorization did not open the approval page',
-    };
-  }
-  const transactionId = new URL(location, 'http://localhost').searchParams.get(
-    'transaction',
-  );
-  if (!transactionId)
-    return { kind: 'failed', reason: 'Authorization transaction was missing' };
-  const approval = await browser
-    .post(`/api/oauth/authorize/${choice}`)
-    .send({ transactionId })
-    .expect(200);
-  return { kind: 'redirect', url: approvalRedirect(approval.body) };
-}
-
-function approvalRedirect(value: unknown): string {
-  if (typeof value !== 'object' || value === null || !('data' in value)) {
-    throw new Error('Approval response had no data');
-  }
-  const data = value.data;
-  if (typeof data !== 'object' || data === null || !('redirectUri' in data)) {
-    throw new Error('Approval response had no return address');
-  }
-  if (typeof data.redirectUri !== 'string')
-    throw new Error('Return address was not a string');
-  return data.redirectUri;
 }

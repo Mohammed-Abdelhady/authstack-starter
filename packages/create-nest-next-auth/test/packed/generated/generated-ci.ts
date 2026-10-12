@@ -105,6 +105,7 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
     'Full-tree hard bans',
     'Package-manager inventory',
     'Workspace dependency check',
+    'Colour contrast',
     'Lint',
     'Typecheck',
     'Unit and config tests',
@@ -159,7 +160,7 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
   );
   expect({ status: output.status, output: output.stdout.trim() }).toEqual({
     status: 0,
-    output: '7 1 quality,api',
+    output: '8 1 quality,api',
   });
   const missingGroup = spawnSync(process.execPath, ['scripts/ci.mjs', '--installer'], {
     cwd: project,

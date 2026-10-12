@@ -1,6 +1,13 @@
-import { test as base, expect } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type Page,
+  type ConsoleMessage,
+  type Response,
+} from '@playwright/test';
 import { fork, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
+import { CSRF_HEADER, publicBrowserProof, sessionBrowserProof } from '../utils/browser-proof';
 
 const backendDirectory = resolve(__dirname, '../../../backend');
 export const API = 'http://127.0.0.1:5107/api';
@@ -68,7 +75,7 @@ export const test = base.extend<
     fixtureMail: () => Promise<FixtureMail[]>;
     expireMagicLinks: () => Promise<void>;
     apiAvailability: (enabled: boolean) => Promise<void>;
-    browserAudit: void;
+    browserAudit: (page: Page) => void;
     appLocale: 'en' | 'ar';
     actor: { email: string; password: string };
     returnPath: string;
@@ -101,18 +108,36 @@ export const test = base.extend<
       const runtime: string[] = [];
       const consoleErrors: { url: string; text: string }[] = [];
       const responses: { path: string; status: number }[] = [];
-      page.on('pageerror', (error) => runtime.push(error.message));
-      page.on('console', (message) => {
-        if (message.type() === 'error')
-          consoleErrors.push({ url: message.location().url, text: message.text() });
-      });
-      page.on('response', (response) => {
-        if (response.status() >= 400)
-          responses.push({ path: new URL(response.url()).pathname, status: response.status() });
-      });
-      await run();
+      const watched = new WeakSet<Page>();
+      const release: (() => void)[] = [];
+      const auditPage = (audited: Page): void => {
+        if (watched.has(audited)) return;
+        watched.add(audited);
+        const onError = (error: Error) => runtime.push(error.message);
+        const onConsole = (message: ConsoleMessage) => {
+          if (message.type() === 'error')
+            consoleErrors.push({ url: message.location().url, text: message.text() });
+        };
+        const onResponse = (response: Response) => {
+          if (response.status() >= 400)
+            responses.push({ path: new URL(response.url()).pathname, status: response.status() });
+        };
+        audited.on('pageerror', onError);
+        audited.on('console', onConsole);
+        audited.on('response', onResponse);
+        release.push(() => {
+          audited.off('pageerror', onError);
+          audited.off('console', onConsole);
+          audited.off('response', onResponse);
+        });
+      };
+      auditPage(page);
+      try {
+        await run(auditPage);
+      } finally {
+        release.forEach((stop) => stop());
+      }
       const expected = [
-        { path: '/api/user/profile', status: 401 },
         ...testInfo.annotations
           .filter((item) => item.type === 'expected-api-error')
           .map((item) => JSON.parse(item.description!) as { path: string; status: number }),
@@ -207,6 +232,7 @@ export const test = base.extend<
         return;
       }
       const other = await request.post(`${API}/auth/login`, {
+        headers: { [CSRF_HEADER]: await publicBrowserProof(request, API) },
         data: { email: actor.email, password: actor.password },
       });
       expect(other.status()).toBe(200);
@@ -223,6 +249,7 @@ export const test = base.extend<
       await expect(page.getByTestId('dashboard-main')).toBeVisible();
       if (actor.email === admin.email) {
         const role = await page.request.post(`${API}/roles`, {
+          headers: { [CSRF_HEADER]: await sessionBrowserProof(page.request, API) },
           data: {
             name: 'Fixture Editor',
             permissions: ['users:read:all'],

@@ -46,7 +46,17 @@ export function pendingCodeStatements(
   const counter = { email: EMAIL, purpose: MAIL_COUNTER_PURPOSE.SIGNUP };
   const record = { email: EMAIL, purpose: PENDING_PURPOSE.SIGNUP };
   const generation = { hashedCode: 'hash', expiresAt: TEST_NOW };
-  const attempts = { now: TEST_NOW, maxAttempts: 5 };
+  const attempts = {
+    now: TEST_NOW,
+    maxAttempts: 5,
+    guesses: {
+      limit: 5,
+      lockBaseMs: HOUR_MS,
+      lockMaxMs: HOUR_MS,
+      maxLockLevel: 1,
+      memoryMs: HOUR_MS,
+    },
+  };
   const window = { now: TEST_NOW, windowMs: HOUR_MS };
   return {
     'mail.recordWithinCap': () =>
@@ -68,8 +78,6 @@ export function pendingCodeStatements(
       registrations.clearLegacyBlocker(EMAIL),
     'registration.reserveAttempt': () =>
       registrations.reserveAttempt(record, attempts),
-    'registration.deleteExpiredBefore': () =>
-      registrations.deleteExpiredBefore(TEST_NOW),
     'reset.rotateCode': () => passwordResets.rotateCode(EMAIL, generation),
     'reset.insertRecord': () => passwordResets.insertRecord(EMAIL, generation),
     'reset.reserveAttempt': () =>
@@ -82,8 +90,6 @@ export function pendingCodeStatements(
       }),
     'reset.dropExpiredRecord': () =>
       passwordResets.dropExpiredRecord(EMAIL, TEST_NOW),
-    'reset.deleteExpiredBefore': () =>
-      passwordResets.deleteExpiredBefore(TEST_NOW),
   };
 }
 
@@ -100,11 +106,9 @@ export const PENDING_CODE_OUTAGES: Record<string, string> = {
   'registration.insertRecord': UNAVAILABLE,
   'registration.clearLegacyBlocker': UNAVAILABLE,
   'registration.reserveAttempt': UNAVAILABLE,
-  'registration.deleteExpiredBefore': UNAVAILABLE,
   'reset.rotateCode': UNAVAILABLE,
   'reset.insertRecord': UNAVAILABLE,
   'reset.reserveAttempt': UNAVAILABLE,
   'reset.claimCode': UNAVAILABLE,
   'reset.dropExpiredRecord': UNAVAILABLE,
-  'reset.deleteExpiredBefore': UNAVAILABLE,
 };

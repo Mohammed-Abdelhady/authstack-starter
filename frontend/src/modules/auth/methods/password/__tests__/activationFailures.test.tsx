@@ -14,6 +14,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import {
   descriptions,
+  identitySuccess,
   refusal,
   refusalWith,
   registerFormTestLifecycle,
@@ -83,15 +84,17 @@ describe.each([
 
   it('shows the existing expired view when the carried native transaction has expired', async () => {
     navigation.search = 'redirect=%2Fauth%2Fnative%2Fauthorize%3Ftransaction%3Dtxn-1';
-    stubNetwork((_, path) =>
-      path === '/api/oauth/authorize/transaction/txn-1'
-        ? refusalWith(400, ErrorCode.NATIVE_TRANSACTION_EXPIRED)
-        : success(
-            path === '/api/auth/activate'
-              ? { requiresTwoFactor: false, user: SIGNED_IN_USER }
-              : SIGNED_IN_USER,
-          ),
-    );
+    stubNetwork((_, path) => {
+      if (path === '/api/auth/identity') return identitySuccess(SIGNED_IN_USER);
+      if (path === '/api/oauth/authorize/transaction/txn-1') {
+        return refusalWith(400, ErrorCode.NATIVE_TRANSACTION_EXPIRED);
+      }
+      return success(
+        path === '/api/auth/activate'
+          ? { requiresTwoFactor: false, user: SIGNED_IN_USER }
+          : SIGNED_IN_USER,
+      );
+    });
     const form = await submitActivation(locale);
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith(NATIVE_CONTINUATION));
     form.unmount();
