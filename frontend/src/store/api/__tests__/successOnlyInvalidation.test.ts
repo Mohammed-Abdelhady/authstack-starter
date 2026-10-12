@@ -42,8 +42,12 @@ const IDENTITY_USER: User = {
   ...PROFILE,
   authProvider: 'email',
   isVerified: true,
+  // feature:totp:start
   twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
   passkeyCount: 0,
+  // feature:passkeys:end
   linkedProviders: ['email'],
 };
 

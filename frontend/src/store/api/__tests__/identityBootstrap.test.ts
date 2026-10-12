@@ -27,8 +27,12 @@ const PROFILE = {
   permissions: ['profile:read'],
   authProvider: 'email',
   isVerified: true,
+  // feature:totp:start
   twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
   passkeyCount: 0,
+  // feature:passkeys:end
   linkedProviders: ['email'],
 };
 const SIGNED_IN = { authenticated: true, user: PROFILE } as const;

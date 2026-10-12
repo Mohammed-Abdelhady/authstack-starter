@@ -31,8 +31,12 @@ export const SIGNED_IN_USER: User = {
   permissions: [],
   authProvider: 'email',
   isVerified: true,
+  // feature:totp:start
   twoFactorEnabled: false,
+  // feature:totp:end
+  // feature:passkeys:start
   passkeyCount: 0,
+  // feature:passkeys:end
   linkedProviders: ['email'],
 };
 export const NATIVE_CONTINUATION = '/auth/native/authorize?transaction=txn-1';

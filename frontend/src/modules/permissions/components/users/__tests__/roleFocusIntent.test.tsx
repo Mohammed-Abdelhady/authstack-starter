@@ -86,7 +86,10 @@ beforeAll(stubListLayout);
 
 registerFormTestLifecycle();
 
-describe.each(['en', 'ar'] as const)('role-card focus ownership in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('role-card focus ownership in %s', (locale) => {
   it.each(['user', 'admin'] as const)(
     'preserves unrelated focus when a refreshed role becomes %s',
     async (role) => {
