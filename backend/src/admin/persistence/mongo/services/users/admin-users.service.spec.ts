@@ -102,7 +102,12 @@ describe('AdminUsersService', () => {
     getSlugsAtOrBelow: jest.fn(),
   };
 
-  const mockEmailChangeService = { apply: jest.fn() };
+  const mockEmailChangeService = {
+    assertAddressAvailable: jest.fn().mockResolvedValue(undefined),
+    notifyPreviousAddress: jest.fn(),
+    sendConfirmation: jest.fn().mockResolvedValue(undefined),
+    resend: jest.fn().mockResolvedValue(undefined),
+  };
 
   function expectTarget(role: string, actorRole = UserRole.ADMIN): MockUser {
     targetUser = buildUser(role, targetId);
@@ -301,12 +306,19 @@ describe('AdminUsersService', () => {
         UserRole.ADMIN,
       );
 
-      expect(mockEmailChangeService.apply).toHaveBeenCalledWith(
+      expect(
+        mockEmailChangeService.assertAddressAvailable,
+      ).toHaveBeenCalledWith('new@example.com', LEVELS.admin);
+      expect(mockEmailChangeService.notifyPreviousAddress).toHaveBeenCalledWith(
+        'target@example.com',
+      );
+      expect(mockEmailChangeService.sendConfirmation).toHaveBeenCalledWith(
         expect.objectContaining({
           id: targetId.toString(),
           email: 'target@example.com',
+          pendingEmail: 'new@example.com',
+          addressGeneration: 1,
         }),
-        'new@example.com',
         LEVELS.admin,
       );
     });
@@ -321,7 +333,13 @@ describe('AdminUsersService', () => {
         UserRole.ADMIN,
       );
 
-      expect(mockEmailChangeService.apply).not.toHaveBeenCalled();
+      expect(
+        mockEmailChangeService.assertAddressAvailable,
+      ).not.toHaveBeenCalled();
+      expect(
+        mockEmailChangeService.notifyPreviousAddress,
+      ).not.toHaveBeenCalled();
+      expect(mockEmailChangeService.sendConfirmation).not.toHaveBeenCalled();
       expect(target.name).toBe('Renamed');
     });
   });

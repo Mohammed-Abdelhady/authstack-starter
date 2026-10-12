@@ -34,6 +34,7 @@ export interface SeedRole {
 
 export interface SeedAccount {
   email: string;
+  pendingEmail?: string;
   name?: string;
   role: string;
   permissions?: string[];
@@ -47,6 +48,7 @@ export interface SeedAccount {
 
 export interface StoredAccountFacts {
   email: string;
+  pendingEmail: string | null;
   name: string;
   role: string;
   permissions: string[];
@@ -108,6 +110,7 @@ export interface AccountsContractHarness {
       deleted?: boolean;
       email?: string;
       verified?: boolean;
+      permissions?: string[];
     },
   ): Promise<void>;
   removeRole(slug: string): Promise<void>;

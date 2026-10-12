@@ -156,6 +156,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     seedAccount: async (account) => {
       const user = await users.create({
         email: account.email,
+        pendingEmail: account.pendingEmail,
         name: account.name ?? 'Contract Tester',
         role: account.role,
         permissions: account.permissions ?? [],
@@ -196,6 +197,9 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
             ...(change.verified === undefined
               ? {}
               : { isVerified: change.verified }),
+            ...(change.permissions === undefined
+              ? {}
+              : { permissions: change.permissions }),
           },
         },
       );
@@ -213,6 +217,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
       if (!user) return null;
       return {
         email: user.email,
+        pendingEmail: user.pendingEmail ?? null,
         name: user.name,
         role: user.role,
         permissions: user.permissions,

@@ -1,3 +1,4 @@
+import { AccountSessions } from '../../../src/user/stores/account-sessions';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { ReservedCode } from '../../../src/auth/interfaces/pending-code.interface';
 import {
@@ -47,11 +48,13 @@ export function mongoEmailChangeConfirmation(
   userModel: Model<UserDocument>,
   connection: Connection,
   verificationCodeService: VerificationCodeService,
+  sessions: AccountSessions,
 ): EmailChangeConfirmationService {
   return new EmailChangeConfirmationService(
     new MongoActivationAccounts(userModel),
     new MongoUnitOfWorkRunner(connection),
     verificationCodeService,
+    sessions,
   );
 }
 
@@ -78,7 +81,7 @@ export function confirmEmailChange(
   reserved: ReservedCode,
   userModel: Model<UserDocument>,
   session: ClientSession,
-): Promise<void> {
+): Promise<string | null> {
   return confirmInWork(
     new MongoActivationAccounts(userModel),
     mongoUnitOfWork(session),

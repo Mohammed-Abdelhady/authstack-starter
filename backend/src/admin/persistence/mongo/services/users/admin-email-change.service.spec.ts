@@ -87,57 +87,50 @@ describe('AdminEmailChangeService', () => {
     mockAuthMailService.sendEmailChangeCode.mockResolvedValue(true);
   });
 
-  async function createTarget(): Promise<UserDocument> {
+  async function createTarget(
+    pendingEmail?: string,
+    addressGeneration = 0,
+  ): Promise<UserDocument> {
     return users.create({
       email: 'old@example.com',
       name: 'Target User',
       role: 'user',
       isVerified: true,
-      addressGeneration: 0,
+      pendingEmail,
+      addressGeneration,
     });
   }
 
-  /** The account as the database holds it, whatever the test changed in memory. */
   async function storedTarget(target: UserDocument): Promise<UserDocument> {
     return users.findById(target._id).orFail().exec();
   }
 
-  it('should refuse an actor below admin level', async () => {
+  it('should refuse an actor below admin level before checking availability', async () => {
     const target = await createTarget();
 
     await expect(
-      service.apply(
-        toStoredAccount(target),
-        'new@example.com',
-        ROLE_HIERARCHY.manager,
-      ),
+      service.assertAddressAvailable('new@example.com', ROLE_HIERARCHY.manager),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_CHANGE_NOT_ALLOWED });
     const stored = await storedTarget(target);
     expect(stored.email).toBe('old@example.com');
     expect(stored.isVerified).toBe(true);
   });
 
-  it('should refuse an address already in use', async () => {
+  it('should refuse an active address already in use', async () => {
     await users.create({ email: 'new@example.com', name: 'Other' });
     const target = await createTarget();
 
     await expect(
-      service.apply(toStoredAccount(target), 'new@example.com', ADMIN_LEVEL),
+      service.assertAddressAvailable('new@example.com', ADMIN_LEVEL),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_ALREADY_EXISTS });
+    expect((await storedTarget(target)).email).toBe('old@example.com');
   });
 
-  it('should bind the code to the user and a new generation, and mail', async () => {
-    const target = await createTarget();
+  it('should bind and mail the persisted pending address generation', async () => {
+    const target = await createTarget('new@example.com', 1);
 
-    const moved = await service.apply(
-      toStoredAccount(target),
-      'new@example.com',
-      ADMIN_LEVEL,
-    );
+    await service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL);
 
-    expect(moved.email).toBe('new@example.com');
-    expect(moved.isVerified).toBe(false);
-    expect(moved.addressGeneration).toBe(1);
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
     ).toHaveBeenCalledWith('new@example.com', PENDING_PURPOSE.EMAIL_CHANGE, {
@@ -148,77 +141,74 @@ describe('AdminEmailChangeService', () => {
       'new@example.com',
       '123456',
     );
+    expect((await storedTarget(target)).email).toBe('old@example.com');
   });
 
-  it('should leave the account untouched when the mail fails', async () => {
+  it('should keep the old active address when mail fails', async () => {
     mockAuthMailService.sendEmailChangeCode.mockResolvedValueOnce(false);
-    const target = await createTarget();
+    const target = await createTarget('new@example.com', 1);
 
     await expect(
-      service.apply(toStoredAccount(target), 'new@example.com', ADMIN_LEVEL),
+      service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_FAILED });
-    const stored = await storedTarget(target);
-    expect(stored.email).toBe('old@example.com');
-    expect(stored.isVerified).toBe(true);
-    expect(stored.addressGeneration).toBe(0);
+    expect(await storedTarget(target)).toMatchObject({
+      email: 'old@example.com',
+      pendingEmail: 'new@example.com',
+      isVerified: true,
+      addressGeneration: 1,
+    });
   });
 
   it('should answer the mail cap with a distinct retryable error', async () => {
     mockVerificationCodeService.createOrUpdatePendingRegistration.mockResolvedValueOnce(
       null,
     );
-    const target = await createTarget();
+    const target = await createTarget('new@example.com', 1);
 
     await expect(
-      service.apply(toStoredAccount(target), 'new@example.com', ADMIN_LEVEL),
+      service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_LIMIT_REACHED });
     expect(mockAuthMailService.sendEmailChangeCode).not.toHaveBeenCalled();
     expect((await storedTarget(target)).email).toBe('old@example.com');
   });
 
-  it('should reissue a code for an unverified address without changing it', async () => {
-    const target = await createTarget();
-    target.email = 'moved@example.com';
-    target.isVerified = false;
-    target.addressGeneration = 3;
+  it('should reissue a code for the waiting address without changing the account', async () => {
+    const target = await createTarget('moved@example.com', 3);
 
     await service.resend(toStoredAccount(target), ADMIN_LEVEL);
 
-    // The re-send read the unsaved move above and stored none of it.
-    const stored = await storedTarget(target);
-    expect(stored.email).toBe('old@example.com');
-    expect(stored.addressGeneration).toBe(0);
+    expect(await storedTarget(target)).toMatchObject({
+      email: 'old@example.com',
+      pendingEmail: 'moved@example.com',
+      addressGeneration: 3,
+    });
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
     ).toHaveBeenCalledWith('moved@example.com', PENDING_PURPOSE.EMAIL_CHANGE, {
       userId: target._id.toString(),
       addressGeneration: 3,
     });
-    expect(mockAuthMailService.sendEmailChangeCode).toHaveBeenCalledWith(
-      'moved@example.com',
-      '123456',
-    );
   });
 
-  it('should refuse to resend for a verified address', async () => {
+  it('should refuse to resend when no address waits', async () => {
     const target = await createTarget();
 
     await expect(
       service.resend(toStoredAccount(target), ADMIN_LEVEL),
-    ).rejects.toMatchObject({
-      code: ErrorCode.EMAIL_SEND_FAILED,
-    });
+    ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_FAILED });
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
     ).not.toHaveBeenCalled();
   });
 
   it('should refuse to resend for an actor below admin level', async () => {
-    const target = await createTarget();
-    target.isVerified = false;
+    const target = await createTarget('moved@example.com', 3);
 
     await expect(
       service.resend(toStoredAccount(target), ROLE_HIERARCHY.manager),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_CHANGE_NOT_ALLOWED });
+    expect(
+      mockVerificationCodeService.createOrUpdatePendingRegistration,
+    ).not.toHaveBeenCalled();
   });
 });

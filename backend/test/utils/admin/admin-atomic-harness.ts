@@ -81,7 +81,12 @@ export async function bootAdminAtomic(
       },
       {
         provide: AdminEmailChangeService,
-        useValue: partialMock<AdminEmailChangeService>(),
+        useValue: partialMock<AdminEmailChangeService>({
+          assertAddressAvailable: jest.fn().mockResolvedValue(undefined),
+          notifyPreviousAddress: jest.fn(),
+          sendConfirmation: jest.fn().mockResolvedValue(undefined),
+          resend: jest.fn().mockResolvedValue(undefined),
+        }),
       },
     ],
   }).compile();

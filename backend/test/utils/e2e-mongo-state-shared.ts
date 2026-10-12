@@ -31,6 +31,7 @@ function storedAccount(user: UserDocument | null): E2eStoredAccount | null {
     permissions: [...user.permissions],
     isVerified: user.isVerified,
     isDeleted: user.isDeleted,
+    pendingEmail: user.pendingEmail,
     deletedAt: user.deletedAt,
     addressGeneration: user.addressGeneration,
     password: user.password,

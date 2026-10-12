@@ -67,6 +67,36 @@ export function registrationRecordCases(harness: HarnessSource): void {
   );
 
   it(
+    'does not let an older generation replace the current email-change code',
+    async () => {
+      const userId = harness().accountId();
+      const change = PENDING_PURPOSE.EMAIL_CHANGE;
+      const current =
+        await services.verification.createOrUpdatePendingRegistration(
+          EMAIL,
+          change,
+          { userId, addressGeneration: 4 },
+        );
+      if (!current) throw new Error('the current code was not issued');
+      const stale =
+        await services.verification.createOrUpdatePendingRegistration(
+          EMAIL,
+          change,
+          { userId, addressGeneration: 3 },
+        );
+      const reserved = await services.verification.verifyCode(
+        EMAIL,
+        current.code,
+        change,
+      );
+
+      expect(stale).toBeNull();
+      expect(reserved.addressGeneration).toBe(4);
+    },
+    PENDING_CONTRACT_CASE_TIMEOUT_MS,
+  );
+
+  it(
     'keeps one sign-up record and one email-change record for one address',
     async () => {
       await open();

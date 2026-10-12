@@ -105,6 +105,12 @@ export function servicesOn(
     new RoleHierarchyService(harness.roleCatalog),
   );
   const permissions = new UserPermissionsService(harness.permissions);
+  const emailChanges = new AdminEmailChangeService(
+    harness.admin,
+    verification,
+    authMail,
+    config,
+  );
   return {
     profile: new UserProfileService(
       harness.profiles,
@@ -114,6 +120,7 @@ export function servicesOn(
     ),
     permissions,
     adminPermissions: new AdminPermissionsService(
+      harness.admin,
       access,
       permissions,
       runner,
@@ -126,12 +133,7 @@ export function servicesOn(
       harness.roleChanges,
       harness.roleSweeps,
       access,
-      new AdminEmailChangeService(
-        harness.admin,
-        verification,
-        authMail,
-        config,
-      ),
+      emailChanges,
     ),
     adminCreate: new AdminUserCreateService(
       harness.admin,
@@ -154,6 +156,7 @@ export function servicesOn(
       harness.activation,
       runner,
       verification,
+      harness.sessions,
     ),
     verification,
     mail,
@@ -198,6 +201,7 @@ export async function seedAccountsFixture(
       READ_POSTS,
       USER_PERMISSIONS.UPDATE_ALL,
       PERMISSION_PERMISSIONS.GRANT_ALL,
+      PERMISSION_PERMISSIONS.REVOKE_ALL,
     ],
   });
   await harness.seedRole({

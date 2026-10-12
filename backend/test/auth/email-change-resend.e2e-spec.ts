@@ -73,10 +73,11 @@ describe('Admin email change confirmation (e2e)', () => {
     await move(id, 'y@example.test');
     await move(id, 'x@example.test');
 
+    // The account stays on its own address until the code is confirmed.
     const stored = await e2e.state.accounts.accountWithId(target._id);
-    expect(stored?.email).toBe('x@example.test');
+    expect(stored?.email).toBe('orig@example.test');
     expect(stored?.addressGeneration).toBe(3);
-    expect(stored?.isVerified).toBe(false);
+    expect(stored?.isVerified).toBe(true);
 
     const record =
       await e2e.state.auth.pendingRegistrationFor('x@example.test');
@@ -88,6 +89,7 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(response.status).toBe(200);
 
     const confirmed = await e2e.state.accounts.accountWithId(target._id);
+    expect(confirmed?.email).toBe('x@example.test');
     expect(confirmed?.isVerified).toBe(true);
   });
 
@@ -120,9 +122,9 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(freshCode).not.toBe(code);
     const response = await confirm('moved@example.test', freshCode);
     expect(response.status).toBe(200);
-    expect(
-      (await e2e.state.accounts.accountWithId(target._id))?.isVerified,
-    ).toBe(true);
+    expect((await e2e.state.accounts.accountWithId(target._id))?.email).toBe(
+      'moved@example.test',
+    );
   });
 
   it('names the change and links to the confirmation page in the mail', async () => {
@@ -138,7 +140,7 @@ describe('Admin email change confirmation (e2e)', () => {
     expect(mail?.text).not.toContain('registering');
   });
 
-  it('refuses to re-send for a verified address', async () => {
+  it('refuses to re-send for an account with no address waiting', async () => {
     const target = await createTarget();
 
     const response = await adminAgent

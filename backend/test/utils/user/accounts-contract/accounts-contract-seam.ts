@@ -109,7 +109,7 @@ export function accountSeamCases(
   });
 
   accountCase(
-    'names the address rule when a second account takes an address',
+    'keeps the active address unique and stores admin moves as pending',
     async () => {
       const { userId } = fixture();
       const stores = harness();
@@ -124,19 +124,16 @@ export function accountSeamCases(
           }),
         ),
       );
-      const moved = await rejectionOf(
-        inWork(async (work) => {
-          const account = await stores.admin.takeAccountForChange(work, userId);
-          if (!account) throw new Error('the account is not stored');
-          return stores.admin.saveIdentity(work, account, {
-            address: {
-              email: 'manager@example.test',
-              addressGeneration: 1,
-              isVerified: false,
-            },
-          });
-        }),
-      );
+      const moved = await inWork(async (work) => {
+        const account = await stores.admin.takeAccountForChange(work, userId);
+        if (!account) throw new Error('the account is not stored');
+        return stores.admin.saveIdentity(work, account, {
+          address: {
+            email: 'manager@example.test',
+            addressGeneration: 1,
+          },
+        });
+      });
       const activated = await rejectionOf(
         inWork((work) =>
           stores.activation.insertActivated(work, {
@@ -148,13 +145,19 @@ export function accountSeamCases(
         ),
       );
 
-      for (const refused of [inserted, moved, activated]) {
+      for (const refused of [inserted, activated]) {
         expect(refused).toBeInstanceOf(UniqueConflictError);
         expect(refused).toMatchObject({ constraint: ADDRESS_RULE });
       }
+      expect(moved).toMatchObject({
+        email: 'person@example.test',
+        pendingEmail: 'manager@example.test',
+        addressGeneration: 1,
+      });
       expect(await storedAccount(stores, userId)).toMatchObject({
         email: 'person@example.test',
-        addressGeneration: 0,
+        pendingEmail: 'manager@example.test',
+        addressGeneration: 1,
       });
     },
   );
