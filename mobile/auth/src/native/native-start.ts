@@ -86,7 +86,7 @@ export async function beginNativeAttempt(
   const transaction = {
     ...prepared.transaction,
     kind: 'native' as const,
-    expiresAt: Math.min(serverExpiry, now + NATIVE_ATTEMPT_LIFETIME_MS),
+    expiresAt: Math.min(serverExpiry, prepared.transaction.createdAt + NATIVE_ATTEMPT_LIFETIME_MS),
   };
   if (transactionExpired(transaction, now)) {
     await discardPrepared(runtime, epoch);
