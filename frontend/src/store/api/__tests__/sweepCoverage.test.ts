@@ -6,8 +6,8 @@ import { unclassifiedMutationNames } from './mutationSweepGuard';
 import { CONVERTED, EXCEPTIONS } from './invalidationRefetchCases';
 import { UNTAGGED } from './untaggedRefetchCases';
 import { authApi } from '@/modules/auth/store/authApi';
-import { oauthApi } from '@/modules/oauth/api/oauthApi';
-import { CONVERTED as ACCOUNT } from '@/modules/account/api/__tests__/sweepCases';
+import { oauthApi } from '@/modules/oauth/api/oauthApi'; // feature:oauth-core
+import { CONVERTED as ACCOUNT } from '@/modules/account/api/__tests__/sweepCases'; // feature:oauth-core
 // feature:magic-link:start
 import {
   CONVERTED as MAGIC,
@@ -29,12 +29,12 @@ import {
 
 /** Every current endpoint injector, imported through the case lists above. */
 const DECLARED_INJECTORS = [
-  'src/modules/account/api/accountLinkingApi.ts',
-  'src/modules/account/api/profileSyncApi.ts',
+  'src/modules/account/api/accountLinkingApi.ts', // feature:oauth-core
+  'src/modules/account/api/profileSyncApi.ts', // feature:oauth-core
   'src/modules/auth/store/authApi.ts',
   'src/modules/auth/api/authMethodsApi.ts',
   'src/modules/auth/methods/magic-link/magicLinkApi.ts', // feature:magic-link
-  'src/modules/oauth/api/oauthApi.ts',
+  'src/modules/oauth/api/oauthApi.ts', // feature:oauth-core
   'src/modules/passkeys/api/passkeysApi.ts', // feature:passkeys
   'src/modules/roles/api/rolesApi.ts',
   'src/modules/permissions/api/permissionsApi.ts',
@@ -64,7 +64,7 @@ describe('mutation sweep coverage', () => {
         ...CONVERTED,
         ...EXCEPTIONS,
         ...UNTAGGED,
-        ...ACCOUNT,
+        ...ACCOUNT, // feature:oauth-core
         ...MAGIC, // feature:magic-link
         ...MAGIC_UNTAGGED, // feature:magic-link
         ...PASSKEYS, // feature:passkeys
@@ -76,7 +76,7 @@ describe('mutation sweep coverage', () => {
     expect(new Set(classified).size).toBe(classified.length);
     // OAuth currently has only a read, but its slice must be loaded here so
     // a new write cannot escape the registry check.
-    expect(unclassifiedMutationNames(oauthApi, classified)).toEqual([]);
+    expect(unclassifiedMutationNames(oauthApi, classified)).toEqual([]); // feature:oauth-core
     expect(unclassifiedMutationNames(authApi, classified)).toEqual([]);
   });
 
