@@ -34,7 +34,18 @@ test.describe('Captured magic-link mail', () => {
     page,
     browser,
     fixtureMail,
-  }) => {
+    browserAudit,
+  }, info) => {
+    info.annotations.push({
+      type: 'expected-api-error',
+      description: JSON.stringify({ path: '/api/auth/csrf', status: 401 }),
+    });
+    let readerProbes = 0;
+    let primaryProbes = 0;
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname === '/api/auth/csrf' && response.status() === 401)
+        primaryProbes++;
+    });
     await page.goto('/en/auth/login');
     await page.getByTestId('magic-link-email-input').fill('user@seed.local');
     await page.getByTestId('magic-link-submit').click();
@@ -53,6 +64,11 @@ test.describe('Captured magic-link mail', () => {
     const forwarded = await browser.newContext();
     try {
       const reader = await forwarded.newPage();
+      browserAudit(reader);
+      reader.on('response', (response) => {
+        if (new URL(response.url()).pathname === '/api/auth/csrf' && response.status() === 401)
+          readerProbes++;
+      });
       await reader.goto(link);
       await expect(reader.getByTestId('magic-link-verify-confirmation')).toBeVisible();
       expect((await reader.request.get(`${API}/user/profile`)).status()).toBe(401);
@@ -61,6 +77,8 @@ test.describe('Captured magic-link mail', () => {
       expect((await (await reader.request.get(`${API}/user/profile`)).json()).data.email).toBe(
         'user@seed.local',
       );
+      expect(readerProbes).toBe(1);
+      expect(primaryProbes).toBe(0);
     } finally {
       await forwarded.close();
     }

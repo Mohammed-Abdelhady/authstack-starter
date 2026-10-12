@@ -1,4 +1,10 @@
-import { test as base, expect } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type Page,
+  type ConsoleMessage,
+  type Response,
+} from '@playwright/test';
 import { fork, type ChildProcess } from 'node:child_process';
 import { resolve } from 'node:path';
 import { CSRF_HEADER, publicBrowserProof, sessionBrowserProof } from '../utils/browser-proof';
@@ -69,7 +75,7 @@ export const test = base.extend<
     fixtureMail: () => Promise<FixtureMail[]>;
     expireMagicLinks: () => Promise<void>;
     apiAvailability: (enabled: boolean) => Promise<void>;
-    browserAudit: void;
+    browserAudit: (page: Page) => void;
     appLocale: 'en' | 'ar';
     actor: { email: string; password: string };
     returnPath: string;
@@ -102,16 +108,35 @@ export const test = base.extend<
       const runtime: string[] = [];
       const consoleErrors: { url: string; text: string }[] = [];
       const responses: { path: string; status: number }[] = [];
-      page.on('pageerror', (error) => runtime.push(error.message));
-      page.on('console', (message) => {
-        if (message.type() === 'error')
-          consoleErrors.push({ url: message.location().url, text: message.text() });
-      });
-      page.on('response', (response) => {
-        if (response.status() >= 400)
-          responses.push({ path: new URL(response.url()).pathname, status: response.status() });
-      });
-      await run();
+      const watched = new WeakSet<Page>();
+      const release: (() => void)[] = [];
+      const auditPage = (audited: Page): void => {
+        if (watched.has(audited)) return;
+        watched.add(audited);
+        const onError = (error: Error) => runtime.push(error.message);
+        const onConsole = (message: ConsoleMessage) => {
+          if (message.type() === 'error')
+            consoleErrors.push({ url: message.location().url, text: message.text() });
+        };
+        const onResponse = (response: Response) => {
+          if (response.status() >= 400)
+            responses.push({ path: new URL(response.url()).pathname, status: response.status() });
+        };
+        audited.on('pageerror', onError);
+        audited.on('console', onConsole);
+        audited.on('response', onResponse);
+        release.push(() => {
+          audited.off('pageerror', onError);
+          audited.off('console', onConsole);
+          audited.off('response', onResponse);
+        });
+      };
+      auditPage(page);
+      try {
+        await run(auditPage);
+      } finally {
+        release.forEach((stop) => stop());
+      }
       const expected = [
         ...testInfo.annotations
           .filter((item) => item.type === 'expected-api-error')
