@@ -56,6 +56,7 @@
     },
     "actions": {
       "menuLabel": "Actions",
+      "menuLabelForUser": "Actions for ⁨{name}⁩",
       "editUser": "Edit User",
       "managePermissions": "Manage Permissions",
       "activateUser": "Activate User",
@@ -81,6 +82,7 @@
     },
     "roleFilterTitle": "Filter by role",
     "roleFilterHint": "Search or browse roles, then choose one to filter users.",
+    "roleFilterTriggerLabel": "Filter users by role: ⁨{role}⁩",
     "roleFilterError": "Could not load roles. Please try again."
   }
 }

@@ -105,16 +105,16 @@ export const UserListSection = memo(function UserListSection({
 
       {/* User Grid - Animated Collapse */}
       {!collapsed && (
-        <div
+        <ul
           id={gridId}
           className={cn(
-            'grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3',
+            'm-0 grid list-none grid-cols-1 gap-4 p-0 md:grid-cols-2 lg:grid-cols-3',
             'motion-safe:animate-fade-in',
           )}
           data-testid={gridId}
         >
           {children}
-        </div>
+        </ul>
       )}
 
       {/* Empty State */}

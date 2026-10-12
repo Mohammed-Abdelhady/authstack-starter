@@ -127,6 +127,7 @@ export const UserActionsMenu = memo(function UserActionsMenu({
             )}
             disabled={disabled}
             busy={isBusy}
+            aria-label={t('menuLabelForUser', { name: user.name })}
             aria-busy={isLoading}
             data-testid={`user-actions-menu-${user._id}`}
           >

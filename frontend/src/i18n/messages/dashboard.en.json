@@ -17,7 +17,8 @@
       "navigationTitle": "Navigation",
       "navigationDescription": "Links to the dashboard sections",
       "mainNavigation": "Main navigation",
-      "accountControls": "Account controls"
+      "accountControls": "Account controls",
+      "accountIdentity": "<nameText>{name}</nameText> (<roleText>{role}</roleText>)"
     },
     "user": {
       "title": "Dashboard",
