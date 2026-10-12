@@ -7,6 +7,7 @@ import {
   UniqueConflictError,
 } from '../persistence-errors';
 import { StorageNotReadyError, StorageStartup } from '../storage-startup';
+import { retryStorageStartup } from '../storage-startup-retry';
 import { mapMongoDriverError } from './mongo-driver-errors';
 
 /**
@@ -30,8 +31,10 @@ export class MongoStorageStartup extends StorageStartup {
   }
 
   async prepare(): Promise<void> {
-    await Promise.all(
-      this.connection.modelNames().map((name) => this.buildIndexes(name)),
+    await retryStorageStartup(() =>
+      Promise.all(
+        this.connection.modelNames().map((name) => this.buildIndexes(name)),
+      ).then(() => undefined),
     );
   }
 
