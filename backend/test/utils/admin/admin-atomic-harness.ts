@@ -3,6 +3,7 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import { AdminUsersService } from '../../../src/admin/services/users/admin-users.service';
 import { AdminUserCreateService } from '../../../src/admin/services/users/admin-user-create.service';
+import { HashService } from '../../../src/common/services/hash.service';
 import { AdminUserAccessService } from '../../../src/admin/services/users/admin-user-access.service';
 import { AdminEmailChangeService } from '../../../src/admin/services/users/admin-email-change.service';
 import { RoleHierarchyService } from '../../../src/role/services/role-hierarchy.service';
@@ -56,6 +57,7 @@ export async function bootAdminAtomic(
     providers: [
       AdminUsersService,
       AdminUserCreateService,
+      { provide: HashService, useValue: harness.app.get(HashService) },
       AdminUserAccessService,
       RoleHierarchyService,
       RoleService,

@@ -16,6 +16,8 @@ import {
 import { SessionRevoker } from '../../../../session/revocation/session-revoker';
 import { User } from '../schemas/user.schema';
 import { Clock } from '../../../../common/services/clock';
+import { HashService } from '../../../../common/services/hash.service';
+import { ConfigService } from '@nestjs/config';
 import { UserProfileService } from '../../../services/user-profile.service';
 import { hashToken } from '../../../../session/utils/hashing/token-hash';
 import { startMemoryReplSet } from '../../../../../test/utils/memory-replset';
@@ -49,6 +51,12 @@ describe('password change keeps the calling session (plan S1)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserProfileService,
+        {
+          provide: HashService,
+          useValue: new HashService(
+            new ConfigService({ bcrypt: { rounds: 4 } }),
+          ),
+        },
         ...MONGO_ACCOUNT_STORES,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: Clock, useValue: harness.clock },
@@ -153,6 +161,7 @@ describe('password change keeps the calling session (plan S1)', () => {
       .select('+password')
       .exec();
     expect(await bcrypt.compare(NEW_PASSWORD, user?.password ?? '')).toBe(true);
+    expect(bcrypt.getRounds(user?.password ?? '')).toBe(4);
     expect(await bcrypt.compare(OLD_PASSWORD, user?.password ?? '')).toBe(
       false,
     );

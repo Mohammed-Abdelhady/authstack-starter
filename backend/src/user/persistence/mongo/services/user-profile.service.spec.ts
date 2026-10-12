@@ -3,6 +3,8 @@ import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { Clock } from '../../../../common/services/clock';
+import { HashService } from '../../../../common/services/hash.service';
+import { ConfigService } from '@nestjs/config';
 import { UserProfileService } from '../../../services/user-profile.service';
 import { User } from '../schemas/user.schema';
 import { UserRole } from '../../../enums/user-role.enum';
@@ -78,6 +80,12 @@ describe('UserProfileService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserProfileService,
+        {
+          provide: HashService,
+          useValue: new HashService(
+            new ConfigService({ bcrypt: { rounds: 4 } }),
+          ),
+        },
         MONGO_ACCOUNT_PROFILE_STORE,
         MONGO_ACCOUNT_PERMISSION_STORE,
         recordedAccountSessions(mockSessionService),
