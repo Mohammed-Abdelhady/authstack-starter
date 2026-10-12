@@ -16,8 +16,10 @@
     "noEmit": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "types": []
+    "types": [],
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "build-config/**/*.cjs"],
   "exclude": ["node_modules", "dist"]
 }
