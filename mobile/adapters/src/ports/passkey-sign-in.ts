@@ -111,13 +111,19 @@ export function createPasskeySignInPort(
   settings: NativeSignInSettings,
   lease: NativePromptLease = createNativePromptLease(),
 ): PasskeyPort {
-  const available = async (): Promise<boolean> => {
-    if (!isNativePlatform(platform) || !settings.passkeyRpId || !module) return false;
-    try {
-      return await module.isSupported();
-    } catch {
-      return false;
-    }
+  let pendingAvailability: Promise<boolean> | undefined;
+  const available = (): Promise<boolean> => {
+    if (!isNativePlatform(platform) || !settings.passkeyRpId || !module)
+      return Promise.resolve(false);
+    if (pendingAvailability) return pendingAvailability;
+    const pending = Promise.resolve()
+      .then(() => module.isSupported())
+      .catch(() => false)
+      .finally(() => {
+        if (pendingAvailability === pending) pendingAvailability = undefined;
+      });
+    pendingAvailability = pending;
+    return pending;
   };
 
   return {
