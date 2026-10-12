@@ -108,6 +108,30 @@ describe('a control that turns busy while it holds focus', () => {
   });
 });
 
+describe('a focused control whose region becomes unavailable', () => {
+  it.each(['hidden', 'inert', 'display'] as const)(
+    'loses focus when its region gets %s',
+    async (mode) => {
+      await renderForm(
+        'en',
+        <div data-testid="region">
+          <Button data-testid="control" />
+        </div>,
+      );
+      const region = screen.getByTestId('region');
+      const control = screen.getByTestId('control');
+      control.focus();
+      expect(document.activeElement).toBe(control);
+
+      if (mode === 'display') region.style.display = 'none';
+      else region.setAttribute(mode, '');
+
+      await waitFor(() => expect(document.activeElement).not.toBe(control));
+      expect(availability(control).canHoldFocus).toBe(false);
+    },
+  );
+});
+
 describe('a busy button', () => {
   it('takes a press itself: nothing around it hears the click, and it keeps the focus', async () => {
     const heardAround = vi.fn();

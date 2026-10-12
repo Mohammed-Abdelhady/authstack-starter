@@ -17,7 +17,9 @@ import {
 } from '@/tests/serverRejectionHarness';
 import { storeSignedInAs } from '@/tests/signedIn';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
 const ROLES = [

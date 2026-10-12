@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle } from '@/tests/serverRejectionHarness';
+import { availability, HELD } from '@/tests/busyControls';
 import { pressKey } from './keystroke';
 import {
   CONFIRM_DIALOG,
@@ -16,8 +17,11 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 const SELECTOR = 'user-role-selector-user-2';
 
 /** Chooses "Editor" by keyboard and waits for the confirmation to hold focus. */
-async function openConfirmation(locale: Parameters<typeof focusEditorOption>[0]) {
-  const view = await focusEditorOption(locale);
+async function openConfirmation(
+  locale: Parameters<typeof focusEditorOption>[0],
+  change?: Promise<void>,
+) {
+  const view = await focusEditorOption(locale, change);
   pressKey('Enter');
   await settledConfirmation(CONFIRM_DIALOG);
   return view;
@@ -60,10 +64,20 @@ describe.each([
   });
 
   it('returns to the role selector, now showing the new role, after the change is confirmed', async () => {
-    const { onRoleChange, successToasts, format, trigger } = await openConfirmation(locale);
+    const held = Promise.withResolvers<void>();
+    const { onRoleChange, successToasts, format, trigger } = await openConfirmation(
+      locale,
+      held.promise,
+    );
 
     screen.getByTestId('confirm-role-change-button').focus();
     pressKey('Enter');
+
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('confirm-role-change-button'))).toEqual(HELD),
+    );
+    expect(screen.getByTestId(CONFIRM_DIALOG).contains(document.activeElement)).toBe(true);
+    held.resolve();
 
     expect(await focusAfterClose(CONFIRM_DIALOG)).toBe(SELECTOR);
     expect(trigger.textContent).toBe('Editor');

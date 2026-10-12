@@ -17,7 +17,9 @@ import { CreateUserDialog } from '../CreateUserDialog';
 import { UserRoleSelector } from '../UserRoleSelector';
 import { stubListLayout } from './roleSelectorHarness';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 const ROLES = [ADMIN_LISTED, listedRole('user', 'User'), listedRole('editor', 'Editor')];
 const refused = () => refusalWith(500, ErrorCode.INTERNAL_ERROR);

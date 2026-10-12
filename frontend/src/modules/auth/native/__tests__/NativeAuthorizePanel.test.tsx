@@ -10,6 +10,7 @@ import {
   TEST_TRANSACTION,
   TEST_USER,
   codeTranslator,
+  errorResponse,
   installFetch,
   jsonResponse,
   makeStore,
@@ -209,11 +210,13 @@ describe('NativeAuthorizePanel states', () => {
   });
 
   it('sends a signed-out visitor to sign-in with the continuation', async () => {
-    installFetch(() =>
-      jsonResponse(
-        { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
-        401,
-      ),
+    installFetch(
+      () =>
+        jsonResponse(
+          { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
+          401,
+        ),
+      { profile: () => errorResponse(ErrorCode.SESSION_REQUIRED, 401) },
     );
     renderPanel({ locale: 'en', messages: messages.en, store: makeStore() });
 
@@ -227,11 +230,13 @@ describe('NativeAuthorizePanel states', () => {
   });
 
   it('clears the auth state when the session is refused', async () => {
-    installFetch(() =>
-      jsonResponse(
-        { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
-        401,
-      ),
+    const requests = installFetch(
+      () =>
+        jsonResponse(
+          { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
+          401,
+        ),
+      { profile: () => errorResponse(ErrorCode.SESSION_REQUIRED, 401) },
     );
     const store = makeStore();
     store.dispatch(setUser(TEST_USER));
@@ -242,8 +247,9 @@ describe('NativeAuthorizePanel states', () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledTimes(1);
     });
-    expect(store.getState().auth.isAuthenticated).toBe(false);
+    await waitFor(() => expect(store.getState().auth.isAuthenticated).toBe(false));
     expect(store.getState().auth.user).toBeNull();
+    expect(requests).toContain('/api/user/profile');
   });
 
   it('redirects to sign-in only once even when the card re-renders', async () => {

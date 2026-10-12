@@ -11,7 +11,9 @@ import {
 import { baseApi } from '@/store/api/baseApi';
 import { authApi } from '@/modules/auth/store/authApi';
 
-vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
+}));
 
 const PROFILE = {
   id: 'user-1',

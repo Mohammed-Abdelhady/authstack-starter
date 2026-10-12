@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
 import { useReturnFocus } from '@/hooks/useReturnFocus';
+import { availability, heldAnswer, HELD } from '@/tests/busyControls';
 import {
   registerFormTestLifecycle,
   renderForm,
@@ -55,11 +56,18 @@ function MenuWithPermissionsDialog({ user }: { user: typeof USER }) {
 }
 
 /** Opens the menu by keyboard and chooses one of its entries with Enter. */
-async function chooseEntry(locale: AppLocale, entry: string, user = USER) {
-  const requests = stubNetwork((_request, path) =>
-    path.endsWith('/permissions')
-      ? success({ userId: user._id, role: user.role, permissions: [] })
-      : success({ id: user._id, isDeleted: !user.isDeleted, permissions: [] }),
+async function chooseEntry(
+  locale: AppLocale,
+  entry: string,
+  user = USER,
+  actionAnswer?: Promise<Response>,
+) {
+  const requests = stubNetwork((request, path) =>
+    request.method === 'PATCH' && actionAnswer
+      ? actionAnswer
+      : path.endsWith('/permissions')
+        ? success({ userId: user._id, role: user.role, permissions: [] })
+        : success({ id: user._id, isDeleted: !user.isDeleted, permissions: [] }),
   );
   const form = await renderForm(locale, <MenuWithPermissionsDialog user={user} />);
   const menuButton = screen.getByTestId(MENU_BUTTON);
@@ -102,11 +110,18 @@ describe.each([
   });
 
   it('returns to the menu button after the account is deactivated', async () => {
-    const { requests } = await chooseEntry(locale, 'deactivate-user');
+    const held = heldAnswer();
+    const { requests } = await chooseEntry(locale, 'deactivate-user', USER, held.answer);
     await settledConfirmation(CONFIRM_DIALOG);
 
     screen.getByTestId('confirm-user-action-button').focus();
     pressKey('Enter');
+
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('confirm-user-action-button'))).toEqual(HELD),
+    );
+    expect(screen.getByTestId(CONFIRM_DIALOG).contains(document.activeElement)).toBe(true);
+    held.settle(() => success({ id: USER._id, isDeleted: true, permissions: [] }));
 
     expect(await focusAfterClose(CONFIRM_DIALOG)).toBe(MENU_BUTTON);
     expect(requests).toEqual(['PATCH /api/admin/users/user-7/status']);

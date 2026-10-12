@@ -10,10 +10,23 @@ import { waitFor } from '@testing-library/react';
 export function loseFocusWhenDisabled(): () => void {
   const observer = new MutationObserver(() => {
     const focused = document.activeElement;
-    if (focused instanceof HTMLElement && focused.matches(':disabled')) focused.blur();
+    if (focused instanceof HTMLElement && !canHoldFocus(focused)) focused.blur();
   });
-  observer.observe(document, { attributes: true, attributeFilter: ['disabled'], subtree: true });
+  observer.observe(document, {
+    attributes: true,
+    attributeFilter: ['disabled', 'hidden', 'inert', 'style', 'class'],
+    subtree: true,
+  });
   return () => observer.disconnect();
+}
+
+function canHoldFocus(control: Element): boolean {
+  if (control.matches(':disabled') || control.closest('[hidden], [inert]')) return false;
+  for (let node: Element | null = control; node; node = node.parentElement) {
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+  }
+  return true;
 }
 
 /**
@@ -24,7 +37,7 @@ export function loseFocusWhenDisabled(): () => void {
 export function availability(control: Element) {
   return {
     saysUnavailable: control.getAttribute('aria-disabled') === 'true',
-    canHoldFocus: !control.matches(':disabled'),
+    canHoldFocus: canHoldFocus(control),
   };
 }
 

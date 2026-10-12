@@ -27,7 +27,7 @@ type Hints = Record<string, string> | undefined;
 /** A server holding one email account with Google linked, answering as scripted. */
 function server(script: {
   hints: Hints[];
-  unlink?: () => Response;
+  unlink?: () => Response | Promise<Response>;
   primaryHints?: Hints;
   primaryProvider?: string;
   emailSignIn?: string;
@@ -328,15 +328,21 @@ describe.each([
   });
 
   it('returns to the unlink button when the server refuses, since the card is still there', async () => {
+    const held = heldAnswer();
     server({
       hints: [{ email: 'not_removable', google: 'allowed' }],
-      unlink: () => refusalWith(400, 'CANNOT_UNLINK_LAST_PROVIDER'),
+      unlink: () => held.answer,
     });
     const { unlink } = await renderAccounts(locale);
     const opener = unlink();
     if (!opener) throw new Error('the unlink control is missing');
 
     await confirmUnlink(opener);
+    await waitFor(() =>
+      expect(availability(screen.getByTestId('unlink-confirm-google'))).toEqual(HELD),
+    );
+    expect(screen.getByRole('alertdialog').contains(document.activeElement)).toBe(true);
+    held.settle(() => refusalWith(400, 'CANNOT_UNLINK_LAST_PROVIDER'));
 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(unlink()));

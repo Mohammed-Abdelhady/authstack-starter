@@ -5,6 +5,7 @@ import { ErrorCode } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
 import {
   descriptions,
+  makeStore,
   registerFormTestLifecycle,
   renderForm,
   refusalWith,
@@ -12,10 +13,19 @@ import {
   success,
 } from '@/tests/serverRejectionHarness';
 import { TwoFactorDisableDialog } from '../TwoFactorDisableDialog';
+import { loginFulfilled } from '@/modules/auth/store/authSlice';
+import type { SignedInUser } from '@/modules/auth/types/auth.types';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const DISABLE = 'POST /api/auth/2fa/disable';
+const USER: SignedInUser = {
+  id: 'user-1',
+  email: 'layla@example.com',
+  name: 'Layla Haddad',
+  role: 'user',
+  permissions: [],
+};
 
 registerFormTestLifecycle();
 
@@ -23,18 +33,22 @@ registerFormTestLifecycle();
 function recordDisable(respond: () => Response = () => success({ message: 'off' })) {
   const bodies: unknown[] = [];
   const requests = stubNetwork(async (request, path) => {
-    if (path !== '/api/auth/2fa/disable') return success({});
+    if (path === '/api/user/profile') return success(USER);
+    if (path !== '/api/auth/2fa/disable') throw new Error(`Unexpected path: ${path}`);
     bodies.push(await request.json());
     return respond();
   });
-  return { bodies, writes: () => requests.filter((request) => request === DISABLE) };
+  return { bodies, requests, writes: () => requests.filter((request) => request === DISABLE) };
 }
 
 async function openDialog(hasPassword: boolean, locale: AppLocale = 'en') {
   const onOpenChange = vi.fn();
+  const store = makeStore();
+  store.dispatch(loginFulfilled(USER));
   const view = await renderForm(
     locale,
     <TwoFactorDisableDialog open onOpenChange={onOpenChange} hasPassword={hasPassword} />,
+    store,
   );
   const code = () => screen.getByRole('textbox', { name: view.message('auth.twoFactor.code') });
   const recoveryCode = () =>
@@ -181,7 +195,7 @@ describe('a refused turn-off names the field that was wrong', () => {
     [ErrorCode.INVALID_CURRENT_PASSWORD, 400],
     [ErrorCode.REAUTH_REQUIRED, 401],
   ] as const)('puts %s on the password', async (errorCode, status) => {
-    recordDisable(() => refusalWith(status, errorCode));
+    const { requests } = recordDisable(() => refusalWith(status, errorCode));
     const dialog = await openDialog(true);
     type(dialog.password(), 'WrongPassw0rd');
     type(dialog.code(), '123456');
@@ -198,6 +212,10 @@ describe('a refused turn-off names the field that was wrong', () => {
     await waitFor(() => expect(document.activeElement).toBe(dialog.password()));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(dialog.onOpenChange.mock.calls).toEqual([]);
+    if (status === 401) {
+      await waitFor(() => expect(requests).toContain('GET /api/user/profile'));
+      expect(dialog.store.getState().auth.isAuthenticated).toBe(true);
+    }
   });
 
   it('puts a wrong code on the code field', async () => {
