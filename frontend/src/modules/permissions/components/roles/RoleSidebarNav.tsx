@@ -56,6 +56,7 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
 }: RoleSidebarNavProps) {
   const t = useTranslations('roles.sidebar');
   const tDetail = useTranslations('roles.detail');
+  const tRoles = useTranslations('roles');
 
   // Group roles by type
   const systemRoles = roles.filter((r) => r.isSystemRole);
@@ -63,21 +64,26 @@ export const RoleSidebarNav = memo(function RoleSidebarNav({
 
   if (isLoading) {
     return (
-      <nav
+      <div
         role="status"
         aria-live="polite"
         className="space-y-1"
         data-testid="role-sidebar-nav-loading"
       >
+        <span className="sr-only">{tRoles('loading')}</span>
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-10 rounded-md bg-muted motion-safe:animate-pulse" />
+          <div
+            key={i}
+            aria-hidden="true"
+            className="h-10 rounded-md bg-muted motion-safe:animate-pulse"
+          />
         ))}
-      </nav>
+      </div>
     );
   }
 
   return (
-    <nav className="space-y-6" data-testid="role-sidebar-nav">
+    <nav aria-label={t('navigationLabel')} className="space-y-6" data-testid="role-sidebar-nav">
       {/* System Roles Section */}
       {systemRoles.length > 0 && (
         <section>

@@ -17,7 +17,7 @@
     "noUsersYetHint": "سيظهر المستخدمون هنا بمجرد تسجيلهم.",
     "verifiedUsers": "المستخدمون الموثقون",
     "pendingVerification": "في انتظار التحقق",
-    "showingCount": "عرض {filtered} من {total} مستخدم",
+    "showingCount": "المعروض {filtered} من أصل {total}",
     "createUser": {
       "title": "إنشاء مستخدم جديد",
       "description": "إضافة مستخدم جديد إلى النظام بدور وصلاحيات محددة.",
@@ -56,6 +56,7 @@
     },
     "actions": {
       "menuLabel": "إجراءات",
+      "menuLabelForUser": "إجراءات المستخدم ⁨{name}⁩",
       "editUser": "تعديل المستخدم",
       "managePermissions": "إدارة الصلاحيات",
       "activateUser": "تفعيل المستخدم",
@@ -81,6 +82,7 @@
     },
     "roleFilterTitle": "التصفية حسب الدور",
     "roleFilterHint": "ابحث عن الأدوار أو استعرضها، ثم اختر دورًا لتصفية المستخدمين.",
+    "roleFilterTriggerLabel": "تصفية المستخدمين حسب الدور: ⁨{role}⁩",
     "roleFilterError": "تعذر تحميل الأدوار. يرجى المحاولة مرة أخرى."
   }
 }
