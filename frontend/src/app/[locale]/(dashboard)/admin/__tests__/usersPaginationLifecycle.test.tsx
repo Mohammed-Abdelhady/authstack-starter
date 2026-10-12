@@ -47,70 +47,72 @@ function pageFrom(request: Request): number {
 
 registerFormTestLifecycle();
 
-describe.each(['en', 'ar'] as const)(
-  'user pagination after the result count changes in %s',
-  (locale: AppLocale) => {
-    it('clamps once, then stays on page two when the result grows again', async () => {
-      let phase = 'initial';
-      let releaseShrink: ((response: Response) => void) | undefined;
-      let releaseGrowth: ((response: Response) => void) | undefined;
-      let pageThreeGrowthReads = 0;
-      const askedPages: number[] = [];
-      stubNetwork((request, path) => {
-        if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
-        if (path !== '/api/admin/users') return success({});
-        const requestedPage = pageFrom(request);
-        askedPages.push(requestedPage);
-        if (phase === 'shrink' && requestedPage === 3) {
-          return new Promise<Response>((resolve) => {
-            releaseShrink = resolve;
-          });
-        }
-        if (phase === 'grow' && requestedPage === 2) {
-          return new Promise<Response>((resolve) => {
-            releaseGrowth = resolve;
-          });
-        }
-        if (phase === 'grow' && requestedPage === 3) pageThreeGrowthReads += 1;
-        return pageResult(requestedPage, phase === 'shrink' ? 2 : 3, phase);
-      });
+const DESCRIBE_BY_LOCALE = describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const);
 
-      const page = await renderForm(
-        locale,
-        <UsersPage />,
-        storeSignedInAs('admin', Object.values(USER_PERMISSIONS)),
-      );
-      const pageInfo = (current: number, total: number) =>
-        page.format(PAGE_INFO, { page: current, totalPages: total });
-
-      await screen.findByTestId('user-card-page-1-initial');
-      fireEvent.click(screen.getByTestId('pagination-next'));
-      await screen.findByTestId('user-card-page-2-initial');
-      fireEvent.click(screen.getByTestId('pagination-next'));
-      await screen.findByTestId('user-card-page-3-initial');
-
-      phase = 'shrink';
-      await act(async () => {
-        page.store.dispatch(baseApi.util.invalidateTags(['User']));
-      });
-      await waitFor(() => expect(releaseShrink).toBeDefined());
-      await act(async () => releaseShrink?.(pageResult(3, 2, 'shrunk')));
-      await screen.findByTestId('user-card-page-2-shrink');
-      await waitFor(() => expect(askedPages.filter((value) => value === 2)).toHaveLength(2));
-      expect(screen.getByText(pageInfo(2, 2))).not.toBeNull();
-
-      const growthStart = askedPages.length;
-      phase = 'grow';
-      await act(async () => {
-        page.store.dispatch(baseApi.util.invalidateTags(['User']));
-      });
-      await waitFor(() => expect(releaseGrowth).toBeDefined());
-      await act(async () => releaseGrowth?.(pageResult(2, 3, 'grown')));
-      await screen.findByTestId('user-card-page-2-grown');
-      await waitFor(() => expect(screen.getByText(pageInfo(2, 3))).not.toBeNull());
-
-      expect(pageThreeGrowthReads).toBe(0);
-      expect(askedPages.slice(growthStart)).toEqual([2]);
+DESCRIBE_BY_LOCALE('user pagination after the result count changes in %s', (locale: AppLocale) => {
+  it('clamps once, then stays on page two when the result grows again', async () => {
+    let phase = 'initial';
+    let releaseShrink: ((response: Response) => void) | undefined;
+    let releaseGrowth: ((response: Response) => void) | undefined;
+    let pageThreeGrowthReads = 0;
+    const askedPages: number[] = [];
+    stubNetwork((request, path) => {
+      if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
+      if (path !== '/api/admin/users') return success({});
+      const requestedPage = pageFrom(request);
+      askedPages.push(requestedPage);
+      if (phase === 'shrink' && requestedPage === 3) {
+        return new Promise<Response>((resolve) => {
+          releaseShrink = resolve;
+        });
+      }
+      if (phase === 'grow' && requestedPage === 2) {
+        return new Promise<Response>((resolve) => {
+          releaseGrowth = resolve;
+        });
+      }
+      if (phase === 'grow' && requestedPage === 3) pageThreeGrowthReads += 1;
+      return pageResult(requestedPage, phase === 'shrink' ? 2 : 3, phase);
     });
-  },
-);
+
+    const page = await renderForm(
+      locale,
+      <UsersPage />,
+      storeSignedInAs('admin', Object.values(USER_PERMISSIONS)),
+    );
+    const pageInfo = (current: number, total: number) =>
+      page.format(PAGE_INFO, { page: current, totalPages: total });
+
+    await screen.findByTestId('user-card-page-1-initial');
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await screen.findByTestId('user-card-page-2-initial');
+    fireEvent.click(screen.getByTestId('pagination-next'));
+    await screen.findByTestId('user-card-page-3-initial');
+
+    phase = 'shrink';
+    await act(async () => {
+      page.store.dispatch(baseApi.util.invalidateTags(['User']));
+    });
+    await waitFor(() => expect(releaseShrink).toBeDefined());
+    await act(async () => releaseShrink?.(pageResult(3, 2, 'shrunk')));
+    await screen.findByTestId('user-card-page-2-shrink');
+    await waitFor(() => expect(askedPages.filter((value) => value === 2)).toHaveLength(2));
+    expect(screen.getByText(pageInfo(2, 2))).not.toBeNull();
+
+    const growthStart = askedPages.length;
+    phase = 'grow';
+    await act(async () => {
+      page.store.dispatch(baseApi.util.invalidateTags(['User']));
+    });
+    await waitFor(() => expect(releaseGrowth).toBeDefined());
+    await act(async () => releaseGrowth?.(pageResult(2, 3, 'grown')));
+    await screen.findByTestId('user-card-page-2-grown');
+    await waitFor(() => expect(screen.getByText(pageInfo(2, 3))).not.toBeNull());
+
+    expect(pageThreeGrowthReads).toBe(0);
+    expect(askedPages.slice(growthStart)).toEqual([2]);
+  });
+});

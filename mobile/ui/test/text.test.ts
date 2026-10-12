@@ -166,10 +166,12 @@ describe('session activity formatting', () => {
     lastActiveAt: Date.UTC(2026, 5, 10, 13, 5),
   });
 
+  // feature:locale-ar:start
   it.each(['today', 'earlier'] as const)('uses Latin digits in Arabic %s activity', (activity) => {
-    const text = activityText(createTranslate('ar'), 'ar', row(activity)); // feature:locale-ar
+    const text = activityText(createTranslate('ar'), 'ar', row(activity));
 
     expect(text).toMatch(/[0-9]/);
     expect(text).not.toMatch(/[٠-٩]/);
   });
+  // feature:locale-ar:end
 });

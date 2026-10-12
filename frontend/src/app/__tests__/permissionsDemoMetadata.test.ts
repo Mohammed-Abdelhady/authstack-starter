@@ -12,7 +12,10 @@ vi.mock('next-intl/server', () => ({
 
 import { generateMetadata } from '../[locale]/(dashboard)/admin/permissions-demo/page';
 
-describe.each(['en', 'ar'] as const)('permissions demo metadata in %s', (locale) => {
+describe.each([
+  'en',
+  'ar', // feature:locale-ar
+] as const)('permissions demo metadata in %s', (locale) => {
   it('uses the title and description from the active catalogue', async () => {
     const metadata = await generateMetadata({ params: Promise.resolve({ locale }) });
     const messages = await loadMessages(locale);
