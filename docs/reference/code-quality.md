@@ -21,11 +21,11 @@ Install hooks with `pnpm install --frozen-lockfile` (`prepare` runs husky). Conf
 
 `pnpm run ci` runs the shared entry point, `scripts/ci.mjs`. Gate names, commands and order live in `scripts/ci/gates.json`, including the frozen dependency installation command. The runner prints each gate's name and exit status, stops at the first failure and returns that status. A launch error or a gate that terminates itself returns exit 2. SIGINT and SIGTERM sent to the entry point are forwarded to the running gate and its process group; the runner waits for it to close and returns 130 or 143 without starting another gate.
 
-The quality job invokes `node scripts/ci.mjs --install` for a frozen pnpm install, then `node scripts/ci.mjs --quality`. It runs the full-tree ban scan, package-manager inventory, workspace dependency check, lint, typecheck, unit and config tests, and build. A second job, `Backend API suites`, installs the same way and runs the backend end-to-end tests with `node scripts/ci.mjs --api`. The root lint, typecheck and test scripts recurse through the pnpm workspaces. Node comes from `.nvmrc`; a full-SHA-pinned pnpm setup action installs pnpm 12.6.0 and caches its store against `pnpm-lock.yaml`.
+The quality job invokes `node scripts/ci.mjs --install` for a frozen pnpm install, then `node scripts/ci.mjs --quality`. It runs the full-tree ban scan, package-manager inventory, workspace dependency check, lint, typecheck, unit and config tests, and build. A second job, `Backend API suites`, installs the same way and runs the backend end-to-end tests with `node scripts/ci.mjs --api`. The root lint, typecheck and test scripts recurse through the pnpm workspaces. The quality and API jobs each run on Node 22 and on Node 24. The range and trusted scans use `.nvmrc`; a full-SHA-pinned pnpm setup action installs pnpm 12.6.0 and caches its store against `pnpm-lock.yaml`.
 
 <!-- repository-only:start -->
 
-The repository quality list also runs `pnpm run test:config:all` after the unit tests. Installer combinations run in three more jobs on every matching pull request and push, without a path filter: `--installer`, `--installer-postgres` and `--installer-mongodb`. Every repository file can become a template input, so an incomplete input filter could miss a broken generated project. The local entry point runs these slow suites after the API gates. `node scripts/ci.mjs --browser` builds the frontend against the fixture API origin, then runs the frontend-only and authenticated Playwright journeys. GitHub Actions remains disabled for this repository. Generated projects omit those jobs, their gates and the repository-only regression suites.
+The repository quality list also runs `pnpm run test:config:all` after the unit tests. Installer combinations run in three more jobs on every matching pull request and push, without a path filter: `--installer`, `--installer-postgres` and `--installer-mongodb`. All three installer jobs run on Node 22 and on Node 24. Every repository file can become a template input, so an incomplete input filter could miss a broken generated project. The local entry point runs these slow suites after the API gates. `node scripts/ci.mjs --browser` builds the frontend against the fixture API origin, then runs the frontend-only and authenticated Playwright journeys. The browser job uses `.nvmrc`. GitHub Actions remains disabled for this repository. Generated projects omit those jobs, their gates and the repository-only regression suites.
 <!-- repository-only:end -->
 
 The ordinary `pull_request` jobs run the PR's own workflow, entry point and policy. They exercise quality gates on the proposed code, but a PR can weaken or replace those gates. A passing ordinary range scan is not proof that the base branch's policy was enforced. The push range job scans `before` to `after` when the former is an ancestor. For a new branch, force push or event missing `before`, it uses the fetched default branch's merge base. If that base is unavailable, unrelated or already at the head, it scans the whole checked-out tree. Deleted refs have no content to scan. Branch pushes are enabled; tag pushes and merge queues are not.
@@ -73,11 +73,13 @@ Generated workflows also target `main`, the usual initial branch created by `git
 
 Administrators must configure these hosting-service settings; repository files cannot enforce them:
 
-- Protect `staging` and `master`, and `main` where used. Require pull requests and the `Trusted hard-ban range`, `Hard-ban range`, `Quality gates` and `Backend API suites` checks.
+- Protect `staging` and `master`, and `main` where used. Require pull requests and the `Trusted hard-ban range`, `Hard-ban range`, `Quality gates (22)`, `Quality gates (24)`, `Backend API suites (22)` and `Backend API suites (24)` checks.
 - Ensure the trusted workflow exists on the default branch, and confirm its selected revision on a real pull request.
 - Dismiss stale approvals when new commits are pushed and require approval of the most recent push.
 - Require Code Owner review for the protected CI and scanner files. Include administrators in the protections, and disallow force pushes and branch deletion.
 - Require approval for fork pull request workflows and set the default `GITHUB_TOKEN` permissions to read-only.
+
+GitHub reports each matrix leg as a separate check named with its Node version.
 
 A required check name can be shadowed by a PR that adds its own job with that name. Code Owner review of `/.github/` is the barrier against that change; a required name alone does not authenticate the workflow.
 
@@ -85,7 +87,7 @@ An author cannot approve their own pull request. Requiring Code Owner review wit
 
 <!-- repository-only:start -->
 
-Also require the `Installer combinations`, `Installer PostgreSQL projects` and `Installer MongoDB projects` checks in this repository.
+Also require the `Installer combinations (22)`, `Installer combinations (24)`, `Installer PostgreSQL projects (22)`, `Installer PostgreSQL projects (24)`, `Installer MongoDB projects (22)` and `Installer MongoDB projects (24)` checks in this repository.
 <!-- repository-only:end -->
 
 None of these workflows has run on the hosting service yet. Local YAML parsing, Git fixtures, generated-project checks and gate runs do not verify action downloads, event/retarget scheduling, fork execution, fetch availability, cache restore/save, hosted gate results or the repository settings above. Until the workflows are deployed and those settings are enabled, the checks are not an enforced merge boundary.
