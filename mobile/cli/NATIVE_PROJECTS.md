@@ -7,8 +7,9 @@ below. Run every command from the repository root with Node 22 active.
 The iOS steps were followed on Xcode 27 with CocoaPods 1.17, and the app was
 built and run on an iPhone 17 simulator with iOS 27 against a local server. The
 native project those steps produce is ignored by git and not committed, so the
-installer does not offer this app yet. The Android steps have never been built
-or run.
+installer does not offer this app yet. The Android steps produced an arm64
+Debug APK with JDK 17 and SDK 36. Android app launch and sign-in remain
+unverified on a device.
 
 ```sh
 pnpm --filter @app/mobile-cli exec rnc-cli init MobileCli --template @react-native-community/template@0.86.3 --directory /tmp/mobile-cli-native-0.86.3 --skip-install
@@ -288,50 +289,7 @@ that a provider app or associated domain is registered correctly.
 
 ## Android
 
-Nothing in this section has been built or run.
-
-In `mobile/cli/android/settings.gradle`, add the Expo Gradle plugin build to
-`pluginManagement`, apply `expo-autolinking-settings`, and configure Expo
-module discovery alongside React Native autolinking:
-
-```groovy
-pluginManagement {
-  includeBuild("../node_modules/@react-native/gradle-plugin")
-  includeBuild("../node_modules/expo-modules-autolinking/android/expo-gradle-plugin")
-}
-plugins {
-  id("com.facebook.react.settings")
-  id("expo-autolinking-settings")
-}
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-  ex.autolinkLibrariesFromCommand()
-}
-extensions.configure(expo.modules.ExpoAutolinkingSettingsExtension) { ex ->
-  ex.useExpoModules()
-}
-```
-
-Merge those entries with the template's existing settings. Keep its existing
-`includeBuild` for the React Native Gradle plugin only once.
-
-In `mobile/cli/android/app/build.gradle`, set both `namespace` and
-`applicationId` to `com.example.mobilecli`. Move the generated Kotlin source
-files into `android/app/src/main/java/com/example/mobilecli/` and change their
-package declarations to `com.example.mobilecli`.
-
-In `mobile/cli/android/app/src/main/AndroidManifest.xml`, add this intent filter
-to the generated `MainActivity` activity:
-
-```xml
-<intent-filter>
-  <action android:name="android.intent.action.VIEW" />
-  <category android:name="android.intent.category.DEFAULT" />
-  <category android:name="android.intent.category.BROWSABLE" />
-  <data android:scheme="mobilecli" android:host="auth" android:path="/callback" />
-</intent-filter>
-```
-
-Expo autolinking discovers the installed Expo modules used by this shell:
-`expo-secure-store`, `expo-web-browser`, `expo-crypto`, `expo-linking`,
-`expo-file-system`, and the device key module in `mobile/device-key`. Do not
-add manual native package registrations for them.
+Follow [the Android native project guide](NATIVE_ANDROID.md) after generating
+`mobile/cli/android`. Its Expo 57 Gradle and Kotlin setup is required before the
+first build. The arm64 Debug APK compiled successfully; Android runtime checks
+remain separate.
