@@ -6,7 +6,7 @@ It shows the exact file contents before writing. It does not activate the hooks.
 Run this from the project root:
 
 ```sh
-create-authstack-starter add rules --rules strict --dry-run
+node /path/to/authstack-starter/packages/create-authstack-starter/dist/index.js add rules --rules strict --dry-run
 ```
 
 Strict is the default. Use `--rules standard` for the lighter checks.
@@ -120,6 +120,8 @@ CLAUDE.md and workspace pointers then refer to AGENTS.rules.md.
 ## The receipt and running it again
 
 `.create-authstack-starter.rules.json` records the level, file paths and content hashes.
+
+Older `.create-nest-next-auth.rules.json` receipts remain readable without migration. If both receipt filenames exist, the command refuses the ambiguous setup. Older answers in `.create-nest-next-auth.json` remain readable; new projects write `.create-authstack-starter.json`.
 An unchanged second run says that rules are already present and writes nothing.
 Edited or partial prior integrations are refused.
 Editing the receipt does not switch levels.
