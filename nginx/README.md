@@ -1,6 +1,6 @@
 # Nginx Production Configuration
 
-This directory contains the production nginx configuration for the FULL-MERN-AUTH-Boilerplate project.
+This directory contains the production nginx configuration for the AuthStack Starter project.
 
 ## Overview
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is a full-stack MERN authentication boilerplate project that provides comprehensive user authentication functionality including:
+AuthStack Starter provides authentication for web and native applications, including:
 
 -   User registration and login with email verification
 -   Social authentication (Facebook, Google OAuth)

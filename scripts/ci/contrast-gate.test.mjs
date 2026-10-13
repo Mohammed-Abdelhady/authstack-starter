@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { matchesAnyGlob } from '../../packages/create-nest-next-auth/scripts/glob.mjs';
+import { matchesAnyGlob } from '../../packages/create-authstack-starter/scripts/glob.mjs';
 import { loadControlPairs, loadCss, loadTintedPairs, parseTokens } from '../check-contrast.mjs';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));

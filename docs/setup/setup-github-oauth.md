@@ -32,7 +32,7 @@ Fill in the application details:
 
 ### Application Information
 
-**Application name**: `Auth Boilerplate` (or your app name)
+**Application name**: `AuthStack Starter` (or your app name)
 
 - This appears on the authorization screen
 - Users will see "Authorize [Application name]"

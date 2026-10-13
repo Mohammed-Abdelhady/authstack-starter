@@ -1,6 +1,6 @@
 # Production Setup Guide
 
-This guide explains how to deploy the FULL-MERN-AUTH-Boilerplate application to production using the automated setup script.
+This guide explains how to deploy the AuthStack Starter application to production using the automated setup script.
 
 ## Overview
 
@@ -60,7 +60,7 @@ The easiest way to set up production is using the interactive setup script:
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd FULL-MERN-AUTH-Boilerplate
+cd authstack-starter
 
 # Run the setup script
 ./setup-production.sh
@@ -103,7 +103,7 @@ MONGO_URI=mongodb://admin:your-secure-password@mongodb:27017/authboiler?authSour
 
 # Application Configuration
 NODE_ENV=production
-APP_NAME=FULL-MERN-AUTH-Boilerplate
+APP_NAME=authstack-starter
 
 # SSL Configuration
 SSL_TYPE=letsencrypt

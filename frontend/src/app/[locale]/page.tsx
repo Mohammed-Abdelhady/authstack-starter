@@ -65,7 +65,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
                 data-testid="cta-secondary-button"
               >
                 <Link
-                  href="https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate#readme"
+                  href="https://github.com/Mohammed-Abdelhady/authstack-starter#readme"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

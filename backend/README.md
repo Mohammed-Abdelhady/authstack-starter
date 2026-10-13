@@ -19,14 +19,16 @@ pnpm run start:prod       # Production server
 
 A unit run starts one MongoDB replica set per Jest worker. Each suite uses its
 own database on that worker's server, then drops it during suite cleanup. A
-solo run uses all but one available CPU by default. If another backend test
+solo run uses up to all but one available CPU. Worker admission estimates
+2 GiB of available memory per worker, with at least one worker. If another backend test
 command is active, a new command uses one worker and one database instance.
 
 <!-- feature:mongodb:end -->
 
 The PostgreSQL suites start a server of their own and need no database installed. See [Tests on PostgreSQL](docs/database-postgres.md#tests). <!-- feature:postgres -->
 
-Set the unit worker count with `pnpm test -- --maxWorkers=4`. The separate
+Set the unit worker ceiling with `pnpm test -- --maxWorkers=4`. Available memory
+may lower that count. The separate
 `--maxWorkers 4`, `-w 4`, and percentage forms are also accepted.
 
 The unit suite uses ts-jest isolated-module transpilation. Run

@@ -4,7 +4,7 @@ This directory contains the Postman collection and environment files for testing
 
 ## Files
 
-- `FULL-MERN-AUTH-Boilerplate-API.postman_collection.json`: Complete collection of backend requests organized by domain.
+- `authstack-starter-api.postman_collection.json`: Complete collection of backend requests organized by domain.
 - `dev.json`: Local development environment pointing to `http://localhost:5000/api`.
 - `staging.json`: Staging server environment.
 - `production.json`: Production server environment.
@@ -15,7 +15,7 @@ This directory contains the Postman collection and environment files for testing
 
 1. Open Postman.
 2. Click **Import**.
-3. Select `FULL-MERN-AUTH-Boilerplate-API.postman_collection.json`.
+3. Select `authstack-starter-api.postman_collection.json`.
 
 ### 2. Import environment
 
