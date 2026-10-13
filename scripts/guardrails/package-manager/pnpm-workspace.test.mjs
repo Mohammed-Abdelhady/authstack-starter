@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { gitEnvironment } from '../git/git-environment.mjs';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const MANIFESTS = [
@@ -44,6 +45,17 @@ test('the pinned pnpm reads workspace patterns, overrides and explicit build dec
     releaseAgeStrict: true,
     releaseAgeExceptions: [],
   });
+});
+
+test('every tracked package manifest is covered by the Node engine contract', () => {
+  const result = spawnSync('git', ['ls-files', '-z', '--', 'package.json', '*/package.json'], {
+    cwd: ROOT,
+    env: gitEnvironment(),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  const discovered = result.stdout.split('\0').filter(Boolean).sort();
+  assert.deepEqual(discovered, [...MANIFESTS].sort());
 });
 
 test('repository manifests pin the package manager and supported Node major without local overrides', () => {
