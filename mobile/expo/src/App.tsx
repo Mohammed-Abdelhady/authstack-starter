@@ -1,4 +1,6 @@
 import { NativeApp } from '@app/native-ui';
+import { FONT_SOURCES, FontsProvider, fontReadiness } from '@app/native-ui/fonts';
+import { useFonts } from 'expo-font';
 import { deviceLocale, hostProps, logicalInsets } from '@app/native-ui/host';
 import { useCallback, useEffect, useState } from 'react';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -68,9 +70,12 @@ function Started() {
 }
 
 export function App() {
+  const [loaded, error] = useFonts(FONT_SOURCES);
   return (
-    <SafeAreaProvider>
-      <Started />
-    </SafeAreaProvider>
+    <FontsProvider ready={fontReadiness(loaded, error)}>
+      <SafeAreaProvider>
+        <Started />
+      </SafeAreaProvider>
+    </FontsProvider>
   );
 }

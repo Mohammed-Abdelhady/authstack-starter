@@ -11,7 +11,8 @@
     "./host": "./src/host.ts",
     "./theme": "./src/theme/index.ts",
     "./testing": "./test/support/painted.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./fonts": "./src/fonts.ts"
   },
   "sideEffects": false,
   "scripts": {

@@ -1,12 +1,13 @@
 import { createContext, useContext } from 'react';
 import type { Direction } from '../i18n';
-import type { Palette } from '../theme/tokens';
+import type { Palette } from '../types/theme';
 
 /** What a text or a button needs to draw itself, inside the screens or on a shell's own surface. */
 export interface Paint {
   colors: Palette;
   direction: Direction;
   reduceMotion: boolean;
+  fontsReady?: boolean;
 }
 
 export const PaintContext = createContext<Paint | undefined>(undefined);

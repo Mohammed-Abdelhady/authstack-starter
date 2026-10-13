@@ -34,7 +34,8 @@
     "react-native-nitro-google-signin": "1.3.0",
     "react-native-nitro-modules": "0.35.9",
     "react-native-passkeys": "0.4.2",
-    "react-native-safe-area-context": "5.7.0"
+    "react-native-safe-area-context": "5.7.0",
+    "expo-font": "57.0.4"
   },
   "devDependencies": {
     "@app/metro-config": "workspace:*",
