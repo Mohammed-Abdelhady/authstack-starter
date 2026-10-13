@@ -24,11 +24,11 @@ interface TextFieldProps {
 const styles = StyleSheet.create({
   field: { gap: SPACE.XS },
   input: {
-    minHeight: SIZE.TARGET_MIN,
+    minHeight: SIZE.AUTH_CONTROL,
     paddingHorizontal: SPACE.LG,
     paddingVertical: SPACE.MD,
     borderWidth: SIZE.BORDER,
-    borderRadius: RADIUS.SURFACE,
+    borderRadius: RADIUS.CONTROL,
   },
 });
 
@@ -49,7 +49,7 @@ export function TextField({
   returnKeyType,
   maxLength,
 }: TextFieldProps) {
-  const { colors, direction } = usePaint();
+  const { colors, direction, fontsReady } = usePaint();
   const [focused, setFocused] = useState(false);
   const focus = useCallback(() => setFocused(true), []);
   const blur = useCallback(() => setFocused(false), []);
@@ -78,9 +78,9 @@ export function TextField({
         onBlur={blur}
         style={[
           styles.input,
-          editableTextStyle(colors),
+          editableTextStyle(colors, direction, fontsReady),
           {
-            backgroundColor: colors.surface,
+            backgroundColor: colors.background,
             borderColor: focused ? colors.focus : colors.border,
             writingDirection: latin ? 'ltr' : direction,
             textAlign: 'auto',

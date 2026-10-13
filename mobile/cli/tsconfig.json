@@ -20,6 +20,6 @@
     "verbatimModuleSyntax": true,
     "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "../ui/src/types/font-asset.d.ts"],
   "exclude": ["node_modules", "ios", "android"]
 }

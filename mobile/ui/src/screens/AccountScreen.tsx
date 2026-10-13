@@ -3,6 +3,7 @@ import { Button, BUTTON_VARIANT } from '../components/Button';
 import { Field } from '../components/Field';
 import { Notice, NOTICE_TONE } from '../components/Notice';
 import { Screen, type Arrival } from '../components/Screen';
+import { Surface } from '../components/Surface';
 import { SkeletonGroup, SkeletonLine } from '../components/Skeleton';
 import { Description, Heading } from '../components/Typography';
 import { LIST_VIEW, SIGN_OUT_STATE, TEST_ID } from '../constants';
@@ -67,13 +68,13 @@ export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
           </View>
         ) : null}
         {profile === undefined ? null : (
-          <View style={styles.group}>
+          <Surface>
             <Field name={t('account.name')} value={profile.name} />
             <Field name={t('account.email')} value={profile.email} />
             <Field name={t('account.role')} value={profile.role} />
-          </View>
+          </Surface>
         )}
-        <View style={styles.group}>
+        <Surface>
           <View style={styles.intro}>
             <Heading level="section">{t('account.sessions.title')}</Heading>
             <Description>{t('account.sessions.description')}</Description>
@@ -83,7 +84,7 @@ export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
             label={t('account.sessions.action')}
             onPress={onOpenSessions}
           />
-        </View>
+        </Surface>
         <View style={styles.foot}>
           {signOutState === SIGN_OUT_STATE.FAILED ? (
             <View style={styles.group}>

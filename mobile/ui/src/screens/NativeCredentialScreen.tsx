@@ -69,7 +69,7 @@ export function NativeCredentialScreen({
   );
   return (
     <>
-      <Heading level="screen" nativeRef={title}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t(METHOD_TEXT[method])}
       </Heading>
       <TextField
@@ -103,6 +103,7 @@ export function NativeCredentialScreen({
           />
           <Button
             label={t(visible ? 'native.hidePassword' : 'native.showPassword')}
+            variant={BUTTON_VARIANT.LINK}
             onPress={toggle}
             testID={NATIVE_UI_TEST_ID.PASSWORD_VISIBILITY}
             disabled={pending}

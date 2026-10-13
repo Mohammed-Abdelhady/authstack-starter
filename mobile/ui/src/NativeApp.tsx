@@ -10,6 +10,7 @@ import { useForegroundRestore } from './hooks/use-foreground-restore';
 import { useReducedMotion } from './hooks/use-reduced-motion';
 import { useRoute } from './hooks/use-route';
 import { useTheme } from './hooks/use-theme';
+import { useWebFonts } from './hooks/use-web-fonts';
 import { createTranslate, DIRECTION } from './i18n';
 import { rootView } from './logic/sign-in-view';
 import { AccountScreen } from './screens/AccountScreen';
@@ -51,6 +52,7 @@ export function NativeApp({
 
   const snapshot = useEngineSnapshot(engine);
   const reduceMotion = useReducedMotion();
+  const fontsReady = useWebFonts();
   const { colors, statusBarStyle } = useTheme();
   const direction = DIRECTION[locale];
 
@@ -61,6 +63,7 @@ export function NativeApp({
       locale,
       t: createTranslate(locale),
       reduceMotion,
+      fontsReady,
       insets,
       runtime,
       now,
@@ -73,6 +76,7 @@ export function NativeApp({
       colors,
       confirm,
       direction,
+      fontsReady,
       insets,
       locale,
       now,

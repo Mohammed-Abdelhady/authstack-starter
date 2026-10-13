@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { NativeSafeAttemptView } from '@app/native-auth';
-import { View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Button, BUTTON_VARIANT } from '../components/Button';
 import { Field } from '../components/Field';
 import { Description, Heading } from '../components/Typography';
@@ -9,6 +9,9 @@ import { useUi } from '../context/ui-context';
 import { isolateLtr } from '../logic/isolate';
 import type { NativeFormActions } from '../types/native-sign-in';
 import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
+import { SPACE } from '../theme/tokens';
+
+const styles = StyleSheet.create({ content: { gap: SPACE.LG } });
 
 type ConsentView = Extract<NativeSafeAttemptView, { stage: 'consentRequired' }>;
 export function NativeConsentScreen({
@@ -20,8 +23,8 @@ export function NativeConsentScreen({
   const title = useScreenTitleFocus();
   const accept = useCallback(() => submit({ kind: 'consent' }), [submit]);
   return (
-    <View testID={NATIVE_UI_TEST_ID.CONSENT}>
-      <Heading level="screen" nativeRef={title}>
+    <View testID={NATIVE_UI_TEST_ID.CONSENT} style={styles.content}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t('native.consentTitle')}
       </Heading>
       <Description>{t('native.consentHint')}</Description>
