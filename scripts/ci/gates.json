@@ -81,21 +81,21 @@
       "name": "Installer combinations",
       "group": "installer",
       "command": "pnpm",
-      "args": ["--filter", "create-nest-next-auth", "run", "test:combinations"],
+      "args": ["--filter", "create-authstack-starter", "run", "test:combinations"],
       "repositoryOnly": true
     },
     {
       "name": "Installer PostgreSQL projects",
       "group": "installer-postgres",
       "command": "pnpm",
-      "args": ["--filter", "create-nest-next-auth", "run", "test:combinations:postgres"],
+      "args": ["--filter", "create-authstack-starter", "run", "test:combinations:postgres"],
       "repositoryOnly": true
     },
     {
       "name": "Installer MongoDB projects",
       "group": "installer-mongodb",
       "command": "pnpm",
-      "args": ["--filter", "create-nest-next-auth", "run", "test:combinations:mongodb"],
+      "args": ["--filter", "create-authstack-starter", "run", "test:combinations:mongodb"],
       "repositoryOnly": true
     },
     {

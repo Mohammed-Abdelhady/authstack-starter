@@ -11,7 +11,7 @@ const MANIFESTS = [
   'mobile/adapters/package.json', 'mobile/auth/package.json', 'mobile/cli/package.json',
   'mobile/device-key/package.json', 'mobile/expo/package.json',
   'mobile/metro/package.json', 'mobile/ui/package.json',
-  'packages/create-nest-next-auth/package.json',
+  'packages/create-authstack-starter/package.json',
   'shared/core/package.json', 'shared/sdk/package.json',
 ];
 const readManifest = (file) => JSON.parse(readFileSync(join(ROOT, file), 'utf8'));
@@ -101,5 +101,5 @@ test('recursive gates omit the root and chain root config tests once', () => {
     'node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/jest/bin/jest.js --runInBand',
   );
   assert.equal(readManifest('frontend/package.json').scripts.lint, 'pnpm run lint:rtl && eslint --max-warnings 0');
-  assert.equal(readManifest('packages/create-nest-next-auth/package.json').scripts.prepack, 'pnpm run build');
+  assert.equal(readManifest('packages/create-authstack-starter/package.json').scripts.prepack, 'pnpm run build');
 });

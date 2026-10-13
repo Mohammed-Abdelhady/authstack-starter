@@ -16,11 +16,11 @@ build/
 out/
 
 # Scaffolding CLI build inputs, produced by
-# pnpm --filter create-nest-next-auth run build
-packages/create-nest-next-auth/template/
-packages/create-nest-next-auth/template.manifest.json
-packages/create-nest-next-auth/template.rewrites.json
-packages/create-nest-next-auth/template.identity.json
+# pnpm --filter create-authstack-starter run build
+packages/create-authstack-starter/template/
+packages/create-authstack-starter/template.manifest.json
+packages/create-authstack-starter/template.rewrites.json
+packages/create-authstack-starter/template.identity.json
 
 # Environment files
 .env
