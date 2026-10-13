@@ -82,7 +82,7 @@ export function NativeCodeScreen({
   );
   return (
     <>
-      <Heading level="screen" nativeRef={title}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t(registration ? 'native.registrationCode' : 'native.recoveryCodeTitle')}
       </Heading>
       <Description>

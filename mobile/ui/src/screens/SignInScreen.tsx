@@ -7,6 +7,7 @@ import { NativeJourney } from '../components/NativeJourney';
 import { NativeMethodChoices } from '../components/NativeMethodChoices';
 import { Notice, NOTICE_TONE } from '../components/Notice';
 import { Screen } from '../components/Screen';
+import { Surface } from '../components/Surface';
 import { Description, Heading } from '../components/Typography';
 import { TEST_ID } from '../constants';
 import { NATIVE_DISCOVERY, NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
@@ -27,7 +28,7 @@ function SignInIntro() {
   const title = useScreenTitleFocus();
   return (
     <View style={styles.intro}>
-      <Heading level="screen" nativeRef={title}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t('signIn.title', { appName })}
       </Heading>
       <Description>{t('native.description')}</Description>
@@ -53,86 +54,88 @@ export function SignInScreen() {
   return (
     <Screen testID={TEST_ID.SIGN_IN_SCREEN}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <SignInIntro />
-        <View style={styles.action}>
-          {notice === undefined ? null : (
-            <Notice
-              testID={TEST_ID.SIGN_IN_NOTICE}
-              title={notice.title}
-              description={notice.description}
-              tone={notice.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
-            />
-          )}
-          {flow.message ? (
-            <Notice
-              testID={NATIVE_UI_TEST_ID.NOTICE}
-              title={t(flow.message)}
-              tone={flow.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
-            />
-          ) : null}
-          {flow.discovery === NATIVE_DISCOVERY.LOADING ? (
-            <Description>{t('native.loading')}</Description>
-          ) : null}
-          {flow.discovery === NATIVE_DISCOVERY.FAILED ? (
-            <>
+        <Surface>
+          <SignInIntro />
+          <View style={styles.action}>
+            {notice === undefined ? null : (
               <Notice
+                testID={TEST_ID.SIGN_IN_NOTICE}
+                title={notice.title}
+                description={notice.description}
+                tone={notice.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
+              />
+            )}
+            {flow.message ? (
+              <Notice
+                testID={NATIVE_UI_TEST_ID.NOTICE}
+                title={t(flow.message)}
+                tone={flow.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
+              />
+            ) : null}
+            {flow.discovery === NATIVE_DISCOVERY.LOADING ? (
+              <Description>{t('native.loading')}</Description>
+            ) : null}
+            {flow.discovery === NATIVE_DISCOVERY.FAILED ? (
+              <>
+                <Notice
+                  testID={NATIVE_UI_TEST_ID.METHODS_NOTICE}
+                  title={t('native.methodsFailed')}
+                  description={t('native.methodsFailedHint')}
+                  tone={NOTICE_TONE.PROBLEM}
+                />
+              </>
+            ) : null}
+            {flow.discovery !== NATIVE_DISCOVERY.FAILED && flow.methods?.nativeEnabled === false ? (
+              <Notice
+                title={t('native.empty')}
                 testID={NATIVE_UI_TEST_ID.METHODS_NOTICE}
-                title={t('native.methodsFailed')}
-                description={t('native.methodsFailedHint')}
                 tone={NOTICE_TONE.PROBLEM}
               />
-            </>
-          ) : null}
-          {flow.discovery !== NATIVE_DISCOVERY.FAILED && flow.methods?.nativeEnabled === false ? (
-            <Notice
-              title={t('native.empty')}
-              testID={NATIVE_UI_TEST_ID.METHODS_NOTICE}
-              tone={NOTICE_TONE.PROBLEM}
-            />
-          ) : flow.discovery !== NATIVE_DISCOVERY.FAILED && noMethods ? (
-            <Notice title={t('native.empty')} testID={NATIVE_UI_TEST_ID.METHODS_NOTICE} />
-          ) : null}
-          {flow.discovery === NATIVE_DISCOVERY.FAILED ||
-          (flow.discovery === NATIVE_DISCOVERY.READY &&
-            (flow.methods?.nativeEnabled === false || noMethods)) ? (
+            ) : flow.discovery !== NATIVE_DISCOVERY.FAILED && noMethods ? (
+              <Notice title={t('native.empty')} testID={NATIVE_UI_TEST_ID.METHODS_NOTICE} />
+            ) : null}
+            {flow.discovery === NATIVE_DISCOVERY.FAILED ||
+            (flow.discovery === NATIVE_DISCOVERY.READY &&
+              (flow.methods?.nativeEnabled === false || noMethods)) ? (
+              <Button
+                label={t('common.tryAgain')}
+                onPress={flow.load}
+                disabled={disabled}
+                testID={NATIVE_UI_TEST_ID.METHODS_RETRY}
+                stretch
+              />
+            ) : null}
+            {flow.methods ? (
+              <NativeMethodChoices
+                methods={flow.methods}
+                disabled={disabled || flow.discovery !== NATIVE_DISCOVERY.READY}
+                pendingFactor={flow.pendingFactor}
+                providerButton={providerButton}
+                choose={flow.choose}
+                startFactor={flow.startFactor}
+                providerWeb={providerWeb}
+              />
+            ) : null}
+            {flow.pending || flow.view ? (
+              <Button
+                label={t('common.cancel')}
+                onPress={flow.cancel}
+                testID={NATIVE_UI_TEST_ID.CANCEL}
+                stretch
+              />
+            ) : null}
             <Button
-              label={t('common.tryAgain')}
-              onPress={flow.load}
-              disabled={disabled}
-              testID={NATIVE_UI_TEST_ID.METHODS_RETRY}
+              testID={TEST_ID.SIGN_IN_ACTION}
+              variant={BUTTON_VARIANT.OUTLINE}
               stretch
+              label={actionLabel}
+              accessibilityHint={t('signIn.actionHint')}
+              busy={!canAct}
+              disabled={flow.pending}
+              onPress={act}
             />
-          ) : null}
-          {flow.methods ? (
-            <NativeMethodChoices
-              methods={flow.methods}
-              disabled={disabled || flow.discovery !== NATIVE_DISCOVERY.READY}
-              pendingFactor={flow.pendingFactor}
-              providerButton={providerButton}
-              choose={flow.choose}
-              startFactor={flow.startFactor}
-              providerWeb={providerWeb}
-            />
-          ) : null}
-          {flow.pending || flow.view ? (
-            <Button
-              label={t('common.cancel')}
-              onPress={flow.cancel}
-              testID={NATIVE_UI_TEST_ID.CANCEL}
-              stretch
-            />
-          ) : null}
-          <Button
-            testID={TEST_ID.SIGN_IN_ACTION}
-            variant={BUTTON_VARIANT.SECONDARY}
-            stretch
-            label={actionLabel}
-            accessibilityHint={t('signIn.actionHint')}
-            busy={!canAct}
-            disabled={flow.pending}
-            onPress={act}
-          />
-        </View>
+          </View>
+        </Surface>
       </ScrollView>
     </Screen>
   );

@@ -58,7 +58,7 @@ export function NativeSecondFactorScreen({
   }, [code, factor, pending, submit]);
   return (
     <>
-      <Heading level="screen" nativeRef={title}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t('native.secondFactor')}
       </Heading>
       <Description>{t('native.secondFactorHint')}</Description>
