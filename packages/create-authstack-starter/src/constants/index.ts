@@ -124,6 +124,7 @@ export const FEATURE_FLAG_VAR = 'AUTH_FEATURES';
 
 /** File a generated project gets at its root, recording how it was made. */
 export const ANSWERS_FILE_NAME = '.create-authstack-starter.json';
+export const LEGACY_ANSWERS_FILE_NAME = '.create-nest-next-auth.json';
 
 /** Version of that file's shape. Bumped only when the contract changes. */
 export const ANSWERS_SCHEMA_VERSION = 3;
