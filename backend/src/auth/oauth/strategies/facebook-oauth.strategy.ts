@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuthFailureReason } from '../oauth.constants';
-import { BaseOAuthStrategy } from '../base-oauth.strategy';
+import { BaseOAuthStrategy, joseCodeOf } from '../base-oauth.strategy';
+import type { NativeProviderProof } from '../types/native-provider';
+import {
+  nativeProfileFromClaims,
+  verifyNativeIdToken,
+} from '../utils/native-id-token.util';
 import {
   AuthorizationUrlParams,
   ExchangeCodeParams,
@@ -9,12 +14,26 @@ import {
   OAuthTokens,
 } from '../oauth-provider.interface';
 
-const GRAPH_VERSION = 'v18.0';
+const GRAPH_VERSION = 'v26.0';
 const AUTH_URL = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 const TOKEN_URL = `https://graph.facebook.com/${GRAPH_VERSION}/oauth/access_token`;
 const USER_URL = `https://graph.facebook.com/${GRAPH_VERSION}/me`;
 const PROFILE_FIELDS = 'id,name,email,picture.type(large)';
 const SCOPES = ['email', 'public_profile'];
+const JWKS_URI = 'https://www.facebook.com/.well-known/oauth/openid/jwks/';
+const ISSUERS = ['https://www.facebook.com'];
+const DEBUG_TOKEN_URL = `https://graph.facebook.com/${GRAPH_VERSION}/debug_token`;
+
+interface FacebookInspectedToken {
+  data?: {
+    is_valid?: boolean;
+    type?: string;
+    app_id?: string;
+    user_id?: string;
+    expires_at?: number;
+    data_access_expires_at?: number;
+  };
+}
 
 interface FacebookTokenResponse {
   access_token?: string;
@@ -93,11 +112,16 @@ export class FacebookOAuthStrategy extends BaseOAuthStrategy {
       { Authorization: `Bearer ${tokens.accessToken}` },
     );
 
-    if (user.error) {
+    if (!user || user.error) {
       // Facebook's graph error is free text and a numeric code; neither is loggable.
       throw this.profileFetchFailed(OAuthFailureReason.PROVIDER_ERROR);
     }
-    if (!user.email) {
+    if (
+      typeof user.id !== 'string' ||
+      !user.id.trim() ||
+      typeof user.email !== 'string' ||
+      !user.email.trim()
+    ) {
       throw this.profileFetchFailed(OAuthFailureReason.NO_EMAIL);
     }
 
@@ -108,5 +132,67 @@ export class FacebookOAuthStrategy extends BaseOAuthStrategy {
       name: user.name ?? user.email,
       avatarUrl: user.picture?.data?.url,
     };
+  }
+
+  async verifyNativeCredential(
+    proof: NativeProviderProof,
+  ): Promise<OAuthProfile> {
+    if (proof.method.mode !== 'facebook') {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    if (proof.credential.kind === 'facebookLimitedToken') {
+      try {
+        const claims = await verifyNativeIdToken({
+          idToken: proof.credential.authenticationToken,
+          jwksUri: JWKS_URI,
+          issuers: ISSUERS,
+          audience: proof.method.sdk.appId,
+          nonce: proof.nonceDigest,
+        });
+        return nativeProfileFromClaims(claims, true);
+      } catch (error) {
+        throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN, {
+          joseCode: joseCodeOf(error),
+        });
+      }
+    }
+    if (proof.credential.kind !== 'facebookAccessToken') {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    const { clientId, clientSecret } = this.credentials();
+    if (clientId !== proof.method.sdk.appId) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    const query = new URLSearchParams({
+      input_token: proof.credential.accessToken,
+    });
+    const inspected = await this.httpGetJson<FacebookInspectedToken>(
+      `${DEBUG_TOKEN_URL}?${query.toString()}`,
+      { Authorization: `Bearer ${clientId}|${clientSecret}` },
+    );
+    const data = inspected?.data;
+    const now = Date.now() / 1000;
+    if (
+      data?.is_valid !== true ||
+      data.type !== 'USER' ||
+      data.app_id !== clientId ||
+      typeof data.user_id !== 'string' ||
+      !data.user_id.trim() ||
+      typeof data.expires_at !== 'number' ||
+      !Number.isFinite(data.expires_at) ||
+      data.expires_at <= now ||
+      typeof data.data_access_expires_at !== 'number' ||
+      !Number.isFinite(data.data_access_expires_at) ||
+      data.data_access_expires_at <= now
+    ) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    const profile = await this.fetchProfile({
+      accessToken: proof.credential.accessToken,
+    });
+    if (profile.providerId !== data.user_id) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    return profile;
   }
 }

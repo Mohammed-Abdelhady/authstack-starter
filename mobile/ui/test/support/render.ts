@@ -165,6 +165,9 @@ export function asAuthEngine(port: EnginePort): AuthEngine {
     restore: () => port.restore(),
     signIn: () => port.signIn(),
     signOut: () => port.signOut(),
+    methods: () => port.methods(),
+    nativeSignIn: (action) => port.nativeSignIn(action),
+    cancelNativeSignIn: () => port.cancelNativeSignIn(),
     refresh: () => Promise.resolve({ kind: 'notSignedIn' }),
     dispose: () => undefined,
   };

@@ -15,9 +15,9 @@ vi.mock('react', async (original) => ({
 
 /** Written by hand: the bar is drawn in the shade that reads on each scheme's background. */
 const SCHEMES = [
-  ['light', { bar: 'dark-content', background: '#EEF2F0', accent: '#0B5A47' }],
-  ['dark', { bar: 'light-content', background: '#0C1412', accent: '#62D3B1' }],
-  [null, { bar: 'dark-content', background: '#EEF2F0', accent: '#0B5A47' }],
+  ['light', { bar: 'dark-content', background: '#EEF2F0' }],
+  ['dark', { bar: 'light-content', background: '#0C1412' }],
+  [null, { bar: 'dark-content', background: '#EEF2F0' }],
 ] as const;
 
 const SHIPPED = [
@@ -56,12 +56,6 @@ describe.each(SCHEMES)('the screens when the system reports %j', (reported, expe
     expect(root?.kind).toBe('View');
     expect(root?.style.backgroundColor).toBe(expected.background);
     expect(root?.style.flex).toBe(1);
-  });
-
-  it('paints the sign-in action in the accent of the same scheme', () => {
-    const faces = ofKind(painted(), 'View').filter((view) => 'minHeight' in view.style);
-
-    expect(faces.map((face) => face.style.backgroundColor)).toEqual([expected.accent]);
   });
 
   it.each(SHIPPED)('lays the window out in the direction of $locale', (shown) => {

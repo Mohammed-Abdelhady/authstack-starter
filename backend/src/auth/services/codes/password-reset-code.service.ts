@@ -2,6 +2,7 @@ import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HashService } from '../../../common/services/hash.service';
 import { Clock } from '../../../common/services/clock';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
@@ -10,12 +11,16 @@ import { INVALID_PASSWORD_RESET_CODE_MESSAGE } from '../../constants/auth-messag
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
 import { CODE_GUESS_RULE } from '../../constants/registration';
 import { currentRequestId } from '../../../common/context/request-context';
-import { IdSource } from '../../interfaces/pending-code.interface';
+import {
+  IdSource,
+  IssuedCodeWithGeneration,
+} from '../../interfaces/pending-code.interface';
 import { PasswordResetCodeStore } from '../../pending-codes/password-reset-code.store';
 import {
   CODE_CLAIM,
   CODE_ROTATION,
 } from '../../pending-codes/pending-registration.store';
+import { hashPendingCodeGeneration } from '../../utils/pending-code-generation.util';
 
 export interface ReservedPasswordReset {
   id: string;
@@ -59,6 +64,13 @@ export class PasswordResetCodeService {
    * @returns The plain code to mail
    */
   async createOrUpdatePasswordReset(email: string): Promise<string> {
+    const issued = await this.createOrUpdatePasswordResetWithGeneration(email);
+    return issued.code;
+  }
+
+  async createOrUpdatePasswordResetWithGeneration(
+    email: string,
+  ): Promise<IssuedCodeWithGeneration> {
     const code = generateVerificationCode();
     const hashedCode = await this.hashService.hash(code);
     const expiresAt = new Date(this.clock.now().getTime() + this.codeExpiresIn);
@@ -70,7 +82,7 @@ export class PasswordResetCodeService {
         this.logger.log(
           `Opened pending password reset requestId=${currentRequestId() ?? 'unknown'}`,
         );
-        return code;
+        return this.issued(code, hashedCode);
       }
 
       try {
@@ -78,7 +90,7 @@ export class PasswordResetCodeService {
         this.logger.log(
           `Opened pending password reset requestId=${currentRequestId() ?? 'unknown'}`,
         );
-        return code;
+        return this.issued(code, hashedCode);
       } catch (error) {
         if (!(error instanceof UniqueConflictError)) throw error;
       }
@@ -89,6 +101,10 @@ export class PasswordResetCodeService {
       'Could not store the pending password reset',
       HttpStatus.INTERNAL_SERVER_ERROR,
     );
+  }
+
+  private issued(code: string, hashedCode: string): IssuedCodeWithGeneration {
+    return { code, generationHash: hashPendingCodeGeneration(hashedCode) };
   }
 
   /**
@@ -139,6 +155,18 @@ export class PasswordResetCodeService {
     const claim = await this.store.claimCode({
       id: id.toString(),
       hashedCode,
+      now: this.clock.now(),
+    });
+    return claim === CODE_CLAIM.CLAIMED;
+  }
+
+  async consumePasswordResetIn(
+    unitOfWork: UnitOfWork,
+    reserved: ReservedPasswordReset,
+  ): Promise<boolean> {
+    const claim = await this.store.claimCodeIn(unitOfWork, {
+      id: reserved.id,
+      hashedCode: reserved.hashedCode,
       now: this.clock.now(),
     });
     return claim === CODE_CLAIM.CLAIMED;

@@ -9,6 +9,11 @@ import {
   OAuthTokens,
 } from '../oauth-provider.interface';
 import { verifyIdToken } from '../utils/id-token.util';
+import type { NativeProviderProof } from '../types/native-provider';
+import {
+  nativeProfileFromClaims,
+  verifyNativeIdToken,
+} from '../utils/native-id-token.util';
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -128,6 +133,31 @@ export class GoogleOAuthStrategy extends BaseOAuthStrategy {
       name: profile.name ?? profile.given_name ?? profile.email,
       avatarUrl: profile.picture,
     };
+  }
+
+  async verifyNativeCredential(
+    proof: NativeProviderProof,
+  ): Promise<OAuthProfile> {
+    if (
+      proof.credential.kind !== 'googleIdentityToken' ||
+      proof.method.mode !== 'googleIdentityToken'
+    ) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    try {
+      const claims = await verifyNativeIdToken({
+        idToken: proof.credential.identityToken,
+        jwksUri: JWKS_URI,
+        issuers: ISSUERS,
+        audience: proof.method.sdk.webClientId,
+        nonce: proof.nonceDigest,
+      });
+      return nativeProfileFromClaims(claims, claims.email_verified === true);
+    } catch (error) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN, {
+        joseCode: joseCodeOf(error),
+      });
+    }
   }
 
   private async verifyIdentityToken(

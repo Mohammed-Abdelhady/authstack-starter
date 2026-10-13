@@ -13,6 +13,8 @@ export interface Feature {
   default: boolean;
   files: string[];
   envVars: string[];
+  /** Native dependencies needed only when this feature is selected. */
+  packages?: string[];
   requires: string[];
   docs: string[];
   /** Omitted means available. Planned features are never offered by the prompt. */

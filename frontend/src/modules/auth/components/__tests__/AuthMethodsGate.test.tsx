@@ -67,6 +67,30 @@ describe('the sign-in methods gate', () => {
     });
   });
 
+  // feature:passkeys:start
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ] as const)('hands passkeys-only methods to the screen in %s', async (locale) => {
+    answerMethods(() =>
+      success({
+        methods: { password: false, magicLink: false, twoFactor: false, passkeys: true, oauth: [] },
+      }),
+    );
+    await renderGate(locale);
+
+    const shown = await screen.findByTestId('methods-known');
+    expect(JSON.parse(shown.textContent ?? '')).toEqual({
+      password: false,
+      magicLink: false,
+      twoFactor: false,
+      passkeys: true,
+      oauth: [],
+    });
+    expect(screen.queryByTestId('auth-methods-empty')).toBeNull();
+  });
+  // feature:passkeys:end
+
   it.each([
     'en',
     'ar', // feature:locale-ar

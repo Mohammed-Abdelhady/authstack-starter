@@ -33,3 +33,13 @@ export type {
   Unsubscribe,
 } from './auth';
 export type { AuthRecord, AuthTransaction, RuntimeTokens, StoredTokens } from './record';
+export type {
+  BrowserSignInOptions,
+  NativeMethods,
+  NativePromptResult,
+  NativeSafeAttemptView,
+  NativeSignInAction,
+  NativeSignInOutcome,
+  PasskeyPort,
+  ProviderSignInPort,
+} from './native-sign-in';

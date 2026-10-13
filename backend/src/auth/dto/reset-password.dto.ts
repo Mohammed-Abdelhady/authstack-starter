@@ -24,7 +24,9 @@ export class ResetPasswordDto {
   @IsEmail({}, { message: 'Invalid email format' })
   @MaxLength(255, { message: 'Email must not exceed 255 characters' })
   @IsNotEmpty({ message: 'Email is required' })
-  @Transform(({ value }: { value: string }) => value?.toLowerCase()?.trim())
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toLowerCase().trim() : value,
+  )
   email!: string;
 
   @ApiProperty({
@@ -38,7 +40,9 @@ export class ResetPasswordDto {
   @IsNotEmpty({ message: 'Code is required' })
   @Length(6, 6, { message: 'Code must be exactly 6 digits' })
   @Matches(/^\d{6}$/, { message: 'Code must contain only numeric digits' })
-  @Transform(({ value }: { value: string }) => value?.trim())
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   code!: string;
 
   @ApiProperty({

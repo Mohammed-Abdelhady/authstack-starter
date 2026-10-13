@@ -25,7 +25,8 @@ import {
   AUTH_EMAIL_MAX_LENGTH,
 } from '@/modules/auth/constants/authMethods';
 import { getRedirectPath } from '@/modules/auth/utils/authHelpers';
-import { authPagePath } from '@/modules/auth/utils/signInRouting';
+import { nativeBrowserJourneyPath } from '@/modules/auth/utils/nativeBrowserJourney';
+import { readNativeBrowserGuestFlow } from '@/modules/auth/utils/nativeBrowserSelectors';
 import { toast } from '@/lib/toast';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
 import { AuthDivider } from '@/components/ui/auth-divider'; // feature:oauth-core
@@ -61,7 +62,9 @@ export function RegisterForm() {
   const tCodes = useTranslations('errors.codes');
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const redirect = getRedirectPath(useSearchParams().get(REDIRECT_PARAM), '');
+  const searchParams = useSearchParams();
+  const redirect = getRedirectPath(searchParams.get(REDIRECT_PARAM), '');
+  const flow = readNativeBrowserGuestFlow(searchParams);
   const [register, { isLoading }] = useRegisterMutation();
   const { methods } = useAuthMethods(); // feature:oauth-core
   const hasOAuth = (methods?.oauth.length ?? 0) > 0; // feature:oauth-core
@@ -100,7 +103,7 @@ export function RegisterForm() {
         // Successful registration - show toast and redirect to activation
         toast.success(tToast('success.registrationSuccess'));
         dispatch(rememberRegistrationEmail(result.data.email));
-        router.push(authPagePath(ACTIVATE_PATH, redirect));
+        router.push(nativeBrowserJourneyPath(ACTIVATE_PATH, redirect, flow));
       } catch (err: unknown) {
         applyServerFieldErrors(err);
         const code = translatableErrorCode(err, '');
@@ -114,7 +117,18 @@ export function RegisterForm() {
         });
       }
     },
-    [applyServerFieldErrors, dispatch, redirect, register, router, setError, t, tCodes, tToast],
+    [
+      applyServerFieldErrors,
+      dispatch,
+      flow,
+      redirect,
+      register,
+      router,
+      setError,
+      t,
+      tCodes,
+      tToast,
+    ],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -128,7 +142,7 @@ export function RegisterForm() {
         {/* Sign In Link */}
         <div className="flex flex-col items-center">
           <IconLinkButton
-            href={authPagePath(LOGIN_PATH, redirect)}
+            href={nativeBrowserJourneyPath(LOGIN_PATH, redirect, flow)}
             icon={LogIn}
             variant="secondary"
             testId="signin-link"

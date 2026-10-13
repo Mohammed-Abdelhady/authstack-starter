@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+import type { NativeProviderButtonProps } from './native-sign-in';
 import type { AuthEngine, AuthSnapshot, RestoreOutcome, SignInOutcome } from '@app/native-auth';
 import type {
   Activity,
@@ -38,6 +40,7 @@ export type Confirm = (request: ConfirmRequest) => Promise<boolean>;
 
 export interface NativeAppProps {
   engine: AuthEngine;
+  providerButton?: ComponentType<NativeProviderButtonProps>;
   /** The product name shown on the sign-in screen. */
   appName: string;
   locale: Locale;
@@ -51,7 +54,15 @@ export interface NativeAppProps {
 /** The subset of the engine the screens call. */
 export type EnginePort = Pick<
   AuthEngine,
-  'snapshot' | 'subscribe' | 'signIn' | 'signOut' | 'restore' | 'transport'
+  | 'snapshot'
+  | 'subscribe'
+  | 'signIn'
+  | 'signOut'
+  | 'restore'
+  | 'transport'
+  | 'methods'
+  | 'nativeSignIn'
+  | 'cancelNativeSignIn'
 >;
 
 export interface SignInAttempt {

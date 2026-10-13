@@ -20,7 +20,7 @@ interface AuthMethodsGateProps {
  */
 export function AuthMethodsGate({ children }: AuthMethodsGateProps) {
   const t = useTranslations('auth.methods');
-  const { methods, isLoading, isError, retry, hasRetried } = useAuthMethods();
+  const { methods, isLoading, isError, retry, hasRetried, hasNoMethods } = useAuthMethods();
 
   if (isLoading || methods === undefined) {
     return (
@@ -42,7 +42,7 @@ export function AuthMethodsGate({ children }: AuthMethodsGateProps) {
     );
   }
 
-  if (!methods.password && !methods.magicLink && methods.oauth.length === 0) {
+  if (hasNoMethods) {
     return (
       <p
         className="mx-auto mt-8 max-w-xs text-center text-sm text-muted-foreground"

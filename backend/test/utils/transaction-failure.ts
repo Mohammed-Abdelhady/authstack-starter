@@ -25,14 +25,17 @@ export function failNextVersionWrite(
     .spyOn(users.collection, 'updateOne')
     .mockImplementation(async (...args: Parameters<typeof update>) => {
       const document = args[1];
-      const increment: unknown = Array.isArray(document)
-        ? undefined
-        : document.$inc;
+      const changes: readonly unknown[] = Array.isArray(document)
+        ? []
+        : [document.$inc, document.$set];
       if (
         !failed &&
-        increment !== null &&
-        typeof increment === 'object' &&
-        'sessionVersion' in increment
+        changes.some(
+          (change) =>
+            change !== null &&
+            typeof change === 'object' &&
+            'sessionVersion' in change,
+        )
       ) {
         failed = true;
         await gate?.hold();

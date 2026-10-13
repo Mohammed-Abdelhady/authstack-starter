@@ -3,6 +3,7 @@ import { createElement, Fragment, type ReactElement, type ReactNode } from 'reac
 export type Style = Record<string, unknown>;
 type StyleInput = Style | readonly StyleInput[] | null | undefined | false;
 type PressableStyle = (state: { pressed: boolean }) => StyleInput;
+const WINDOW_DIMENSIONS = { width: 390, height: 844, scale: 3, fontScale: 1 };
 
 export interface Painted {
   kind: string;
@@ -53,6 +54,8 @@ export function createFakeNative() {
     state,
     module: {
       useColorScheme: () => state.scheme,
+      useWindowDimensions: () => WINDOW_DIMENSIONS,
+      Platform: { OS: 'android' },
       StyleSheet: { create: <T>(styles: T): T => styles },
       View: host('View'),
       Text: host('Text'),

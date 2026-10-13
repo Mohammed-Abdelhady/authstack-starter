@@ -1,5 +1,8 @@
-import { Response } from 'express';
 import { Kysely } from 'kysely';
+export {
+  PostgresPasskeyAccounts,
+  PostgresPasskeySignIn,
+} from './postgres-passkey-accounts';
 import {
   COUNTER_OUTCOME,
   CounterOutcome,
@@ -9,24 +12,6 @@ import {
   PasskeyStore,
   StoredPasskey,
 } from '../../stores/passkey.store';
-import {
-  PasskeyAccount,
-  PasskeyAccountPassword,
-  PasskeyAccounts,
-  PasskeySignIn,
-  PasskeySignInOutcome,
-  StoredSignInMethods,
-} from '../../stores/passkey-accounts';
-import { AuthenticatedUserSummary } from '../../../interfaces/authenticated-user.interface';
-import {
-  rememberSignInAccount,
-  SIGN_IN_COLUMNS,
-  signInAccountOf,
-  toSignInAccount,
-} from '../../../persistence/postgres/postgres-sign-in-accounts';
-import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
-import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
-import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
@@ -95,9 +80,12 @@ export class PostgresPasskeyStore extends PasskeyStore {
     super();
   }
 
-  listDescriptors(userId: string): Promise<PasskeyDescriptor[]> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const rows = await this.database
+  listDescriptors(
+    userId: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]> {
+    const read = async (database: Kysely<PostgresTables>) => {
+      const rows = await database
         .selectFrom('passkeys')
         .select(['credential_id', 'transports'])
         .where('user_id', '=', toUuid(userId))
@@ -106,7 +94,10 @@ export class PostgresPasskeyStore extends PasskeyStore {
         credentialId: row.credential_id,
         transports: row.transports,
       }));
-    });
+    };
+    return unitOfWork
+      ? read(postgresTransactionOf(unitOfWork))
+      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
   }
 
   isCredentialRegistered(credentialId: string): Promise<boolean> {
@@ -145,23 +136,30 @@ export class PostgresPasskeyStore extends PasskeyStore {
     });
   }
 
-  findByCredentialId(credentialId: string): Promise<StoredPasskey | null> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const row = await this.database
+  findByCredentialId(
+    credentialId: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<StoredPasskey | null> {
+    const read = async (database: Kysely<PostgresTables>) => {
+      const row = await database
         .selectFrom('passkeys')
         .select(PASSKEY_COLUMNS)
         .where('credential_id', '=', credentialId)
         .executeTakeFirst();
       return row ? toStoredPasskey(row) : null;
-    });
+    };
+    return unitOfWork
+      ? read(postgresTransactionOf(unitOfWork))
+      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
   }
 
   advanceCounter(
     passkey: StoredPasskey,
     use: { counter: number; usedAt: Date },
+    unitOfWork?: UnitOfWork,
   ): Promise<CounterOutcome> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const moved = await this.database
+    const advance = async (database: Kysely<PostgresTables>) => {
+      const moved = await database
         .updateTable('passkeys')
         .set({
           counter: use.counter,
@@ -174,17 +172,27 @@ export class PostgresPasskeyStore extends PasskeyStore {
       return moved.numUpdatedRows === 1n
         ? COUNTER_OUTCOME.ADVANCED
         : COUNTER_OUTCOME.ALREADY_ADVANCED;
-    });
+    };
+    return unitOfWork
+      ? advance(postgresTransactionOf(unitOfWork))
+      : autocommit(PASSKEY_CONSTRAINTS, () => advance(this.database));
   }
 
-  markUsed(passkey: StoredPasskey, usedAt: Date): Promise<void> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      await this.database
+  markUsed(
+    passkey: StoredPasskey,
+    usedAt: Date,
+    unitOfWork?: UnitOfWork,
+  ): Promise<void> {
+    const mark = async (database: Kysely<PostgresTables>) => {
+      await database
         .updateTable('passkeys')
         .set({ last_used_at: usedAt, updated_at: this.clock.now() })
         .where('id', '=', toUuid(passkey.id))
         .execute();
-    });
+    };
+    return unitOfWork
+      ? mark(postgresTransactionOf(unitOfWork))
+      : autocommit(PASSKEY_CONSTRAINTS, () => mark(this.database));
   }
 
   listForAccount(userId: string): Promise<StoredPasskey[]> {
@@ -253,95 +261,5 @@ export class PostgresPasskeyStore extends PasskeyStore {
         .executeTakeFirstOrThrow();
       return Number.parseInt(row.rows, 10);
     });
-  }
-}
-
-/** The accounts passkeys belong to, read from the account tables. */
-export class PostgresPasskeyAccounts extends PasskeyAccounts {
-  constructor(private readonly database: Kysely<PostgresTables>) {
-    super();
-  }
-
-  findAccount(userId: string): Promise<PasskeyAccount | null> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const row = await this.database
-        .selectFrom('users')
-        .select([...SIGN_IN_COLUMNS, 'is_deleted'])
-        .where('id', '=', toUuid(userId))
-        .executeTakeFirst();
-      if (!row) return null;
-      const signIn = toSignInAccount(
-        row,
-        await secondFactorEnabled(this.database, row.id), // feature:totp
-      );
-      return rememberSignInAccount(
-        {
-          id: signIn.id,
-          email: signIn.email,
-          name: signIn.name,
-          isDeleted: row.is_deleted,
-        },
-        signIn,
-      );
-    });
-  }
-
-  findPassword(userId: string): Promise<PasskeyAccountPassword | null> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const row = await this.database
-        .selectFrom('users')
-        .select('password_hash')
-        .where('id', '=', toUuid(userId))
-        .executeTakeFirst();
-      return row ? { passwordHash: row.password_hash ?? undefined } : null;
-    });
-  }
-
-  findSignInMethods(userId: string): Promise<StoredSignInMethods | null> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
-      const row = await this.database
-        .selectFrom('users')
-        .select((select) => [
-          'users.password_hash',
-          select
-            .selectFrom('user_linked_accounts as link')
-            .select((link) => link.fn.countAll<string>().as('links'))
-            .whereRef('link.user_id', '=', 'users.id')
-            .as('links'),
-        ])
-        .where('users.id', '=', toUuid(userId))
-        .executeTakeFirst();
-      return row
-        ? {
-            hasPassword: Boolean(row.password_hash),
-            hasLinkedAccount: Number.parseInt(row.links ?? '0', 10) > 0,
-          }
-        : null;
-    });
-  }
-}
-
-/** Finishes the sign-in with the account the passkey routes read. */
-export class PostgresPasskeySignIn extends PasskeySignIn {
-  constructor(private readonly completion: SignInCompletion) {
-    super();
-  }
-
-  issueSession(
-    account: PasskeyAccount,
-    response: Response,
-  ): Promise<AuthenticatedUserSummary> {
-    return this.completion.issueSession(signInAccountOf(account), response);
-  }
-
-  completeSignIn(
-    account: PasskeyAccount,
-    response: Response,
-  ): Promise<PasskeySignInOutcome> {
-    return this.completion.completeSignIn(
-      signInAccountOf(account),
-      response,
-      FIRST_FACTOR.PASSKEY, // feature:totp
-    );
   }
 }

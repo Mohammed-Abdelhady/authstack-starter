@@ -9,6 +9,7 @@ import {
   createNativePorts,
   REQUEST_DEADLINE_MS,
   type HttpApi,
+  type NativeSignInDependencies,
   type NativeModules,
 } from '@app/native-adapters';
 import {
@@ -25,6 +26,7 @@ export interface ShellModules<TAlgorithm, TSignal, THandle> extends NativeModule
   THandle
 > {
   http: HttpApi<TSignal>;
+  nativeSignIn?: NativeSignInDependencies;
 }
 
 export interface ShellSettings {
@@ -88,6 +90,7 @@ export function createShellAuth<TAlgorithm, TSignal, THandle>(
   });
   const engine = createAuthEngine(configuration, {
     ...ports,
+    ...(modules.nativeSignIn ?? {}),
     makeTransport: (baseAddress) =>
       createFetchTransport(modules.http, ports.timer, baseAddress, REQUEST_DEADLINE_MS),
     ...(deviceKey === undefined ? {} : { deviceKey }),

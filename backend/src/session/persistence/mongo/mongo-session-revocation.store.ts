@@ -96,10 +96,17 @@ export class MongoSessionRevocationStore extends SessionRevocationStore {
     userId: string,
     expected: number,
   ): Promise<AccountVersionAdvance> {
+    const versionFilter =
+      expected === 0
+        ? [{ sessionVersion: 0 }, { sessionVersion: null }]
+        : [{ sessionVersion: expected }];
     const advanced = await this.userModel
       .updateOne(
-        { _id: toObjectId(userId), sessionVersion: expected },
-        { $inc: { sessionVersion: 1 } },
+        {
+          _id: toObjectId(userId),
+          $or: versionFilter,
+        },
+        { $set: { sessionVersion: expected + 1 } },
       )
       .session(mongoSessionOf(unitOfWork))
       .exec();

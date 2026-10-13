@@ -11,6 +11,11 @@ export interface IssuedCode {
   code: string;
 }
 
+/** Internal mail handoff plus a commitment to the stored code generation. */
+export interface IssuedCodeWithGeneration extends IssuedCode {
+  generationHash: string;
+}
+
 /** What a pending record carries once its code compared successfully. */
 export interface ReservedCode {
   id: IdSource;

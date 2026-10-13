@@ -7,6 +7,7 @@ import { API_PATHS } from './paths';
 import { unwrapSessionList } from './sessions';
 import { unwrapObject } from './shapes';
 import { unwrapTokenSet } from './tokens';
+import { createNativeAuthClient } from './native-auth/client';
 import {
   TransportError,
   isTransportError,
@@ -31,6 +32,7 @@ import type {
   UpdateProfileRequest,
   User,
 } from './types';
+import type { NativeAuthClient } from './types/native-auth';
 
 /** Per-call options. An untyped cancellation rejects with `TransportError` reason `aborted`. */
 export interface CallOptions<TSignal extends TransportSignal = TransportSignal> {
@@ -44,6 +46,7 @@ export interface CallOptions<TSignal extends TransportSignal = TransportSignal> 
  * on a native transport.
  */
 export interface ApiClient<TSignal extends TransportSignal = TransportSignal> {
+  nativeAuth: NativeAuthClient<TSignal>;
   profile: {
     get(options?: CallOptions<TSignal>): Promise<User>;
     update(changes: UpdateProfileRequest, options?: CallOptions<TSignal>): Promise<User>;
@@ -123,6 +126,7 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
     );
 
   return {
+    nativeAuth: createNativeAuthClient(send),
     profile: {
       get: (options) =>
         sendObject({ method: HTTP_METHOD.GET, path: API_PATHS.user.profile }, options),

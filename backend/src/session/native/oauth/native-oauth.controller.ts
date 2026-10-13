@@ -10,6 +10,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ModuleRef } from '@nestjs/core';
 import {
   ApiBody,
   ApiCookieAuth,
@@ -29,10 +30,6 @@ import { RequestWithUser } from '../../../auth/guards/auth.guard';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { CSRF_HEADER } from '../../constants/browser-proof';
-import {
-  NATIVE_AUTHORIZE_CLIENT_PATH,
-  NATIVE_TRANSACTION_QUERY_KEY,
-} from '../../../common/constants/client-paths';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../../common/constants/session';
 import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
 import {
@@ -51,7 +48,8 @@ import {
   ApiNativeAuthorizeStart,
   ApiNativeRevoke,
 } from './native-oauth.swagger';
-import { negotiateNativeAuthorizeLocale } from '../authorize/native-locale.util';
+import { beginNativeBrowserAuthorization } from '../authorize/utils/native-browser-entry';
+import { nativeBrowserProviderLookup } from '../authorize/utils/native-browser-provider-lookup';
 import {
   OauthFailure,
   RevokeRequest,
@@ -74,6 +72,7 @@ export class NativeOAuthController {
     private readonly tokens: NativeTokenService,
     private readonly config: ConfigService,
     private readonly authEpoch: AuthEpochService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   @Public()
@@ -85,21 +84,21 @@ export class NativeOAuthController {
     @Req() request: Request,
     @Res() response: Response,
   ): Promise<void> {
-    const result = await this.authorize.begin(query);
+    const result = await beginNativeBrowserAuthorization(
+      query,
+      request.headers['accept-language'],
+      {
+        authorize: this.authorize,
+        providers: nativeBrowserProviderLookup(this.moduleRef),
+        clientUrl: this.authEpoch.clientUrl(),
+      },
+    );
     if (!result.ok) {
       this.writeError(response, result);
       return;
     }
-    const locale = negotiateNativeAuthorizeLocale(
-      request.headers['accept-language'],
-    );
-    const target = new URL(
-      `/${locale}${NATIVE_AUTHORIZE_CLIENT_PATH}`,
-      this.authEpoch.clientUrl(),
-    );
-    target.searchParams.set(NATIVE_TRANSACTION_QUERY_KEY, result.transactionId);
     response.setHeader('Cache-Control', 'no-store');
-    response.redirect(target.toString());
+    response.redirect(result.location);
   }
 
   @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)

@@ -72,6 +72,7 @@ describe('ownership in the real manifest', () => {
       'mobile/device-key/**',
       'mobile/metro/**',
       'mobile/ui/**',
+      'docs/setup/setup-mobile-sign-in.md',
     ]);
     expect(ownership.keptIds).toEqual(['web']);
   });

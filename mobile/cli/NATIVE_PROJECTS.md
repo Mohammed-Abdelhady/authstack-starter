@@ -7,8 +7,9 @@ below. Run every command from the repository root with Node 22 active.
 The iOS steps were followed on Xcode 27 with CocoaPods 1.17, and the app was
 built and run on an iPhone 17 simulator with iOS 27 against a local server. The
 native project those steps produce is ignored by git and not committed, so the
-installer does not offer this app yet. The Android steps have never been built
-or run.
+installer does not offer this app yet. The Android steps produced an arm64
+Debug APK with JDK 17 and SDK 36. Android app launch and sign-in remain
+unverified on a device.
 
 ```sh
 pnpm --filter @app/mobile-cli exec rnc-cli init MobileCli --template @react-native-community/template@0.86.3 --directory /tmp/mobile-cli-native-0.86.3 --skip-install
@@ -46,6 +47,19 @@ platform :ios, '16.4'
 
 Call `use_expo_modules!` as the first line inside `target 'MobileCli' do`,
 before `use_native_modules!`.
+
+The Google SDK needs module maps for its Swift dependencies when CocoaPods uses
+static libraries. Add these declarations inside the app target before installing
+pods:
+
+```ruby
+pod 'AppCheckCore', :modular_headers => true
+pod 'GoogleUtilities', :modular_headers => true
+pod 'RecaptchaInterop', :modular_headers => true
+```
+
+Expo's Google config plugin adds these declarations during prebuild. The bare
+project requires the same setup. See the [Google SDK troubleshooting guide](https://react-native-nitro-google-sign-in.github.io/docs/guide/troubleshooting#ios-pod-install-fails--appcheckcore--recaptchainterop-expo-56).
 
 ### Info.plist
 
@@ -198,13 +212,14 @@ A development build always talks to `http://localhost:5001`, so the backend
 has to listen on port 5001. A release build talks to `PRODUCTION_API_ORIGIN` in
 `mobile/cli/src/constants.ts`, which is a placeholder until you change it.
 
-The web app must be running too, because sign-in happens on its pages, and
-`CLIENT_URL` on the backend must be its address. You also need an account. The
-seed script makes two.
+The registration above uses browser sign-in. To enable native methods, add the
+`signIn` policy from the [mobile sign-in guide](../../docs/setup/setup-mobile-sign-in.md).
+The web option needs the web app running and `CLIENT_URL` set to its address.
+The seed script creates two accounts; native signup can create another.
 
 ### Run it on an iOS simulator
 
-With MongoDB, the backend and the web app running:
+With the database and backend running, plus the web app for browser sign-in:
 
 ```sh
 # In one terminal, serve the JavaScript:
@@ -232,52 +247,49 @@ A development build prints one warning at start, "process.env.EXPO_OS is not
 defined". The app uses React Native's Babel preset, which does not set that
 value. Expo's modules fall back to React Native's own platform check.
 
+## Native sign-in SDK settings
+
+The Community CLI project does not apply Expo config plugins when installing
+pods. Configure its native project alongside the public settings in
+`mobile/cli/app.config.js`. The API origin, client ID and callback stay in
+`mobile/cli/src/constants.ts`.
+
+For each enabled SDK, apply its settings before rebuilding:
+
+- Google on iOS needs the reversed client URL scheme in `CFBundleURLTypes`,
+  alongside `mobilecli`. Set `MOBILE_GOOGLE_IOS_URL_SCHEME` to that same scheme
+  when resolving app config. The backend native client needs its Google web
+  and iOS client IDs. On Android, register the package and signing certificate
+  with Google. Discovery checks Play Services without opening a repair dialog.
+- Apple on iOS needs the Sign in with Apple capability and the
+  `com.apple.developer.applesignin` entitlement with the `Default` value.
+  Set `MOBILE_APPLE_SIGN_IN_ENABLED=true`, and register this bundle ID as the
+  backend native Apple `appId`. Android uses system OAuth.
+- Facebook needs `FacebookAppID`, `FacebookClientToken` and
+  `FacebookDisplayName` in Info.plist, plus its `fb<app-id>` URL scheme and the
+  wrapper's required query schemes. Set `FacebookAutoLogAppEventsEnabled` and
+  `FacebookAdvertiserIDCollectionEnabled`
+  to false. Supply the corresponding public `MOBILE_FACEBOOK_*` settings when
+  resolving app config. Keep the app secret on the backend. Apply the wrapper's
+  Android manifest settings for its registered app.
+- Passkeys need the iOS `webcredentials:` associated domain and the matching
+  domain association file. Android needs Digital Asset Links with the correct
+  package and signing certificate. HTTPS callbacks also need the `applinks:`
+  domain or Android verified-link intent filter. The registered callback must
+  match `APP_CALLBACK_URI` exactly.
+
+Expo Constants resolves the public native settings from app config. Supply
+them consistently to native generation/build and Metro; an app config value
+alone does not create an entitlement or URL scheme in a Community CLI project.
+
+The [mobile sign-in guide](../../docs/setup/setup-mobile-sign-in.md) covers the
+backend policy, email journeys, SDK setup links and platform verification.
+SDK settings require a fresh native build. JavaScript typechecks do not establish
+that a provider app or associated domain is registered correctly.
+
 ## Android
 
-Nothing in this section has been built or run.
-
-In `mobile/cli/android/settings.gradle`, add the Expo Gradle plugin build to
-`pluginManagement`, apply `expo-autolinking-settings`, and configure Expo
-module discovery alongside React Native autolinking:
-
-```groovy
-pluginManagement {
-  includeBuild("../node_modules/@react-native/gradle-plugin")
-  includeBuild("../node_modules/expo-modules-autolinking/android/expo-gradle-plugin")
-}
-plugins {
-  id("com.facebook.react.settings")
-  id("expo-autolinking-settings")
-}
-extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
-  ex.autolinkLibrariesFromCommand()
-}
-extensions.configure(expo.modules.ExpoAutolinkingSettingsExtension) { ex ->
-  ex.useExpoModules()
-}
-```
-
-Merge those entries with the template's existing settings. Keep its existing
-`includeBuild` for the React Native Gradle plugin only once.
-
-In `mobile/cli/android/app/build.gradle`, set both `namespace` and
-`applicationId` to `com.example.mobilecli`. Move the generated Kotlin source
-files into `android/app/src/main/java/com/example/mobilecli/` and change their
-package declarations to `com.example.mobilecli`.
-
-In `mobile/cli/android/app/src/main/AndroidManifest.xml`, add this intent filter
-to the generated `MainActivity` activity:
-
-```xml
-<intent-filter>
-  <action android:name="android.intent.action.VIEW" />
-  <category android:name="android.intent.category.DEFAULT" />
-  <category android:name="android.intent.category.BROWSABLE" />
-  <data android:scheme="mobilecli" android:host="auth" android:path="/callback" />
-</intent-filter>
-```
-
-Expo autolinking discovers the installed Expo modules used by this shell:
-`expo-secure-store`, `expo-web-browser`, `expo-crypto`, `expo-linking`,
-`expo-file-system`, and the device key module in `mobile/device-key`. Do not
-add manual native package registrations for them.
+Follow [the Android native project guide](NATIVE_ANDROID.md) after generating
+`mobile/cli/android`. Its Expo 57 Gradle and Kotlin setup is required before the
+first build. The arm64 Debug APK compiled successfully; Android runtime checks
+remain separate.

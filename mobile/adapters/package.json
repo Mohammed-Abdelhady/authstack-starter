@@ -9,7 +9,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./test/support/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./build-config": "./build-config/native-sign-in.cjs"
   },
   "sideEffects": false,
   "scripts": {

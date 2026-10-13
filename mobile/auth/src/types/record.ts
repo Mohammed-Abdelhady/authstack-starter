@@ -14,6 +14,7 @@ export interface SessionAuthRecord extends AuthRecordFields {
   proofKeyThumbprint?: string;
   authorizationOperationId?: undefined;
   transaction?: undefined;
+  nativeAttempt?: undefined;
   refreshInFlight?: boolean;
 }
 
@@ -23,6 +24,7 @@ export interface PendingAuthRecord extends AuthRecordFields {
   tokens?: undefined;
   authorizationOperationId?: string;
   transaction?: AuthTransaction;
+  nativeAttempt?: NativePendingAttempt;
   refreshInFlight?: undefined;
 }
 
@@ -32,6 +34,7 @@ export type LegacyTokenRecord = AuthRecordFields & {
   proofKeyThumbprint?: string;
   authorizationOperationId?: undefined;
   transaction?: undefined;
+  nativeAttempt?: undefined;
   refreshInFlight?: boolean;
 };
 
@@ -44,6 +47,15 @@ export interface AuthTransaction {
   createdAt: number;
   expiresAt: number;
   operationId: string;
+  kind?: 'native';
+}
+
+export interface NativePendingAttempt {
+  id: string;
+  secret: string;
+  nonceDigest: string;
+  flow: 'signIn' | 'registration' | 'recovery';
+  activationCompleted?: boolean;
 }
 
 export interface StoredTokens {

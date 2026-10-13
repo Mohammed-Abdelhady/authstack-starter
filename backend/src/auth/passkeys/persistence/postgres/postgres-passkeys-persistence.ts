@@ -8,11 +8,11 @@ import { PasskeyAccounts, PasskeySignIn } from '../../stores/passkey-accounts';
 import { PasskeyChallengeStore } from '../../stores/passkey-challenge.store';
 import { PasskeyStore } from '../../stores/passkey.store';
 import { PostgresPasskeyChallengeStore } from './postgres-passkey-challenge.store';
+import { PostgresPasskeyStore } from './postgres-passkey.store';
 import {
   PostgresPasskeyAccounts,
   PostgresPasskeySignIn,
-  PostgresPasskeyStore,
-} from './postgres-passkey.store';
+} from './postgres-passkey-accounts';
 
 export const POSTGRES_PASSKEY_PROVIDERS: Provider[] = [
   onDatabaseWithClock(

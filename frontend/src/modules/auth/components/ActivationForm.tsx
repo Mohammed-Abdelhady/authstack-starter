@@ -12,7 +12,9 @@ import {
 } from '@/components/forms';
 import { ShieldCheck, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { authPagePath } from '../utils/signInRouting';
+import { useSearchParams } from 'next/navigation';
+import { nativeBrowserJourneyPath } from '../utils/nativeBrowserJourney';
+import { readNativeBrowserGuestFlow } from '../utils/nativeBrowserSelectors';
 import { REGISTER_PATH, LOGIN_PATH } from '../constants/authMethods';
 import { Link } from '@/i18n/navigation';
 import { CODE_ENTRY_FONT_SIZE, FORM_STYLES } from '@/lib/config/form-styles';
@@ -23,6 +25,7 @@ import { AuthCompletionNotice } from './AuthCompletionNotice';
 export function ActivationForm() {
   const t = useTranslations('auth.activate');
   const tCommon = useTranslations('common');
+  const flow = readNativeBrowserGuestFlow(useSearchParams());
   const {
     form,
     formRef,
@@ -48,7 +51,7 @@ export function ActivationForm() {
       <AuthCompletionNotice
         title={t('accountCreated')}
         message={t('signInRequired')}
-        href={authPagePath(LOGIN_PATH, redirect)}
+        href={nativeBrowserJourneyPath(LOGIN_PATH, redirect, flow)}
         actionLabel={t('signIn')}
         testId="activate-signin-notice"
         actionTestId="activate-signin"
@@ -201,7 +204,7 @@ export function ActivationForm() {
             {showRegisterAgain && (
               <div className="mt-4 text-center">
                 <Link
-                  href={authPagePath(REGISTER_PATH, redirect)}
+                  href={nativeBrowserJourneyPath(REGISTER_PATH, redirect, flow)}
                   className="text-sm font-semibold text-primary hover:underline transition-colors"
                   data-testid="register-again-link"
                 >

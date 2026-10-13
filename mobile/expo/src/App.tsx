@@ -10,8 +10,12 @@ import { DebugScreen } from './screen/DebugScreen';
 import { StartNotice } from './screen/StartNotice';
 import type { StartedShellAuth } from './shell';
 import { START, type Start } from './start';
+import { NativeProviderButton } from './NativeProviderButton'; // feature:google,apple
 
 const LOCALE = deviceLocale();
+const PROVIDER_BUTTON_PROPS = {
+  providerButton: NativeProviderButton, // feature:google,apple
+};
 
 function Hosted({ auth }: { auth: StartedShellAuth }) {
   const insets = useSafeAreaInsets();
@@ -27,7 +31,11 @@ function Hosted({ auth }: { auth: StartedShellAuth }) {
       stripHeight={insets.top + DEBUG_BAND_HEIGHT}
       onOpen={openCheck}
     >
-      <NativeApp {...hostProps(auth, APP_NAME, LOCALE)} insets={logicalInsets(insets, LOCALE)} />
+      <NativeApp
+        {...hostProps(auth, APP_NAME, LOCALE)}
+        insets={logicalInsets(insets, LOCALE)}
+        {...PROVIDER_BUTTON_PROPS}
+      />
     </DebugGate>
   );
 }

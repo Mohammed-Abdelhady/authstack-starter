@@ -1,4 +1,4 @@
-import { AUTHORIZE_PATH, DISALLOWED_REDIRECT_URI_SCHEMES, MAX_CALLBACK_LENGTH } from '../constants';
+import { DISALLOWED_REDIRECT_URI_SCHEMES, MAX_CALLBACK_LENGTH } from '../constants';
 import type { AuthConfiguration, InvalidCallbackReason } from '../types/auth';
 
 export interface UriParts {
@@ -153,25 +153,6 @@ function hasNormalizedDotSegment(path: string): boolean {
     const normalizedDots = segment.replace(/%2e/gi, '.');
     return normalizedDots === '.' || normalizedDots === '..';
   });
-}
-
-export function authorizationAddress(
-  configuration: AuthConfiguration,
-  challenge: string,
-  state: string,
-): string {
-  const query = [
-    ['response_type', 'code'],
-    ['client_id', configuration.clientId],
-    ['redirect_uri', configuration.redirectUri],
-    ['code_challenge', challenge],
-    ['code_challenge_method', 'S256'],
-    ['state', state],
-    ['scope', configuration.scopes.join(' ')],
-  ];
-  return `${configuration.serverBaseAddress}${AUTHORIZE_PATH}?${query
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&')}`;
 }
 
 export function parseCallback(address: string, expected: UriParts): CallbackResult {

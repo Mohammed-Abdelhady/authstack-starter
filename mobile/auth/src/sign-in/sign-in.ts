@@ -1,7 +1,8 @@
 import type { ApiClient } from '@app/sdk';
 import { BROWSER_AUTHORIZATION_TIMEOUT_MS, AUTH_OPERATION, SESSION_STATUS } from '../constants';
 import { PortAbortController } from '../runtime/abort-controller';
-import { authorizationAddress, matchesRedirectDestination } from './redirect';
+import { matchesRedirectDestination } from './redirect';
+import { authorizationAddress, validBrowserSignInOptions } from './browser-options';
 import { callbackRejectionReason, createCallbackProcessor } from '../callbacks/callback-processing';
 import { revokeQuietly } from '../sign-out/revocation';
 import { deferredOutcome, waitForEpochChange, type DeferredOutcome } from './sign-in-waiters';
@@ -16,9 +17,10 @@ import {
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AuthTransaction } from '../types/record';
 import type { AbortSignalPort, SessionStatus, SignInOutcome } from '../types/auth';
+import type { BrowserSignInOptions } from '../types/native-sign-in';
 
 export interface SignInController {
-  signIn(): Promise<SignInOutcome>;
+  signIn(options?: BrowserSignInOptions): Promise<SignInOutcome>;
   handleAddress(address: string): Promise<void>;
   processInitialAddress(address?: string): Promise<void>;
 }
@@ -86,8 +88,10 @@ export function createSignInController(
     }
   };
 
-  const signIn = (): Promise<SignInOutcome> => {
+  const signIn = (options?: BrowserSignInOptions): Promise<SignInOutcome> => {
     if (runtime.disposed) return Promise.resolve({ kind: 'disposed' });
+    if (!validBrowserSignInOptions(options))
+      return Promise.resolve({ kind: 'browserFailure', reason: 'invalidOptions' });
     if (runtime.signInPromise) return runtime.signInPromise;
     if (runtime.snapshot.status === SESSION_STATUS.SIGNED_IN)
       return Promise.resolve({ kind: 'alreadySignedIn' });
@@ -104,7 +108,7 @@ export function createSignInController(
     const epoch = runtime.bumpEpoch('signIn');
     const epochWait = waitForEpochChange(runtime);
     const running = Promise.race([
-      Promise.resolve().then(() => runSignIn(epoch, previousStatus, savedOperationId)),
+      Promise.resolve().then(() => runSignIn(epoch, previousStatus, savedOperationId, options)),
       epochWait.promise.then(() => ({ kind: 'signedOut' as const })),
     ]).finally(epochWait.cancel);
     const pending = runtime.raceWithDispose(running, () => ({ kind: 'disposed' as const }));
@@ -125,6 +129,7 @@ export function createSignInController(
     epoch: number,
     previousStatus: SessionStatus,
     savedOperationId?: string,
+    options?: BrowserSignInOptions,
   ): Promise<SignInOutcome> {
     if (!runtime.isEpochCurrent(epoch)) return { kind: 'signedOut' };
     if (
@@ -165,7 +170,7 @@ export function createSignInController(
     }
     const prepared = await prepareSignIn(runtime, epoch, previousStatus);
     if (prepared.kind === 'outcome') return prepared.outcome;
-    return openBrowser(prepared.transaction, previousStatus, epoch, prepared.challenge);
+    return openBrowser(prepared.transaction, previousStatus, epoch, prepared.challenge, options);
   }
 
   async function openBrowser(
@@ -173,6 +178,7 @@ export function createSignInController(
     previousStatus: 'signedOut' | 'reauthRequired',
     epoch: number,
     challenge: string,
+    options?: BrowserSignInOptions,
   ): Promise<SignInOutcome> {
     const controller = new PortAbortController();
     runtime.browserAbort = controller;
@@ -216,7 +222,7 @@ export function createSignInController(
     const browserResult = Promise.resolve()
       .then(() =>
         runtime.dependencies.authBrowser.open(
-          authorizationAddress(runtime.config, challenge, transaction.state),
+          authorizationAddress(runtime.config, challenge, transaction.state, options),
           transaction.returnAddress,
           controller.signal,
         ),

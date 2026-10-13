@@ -31,6 +31,9 @@ jest.mock('@nestjs/mongoose', () => {
 const NOT_LISTED: Record<string, string> = {
   'account.markVerified':
     'takes an account this store read, and a database that is away reads none',
+  'account.findByEmailIn': 'runs inside the unit of work of its caller',
+  'account.createPasswordlessIn': 'runs inside the unit of work of its caller',
+  'account.markVerifiedIn': 'runs inside the unit of work of its caller',
 };
 
 /** Every method a store class declares, as the outage table names them. */

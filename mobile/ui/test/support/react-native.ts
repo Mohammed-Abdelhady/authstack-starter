@@ -85,6 +85,8 @@ export const device = {
 
 export const HOST = {
   VIEW: 'View',
+  TEXT_INPUT: 'TextInput',
+  KEYBOARD_AVOIDING_VIEW: 'KeyboardAvoidingView',
   TEXT: 'Text',
   SCROLL_VIEW: 'ScrollView',
   STATUS_BAR: 'StatusBar',
@@ -95,6 +97,8 @@ export const HOST = {
 } as const;
 
 export const View = HOST.VIEW;
+export const TextInput = HOST.TEXT_INPUT;
+export const KeyboardAvoidingView = HOST.KEYBOARD_AVOIDING_VIEW;
 interface TextProps {
   children?: ReactNode;
   [name: string]: unknown;
@@ -180,6 +184,9 @@ export const Animated = {
 };
 
 export const useColorScheme = (): string | null => device.scheme;
+
+const WINDOW_DIMENSIONS = { width: 390, height: 844, scale: 3, fontScale: 1 };
+export const useWindowDimensions = () => WINDOW_DIMENSIONS;
 
 export const AppState = {
   addEventListener: (event: string, listener: Listener): Subscription =>

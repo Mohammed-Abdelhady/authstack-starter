@@ -15,6 +15,10 @@ import { HealthModule } from './health/health.module';
 import { UserModule } from './user/user.module';
 import { SessionModule } from './session/session.module';
 import { NativeOAuthModule } from './session/native/oauth/native-oauth.module';
+import { NativeAuthModule } from './auth/native/native-auth.module';
+import { NativeFactorsModule } from './auth/native/factors/native-factors.module';
+import { NativeProviderModule } from './auth/native/providers/native-provider.module'; // feature:oauth-core
+import { NativeLifecycleModule } from './auth/native/lifecycle/native-lifecycle.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthMethodsController } from './auth/auth-methods.controller';
 import { MagicLinkModule } from './auth/magic-link/magic-link.module'; // feature:magic-link
@@ -62,6 +66,10 @@ import { STORAGE_CONNECTION_IMPORTS } from './common/persistence/common-persiste
     UserModule,
     SessionModule,
     NativeOAuthModule,
+    NativeAuthModule,
+    NativeFactorsModule,
+    NativeProviderModule, // feature:oauth-core
+    NativeLifecycleModule,
     RoleModule,
     AuthModule,
     // feature:oauth-core:start

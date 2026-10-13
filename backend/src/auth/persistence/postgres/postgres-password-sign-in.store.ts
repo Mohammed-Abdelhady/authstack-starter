@@ -13,6 +13,9 @@ import {
   toStoredAccount,
 } from '../../../user/persistence/postgres/postgres-account-rows';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
 import { storedAddress } from './postgres-pending-codes-database';
 
 /**
@@ -77,5 +80,22 @@ export class PostgresPasswordSignInStore extends PasswordSignInStore {
         .where('id', '=', id)
         .execute();
     });
+  }
+
+  async storeNewPasswordIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    expectedSessionVersion: number,
+    passwordHash: string,
+  ): Promise<boolean> {
+    const updated = await postgresTransactionOf(unitOfWork)
+      .updateTable('users')
+      .set({ password_hash: passwordHash, updated_at: this.clock.now() })
+      .where('id', '=', toUuid(userId))
+      .where('is_deleted', '=', false)
+      .where('session_version', '=', expectedSessionVersion)
+      .returning('id')
+      .executeTakeFirst();
+    return updated !== undefined;
   }
 }

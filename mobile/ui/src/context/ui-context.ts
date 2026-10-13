@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+import type { NativeProviderButtonProps } from '../types/native-sign-in';
 import { createContext, useContext } from 'react';
 import type { Direction, Locale, Translate } from '../i18n';
 import type { UiRuntime } from '../state/runtime';
@@ -15,6 +17,7 @@ export interface Ui {
   now: () => number;
   confirm: Confirm;
   appName: string;
+  providerButton?: ComponentType<NativeProviderButtonProps>;
 }
 
 export const UiContext = createContext<Ui | undefined>(undefined);

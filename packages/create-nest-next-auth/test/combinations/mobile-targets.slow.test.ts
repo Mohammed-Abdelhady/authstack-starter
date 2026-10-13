@@ -20,9 +20,8 @@ import { ARABIC_FORBIDDEN, findForbiddenContent } from '../support/reference-con
 /**
  * Generated projects that carry the Expo app. Each one is installed from the
  * lockfile the installer wrote, then linted, typechecked, tested and bundled
- * for iOS. Two projects cover the two ways the app is chosen and the two ends
- * of the sign-in method list: the defaults, and one method with no provider.
- * The second is English only, so both language choices are built too.
+ * for iOS. The cases cover default providers, password alone, Google alone,
+ * and passkeys with Google. Both language choices are built.
  */
 interface MobileCase {
   name: string;
@@ -59,6 +58,32 @@ const CASES: MobileCase[] = [
       slug: 'field-notes',
       appId: 'org.sample.notes',
       scheme: 'fieldnotes',
+    },
+  },
+  {
+    name: 'the Expo app with Google only',
+    targets: 'native-expo',
+    features: ['google'],
+    flags: ['--locales', 'en'],
+    arabic: false,
+    identity: {
+      name: 'Google Field Notes',
+      slug: 'google-field-notes',
+      appId: 'org.sample.googlefieldnotes',
+      scheme: 'googlefieldnotes',
+    },
+  },
+  {
+    name: 'the Expo app with passkeys and Google',
+    targets: 'native-expo',
+    features: ['passkeys', 'google'],
+    flags: ['--locales', 'en'],
+    arabic: false,
+    identity: {
+      name: 'Passkey Field Notes',
+      slug: 'passkey-field-notes',
+      appId: 'org.sample.passkeyfieldnotes',
+      scheme: 'passkeyfieldnotes',
     },
   },
 ];
@@ -125,6 +150,21 @@ describe.each(CASES)('a generated project with $name', (mobileCase) => {
     });
     expect(importers.filter((path) => path.startsWith('mobile/')).sort()).toEqual(EXPO_FOLDERS);
     expect(BARE_APP_REFERENCES.some((pattern) => pattern.test(lockfile))).toBe(false);
+  });
+
+  it('retains native SDK dependencies only for selected methods', () => {
+    const manifest: unknown = JSON.parse(
+      readFileSync(join(project, 'mobile/expo/package.json'), 'utf8'),
+    );
+    if (!isRecord(manifest) || !isRecord(manifest.dependencies))
+      throw new Error('Expected the Expo dependency manifest');
+    const dependencies = manifest.dependencies;
+    const selected = new Set(features ?? ['email-password', 'google', 'github', 'facebook']);
+    expect('react-native-nitro-google-signin' in dependencies).toBe(selected.has('google'));
+    expect('react-native-nitro-modules' in dependencies).toBe(selected.has('google'));
+    expect('react-native-fbsdk-next' in dependencies).toBe(selected.has('facebook'));
+    expect('expo-apple-authentication' in dependencies).toBe(selected.has('apple'));
+    expect('react-native-passkeys' in dependencies).toBe(selected.has('passkeys'));
   });
 
   it('lints every workspace', async () => {

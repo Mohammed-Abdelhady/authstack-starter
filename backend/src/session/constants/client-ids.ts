@@ -9,6 +9,7 @@ export const NATIVE_APPLICATION_KNOWN_KEYS = [
   'displayName',
   'redirectUris',
   'allowedScopes',
+  'signIn',
 ] as const;
 
 export const APPLICATION_PLATFORM = {

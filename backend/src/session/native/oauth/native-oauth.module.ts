@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { SessionModule } from '../../session.module';
 import { NativeAuthorizeService } from '../authorize/native-authorize.service';
 import { NativeAuthorizeBrowserService } from '../authorize/native-authorize-browser.service';
+import { NativeAuthorizationStore } from '../authorize/native-authorization.store';
 import { NativeCredentialIssuer } from '../token/native-credential.issuer';
 import { NativeOAuthController } from './native-oauth.controller';
 import { NativeRefreshService } from '../refresh/native-refresh.service';
@@ -29,5 +30,6 @@ import { NATIVE_OAUTH_PERSISTENCE_PROVIDERS } from '../persistence/native-oauth-
     NativeBoundRetryService,
     NativeRevokeService,
   ],
+  exports: [NativeAuthorizeService, NativeAuthorizationStore],
 })
 export class NativeOAuthModule {}

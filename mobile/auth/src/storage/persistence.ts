@@ -1,8 +1,13 @@
-import { AUTH_SCHEMA_VERSION, BROWSER_AUTHORIZATION_TIMEOUT_MS } from '../constants';
+import {
+  AUTH_SCHEMA_VERSION,
+  BROWSER_AUTHORIZATION_TIMEOUT_MS,
+  NATIVE_ATTEMPT_LIFETIME_MS,
+} from '../constants';
 import { base64UrlEncode, utf8Bytes } from '../proof/encoding';
 import type { AuthConfiguration, CryptoPort } from '../types/auth';
 import type {
   AuthTransaction,
+  NativePendingAttempt,
   PendingAuthRecord,
   StoredAuthRecord,
   StoredTokens,
@@ -52,13 +57,16 @@ export function parseStoredRecord(value: string): StoredAuthRecord | undefined {
     return undefined;
   }
   const transaction = readTransaction(parsed.transaction);
+  const nativeAttempt = readNativeAttempt(parsed.nativeAttempt);
   const tokens = readTokens(parsed.tokens);
-  if (transaction === null || tokens === null) return undefined;
+  if (transaction === null || tokens === null || nativeAttempt === null) return undefined;
+  if ((nativeAttempt !== undefined) !== (transaction?.kind === 'native')) return undefined;
   if (parsed.authorizationOperationId !== undefined && !isString(parsed.authorizationOperationId))
     return undefined;
   if (parsed.refreshInFlight !== undefined && typeof parsed.refreshInFlight !== 'boolean')
     return undefined;
   if (transaction !== undefined && tokens !== undefined) return undefined;
+  if (nativeAttempt !== undefined && tokens !== undefined) return undefined;
   if (parsed.refreshInFlight === true && tokens === undefined) return undefined;
   if (tokens !== undefined && parsed.authorizationOperationId !== undefined) return undefined;
   const fields = {
@@ -88,6 +96,7 @@ export function parseStoredRecord(value: string): StoredAuthRecord | undefined {
       ? { authorizationOperationId: parsed.authorizationOperationId }
       : {}),
     ...(transaction === undefined ? {} : { transaction }),
+    ...(nativeAttempt === undefined ? {} : { nativeAttempt }),
   };
 }
 
@@ -118,7 +127,10 @@ export function transactionExpired(transaction: AuthTransaction, wallTime: numbe
   if (
     wallTime < transaction.createdAt ||
     transaction.expiresAt < transaction.createdAt ||
-    transaction.expiresAt - transaction.createdAt > BROWSER_AUTHORIZATION_TIMEOUT_MS
+    transaction.expiresAt - transaction.createdAt >
+      (transaction.kind === 'native'
+        ? NATIVE_ATTEMPT_LIFETIME_MS
+        : BROWSER_AUTHORIZATION_TIMEOUT_MS)
   ) {
     return true;
   }
@@ -136,7 +148,8 @@ function readTransaction(value: unknown): AuthTransaction | null | undefined {
     !Number.isFinite(value.createdAt) ||
     typeof value.expiresAt !== 'number' ||
     !Number.isFinite(value.expiresAt) ||
-    !isString(value.operationId)
+    !isString(value.operationId) ||
+    (value.kind !== undefined && value.kind !== 'native')
   )
     return null;
   return {
@@ -146,6 +159,31 @@ function readTransaction(value: unknown): AuthTransaction | null | undefined {
     createdAt: value.createdAt,
     expiresAt: value.expiresAt,
     operationId: value.operationId,
+    ...(value.kind === 'native' ? { kind: value.kind } : {}),
+  };
+}
+
+function readNativeAttempt(value: unknown): NativePendingAttempt | null | undefined {
+  if (value === undefined) return undefined;
+  if (!isObject(value)) return null;
+  if (
+    !isString(value.id) ||
+    value.id.length === 0 ||
+    value.id.length > 128 ||
+    !isString(value.secret) ||
+    !/^[A-Za-z0-9_-]{43}$/.test(value.secret) ||
+    !isString(value.nonceDigest) ||
+    !/^[a-f0-9]{64}$/.test(value.nonceDigest) ||
+    (value.flow !== 'signIn' && value.flow !== 'registration' && value.flow !== 'recovery') ||
+    (value.activationCompleted !== undefined && value.activationCompleted !== true)
+  )
+    return null;
+  return {
+    id: value.id,
+    secret: value.secret,
+    nonceDigest: value.nonceDigest,
+    flow: value.flow,
+    ...(value.activationCompleted === true ? { activationCompleted: true } : {}),
   };
 }
 
