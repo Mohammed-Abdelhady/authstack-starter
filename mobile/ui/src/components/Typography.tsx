@@ -1,11 +1,14 @@
 import type { ComponentRef, ReactNode, Ref } from 'react';
 import { Platform, StyleSheet, Text, useWindowDimensions } from 'react-native';
 import { usePaint } from '../context/paint-context';
-import { TYPE_ROLE, TYPE_ROLE_NAME, type Palette, type TypeRoleName } from '../theme/tokens';
+import { TYPE_ROLE, TYPE_ROLE_NAME } from '../theme/tokens';
+import { FONT_FAMILY } from '../theme/fonts';
+import type { LabelTone, Palette, TypeRoleName } from '../types/theme';
 
 /** The only place a text style is built. Screens pick a role and never a size, weight or colour. */
 const ROLE_STYLE = StyleSheet.create({
   screenTitle: metrics(TYPE_ROLE_NAME.SCREEN_TITLE),
+  authTitle: metrics(TYPE_ROLE_NAME.AUTH_TITLE),
   sectionHeading: metrics(TYPE_ROLE_NAME.SECTION_HEADING),
   description: metrics(TYPE_ROLE_NAME.DESCRIPTION),
   body: metrics(TYPE_ROLE_NAME.BODY),
@@ -19,8 +22,6 @@ function metrics(role: TypeRoleName) {
   const { fontSize, lineHeight, fontWeight } = TYPE_ROLE[role];
   return { fontSize, lineHeight, fontWeight };
 }
-
-export type LabelTone = Extract<keyof Palette, 'text' | 'danger' | 'onAccent'>;
 
 interface TextProps {
   children: ReactNode;
@@ -44,8 +45,9 @@ function RoleText({
   testID,
   nativeRef,
 }: RoleTextProps) {
-  const { colors, direction } = usePaint();
+  const { colors, direction, fontsReady } = usePaint();
   const { fontScale } = useWindowDimensions();
+  const fontFamily = fontsReady ? FONT_FAMILY[direction][TYPE_ROLE[role].fontWeight] : undefined;
   return (
     <Text
       // A fresh iOS Text node clears stale live Dynamic Type measurements.
@@ -58,7 +60,7 @@ function RoleText({
       style={[
         ROLE_STYLE[role],
         centered ? ROLE_STYLE.center : ROLE_STYLE.start,
-        { color: colors[tone ?? TYPE_ROLE[role].color], writingDirection: direction },
+        { color: colors[tone ?? TYPE_ROLE[role].color], writingDirection: direction, fontFamily },
       ]}
     >
       {children}
@@ -71,8 +73,14 @@ const HEADING_ROLE = {
   section: TYPE_ROLE_NAME.SECTION_HEADING,
 } as const;
 
-export function Heading({ level, ...props }: TextProps & { level: keyof typeof HEADING_ROLE }) {
-  return <RoleText role={HEADING_ROLE[level]} header {...props} />;
+export function Heading({
+  level,
+  variant,
+  ...props
+}: TextProps & { level: keyof typeof HEADING_ROLE; variant?: 'display' }) {
+  return (
+    <RoleText role={variant ? TYPE_ROLE_NAME.AUTH_TITLE : HEADING_ROLE[level]} header {...props} />
+  );
 }
 
 export function Description(props: TextProps) {
@@ -87,6 +95,10 @@ export function Label(props: TextProps & { tone?: LabelTone; centered?: boolean 
   return <RoleText role={TYPE_ROLE_NAME.LABEL} {...props} />;
 }
 
-export function editableTextStyle(colors: Palette) {
-  return { ...ROLE_STYLE.body, color: colors.text };
+export function editableTextStyle(colors: Palette, direction: 'ltr' | 'rtl', fontsReady?: boolean) {
+  return {
+    ...ROLE_STYLE.body,
+    color: colors.text,
+    fontFamily: fontsReady ? FONT_FAMILY[direction][TYPE_ROLE.body.fontWeight] : undefined,
+  };
 }
