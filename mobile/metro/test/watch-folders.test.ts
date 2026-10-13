@@ -34,7 +34,7 @@ it('leaves out workspaces the shell does not depend on', () => {
   const folders = watched(makeWorkspace(REPOSITORY_LIKE));
 
   expect(
-    ['backend', 'frontend', 'packages/create-nest-next-auth'].filter((folder) =>
+    ['backend', 'frontend', 'packages/create-authstack-starter'].filter((folder) =>
       folders.includes(folder),
     ),
   ).toEqual([]);

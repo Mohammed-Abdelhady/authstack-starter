@@ -84,5 +84,5 @@ export const REPOSITORY_LIKE: Record<string, FixturePackage> = {
   'shared/lint-rules': { name: '@app/lint-rules' },
   backend: { name: 'backend', devDependencies: { '@app/sdk': 'workspace:*' } },
   frontend: { name: 'frontend', dependencies: { '@app/sdk': 'workspace:*', react: '19.3.0' } },
-  'packages/create-nest-next-auth': { name: 'create-nest-next-auth' },
+  'packages/create-authstack-starter': { name: 'create-authstack-starter' },
 };

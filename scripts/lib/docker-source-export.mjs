@@ -44,8 +44,8 @@ export function excludedPath(path) {
     prohibitedPath(path) ||
     path.split('/').some((name) => ARTIFACT_DIRS.has(name)) ||
     /\.(log|tgz|tsbuildinfo)$/.test(path) ||
-    path === 'packages/create-nest-next-auth/template' ||
-    path.startsWith('packages/create-nest-next-auth/template/')
+    path === 'packages/create-authstack-starter/template' ||
+    path.startsWith('packages/create-authstack-starter/template/')
   );
 }
 

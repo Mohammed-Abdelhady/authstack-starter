@@ -1,6 +1,6 @@
 # Database Management Guide
 
-This guide covers database seeding and migration operations for the FULL-MERN-AUTH-Boilerplate project.
+This guide covers database seeding and migration operations for the AuthStack Starter project.
 
 ## Table of Contents
 

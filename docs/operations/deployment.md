@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers deploying the FULL-MERN-AUTH-Boilerplate application using Docker Compose and Vercel.
+This guide covers deploying the AuthStack Starter application using Docker Compose and Vercel.
 
 ## Table of Contents
 
@@ -41,8 +41,8 @@ git --version
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate.git
-cd nextjs-nestjs-oauth-rbac-boilerplate
+git clone https://github.com/Mohammed-Abdelhady/authstack-starter.git
+cd authstack-starter
 ```
 
 2. **Create environment file**
@@ -113,13 +113,13 @@ MongoDB data persists in a named volume (`mongo-data`):
 docker volume ls
 
 # Inspect volume
-docker volume inspect FULL-MERN-AUTH-Boilerplate_mongo-data
+docker volume inspect authstack-starter_mongo-data
 
 # Backup volume
-docker run --rm -v nextjs-nestjs-oauth-rbac-boilerplate_mongo-data:/data -v $(pwd):/backup alpine tar czf /backup/mongo-backup.tar.gz /data
+docker run --rm -v authstack-starter_mongo-data:/data -v $(pwd):/backup alpine tar czf /backup/mongo-backup.tar.gz /data
 
 # Restore volume
-docker run --rm -v nextjs-nestjs-oauth-rbac-boilerplate_mongo-data:/data -v $(pwd):/backup alpine tar xzf /backup/mongo-backup.tar.gz -C /
+docker run --rm -v authstack-starter_mongo-data:/data -v $(pwd):/backup alpine tar xzf /backup/mongo-backup.tar.gz -C /
 ```
 
 ---

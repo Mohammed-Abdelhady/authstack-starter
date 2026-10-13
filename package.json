@@ -1,7 +1,7 @@
 {
-  "name": "full-mern-auth-boilerplate",
+  "name": "authstack-starter",
   "version": "1.0.0",
-  "description": "Full-stack MERN authentication boilerplate with NestJS backend and Next.js frontend",
+  "description": "Authentication starter for NestJS, Next.js and React Native with OAuth, passkeys, MFA and RBAC",
   "private": true,
   "type": "module",
   "workspaces": [

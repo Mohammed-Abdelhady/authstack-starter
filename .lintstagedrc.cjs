@@ -3,9 +3,9 @@ module.exports = {
   'backend/**/*.ts': ['pnpm --filter backend exec eslint --fix --max-warnings 0'],
   'frontend/**/*.{ts,tsx,js,jsx,json}': ['prettier --write'],
   'frontend/**/*.{ts,tsx}': ['pnpm --filter frontend exec eslint --fix --max-warnings 0'],
-  'packages/create-nest-next-auth/**/*.{ts,js,json,mjs}': ['prettier --write'],
-  'packages/create-nest-next-auth/**/*.ts': [
-    'pnpm --filter create-nest-next-auth exec eslint --fix --max-warnings 0',
+  'packages/create-authstack-starter/**/*.{ts,js,json,mjs}': ['prettier --write'],
+  'packages/create-authstack-starter/**/*.ts': [
+    'pnpm --filter create-authstack-starter exec eslint --fix --max-warnings 0',
   ],
   'shared/**/*.{ts,tsx,js,json}': ['prettier --write'],
   'shared/core/**/*.ts': ['pnpm --filter @app/core exec eslint --fix --max-warnings 0'],

@@ -4,8 +4,8 @@
 /scripts/guardrails/ @Mohammed-Abdelhady
 /scripts/check-hard-bans.mjs @Mohammed-Abdelhady
 /scripts/guardrails/scanner/check-hard-bans.test.mjs @Mohammed-Abdelhady
-/packages/create-nest-next-auth/scripts/sync-template.mjs @Mohammed-Abdelhady
-/packages/create-nest-next-auth/src/constants/template-tests.json @Mohammed-Abdelhady
+/packages/create-authstack-starter/scripts/sync-template.mjs @Mohammed-Abdelhady
+/packages/create-authstack-starter/src/constants/template-tests.json @Mohammed-Abdelhady
 /.nvmrc @Mohammed-Abdelhady
 /package.json @Mohammed-Abdelhady
 /pnpm-workspace.yaml @Mohammed-Abdelhady

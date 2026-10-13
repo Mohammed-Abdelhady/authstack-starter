@@ -1,0 +1,73 @@
+{
+  "name": "create-authstack-starter",
+  "version": "0.1.0",
+  "description": "Scaffold AuthStack Starter with NestJS, Next.js and React Native clients and the sign-in methods you pick",
+  "keywords": [
+    "create",
+    "scaffold",
+    "nestjs",
+    "nextjs",
+    "authentication",
+    "oauth",
+    "rbac"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "create-authstack-starter": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "template",
+    "template.manifest.json",
+    "template.rewrites.json",
+    "template.identity.json",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mohammed-Abdelhady/authstack-starter.git",
+    "directory": "packages/create-authstack-starter"
+  },
+  "homepage": "https://github.com/Mohammed-Abdelhady/authstack-starter/tree/master/packages/create-authstack-starter#readme",
+  "bugs": {
+    "url": "https://github.com/Mohammed-Abdelhady/authstack-starter/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "pnpm": "12.6.0"
+  },
+  "scripts": {
+    "sync-template": "node scripts/sync-template.mjs",
+    "prebuild": "node scripts/sync-template.mjs",
+    "prepack": "pnpm run build",
+    "build": "tsdown",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:combinations": "vitest run --config vitest.combinations.config.ts --exclude \"test/combinations/databases-*.slow.test.ts\"",
+    "test:combinations:postgres": "vitest run --config vitest.combinations.config.ts test/combinations/databases-postgres.slow.test.ts",
+    "test:combinations:mongodb": "vitest run --config vitest.combinations.config.ts test/combinations/databases-mongodb.slow.test.ts",
+    "test:combinations:all": "vitest run --config vitest.combinations.config.ts"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.8.1",
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.20.2",
+    "commander": "^15.0.0",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.9",
+    "tsdown": "^0.23.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1",
+    "ts-node": "10.9.2"
+  }
+}

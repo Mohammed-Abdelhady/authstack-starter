@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document explains the Facebook permissions required for OAuth authentication in the MERN Auth Boilerplate application.
+This document explains the Facebook permissions required for OAuth authentication in the AuthStack Starter application.
 
 ---
 
@@ -148,7 +148,7 @@ When a user clicks the Facebook OAuth button, they see:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  MERN Auth Boilerplate                          │
+│  AuthStack Starter                          │
 │  wants to access your Facebook information      │
 │                                                  │
 │  ✓ Public profile                               │
@@ -233,7 +233,7 @@ Under **"Pending Approval"** or **"Requested"**, there should be:
 2. **Popup opens** with Facebook authorization page
 3. **User logs in** to Facebook (if not already logged in)
 4. **Facebook shows permission screen**:
-   - "MERN Auth Boilerplate wants to access your public profile and email address"
+   - "AuthStack Starter wants to access your public profile and email address"
 5. **User clicks "Continue as [Name]"**
 6. **Facebook redirects** to callback URL with authorization code
 7. **Backend exchanges code** for access token

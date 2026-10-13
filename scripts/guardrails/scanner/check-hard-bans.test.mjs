@@ -188,7 +188,7 @@ test('commit message attribution is stripped and leftover hits fail', () => {
 });
 
 test('packages src is capped and husky hooks are scanned', () => {
-  assert.equal(isCappedPath('packages/create-nest-next-auth/src/cli.ts'), true);
+  assert.equal(isCappedPath('packages/create-authstack-starter/src/cli.ts'), true);
   assert.equal(isScanTarget('.husky/pre-commit'), true);
   assert.equal(isScanTarget('package.json'), true);
 });
