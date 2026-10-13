@@ -21,7 +21,8 @@ const RUN_DIRECTORY_NAME = 'backend-jest-active-runs';
 const backendDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 const runDirectory = join(tmpdir(), RUN_DIRECTORY_NAME);
 const markerPath = join(runDirectory, `${process.pid}-${randomUUID()}.lock`);
-// Solo runs use all but one available CPU. Overlapping runs use one worker and
+// Worker admission respects CPU and process-available memory.
+// Overlapping runs use one worker and
 // one database instance.
 const defaultWorkerCount = Math.max(1, availableParallelism() - 1);
 
@@ -37,7 +38,11 @@ await runWithMarker(() => {
     defaultWorkerCount,
     availableParallelism(),
   );
-  const workerCount = selectWorkerCount(activeRuns, requestedWorkers);
+  const workerCount = selectWorkerCount(
+    activeRuns,
+    requestedWorkers,
+    process.availableMemory(),
+  );
   const args = normalizeWorkerArguments(process.argv.slice(2), workerCount);
   const environment = {
     ...process.env,

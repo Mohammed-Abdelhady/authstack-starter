@@ -74,8 +74,19 @@ export function requestedWorkerCount(args, fallback, parallelism) {
   return parsed > 0 ? parsed : fallback;
 }
 
-export function selectWorkerCount(activeRuns, requestedWorkers) {
-  return activeRuns > 1 ? 1 : requestedWorkers;
+const WORKER_MEMORY_BUDGET_BYTES = 2 * 1024 ** 3;
+
+export function selectWorkerCount(
+  activeRuns,
+  requestedWorkers,
+  freeMemoryBytes,
+) {
+  if (activeRuns > 1) return 1;
+  if (freeMemoryBytes === undefined) return requestedWorkers;
+  const memoryWorkers = Number.isFinite(freeMemoryBytes)
+    ? Math.max(1, Math.floor(freeMemoryBytes / WORKER_MEMORY_BUDGET_BYTES))
+    : 1;
+  return Math.min(requestedWorkers, memoryWorkers);
 }
 
 export function normalizeWorkerArguments(args, workerCount) {
