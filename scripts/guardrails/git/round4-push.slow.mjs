@@ -9,11 +9,15 @@ const ZERO = '0'.repeat(40);
 const update = (local, remote = ZERO) =>
   `refs/heads/feature ${local} refs/heads/feature ${remote}\n`;
 
-for (const answers of [false, true]) {
+for (const answers of [
+  undefined,
+  '.create-authstack-starter.json',
+  '.create-nest-next-auth.json',
+]) {
   test(`stdin first push checks a user root without trusting marker answers=${answers}`, (t) => {
     const repo = repository(t);
     repo.write('src/a.ts', BAD);
-    if (answers) repo.write('.create-nest-next-auth.json', '{}\n');
+    if (answers) repo.write(answers, '{}\n');
     const head = repo.commit();
     assert.deepEqual(outcome(repo.checkInput(update(head), '--push')), {
       status: 1,

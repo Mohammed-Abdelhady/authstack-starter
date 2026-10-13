@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -203,14 +203,22 @@ describe('the packed CLI', () => {
     expect((manifest as { name?: string }).name).toBe('named-project');
   });
 
-  it('prints the version from its own package.json', () => {
-    const result = spawnSync(process.execPath, [packed.cli, '--version'], {
+  it('runs the packed consumer command and prints its own package version', () => {
+    const packedPackage = JSON.parse(
+      readFileSync(join(packed.workspace, 'package', 'package.json'), 'utf8'),
+    ) as { name?: string; version?: string; bin?: Record<string, string> };
+    expect({ name: packedPackage.name, bin: packedPackage.bin }).toEqual({
+      name: 'create-authstack-starter',
+      bin: { 'create-authstack-starter': 'dist/index.js' },
+    });
+    const command = join(packed.pnpmDirectory, 'create-authstack-starter');
+    const executable = packedPackage.bin?.['create-authstack-starter'];
+    if (executable === undefined) throw new Error('Packed command is missing.');
+    symlinkSync(join(packed.workspace, 'package', executable), command);
+    const result = spawnSync(command, ['--version'], {
       encoding: 'utf8',
       timeout: BUILD_TIMEOUT,
     });
-    const packedPackage = JSON.parse(
-      readFileSync(join(packed.workspace, 'package', 'package.json'), 'utf8'),
-    ) as { version?: string };
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe(packedPackage.version);
   });
