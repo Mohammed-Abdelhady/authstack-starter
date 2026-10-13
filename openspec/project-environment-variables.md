@@ -61,7 +61,7 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 NEXT_PUBLIC_FACEBOOK_APP_ID=your-facebook-app-id
 
 # App Configuration
-NEXT_PUBLIC_APP_NAME=Auth Boilerplate
+NEXT_PUBLIC_APP_NAME=AuthStack Starter
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 

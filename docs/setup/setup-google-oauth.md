@@ -22,7 +22,7 @@ Google OAuth allows users to sign in with their Google account without creating 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click **Select a project** → **New Project**
 3. Enter project details:
-   - **Project Name**: `Auth Boilerplate` (or your app name)
+   - **Project Name**: `AuthStack Starter` (or your app name)
    - **Organization**: (optional)
    - **Location**: (optional)
 4. Click **Create**
@@ -46,7 +46,7 @@ The consent screen is what users see when they authorize your app.
 
 **App Information**:
 
-- **App name**: `Auth Boilerplate` (or your app name)
+- **App name**: `AuthStack Starter` (or your app name)
 - **User support email**: Your support email
 - **App logo**: (optional) Upload 120x120px logo
 
@@ -102,7 +102,7 @@ If your app is in "Testing" mode:
 2. Click **Create Credentials** → **OAuth client ID**
 3. Select application type:
    - **Application type**: Web application
-   - **Name**: `Auth Boilerplate Web Client`
+   - **Name**: `AuthStack Starter Web Client`
 
 ### Configure Authorized Origins
 
