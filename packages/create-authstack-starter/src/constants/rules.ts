@@ -19,6 +19,7 @@ export const RULES_STANDARD_DOC_TEXT =
   "# Code quality\n\nSee `AGENTS.md` for this project's rules level, checks, commit format, and enforcement.\n";
 
 export const ADD_RULES_RECEIPT = '.create-authstack-starter.rules.json';
+export const LEGACY_ADD_RULES_RECEIPT = '.create-nest-next-auth.rules.json';
 export const ADD_RULES_AGENT_COPY = 'AGENTS.rules.md';
 export const ADD_RULES_SCRIPT_NAMES = ['lint', 'typecheck', 'test', 'build'] as const;
 export const ADD_RULES_SETUP_PATHS = [

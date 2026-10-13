@@ -8,6 +8,7 @@ import {
   PREVIOUS_ANSWERS_SCHEMA_VERSION,
   RULES_POLICIES,
   LOCALE_OPTION_LOCALES,
+  LEGACY_ANSWERS_FILE_NAME,
   PACKAGE_MANIFEST,
   PACKAGE_MANAGER_SPEC,
   REINSTALL_HINT,
@@ -180,7 +181,13 @@ export function parseAnswersRecord(value: unknown): AnswersRecord {
 }
 
 export async function readAnswersRecord(target: string): Promise<AnswersRecord> {
-  const raw = await readFile(join(target, ANSWERS_FILE_NAME), 'utf8');
+  let raw: string;
+  try {
+    raw = await readFile(join(target, ANSWERS_FILE_NAME), 'utf8');
+  } catch (error) {
+    if (!isErrnoException(error) || error.code !== 'ENOENT') throw error;
+    raw = await readFile(join(target, LEGACY_ANSWERS_FILE_NAME), 'utf8');
+  }
   const value: unknown = JSON.parse(raw);
   return parseAnswersRecord(value);
 }

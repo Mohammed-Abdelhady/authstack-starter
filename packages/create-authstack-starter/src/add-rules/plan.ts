@@ -9,6 +9,7 @@ import {
   ADD_RULES_RECEIPT,
   ADD_RULES_SCRIPT_NAMES,
   ADD_RULES_SETUP_PATHS,
+  LEGACY_ADD_RULES_RECEIPT,
   RULES_GATES_PATH,
   RULES_HOOK_PATHS,
   RULES_TRUSTED_WORKFLOW_PATH,
@@ -159,6 +160,11 @@ export async function planRules(
     summary: summary(layout, level),
   };
   const receiptSource = await inspectFile(plan.root, ADD_RULES_RECEIPT);
+  const legacyReceiptSource = await inspectFile(plan.root, LEGACY_ADD_RULES_RECEIPT);
+  plan.observations.set(ADD_RULES_RECEIPT, receiptSource);
+  plan.observations.set(LEGACY_ADD_RULES_RECEIPT, legacyReceiptSource);
+  if (receiptSource !== undefined && legacyReceiptSource !== undefined)
+    throw new Error('Both current and legacy rules receipts exist. Nothing written.');
   const staging = await stagingTree(template);
   try {
     const integration = await renderIntegration(template, staging, layout, level, plan.root);
@@ -182,7 +188,8 @@ export async function planRules(
             : file,
     );
   }
-  if (receiptSource !== undefined && (await receiptReplay(plan, receiptSource))) return plan;
+  const previousReceipt = receiptSource ?? legacyReceiptSource;
+  if (previousReceipt !== undefined && (await receiptReplay(plan, previousReceipt))) return plan;
   for (const path of ADD_RULES_SETUP_PATHS) {
     const exists = await checkPath(plan.root, path);
     plan.guards.set(path, exists);
