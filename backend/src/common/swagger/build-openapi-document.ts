@@ -9,7 +9,7 @@ export function buildOpenApiDocument(cookieName: string) {
   }
 
   return new DocumentBuilder()
-    .setTitle('FULL-MERN-AUTH-Boilerplate API')
+    .setTitle('AuthStack Starter API')
     .setDescription(
       'Comprehensive authentication and user management API with OAuth support',
     )
