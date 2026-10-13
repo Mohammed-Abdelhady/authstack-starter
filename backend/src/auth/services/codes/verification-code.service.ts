@@ -15,6 +15,7 @@ import { MailCounterService } from '../mail/mail-counter.service';
 import { CODE_GUESS_RULE, PendingPurpose } from '../../constants/registration';
 import {
   IssuedCode,
+  IssuedCodeWithGeneration,
   RegistrationDetails,
   ReservedCode,
 } from '../../interfaces/pending-code.interface';
@@ -56,13 +57,35 @@ export class VerificationCodeService {
     purpose: PendingPurpose,
     details: RegistrationDetails = {},
   ): Promise<IssuedCode | null> {
+    const issued = await this.createPendingGeneration(email, purpose, details);
+    return issued ? { code: issued.code } : null;
+  }
+
+  /** Same issue path, with a private commitment for a native attempt. */
+  async createOrUpdatePendingRegistrationWithGeneration(
+    email: string,
+    purpose: PendingPurpose,
+    details: RegistrationDetails = {},
+  ): Promise<IssuedCodeWithGeneration | null> {
+    return this.createPendingGeneration(email, purpose, details);
+  }
+
+  private async createPendingGeneration(
+    email: string,
+    purpose: PendingPurpose,
+    details: RegistrationDetails,
+  ): Promise<IssuedCodeWithGeneration | null> {
     const underCap = await this.mailCounterService.tryRecord(email, purpose);
     if (!underCap) {
       await this.spendCodeHashingTime();
       return null;
     }
 
-    const stored = await this.issuer.createOrUpdate(email, purpose, details);
+    const stored = await this.issuer.createOrUpdateWithGeneration(
+      email,
+      purpose,
+      details,
+    );
     if (stored !== null) {
       this.logger.log(
         `Opened ${purpose} code requestId=${currentRequestId() ?? 'unknown'}`,

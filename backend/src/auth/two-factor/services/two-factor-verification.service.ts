@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { TotpSecretCryptoService } from './totp-secret-crypto.service';
@@ -50,18 +51,44 @@ export class TwoFactorVerificationService {
   async verifySecondFactor(
     user: SecondFactorAccount,
     input: SecondFactorInput,
+    unitOfWork?: UnitOfWork,
   ): Promise<void> {
     if (input.code) {
-      await this.verifyTotpCode(user, input.code);
+      await this.verifyTotpCode(user, input.code, unitOfWork);
       return;
     }
 
     if (input.recoveryCode) {
-      await this.verifyRecoveryCode(user, input.recoveryCode);
+      await this.verifyRecoveryCode(user, input.recoveryCode, unitOfWork);
       return;
     }
 
     throw this.invalidCode('neither a code nor a recovery code was sent');
+  }
+
+  /** Count before opening the native unit of work, then spend within it. */
+  async prepareNativeSecondFactor(
+    user: SecondFactorAccount,
+    input: SecondFactorInput,
+    expectedSessionVersion: number,
+  ): Promise<(unitOfWork: UnitOfWork) => Promise<void>> {
+    const plaintext =
+      input.code && user.twoFactor.secret
+        ? await this.readSecret(user, user.twoFactor.secret)
+        : null;
+    await this.reserve(user, expectedSessionVersion);
+    return async (unitOfWork) => {
+      if (input.code && plaintext) {
+        await this.spendCode(user, plaintext, input.code, unitOfWork);
+      } else if (input.recoveryCode) {
+        await this.spendRecovery(user, input.recoveryCode, unitOfWork);
+      } else {
+        throw this.invalidCode(
+          'neither a usable code nor a recovery code was sent',
+        );
+      }
+      await this.accounts.clearFailedAttemptsIn(unitOfWork, user);
+    };
   }
 
   /**
@@ -70,7 +97,11 @@ export class TwoFactorVerificationService {
    *
    * @throws AppException TWO_FACTOR_LOCKED while the account is locked
    */
-  async verifyTotpCode(user: SecondFactorAccount, code: string): Promise<void> {
+  async verifyTotpCode(
+    user: SecondFactorAccount,
+    code: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<void> {
     const secret = user.twoFactor.secret;
     if (!secret) {
       throw this.invalidCode('account has no secret to check against');
@@ -79,7 +110,11 @@ export class TwoFactorVerificationService {
     // Read before the answer is counted: a key that reads nothing is the
     // server's fault and must not count against the account.
     const plaintext = await this.readSecret(user, secret);
-    await this.counted(user, () => this.spendCode(user, plaintext, code));
+    await this.counted(
+      user,
+      () => this.spendCode(user, plaintext, code, unitOfWork),
+      unitOfWork,
+    );
   }
 
   /**
@@ -90,8 +125,13 @@ export class TwoFactorVerificationService {
   async verifyRecoveryCode(
     user: SecondFactorAccount,
     recoveryCode: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<void> {
-    await this.counted(user, () => this.spendRecovery(user, recoveryCode));
+    await this.counted(
+      user,
+      () => this.spendRecovery(user, recoveryCode, unitOfWork),
+      unitOfWork,
+    );
   }
 
   /**
@@ -104,6 +144,17 @@ export class TwoFactorVerificationService {
   private async counted(
     user: SecondFactorAccount,
     check: () => Promise<void>,
+    unitOfWork?: UnitOfWork,
+  ): Promise<void> {
+    await this.reserve(user);
+    await check();
+    if (unitOfWork) await this.accounts.clearFailedAttemptsIn(unitOfWork, user);
+    else await this.accounts.clearFailedAttempts(user);
+  }
+
+  private async reserve(
+    user: SecondFactorAccount,
+    expectedSessionVersion?: number,
   ): Promise<void> {
     const now = Date.now();
     const { failedAttempts, lockedUntil } = user.twoFactor;
@@ -113,22 +164,24 @@ export class TwoFactorVerificationService {
 
     const counted = failedAttempts + 1;
     const lockMs = lockDurationMs(counted);
-    const reservation = await this.accounts.reserveAttempt(user, {
-      failedAttempts: counted,
-      lockedUntil: lockMs > 0 ? new Date(now + lockMs) : null,
-    });
+    const reservation = await this.accounts.reserveAttempt(
+      user,
+      {
+        failedAttempts: counted,
+        lockedUntil: lockMs > 0 ? new Date(now + lockMs) : null,
+      },
+      expectedSessionVersion,
+    );
     if (reservation !== ATTEMPT_RESERVATION.RESERVED) {
       throw this.invalidCode('another answer was counted for the account');
     }
-
-    await check();
-    await this.accounts.clearFailedAttempts(user);
   }
 
   private async spendCode(
     user: SecondFactorAccount,
     plaintext: string,
     code: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<void> {
     const delta = checkTotpDelta(code, plaintext);
     if (delta === null || delta === undefined) {
@@ -144,7 +197,7 @@ export class TwoFactorVerificationService {
       throw this.invalidCode('code was already used');
     }
 
-    const outcome = await this.accounts.spendTotpStep(user, step);
+    const outcome = await this.accounts.spendTotpStep(user, step, unitOfWork);
 
     if (outcome !== SPEND_OUTCOME.SPENT) {
       throw this.invalidCode('code was already used');
@@ -154,6 +207,7 @@ export class TwoFactorVerificationService {
   private async spendRecovery(
     user: SecondFactorAccount,
     recoveryCode: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<void> {
     const hash = hashRecoveryCode(recoveryCode);
     const match = user.twoFactor.recoveryCodes.find(
@@ -169,6 +223,7 @@ export class TwoFactorVerificationService {
       user,
       match.hash,
       new Date(Date.now()),
+      unitOfWork,
     );
 
     if (outcome !== SPEND_OUTCOME.SPENT) {

@@ -75,6 +75,10 @@ class TwoAccounts extends PasswordSignInStore {
   storeNewPassword(): Promise<void> {
     return Promise.resolve();
   }
+
+  storeNewPasswordIn(): Promise<boolean> {
+    return Promise.resolve(false);
+  }
 }
 
 const SUMMARY = {

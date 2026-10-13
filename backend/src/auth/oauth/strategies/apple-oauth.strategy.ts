@@ -15,6 +15,11 @@ import {
 import { IdTokenClaims, verifyIdToken } from '../utils/id-token.util';
 import { createAppleClientSecret } from '../utils/apple-client-secret.util';
 import { readAppleUserName } from '../utils/apple-user-payload.util';
+import type { NativeProviderProof } from '../types/native-provider';
+import {
+  nativeProfileFromClaims,
+  verifyNativeIdToken,
+} from '../utils/native-id-token.util';
 
 const AUTH_URL = 'https://appleid.apple.com/auth/authorize';
 const TOKEN_URL = 'https://appleid.apple.com/auth/token';
@@ -161,7 +166,52 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
     }
   }
 
-  private async clientSecret(): Promise<string> {
+  async verifyNativeCredential(
+    proof: NativeProviderProof,
+  ): Promise<OAuthProfile> {
+    if (
+      proof.credential.kind !== 'appleIdentityTokenAndCode' ||
+      proof.method.mode !== 'appleIdentityTokenAndCode'
+    ) {
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN);
+    }
+    const audience = proof.method.sdk.appId;
+    const options = {
+      jwksUri: JWKS_URI,
+      issuers: ISSUERS,
+      audience,
+      nonce: proof.nonceDigest,
+    };
+    try {
+      const claims = await verifyNativeIdToken({
+        ...options,
+        idToken: proof.credential.identityToken,
+      });
+      const exchanged = await this.httpPostForm<AppleTokenResponse>(TOKEN_URL, {
+        client_id: audience,
+        client_secret: await this.clientSecret(audience),
+        code: proof.credential.authorizationCode,
+        grant_type: 'authorization_code',
+      });
+      if (exchanged.error || !exchanged.id_token) {
+        throw this.codeExchangeFailed(OAuthFailureReason.NO_ID_TOKEN);
+      }
+      const confirmed = await verifyNativeIdToken({
+        ...options,
+        idToken: exchanged.id_token,
+      });
+      if (confirmed.sub !== claims.sub)
+        throw new Error('Apple identity subject changed');
+      return nativeProfileFromClaims(claims);
+    } catch (error) {
+      if (error instanceof AppException) throw error;
+      throw this.profileFetchFailed(OAuthFailureReason.INVALID_TOKEN, {
+        joseCode: joseCodeOf(error),
+      });
+    }
+  }
+
+  private async clientSecret(clientId = this.clientId()): Promise<string> {
     const { teamId, keyId, privateKey } = this.signingKey();
 
     try {
@@ -169,7 +219,7 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
         teamId,
         keyId,
         privateKey,
-        clientId: this.clientId(),
+        clientId,
       });
     } catch (error) {
       throw this.codeExchangeFailed(OAuthFailureReason.CLIENT_SECRET_SIGNING, {

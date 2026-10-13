@@ -37,6 +37,7 @@ function SignedInScreens() {
  */
 export function NativeApp({
   engine,
+  providerButton,
   appName,
   locale,
   insets,
@@ -65,8 +66,20 @@ export function NativeApp({
       now,
       confirm,
       appName,
+      providerButton,
     }),
-    [appName, colors, confirm, direction, insets, locale, now, reduceMotion, runtime],
+    [
+      appName,
+      colors,
+      confirm,
+      direction,
+      insets,
+      locale,
+      now,
+      providerButton,
+      reduceMotion,
+      runtime,
+    ],
   );
 
   return (

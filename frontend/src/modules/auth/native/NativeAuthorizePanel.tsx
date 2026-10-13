@@ -16,10 +16,12 @@ import { NativeAuthorizeExpiredView } from './NativeAuthorizeExpiredView';
 import { NativeAuthorizeReadyView } from './NativeAuthorizeReadyView';
 import { NativeAuthorizeReturningView } from './NativeAuthorizeReturningView';
 import { useNativeAuthorize } from './useNativeAuthorize';
+import type { NativeBrowserSelectors } from '../types/nativeBrowserSelectors.types';
 
 interface NativeAuthorizePanelProps {
   /** Transaction id from the authorize route query string. */
   transaction: string;
+  selectors?: NativeBrowserSelectors;
 }
 
 function announcementFor(
@@ -45,9 +47,9 @@ function announcementFor(
  * the heading of each view, so a keyboard or screen-reader user is told what
  * happened after every change.
  */
-export function NativeAuthorizePanel({ transaction }: NativeAuthorizePanelProps) {
+export function NativeAuthorizePanel({ transaction, selectors }: NativeAuthorizePanelProps) {
   const t = useTranslations('auth.nativeAuthorize');
-  const { view, approve, deny, notYou, retry, reopen } = useNativeAuthorize(transaction);
+  const { view, approve, deny, notYou, retry, reopen } = useNativeAuthorize(transaction, selectors);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {

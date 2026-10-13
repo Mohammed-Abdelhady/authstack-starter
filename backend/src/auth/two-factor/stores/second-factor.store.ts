@@ -93,24 +93,32 @@ export abstract class SecondFactorStore {
   abstract spendTotpStep(
     account: SecondFactorAccount,
     step: number,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome>;
   /**
    * Counts an answer before it is checked: stores `attempt`, only while the
    * stored count is still the one this record was read with. Of two answers
    * that read the same state, one is counted and the other is refused, so the
    * answers checked can never outrun the count.
+   * Native attempts also bind the count to the captured account version.
    */
   abstract reserveAttempt(
     account: SecondFactorAccount,
     attempt: CountedAttempt,
+    expectedSessionVersion?: number,
   ): Promise<AttemptReservation>;
   /** Clears the count and the lock after a correct answer. */
   abstract clearFailedAttempts(account: SecondFactorAccount): Promise<void>;
+  abstract clearFailedAttemptsIn(
+    unitOfWork: UnitOfWork,
+    account: SecondFactorAccount,
+  ): Promise<void>;
 
   /** Marks the unspent recovery code with this hash as used at `usedAt`. */
   abstract spendRecoveryCode(
     account: SecondFactorAccount,
     hash: string,
     usedAt: Date,
+    unitOfWork?: UnitOfWork,
   ): Promise<SpendOutcome>;
 }

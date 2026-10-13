@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { REDIRECT_PARAM } from '@/modules/auth/constants/authMethods';
 import { signedInPath } from '@/modules/auth/utils/signInRouting';
+import { isNativeBrowserGuestJourney } from '@/modules/auth/utils/nativeBrowserJourney';
+import { readNativeBrowserGuestFlow } from '@/modules/auth/utils/nativeBrowserSelectors';
+import { NATIVE_BROWSER_FLOW } from '@/modules/auth/constants/nativeBrowserSelectors';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
 import { LoadingRegion } from '@/components/layout/LoadingRegion';
@@ -40,17 +43,23 @@ export function ActivationGuard({ children }: Readonly<ActivationGuardProps>) {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const user = useAppSelector(selectUser);
   const isAuthLoading = useAppSelector(selectAuthLoading);
-  const redirect = useSearchParams().get(REDIRECT_PARAM);
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get(REDIRECT_PARAM);
+  const explicitJourney = isNativeBrowserGuestJourney(
+    redirect,
+    readNativeBrowserGuestFlow(searchParams),
+    NATIVE_BROWSER_FLOW.REGISTRATION,
+  );
 
   useEffect(() => {
-    if (isAuthenticated && user) router.replace(signedInPath(user, redirect));
-  }, [isAuthenticated, user, redirect, router]);
+    if (isAuthenticated && user && !explicitJourney) router.replace(signedInPath(user, redirect));
+  }, [explicitJourney, isAuthenticated, user, redirect, router]);
 
   if (isAuthLoading) {
     return <LoadingRegion label={t('loading')} testId="activation-guard-loading" />;
   }
 
-  if (isAuthenticated && user) return null;
+  if (isAuthenticated && user && !explicitJourney) return null;
 
   // User is not authenticated, render activation form
   return <>{children}</>;

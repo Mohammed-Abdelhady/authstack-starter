@@ -7,6 +7,8 @@ import { useAppSelector } from '@/store/hooks';
 import { selectIsAuthenticated, selectUser } from '../store/authSlice';
 import { signedInPath } from '../utils/signInRouting';
 import { REDIRECT_PARAM } from '../constants/authMethods';
+import { readNativeBrowserGuestFlow } from '../utils/nativeBrowserSelectors';
+import { isNativeBrowserGuestJourney } from '../utils/nativeBrowserJourney';
 import { AuthLayout } from '../components/AuthLayout';
 import { LoginForm } from '../components/LoginForm';
 
@@ -25,16 +27,21 @@ export function LoginPage() {
   const router = useRouter();
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const user = useAppSelector(selectUser);
-  const redirect = useSearchParams().get(REDIRECT_PARAM);
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get(REDIRECT_PARAM);
+  const explicitJourney = isNativeBrowserGuestJourney(
+    redirect,
+    readNativeBrowserGuestFlow(searchParams),
+  );
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (isAuthenticated && user && !explicitJourney) {
       router.replace(signedInPath(user, redirect));
     }
-  }, [isAuthenticated, user, redirect, router]);
+  }, [explicitJourney, isAuthenticated, user, redirect, router]);
 
   // Don't render login form if already authenticated
-  if (isAuthenticated) {
+  if (isAuthenticated && !explicitJourney) {
     return null;
   }
 

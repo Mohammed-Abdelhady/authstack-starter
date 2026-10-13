@@ -58,7 +58,10 @@ export interface PasskeyDescriptor {
  */
 export abstract class PasskeyStore {
   /** The credentials already on the account. */
-  abstract listDescriptors(userId: string): Promise<PasskeyDescriptor[]>;
+  abstract listDescriptors(
+    userId: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]>;
   abstract isCredentialRegistered(credentialId: string): Promise<boolean>;
   /**
    * Stores a passkey that was never used. A credential id that is already
@@ -68,6 +71,7 @@ export abstract class PasskeyStore {
 
   abstract findByCredentialId(
     credentialId: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null>;
   /**
    * Stores the new counter and the time of use, only while the stored counter
@@ -77,9 +81,14 @@ export abstract class PasskeyStore {
   abstract advanceCounter(
     passkey: StoredPasskey,
     use: { counter: number; usedAt: Date },
+    unitOfWork?: UnitOfWork,
   ): Promise<CounterOutcome>;
   /** Stores the time of use for a passkey whose authenticator does not count. */
-  abstract markUsed(passkey: StoredPasskey, usedAt: Date): Promise<void>;
+  abstract markUsed(
+    passkey: StoredPasskey,
+    usedAt: Date,
+    unitOfWork?: UnitOfWork,
+  ): Promise<void>;
 
   /** The account's passkeys, newest first. */
   abstract listForAccount(userId: string): Promise<StoredPasskey[]>;

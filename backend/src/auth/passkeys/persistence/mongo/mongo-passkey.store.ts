@@ -81,11 +81,20 @@ export class MongoPasskeyStore extends PasskeyStore {
     super();
   }
 
-  async listDescriptors(userId: string): Promise<PasskeyDescriptor[]> {
+  async listDescriptors(
+    userId: string,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]> {
     const user = toObjectId(userId);
-    const existing = await passkeyStatement(() =>
-      this.passkeyModel.find({ user }).select('credentialId transports'),
-    );
+    const read = () =>
+      this.passkeyModel
+        .find(
+          { user },
+          null,
+          unitOfWork ? { session: mongoSessionOf(unitOfWork) } : undefined,
+        )
+        .select('credentialId transports');
+    const existing = unitOfWork ? await read() : await passkeyStatement(read);
     return existing.map((passkey) => ({
       credentialId: passkey.credentialId,
       transports: passkey.transports,
@@ -118,24 +127,33 @@ export class MongoPasskeyStore extends PasskeyStore {
 
   async findByCredentialId(
     credentialId: string,
+    unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null> {
-    const passkey = await passkeyStatement(() =>
-      this.passkeyModel.findOne({ credentialId: { $eq: credentialId } }),
-    );
+    const read = () =>
+      this.passkeyModel.findOne(
+        { credentialId: { $eq: credentialId } },
+        null,
+        unitOfWork ? { session: mongoSessionOf(unitOfWork) } : undefined,
+      );
+    const passkey = unitOfWork ? await read() : await passkeyStatement(read);
     return passkey ? toStoredPasskey(passkey) : null;
   }
 
   async advanceCounter(
     passkey: StoredPasskey,
     use: { counter: number; usedAt: Date },
+    unitOfWork?: UnitOfWork,
   ): Promise<CounterOutcome> {
     const document = documentOf(passkey);
-    const updated = await passkeyStatement(() =>
+    const update = () =>
       this.passkeyModel.updateOne(
         { _id: document._id, counter: passkey.counter },
         { $set: { counter: use.counter, lastUsedAt: use.usedAt } },
-      ),
-    );
+        unitOfWork ? { session: mongoSessionOf(unitOfWork) } : undefined,
+      );
+    const updated = unitOfWork
+      ? await update()
+      : await passkeyStatement(update);
     if (updated.modifiedCount !== 1) {
       return COUNTER_OUTCOME.ALREADY_ADVANCED;
     }
@@ -145,14 +163,20 @@ export class MongoPasskeyStore extends PasskeyStore {
     return COUNTER_OUTCOME.ADVANCED;
   }
 
-  async markUsed(passkey: StoredPasskey, usedAt: Date): Promise<void> {
+  async markUsed(
+    passkey: StoredPasskey,
+    usedAt: Date,
+    unitOfWork?: UnitOfWork,
+  ): Promise<void> {
     const document = documentOf(passkey);
-    await passkeyStatement(() =>
+    const update = () =>
       this.passkeyModel.updateOne(
         { _id: document._id },
         { $set: { lastUsedAt: usedAt } },
-      ),
-    );
+        unitOfWork ? { session: mongoSessionOf(unitOfWork) } : undefined,
+      );
+    if (unitOfWork) await update();
+    else await passkeyStatement(update);
     document.lastUsedAt = usedAt;
   }
 

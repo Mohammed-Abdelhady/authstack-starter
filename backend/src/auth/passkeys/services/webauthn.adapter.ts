@@ -81,6 +81,12 @@ export interface CeremonyExpectations {
   rpId: string;
 }
 
+interface NativeCeremonyExpectations {
+  challenge: (challenge: string) => boolean;
+  origin: string[];
+  rpId: string;
+}
+
 /** Library option shapes are wider than what the routes hand over. */
 type LibraryDescriptor = NonNullable<
   PublicKeyCredentialRequestOptionsJSON['allowCredentials']
@@ -192,6 +198,30 @@ export class WebAuthnAdapter {
     assertion: PasskeyCredentialJson,
     credential: StoredCredential,
     expected: CeremonyExpectations,
+  ): Promise<AssertionVerification | null> {
+    return this.verifyAssertionWithExpectations(
+      assertion,
+      credential,
+      expected,
+    );
+  }
+
+  async verifyNativeAssertion(
+    assertion: PasskeyCredentialJson,
+    credential: StoredCredential,
+    expected: NativeCeremonyExpectations,
+  ): Promise<AssertionVerification | null> {
+    return this.verifyAssertionWithExpectations(
+      assertion,
+      credential,
+      expected,
+    );
+  }
+
+  private async verifyAssertionWithExpectations(
+    assertion: PasskeyCredentialJson,
+    credential: StoredCredential,
+    expected: CeremonyExpectations | NativeCeremonyExpectations,
   ): Promise<AssertionVerification | null> {
     const result = await this.refused(() =>
       verifyAuthenticationResponse({

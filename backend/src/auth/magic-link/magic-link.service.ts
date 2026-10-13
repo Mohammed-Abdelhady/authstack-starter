@@ -14,6 +14,7 @@ import { MagicLinkRequestResponseDto } from './dto/magic-link-request-response.d
 import {
   MAGIC_LINK_CLIENT_PATH,
   MAGIC_LINK_CONFIRM_MESSAGE,
+  MAGIC_LINK_INVALID_MESSAGE,
   MAGIC_LINK_RATE_WINDOW_MS,
 } from './constants/magic-link.constants';
 import {
@@ -294,7 +295,7 @@ export class MagicLinkService {
     this.logger.warn(`Magic link rejected: ${reason}`);
     return new AppException(
       ErrorCode.MAGIC_LINK_INVALID,
-      'This sign-in link is no longer valid. Request a new one.',
+      MAGIC_LINK_INVALID_MESSAGE,
       HttpStatus.BAD_REQUEST,
     );
   }

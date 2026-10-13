@@ -92,6 +92,28 @@ export class PostgresNativeAuthorizationStore extends NativeAuthorizationStore {
     );
   }
 
+  async createPendingIn(
+    unitOfWork: UnitOfWork,
+    pending: NewPendingAuthorization,
+  ): Promise<void> {
+    await postgresTransactionOf(unitOfWork)
+      .insertInto('authorization_transactions')
+      .values({
+        transaction_id: pending.transactionId,
+        client_id: pending.clientId,
+        redirect_uri: pending.redirectUri,
+        code_challenge: pending.codeChallenge,
+        state: pending.state,
+        requested_scopes: pending.requestedScopes,
+        audience: pending.audience,
+        intent: NATIVE_AUTH_INTENT,
+        expires_at: pending.expiresAt,
+        consumed: false,
+        auth_epoch: pending.authEpoch,
+      })
+      .execute();
+  }
+
   async findPending(
     transactionId: string,
     now: Date,

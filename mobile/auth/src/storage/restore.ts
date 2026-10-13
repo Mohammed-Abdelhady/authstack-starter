@@ -21,8 +21,13 @@ import type { AuthRuntime } from '../runtime/runtime';
 import { saveSessionAfterUnlock } from './session-save';
 import type { RestoreOutcome } from '../types/auth';
 import type { SignInController } from '../sign-in/sign-in';
+import type { NativeController } from '../types/native-sign-in';
 
-export function createRestoreOperation(runtime: AuthRuntime, signIn: SignInController) {
+export function createRestoreOperation(
+  runtime: AuthRuntime,
+  signIn: SignInController,
+  native: NativeController,
+) {
   const restore = (): Promise<RestoreOutcome> => {
     if (runtime.disposed) return Promise.resolve({ kind: 'disposed' });
     if (runtime.restorePromise) return runtime.restorePromise;
@@ -260,6 +265,10 @@ export function createRestoreOperation(runtime: AuthRuntime, signIn: SignInContr
         return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);
       }
       runtime.setState(SESSION_STATUS.SIGNED_OUT, AUTH_OPERATION.NONE);
+      if (record.nativeAttempt) {
+        await native.restore(epoch);
+        return finishRestoreWithLaunchAddress(runtime, native);
+      }
       return finishRestoreWithLaunchAddress(runtime, signIn);
     }
     return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);

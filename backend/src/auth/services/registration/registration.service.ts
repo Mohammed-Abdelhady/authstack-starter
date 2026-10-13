@@ -70,7 +70,20 @@ export class RegistrationService {
       );
     }
 
-    const existingUser = await this.accounts.findAddressOwner(dto.email);
+    await this.requestRegistrationCode(dto.email, false);
+    return RegisterResponseDto.success(dto.email);
+  }
+
+  /** Same generic registration request, with a private generation commitment. */
+  async registerForNative(email: string): Promise<string | null> {
+    return this.requestRegistrationCode(email, true);
+  }
+
+  private async requestRegistrationCode(
+    email: string,
+    includeGeneration: boolean,
+  ): Promise<string | null> {
+    const existingUser = await this.accounts.findAddressOwner(email);
 
     if (existingUser) {
       await this.spendCodeHashingTime();
@@ -78,30 +91,36 @@ export class RegistrationService {
       // send no notice, because the address has no live owner to warn.
       if (!existingUser.isDeleted) {
         const underCap = await this.mailCounterService.tryRecord(
-          dto.email,
+          email,
           MAIL_COUNTER_PURPOSE.NOTICE,
         );
         if (underCap) {
           this.authMailService.deferRegistrationAttemptNotice(
-            dto.email,
+            email,
             existingUser.name,
           );
         }
       }
-      return RegisterResponseDto.success(dto.email);
+      return null;
+    }
+
+    if (includeGeneration) {
+      const issued =
+        await this.verificationCodeService.createOrUpdatePendingRegistrationWithGeneration(
+          email,
+          PENDING_PURPOSE.SIGNUP,
+        );
+      if (issued) this.authMailService.deferActivationCode(email, issued.code);
+      return issued?.generationHash ?? null;
     }
 
     const issued =
       await this.verificationCodeService.createOrUpdatePendingRegistration(
-        dto.email,
+        email,
         PENDING_PURPOSE.SIGNUP,
       );
-
-    if (issued) {
-      this.authMailService.deferActivationCode(dto.email, issued.code);
-    }
-
-    return RegisterResponseDto.success(dto.email);
+    if (issued) this.authMailService.deferActivationCode(email, issued.code);
+    return null;
   }
 
   /**

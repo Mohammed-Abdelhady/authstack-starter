@@ -2,6 +2,8 @@
  * Contract every OAuth provider implements. The registry resolves strategies by
  * `id`, so nothing outside a strategy needs to know which providers exist.
  */
+import type { NativeProviderProof } from './types/native-provider';
+
 export interface OAuthProviderStrategy {
   /** Slug used in routes, storage and the provider list, for example 'google'. */
   readonly id: string;
@@ -51,6 +53,8 @@ export interface OAuthProviderStrategy {
     tokens: OAuthTokens,
     callbackParams?: OAuthCallbackParams,
   ): Promise<OAuthProfile>;
+
+  verifyNativeCredential?(proof: NativeProviderProof): Promise<OAuthProfile>;
 }
 
 export type OAuthCallbackMethod = 'GET' | 'POST';

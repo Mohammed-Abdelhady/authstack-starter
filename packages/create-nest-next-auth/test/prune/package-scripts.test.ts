@@ -6,6 +6,7 @@ import {
   prunePackageScripts,
   prunePackageDependencies,
   prunePackageWorkspaces,
+  pruneFeaturePackages,
   pruneRootPackage,
 } from '../../src/prune/package-scripts.js';
 
@@ -189,6 +190,34 @@ describe('prunePackageDependencies', () => {
     expect(prunePackageDependencies(packageJson, new Set(['@app/native-auth']))).toEqual({
       devDependencies: { eslint: '^9.0.0' },
       optionalDependencies: {},
+    });
+  });
+});
+
+describe('pruneFeaturePackages', () => {
+  it('removes only omitted native SDKs from an installed shell manifest', async () => {
+    const root = await tempRoot();
+    await mkdir(join(root, 'mobile/expo'), { recursive: true });
+    const path = join(root, 'mobile/expo/package.json');
+    await writeFile(
+      path,
+      JSON.stringify({
+        dependencies: {
+          'react-native-passkeys': '0.4.2',
+          'react-native-nitro-google-signin': '1.3.0',
+          'react-native-fbsdk-next': '13.4.3',
+        },
+      }),
+    );
+
+    const edited = await pruneFeaturePackages(
+      root,
+      new Set(['react-native-passkeys', 'react-native-fbsdk-next']),
+    );
+
+    expect(edited).toEqual(['mobile/expo/package.json']);
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({
+      dependencies: { 'react-native-nitro-google-signin': '1.3.0' },
     });
   });
 });

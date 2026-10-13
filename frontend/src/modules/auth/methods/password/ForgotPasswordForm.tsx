@@ -16,6 +16,13 @@ import { toast } from '@/lib/toast';
 import { Link, useRouter } from '@/i18n/navigation';
 import { preventNavigationBlur } from '@/modules/auth/utils/preventNavigationBlur';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useSearchParams } from 'next/navigation';
+import { LOGIN_PATH, REDIRECT_PARAM } from '@/modules/auth/constants/authMethods';
+import {
+  nativeBrowserJourneyPath,
+  passwordRecoveryPath,
+} from '@/modules/auth/utils/nativeBrowserJourney';
+import { readNativeBrowserGuestFlow } from '@/modules/auth/utils/nativeBrowserSelectors';
 
 /**
  * Forgot password form validation schema
@@ -46,6 +53,9 @@ export function ForgotPasswordForm() {
   const tToast = useTranslations('toast');
   const refusalText = useRefusalText();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get(REDIRECT_PARAM);
+  const flow = readNativeBrowserGuestFlow(searchParams);
   const [forgotPassword, { isLoading }] = useForgotPasswordMutation();
 
   // Memoize schema creation when translation function changes
@@ -81,7 +91,7 @@ export function ForgotPasswordForm() {
         toast.success(tToast('success.resetLinkSent'));
 
         // Redirect to reset password page with email
-        router.push(`/auth/reset-password?email=${encodeURIComponent(data.email)}`);
+        router.push(passwordRecoveryPath(data.email, redirect, flow));
       } catch (err: unknown) {
         // The reason is said once, here, in the page's language.
         setError('root', {
@@ -90,7 +100,7 @@ export function ForgotPasswordForm() {
         });
       }
     },
-    [forgotPassword, refusalText, router, setError, tToast],
+    [flow, forgotPassword, redirect, refusalText, router, setError, tToast],
   );
   const onSubmit = useSingleFlight(submit);
 
@@ -150,7 +160,7 @@ export function ForgotPasswordForm() {
             {/* Back to Login Link */}
             <div className="mt-6 text-center">
               <Link
-                href="/auth/login"
+                href={nativeBrowserJourneyPath(LOGIN_PATH, redirect, flow)}
                 className="text-sm font-semibold text-primary hover:underline transition-colors"
                 data-testid="back-to-login-link"
                 onMouseDown={preventNavigationBlur}

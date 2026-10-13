@@ -17,6 +17,7 @@ import { PasskeyRegistrationReauth } from './services/passkey-registration-reaut
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { WebAuthnAdapter } from './services/webauthn.adapter';
+import { PasskeyStore } from './stores/passkey.store';
 import { UserModule } from '../../user/user.module';
 import { CommonModule } from '../../common/common.module';
 
@@ -55,6 +56,8 @@ import { CommonModule } from '../../common/common.module';
     ...PASSKEYS_PERSISTENCE_PROVIDERS,
   ],
   exports: [
+    WebAuthnAdapter,
+    PasskeyStore,
     PasskeyAssertionService,
     PasskeyManagementService,
     PasskeySecondFactorVerifier,

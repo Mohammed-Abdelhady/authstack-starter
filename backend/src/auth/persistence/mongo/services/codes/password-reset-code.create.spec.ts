@@ -7,6 +7,7 @@ import {
   type MemoryReplSet,
 } from '../../../../../../test/utils/memory-replset';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'node:crypto';
 import { PasswordResetCodeService } from '../../../../services/codes/password-reset-code.service';
 import {
   PendingPasswordReset,
@@ -120,6 +121,32 @@ describe('PasswordResetCodeService pending reset', () => {
     const record = await stored('new@example.test');
     expect(await bcrypt.compare(code, record.hashedCode)).toBe(true);
     expect(await resets.countDocuments({ email: 'new@example.test' })).toBe(1);
+  });
+
+  it('returns only the commitment for the stored native reset generation', async () => {
+    const first = await service.createOrUpdatePasswordResetWithGeneration(
+      'native-reset-generation@example.test',
+    );
+    const firstRecord = await stored('native-reset-generation@example.test');
+
+    expect(first.generationHash).toBe(
+      createHash('sha256').update(firstRecord.hashedCode).digest('hex'),
+    );
+    expect(first.generationHash).not.toBe(first.code);
+    expect(await bcrypt.compare(first.code, firstRecord.hashedCode)).toBe(true);
+
+    const second = await service.createOrUpdatePasswordResetWithGeneration(
+      'native-reset-generation@example.test',
+    );
+    const secondRecord = await stored('native-reset-generation@example.test');
+
+    expect(second.generationHash).toBe(
+      createHash('sha256').update(secondRecord.hashedCode).digest('hex'),
+    );
+    expect(second.generationHash).not.toBe(first.generationHash);
+    expect(await bcrypt.compare(second.code, secondRecord.hashedCode)).toBe(
+      true,
+    );
   });
 
   it('updates the winner when two creates race on the unique index', async () => {

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
+import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   PASSWORD_RESET_CONSTRAINT,
   PasswordResetClaim,
@@ -127,6 +129,27 @@ export class MongoPasswordResetCodeStore extends PasswordResetCodeStore {
         email: deleted.email,
         purpose: PURPOSE,
       }),
+    );
+    return CODE_CLAIM.CLAIMED;
+  }
+
+  async claimCodeIn(
+    unitOfWork: UnitOfWork,
+    claim: PasswordResetClaim,
+  ): Promise<CodeClaim> {
+    const session = mongoSessionOf(unitOfWork);
+    const deleted = await this.pendingPasswordResetModel
+      .findOneAndDelete({
+        _id: toObjectId(claim.id),
+        hashedCode: claim.hashedCode,
+        expiresAt: { $gt: claim.now },
+      })
+      .session(session);
+    if (deleted === null) return CODE_CLAIM.NOT_CLAIMABLE;
+    await clearMongoGuesses(
+      this.mailCounterModel,
+      { email: deleted.email, purpose: PURPOSE },
+      session,
     );
     return CODE_CLAIM.CLAIMED;
   }

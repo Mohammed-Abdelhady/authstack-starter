@@ -33,6 +33,10 @@ export default tseslint.config(
     },
   },
   {
+    files: ['build-config/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { module: 'readonly' } },
+  },
+  {
     // The shell hands every native module and platform global in. An import
     // here would let this package resolve its own second copy of one.
     files: ['src/**/*.ts', 'test/support/**/*.ts'],

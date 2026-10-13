@@ -124,7 +124,7 @@ export class AuthRuntime {
   setState(
     status: SessionStatus,
     operation: AuthOperation,
-    extras: Pick<AuthSnapshot, 'reason' | 'warning' | 'profile'> = {},
+    extras: Pick<AuthSnapshot, 'reason' | 'warning' | 'profile' | 'nativeAttempt'> = {},
   ): void {
     const next = freezeSnapshot({ status, operation, ...extras });
     if (sameSnapshot(this.snapshot, next)) return;

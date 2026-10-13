@@ -5,13 +5,13 @@ import { signInView } from '../logic/sign-in-view';
 import { useEngineSnapshot } from './use-engine-snapshot';
 
 export function useSignIn() {
-  const { runtime, t } = useUi();
+  const { runtime, t, locale } = useUi();
   const { signIn, engine } = runtime;
   const snapshot = useEngineSnapshot(engine);
   const attempt = useSyncExternalStore(signIn.subscribe, signIn.getState);
   const view = useMemo(() => signInView(snapshot, attempt), [snapshot, attempt]);
   const notice = signInNotice(view);
-  const act = useCallback(() => signIn.run(view.action), [signIn, view.action]);
+  const act = useCallback(() => signIn.run(view.action, { locale }), [locale, signIn, view.action]);
 
   return {
     canAct: view.canAct,
