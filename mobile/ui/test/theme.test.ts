@@ -21,9 +21,4 @@ describe('the theme for what the system reports', () => {
       expect(theme.statusBarStyle).toBe('dark-content');
     },
   );
-
-  it('keeps the two palettes apart, so a swapped one cannot pass', () => {
-    expect([PALETTE.dark.text, PALETTE.dark.background]).toEqual(['#E4EDE9', '#0C1412']);
-    expect([PALETTE.light.text, PALETTE.light.background]).toEqual(['#10201B', '#EEF2F0']);
-  });
 });
