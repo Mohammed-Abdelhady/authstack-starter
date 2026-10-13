@@ -49,7 +49,7 @@ Facebook does not give this application a reliable proof that the returned email
    - **App type**: Consumer
    - Click **Next**
 4. Enter app details:
-   - **App name**: `Auth Boilerplate` (or your app name)
+   - **App name**: `AuthStack Starter` (or your app name)
    - **App contact email**: Your support email
    - **Business account**: (optional) Select if you have one
 5. Click **Create App**
@@ -161,7 +161,7 @@ The app requests only default permissions that **DO NOT require App Review**.
 When users click "Sign in with Facebook", they see:
 
 ```
-"MERN Auth Boilerplate wants to access your Facebook information"
+"AuthStack Starter wants to access your Facebook information"
 
 ✓ Public profile (Your name and profile picture)
 ✓ Email address (Your primary email address)

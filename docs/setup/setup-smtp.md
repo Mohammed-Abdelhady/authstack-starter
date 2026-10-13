@@ -46,7 +46,7 @@ Gmail requires 2FA to use App Passwords.
 2. Select app:
    - **Select app**: Mail
    - **Select device**: Other (Custom name)
-   - **Name**: `Auth Boilerplate` or your app name
+   - **Name**: `AuthStack Starter` or your app name
 3. Click **Generate**
 4. Copy the 16-character password (format: `xxxx xxxx xxxx xxxx`)
 5. Store securely (you won't see it again)
