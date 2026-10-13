@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import { useUi } from '../context/ui-context';
-import { SIZE, SPACE, type Palette } from '../theme/tokens';
+import { SIZE, SPACE } from '../theme/tokens';
+import type { Palette } from '../types/theme';
 import { Description, Heading } from './Typography';
 
 export const NOTICE_TONE = { INFO: 'info', PROBLEM: 'problem' } as const;
