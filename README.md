@@ -59,7 +59,7 @@ At runtime, the frontend calls `GET /api/auth/methods` to learn which authentica
 
 ## Quick start
 
-Use Node 22 (22.12 or newer) and pnpm 12.6.0. Node 22 includes Corepack. Enable the pinned manager before cloning or scaffolding:
+Use Node 22.12 or newer on the 22 line, or Node 24, and pnpm 12.6.0. Node 22 and Node 24 include Corepack. Enable the pinned manager before cloning or scaffolding:
 
 ```bash
 nvm use 22
