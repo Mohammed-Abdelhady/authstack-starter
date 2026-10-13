@@ -1,20 +1,19 @@
 # create-authstack-starter
 
-Scaffolds the NestJS + Next.js authentication boilerplate with only the sign-in
-methods you pick.
+Scaffolds AuthStack Starter with the clients and sign-in methods you pick. Before its first npm release, clone the [AuthStack Starter source repository](https://github.com/Mohammed-Abdelhady/authstack-starter) and run these commands from that source clone. Generated projects omit the CLI workspace.
 
 ```bash
-pnpm dlx create-authstack-starter my-app
+pnpm install --frozen-lockfile
+pnpm --filter create-authstack-starter run build
+node packages/create-authstack-starter/dist/index.js ../my-app
 ```
 
-The CLI copies the boilerplate it ships with, deletes the files, env vars and
-docs belonging to the methods you left out, then commits the result and installs
-dependencies.
+After npm publication, use `pnpm dlx create-authstack-starter my-app`. The CLI copies its template, removes files, env vars and docs for omitted methods, commits the result and installs dependencies.
 
 ## Usage
 
 ```bash
-pnpm dlx create-authstack-starter [directory] [options]
+node packages/create-authstack-starter/dist/index.js [directory] [options]
 ```
 
 The directory can be a name or a path. Its last segment becomes the project
@@ -55,7 +54,7 @@ in `oauth-core`, which is not offered on its own.
 For a fresh database, select a method that can create and sign in to the first account. Passkeys need an existing signed-in account for enrollment; a new Facebook identity needs to be linked in settings from another signed-in method. Projects using an existing database can keep enrolled passkeys and linked Facebook identities. Keep the same passkey RP ID and origin.
 
 ```bash
-pnpm dlx create-authstack-starter my-app --features email-password,google --no-install
+node packages/create-authstack-starter/dist/index.js ../my-app --features email-password,google --no-install
 ```
 
 ### Ids and exit codes
@@ -332,7 +331,7 @@ before pruning and installation.
 
 ## Add rules to an existing project
 
-Run `create-authstack-starter add rules --rules strict --dry-run` at the project root. Use --yes to confirm.
+At the existing project's root, run `node /path/to/authstack-starter/packages/create-authstack-starter/dist/index.js add rules --rules strict --dry-run` after building the CLI. After npm publication, use `pnpm dlx create-authstack-starter add rules --rules strict --dry-run`. Use --yes to confirm.
 
 | Layout at the current directory                                                    | Outcome                                                         |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------- |

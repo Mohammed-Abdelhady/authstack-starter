@@ -26,15 +26,13 @@ Authentication starter with a NestJS 11 backend, a Next.js 16 frontend and React
 | i18n     | next-intl                                         |
 | Tests    | Jest, Playwright                                  |
 
+<!-- repository-only:start -->
+
 ## Scaffold a new project
 
-To scaffold a project with only the authentication methods you want:
+The CLI is now `create-authstack-starter`. See [CLI setup and options](packages/create-authstack-starter/README.md) for source-build commands and npm release availability. Run those commands from the source repository; generated projects omit the CLI workspace.
 
-```bash
-pnpm dlx create-nest-next-auth my-app
-```
-
-The CLI asks which clients, which database and which sign-in methods to keep. It removes unused strategy files, controller endpoints, frontend UI modules, environment variables, and setup docs. See [CLI options and flags](https://github.com/Mohammed-Abdelhady/authstack-starter/blob/master/packages/create-nest-next-auth/README.md).
+<!-- repository-only:end -->
 
 ## Choose your auth methods
 
