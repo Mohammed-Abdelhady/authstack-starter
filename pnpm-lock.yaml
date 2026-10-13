@@ -921,7 +921,7 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3(@types/node@22.20.2)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.3.1(@types/node@22.20.2)(jiti@2.7.0)(terser@5.46.0)(yaml@2.9.1))
 
-  packages/create-nest-next-auth:
+  packages/create-authstack-starter:
     devDependencies:
       '@clack/prompts':
         specifier: ^1.8.1

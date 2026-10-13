@@ -3,9 +3,9 @@ import test from 'node:test';
 import { evaluateChanges, isCappedPath } from '../../check-hard-bans.mjs';
 
 const CAPPED = [
-  'packages/create-nest-next-auth/src/cli.ts',
-  'packages/create-nest-next-auth/test/plan/plan.test.ts',
-  'packages/create-nest-next-auth/scripts/sync-template.mjs',
+  'packages/create-authstack-starter/src/cli.ts',
+  'packages/create-authstack-starter/test/plan/plan.test.ts',
+  'packages/create-authstack-starter/scripts/sync-template.mjs',
   'scripts/init.js',
   'scripts/lib/cli-utils.js',
   'scripts/ci/runner.mjs',
@@ -18,10 +18,10 @@ const CAPPED = [
 ];
 
 const UNCAPPED = [
-  'packages/create-nest-next-auth/docs/add-rules.md',
-  'packages/create-nest-next-auth/template/scripts/init.js',
-  'packages/create-nest-next-auth/testing/helper.ts',
-  'packages/create-nest-next-auth/tsdown.config.ts',
+  'packages/create-authstack-starter/docs/add-rules.md',
+  'packages/create-authstack-starter/template/scripts/init.js',
+  'packages/create-authstack-starter/testing/helper.ts',
+  'packages/create-authstack-starter/tsdown.config.ts',
   'scripts/ci/gates.json',
   'scripts-archive/init.js',
   'docs/scripts/init.js',

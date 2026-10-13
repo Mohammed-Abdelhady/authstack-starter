@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { legacyReferences } from '../../check-package-manager.mjs';
-import { templateContent, isExcluded } from '../../../packages/create-nest-next-auth/scripts/sync-template.mjs';
+import { templateContent, isExcluded } from '../../../packages/create-authstack-starter/scripts/sync-template.mjs';
 import { buildNextStepLines } from '../../lib/init-next-steps.js';
 import { gitEnvironment } from '../git/git-environment.mjs';
 
@@ -133,7 +133,7 @@ test('lint-staged selects each importing workspace binary instead of root hoisti
   const { default: config } = await import('../../../.lintstagedrc.cjs');
   assert.deepEqual([
     config['backend/**/*.ts'], config['frontend/**/*.{ts,tsx}'],
-    config['packages/create-nest-next-auth/**/*.ts'], config['shared/core/**/*.ts'],
+    config['packages/create-authstack-starter/**/*.ts'], config['shared/core/**/*.ts'],
     config['shared/sdk/**/*.ts'], config['mobile/auth/**/*.ts'],
     config['mobile/cli/**/*.{ts,tsx}'], config['mobile/expo/**/*.{ts,tsx}'],
     config['mobile/metro/**/*.{ts,cjs}'], config['mobile/adapters/**/*.ts'],
@@ -142,7 +142,7 @@ test('lint-staged selects each importing workspace binary instead of root hoisti
   ], [
     ['pnpm --filter backend exec eslint --fix --max-warnings 0'],
     ['pnpm --filter frontend exec eslint --fix --max-warnings 0'],
-    ['pnpm --filter create-nest-next-auth exec eslint --fix --max-warnings 0'],
+    ['pnpm --filter create-authstack-starter exec eslint --fix --max-warnings 0'],
     ['pnpm --filter @app/core exec eslint --fix --max-warnings 0'],
     ['pnpm --filter @app/sdk exec eslint --fix --max-warnings 0'],
     ['pnpm --filter @app/native-auth exec eslint --fix --max-warnings 0'],

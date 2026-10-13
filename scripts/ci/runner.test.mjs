@@ -109,9 +109,9 @@ test('the repository gate list has separate quality, install and installer selec
       ['pnpm', ['run', 'build']],
       ['pnpm', ['--filter', 'backend', 'run', 'test:e2e']],
       ['pnpm', ['--filter', 'backend', 'run', 'test:e2e:postgres']],
-      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
-      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
-      ['pnpm', ['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+      ['pnpm', ['--filter', 'create-authstack-starter', 'run', 'test:combinations']],
+      ['pnpm', ['--filter', 'create-authstack-starter', 'run', 'test:combinations:postgres']],
+      ['pnpm', ['--filter', 'create-authstack-starter', 'run', 'test:combinations:mongodb']],
       ['pnpm', ['--filter', 'frontend', 'exec', 'playwright', 'install', 'chromium']],
       ['pnpm', ['--filter', 'frontend', 'run', 'build']],
       [
@@ -123,15 +123,15 @@ test('the repository gate list has separate quality, install and installer selec
   );
   assert.deepEqual(
     selectGates(config, '--installer').map((g) => g.args),
-    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations']],
+    [['--filter', 'create-authstack-starter', 'run', 'test:combinations']],
   );
   assert.deepEqual(
     selectGates(config, '--installer-postgres').map((g) => g.args),
-    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:postgres']],
+    [['--filter', 'create-authstack-starter', 'run', 'test:combinations:postgres']],
   );
   assert.deepEqual(
     selectGates(config, '--installer-mongodb').map((g) => g.args),
-    [['--filter', 'create-nest-next-auth', 'run', 'test:combinations:mongodb']],
+    [['--filter', 'create-authstack-starter', 'run', 'test:combinations:mongodb']],
   );
   const browser = selectGates(config, '--browser');
   assert.equal(browser.length, 4);
