@@ -33,14 +33,14 @@ export const MONGO_SURVIVING_LINES: Record<string, string[]> = {
   'frontend/src/app/fonts/OFL-GeistMono.txt': [FONT_LICENSE_COLLECTION],
   'frontend/src/app/fonts/OFL-NotoSansArabic.txt': [FONT_LICENSE_COLLECTION],
   'backend/README.md': ['- [Postman collection](docs/postman/README.md)'],
-  'backend/docs/postman/FULL-MERN-AUTH-Boilerplate-API.postman_collection.json': [
+  'backend/docs/postman/authstack-starter-api.postman_collection.json': [
     '"description": "API collection for NestJS backend with cookie sessions, dynamic RBAC, TOTP 2FA, passkeys, and OAuth.",',
     '"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",',
   ],
   'backend/docs/postman/README.md': [
     '# Postman collection',
     'This directory contains the Postman collection and environment files for testing backend endpoints.',
-    '- `FULL-MERN-AUTH-Boilerplate-API.postman_collection.json`: Complete collection of backend requests organized by domain.',
+    '- `authstack-starter-api.postman_collection.json`: Complete collection of backend requests organized by domain.',
     '### 1. Import collection',
     '## Collection structure',
     'The collection contains the following folders:',
