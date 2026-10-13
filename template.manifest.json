@@ -43,6 +43,7 @@
         "mobile/device-key/**",
         "mobile/metro/**",
         "mobile/ui/**",
+        "scripts/sync-mobile-theme.mjs",
         "docs/setup/setup-mobile-sign-in.md"
       ],
       "workspaces": [
@@ -307,6 +308,8 @@
         "frontend/src/app/fonts/NotoSansArabic.woff2",
         "frontend/src/app/fonts/OFL-NotoSansArabic.txt",
         "mobile/ui/src/i18n/ar.ts",
+        "mobile/ui/assets/fonts/AppUIArabic-*.ttf",
+        "mobile/ui/assets/fonts/OFL-NotoSansArabic.txt",
         "mobile/expo/src/i18n/ar.ts",
         "frontend/src/app/arabic-font.css"
       ],

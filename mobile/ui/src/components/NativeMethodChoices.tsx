@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { NATIVE_PROVIDER_SDK_MODE } from '@app/core';
 import type { ComponentType } from 'react';
 import type { NativeMethods } from '@app/sdk';
-import { Button } from './Button';
+import { Button, BUTTON_VARIANT } from './Button';
 import { NativeProviderButton } from './NativeProviderButton';
 import { NATIVE_METHOD, NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
 import { useUi } from '../context/ui-context';
@@ -46,6 +46,7 @@ export function NativeMethodChoices({
       {methods.capabilities.password ? (
         <Button
           label={t('native.passwordChoice')}
+          variant={BUTTON_VARIANT.PRIMARY}
           onPress={password}
           disabled={disabled}
           stretch
@@ -55,6 +56,7 @@ export function NativeMethodChoices({
       {methods.capabilities.passkeys ? (
         <Button
           label={t('native.passkeyChoice')}
+          variant={BUTTON_VARIANT.OUTLINE}
           busy={pendingFactor === 'passkey'}
           onPress={passkey}
           disabled={disabled}
@@ -94,6 +96,7 @@ export function NativeMethodChoices({
       {methods.capabilities.recovery ? (
         <Button
           label={t('native.recoveryChoice')}
+          variant={BUTTON_VARIANT.LINK}
           onPress={recovery}
           disabled={disabled}
           stretch

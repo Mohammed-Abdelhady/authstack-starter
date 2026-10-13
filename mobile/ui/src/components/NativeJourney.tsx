@@ -26,7 +26,7 @@ function EmailLinkSent({
   const title = useScreenTitleFocus();
   return (
     <>
-      <Heading level="screen" nativeRef={title}>
+      <Heading level="screen" variant="display" nativeRef={title}>
         {t('native.emailSent')}
       </Heading>
       <Description>{t('native.emailSentHint', { email })}</Description>

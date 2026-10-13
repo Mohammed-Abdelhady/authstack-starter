@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { PALETTE, SIZE, type Palette } from '../src/theme/tokens';
+import { PALETTE, SIZE } from '../src/theme/tokens';
+import type { Palette } from '../src/types/theme';
 import { contrastRatio } from './support/contrast';
 
 type Pair = readonly [foreground: keyof Palette, background: keyof Palette, minimum: number];

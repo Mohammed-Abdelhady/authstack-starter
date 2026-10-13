@@ -3,7 +3,7 @@ import type { NativeProviderButtonProps } from '../types/native-sign-in';
 import { createContext, useContext } from 'react';
 import type { Direction, Locale, Translate } from '../i18n';
 import type { UiRuntime } from '../state/runtime';
-import type { Palette } from '../theme/tokens';
+import type { Palette } from '../types/theme';
 import type { Confirm, EdgeInsets } from '../types';
 
 export interface Ui {
@@ -12,6 +12,7 @@ export interface Ui {
   locale: Locale;
   t: Translate;
   reduceMotion: boolean;
+  fontsReady?: boolean;
   insets: EdgeInsets;
   runtime: UiRuntime;
   now: () => number;

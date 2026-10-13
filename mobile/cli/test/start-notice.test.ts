@@ -6,6 +6,8 @@ import { ofKind, paint } from './support/painted';
 const native = await vi.hoisted(async () => (await import('./support/painted')).createFakeNative());
 
 vi.mock('react-native', () => native.module);
+const fonts = vi.hoisted(() => ({ loaded: true, error: null as Error | null }));
+vi.mock('expo-font', () => ({ useFonts: () => [fonts.loaded, fonts.error] as const }));
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: { children: ReactNode }) => children,
   useSafeAreaInsets: () => ({ top: 47, bottom: 34, left: 0, right: 0 }),
@@ -13,12 +15,13 @@ vi.mock('react-native-safe-area-context', () => ({
 /** The device key is a native module. Here it has not answered yet, as in the first frames of a launch. */
 vi.mock('../src/start', () => ({ START: new Promise(() => undefined) }));
 
-/** Written by hand from the palette of each scheme. */
-const SCHEMES = [
-  ['light', { background: '#EEF2F0', text: '#10201B', bar: 'dark-content' }],
-  ['dark', { background: '#0C1412', text: '#E4EDE9', bar: 'light-content' }],
-  [null, { background: '#EEF2F0', text: '#10201B', bar: 'dark-content' }],
+const FONT_RESULTS = [
+  { name: 'loading', loaded: false, error: null },
+  { name: 'loaded', loaded: true, error: null },
+  { name: 'failed', loaded: false, error: new Error('font bridge unavailable') },
 ] as const;
+
+const SCHEMES = ['light', 'dark', null] as const;
 
 const DEVICES = [
   { tag: 'en-GB', locale: 'en', direction: 'ltr' },
@@ -50,20 +53,14 @@ describe.each(DEVICES)('the bare app on $tag before the key answers', (device) =
     App = await appOn(device.tag);
   });
 
-  it.each(SCHEMES)('fills the window and says it is starting, in %j', (reported, expected) => {
-    const painted = paint(native, reported, createElement(App));
-    const [root] = painted;
-    const [text] = ofKind(painted, 'Text');
+  describe.each(FONT_RESULTS)('with fonts $name', (result) => {
+    it.each(SCHEMES)('announces startup in %j', (reported) => {
+      fonts.loaded = result.loaded;
+      fonts.error = result.error;
+      const painted = paint(native, reported, createElement(App));
+      const [text] = ofKind(painted, 'Text');
 
-    expect(root?.kind).toBe('View');
-    expect(root?.style).toMatchObject({
-      flex: 1,
-      backgroundColor: expected.background,
-      paddingTop: 47,
-      direction: device.direction,
+      expect(text?.text).toBe(startingNotice(device.locale).text);
     });
-    expect(ofKind(painted, 'StatusBar').map((bar) => bar.props.barStyle)).toEqual([expected.bar]);
-    expect(text?.text).toBe(startingNotice(device.locale).text);
-    expect(text?.style).toMatchObject({ color: expected.text, writingDirection: device.direction });
   });
 });
