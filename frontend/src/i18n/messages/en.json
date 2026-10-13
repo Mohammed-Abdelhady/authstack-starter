@@ -16,7 +16,7 @@
       "warning": "Warning",
       "danger": "Danger"
     },
-    "appName": "Auth App",
+    "appName": "AuthStack Starter",
     "appDescription": "Authentication and role-based access control boilerplate",
     "welcome": "Welcome",
     "language": "Language",
