@@ -1,6 +1,6 @@
 {
   "home": {
-    "title": "Full-Stack Authentication Boilerplate",
+    "title": "AuthStack Starter",
     "subtitle": "Production-ready authentication with Next.js and NestJS",
     "description": "A comprehensive authentication solution featuring email/password login, OAuth integration, role-based access control, and internationalization support. Built with modern technologies and best practices.",
     "ctaPrimary": "Get Started",
