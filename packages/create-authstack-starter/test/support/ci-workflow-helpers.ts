@@ -121,3 +121,21 @@ export function expectSupportedActionInputs(
     }
   }
 }
+
+export function expectNodeVersions(job: unknown, versions?: readonly number[]): void {
+  if (!isRecord(job)) throw new Error('Job must be a mapping');
+  expect(job.strategy).toEqual(
+    versions === undefined
+      ? undefined
+      : { 'fail-fast': false, matrix: { 'node-version': versions } },
+  );
+  expect(stepsOf(job).filter((step) => step.uses === SETUP_NODE_ACTION)).toEqual([
+    {
+      uses: SETUP_NODE_ACTION,
+      with:
+        versions === undefined
+          ? { 'node-version-file': '.nvmrc' }
+          : { 'node-version': '${{ matrix.node-version }}' },
+    },
+  ]);
+}
