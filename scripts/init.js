@@ -149,7 +149,7 @@ function updateReadmeFiles(config) {
       /git clone.+\.git/,
       `git clone https://github.com/your-username/${config.appSlug}.git`,
     );
-    content = content.replaceAll('cd FULL-MERN-AUTH-Boilerplate', `cd ${config.appSlug}`);
+    content = content.replaceAll('cd authstack-starter', `cd ${config.appSlug}`);
     writeFile(rootReadmePath, content);
     log.success('README.md updated');
   }
