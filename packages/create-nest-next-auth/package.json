@@ -27,12 +27,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate.git",
+    "url": "git+https://github.com/Mohammed-Abdelhady/authstack-starter.git",
     "directory": "packages/create-nest-next-auth"
   },
-  "homepage": "https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate/tree/master/packages/create-nest-next-auth#readme",
+  "homepage": "https://github.com/Mohammed-Abdelhady/authstack-starter/tree/master/packages/create-nest-next-auth#readme",
   "bugs": {
-    "url": "https://github.com/Mohammed-Abdelhady/nextjs-nestjs-oauth-rbac-boilerplate/issues"
+    "url": "https://github.com/Mohammed-Abdelhady/authstack-starter/issues"
   },
   "publishConfig": {
     "access": "public"
