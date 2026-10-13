@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "NestJS Next.js Auth RBAC API",
+    "name": "AuthStack Starter API",
     "description": "API collection for NestJS backend with cookie sessions, dynamic RBAC, TOTP 2FA, passkeys, and OAuth.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "2.1.0"
