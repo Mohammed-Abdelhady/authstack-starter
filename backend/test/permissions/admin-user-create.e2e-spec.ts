@@ -14,6 +14,12 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import { refusalAnswer } from '../utils/route-id-answers';
+import { ACCOUNT_CREATION_METHOD } from '../../src/auth/constants/account-creation';
+import { UnitOfWork } from '../../src/common/persistence/unit-of-work';
+import {
+  installAccountCreationPolicy,
+  type SwitchableAccountCreationPolicy,
+} from '../utils/account-creation-policy';
 
 const NEW_USER = {
   email: 'created@seed.local',
@@ -30,6 +36,7 @@ interface CreatedBody {
 describe('POST /api/admin/users (e2e)', () => {
   let e2e: E2eApp;
   let admin: TestAgent;
+  let policy: SwitchableAccountCreationPolicy;
 
   beforeAll(async () => {
     e2e = await bootE2eApp();
@@ -43,7 +50,10 @@ describe('POST /api/admin/users (e2e)', () => {
     e2e.clock.set(TEST_NOW);
     await e2e.reset();
     admin = await loginAs(e2e.httpServer, SEED_ADMIN);
+    policy = installAccountCreationPolicy(e2e.app);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   function stored() {
     return e2e.state.accounts.accountWithAddress(NEW_USER.email);
@@ -73,6 +83,12 @@ describe('POST /api/admin/users (e2e)', () => {
       isDeleted: false,
     });
     expect(account?.password).not.toBe(NEW_USER.password);
+    expect(policy.calls).toHaveLength(1);
+    expect(policy.calls[0].request).toEqual({
+      application: null,
+      method: ACCOUNT_CREATION_METHOD.STAFF,
+    });
+    expect(policy.calls[0].unitOfWork).toBeInstanceOf(UnitOfWork);
     const listed = await admin
       .get('/api/admin/users')
       .query({ search: 'created@seed.local' })
@@ -156,6 +172,7 @@ describe('POST /api/admin/users (e2e)', () => {
   });
 
   it('refuses an account without the permission and stores nothing', async () => {
+    policy.refused = true;
     const user = await loginAs(e2e.httpServer, SEED_USER);
 
     const refused = await user.post('/api/admin/users').send(NEW_USER);
@@ -166,6 +183,24 @@ describe('POST /api/admin/users (e2e)', () => {
       code: ErrorCode.FORBIDDEN,
     });
     expect(await stored()).toBeNull();
+    expect(policy.calls).toEqual([]);
+  });
+
+  it('refuses an authorised administrator at the creation policy without storing an account', async () => {
+    policy.refused = true;
+
+    const refused = await admin.post('/api/admin/users').send(NEW_USER);
+
+    expect(refusalAnswer(refused)).toMatchObject({
+      status: 403,
+      success: false,
+      code: ErrorCode.ACCOUNT_CREATION_REFUSED,
+    });
+    expect(policy.calls).toHaveLength(1);
+    expect(await stored()).toBeNull();
+    expect(await e2e.state.auth.countAccountsWithAddress(NEW_USER.email)).toBe(
+      0,
+    );
   });
 
   it('refuses a browser that is not signed in and stores nothing', async () => {
@@ -179,6 +214,7 @@ describe('POST /api/admin/users (e2e)', () => {
       code: ErrorCode.SESSION_REQUIRED,
     });
     expect(await stored()).toBeNull();
+    expect(policy.calls).toEqual([]);
     await request(e2e.httpServer).get('/health').expect(200);
   });
 });

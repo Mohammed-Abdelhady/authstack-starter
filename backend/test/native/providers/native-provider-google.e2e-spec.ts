@@ -1,6 +1,9 @@
 import { GoogleOAuthStrategy } from '../../../src/auth/oauth/strategies/google-oauth.strategy';
 import { configFor } from '../../../src/auth/oauth/strategies/oauth-strategy.harness-spec';
 import { describeNativeProviderProof } from './native-provider-proof-contract';
+import { describeNativeProviderCreationGate } from './native-provider-creation-gate.harness-spec';
+
+describeNativeProviderCreationGate();
 
 describeNativeProviderProof({
   id: 'google',

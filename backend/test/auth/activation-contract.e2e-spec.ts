@@ -6,6 +6,7 @@ import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import type { E2ePendingRegistrationFields } from '../utils/e2e-state-auth';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { describePasswordCreationGate } from './account-creation-gate.harness-spec';
 import { seedPendingEmailChange } from '../utils/auth/pending-email-change-seed';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
@@ -17,6 +18,8 @@ const PASSWORD = 'Password123!';
 const NAME = 'Test User';
 const LIVE_EXPIRY = new Date(TEST_NOW.getTime() + 15 * 60 * 1000);
 const TOO_LONG_PASSWORD = `A1${'a'.repeat(71)}`;
+
+describePasswordCreationGate();
 
 describe('Activation contract (e2e)', () => {
   let e2e: E2eApp;

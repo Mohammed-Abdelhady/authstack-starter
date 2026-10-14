@@ -17,6 +17,7 @@ import {
   type StartedLifecycleAttempt,
 } from './native-lifecycle.fixtures';
 import { TEST_NOW } from '../../utils/frozen-clock';
+import { describeNativeRegistrationGate } from './native-registration-gate.harness-spec';
 import type { E2eApp } from '../../utils/e2e-app';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
@@ -26,6 +27,8 @@ import {
 const EMAIL = 'native-registration@example.test';
 const PASSWORD = 'NativePassword123!';
 const NAME = 'Native Registered';
+
+describeNativeRegistrationGate();
 
 describe('native registration lifecycle contract', () => {
   let e2e: E2eApp;
