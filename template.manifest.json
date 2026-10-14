@@ -189,6 +189,7 @@
       "default": false,
       "files": [
         "backend/src/**/persistence/postgres/**",
+        "backend/src/host/migrations/**",
         "backend/src/**/*.postgres.integration.spec.ts",
         "backend/src/session/authority/postgres-lost-answer.spec.ts",
         "backend/src/session/issuance/postgres-harness-teardown.integration.spec.ts",
@@ -203,7 +204,12 @@
       ],
       "envVars": ["POSTGRES_URL", "POSTGRES_POOL_MAX"],
       "packages": ["pg", "kysely", "embedded-postgres", "@types/pg"],
-      "scripts": ["test:e2e:postgres", "migration:postgres:up", "migration:postgres:status"],
+      "scripts": [
+        "test:e2e:postgres",
+        "migration:postgres:up",
+        "migration:postgres:status",
+        "migration:postgres:adopt-host"
+      ],
       "jsonKeys": {
         "backend/nest-cli.json": [["compilerOptions", "assets"]]
       },
@@ -221,7 +227,8 @@
       "scriptRenames": {
         "test:e2e:postgres": "test:e2e",
         "migration:postgres:up": "migration:up",
-        "migration:postgres:status": "migration:status"
+        "migration:postgres:status": "migration:status",
+        "migration:postgres:adopt-host": "migration:adopt-host"
       },
       "envExamples": [
         {

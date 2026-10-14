@@ -31,7 +31,7 @@ describe('PostgreSQL startup transient connection recovery', () => {
       await expect(
         new PostgresStorageStartup(pool).prepare(),
       ).resolves.toBeUndefined();
-      expect(query).toHaveBeenCalledTimes(2);
+      expect(query).toHaveBeenCalledTimes(3);
     } finally {
       query.mockRestore();
     }

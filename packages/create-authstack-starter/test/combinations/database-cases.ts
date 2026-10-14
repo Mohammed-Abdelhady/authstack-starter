@@ -6,7 +6,12 @@ import { availableFeatures } from '../../src/manifest/select.js';
 import type { Manifest } from '../../src/types.js';
 import { buildCli, REPO_ROOT, runTool, scaffold } from '../support/combination-helpers.js';
 import { locksPackage } from '../support/lockfile-lines.js';
-import { expectConfigTests, expectInstallsLintsBuilds } from './combination-scenarios.js';
+import {
+  expectBuiltHostMigrations,
+  expectConfigTests,
+  expectInstallsLintsBuilds,
+  writeHostMigrationFixture,
+} from './combination-scenarios.js';
 import { verifyFeatureAvailability } from './feature-runtime.js';
 
 /**
@@ -54,6 +59,7 @@ export interface DatabaseCase {
   /** `undefined` asks for every method the manifest offers. */
   features: string[] | undefined;
   flags?: string[];
+  checkBuiltHostMigrations?: boolean;
   budgetMs: number;
   /** The time one suite may take inside the case. */
   suiteMs: number;
@@ -107,7 +113,9 @@ export function describeDatabaseProjects(title: string, cases: DatabaseCase[]): 
           ]);
           expect(scaffolded.ok, scaffolded.output).toBe(true);
 
+          if (testCase.checkBuiltHostMigrations) writeHostMigrationFixture(project);
           await expectInstallsLintsBuilds(project, inject('pnpmStore'), signal);
+          if (testCase.checkBuiltHostMigrations) await expectBuiltHostMigrations(project, signal);
           // The lockfile the install wrote names nothing of the other database.
           const lockfile = readFileSync(join(project, 'pnpm-lock.yaml'), 'utf8');
           const foreign = Object.entries(manifest.databases)

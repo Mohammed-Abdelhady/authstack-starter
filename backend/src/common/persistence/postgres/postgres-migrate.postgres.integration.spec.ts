@@ -12,12 +12,15 @@ import {
 describe('the PostgreSQL migration command', () => {
   const { emptyDatabase, run, recorded, startUp } = useMigrateDatabases();
 
-  it('reads only up and status as commands', () => {
+  it('reads up, status and adopt-host as commands', () => {
     expect(
-      ['up', 'status', 'down', '', undefined, 'UP'].map(migrateCommandOf),
+      ['up', 'status', 'adopt-host', 'down', '', undefined, 'UP'].map(
+        migrateCommandOf,
+      ),
     ).toEqual([
       MIGRATE_COMMAND.UP,
       MIGRATE_COMMAND.STATUS,
+      MIGRATE_COMMAND.ADOPT_HOST,
       null,
       null,
       null,
@@ -42,6 +45,9 @@ describe('the PostgreSQL migration command', () => {
             'Applied: 0',
             `Pending: ${EVERY_MIGRATION.join(', ')}`,
             'Not carried by this build: none',
+            'Host applied: 0',
+            'Host pending: none',
+            'Host not carried by this build: none',
           ],
         },
         record: null,
@@ -80,6 +86,9 @@ describe('the PostgreSQL migration command', () => {
             `Applied: ${EVERY_MIGRATION.length}`,
             'Pending: none',
             'Not carried by this build: none',
+            'Host applied: 0',
+            'Host pending: none',
+            'Host not carried by this build: none',
           ],
         },
         recorded: EVERY_MIGRATION,
@@ -135,6 +144,9 @@ describe('the PostgreSQL migration command', () => {
             `Applied: ${EVERY_MIGRATION.length}`,
             'Pending: none',
             'Not carried by this build: 9999_from_a_newer_build.sql',
+            'Host applied: 0',
+            'Host pending: none',
+            'Host not carried by this build: none',
           ],
         },
         up: {
