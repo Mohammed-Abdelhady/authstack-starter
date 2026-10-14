@@ -30,11 +30,11 @@ export interface ParsedApiError {
   /** Translation key for the error code */
   translationKey: string;
   /** HTTP status code if available */
-  statusCode?: number;
+  statusCode?: number | undefined;
   /** Additional error details */
-  details?: Record<string, unknown>;
+  details?: Record<string, unknown> | undefined;
   /** Whether this is a validation error with field-level errors */
   isValidationError: boolean;
   /** Field-level validation errors if present */
-  fieldErrors?: Record<string, string[]>;
+  fieldErrors?: Record<string, string[]> | undefined;
 }

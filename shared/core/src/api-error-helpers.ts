@@ -14,13 +14,17 @@ function isStringArray(value: unknown): value is string[] {
  * strings are dropped.
  */
 export function extractFieldErrors(details?: unknown): Record<string, string[]> | undefined {
-  if (!isRecord(details) || !isRecord(details.fields)) {
+  if (!isRecord(details)) {
+    return undefined;
+  }
+  const validationDetails: { fields?: unknown } = details;
+  if (!isRecord(validationDetails.fields)) {
     return undefined;
   }
 
   // No prototype: a field named `__proto__` must stay an ordinary key.
   const fieldErrors: Record<string, string[]> = Object.create(null);
-  for (const [field, messages] of Object.entries(details.fields)) {
+  for (const [field, messages] of Object.entries(validationDetails.fields)) {
     if (isStringArray(messages)) {
       fieldErrors[field] = messages;
     }

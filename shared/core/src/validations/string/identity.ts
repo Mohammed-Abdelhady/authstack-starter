@@ -86,22 +86,22 @@ export function zodEmail(options: { required?: boolean; messages: EmailMessages 
  */
 export function zodPassword(options: {
   required?: false;
-  min?: number;
+  min?: number | undefined;
   messages: PasswordMessages;
 }): z.ZodOptional<RefinedPasswordSchema>;
 export function zodPassword(options: {
   required: true;
-  min?: number;
+  min?: number | undefined;
   messages: PasswordMessages;
 }): RefinedPasswordSchema;
 export function zodPassword(options: {
   required?: boolean;
-  min?: number;
+  min?: number | undefined;
   messages: PasswordMessages;
 }): RefinedPasswordSchema | z.ZodOptional<RefinedPasswordSchema>;
 export function zodPassword(options: {
   required?: boolean;
-  min?: number;
+  min?: number | undefined;
   messages: PasswordMessages;
 }) {
   const schema = z
