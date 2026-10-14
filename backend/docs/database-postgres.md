@@ -31,26 +31,44 @@ The server refuses to start when the address is missing or malformed, and the me
 
 ## Migrations
 
-The migrations are plain SQL files under `src/common/persistence/postgres/migrations`. You apply them. The server never does.
+Core migrations are plain SQL files under `src/common/persistence/postgres/migrations`, recorded in `schema_migrations`. Put the host product's migrations under `src/host/migrations`; they are recorded in `host_migrations`. You apply both sources. The server never does.
+
+Host names follow the same pattern, `0001_description.sql`, with four digits and lowercase letters, digits or underscores. The numbers belong to the host product, so they do not continue the core sequence. A full filename must be distinct from every core filename. Migrations must be regular files; matching directory or symlink names are refused in both folders. A missing host folder or one with no matching SQL files is empty. The build copies both folders' SQL into `dist`.
 
 ```
 pnpm --filter backend run migration:postgres:up
 pnpm --filter backend run migration:postgres:status
 ```
 
-Both read the same environment the server reads. `up` applies what is pending, in order, each file in its own transaction, and says which files it applied. `status` changes nothing. Both exit with 1 when the database is not at this build afterwards, so a deploy script can test either.
+Both read the same environment the server reads. `up` applies core first under the core lock, releases that lock, then applies host under its own lock. Each source runs in name order, each file in its own transaction. A failed host file rolls back alone; earlier host files and all completed core migrations stay applied. Repair the file and run `up` again to apply what is still pending.
 
-When the server starts it compares the migrations it carries with the ones the database recorded. It refuses to serve when they differ and names the files. Run `up` before the first start and after every upgrade.
+`status` changes nothing. Its existing three core lines come first, followed by three host lines. Both commands exit with 1 when either source differs from this build afterwards, so a deploy script can test either.
 
-`up` refuses a database that holds a migration this build does not carry. It names the files and applies nothing.
+When the server starts it compares the migrations it carries with the ones the database recorded. It refuses to serve when either source differs and names the files. Host refusals also identify host migrations. Run `up` before the first start and after every upgrade.
 
-Two people can run `up` at once. They take turns, and the second finds nothing left. The second waits at most two minutes for the first. After that it says another session holds the migration lock, applies nothing and exits with 1.
+`up` refuses a source whose ledger holds a migration this build does not carry, before applying anything to that source. It names the files and identifies host migrations when they differ. A host refusal can happen after core has completed.
 
-There is no command that rolls a migration back. Restore a backup, or write a new migration that undoes the change.
+Two people can run `up` at once. They take turns within each source, and a waiting run finds that source's files already applied. Since the core lock is released before host, the runs can split the work between sources. Each lock wait is at most two minutes. After that it names the source whose lock is held and exits with 1. Files committed before that wait remain applied.
+
+A rollback to a build lacking an applied file is refused by `up` and by server start-up. Keep applied files in the build and repair forward with a new migration that undoes the change. There is no command that rolls migrations back.
 
 `0012_retention_indexes.sql` builds four indexes with plain `CREATE INDEX` inside its transaction. Writes to `sessions`, `authorization_transactions`, `native_credentials` and `native_dpop_proof_ids` wait until it commits. On a new database that takes no time. On a database that already holds many sessions, apply it with the server stopped.
 
 Each optional sign-in method that has tables of its own brings a migration file of its own. A project made without that method does not carry the file, so the numbers in the folder can have gaps. The order is the order of the names.
+
+### Adopting existing host records
+
+If your own SQL files were applied through the core folder before the host source existed, move those files to `src/host/migrations` and adopt their records. Give the command explicit filenames. For example, if `0042_orders.sql` was already applied and its row is in `schema_migrations`:
+
+```
+pnpm --filter backend run migration:postgres:adopt-host 0042_orders.sql
+pnpm --filter backend run migration:postgres:up
+pnpm --filter backend run migration:postgres:status
+```
+
+Adoption runs no host migration's SQL. It moves the named rows from `schema_migrations` to `host_migrations`, preserving their application dates, in one transaction. It takes the core lock before the host lock, and waits at most two minutes for each. If the host ledger is absent, it creates it using `0020_host_migrations.sql`. In the same transaction, it records 0020 in `schema_migrations` if absent. Older builds that do not carry 0020 then refuse to run migrations. A current build also refuses to apply pending core files already recorded in `host_migrations`; remove adopted files from its core folder.
+
+Every name must be in the host folder and absent from the core build. A row already in the host ledger and absent from core is a no-op, so repeating the command is safe. When nothing moves, adoption takes the locks and reads the ledgers but runs no ledger DDL or transaction. A missing core record or a name in both ledgers refuses the whole batch. No names is a usage error with exit 2. An adoption refusal exits with 1 and moves nothing. Until adoption, unrecognized host records in the core ledger stop the server and `up`; both messages point to `adopt-host` for names in the host folder.
 
 ## Expired rows
 
