@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { configureNativeSignIn, readNativeBuildSettings } from '../build-config/native-sign-in.cjs';
+// feature:google:start
+import type { NativeBuildConfiguration, NativeBuildPlugin } from '../src/types/native-build-config';
+// feature:google:end
 
 describe('native SDK build configuration', () => {
   const original = {
@@ -51,6 +54,43 @@ describe('native SDK build configuration', () => {
         { iosUrlScheme: 'com.googleusercontent.apps.123-example' },
       ],
     ]);
+  });
+
+  it('keeps host strings and tuples in order before appending sign-in plugins', () => {
+    const host: NativeBuildConfiguration = {
+      plugins: ['host-plugin', ['host-options', { nested: { enabled: true }, count: 2 }]],
+    };
+    const configured = configureNativeSignIn(host, {
+      googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
+    });
+
+    expect(configured.plugins).toEqual([
+      'host-plugin',
+      ['host-options', { nested: { enabled: true }, count: 2 }],
+      [
+        'react-native-nitro-google-signin',
+        { iosUrlScheme: 'com.googleusercontent.apps.123-example' },
+      ],
+    ]);
+    expect(host).toEqual({
+      plugins: ['host-plugin', ['host-options', { nested: { enabled: true }, count: 2 }]],
+    });
+    expect(configured.plugins?.[1]).toBe(host.plugins?.[1]);
+  });
+
+  it('does not append a plugin already named by a host string or tuple', () => {
+    const plugins: NativeBuildPlugin[] = [
+      'react-native-nitro-google-signin',
+      ['react-native-nitro-google-signin', { iosUrlScheme: 'host-scheme' }],
+    ];
+    for (const plugin of plugins) {
+      const host = { plugins: ['host-plugin', plugin] };
+      expect(
+        configureNativeSignIn(host, {
+          googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
+        }).plugins,
+      ).toEqual(['host-plugin', plugin]);
+    }
   });
   // feature:google:end
 
@@ -149,5 +189,63 @@ describe('native SDK build configuration', () => {
       appleSignIn: true,
     });
     expect(() => readNativeBuildSettings({ MOBILE_APPLE_SIGN_IN_ENABLED: 'yes' })).toThrow();
+  });
+
+  it.each([
+    { values: { MOBILE_APP_LINK_PATHS: ' /first, /second ' }, paths: ['/first', '/second'] },
+    { values: { MOBILE_APP_LINK_PATH: '/legacy' }, paths: ['/legacy'] },
+    {
+      values: { MOBILE_APP_LINK_PATHS: '/first,/second', MOBILE_APP_LINK_PATH: '//ignored' },
+      paths: ['/first', '/second'],
+    },
+    { values: { MOBILE_APP_LINK_PATHS: ' , , ' }, paths: ['/oauth/callback'] },
+    {
+      values: { MOBILE_APP_LINK_PATHS: ' , ', MOBILE_APP_LINK_PATH: '/ignored' },
+      paths: ['/oauth/callback'],
+    },
+    {
+      values: { MOBILE_APP_LINK_PATHS: '/first, /first, /second,/first' },
+      paths: ['/first', '/second'],
+    },
+  ])('configures app-link paths from $values', ({ values, paths }) => {
+    const settings = readNativeBuildSettings({ MOBILE_APP_LINK_HOST: 'links.example', ...values });
+    const configured = configureNativeSignIn({}, settings);
+
+    expect(configured.android?.intentFilters).toEqual(
+      paths.map((pathPrefix) => ({
+        action: 'VIEW',
+        autoVerify: true,
+        data: [{ scheme: 'https', host: 'links.example', pathPrefix }],
+        category: ['BROWSABLE', 'DEFAULT'],
+      })),
+    );
+    expect(configured.ios?.associatedDomains).toEqual(['applinks:links.example']);
+  });
+
+  it('omits an empty list from the public settings', () => {
+    expect(readNativeBuildSettings({ MOBILE_APP_LINK_PATHS: ' , , ' })).toEqual({});
+  });
+
+  it.each(['relative', '//outside.example', '/callback?query', '/callback#hash', '/two paths'])(
+    'refuses invalid list entries like a single path: %s',
+    (path) => {
+      const list = readNativeBuildSettings({
+        MOBILE_APP_LINK_HOST: 'links.example',
+        MOBILE_APP_LINK_PATHS: `/valid,${path}`,
+      });
+      expect(() => configureNativeSignIn({}, list)).toThrow(TypeError);
+      expect(() =>
+        configureNativeSignIn({}, { appLinkHost: 'links.example', appLinkPath: path }),
+      ).toThrow(TypeError);
+    },
+  );
+
+  it('requires a host for a nonempty list and preserves direct single-path inputs', () => {
+    expect(() => configureNativeSignIn({}, { appLinkPaths: ['/callback'] })).toThrow(TypeError);
+    const configured = configureNativeSignIn(
+      {},
+      { appLinkHost: 'links.example', appLinkPath: '/direct' },
+    );
+    expect(configured.android?.intentFilters?.[0]?.data[0]?.pathPrefix).toBe('/direct');
   });
 });
