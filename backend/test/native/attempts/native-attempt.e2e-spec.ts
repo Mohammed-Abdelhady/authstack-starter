@@ -1,34 +1,53 @@
 import { randomBytes } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
-import { unwrapNativeAttemptResult, unwrapNativeAttemptStart } from '@app/sdk';
-import { AccountSessions } from '../../../src/user/stores/account-sessions';
-import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
-import { NativeAttemptService } from '../../../src/auth/native/services/native-attempt.service';
-import { NativeTokenService } from '../../../src/session/native/token/native-token.service';
-import { AccountProfileStore } from '../../../src/user/stores/account-profile.store';
+import { unwrapNativeAttemptResult, unwrapNativeAttemptStart } from '@app/sdk'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import type { NativeFirstFactor } from '@app/sdk'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import { AccountSessions } from '../../../src/user/stores/account-sessions'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import { NativeAttemptService } from '../../../src/auth/native/services/native-attempt.service'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import { NativeTokenService } from '../../../src/session/native/token/native-token.service'; // feature:email-password,magic-link,passkeys,google,apple,facebook
+import { AccountProfileStore } from '../../../src/user/stores/account-profile.store'; // feature:email-password,magic-link,passkeys,google,apple,facebook
 import { DEFAULT_API_AUDIENCE } from '../../../src/session/constants/client-ids';
 import {
   nativeAuthorizeQuery,
   NATIVE_CLIENT_ID,
-  NATIVE_META,
+  NATIVE_META, // feature:email-password,magic-link,passkeys,google,apple,facebook
   NATIVE_REDIRECT,
 } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
-import { SEED_USER } from '../../constants/seed-users';
+import { SEED_USER } from '../../constants/seed-users'; // feature:email-password,magic-link,passkeys,google,apple,facebook
 import { bootE2eApp, type E2eApp } from '../../utils/e2e-app';
 import { TEST_NOW } from '../../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../utils/hook-timeouts';
+import { NATIVE_ATTEMPT_SDK_PROVIDERS } from './native-attempt-sdk-providers'; // feature:oauth-core
 
 const APPLICATION = {
   clientId: NATIVE_CLIENT_ID,
   displayName: 'Native test client',
   redirectUris: [NATIVE_REDIRECT],
   allowedScopes: [DEFAULT_API_AUDIENCE],
-  signIn: { password: true },
+  signIn: {
+    password: true, // feature:email-password
+    emailLink: true, // feature:magic-link
+    passkeys: true, // feature:passkeys
+    rpId: 'localhost', // feature:passkeys
+    origins: ['https://localhost'], // feature:passkeys
+    providers: NATIVE_ATTEMPT_SDK_PROVIDERS.map(({ signIn }) => signIn), // feature:oauth-core
+  },
 };
+
+// feature:email-password,magic-link,passkeys,google,apple,facebook:start
+// In the order the server offers them.
+const EXPECTED_FACTORS: NativeFirstFactor[] = [
+  'password', // feature:email-password
+  'emailLink', // feature:magic-link
+  'passkey', // feature:passkeys
+  'provider', // feature:google,apple,facebook
+];
+// feature:email-password,magic-link,passkeys,google,apple,facebook:end
 
 describe('native attempt foundation (e2e)', () => {
   let e2e: E2eApp;
@@ -38,6 +57,11 @@ describe('native attempt foundation (e2e)', () => {
       nativeEnabled: true,
       nativeCustomSchemeAllowed: true,
       nativeApplications: [APPLICATION],
+      magicLinkEnabled: true, // feature:magic-link
+      // feature:oauth-core:start
+      // One strategy is enough: every SDK provider yields the same 'provider' factor.
+      browserStrategy: await NATIVE_ATTEMPT_SDK_PROVIDERS[0]?.strategy(),
+      // feature:oauth-core:end
     });
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
@@ -51,10 +75,9 @@ describe('native attempt foundation (e2e)', () => {
     await e2e.reset();
   });
 
-  async function start(flow: 'signIn' | 'recovery' = 'signIn') {
-    const verifier = randomBytes(32).toString('base64url');
+  function postStart(flow: 'signIn' | 'recovery', verifier: string) {
     const query = nativeAuthorizeQuery(verifier);
-    const response = await request(e2e.httpServer)
+    return request(e2e.httpServer)
       .post('/api/auth/native/attempts')
       .send({
         clientId: NATIVE_CLIENT_ID,
@@ -64,8 +87,28 @@ describe('native attempt foundation (e2e)', () => {
         state: query.state,
         scopes: [DEFAULT_API_AUDIENCE],
         flow,
-      })
-      .expect(201);
+      });
+  }
+
+  // Outside the factor block, so a project with no first-party method runs it.
+  it('answers start as a disabled feature when the application offers no first factor', async () => {
+    e2e.app
+      .get(ConfigService)
+      .set('auth.nativeApplications', [{ ...APPLICATION, signIn: {} }]);
+    const response = await postStart(
+      'signIn',
+      randomBytes(32).toString('base64url'),
+    );
+    expect(response.status).toBe(404);
+    expect((response.body as { error: { code: string } }).error.code).toBe(
+      'FEATURE_DISABLED',
+    );
+  });
+
+  // feature:email-password,magic-link,passkeys,google,apple,facebook:start
+  async function start(flow: 'signIn' | 'recovery' = 'signIn') {
+    const verifier = randomBytes(32).toString('base64url');
+    const response = await postStart(flow, verifier).expect(201);
     const attempt = unwrapNativeAttemptStart({
       status: response.status,
       body: response.body,
@@ -81,8 +124,8 @@ describe('native attempt foundation (e2e)', () => {
     return {
       userId: id,
       userVersion: account.sessionVersion,
-      firstFactor: 'password' as const,
-      authenticationMethods: ['password'],
+      firstFactor: EXPECTED_FACTORS[0],
+      authenticationMethods: [EXPECTED_FACTORS[0]],
     };
   }
 
@@ -90,7 +133,7 @@ describe('native attempt foundation (e2e)', () => {
     const { attempt } = await start();
     expect(attempt).toMatchObject({
       stage: 'firstFactorRequired',
-      factors: ['password'],
+      factors: EXPECTED_FACTORS,
     });
     expect(attempt.attemptSecret).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     const read = await request(e2e.httpServer)
@@ -99,7 +142,10 @@ describe('native attempt foundation (e2e)', () => {
       .expect(200);
     expect(
       unwrapNativeAttemptResult({ status: read.status, body: read.body }),
-    ).toMatchObject({ stage: 'firstFactorRequired', factors: ['password'] });
+    ).toMatchObject({
+      stage: 'firstFactorRequired',
+      factors: EXPECTED_FACTORS,
+    });
     await request(e2e.httpServer)
       .get(`/api/auth/native/attempts/${attempt.attemptId}`)
       .set('X-Native-Attempt', 'x'.repeat(43))
@@ -142,6 +188,7 @@ describe('native attempt foundation (e2e)', () => {
     );
   });
 
+  // feature:email-password:start
   it('keeps recovery out of the sign-in consent transition', async () => {
     e2e.app
       .get(ConfigService)
@@ -159,14 +206,13 @@ describe('native attempt foundation (e2e)', () => {
         ),
     ).rejects.toMatchObject({ status: 409 });
   });
+  // feature:email-password:end
 
   it('rejects policy changes before factor completion', async () => {
     const { attempt } = await start();
     e2e.app
       .get(ConfigService)
-      .set('auth.nativeApplications', [
-        { ...APPLICATION, signIn: { password: false } },
-      ]);
+      .set('auth.nativeApplications', [{ ...APPLICATION, signIn: {} }]);
     await request(e2e.httpServer)
       .get(`/api/auth/native/attempts/${attempt.attemptId}`)
       .set('X-Native-Attempt', attempt.attemptSecret)
@@ -259,7 +305,10 @@ describe('native attempt foundation (e2e)', () => {
     e2e.app.get(ConfigService).set('auth.nativeApplications', [
       {
         ...APPLICATION,
-        signIn: { password: true, origins: ['https://app.example.test'] },
+        signIn: {
+          ...APPLICATION.signIn,
+          origins: ['https://app.example.test'],
+        },
       },
     ]);
     await request(e2e.httpServer)
@@ -294,4 +343,5 @@ describe('native attempt foundation (e2e)', () => {
     const winner = first.status === 201 ? first : second;
     expect(replay.body).toEqual(winner.body);
   });
+  // feature:email-password,magic-link,passkeys,google,apple,facebook:end
 });

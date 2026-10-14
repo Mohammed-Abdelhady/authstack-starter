@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -10,7 +10,7 @@ import {
 } from '../../src/constants/index.js';
 import {
   BUILD_TIMEOUT,
-  buildAndPack,
+  startPackedCli,
   type Packed,
   scaffold,
   sourceFilesWithMarkers,
@@ -33,13 +33,15 @@ import { assertWorkspaceEdgesResolve } from '../support/workspace-assertions.js'
 
 let packed: Packed;
 
-beforeAll(() => {
-  packed = buildAndPack();
+beforeAll(async () => {
+  const started = startPackedCli();
+  packed = started.packed;
+  await started.ready;
   expect(packed.ok, packed.reason ?? 'the package did not build').toBe(true);
 });
 
-afterAll(() => {
-  if (packed) rmSync(packed.workspace, { recursive: true, force: true });
+afterAll(async () => {
+  await packed?.cleanup();
 });
 
 describe('the packed CLI', () => {

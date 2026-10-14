@@ -9,6 +9,8 @@ import {
   countActiveRuns,
   normalizeWorkerArguments,
   processExists,
+  processStartIdentity,
+  processStartIdentityToken,
   removeFile,
   requestedWorkerCount,
   resolveJestCli,
@@ -20,7 +22,13 @@ const INSTANCE_COUNT_ENV = 'BACKEND_TEST_MONGO_INSTANCE_COUNT';
 const RUN_DIRECTORY_NAME = 'backend-jest-active-runs';
 const backendDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 const runDirectory = join(tmpdir(), RUN_DIRECTORY_NAME);
-const markerPath = join(runDirectory, `${process.pid}-${randomUUID()}.lock`);
+const identityToken = processStartIdentityToken(
+  processStartIdentity(process.pid),
+);
+const markerPath = join(
+  runDirectory,
+  `${process.pid}-${identityToken}-${randomUUID()}.lock`,
+);
 // Worker admission respects CPU and process-available memory.
 // Overlapping runs use one worker and
 // one database instance.
