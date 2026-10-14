@@ -8,6 +8,7 @@ const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 export interface CommandResult {
   ok: boolean;
   output: string;
+  stdout?: string;
 }
 
 export interface ToolOptions {
@@ -18,11 +19,26 @@ export interface ToolOptions {
 }
 
 /** The leaders of the commands still running, stopped if this process exits first. */
-const running = new Set<number>();
+const running = new Map<number, AbortSignal | undefined>();
 
 process.once('exit', () => {
-  for (const pid of running) stopProcessTree(pid);
+  for (const pid of running.keys()) stopProcessTree(pid);
 });
+
+export function killToolGroups(signal: AbortSignal): void {
+  let failure: unknown;
+  for (const [pid, owner] of running) {
+    if (owner !== signal) continue;
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch (error) {
+      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') {
+        failure ??= error;
+      }
+    }
+  }
+  if (failure !== undefined) throw failure;
+}
 
 /**
  * Runs a command as the leader of a process group of its own. A timeout or an
@@ -39,6 +55,7 @@ export function runTool(
     return Promise.resolve({
       ok: false,
       output: `Command failed: ${command}\nAborted before start`,
+      stdout: '',
     });
   }
 
@@ -52,10 +69,11 @@ export function runTool(
     const output = { stdout: '', stderr: '' };
     let ended: string | undefined;
     const end = (reason: string): void => {
-      ended ??= reason;
+      if (ended !== undefined) return;
+      ended = reason;
       if (child.pid !== undefined) stopProcessTree(child.pid);
     };
-    if (child.pid !== undefined) running.add(child.pid);
+    if (child.pid !== undefined) running.set(child.pid, options.signal);
     const timeoutMs = options.timeout ?? BUILD_TIMEOUT;
     const timer = setTimeout(() => end(`Timed out after ${timeoutMs} ms`), timeoutMs);
     const onAbort = (): void => end('Aborted');
@@ -85,12 +103,13 @@ export function runTool(
       options.signal?.removeEventListener('abort', onAbort);
       if (child.pid !== undefined) running.delete(child.pid);
       if (ended === undefined && spawnError === undefined && exit === 0) {
-        resolve({ ok: true, output: `${output.stdout}${output.stderr}` });
+        resolve({ ok: true, output: `${output.stdout}${output.stderr}`, stdout: output.stdout });
         return;
       }
       const reason = ended ?? spawnError?.message ?? `Exit code ${String(exit)}`;
       resolve({
         ok: false,
+        stdout: output.stdout,
         output: [`Command failed: ${command}\n${reason}`, output.stdout, output.stderr]
           .map((part) => part.trimEnd())
           .filter(Boolean)

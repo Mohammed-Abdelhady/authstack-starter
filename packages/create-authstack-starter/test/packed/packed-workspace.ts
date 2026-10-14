@@ -11,8 +11,9 @@ export function preparePackedWorkspace(
     writeFileSync,
     chmodSync,
   },
-): { workspace: string; pnpmDirectory: string; cleanup: () => void } {
-  const { workspace, cleanup } = allocatePackedWorkspace(root);
+): ReturnType<typeof allocatePackedWorkspace> & { pnpmDirectory: string } {
+  const lifetime = allocatePackedWorkspace(root);
+  const { workspace, cleanup } = lifetime;
   const pnpmDirectory = join(workspace, 'pnpm-bin');
   try {
     filesystem.mkdirSync(pnpmDirectory);
@@ -22,9 +23,9 @@ export function preparePackedWorkspace(
       `#!${process.execPath}\nconst args = process.argv.slice(2).join(' ');\nif (args === '--version') process.stdout.write(${JSON.stringify(PACKAGE_MANAGER_VERSION)} + '\\n');\n`,
     );
     filesystem.chmodSync(pnpm, 0o755);
-    return { workspace, pnpmDirectory, cleanup };
+    return { ...lifetime, pnpmDirectory };
   } catch (error) {
-    cleanup();
+    void cleanup();
     throw error;
   }
 }

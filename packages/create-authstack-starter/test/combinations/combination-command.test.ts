@@ -1,9 +1,14 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, onTestFinished } from 'vitest';
 import { runTool } from '../support/combination-helpers.js';
-import { isRunning } from '../support/process-tree.js';
+import { createDescendantPipe, DESCENDANT_PIPE_ENV } from '../support/descendant-pipe.js';
+
+const DESCENDANT = fileURLToPath(
+  new URL('../packed/fixtures/workspace-descendant.ts', import.meta.url),
+);
 
 describe('asynchronous combination tools', () => {
   it('keeps worker timers responsive while a child runs', async () => {
@@ -14,7 +19,7 @@ describe('asynchronous combination tools', () => {
         '-e',
         "setTimeout(() => console.log('finished'), 100)",
       ]);
-      expect(result).toEqual({ ok: true, output: 'finished\n' });
+      expect(result).toEqual({ ok: true, output: 'finished\n', stdout: 'finished\n' });
       expect(ticks).toBeGreaterThan(0);
     } finally {
       clearInterval(timer);
@@ -46,18 +51,33 @@ describe('asynchronous combination tools', () => {
     expect(result.ok).toBe(false);
   });
   it('ends everything a timed out command started, before it answers', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cna-command-death-'));
+    const death = createDescendantPipe(root);
+    const resources: { pid?: number } = {};
+    onTestFinished(() => {
+      try {
+        if (resources.pid !== undefined) process.kill(resources.pid, 'SIGKILL');
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') throw error;
+      } finally {
+        death.close();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
     // The command starts a child that would run for an hour, and says its id.
-    const grandchild = 'setInterval(() => {}, 3600000)';
-    const script = `const { spawn } = require('node:child_process'); const child = spawn(process.execPath, ['-e', ${JSON.stringify(grandchild)}], { stdio: 'inherit' }); console.log(child.pid); setInterval(() => {}, 3600000);`;
+    const script = `const { spawn } = require('node:child_process'); const child = spawn(process.execPath, ['--experimental-strip-types', ${JSON.stringify(DESCENDANT)}], { stdio: 'inherit' }); console.log(child.pid); setInterval(() => {}, 3600000);`;
 
-    const result = await runTool(process.execPath, ['-e', script], { timeout: 2000 });
+    const command = runTool(process.execPath, ['-e', script], {
+      timeout: 2000,
+      env: { [DESCENDANT_PIPE_ENV]: death.path },
+    });
+    await death.ready;
+    const result = await command;
     const pid = Number.parseInt(/^(\d+)$/m.exec(result.output)?.[1] ?? '', 10);
 
-    expect({ ok: result.ok, started: Number.isInteger(pid), running: isRunning(pid) }).toEqual({
-      ok: false,
-      started: true,
-      running: false,
-    });
+    resources.pid = pid;
+    expect({ ok: result.ok, started: Number.isInteger(pid) }).toEqual({ ok: false, started: true });
+    expect(await death.ended).toBe('eof');
     expect(result.output).toContain('Timed out after 2000 ms');
   }, 20_000);
   it('does not start a command whose signal was aborted already', async () => {
