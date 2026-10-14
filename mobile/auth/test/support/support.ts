@@ -1,3 +1,5 @@
+import { FakeCrypto } from './fake-crypto';
+export { FakeCrypto } from './fake-crypto';
 import type { Transport, TransportRequest, TransportResponse } from '@app/sdk';
 import type {
   AbortSignalPort,
@@ -127,7 +129,9 @@ export type TransportStep =
   TransportResponse | Error | ((request: ScriptedRequest) => Promise<TransportResponse>);
 
 export class ScriptedTransport implements Transport<AbortSignalPort> {
-  readonly sent: ScriptedRequest[] = [];
+  readonly sent: (Omit<ScriptedRequest, 'headers'> & {
+    headers?: Readonly<Record<string, string>> | undefined;
+  })[] = [];
   readonly steps: TransportStep[] = [];
   onRequest: ((request: ScriptedRequest) => void) | undefined;
   onResponse: ((request: ScriptedRequest, response: TransportResponse) => void) | undefined;
@@ -293,28 +297,6 @@ export class FakeInstall {
   async identity() {
     this.calls += 1;
     return this.result;
-  }
-}
-
-export class FakeCrypto {
-  private randomFill = 1;
-  readonly randomLengths: number[] = [];
-  hashOverride: ((bytes: Uint8Array) => Uint8Array) | undefined;
-
-  async randomBytes(length: number): Promise<Uint8Array> {
-    this.randomLengths.push(length);
-    const bytes = new Uint8Array(length).fill(this.randomFill);
-    this.randomFill += 1;
-    return bytes;
-  }
-
-  async sha256(bytes: Uint8Array): Promise<Uint8Array> {
-    if (this.hashOverride) return this.hashOverride(bytes);
-    let checksum = 0;
-    for (let index = 0; index < bytes.length; index += 1) {
-      checksum = (checksum + bytes[index] * (index + 1)) % 251;
-    }
-    return new Uint8Array(32).fill(checksum);
   }
 }
 

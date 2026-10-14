@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
   apiReply,
@@ -115,6 +115,7 @@ describe('native flow completion', () => {
       '/api/oauth/token',
       '/api/user/profile',
     ]);
+    assert.isDefined(transport.sent[2]);
     expect(transport.sent[2].body).toEqual({ token: 'mail-token', state });
     expect(JSON.stringify(cold.snapshot)).not.toContain('mail-token');
   });
@@ -131,6 +132,7 @@ describe('native flow completion', () => {
     expect(invalid.kind).toBe('browserFailure');
     expect(valid.kind).toBe('cancelled');
     expect(ports.authBrowser.opened).toHaveLength(1);
+    assert.isDefined(ports.authBrowser.opened[0]);
     const query = readQueryValues(ports.authBrowser.opened[0].address);
     expect(query.get('provider_id')).toBe('google');
     expect(query.get('flow')).toBe('signIn');
@@ -272,6 +274,7 @@ describe('native flow completion', () => {
 
     expect(result.kind).toBe('signedIn');
     expect(cold.snapshot.status).toBe('signedIn');
+    assert.isDefined(transport.sent[2]);
     expect(transport.sent[2].path).toBe('/api/auth/native/attempts/attempt-1');
     expect(ports.credentials.value).not.toContain('123456');
   });

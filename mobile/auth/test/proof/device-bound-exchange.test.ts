@@ -33,7 +33,9 @@ describe('device-bound code exchange', () => {
     await engine.restore();
 
     const outcome = await engine.signIn();
-    const proofs = tokenRequests(transport).map(({ headers }) => payloadOf(headers?.DPoP ?? ''));
+    const proofs = tokenRequests(transport).map(({ headers }) =>
+      payloadOf(headers?.['DPoP'] ?? ''),
+    );
 
     expect(outcome.kind).toBe('signedIn');
     expect(proofs.map(({ htm, htu, ath }) => ({ htm, htu, ath }))).toEqual([
@@ -67,9 +69,9 @@ describe('device-bound code exchange', () => {
     expect(outcome.kind).toBe('signedIn');
     expect(requests).toHaveLength(2);
     expect(firstBody).toEqual(secondBody);
-    expect(payloadOf(requests[1]?.headers?.DPoP ?? '').nonce).toBe('server-nonce');
-    expect(payloadOf(requests[0]?.headers?.DPoP ?? '').jti).not.toBe(
-      payloadOf(requests[1]?.headers?.DPoP ?? '').jti,
+    expect(payloadOf(requests[1]?.headers?.['DPoP'] ?? '').nonce).toBe('server-nonce');
+    expect(payloadOf(requests[0]?.headers?.['DPoP'] ?? '').jti).not.toBe(
+      payloadOf(requests[1]?.headers?.['DPoP'] ?? '').jti,
     );
   });
 

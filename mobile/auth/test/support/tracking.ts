@@ -3,7 +3,7 @@ import type { AuthEngine, TimerPort } from '../../src';
 import type { TransportRequest } from '@app/sdk';
 
 export interface ScriptedRequestLog {
-  sent: TransportRequest[];
+  sent: Pick<TransportRequest, 'path' | 'body'>[];
 }
 
 interface Scenario {

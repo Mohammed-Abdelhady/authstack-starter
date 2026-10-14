@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { AuthSessionError } from '../../src';
 import { createAuthEngine } from '../support/engine';
@@ -50,7 +50,7 @@ describe('bearer transport', () => {
     });
 
     const oauthRequest = transport.sent.find(({ path }) => path === '/api/oauth/token');
-    expect(oauthRequest?.headers?.Authorization).toBeUndefined();
+    expect(oauthRequest?.headers?.['Authorization']).toBeUndefined();
     for (const request of transport.sent) {
       expect(request.path).not.toContain(ACCESS_TOKEN);
       expect(request.path).not.toContain(REFRESH_TOKEN);
@@ -92,7 +92,7 @@ describe('bearer transport', () => {
       '/api/oauth/token',
       '/api/user/profile',
     ]);
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-1');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-1');
   });
 
   it('counts token lifetime from the token request send time', async () => {
@@ -184,7 +184,7 @@ describe('bearer transport', () => {
       (request) =>
         new Promise((resolve) => {
           answerOldRequest = resolve;
-          expect(request.headers?.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
+          expect(request.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
           oldRequestStarted.resolve();
         }),
     );
@@ -199,7 +199,7 @@ describe('bearer transport', () => {
     await first;
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-1');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-1');
   });
 
   it('repeats a GET once after a no-response failure', async () => {
@@ -256,6 +256,7 @@ describe('bearer transport', () => {
       },
     });
 
+    assert.isDefined(transport.sent[0]);
     expect(transport.sent[0].headers).toEqual({
       'X-Trace': 'trace-1',
       Authorization: 'Bearer access-secret-0',

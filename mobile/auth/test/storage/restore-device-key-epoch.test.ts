@@ -8,11 +8,11 @@ import { queuedWorkDone } from '../support/queued-work';
 import { FIXED_PUBLIC_JWK } from '../support/software-device-key';
 import { CONFIG, ScriptedTransport, testPorts } from '../support/support';
 
-const KEY_READ: Record<string, DeviceKeyResult<Es256PublicJwk>> = {
+const KEY_READ = {
   success: { kind: 'success', value: FIXED_PUBLIC_JWK },
   keyInvalidated: { kind: 'keyInvalidated' },
   unavailable: { kind: 'unavailable' },
-};
+} satisfies Record<string, DeviceKeyResult<Es256PublicJwk>>;
 
 /** A bound revoke is challenged first, so it takes two requests. */
 const REVOKE_ROUND_TRIPS = ['/api/oauth/revoke', '/api/oauth/revoke'];
@@ -34,16 +34,16 @@ async function restoreWithHeldKey() {
 }
 
 describe('restore across a device key read', () => {
-  it.each([['success'], ['keyInvalidated'], ['unavailable']])(
+  it.each(Object.entries(KEY_READ))(
     'stays signed out when sign-out lands before the key read answers %s',
-    async (answer) => {
+    async (_answer, result) => {
       const { engine, ports, transport, keyRead, restore } = await restoreWithHeldKey();
       transport.enqueue(...challengeThen({ status: 200, body: {} }));
 
       const signedOut = await engine.signOut();
       const sentBySignOut = transport.sent.map(({ path }) => path);
       const eventsBySignOut = [...ports.credentials.events];
-      keyRead.resolve(KEY_READ[answer]);
+      keyRead.resolve(result);
       const restored = await restore;
 
       expect(signedOut).toEqual({ kind: 'signedOut', revocation: 'revoked' });
@@ -60,13 +60,13 @@ describe('restore across a device key read', () => {
     },
   );
 
-  it.each([['success'], ['keyInvalidated'], ['unavailable']])(
+  it.each(Object.entries(KEY_READ))(
     'stays disposed when dispose lands before the key read answers %s',
-    async (answer) => {
+    async (_answer, result) => {
       const { engine, ports, transport, keyRead, restore, record } = await restoreWithHeldKey();
       engine.dispose();
       const eventsByDispose = [...ports.credentials.events];
-      keyRead.resolve(KEY_READ[answer]);
+      keyRead.resolve(result);
       const restored = await restore;
       await queuedWorkDone();
 
