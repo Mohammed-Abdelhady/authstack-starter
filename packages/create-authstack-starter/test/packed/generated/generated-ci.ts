@@ -8,6 +8,7 @@ import { matchesGlob } from '../../../src/utils/glob.js';
 import type { Packed } from '../packed-cli.js';
 import {
   expectSupportedActionInputs,
+  expectNodeVersions,
   jobsOf,
   PNPM_SETUP_ACTION,
   PNPM_SETUP_WITH,
@@ -32,6 +33,9 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
   const workflow = readWorkflow(join(project, '.github/workflows/ci.yml'));
   const jobs = jobsOf(workflow);
   expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api']);
+  expectNodeVersions(jobs['range-scan']);
+  expectNodeVersions(jobs.quality, [22, 24]);
+  expectNodeVersions(jobs.api, [22, 24]);
   expect(workflow.on).toEqual({
     pull_request: {
       branches: ['staging', 'master', 'main'],
@@ -121,6 +125,18 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
   const root = readPackage(join(project, 'package.json'));
   expect(root.workspaces).toEqual(['backend', 'frontend', 'shared/core', 'shared/sdk']);
   expect(root.packageManager).toBe('pnpm@12.6.0');
+  for (const file of [
+    'package.json',
+    'backend/package.json',
+    'frontend/package.json',
+    'shared/core/package.json',
+    'shared/sdk/package.json',
+  ]) {
+    expect(readPackage(join(project, file)).engines, file).toEqual({
+      node: '^22.12.0 || ^24.0.0',
+      pnpm: '12.6.0',
+    });
+  }
   const files = await listFiles(project);
   for (const workspace of root.workspaces as string[]) {
     expect(files.some((file) => matchesGlob(file, `${workspace}/package.json`))).toBe(true);
