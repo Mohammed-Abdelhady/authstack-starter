@@ -1,3 +1,4 @@
+import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import {
@@ -66,6 +67,7 @@ export interface AccountServices {
 export function servicesOn(
   harness: AccountsContractHarness,
   pause: RerunPause = rerunAtOnce,
+  policy: AccountCreationPolicy = new AccountCreationPolicy(),
 ): AccountServices {
   const config = new ConfigService({
     activation: { maxAttempts: 5, codeExpiresIn: 900_000 },
@@ -140,6 +142,7 @@ export function servicesOn(
       harness.roleSweeps,
       access,
       hash,
+      policy,
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(
@@ -150,6 +153,7 @@ export function servicesOn(
       verification,
       mailCounter,
       harness.signIn,
+      policy,
     ),
     emailChange: new EmailChangeConfirmationService(
       harness.activation,

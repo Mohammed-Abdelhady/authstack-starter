@@ -1,3 +1,5 @@
+import { AccountCreationPolicy } from '../../../src/auth/services/registration/account-creation-policy';
+import { WEB_CLIENT_ID } from '../../../src/session/constants/client-ids';
 import { AccountSessions } from '../../../src/user/stores/account-sessions';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { ReservedCode } from '../../../src/auth/interfaces/pending-code.interface';
@@ -32,6 +34,7 @@ export function mongoRegistrationService(
   verificationCodeService: VerificationCodeService,
   mailCounterService: MailCounterService,
   signInService: SignInService,
+  policy: AccountCreationPolicy = new AccountCreationPolicy(),
 ): RegistrationService {
   return new RegistrationService(
     new MongoActivationAccounts(userModel),
@@ -41,6 +44,7 @@ export function mongoRegistrationService(
     verificationCodeService,
     mailCounterService,
     new MongoActivationSignIn(signInService),
+    policy,
   );
 }
 
@@ -67,12 +71,16 @@ export async function createActivatedAccount(
   userModel: Model<UserDocument>,
   session: ClientSession,
   accountId: Types.ObjectId,
+  policy: AccountCreationPolicy = new AccountCreationPolicy(),
+  application: string = WEB_CLIENT_ID,
 ): Promise<{ _id: Types.ObjectId }> {
   const account = await createInWork(
     new MongoActivationAccounts(userModel),
     mongoUnitOfWork(session),
     reserved,
     { id: accountId.toString(), passwordHash, name, locale: DEFAULT_LOCALE },
+    policy,
+    application,
   );
   return { _id: new Types.ObjectId(account.id) };
 }

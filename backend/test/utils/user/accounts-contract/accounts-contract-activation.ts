@@ -1,3 +1,6 @@
+import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../../../src/auth/constants/account-creation';
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
@@ -35,7 +38,10 @@ export function accountActivationCases(
   fixture: () => AccountsFixture,
 ): void {
   it('activates a sign-up into a verified account and spends the code', async () => {
-    const services = servicesOn(harness());
+    const policy = new AccountCreationPolicy();
+    const check = jest.spyOn(policy, 'assertMayCreate');
+    const inserting = jest.spyOn(harness().activation, 'insertActivated');
+    const services = servicesOn(harness(), undefined, policy);
     const code = await signUpCode(services, 'new@example.test');
 
     const answer = await services.registration.activate(
@@ -49,6 +55,15 @@ export function accountActivationCases(
       'en',
     );
 
+    expect(check.mock.calls).toEqual([
+      [
+        {
+          application: WEB_CLIENT_ID,
+          method: ACCOUNT_CREATION_METHOD.PASSWORD,
+        },
+        inserting.mock.calls[0]?.[0],
+      ],
+    ]);
     const id = await harness().accountIdByEmail('new@example.test');
     expect(answer.data).toMatchObject({
       mustSignIn: false,
