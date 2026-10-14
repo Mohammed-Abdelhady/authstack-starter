@@ -19,6 +19,7 @@ import { reconcileAssignedRole } from '../../utils/admin-role-reconcile.util';
 import type { AssignedRoleRef } from '../../types/assigned-role-ref';
 import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
+import { chosenLocale } from '../../../common/constants/locales';
 
 /**
  * Creating an account from the admin area. The role must exist and sit below
@@ -39,13 +40,16 @@ export class AdminUserCreateService {
   ) {}
 
   /**
-   * Create a user. The role must exist and sit below the actor's level.
+   * Create a user. The role must exist and sit below the actor's level. The
+   * account stores the language the body names, or the default: the actor's
+   * own language is not the new person's.
    */
   async createUser(
     dto: CreateUserDto,
     actorRole: string,
     actorId: string,
   ): Promise<ApiResponse<AdminUserDto>> {
+    const locale = chosenLocale(dto.locale);
     const { email, name, password, role } = dto;
 
     if (await this.accounts.isAddressTaken(email)) {
@@ -95,6 +99,7 @@ export class AdminUserCreateService {
             name,
             passwordHash: hashedPassword,
             role: assignedRole.slug,
+            locale,
           });
           createdUserId = newUser.id;
           assignmentRef = {

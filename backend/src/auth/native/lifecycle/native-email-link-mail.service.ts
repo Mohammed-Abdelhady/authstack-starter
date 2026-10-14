@@ -21,6 +21,8 @@ import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../../constants/auth-messages
 import { MailDispatcherService } from '../../../mail/mail-dispatcher.service';
 import { currentRequestId } from '../../../common/context/request-context';
 import { NATIVE_EMAIL_CALLBACK_PARAM } from '../constants/native-lifecycle.constants';
+import type { SupportedLocale } from '../../../common/constants/locales';
+import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 
@@ -40,16 +42,22 @@ export class NativeEmailLinkMailService {
     this.maxPerHour = this.config.get<number>('magicLink.maxPerHour', 5);
   }
 
+  /**
+   * Mails the link in the account's language, or in the request's when the
+   * address has no account.
+   */
   async request(
-    email: string,
+    requested: MailRecipient,
     callbackUri: string,
     attemptId: string,
     state: string,
     expiresAt: Date,
     persistTokenHash: (tokenHash: string) => Promise<void>,
   ): Promise<void> {
+    const { email } = requested;
     const now = this.clock.now();
-    const deleted = await this.accounts.hasDeletedAccount(email);
+    const owner = await this.accounts.findLinkRecipient(email);
+    const deleted = owner?.isDeleted === true;
     const underCap = await this.links.takeRequestSlot(email, {
       now,
       windowMs: MAGIC_LINK_RATE_WINDOW_MS,
@@ -64,7 +72,7 @@ export class NativeEmailLinkMailService {
 
     if (callback) {
       this.deferLink(
-        email,
+        { email, locale: owner?.locale ?? requested.locale },
         callback,
         expiresAt,
         currentRequestId() ?? 'unknown',
@@ -81,6 +89,7 @@ export class NativeEmailLinkMailService {
   async resolveAccountIn(
     unitOfWork: UnitOfWork,
     email: string,
+    locale: SupportedLocale,
   ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmailIn(unitOfWork, email);
     if (existing?.isDeleted) throw this.invalidNativeLink();
@@ -98,6 +107,7 @@ export class NativeEmailLinkMailService {
     return this.accounts.createPasswordlessIn(unitOfWork, {
       email,
       name: deriveNameFromEmail(email),
+      locale,
     });
   }
 
@@ -127,7 +137,7 @@ export class NativeEmailLinkMailService {
   }
 
   private deferLink(
-    email: string,
+    recipient: MailRecipient,
     callback: string,
     expiresAt: Date,
     requestId: string,
@@ -141,7 +151,7 @@ export class NativeEmailLinkMailService {
         remainingMs / MILLISECONDS_PER_MINUTE,
       );
       const sent = await this.authMail.sendMagicLink(
-        email,
+        recipient,
         callback,
         expiresInMinutes,
       );

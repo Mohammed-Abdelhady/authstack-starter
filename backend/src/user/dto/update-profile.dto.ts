@@ -1,7 +1,11 @@
 import { Transform } from 'class-transformer';
-import { ValidateIf } from 'class-validator';
+import { IsIn, ValidateIf } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { NAME_MAX_LENGTH, NAME_MIN_LENGTH } from '../../common/constants/name';
+import {
+  SUPPORTED_LOCALES,
+  SupportedLocale,
+} from '../../common/constants/locales';
 import {
   NamePolicy,
   transformTrimmedName,
@@ -26,4 +30,16 @@ export class UpdateProfileDto {
   @Transform(transformTrimmedName)
   @NamePolicy()
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Language the account is mailed in',
+    enum: [...SUPPORTED_LOCALES],
+    example: 'en',
+  })
+  // Undefined means absent; null is refused like any other unsupported value.
+  @ValidateIf((_, value) => value !== undefined)
+  @IsIn(SUPPORTED_LOCALES, {
+    message: `Locale must be one of: ${SUPPORTED_LOCALES.join(', ')}`,
+  })
+  locale?: SupportedLocale;
 }

@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsString, Matches, MaxLength } from 'class-validator';
 import { NATIVE_LIFECYCLE_LIMITS } from '../../constants/native-lifecycle.constants';
+import { LanguagePreference } from '../../../../common/decorators/language-preference.decorator';
 
 export class NativeEmailLinkVerifyDto {
   @IsString()
@@ -12,4 +13,7 @@ export class NativeEmailLinkVerifyDto {
   @IsNotEmpty()
   @MaxLength(NATIVE_LIFECYCLE_LIMITS.STATE)
   state!: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

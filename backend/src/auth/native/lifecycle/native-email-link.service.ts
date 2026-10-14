@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { SupportedLocale } from '../../../common/constants/locales';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -43,7 +44,12 @@ export class NativeEmailLinkService {
     private readonly clock: Clock,
   ) {}
 
-  async request(attemptId: string, secret: string, email: string) {
+  async request(
+    attemptId: string,
+    secret: string,
+    email: string,
+    locale: SupportedLocale,
+  ) {
     const attempt = await requireLifecycleAttempt(
       this.attempts,
       this.methods,
@@ -57,7 +63,7 @@ export class NativeEmailLinkService {
     let stored = false;
     try {
       await this.links.request(
-        email,
+        { email, locale },
         attempt.redirectUri,
         attempt.attemptId,
         attempt.state,
@@ -92,7 +98,7 @@ export class NativeEmailLinkService {
   async verify(
     attemptId: string,
     secret: string,
-    input: { token: string; state: string },
+    input: { token: string; state: string; locale: SupportedLocale },
   ) {
     const attempt = await requireLifecycleAttempt(
       this.attempts,
@@ -115,6 +121,7 @@ export class NativeEmailLinkService {
       attemptId,
       secret,
       tokenHash,
+      input.locale,
     );
     return this.attempts.view(completed);
   }
@@ -124,9 +131,13 @@ export class NativeEmailLinkService {
     attemptId: string,
     secret: string,
     tokenHash: string,
+    locale: SupportedLocale,
   ): Promise<NativeAttempt> {
     const work = (unitOfWork: UnitOfWork) =>
-      this.completeIn(unitOfWork, attempt, attemptId, secret, tokenHash);
+      this.completeIn(unitOfWork, attempt, attemptId, secret, {
+        tokenHash,
+        locale,
+      });
     for (let pass = 0; pass < EMAIL_LINK_RETRY_LIMIT; pass += 1) {
       try {
         return await this.runner.run(work);
@@ -148,8 +159,9 @@ export class NativeEmailLinkService {
     expected: NativeAttempt,
     attemptId: string,
     secret: string,
-    tokenHash: string,
+    proof: { tokenHash: string; locale: SupportedLocale },
   ): Promise<NativeAttempt> {
+    const { tokenHash, locale } = proof;
     const claimed = await this.attempts.claimIn(
       unitOfWork,
       attemptId,
@@ -164,7 +176,11 @@ export class NativeEmailLinkService {
     ) {
       throw wrongStage();
     }
-    const linkAccount = await this.links.resolveAccountIn(unitOfWork, email);
+    const linkAccount = await this.links.resolveAccountIn(
+      unitOfWork,
+      email,
+      locale,
+    );
     const account = await this.accounts.readAccount(unitOfWork, linkAccount.id);
     if (!account || account.isDeleted || account.email !== email) {
       throw this.links.invalidNativeLink();

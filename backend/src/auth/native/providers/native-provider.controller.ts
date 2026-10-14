@@ -7,6 +7,8 @@ import { NATIVE_ATTEMPT_HEADER } from '../constants/native-attempt';
 import { rejectBrowserContext } from '../utils/native-request.util';
 import { nativeProviderInput } from './native-provider-input';
 import { NativeProviderService } from './native-provider.service';
+import { RequestLocale } from '../../../common/decorators/request-locale.decorator';
+import type { SupportedLocale } from '../../../common/constants/locales';
 
 @Public()
 @SkipBrowserProof()
@@ -20,10 +22,16 @@ export class NativeProviderController {
     @Param('attemptId') attemptId: string,
     @Headers(NATIVE_ATTEMPT_HEADER) secret: string,
     @Body() body: unknown,
+    @RequestLocale() locale: SupportedLocale,
   ) {
     rejectBrowserContext(request);
     return ApiResponse.success(
-      await this.provider.verify(attemptId, secret, nativeProviderInput(body)),
+      await this.provider.verify(
+        attemptId,
+        secret,
+        nativeProviderInput(body),
+        locale,
+      ),
     );
   }
 }

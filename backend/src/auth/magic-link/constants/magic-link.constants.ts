@@ -11,13 +11,6 @@ export const MAGIC_LINK_RETENTION_SECONDS = 3600;
 export const MAGIC_LINK_RATE_WINDOW_MS = 3600000;
 
 /**
- * Client page the mailed link points at. It reads the token out of the query
- * string and posts it to the backend, so a scanner that fetches the link does
- * not consume it.
- */
-export const MAGIC_LINK_CLIENT_PATH = '/auth/magic-link/verify';
-
-/**
  * Reply to every link request. Addresses with an account, addresses without
  * one and addresses that hit the hourly cap all get this.
  */

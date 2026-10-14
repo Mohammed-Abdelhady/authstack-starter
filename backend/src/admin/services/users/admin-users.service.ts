@@ -88,7 +88,10 @@ export class AdminUsersService {
         },
       );
       if (pendingEmail !== undefined) {
-        this.emailChangeService.notifyPreviousAddress(previousEmail);
+        this.emailChangeService.notifyPreviousAddress({
+          email: previousEmail,
+          locale: saved.locale,
+        });
         await this.emailChangeService.sendConfirmation(saved, actorRole);
       }
 
