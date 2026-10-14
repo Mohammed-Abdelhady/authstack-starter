@@ -76,11 +76,36 @@ function publicSettings(settings) {
   };
 }
 
+/** Plugin options are plain JSON, so key order is ignored. @param {unknown} left @param {unknown} right @returns {boolean} */
+function sameValue(left, right) {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== 'object' || typeof right !== 'object' || !left || !right) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftEntries = Object.entries(left);
+  const rightValues = new Map(Object.entries(right));
+  return (
+    leftEntries.length === rightValues.size &&
+    leftEntries.every(
+      ([key, value]) => rightValues.has(key) && sameValue(value, rightValues.get(key)),
+    )
+  );
+}
+
+/** @param {Plugin} plugin */
+function pluginName(plugin) {
+  return typeof plugin === 'string' ? plugin : plugin[0];
+}
+
 /** @param {Plugin[]} plugins @param {Plugin} plugin */
 function appendPlugin(plugins, plugin) {
-  const name = typeof plugin === 'string' ? plugin : plugin[0];
-  const exists = plugins.some((entry) => (typeof entry === 'string' ? entry : entry[0]) === name);
-  return exists ? plugins : [...plugins, plugin];
+  const name = pluginName(plugin);
+  const matches = plugins.filter((entry) => pluginName(entry) === name);
+  for (const entry of matches) {
+    if (!sameValue(entry, plugin)) {
+      throw new TypeError(`Plugin ${name}: the host already configures it differently`);
+    }
+  }
+  return matches.length ? plugins : [...plugins, plugin];
 }
 
 // feature:facebook:start
