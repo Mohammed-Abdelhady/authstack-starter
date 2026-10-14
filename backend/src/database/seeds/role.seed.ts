@@ -6,7 +6,11 @@ import { HostRole } from '../../host/types/host-role.type';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { ROLE_SEED, SeedRole, SeedStore } from './seed.store';
 
-const SYSTEM_ROLE_FLAGS = { isSystemRole: true, isProtected: true };
+const SYSTEM_ROLE_FLAGS = {
+  isSystemRole: true,
+  isProtected: true,
+  levelNeverLowers: false,
+};
 
 /**
  * The system roles a seed stores: the core `user` and `admin` roles around
@@ -38,6 +42,8 @@ function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
       slug: UserRole.ADMIN,
       description: 'System administrator with full access',
       ...SYSTEM_ROLE_FLAGS,
+      // Host roles a reseed drops stay stored, so admin never moves down.
+      levelNeverLowers: true,
       level: levels[UserRole.ADMIN],
       permissions: [...DEFAULT_ROLE_PERMISSIONS.admin],
     },
