@@ -27,6 +27,17 @@ import {
 } from './validation';
 import type { JsonObject } from './validation';
 
+type AttemptContext = {
+  attemptId: string;
+  expiresAt: string;
+  activationCompleted: boolean | undefined;
+  allowedExtras: readonly string[];
+  stage: unknown;
+  status: number;
+};
+
+const ATTEMPT_BASE_KEYS = ['attemptId', 'stage', 'expiresAt'];
+
 function isFirstFactor(value: string): value is NativeFirstFactor {
   return Object.values(NATIVE_AUTH_FIRST_FACTOR).some((allowed) => allowed === value);
 }
@@ -117,12 +128,28 @@ export function parseAttemptResult(
     status,
   );
   const expiresAt = isoDate(record.expiresAt, 'expiresAt', status);
-  const baseKeys = ['attemptId', 'stage', 'expiresAt'];
   const activationCompleted = optionalBoolean(record, 'activationCompleted', status);
 
-  switch (record.stage) {
+  return parseInitialStage(record, {
+    attemptId,
+    expiresAt,
+    activationCompleted,
+    allowedExtras,
+    stage: record.stage,
+    status,
+  });
+}
+
+function parseInitialStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+  const { attemptId, expiresAt, activationCompleted, allowedExtras, status } = context;
+  switch (context.stage) {
     case NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED: {
-      exactKeys(record, [...baseKeys, 'factors', 'email', ...allowedExtras], 'data', status);
+      exactKeys(
+        record,
+        [...ATTEMPT_BASE_KEYS, 'factors', 'email', ...allowedExtras],
+        'data',
+        status,
+      );
       const view: Extract<NativeAttemptView, { stage: 'firstFactorRequired' }> = {
         attemptId,
         stage: NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED,
@@ -133,7 +160,7 @@ export function parseAttemptResult(
       return view;
     }
     case NATIVE_AUTH_STAGE.EMAIL_LINK_SENT:
-      exactKeys(record, [...baseKeys, 'email'], 'data', status);
+      exactKeys(record, [...ATTEMPT_BASE_KEYS, 'email'], 'data', status);
       return {
         attemptId,
         stage: NATIVE_AUTH_STAGE.EMAIL_LINK_SENT,
@@ -143,7 +170,7 @@ export function parseAttemptResult(
     case NATIVE_AUTH_STAGE.REGISTRATION_CODE_REQUIRED:
       exactKeys(
         record,
-        [...baseKeys, 'email', 'activationCompleted', ...allowedExtras],
+        [...ATTEMPT_BASE_KEYS, 'email', 'activationCompleted', ...allowedExtras],
         'data',
         status,
       );
@@ -155,15 +182,23 @@ export function parseAttemptResult(
         ...(activationCompleted === undefined ? {} : { activationCompleted }),
       };
     case NATIVE_AUTH_STAGE.RECOVERY_CODE_REQUIRED:
-      exactKeys(record, [...baseKeys, 'email'], 'data', status);
+      exactKeys(record, [...ATTEMPT_BASE_KEYS, 'email'], 'data', status);
       return {
         attemptId,
         stage: NATIVE_AUTH_STAGE.RECOVERY_CODE_REQUIRED,
         expiresAt,
         email: email(record.email, 'email', status),
       };
+    default:
+      return parseFollowupStage(record, context);
+  }
+}
+
+function parseFollowupStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+  const { attemptId, expiresAt, activationCompleted, allowedExtras, status } = context;
+  switch (context.stage) {
     case NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED:
-      exactKeys(record, [...baseKeys, 'factors', 'activationCompleted'], 'data', status);
+      exactKeys(record, [...ATTEMPT_BASE_KEYS, 'factors', 'activationCompleted'], 'data', status);
       return {
         attemptId,
         stage: NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED,
@@ -174,7 +209,7 @@ export function parseAttemptResult(
     case NATIVE_AUTH_STAGE.CONSENT_REQUIRED:
       exactKeys(
         record,
-        [...baseKeys, 'account', 'application', 'activationCompleted', ...allowedExtras],
+        [...ATTEMPT_BASE_KEYS, 'account', 'application', 'activationCompleted', ...allowedExtras],
         'data',
         status,
       );
@@ -187,7 +222,12 @@ export function parseAttemptResult(
         ...(activationCompleted === undefined ? {} : { activationCompleted }),
       };
     case NATIVE_AUTH_STAGE.CODE_READY: {
-      exactKeys(record, [...baseKeys, 'redirectUri', 'activationCompleted'], 'data', status);
+      exactKeys(
+        record,
+        [...ATTEMPT_BASE_KEYS, 'redirectUri', 'activationCompleted'],
+        'data',
+        status,
+      );
       const codeReady: Extract<NativeAttemptView, { stage: 'codeReady' }> = {
         attemptId,
         stage: NATIVE_AUTH_STAGE.CODE_READY,
@@ -202,8 +242,16 @@ export function parseAttemptResult(
       };
       return codeReady;
     }
+    default:
+      return parseTerminalStage(record, context);
+  }
+}
+
+function parseTerminalStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+  const { attemptId, expiresAt, status } = context;
+  switch (context.stage) {
     case NATIVE_AUTH_STAGE.DENIED:
-      exactKeys(record, [...baseKeys, 'reason'], 'data', status);
+      exactKeys(record, [...ATTEMPT_BASE_KEYS, 'reason'], 'data', status);
       if (record.reason !== undefined && record.reason !== 'cancelled') {
         fail(status, 'reason', 'is not supported');
       }
@@ -214,7 +262,7 @@ export function parseAttemptResult(
         ...(record.reason === undefined ? {} : { reason: record.reason }),
       };
     case NATIVE_AUTH_STAGE.RECOVERY_COMPLETE:
-      exactKeys(record, [...baseKeys, 'passwordUpdated'], 'data', status);
+      exactKeys(record, [...ATTEMPT_BASE_KEYS, 'passwordUpdated'], 'data', status);
       if (record.passwordUpdated !== true) fail(status, 'passwordUpdated', 'is not true');
       return {
         attemptId,

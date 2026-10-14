@@ -2,6 +2,7 @@ import { NATIVE_AUTH_LIMITS } from '@app/core';
 import { requireArray, requireObject } from '../shapes';
 import type { NativePasskeyCredentialDescriptor, NativePasskeyOptions } from '../types/native-auth';
 import { boundedString, boundedStringList, exactKeys, fail } from './validation';
+import type { JsonObject } from './validation';
 
 function parsePasskeyDescriptor(
   value: unknown,
@@ -28,14 +29,12 @@ function parsePasskeyDescriptor(
   };
 }
 
-export function parsePasskeyOptions(data: unknown, status: number): NativePasskeyOptions {
-  const options = requireObject(data, 'data', status);
-  exactKeys(
-    options,
-    ['challenge', 'timeout', 'rpId', 'allowCredentials', 'userVerification'],
-    'data',
-    status,
-  );
+function validateUserVerification(
+  options: JsonObject,
+  status: number,
+): asserts options is JsonObject & {
+  userVerification?: NativePasskeyOptions['userVerification'];
+} {
   if (
     options.userVerification !== undefined &&
     options.userVerification !== 'required' &&
@@ -44,6 +43,9 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
   ) {
     fail(status, 'userVerification', 'is not supported');
   }
+}
+
+function readTimeout(options: JsonObject, status: number): number | undefined {
   let timeout: number | undefined;
   if (options.timeout !== undefined) {
     if (
@@ -56,6 +58,13 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
     }
     timeout = options.timeout;
   }
+  return timeout;
+}
+
+function readDescriptors(
+  options: JsonObject,
+  status: number,
+): NativePasskeyCredentialDescriptor[] | undefined {
   const descriptors =
     options.allowCredentials === undefined
       ? undefined
@@ -68,6 +77,20 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
   ) {
     fail(status, 'allowCredentials', 'has too many items');
   }
+  return descriptors;
+}
+
+export function parsePasskeyOptions(data: unknown, status: number): NativePasskeyOptions {
+  const options = requireObject(data, 'data', status);
+  exactKeys(
+    options,
+    ['challenge', 'timeout', 'rpId', 'allowCredentials', 'userVerification'],
+    'data',
+    status,
+  );
+  validateUserVerification(options, status);
+  const timeout = readTimeout(options, status);
+  const descriptors = readDescriptors(options, status);
   return {
     challenge: boundedString(
       options.challenge,

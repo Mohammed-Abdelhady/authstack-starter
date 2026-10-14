@@ -1,6 +1,7 @@
 import { HTTP_STATUS_OK } from './constants';
 import { malformedResponse, unwrapEnvelope, unwrapEnvelopeBody } from './envelope';
 import { requireArray, requireObject } from './shapes';
+import type { JsonObject } from './envelope';
 import type { TransportResponse } from './transport';
 import type { Identity, User } from './types';
 
@@ -9,6 +10,18 @@ function stringField(value: unknown, name: string, status: number): string {
     throw malformedResponse(status, `The response is malformed: ${name} is not text`);
   }
   return value;
+}
+
+function optionalProfileFields(
+  user: JsonObject,
+): Pick<User, 'avatarUrl' | 'primaryProvider' | 'profileSyncedAt' | 'createdAt' | 'updatedAt'> {
+  return {
+    ...(typeof user.avatarUrl === 'string' ? { avatarUrl: user.avatarUrl } : {}),
+    ...(typeof user.primaryProvider === 'string' ? { primaryProvider: user.primaryProvider } : {}),
+    ...(typeof user.profileSyncedAt === 'string' ? { profileSyncedAt: user.profileSyncedAt } : {}),
+    ...(typeof user.createdAt === 'string' ? { createdAt: user.createdAt } : {}),
+    ...(typeof user.updatedAt === 'string' ? { updatedAt: user.updatedAt } : {}),
+  };
 }
 
 function userFrom(value: unknown, status: number): User {
@@ -59,11 +72,7 @@ function userFrom(value: unknown, status: number): User {
     // feature:passkeys:start
     passkeyCount: user.passkeyCount,
     // feature:passkeys:end
-    ...(typeof user.avatarUrl === 'string' ? { avatarUrl: user.avatarUrl } : {}),
-    ...(typeof user.primaryProvider === 'string' ? { primaryProvider: user.primaryProvider } : {}),
-    ...(typeof user.profileSyncedAt === 'string' ? { profileSyncedAt: user.profileSyncedAt } : {}),
-    ...(typeof user.createdAt === 'string' ? { createdAt: user.createdAt } : {}),
-    ...(typeof user.updatedAt === 'string' ? { updatedAt: user.updatedAt } : {}),
+    ...optionalProfileFields(user),
   };
 }
 
