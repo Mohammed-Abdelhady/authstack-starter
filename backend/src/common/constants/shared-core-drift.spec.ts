@@ -31,6 +31,7 @@ import { ROLE_AUDIENCE as BackendRoleAudience } from '../../host/types/host-role
 
 // Backend-only error codes the web client maps by status code or a generic message instead.
 const BACKEND_ONLY_ERROR_CODES = [
+  'ACCOUNT_CREATION_REFUSED', // no-op policy; shared code and messages follow refusal rules.
   'ROLE_NOT_FOUND', // role seeding lookup; the web client surfaces generic NOT_FOUND.
 ];
 

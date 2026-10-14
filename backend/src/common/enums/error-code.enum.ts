@@ -8,6 +8,8 @@ export enum ErrorCode {
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',
   /** Email address is already registered */
   EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS',
+  /** The account creation policy refused this request. */
+  ACCOUNT_CREATION_REFUSED = 'ACCOUNT_CREATION_REFUSED',
 
   // Activation errors
   /**
