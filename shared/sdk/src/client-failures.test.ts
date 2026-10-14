@@ -86,7 +86,9 @@ describe('createApiClient failures', () => {
     await expect(failure).rejects.toBeInstanceOf(ApiError);
     await expect(failure).rejects.toMatchObject({ status: 200, code: 'UNKNOWN_ERROR' });
   });
+});
 
+describe('createApiClient malformed replies', () => {
   it.each([
     ['profile.get', (client: ApiClient) => client.profile.get()],
     ['profile.update', (client: ApiClient) => client.profile.update({ name: 'A B' })],
@@ -155,7 +157,9 @@ describe('createApiClient without a response', () => {
     await expect(failure).rejects.not.toBeInstanceOf(ApiError);
     await expect(failure).rejects.toMatchObject({ reason: 'no_response', cause });
   });
+});
 
+describe('createApiClient signal forwarding', () => {
   it.each(CALLS)('%s hands the signal to the transport untouched', async (_name, call) => {
     const signal = { aborted: false };
     const transport = answering(200, { success: true, data: {} });
@@ -163,7 +167,7 @@ describe('createApiClient without a response', () => {
     await call(createApiClient(transport), { signal }).catch(() => undefined);
 
     expect(transport.sent).toHaveLength(1);
-    expect(transport.sent[0].signal).toBe(signal);
+    for (const request of transport.sent) expect(request.signal).toBe(signal);
   });
 
   it.each(CALLS)('%s sends no signal key when the caller gave none', async (_name, call) => {
@@ -171,7 +175,8 @@ describe('createApiClient without a response', () => {
 
     await call(createApiClient(transport)).catch(() => undefined);
 
-    expect('signal' in transport.sent[0]).toBe(false);
+    expect(transport.sent).toHaveLength(1);
+    for (const request of transport.sent) expect('signal' in request).toBe(false);
   });
 
   it.each(CALLS)('%s does not send once the signal is aborted', async (_name, call) => {
@@ -183,7 +188,9 @@ describe('createApiClient without a response', () => {
     await expect(failure).rejects.toMatchObject({ reason: 'aborted' });
     expect(transport.sent).toEqual([]);
   });
+});
 
+describe('createApiClient abort races', () => {
   it('reports an abort during the request as aborted, whatever the transport threw', async () => {
     const signal = { aborted: false };
     const abortError = new Error('The operation was aborted');

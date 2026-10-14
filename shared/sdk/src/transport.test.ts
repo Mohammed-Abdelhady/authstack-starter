@@ -8,6 +8,7 @@ describe('Transport headers', () => {
 
     await createApiClient(transport).oauth.revoke({ token: 'refresh-token' });
 
-    expect(transport.sent[0].headers).toBeUndefined();
+    expect(transport.sent).toHaveLength(1);
+    for (const request of transport.sent) expect(request.headers).toBeUndefined();
   });
 });
