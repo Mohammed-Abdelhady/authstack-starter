@@ -53,6 +53,7 @@ export interface DatabaseCase {
   database: string;
   /** `undefined` asks for every method the manifest offers. */
   features: string[] | undefined;
+  flags?: string[];
   budgetMs: number;
   /** The time one suite may take inside the case. */
   suiteMs: number;
@@ -99,7 +100,11 @@ export function describeDatabaseProjects(title: string, cases: DatabaseCase[]): 
         async ({ signal }) => {
           const features = testCase.features ?? everything();
           const project = join(workspace, testCase.name.replace(/\W+/g, '-'));
-          const scaffolded = await scaffold(project, features, ['--database', testCase.database]);
+          const scaffolded = await scaffold(project, features, [
+            '--database',
+            testCase.database,
+            ...(testCase.flags ?? []),
+          ]);
           expect(scaffolded.ok, scaffolded.output).toBe(true);
 
           await expectInstallsLintsBuilds(project, inject('pnpmStore'), signal);

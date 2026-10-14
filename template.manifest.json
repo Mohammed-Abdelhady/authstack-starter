@@ -307,6 +307,7 @@
         "frontend/src/i18n/messages/*.ar.json",
         "frontend/src/app/fonts/NotoSansArabic.woff2",
         "frontend/src/app/fonts/OFL-NotoSansArabic.txt",
+        "frontend/src/app/fonts/SOURCES-NotoSansArabic.md",
         "mobile/ui/src/i18n/ar.ts",
         "mobile/ui/assets/fonts/AppUIArabic-*.ttf",
         "mobile/ui/assets/fonts/OFL-NotoSansArabic.txt",
@@ -388,8 +389,9 @@
         "backend/src/auth/native/providers/**",
         "backend/test/native/providers/**",
         "frontend/src/modules/auth/native/__tests__/NativeAuthorizeSelection.test.tsx",
-        "backend/src/session/native/authorize/native-browser-selectors.integration.spec.ts",
-        "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts"
+        "backend/test/native/authorize/native-browser-selectors.e2e-spec.ts",
+        "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts",
+        "backend/test/native/attempts/native-attempt-sdk-providers.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -453,6 +455,7 @@
       "files": [
         "backend/src/auth/oauth/strategies/google-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-google.e2e-spec.ts",
         "mobile/expo/test/native-sign-in-readiness.test.ts",
         "mobile/cli/test/native-sign-in-readiness.test.ts",
         "backend/test/native/attempts/native-account-email.e2e-spec.ts"
@@ -499,7 +502,8 @@
       "default": true,
       "files": [
         "backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts",
-        "backend/src/auth/oauth/strategies/native-facebook.strategy.spec.ts"
+        "backend/src/auth/oauth/strategies/native-facebook.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-facebook.e2e-spec.ts"
       ],
       "packages": ["react-native-fbsdk-next"],
       "envVars": [
@@ -648,6 +652,7 @@
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.spec.ts",
         "backend/src/auth/oauth/strategies/native-apple.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-apple.e2e-spec.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.spec.ts",
         "backend/src/auth/oauth/utils/apple-user-payload.util.ts",
