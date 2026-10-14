@@ -12,8 +12,7 @@ import { ProfileSyncService } from '../../user/services/profile-sync.service';
 import { AccountLinkingService } from '../../user/services/account-linking.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { UniqueConflictError } from '../../common/persistence/persistence-errors';
-import { storeFailureCause } from '../../common/persistence/store-failure';
+import { toProviderLinkError } from './utils/provider-link-error.util';
 import { readBearerToken } from '../../session/native/access/native-access.service';
 import { hasBothCredentials } from '../../session/utils/request/request-credential';
 import {
@@ -33,6 +32,10 @@ import {
   DEFAULT_LOCALE,
   SupportedLocale,
 } from '../../common/constants/locales';
+import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
+import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
 
 const DEFAULT_ROLE = 'user';
 
@@ -51,6 +54,8 @@ export class OAuthService {
     private readonly accountLinkingService: AccountLinkingService,
     private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
+    private readonly policy: AccountCreationPolicy,
+    private readonly runner: UnitOfWorkRunner,
     private readonly notices?: SecurityNoticeService,
   ) {}
 
@@ -188,9 +193,10 @@ export class OAuthService {
     strategy: OAuthProviderStrategy,
     profile: OAuthProfile,
     locale: SupportedLocale,
+    application = WEB_CLIENT_ID,
   ): Promise<StoredAccount> {
     this.assertEmailVerified(strategy, profile);
-    return this.findOrCreateUser(strategy, profile, locale);
+    return this.findOrCreateUser(strategy, profile, locale, application);
   }
 
   /**
@@ -204,6 +210,7 @@ export class OAuthService {
     strategy: LinkingProvider,
     profile: OAuthProfile,
     locale: SupportedLocale = DEFAULT_LOCALE,
+    application = WEB_CLIENT_ID,
   ): Promise<StoredAccount> {
     const provider = strategy.id;
     const identity = { provider, providerId: profile.providerId };
@@ -230,7 +237,7 @@ export class OAuthService {
       );
     }
 
-    return this.createUser(identity, profile, locale);
+    return this.createUser(identity, profile, locale, application);
   }
 
   private async linkToExistingUser(
@@ -245,7 +252,7 @@ export class OAuthService {
       );
       return linked;
     } catch (error) {
-      throw this.toLinkConflict(error, identity.provider);
+      throw toProviderLinkError(error, identity.provider);
     }
   }
 
@@ -253,21 +260,28 @@ export class OAuthService {
     identity: { provider: string; providerId: string },
     profile: OAuthProfile,
     locale: SupportedLocale,
+    application: string,
   ): Promise<StoredAccount> {
     try {
-      const user = await this.accounts.createFromProvider({
-        ...identity,
-        email: profile.email,
-        name: profile.name,
-        avatarUrl: profile.avatarUrl,
-        role: DEFAULT_ROLE,
-        locale,
+      const user = await this.runner.run(async (unitOfWork) => {
+        await this.policy.assertMayCreate(
+          { application, method: ACCOUNT_CREATION_METHOD.PROVIDER },
+          unitOfWork,
+        );
+        return this.accounts.createFromProviderIn(unitOfWork, {
+          ...identity,
+          email: profile.email,
+          name: profile.name,
+          avatarUrl: profile.avatarUrl,
+          role: DEFAULT_ROLE,
+          locale,
+        });
       });
 
       this.logger.log(`Created a new user through ${identity.provider}`);
       return user;
     } catch (error) {
-      throw this.toLinkConflict(error, identity.provider);
+      throw toProviderLinkError(error, identity.provider);
     }
   }
 
@@ -324,19 +338,6 @@ export class OAuthService {
       ErrorCode.OAUTH_AUTHENTICATION_FAILED,
       'OAuth authentication failed',
       HttpStatus.UNAUTHORIZED,
-      { provider },
-    );
-  }
-
-  private toLinkConflict(error: unknown, provider: string): unknown {
-    if (!(error instanceof UniqueConflictError)) {
-      return storeFailureCause(error);
-    }
-
-    return new AppException(
-      ErrorCode.OAUTH_ACCOUNT_LINKED_ELSEWHERE,
-      'This provider account is already linked to another user',
-      HttpStatus.CONFLICT,
       { provider },
     );
   }

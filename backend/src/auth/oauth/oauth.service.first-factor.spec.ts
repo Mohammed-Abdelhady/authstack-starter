@@ -1,3 +1,5 @@
+import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { ConfigService } from '@nestjs/config';
 import {
   createResponseMock,
@@ -56,7 +58,7 @@ class LinkedAccountStore extends ProviderSignInStore {
     return Promise.reject(new Error('the account is linked already'));
   }
 
-  createFromProvider(): Promise<StoredAccount> {
+  createFromProviderIn(): Promise<StoredAccount> {
     return Promise.reject(new Error('the account exists already'));
   }
 }
@@ -70,6 +72,8 @@ describe('OAuthService sign-in', () => {
     const completeSignIn = jest
       .fn()
       .mockResolvedValue({ requiresTwoFactor: true });
+    const policy = new AccountCreationPolicy();
+    const assertMayCreate = jest.spyOn(policy, 'assertMayCreate');
     const service = new OAuthService(
       new LinkedAccountStore(account),
       partialMock<SignInCompletion>({ completeSignIn }),
@@ -79,6 +83,8 @@ describe('OAuthService sign-in', () => {
       partialMock<AccountLinkingService>({}),
       partialMock<Sessions>({}),
       new SessionCookieService(new ConfigService({})),
+      policy,
+      partialMock<UnitOfWorkRunner>({}),
     );
     const response = createResponseMock({});
 
@@ -90,6 +96,7 @@ describe('OAuthService sign-in', () => {
       locale: 'en',
     });
 
+    expect(assertMayCreate).not.toHaveBeenCalled();
     expect(outcome).toEqual({ requiresTwoFactor: true });
     expect(completeSignIn.mock.calls).toEqual([
       [
