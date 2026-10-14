@@ -63,7 +63,18 @@ export function stopProcessTree(leader, timeout = PROCESS_TREE_STOP_TIMEOUT_MS) 
   const deadline = Date.now() + timeout;
   const pause = new Int32Array(new SharedArrayBuffer(4));
   for (;;) {
-    const table = processTable();
+    let table;
+    try {
+      table = processTable();
+    } catch {
+      // A sandbox may deny ps; only the caller-owned group can be addressed then.
+      kill(-leader);
+      return;
+    }
+    if (table.length === 0) {
+      kill(-leader);
+      return;
+    }
     claim(owned, leader, table);
     const running = table.filter((row) => owned.has(row.pid) && !row.exited);
     if (running.length === 0) return;
