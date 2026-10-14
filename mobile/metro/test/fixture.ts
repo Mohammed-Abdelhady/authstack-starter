@@ -46,7 +46,7 @@ export function removeWorkspaces(): void {
 }
 
 /** A shell, the engine it uses, and the neighbours it must never reach. */
-export const REPOSITORY_LIKE: Record<string, FixturePackage> = {
+export const REPOSITORY_LIKE = {
   'mobile/expo': {
     name: '@app/mobile-expo',
     dependencies: {
@@ -85,4 +85,4 @@ export const REPOSITORY_LIKE: Record<string, FixturePackage> = {
   backend: { name: 'backend', devDependencies: { '@app/sdk': 'workspace:*' } },
   frontend: { name: 'frontend', dependencies: { '@app/sdk': 'workspace:*', react: '19.3.0' } },
   'packages/create-authstack-starter': { name: 'create-authstack-starter' },
-};
+} satisfies Record<string, FixturePackage>;
