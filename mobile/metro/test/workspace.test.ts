@@ -1,11 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import { findWorkspaceRoot, withWorkspace } from '../src/index.cjs';
 import { makeWorkspace, removeWorkspaces } from './fixture';
 
-const REPOSITORY = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
 const LONE_SHELL = { 'mobile/expo': { name: '@app/mobile-expo' } };
 
 afterEach(removeWorkspaces);
@@ -34,9 +32,14 @@ it('refuses a folder that is in no workspace', () => {
   expect(() => findWorkspaceRoot(lonely)).toThrow(/No pnpm-workspace\.yaml was found above/);
 });
 
-it('resolves each shell in this repository to the repository root', () => {
-  expect(findWorkspaceRoot(join(REPOSITORY, 'mobile/expo'))).toBe(REPOSITORY);
-  expect(findWorkspaceRoot(join(REPOSITORY, 'mobile/cli'))).toBe(REPOSITORY); // feature:native-cli
+it('resolves shells at different depths to their workspace root', () => {
+  const root = makeWorkspace({
+    'apps/native/expo': { name: '@app/mobile-expo' },
+    'clients/cli': { name: '@app/mobile-cli' }, // feature:native-cli
+  });
+
+  expect(findWorkspaceRoot(join(root, 'apps/native/expo'))).toBe(root);
+  expect(findWorkspaceRoot(join(root, 'clients/cli'))).toBe(root); // feature:native-cli
 });
 
 it('looks for packages in the shell before the root and keeps other lookup folders', () => {
