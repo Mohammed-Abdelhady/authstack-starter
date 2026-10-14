@@ -71,6 +71,56 @@ export function seedHostRoleCases(current: () => SeedContractHarness): void {
     });
   });
 
+  it('keeps admin above a host role and its holders when a reseed drops the role', async () => {
+    const { roles } = servicesOn(current());
+    await roles.seed([EDITOR]);
+    for (const [email, role] of [
+      ['editor@example.test', 'editor'],
+      ['admin@example.test', 'admin'],
+    ]) {
+      await current().plantAccount({
+        email,
+        name: role,
+        role,
+        passwordHash: 'not-a-real-hash',
+      });
+    }
+
+    await roles.seed([]);
+
+    expect({
+      levels: (await current().storedRoles()).map(({ slug, level }) => ({
+        slug,
+        level,
+      })),
+      holders: (await current().storedAccounts()).map(({ email, role }) => ({
+        email,
+        role,
+      })),
+    }).toEqual({
+      levels: [
+        { slug: 'admin', level: 6 },
+        { slug: 'editor', level: 5 },
+        { slug: 'user', level: 1 },
+      ],
+      holders: [
+        { email: 'admin@example.test', role: 'admin' },
+        { email: 'editor@example.test', role: 'editor' },
+      ],
+    });
+  });
+
+  it('gives an admin role stored without a level the seeded one', async () => {
+    await current().plantRole({ ...ADMIN_ROLE, level: null });
+
+    await servicesOn(current()).roles.seed([]);
+
+    expect(
+      (await current().storedRoles()).find(({ slug }) => slug === 'admin')
+        ?.level,
+    ).toBe(4);
+  });
+
   it('puts back only the core permissions for an empty host role list', async () => {
     const { roles } = servicesOn(current());
     await roles.seed();

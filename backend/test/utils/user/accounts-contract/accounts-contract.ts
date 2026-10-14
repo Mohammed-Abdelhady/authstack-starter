@@ -3,6 +3,7 @@ import { accountAbortCases } from './accounts-contract-abort';
 import { accountActivationCases } from './accounts-contract-activation';
 import { accountEmailConfirmationCases } from './accounts-contract-email-confirmation';
 import { accountAdminCases } from './accounts-contract-admin';
+import { accountAdminRoleCases } from './accounts-contract-admin-role';
 import { accountFreshnessCases } from './accounts-contract-fresh';
 import { accountGrantCases } from './accounts-contract-grants';
 import { accountPermissionRaceCases } from './accounts-contract-permission-races';
@@ -65,6 +66,7 @@ export function describeAccountStoresContract(
     accountProfileCases(current, seeded);
     accountLeavingCases(current, seeded);
     accountAdminCases(current, seeded);
+    accountAdminRoleCases(current, seeded);
     accountGrantCases(current, seeded);
     accountPermissionRaceCases(current, seeded);
     accountPendingEmailCases(current, seeded);

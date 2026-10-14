@@ -8,6 +8,7 @@ import {
   EDITOR_SLUG,
   LEAD_SLUG,
   READ_POSTS,
+  REVOKED_ALL,
   RoleFixture,
   RoleHarnessSource,
   servicesOn,
@@ -127,6 +128,43 @@ export function roleLevelCases(
       }).toEqual({ answer: HIERARCHY_REFUSAL, stored: null });
     },
   );
+
+  it('ends holder sessions without moving them when the level changes', async () => {
+    const holder = await harness().seedAccount({ role: EDITOR_SLUG });
+
+    const answer = await roles().update(
+      EDITOR_SLUG,
+      { level: 2 },
+      fixture().managerId,
+    );
+
+    expect({
+      usersMoved: answer.usersMoved,
+      level: await storedLevel(EDITOR_SLUG),
+      holder: await harness().account(holder),
+      revocations: (await harness().events()).map((event) => event.action),
+    }).toEqual({
+      usersMoved: 0,
+      level: 2,
+      holder: { role: EDITOR_SLUG, sessionVersion: 1 },
+      revocations: [REVOKED_ALL],
+    });
+  });
+
+  it('leaves holders signed in when an update repeats the level', async () => {
+    await seedLead();
+    const holder = await harness().seedAccount({ role: LEAD_SLUG });
+
+    await roles().update(LEAD_SLUG, { level: 2 }, fixture().managerId);
+
+    expect({
+      holder: await harness().account(holder),
+      events: await harness().events(),
+    }).toEqual({
+      holder: { role: LEAD_SLUG, sessionVersion: 0 },
+      events: [],
+    });
+  });
 
   it('keeps the level when an update leaves it out', async () => {
     await seedLead();

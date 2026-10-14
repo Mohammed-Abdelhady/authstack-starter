@@ -3,7 +3,9 @@ import {
   canManageLevel,
   canModifyLevel,
   hasMinimumRole,
+  isAdminRole,
   isValidRoleAssignment,
+  LevelActor,
   seededRoleLevel,
   UNKNOWN_ROLE_LEVEL,
 } from './role-hierarchy';
@@ -26,6 +28,11 @@ function levelSeen(slug: string): number {
   return slug === GHOST ? UNKNOWN_ROLE_LEVEL : resolveRoleLevel({ slug });
 }
 
+/** The acting account on this slug, as the level checks see it. */
+function actorOn(slug: string): LevelActor {
+  return { level: levelSeen(slug), isAdmin: isAdminRole(slug) };
+}
+
 function table(decide: (row: string, column: string) => boolean) {
   return Object.fromEntries(
     SLUGS.map((row) => [
@@ -37,10 +44,7 @@ function table(decide: (row: string, column: string) => boolean) {
 
 function outranks(actor: string, role: string): boolean {
   try {
-    assertOutranksRole(
-      { level: levelSeen(actor), permissions: [] },
-      { slug: role },
-    );
+    assertOutranksRole({ ...actorOn(actor), permissions: [] }, { slug: role });
     return true;
   } catch (error) {
     if (error instanceof HttpException) return false;
@@ -82,7 +86,7 @@ describe('role checks with the default host roles, as before', () => {
   it('lets an actor read a peer or a lower role, and a stranded slug only as admin', () => {
     expect(
       table((actor, target) =>
-        canManageLevel(levelSeen(actor), levelSeen(target)),
+        canManageLevel(actorOn(actor), levelSeen(target)),
       ),
     ).toEqual({
       user: 'x - - - x -',
@@ -97,7 +101,7 @@ describe('role checks with the default host roles, as before', () => {
   it('lets an actor change only a lower role, and a stranded slug only as admin', () => {
     expect(
       table((actor, target) =>
-        canModifyLevel(levelSeen(actor), levelSeen(target)),
+        canModifyLevel(actorOn(actor), levelSeen(target)),
       ),
     ).toEqual({
       user: '- - - - - -',
@@ -123,7 +127,10 @@ describe('role checks with the default host roles, as before', () => {
   it('lets a wildcard holder edit every role', () => {
     expect(
       SLUGS.map((role) => {
-        assertOutranksRole({ level: 1, permissions: ['*'] }, { slug: role });
+        assertOutranksRole(
+          { level: 1, isAdmin: false, permissions: ['*'] },
+          { slug: role },
+        );
         return role;
       }),
     ).toEqual(SLUGS);
