@@ -1,37 +1,44 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
-import { APP_CONFIGURATION } from '../../../config/app-configuration';
 import { chosenStorage, STORAGE_KIND } from '../storage-choice'; // feature:database-choice
 import {
   openPostgresPool,
   postgresMigrationPoolConfig,
 } from './postgres-connection';
 import {
+  MIGRATE_COMMAND,
   MIGRATE_EXIT,
   migrateCommandOf,
   runMigrateCommand,
 } from './postgres-migrate';
-
-/** The validated environment and nothing else: no store is opened by Nest. */
-@Module({ imports: [APP_CONFIGURATION] })
-class MigrateModule {}
 
 /**
  * The operator command for PostgreSQL migrations.
  *
  *   pnpm --filter backend run migration:postgres:up
  *   pnpm --filter backend run migration:postgres:status
+ *   pnpm --filter backend run migration:postgres:adopt-host <name...>
  *
  * It reads the same environment the server does. The server only verifies the
  * migration record when it starts and never applies a migration itself.
  */
 async function main(): Promise<number> {
   const command = migrateCommandOf(process.argv[2]);
-  if (!command) {
-    console.error('Usage: postgres-migrate <up|status>');
+  const names = process.argv.slice(3);
+  if (
+    !command ||
+    (command === MIGRATE_COMMAND.ADOPT_HOST && names.length === 0)
+  ) {
+    console.error('Usage: postgres-migrate <up|status|adopt-host <name...>>');
     return MIGRATE_EXIT.USAGE;
   }
+  // Usage errors must be answered before environment validation runs.
+  const { APP_CONFIGURATION } =
+    await import('../../../config/app-configuration');
+  @Module({ imports: [APP_CONFIGURATION] })
+  class MigrateModule {}
+
   const context = await NestFactory.createApplicationContext(MigrateModule, {
     logger: ['error', 'warn'],
   });
@@ -48,8 +55,12 @@ async function main(): Promise<number> {
       postgresMigrationPoolConfig(context.get(ConfigService)),
     );
     try {
-      return await runMigrateCommand(command, pool, (line) =>
-        console.log(line),
+      return await runMigrateCommand(
+        command,
+        pool,
+        (line) => console.log(line),
+        undefined,
+        { names },
       );
     } finally {
       await pool.end();
