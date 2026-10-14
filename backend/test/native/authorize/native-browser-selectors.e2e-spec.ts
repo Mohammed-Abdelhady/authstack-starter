@@ -1,19 +1,15 @@
 // feature:oauth-core:start
 import request from 'supertest';
 import { ConfigService } from '@nestjs/config';
-import type { OAuthProviderStrategy } from '../../../auth/oauth/oauth-provider.interface';
-import {
-  bootE2eApp,
-  loginAs,
-  type E2eApp,
-} from '../../../../test/utils/e2e-app';
-import { SEED_USER } from '../../../../test/constants/seed-users';
-import { createNativeApplication } from '../../../../test/utils/native/native-authorize.fixtures';
-import { nativeAuthorizeQuery } from '../harness/native-oauth-requests.harness-spec';
+import type { OAuthProviderStrategy } from '../../../src/auth/oauth/oauth-provider.interface';
+import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
+import { SEED_USER } from '../../constants/seed-users';
+import { createNativeApplication } from '../../utils/native/native-authorize.fixtures';
+import { nativeAuthorizeQuery } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
-} from '../../../../test/utils/hook-timeouts';
+} from '../../utils/hook-timeouts';
 
 let providerEnabled = true;
 const PROVIDER: OAuthProviderStrategy = {
