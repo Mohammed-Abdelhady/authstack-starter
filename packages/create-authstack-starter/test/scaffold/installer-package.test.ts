@@ -150,6 +150,8 @@ it('removes the backend commands of a database that was left out and keeps every
           'ts-node src/common/persistence/postgres/postgres-migrate.cli.ts up',
         'migration:postgres:status':
           'ts-node src/common/persistence/postgres/postgres-migrate.cli.ts status',
+        'migration:postgres:adopt-host':
+          'ts-node src/common/persistence/postgres/postgres-migrate.cli.ts adopt-host',
         seed: 'ts-node src/database/seeds/index.ts',
       },
       dependencies: { kysely: '0.28.17', pg: '8.23.1' },
@@ -159,7 +161,12 @@ it('removes the backend commands of a database that was left out and keeps every
   await removeDatabaseJson(
     root,
     leftOut({
-      scripts: ['test:e2e:postgres', 'migration:postgres:up', 'migration:postgres:status'],
+      scripts: [
+        'test:e2e:postgres',
+        'migration:postgres:up',
+        'migration:postgres:status',
+        'migration:postgres:adopt-host',
+      ],
     }),
   );
 
