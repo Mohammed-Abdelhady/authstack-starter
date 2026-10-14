@@ -84,24 +84,24 @@ The server needs PostgreSQL 18 or newer, because new ids come from the `uuidv7()
 
 ### Migrations
 
-The migrations are plain SQL files under `src/common/persistence/postgres/migrations`. An operator applies them. The server never does.
+Core migrations are plain SQL files under `src/common/persistence/postgres/migrations`, recorded in `schema_migrations`. The host product has its own files under `src/host/migrations` and its own `host_migrations` ledger. An operator applies both sources. The server never does. [Adopting existing host records](database-postgres.md#adopting-existing-host-records) explains how to move a host record out of the core ledger without replaying its SQL.
 
 ```
 pnpm --filter backend run migration:postgres:up
 pnpm --filter backend run migration:postgres:status
 ```
 
-Both read the same environment the server reads. `up` applies what is pending, in order, each file in its own transaction, and says which files it applied. `status` changes nothing. Both exit with 1 when the database is not at this build afterwards, so a deploy script can test either.
+Both read the same environment the server reads. `up` applies core first, releases the core lock, then applies host under its own lock. Files run in name order within each source, each in its own transaction. A failed host file rolls back alone, leaving earlier files and completed core migrations applied. `status` changes nothing and reports both sources, with the three core lines first. Both exit with 1 when the database is not at this build afterwards, so a deploy script can test either.
 
-`up` refuses a database that holds a migration this build does not carry. It names the files and applies nothing, because two builds that each carry a different next file must not both apply theirs.
+`up` refuses a source whose ledger holds a migration this build does not carry, before applying anything to that source. It names the files and identifies host migrations when they differ. A host refusal can happen after core has completed. A rollback to a build lacking an applied file is refused by `up` and start-up; keep applied files and repair forward.
 
-Two people can run `up` at once. They take turns, and the second finds nothing left. The second waits at most two minutes for the first. After that it says another session holds the migration lock, applies nothing and exits with 1. That happens when the other run is still going, or when it was interrupted and its session is still connected.
+Two people can run `up` at once. They take turns within each source, and a waiting run finds that source's files already applied. Since the core lock is released before host, the runs can split the work between sources. Each lock wait is at most two minutes. After that it names the source whose lock is held and exits with 1. Files committed before that wait remain applied. That happens when the other run is still going, or when it was interrupted and its session is still connected.
 
 The command needs a direct connection to PostgreSQL. The lock belongs to the database session, and a pooler in transaction mode gives each statement to another session, so the lock would protect nothing.
 
 `0012_retention_indexes.sql` builds four indexes with plain `CREATE INDEX` inside its transaction. Writes to `sessions`, `authorization_transactions`, `native_credentials` and `native_dpop_proof_ids` wait until it commits. On a new database that takes no time. On a database that already holds many sessions, apply it with the server stopped.
 
-When the server starts it compares the migrations it carries with the ones the database recorded. It refuses to serve when they differ and names the files.
+When the server starts it compares both sources with their ledgers. It refuses to serve when either differs and names the source and files.
 
 ### Expired rows
 
