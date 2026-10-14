@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
+import { WILDCARD_PERMISSION } from '@app/core';
 import { PermissionNode } from './PermissionNode';
 import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 import { Shield } from 'lucide-react';
@@ -28,13 +29,19 @@ export interface PermissionTreeViewProps {
   className?: string;
 }
 
+/**
+ * Group id of the `*` permission. Resources match `[a-z-]+`, so no resource,
+ * a host resource named `wildcard` included, can share it.
+ */
+export const WILDCARD_GROUP_ID = '*';
+
 /** A Map, so a resource named after an Object member such as `constructor` is its own group. */
 function groupPermissions(permissions: string[]): Map<string, string[]> {
   const groups = new Map<string, string[]>();
 
   permissions.forEach((perm) => {
-    if (perm === '*') {
-      groups.set('wildcard', ['*']);
+    if (perm === WILDCARD_PERMISSION) {
+      groups.set(WILDCARD_GROUP_ID, [WILDCARD_PERMISSION]);
       return;
     }
 
@@ -75,7 +82,7 @@ export function PermissionTreeView({
   const treeId = useId();
 
   // Check for wildcard
-  const hasWildcard = permissions.includes('*');
+  const hasWildcard = permissions.includes(WILDCARD_PERMISSION);
 
   if (permissions.length === 0) {
     return <div className="text-center py-8 text-sm text-muted-foreground">{t('empty')}</div>;
@@ -98,7 +105,7 @@ export function PermissionTreeView({
         {[...groupedPermissions].map(([resource, perms]) => (
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
-            {showHeaders && resource !== 'wildcard' && (
+            {showHeaders && resource !== WILDCARD_GROUP_ID && (
               <Heading
                 id={`${treeId}-group-${resource}`}
                 level={4}
@@ -118,7 +125,9 @@ export function PermissionTreeView({
             {/* Permission Nodes */}
             <ul
               aria-labelledby={
-                showHeaders && resource !== 'wildcard' ? `${treeId}-group-${resource}` : undefined
+                showHeaders && resource !== WILDCARD_GROUP_ID
+                  ? `${treeId}-group-${resource}`
+                  : undefined
               }
               className="m-0 list-none space-y-1 p-0"
               data-testid={`permission-list-${resource}`}
