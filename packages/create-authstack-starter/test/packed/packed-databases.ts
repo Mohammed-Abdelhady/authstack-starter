@@ -42,6 +42,7 @@ const CORE_MIGRATIONS = [
   '0014_code_guess_locks.sql',
   '0016_pending_email.sql',
   '0018_native_attempts.sql',
+  '0020_host_migrations.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -104,10 +105,14 @@ export function databaseCases(getPacked: () => Packed): void {
     const workspace = readFileSync(join(project, 'pnpm-workspace.yaml'), 'utf8');
 
     expect({
-      paths: everyFile(project).filter((file) => /postgres/i.test(file)),
+      paths: everyFile(project).filter(
+        (file) => /postgres/i.test(file) || file.startsWith('backend/src/host/migrations/'),
+      ),
       words: findForbiddenContent(project, POSTGRES_WORDS),
       packages: declaredPackages(project).filter((name) => POSTGRES_PACKAGES.includes(name)),
-      scripts: names(backend.scripts).filter((name) => name.includes('postgres')),
+      scripts: names(backend.scripts).filter(
+        (name) => name.includes('postgres') || name.includes('adopt-host'),
+      ),
       buildApprovals: workspace.includes('@embedded-postgres'),
       markers: markedFiles(project),
       database: json(project, ANSWERS_FILE_NAME).answers,
@@ -155,16 +160,19 @@ export function databaseCases(getPacked: () => Packed): void {
       scripts: Object.keys(scripts).filter((name) => /e2e|migration/.test(name)),
       e2e: scripts['test:e2e'],
       migrate: scripts['migration:up'],
+      adopt: scripts['migration:adopt-host'],
       globalSetup: e2e.globalSetup,
       unitSetup: names(backend.jest).filter((key) => key.startsWith('global')),
       composeDatabase: [/^ {2}postgres:$/m.test(compose), /image: postgres:18$/m.test(compose)],
       migrateBeforeBackend: /migrate:\n\s+condition: service_completed_successfully/.test(compose),
       address: /^POSTGRES_URL=postgres:\/\//m.test(example),
     }).toEqual({
-      scripts: ['test:e2e', 'migration:up', 'migration:status'],
+      scripts: ['test:e2e', 'migration:up', 'migration:status', 'migration:adopt-host'],
       e2e: 'node ./test/run-jest.mjs --config ./test/jest-e2e.json --runInBand',
       migrate:
         'ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts up',
+      adopt:
+        'ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts adopt-host',
       globalSetup: '<rootDir>/postgres/e2e/postgres-global-setup.ts',
       unitSetup: [],
       composeDatabase: [true, true],
@@ -222,6 +230,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0016_pending_email.sql',
       '0017_two_factor_lockout.sql',
       '0018_native_attempts.sql',
+      '0020_host_migrations.sql',
     ]);
   });
 
