@@ -1,6 +1,8 @@
 const GOOGLE_SCHEME_PATTERN = /^com\.googleusercontent\.apps\.[A-Za-z0-9-]+$/u;
 const DOMAIN_PATTERN = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,63}$/u;
 const DEFAULT_CALLBACK_PATH = '/oauth/callback';
+const CONTROL_CHARACTER_PATTERN = /\p{Cc}/u;
+const APP_LINK_PATH_ERROR = 'An app-link callback requires an exact host and absolute path';
 
 /** @typedef {import('../src/types/native-build-config').NativeBuildSettings} Settings */
 /** @typedef {import('../src/types/native-build-config').NativeBuildConfiguration} Configuration */
@@ -31,6 +33,9 @@ function validateFacebook(settings) {
 
 /** @param {string[]} paths */
 function normalizePaths(paths) {
+  if (paths.some((path) => CONTROL_CHARACTER_PATTERN.test(path))) {
+    throw new TypeError(APP_LINK_PATH_ERROR);
+  }
   return [...new Set(paths.map((path) => path.trim()).filter(Boolean))];
 }
 
@@ -47,8 +52,12 @@ function validateSettings(settings) {
   }
   validateFacebook(settings);
   for (const path of explicitPaths(settings)) {
-    if (!/^\/(?!\/)[^?#\s]*$/u.test(path) || !settings.appLinkHost) {
-      throw new TypeError('An app-link callback requires an exact host and absolute path');
+    if (
+      !/^\/(?!\/)[^?#\s]*$/u.test(path) ||
+      CONTROL_CHARACTER_PATTERN.test(path) ||
+      !settings.appLinkHost
+    ) {
+      throw new TypeError(APP_LINK_PATH_ERROR);
     }
   }
 }
