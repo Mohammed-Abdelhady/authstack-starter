@@ -388,7 +388,7 @@
         "backend/src/auth/native/providers/**",
         "backend/test/native/providers/**",
         "frontend/src/modules/auth/native/__tests__/NativeAuthorizeSelection.test.tsx",
-        "backend/src/session/native/authorize/native-browser-selectors.integration.spec.ts",
+        "backend/test/native/authorize/native-browser-selectors.e2e-spec.ts",
         "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
