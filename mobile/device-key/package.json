@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "ES256 signing key in the phone's secure hardware, behind the sign-in engine's device key port",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

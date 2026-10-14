@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.version        = package['version']
   s.summary        = package['description']
   s.description    = package['description']
-  s.license        = 'UNLICENSED'
+  s.license        = 'MIT'
   s.author         = 'app'
   s.homepage       = 'https://example.invalid/app-device-key'
   s.platforms      = {

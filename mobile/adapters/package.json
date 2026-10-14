@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Port adapters for the mobile sign-in engine over the Expo modules, shared by both shells",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

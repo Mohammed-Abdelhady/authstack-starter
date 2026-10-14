@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Platform-neutral rules and types shared by the web and mobile clients",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
