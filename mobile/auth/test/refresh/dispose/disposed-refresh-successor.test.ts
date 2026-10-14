@@ -13,6 +13,7 @@ import {
   acceptCode,
   establishSession,
   oauthTokenReply,
+  refreshToken,
   successUserReply,
   testPorts,
 } from '../../support/support';
@@ -80,7 +81,10 @@ describe('a disposed refresh and a successor engine', () => {
     expect(oldPorts.credentials.value).toBe(successorRecord);
     const revocations = oldTransport.sent.filter(({ path }) => path === '/api/oauth/revoke');
     expect(revocations).toHaveLength(1);
-    expect(revocations[0]?.body).toEqual({ client_id: 'native-client', token: 'refresh-late' });
+    expect(revocations[0]?.body).toEqual({
+      client_id: 'native-client',
+      token: refreshToken('late'),
+    });
     expect(oldPorts.timer.pending).toBe(0);
     expect(newEngine.snapshot.status).toBe('signedIn');
   });

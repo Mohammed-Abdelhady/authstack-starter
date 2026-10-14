@@ -8,7 +8,13 @@ import {
   ScriptedTransport,
   testPorts,
 } from '../support/support';
-import { ATTEMPT_ID, ATTEMPT_SECRET, NONCE_DIGEST, startReply } from './native-fixtures';
+import {
+  ATTEMPT_ID,
+  ATTEMPT_SECRET,
+  NONCE_DIGEST,
+  startReply,
+  TEMPORARY_PASSWORD,
+} from './native-fixtures';
 
 function methodsReply() {
   return apiReply({
@@ -165,7 +171,7 @@ describe('native platform credentials', () => {
     await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
 
     const result = await engine.nativeSignIn({ kind: 'passkey' });

@@ -2,7 +2,7 @@ import type { NativeFlow } from '@app/sdk';
 import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { CONFIG, Deferred, ScriptedTransport, testPorts, apiReply } from '../support/support';
-import { ATTEMPT_ID, startReply } from './native-fixtures';
+import { ATTEMPT_ID, startReply, TEMPORARY_PASSWORD } from './native-fixtures';
 
 const CREATED_AT = 1_800_000_000_000;
 const LOCAL_DEADLINE = 1_800_000_900_000;
@@ -101,7 +101,7 @@ describe('native attempt creation clock', () => {
         const next = await restored.nativeSignIn({
           kind: 'password',
           email: 'person@example.test',
-          password: 'temporary-secret',
+          password: TEMPORARY_PASSWORD,
         });
         expect(next.kind).toBe('continue');
         assert.isDefined(transport.sent[2]);

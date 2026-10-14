@@ -10,7 +10,13 @@ import {
   testPorts,
   USER,
 } from '../support/support';
-import { ATTEMPT_ID, ATTEMPT_SECRET, startReply, secondFactorReply } from './native-fixtures';
+import {
+  ATTEMPT_ID,
+  ATTEMPT_SECRET,
+  startReply,
+  secondFactorReply,
+  TEMPORARY_PASSWORD,
+} from './native-fixtures';
 
 describe('native engine', () => {
   it('saves a fresh attempt before factor submission and keeps inputs out of storage and snapshots', async () => {
@@ -34,7 +40,7 @@ describe('native engine', () => {
     const answered = await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
 
     expect(transport.sent.map(({ path }) => path)).toEqual([
@@ -45,7 +51,7 @@ describe('native engine', () => {
     expect(answered.kind).toBe('continue');
     expect(persistedBeforeStart).toBe(true);
     expect(persistedBeforePassword).toBe(true);
-    expect(ports.credentials.value).not.toContain('temporary-secret');
+    expect(ports.credentials.value).not.toContain(TEMPORARY_PASSWORD);
     expect(JSON.stringify(engine.snapshot)).not.toContain(ATTEMPT_SECRET);
     expect(engine.snapshot.nativeAttempt?.stage).toBe('secondFactorRequired');
   });
@@ -94,7 +100,7 @@ describe('native engine', () => {
     const pending = engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     await sent.promise;
     await engine.cancelNativeSignIn();
@@ -217,7 +223,7 @@ describe('native engine', () => {
     const outcome = await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
 
     expect(outcome.kind).toBe('signedIn');
@@ -296,13 +302,13 @@ describe('native engine', () => {
     const first = engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     await sent.promise;
     const second = await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     engine.dispose();
     delayed.resolve(secondFactorReply(expiresAt));

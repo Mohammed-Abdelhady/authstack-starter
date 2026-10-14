@@ -13,7 +13,13 @@ import {
   settleDisposedRefreshFailure,
 } from '../../../src/refresh/refresh-dispose';
 import type { RuntimeTokens } from '../../../src/types/record';
-import { CONFIG, Deferred, ScriptedTransport, testPorts } from '../../support/support';
+import {
+  CONFIG,
+  Deferred,
+  refreshToken,
+  ScriptedTransport,
+  testPorts,
+} from '../../support/support';
 
 const INSTALL_DIGEST = 'device-digest';
 const LINEAGE_ID = 'disposed-guard-lineage';
@@ -78,7 +84,7 @@ describe('disposed refresh storage guards', () => {
     expect(ports.credentials.value).toBe(marker);
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(1);
     expect(transport.sent.find(({ path }) => path === '/api/oauth/revoke')?.body).toMatchObject({
-      token: 'refresh-next',
+      token: refreshToken('next'),
     });
     expect(ports.credentials.value).toContain('"refreshInFlight":true');
     expect(ports.timer.pending).toBe(0);
@@ -221,7 +227,7 @@ describe('disposed refresh storage guards', () => {
     if (revoke) {
       expect(revokes).toContainEqual(
         expect.objectContaining({
-          body: expect.objectContaining({ token: 'refresh-next' }),
+          body: expect.objectContaining({ token: refreshToken('next') }),
         }),
       );
     } else {

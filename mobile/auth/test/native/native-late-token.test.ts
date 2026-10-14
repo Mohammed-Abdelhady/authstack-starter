@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import { apiReply, CONFIG, Deferred, ScriptedTransport, testPorts } from '../support/support';
-import { ATTEMPT_ID, startReply } from './native-fixtures';
+import { ATTEMPT_ID, startReply, TEMPORARY_PASSWORD } from './native-fixtures';
 
 describe('native authorization exchange races', () => {
   it('revokes an issued refresh token when disposal wins during exchange', async () => {
@@ -42,7 +42,7 @@ describe('native authorization exchange races', () => {
     const pending = engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     await exchangeStarted.promise;
 
