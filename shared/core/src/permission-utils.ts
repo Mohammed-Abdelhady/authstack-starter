@@ -152,7 +152,7 @@ export function filterPermissionsByResource(permissions: string[], resource: str
 export function parsePermission(permission: string): {
   resource: string;
   action: string;
-  scope?: string;
+  scope?: string | undefined;
 } | null {
   if (permission === WILDCARD_PERMISSION) {
     return {
@@ -162,14 +162,14 @@ export function parsePermission(permission: string): {
     };
   }
 
-  const parts = permission.split(':');
-  if (parts.length < 2) {
+  const [resource, action, scope] = permission.split(':');
+  if (resource === undefined || action === undefined) {
     return null;
   }
 
   return {
-    resource: parts[0],
-    action: parts[1],
-    scope: parts[2],
+    resource,
+    action,
+    scope,
   };
 }

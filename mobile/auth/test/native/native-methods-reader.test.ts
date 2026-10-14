@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { AuthDisposedError } from '../../src';
 import { PortDeadlineError } from '../../src/runtime/deadlines';
 import { createAuthEngine } from '../support/engine';
@@ -28,9 +28,10 @@ describe('native methods reader lifecycle', () => {
       recovery: true,
     });
     expect(two.capabilities.passkeys).toBe(false);
+    assert.isDefined(transport.sent[0]);
     expect(transport.sent[0].signal).toBeDefined();
-    expect(transport.sent[0].headers?.Authorization).toBeUndefined();
-    expect(transport.sent[0].headers?.Cookie).toBeUndefined();
+    expect(transport.sent[0].headers?.['Authorization']).toBeUndefined();
+    expect(transport.sent[0].headers?.['Cookie']).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
     engine.dispose();
   });
@@ -50,6 +51,7 @@ describe('native methods reader lifecycle', () => {
     ports.timer.fireDelay(METHODS_DEADLINE_MS);
     await drainMethods();
     const timedOut = earlyError instanceof PortDeadlineError;
+    assert.isDefined(transport.sent[0]);
     const aborted = transport.sent[0].signal?.aborted;
     const retry = engine.methods().catch((error: unknown) => error);
     await drainMethods();
@@ -83,6 +85,7 @@ describe('native methods reader lifecycle', () => {
     engine.dispose();
     await drainMethods();
     const disposed = earlyError instanceof AuthDisposedError;
+    assert.isDefined(transport.sent[0]);
     const aborted = transport.sent[0].signal?.aborted;
     held.resolve(apiReply(METHODS));
     await read;

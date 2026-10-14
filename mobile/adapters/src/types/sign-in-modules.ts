@@ -8,8 +8,8 @@ export interface NativeSignInSettings {
   iosBundleIdentifier?: string;
   facebookAppId?: string;
   facebookClientToken?: string;
-  facebookDisplayName?: string;
-  passkeyRpId?: string;
+  facebookDisplayName?: string | undefined;
+  passkeyRpId?: string | undefined;
 }
 
 export interface GoogleSignInApi {
@@ -83,8 +83,8 @@ export interface NativePasskeysApi {
 export interface NativeSignInModules {
   platform: NativeSignInPlatform;
   google?: GoogleSignInApi;
-  apple?: AppleAuthenticationApi;
-  appleScopes?: { fullName: number; email: number };
+  apple?: AppleAuthenticationApi | undefined;
+  appleScopes?: { fullName: number; email: number } | undefined;
   facebook?: FacebookSignInApi;
   passkeys?: NativePasskeysApi;
 }

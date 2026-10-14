@@ -1,4 +1,9 @@
-import { ErrorCode, extractFieldErrors, getStatusErrorCode } from '@app/core/errors';
+import {
+  ErrorCode,
+  extractFieldErrors,
+  getStatusErrorCode,
+  type ApiErrorResponse,
+} from '@app/core/errors';
 import {
   DPOP_NONCE_HEADER,
   HTTP_STATUS_OK,
@@ -7,8 +12,17 @@ import {
 } from './constants';
 import { ApiError, OAuthError } from './errors';
 import type { TransportResponse } from './transport';
+import type { JsonFields } from './types/json';
 
 export type JsonObject = Record<string, unknown>;
+
+type EnvelopeBody = {
+  success?: unknown;
+  error?: unknown;
+  data?: unknown;
+  requestId?: unknown;
+  error_description?: unknown;
+};
 
 export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -28,11 +42,15 @@ export function malformedResponse(status: number, problem: string): ApiError {
 }
 
 /** `{ success: false, error: { ... } }`, the shape the global filter writes. */
-function readErrorEnvelope(body: unknown): JsonObject | undefined {
-  if (!isJsonObject(body) || body.success !== false || !isJsonObject(body.error)) {
+function readErrorEnvelope(body: unknown): EnvelopeBody | undefined {
+  if (!isJsonObject(body)) {
     return undefined;
   }
-  return body;
+  const envelope: EnvelopeBody = body;
+  if (envelope.success !== false || !isJsonObject(envelope.error)) {
+    return undefined;
+  }
+  return envelope;
 }
 
 /** What to say when the body itself carries no message. */
@@ -47,7 +65,9 @@ function describeFailure(body: unknown, status: number): string {
 
 function toApiError(body: unknown, status: number): ApiError {
   const envelope = readErrorEnvelope(body);
-  const error = isJsonObject(envelope?.error) ? envelope.error : undefined;
+  const error: JsonFields<ApiErrorResponse['error']> | undefined = isJsonObject(envelope?.error)
+    ? envelope.error
+    : undefined;
   const code = nonEmptyString(error?.code) ?? getStatusErrorCode(status);
 
   return new ApiError({
@@ -60,8 +80,9 @@ function toApiError(body: unknown, status: number): ApiError {
 }
 
 function readEnvelope<T>(body: unknown, status: number): T {
-  if (isSuccessStatus(status) && isJsonObject(body) && body.success === true) {
-    return body.data as T;
+  if (isSuccessStatus(status) && isJsonObject(body)) {
+    const envelope: EnvelopeBody = body;
+    if (envelope.success === true) return envelope.data as T;
   }
   throw toApiError(body, status);
 }
@@ -95,11 +116,10 @@ export function unwrapOAuth<T extends object>(response: TransportResponse): T {
   if (succeeded) {
     throw malformedResponse(status, 'The OAuth response is not a JSON object');
   }
-  const oauthError = isJsonObject(body) ? nonEmptyString(body.error) : undefined;
+  const errorBody: EnvelopeBody | undefined = isJsonObject(body) ? body : undefined;
+  const oauthError = nonEmptyString(errorBody?.error);
   if (oauthError !== undefined) {
-    const errorDescription = isJsonObject(body)
-      ? nonEmptyString(body.error_description)
-      : undefined;
+    const errorDescription = nonEmptyString(errorBody?.error_description);
     throw new OAuthError({
       status,
       error: oauthError,

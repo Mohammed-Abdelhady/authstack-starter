@@ -1,7 +1,8 @@
 import { NATIVE_AUTH_LIMITS, NATIVE_PROVIDER_SDK_MODE } from '@app/core';
 import { unwrapAuthMethodsBody } from '../auth-methods';
 import { requireArray, requireObject } from '../shapes';
-import type { AuthMethodProvider } from '../types';
+import type { AuthMethodProvider, AuthMethods } from '../types';
+import type { JsonFields } from '../types/json';
 import type {
   NativeAuthCapabilities,
   NativeMethods,
@@ -18,7 +19,7 @@ function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[
   }
   return providers.map((provider, index) => {
     const field = `methods.oauth[${index}]`;
-    const record = requireObject(provider, field, status);
+    const record: JsonFields<AuthMethodProvider> = requireObject(provider, field, status);
     exactKeys(record, ['id', 'displayName'], field, status);
     return {
       id: boundedString(record.id, `${field}.id`, NATIVE_AUTH_LIMITS.PROVIDER_ID, status),
@@ -33,7 +34,7 @@ function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[
 }
 
 function parseCapabilities(value: unknown, status: number): NativeAuthCapabilities {
-  const fields = requireObject(value, 'capabilities', status);
+  const fields: JsonFields<NativeAuthCapabilities> = requireObject(value, 'capabilities', status);
   exactKeys(
     fields,
     ['password', 'emailLink', 'passkeys', 'registration', 'recovery'],
@@ -54,7 +55,7 @@ function parseSdkConfiguration(
   field: string,
   status: number,
 ): NativeProviderSdkConfiguration {
-  const sdk = requireObject(value, field, status);
+  const sdk: JsonFields<NativeProviderSdkConfiguration> = requireObject(value, field, status);
   if (sdk.kind === 'google') {
     exactKeys(sdk, ['kind', 'webClientId', 'iosClientId'], field, status);
     return {
@@ -87,6 +88,41 @@ function parseSdkConfiguration(
   return fail(status, `${field}.kind`, 'is not supported');
 }
 
+function parseSdkProvider(
+  provider: JsonFields<NativeProviderMethod>,
+  identity: AuthMethodProvider,
+  field: string,
+  status: number,
+): NativeProviderMethod {
+  const { id, displayName } = identity;
+  const sdk = parseSdkConfiguration(provider.sdk, `${field}.sdk`, status);
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN &&
+    id === 'google' &&
+    sdk.kind === 'google'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN, sdk };
+  }
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE &&
+    id === 'apple' &&
+    sdk.kind === 'apple'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE, sdk };
+  }
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK &&
+    id === 'facebook' &&
+    sdk.kind === 'facebook'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.FACEBOOK, sdk };
+  }
+  return fail(status, `${field}.mode`, 'does not match its public SDK configuration');
+}
+
 function parseProviderMethods(
   value: unknown,
   enabledProviders: readonly AuthMethodProvider[],
@@ -99,7 +135,7 @@ function parseProviderMethods(
   const actualIds = new Set<string>();
   return entries.map((entry, index) => {
     const field = `providers[${index}]`;
-    const provider = requireObject(entry, field, status);
+    const provider: JsonFields<NativeProviderMethod> = requireObject(entry, field, status);
     const id = boundedString(provider.id, `${field}.id`, NATIVE_AUTH_LIMITS.PROVIDER_ID, status);
     const displayName = boundedString(
       provider.displayName,
@@ -116,40 +152,15 @@ function parseProviderMethods(
       return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.SYSTEM };
     }
 
-    const sdk = parseSdkConfiguration(provider.sdk, `${field}.sdk`, status);
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN &&
-      id === 'google' &&
-      sdk.kind === 'google'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN, sdk };
-    }
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE &&
-      id === 'apple' &&
-      sdk.kind === 'apple'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE, sdk };
-    }
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK &&
-      id === 'facebook' &&
-      sdk.kind === 'facebook'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.FACEBOOK, sdk };
-    }
-    return fail(status, `${field}.mode`, 'does not match its public SDK configuration');
+    return parseSdkProvider(provider, { id, displayName }, field, status);
   });
 }
 
 export function parseNativeMethods(data: unknown, status: number): NativeMethods {
-  const record = requireObject(data, 'data', status);
+  const record: JsonFields<NativeMethods> = requireObject(data, 'data', status);
   exactKeys(record, ['nativeEnabled', 'methods', 'capabilities', 'providers'], 'data', status);
   const nativeEnabled = booleanValue(record.nativeEnabled, 'nativeEnabled', status);
-  const methodRecord = requireObject(record.methods, 'methods', status);
+  const methodRecord: JsonFields<AuthMethods> = requireObject(record.methods, 'methods', status);
   exactKeys(
     methodRecord,
     ['password', 'magicLink', 'twoFactor', 'passkeys', 'oauth'],

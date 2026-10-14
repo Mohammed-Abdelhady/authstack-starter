@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { apiReply, CONFIG, ScriptedTransport, testPorts } from '../support/support';
 import { ATTEMPT_ID, startReply } from './native-fixtures';
@@ -44,6 +44,7 @@ describe('native flow guards', () => {
     const result = await engine.nativeSignIn({ kind: 'passkey' });
 
     expect(result.kind).toBe('continue');
+    assert.isDefined(transport.sent[3]);
     expect(transport.sent[3].path).toBe('/api/auth/native/attempts/attempt-1/passkey/verify');
     expect(transport.sent[3].body).toEqual({ response: assertion });
     expect(base.credentials.value).not.toContain('signature');

@@ -133,25 +133,27 @@ function configureNativeSignIn(config, settings) {
 
 /** @param {Record<string, string | undefined>} values @returns {Settings} */
 function readNativeBuildSettings(values) {
-  const apple = values.MOBILE_APPLE_SIGN_IN_ENABLED;
+  const apple = values['MOBILE_APPLE_SIGN_IN_ENABLED'];
   if (apple && apple !== 'true' && apple !== 'false') {
     throw new TypeError('MOBILE_APPLE_SIGN_IN_ENABLED must be true or false');
   }
   return {
-    ...(values.MOBILE_GOOGLE_IOS_URL_SCHEME
-      ? { googleIosUrlScheme: values.MOBILE_GOOGLE_IOS_URL_SCHEME }
+    ...(values['MOBILE_GOOGLE_IOS_URL_SCHEME']
+      ? { googleIosUrlScheme: values['MOBILE_GOOGLE_IOS_URL_SCHEME'] }
       : {}),
     ...(apple ? { appleSignIn: apple === 'true' } : {}),
-    ...(values.MOBILE_FACEBOOK_APP_ID ? { facebookAppId: values.MOBILE_FACEBOOK_APP_ID } : {}),
-    ...(values.MOBILE_FACEBOOK_CLIENT_TOKEN
-      ? { facebookClientToken: values.MOBILE_FACEBOOK_CLIENT_TOKEN }
+    ...(values['MOBILE_FACEBOOK_APP_ID']
+      ? { facebookAppId: values['MOBILE_FACEBOOK_APP_ID'] }
       : {}),
-    ...(values.MOBILE_FACEBOOK_DISPLAY_NAME
-      ? { facebookDisplayName: values.MOBILE_FACEBOOK_DISPLAY_NAME }
+    ...(values['MOBILE_FACEBOOK_CLIENT_TOKEN']
+      ? { facebookClientToken: values['MOBILE_FACEBOOK_CLIENT_TOKEN'] }
       : {}),
-    ...(values.MOBILE_PASSKEY_RP_ID ? { passkeyRpId: values.MOBILE_PASSKEY_RP_ID } : {}),
-    ...(values.MOBILE_APP_LINK_HOST ? { appLinkHost: values.MOBILE_APP_LINK_HOST } : {}),
-    ...(values.MOBILE_APP_LINK_PATH ? { appLinkPath: values.MOBILE_APP_LINK_PATH } : {}),
+    ...(values['MOBILE_FACEBOOK_DISPLAY_NAME']
+      ? { facebookDisplayName: values['MOBILE_FACEBOOK_DISPLAY_NAME'] }
+      : {}),
+    ...(values['MOBILE_PASSKEY_RP_ID'] ? { passkeyRpId: values['MOBILE_PASSKEY_RP_ID'] } : {}),
+    ...(values['MOBILE_APP_LINK_HOST'] ? { appLinkHost: values['MOBILE_APP_LINK_HOST'] } : {}),
+    ...(values['MOBILE_APP_LINK_PATH'] ? { appLinkPath: values['MOBILE_APP_LINK_PATH'] } : {}),
   };
 }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createApiClient, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import type { AbortSignalPort } from '../../src';
 import { PortAbortController } from '../../src';
@@ -46,6 +46,7 @@ describe('private methods cancellation signal contract', () => {
     expect(refused).toBeInstanceOf(TransportError);
     if (refused instanceof TransportError) expect(refused.reason).toBe(TRANSPORT_FAILURE.ABORTED);
     expect(transport.sent).toHaveLength(1);
+    assert.isDefined(transport.sent[0]);
     expect(transport.sent[0].signal?.aborted).toBe(false);
     expect(caller.listeners.size).toBe(0);
     held.resolve(apiReply(METHODS));

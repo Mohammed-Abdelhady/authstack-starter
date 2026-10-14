@@ -1,13 +1,18 @@
 import { OAUTH_DPOP_TOKEN_TYPE, OAUTH_TOKEN_TYPE } from './constants';
 import { malformedResponse, nonEmptyString, unwrapOAuth, type JsonObject } from './envelope';
 import type { TransportResponse } from './transport';
-import type { TokenSet } from './types';
+import type { OAuthTokenResponse, TokenSet } from './types';
+import type { JsonFields } from './types/json';
 
 function malformedToken(status: number, problem: string) {
   return malformedResponse(status, `The token response is malformed: ${problem}`);
 }
 
-function requireToken(body: JsonObject, key: string, status: number): string {
+function requireToken(
+  body: JsonFields<OAuthTokenResponse>,
+  key: 'access_token' | 'refresh_token',
+  status: number,
+): string {
   const token = nonEmptyString(body[key]);
   if (token === undefined) {
     throw malformedToken(status, `${key} is not a non-empty string`);
@@ -21,7 +26,7 @@ function requireToken(body: JsonObject, key: string, status: number): string {
  */
 export function unwrapTokenSet(response: TransportResponse): TokenSet {
   const { status } = response;
-  const body = unwrapOAuth<JsonObject>(response);
+  const body: JsonFields<OAuthTokenResponse> = unwrapOAuth<JsonObject>(response);
   const accessToken = requireToken(body, 'access_token', status);
   const refreshToken = requireToken(body, 'refresh_token', status);
   const expiresIn = body.expires_in;

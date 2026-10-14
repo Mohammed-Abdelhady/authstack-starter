@@ -1,6 +1,7 @@
 import { NATIVE_AUTH_LIMITS } from '@app/core';
 import { requireArray, requireObject } from '../shapes';
 import type { NativePasskeyCredentialDescriptor, NativePasskeyOptions } from '../types/native-auth';
+import type { JsonFields } from '../types/json';
 import { boundedString, boundedStringList, exactKeys, fail } from './validation';
 
 function parsePasskeyDescriptor(
@@ -8,7 +9,11 @@ function parsePasskeyDescriptor(
   field: string,
   status: number,
 ): NativePasskeyCredentialDescriptor {
-  const descriptor = requireObject(value, field, status);
+  const descriptor: JsonFields<NativePasskeyCredentialDescriptor> = requireObject(
+    value,
+    field,
+    status,
+  );
   exactKeys(descriptor, ['type', 'id', 'transports'], field, status);
   if (descriptor.type !== 'public-key') fail(status, `${field}.type`, 'is not public-key');
   return {
@@ -28,14 +33,12 @@ function parsePasskeyDescriptor(
   };
 }
 
-export function parsePasskeyOptions(data: unknown, status: number): NativePasskeyOptions {
-  const options = requireObject(data, 'data', status);
-  exactKeys(
-    options,
-    ['challenge', 'timeout', 'rpId', 'allowCredentials', 'userVerification'],
-    'data',
-    status,
-  );
+function validateUserVerification(
+  options: JsonFields<NativePasskeyOptions>,
+  status: number,
+): asserts options is JsonFields<NativePasskeyOptions> & {
+  userVerification?: NativePasskeyOptions['userVerification'];
+} {
   if (
     options.userVerification !== undefined &&
     options.userVerification !== 'required' &&
@@ -44,6 +47,12 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
   ) {
     fail(status, 'userVerification', 'is not supported');
   }
+}
+
+function readTimeout(
+  options: JsonFields<NativePasskeyOptions>,
+  status: number,
+): number | undefined {
   let timeout: number | undefined;
   if (options.timeout !== undefined) {
     if (
@@ -56,6 +65,13 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
     }
     timeout = options.timeout;
   }
+  return timeout;
+}
+
+function readDescriptors(
+  options: JsonFields<NativePasskeyOptions>,
+  status: number,
+): NativePasskeyCredentialDescriptor[] | undefined {
   const descriptors =
     options.allowCredentials === undefined
       ? undefined
@@ -68,6 +84,20 @@ export function parsePasskeyOptions(data: unknown, status: number): NativePasske
   ) {
     fail(status, 'allowCredentials', 'has too many items');
   }
+  return descriptors;
+}
+
+export function parsePasskeyOptions(data: unknown, status: number): NativePasskeyOptions {
+  const options: JsonFields<NativePasskeyOptions> = requireObject(data, 'data', status);
+  exactKeys(
+    options,
+    ['challenge', 'timeout', 'rpId', 'allowCredentials', 'userVerification'],
+    'data',
+    status,
+  );
+  validateUserVerification(options, status);
+  const timeout = readTimeout(options, status);
+  const descriptors = readDescriptors(options, status);
   return {
     challenge: boundedString(
       options.challenge,

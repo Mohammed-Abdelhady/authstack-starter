@@ -3,7 +3,19 @@ import { isRecord, nonEmptyString } from './native-sign-in-values';
 
 const FACEBOOK_APP_ID_PATTERN = /^\d+$/u;
 
-function configuredString(settings: Record<string, unknown>, key: string): string | undefined {
+interface NativeSignInMetadata {
+  googleIosUrlScheme?: unknown;
+  appleSignIn?: unknown;
+  facebookAppId?: unknown;
+  facebookClientToken?: unknown;
+  facebookDisplayName?: unknown;
+  passkeyRpId?: unknown;
+}
+
+function configuredString(
+  settings: NativeSignInMetadata,
+  key: keyof NativeSignInMetadata,
+): string | undefined {
   const value = settings[key];
   return nonEmptyString(value) && value === value.trim() ? value : undefined;
 }
@@ -13,7 +25,7 @@ export function readNativeSignInSettings(
   metadata: unknown,
   iosBundleIdentifier: unknown,
 ): NativeSignInSettings {
-  const settings = isRecord(metadata) ? metadata : {};
+  const settings: NativeSignInMetadata = isRecord(metadata) ? metadata : {};
   const googleIosUrlScheme = configuredString(settings, 'googleIosUrlScheme');
   const passkeyRpId = configuredString(settings, 'passkeyRpId');
   const facebookAppId = configuredString(settings, 'facebookAppId');

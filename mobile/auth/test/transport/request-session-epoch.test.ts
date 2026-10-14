@@ -72,7 +72,7 @@ describe('request session epochs', () => {
       ({ method, path }) => method === HTTP_METHOD.PATCH && path === '/api/user/profile',
     );
     expect(writes).toHaveLength(1);
-    expect(writes[0]?.headers?.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
+    expect(writes[0]?.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
     expect(engine.snapshot.profile?.id).toBe('person-b');
     expect(refreshTokens(transport)).toEqual([REFRESH_TOKEN]);
   });

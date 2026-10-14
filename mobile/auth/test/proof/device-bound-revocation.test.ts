@@ -46,10 +46,12 @@ describe('device-bound revocation', () => {
     expect(outcome.kind === 'signedOut' ? outcome.revocation : undefined).toBe('revoked');
     expect(revokeRequests).toHaveLength(2);
     expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN, REFRESH_TOKEN]);
-    expect(requestPayload(revokeRequests[0]?.headers?.DPoP ?? '').ath).toEqual(expect.any(String));
-    expect(requestPayload(revokeRequests[1]?.headers?.DPoP ?? '').nonce).toBe('revoke-nonce');
-    expect(requestPayload(revokeRequests[0]?.headers?.DPoP ?? '').jti).not.toBe(
-      requestPayload(revokeRequests[1]?.headers?.DPoP ?? '').jti,
+    expect(requestPayload(revokeRequests[0]?.headers?.['DPoP'] ?? '').ath).toEqual(
+      expect.any(String),
+    );
+    expect(requestPayload(revokeRequests[1]?.headers?.['DPoP'] ?? '').nonce).toBe('revoke-nonce');
+    expect(requestPayload(revokeRequests[0]?.headers?.['DPoP'] ?? '').jti).not.toBe(
+      requestPayload(revokeRequests[1]?.headers?.['DPoP'] ?? '').jti,
     );
   });
 
@@ -69,7 +71,7 @@ describe('device-bound revocation', () => {
     const profile = transport.sent.find(({ path }) => path === '/api/user/profile');
 
     expect(outcome.kind).toBe('apiFailure');
-    expect(profile?.headers?.DPoP).toBeUndefined();
+    expect(profile?.headers?.['DPoP']).toBeUndefined();
     expect(proofNonces(revokeRequests(transport))).toEqual(['', CHALLENGE_NONCE]);
     expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN, REFRESH_TOKEN]);
   });

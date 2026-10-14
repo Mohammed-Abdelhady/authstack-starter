@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import { CONFIG, Deferred, ScriptedTransport, apiReply, testPorts } from '../support/support';
@@ -72,6 +72,7 @@ describe('provider methods read ownership', () => {
     held.resolve(apiReply(GOOGLE_METHODS));
     const [catalogue, outcome] = await Promise.all([publicRead, action]);
     expect(overlapping).toBe(1);
+    assert.isDefined(catalogue.providers[0]);
     expect(catalogue.providers[0].mode).toBe('googleIdentityToken');
     expect(outcome).toEqual({ kind: 'cancelled' });
     expect(readiness).toBe(1);

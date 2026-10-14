@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import type { AuthBrowserResult } from '../../src';
 import { BROWSER_AUTHORIZATION_TIMEOUT_MS } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
@@ -102,6 +102,7 @@ describe('native interactive lifetime', () => {
     ports.timer.fireDelay(NETWORK_TIMEOUT_MS);
     await drainMethods();
     const premature = settled;
+    assert.isDefined(ports.authBrowser.opened[0]);
     const query = readQueryValues(ports.authBrowser.opened[0].address);
     if (completion === 'expired') {
       ports.clock.advance(BROWSER_AUTHORIZATION_TIMEOUT_MS - NETWORK_TIMEOUT_MS - 1);

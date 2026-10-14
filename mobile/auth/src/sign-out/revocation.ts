@@ -50,7 +50,8 @@ export async function revokeWithDeadline(
           signal: controller.signal,
           mayRetryChallenge: () => !controller.signal.aborted,
         },
-        ({ headers, signal }) => client.oauth.revoke({ token, clientId }, { headers, signal }),
+        ({ headers }) =>
+          client.oauth.revoke({ token, clientId }, { headers, signal: controller.signal }),
       ).then(({ value }) => value)
     : client.oauth.revoke({ token, clientId }, { signal: controller.signal });
   const revoke = request

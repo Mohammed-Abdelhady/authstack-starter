@@ -56,7 +56,7 @@ function replayingKey(vector: ProofVector) {
 
 describe('the DPoP proof vectors shared with the server', () => {
   it('are written again on request, by the engine with a real key', async () => {
-    if (process.env.UPDATE_DPOP_VECTOR !== '1') return;
+    if (process.env['UPDATE_DPOP_VECTOR'] !== '1') return;
     writeFileSync(VECTOR_PATH, serialize(await buildVectorFile(new SoftwareDeviceKey())));
   });
 

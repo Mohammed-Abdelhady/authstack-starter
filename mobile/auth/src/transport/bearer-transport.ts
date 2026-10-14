@@ -115,7 +115,7 @@ function withBearer(
     const normalized = name.toLowerCase();
     if (normalized !== 'authorization' && normalized !== 'cookie') result[name] = value;
   }
-  result.Authorization = `Bearer ${accessToken}`;
+  result['Authorization'] = `Bearer ${accessToken}`;
   return result;
 }
 
