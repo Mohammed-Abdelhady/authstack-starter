@@ -1,5 +1,6 @@
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { StoredAccount } from '../../user/stores/stored-account';
+import type { SupportedLocale } from '../../common/constants/locales';
 
 export interface AdminAccountQuery {
   /** Matched against name and address, ignoring case, taken literally. */
@@ -25,6 +26,7 @@ export interface NewAdminAccount {
   name: string;
   passwordHash: string;
   role: string;
+  locale: SupportedLocale;
 }
 
 /** A role as an assignment refers to it. */

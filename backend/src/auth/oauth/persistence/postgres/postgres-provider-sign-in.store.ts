@@ -97,6 +97,7 @@ export class PostgresProviderSignInStore extends ProviderSignInStore {
             auth_provider: account.provider,
             primary_provider: account.provider,
             role: account.role,
+            locale: account.locale,
             created_at: now,
             updated_at: now,
           })

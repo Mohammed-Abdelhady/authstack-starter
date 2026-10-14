@@ -7,6 +7,7 @@ import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
+import { storedLocale } from '../../../common/constants/locales';
 import {
   User,
   UserDocument,
@@ -75,7 +76,11 @@ export class MongoActivationAccounts extends ActivationAccounts {
   async findAddressOwner(email: string): Promise<AddressOwner | null> {
     const user = await this.userModel.findOne({ email: { $eq: email } });
     return user
-      ? { name: user.name, isDeleted: Boolean(user.isDeleted) }
+      ? {
+          name: user.name,
+          isDeleted: Boolean(user.isDeleted),
+          locale: storedLocale(user.locale),
+        }
       : null;
   }
 
@@ -120,6 +125,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
       isVerified: true,
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
+      locale: account.locale,
     });
     try {
       await user.save({ session: mongoSessionOf(unitOfWork) });

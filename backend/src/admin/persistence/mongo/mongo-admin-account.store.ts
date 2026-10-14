@@ -193,6 +193,7 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       permissions: [],
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
+      locale: account.locale,
     });
     return this.save(user, mongoSessionOf(unitOfWork));
   }

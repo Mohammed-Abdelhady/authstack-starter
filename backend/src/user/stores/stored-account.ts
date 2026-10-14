@@ -1,4 +1,5 @@
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
+import type { SupportedLocale } from '../../common/constants/locales';
 
 /** Shared names of the unique rules an account write can run into. */
 export const ACCOUNT_CONSTRAINT = {
@@ -37,6 +38,8 @@ export interface StoredAccount {
   readonly primaryProvider?: string;
   readonly profileSyncedAt?: Date;
   readonly lastSyncedProvider?: string;
+  /** The language the account's mail is written in. */
+  readonly locale: SupportedLocale;
   readonly twoFactorEnabled: boolean; // feature:totp
   readonly createdAt: Date;
   readonly updatedAt: Date;

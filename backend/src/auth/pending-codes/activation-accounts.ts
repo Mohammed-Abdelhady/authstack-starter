@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { SignInOutcome } from '../interfaces/authenticated-user.interface';
+import type { SupportedLocale } from '../../common/constants/locales';
 
 /** Shared names of the unique rules an activation can run into. */
 export const ACTIVATION_CONSTRAINT = {
@@ -11,6 +12,8 @@ export const ACTIVATION_CONSTRAINT = {
 export interface AddressOwner {
   name: string;
   isDeleted: boolean;
+  /** The language the owner's mail is written in. */
+  locale: SupportedLocale;
 }
 
 export interface NewActivatedAccount {
@@ -19,6 +22,8 @@ export interface NewActivatedAccount {
   email: string;
   passwordHash: string;
   name: string;
+  /** The language of the request that activates it. */
+  locale: SupportedLocale;
 }
 
 /**
