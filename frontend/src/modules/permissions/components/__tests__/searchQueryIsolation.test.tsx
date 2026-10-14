@@ -4,6 +4,7 @@ import { screen } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
 import { SearchPermissionTabs } from '../search/SearchPermissionTabs';
+import { ALL_GROUPS_TAB, permissionGroupTab } from '../../constants/permissionGroups';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
@@ -34,7 +35,7 @@ describe.each([
   'ar', // feature:locale-ar
 ] as const)('permission search with no match in %s', (locale) => {
   it('isolates the typed query inside the sentence for all categories', async () => {
-    const { message } = await renderTabs(locale, 'all');
+    const { message } = await renderTabs(locale, ALL_GROUPS_TAB);
 
     const [before, after] = message('permissions.searchDialog.noPermissionsMatch').split(
       '\u2066{query}\u2069',
@@ -43,7 +44,7 @@ describe.each([
   });
 
   it('isolates the typed query inside the sentence for one category', async () => {
-    const { message, format } = await renderTabs(locale, 'users');
+    const { message, format } = await renderTabs(locale, permissionGroupTab('users'));
 
     // The category is named as the tab names it, so the sentence needs no inflection.
     const category = message('permissions.selector.groups.users');
@@ -57,7 +58,7 @@ describe.each([
   });
 
   it('names the category as its tab does when nothing is left to assign', async () => {
-    const { message, format } = await renderTabs(locale, 'users', '');
+    const { message, format } = await renderTabs(locale, permissionGroupTab('users'), '');
 
     expect(screen.getByRole('tabpanel').textContent).toBe(
       format('permissions.searchDialog.categoryAllAssigned', {
