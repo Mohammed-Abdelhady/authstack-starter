@@ -139,6 +139,7 @@ describe('PostgreSQL adapter', () => {
         '0016_pending_email.sql',
         '0017_two_factor_lockout.sql', // feature:totp
         '0018_native_attempts.sql',
+        '0019_account_locale.sql',
         '0020_host_migrations.sql',
       ],
       again: [],
@@ -161,6 +162,7 @@ describe('PostgreSQL adapter', () => {
         '0016_pending_email.sql',
         '0017_two_factor_lockout.sql', // feature:totp
         '0018_native_attempts.sql',
+        '0019_account_locale.sql',
         '0020_host_migrations.sql',
       ],
     });
