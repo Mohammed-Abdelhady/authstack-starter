@@ -52,7 +52,10 @@ export class PostgresSeedStore extends SeedStore {
       .set({
         is_system_role: role.isSystemRole,
         is_protected: role.isProtected,
-        level: role.level,
+        // GREATEST skips a NULL level, so a role stored without one takes the seed's.
+        level: role.levelNeverLowers
+          ? sql<number>`GREATEST(${sql.ref('level')}, ${role.level})`
+          : role.level,
         updated_at: now,
       })
       .where('slug', '=', role.slug)

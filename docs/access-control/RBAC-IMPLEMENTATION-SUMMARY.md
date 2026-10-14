@@ -125,6 +125,14 @@ Successfully implemented a comprehensive dynamic Role-Based Access Control (RBAC
 
 ### Default Role Permissions
 
+`user` and `admin` are core roles. Support and Manager are the default content of `HOST_ROLES`
+in `backend/src/host/access.ts`, which a product replaces with its own roles. Each host role has
+a name, slug, level, audience, permissions and description. The seed stores the core roles and
+whatever `HOST_ROLES` holds. `admin` stays at level 4 unless a host role reaches 4, and then it
+sits one level above the highest host role. A product's own permissions go in `HOST_PERMISSIONS` in the same file. Mirror both
+lists in `shared/core/src/host-access.ts`, where a drift test compares them, so the permission
+picker shows them under their resource.
+
 **User** (Protected):
 
 ```

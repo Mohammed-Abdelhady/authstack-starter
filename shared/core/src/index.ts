@@ -4,6 +4,7 @@ export * from './api-error-helpers';
 export * from './api-error';
 export * from './permissions';
 export * from './permission-utils';
+export * from './host-access';
 export * from './password-rules';
 export * from './role-rules';
 export * from './constants/native-auth';

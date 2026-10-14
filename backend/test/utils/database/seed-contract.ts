@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { TEST_NOW } from '../frozen-clock';
 import { SeedContractHarness, StoredSeedRole } from './seed-contract-harness';
+import { seedHostRoleCases } from './seed-contract-host-roles';
 import {
   accountFacts,
   ADMIN_PASSWORD,
@@ -301,5 +302,7 @@ export function describeSeedContract(
         accounts: 4,
       });
     });
+
+    seedHostRoleCases(current);
   });
 }

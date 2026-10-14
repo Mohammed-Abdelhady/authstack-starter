@@ -1,5 +1,7 @@
 export interface PermissionGroup {
-  /** Tab value and key of the group name under permissions.selector.groups */
+  /** Tab value, and the resource part of every permission in the group */
   id: string;
+  /** Whether permissions.selector.groups has a name for this group */
+  hasCatalogName: boolean;
   permissions: Record<string, string>;
 }

@@ -2,6 +2,8 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions';
+import { HOST_ROLES } from '../../host/access';
+import { HostRole } from '../../host/types/host-role.type';
 
 export interface SeedUser {
   email: string;
@@ -18,32 +20,38 @@ export interface SeedUserDefinition {
   permissions: readonly string[];
 }
 
-export const SEED_USER_DEFINITIONS: SeedUserDefinition[] = [
-  {
-    email: 'user@seed.local',
-    name: 'Seed User',
-    role: 'user',
-    permissions: DEFAULT_ROLE_PERMISSIONS.user,
-  },
-  {
-    email: 'support@seed.local',
-    name: 'Seed Support',
-    role: 'support',
-    permissions: DEFAULT_ROLE_PERMISSIONS.support,
-  },
-  {
-    email: 'manager@seed.local',
-    name: 'Seed Manager',
-    role: 'manager',
-    permissions: DEFAULT_ROLE_PERMISSIONS.manager,
-  },
-  {
-    email: 'admin@seed.local',
-    name: 'Seed Admin',
-    role: 'admin',
-    permissions: DEFAULT_ROLE_PERMISSIONS.admin,
-  },
-];
+/**
+ * One seed account per system role: `user`, each host role, then `admin`.
+ *
+ * @param hostRoles - The host product's roles
+ */
+export function seedUserDefinitions(
+  hostRoles: readonly HostRole[],
+): SeedUserDefinition[] {
+  return [
+    {
+      email: 'user@seed.local',
+      name: 'Seed User',
+      role: 'user',
+      permissions: DEFAULT_ROLE_PERMISSIONS.user,
+    },
+    ...hostRoles.map((role) => ({
+      email: `${role.slug}@seed.local`,
+      name: `Seed ${role.name}`,
+      role: role.slug,
+      permissions: role.permissions,
+    })),
+    {
+      email: 'admin@seed.local',
+      name: 'Seed Admin',
+      role: 'admin',
+      permissions: DEFAULT_ROLE_PERMISSIONS.admin,
+    },
+  ];
+}
+
+export const SEED_USER_DEFINITIONS: SeedUserDefinition[] =
+  seedUserDefinitions(HOST_ROLES);
 
 export function generateSeedPassword(): string {
   return crypto.randomBytes(12).toString('base64url');

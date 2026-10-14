@@ -3,6 +3,7 @@ import { roleAtomicityCases } from './role-contract-atomicity';
 import { roleEditCases } from './role-contract-edits';
 import { RoleContractHarness } from './role-contract-harness';
 import { roleLargeMoveCases } from './role-contract-large-moves';
+import { roleLevelCases } from './role-contract-levels';
 import { roleRaceCases } from './role-contract-races';
 import { roleReadCases } from './role-contract-reads';
 import { roleRepairCases } from './role-contract-repairs';
@@ -55,6 +56,7 @@ export function describeRoleStoresContract(
 
     roleRuleCases(current, seeded);
     roleEditCases(current, seeded);
+    roleLevelCases(current, seeded);
     roleReadCases(current, seeded);
     roleSeamCases(current, seeded);
     roleAtomicityCases(current, seeded);

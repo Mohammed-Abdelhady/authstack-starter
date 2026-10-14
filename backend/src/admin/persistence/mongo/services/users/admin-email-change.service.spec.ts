@@ -15,10 +15,7 @@ import {
   UserSchema,
 } from '../../../../../user/persistence/mongo/schemas/user.schema';
 import { ErrorCode } from '../../../../../common/enums/error-code.enum';
-import {
-  ADMIN_LEVEL,
-  ROLE_HIERARCHY,
-} from '../../../../../common/utils/role-hierarchy';
+import { UserRole } from '../../../../../user/enums/user-role.enum';
 import { PENDING_PURPOSE } from '../../../../../auth/constants/registration';
 import { Role } from '../../../../../role/persistence/mongo/schemas/role.schema';
 import { toStoredAccount } from '../../../../../user/persistence/mongo/mongo-account-records';
@@ -109,7 +106,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget();
 
     await expect(
-      service.assertAddressAvailable('new@example.com', ROLE_HIERARCHY.manager),
+      service.assertAddressAvailable('new@example.com', UserRole.MANAGER),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_CHANGE_NOT_ALLOWED });
     const stored = await storedTarget(target);
     expect(stored.email).toBe('old@example.com');
@@ -121,7 +118,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget();
 
     await expect(
-      service.assertAddressAvailable('new@example.com', ADMIN_LEVEL),
+      service.assertAddressAvailable('new@example.com', UserRole.ADMIN),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_ALREADY_EXISTS });
     expect((await storedTarget(target)).email).toBe('old@example.com');
   });
@@ -129,7 +126,7 @@ describe('AdminEmailChangeService', () => {
   it('should bind and mail the persisted pending address generation', async () => {
     const target = await createTarget('new@example.com', 1);
 
-    await service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL);
+    await service.sendConfirmation(toStoredAccount(target), UserRole.ADMIN);
 
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
@@ -149,7 +146,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget('new@example.com', 1);
 
     await expect(
-      service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL),
+      service.sendConfirmation(toStoredAccount(target), UserRole.ADMIN),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_FAILED });
     expect(await storedTarget(target)).toMatchObject({
       email: 'old@example.com',
@@ -166,7 +163,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget('new@example.com', 1);
 
     await expect(
-      service.sendConfirmation(toStoredAccount(target), ADMIN_LEVEL),
+      service.sendConfirmation(toStoredAccount(target), UserRole.ADMIN),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_LIMIT_REACHED });
     expect(mockAuthMailService.sendEmailChangeCode).not.toHaveBeenCalled();
     expect((await storedTarget(target)).email).toBe('old@example.com');
@@ -175,7 +172,7 @@ describe('AdminEmailChangeService', () => {
   it('should reissue a code for the waiting address without changing the account', async () => {
     const target = await createTarget('moved@example.com', 3);
 
-    await service.resend(toStoredAccount(target), ADMIN_LEVEL);
+    await service.resend(toStoredAccount(target), UserRole.ADMIN);
 
     expect(await storedTarget(target)).toMatchObject({
       email: 'old@example.com',
@@ -194,7 +191,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget();
 
     await expect(
-      service.resend(toStoredAccount(target), ADMIN_LEVEL),
+      service.resend(toStoredAccount(target), UserRole.ADMIN),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_FAILED });
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
@@ -205,7 +202,7 @@ describe('AdminEmailChangeService', () => {
     const target = await createTarget('moved@example.com', 3);
 
     await expect(
-      service.resend(toStoredAccount(target), ROLE_HIERARCHY.manager),
+      service.resend(toStoredAccount(target), UserRole.MANAGER),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_CHANGE_NOT_ALLOWED });
     expect(
       mockVerificationCodeService.createOrUpdatePendingRegistration,
