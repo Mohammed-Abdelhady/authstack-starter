@@ -1,5 +1,11 @@
 import type { NativePromptResult } from '@app/native-auth';
 
+interface NativeErrorFields {
+  code?: unknown;
+  name?: unknown;
+  message?: unknown;
+}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -18,7 +24,8 @@ export function promptFailure<T>(reason: 'sdk' | 'invalidResponse'): NativePromp
 
 export function errorHasCode(error: unknown, codes: readonly string[]): boolean {
   if (!isRecord(error)) return false;
-  const candidates = [error.code, error.name, error.message];
+  const fields: NativeErrorFields = error;
+  const candidates = [fields.code, fields.name, fields.message];
   return candidates.some((candidate) =>
     typeof candidate === 'string'
       ? codes.includes(candidate) || codes.some((code) => candidate.startsWith(`${code}:`))
