@@ -307,6 +307,7 @@
         "frontend/src/i18n/messages/*.ar.json",
         "frontend/src/app/fonts/NotoSansArabic.woff2",
         "frontend/src/app/fonts/OFL-NotoSansArabic.txt",
+        "frontend/src/app/fonts/SOURCES-NotoSansArabic.md",
         "mobile/ui/src/i18n/ar.ts",
         "mobile/ui/assets/fonts/AppUIArabic-*.ttf",
         "mobile/ui/assets/fonts/OFL-NotoSansArabic.txt",
