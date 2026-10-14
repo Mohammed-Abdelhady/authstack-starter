@@ -32,6 +32,7 @@
     "migration:status": "migrate-mongo status",
     "migration:postgres:up": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts up",
     "migration:postgres:status": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts status",
+    "migration:postgres:adopt-host": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts adopt-host",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
     "seed:reset": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts --reset"
   },
