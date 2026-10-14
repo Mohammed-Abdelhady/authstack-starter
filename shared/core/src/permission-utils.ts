@@ -30,7 +30,7 @@ export function hasPermission(userPermissions: string[], requiredPermission: str
 }
 
 /**
- * Check if a user has any of the required permissions (OR logic).
+ * Check if a user holds at least one required permission (OR logic).
  *
  * @param userPermissions - Array of permissions the user has
  * @param requiredPermissions - Array of permissions to check (user needs at least one)
