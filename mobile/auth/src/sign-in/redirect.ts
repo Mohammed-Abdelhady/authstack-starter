@@ -189,13 +189,15 @@ export function parseUri(value: string): (UriParts & { hasQuery: boolean }) | un
     value,
   );
   if (!match) return undefined;
+  const [, rawScheme] = match;
+  if (rawScheme === undefined) return undefined;
   const hasAuthority = match[2] !== undefined;
-  const scheme = match[1].toLowerCase();
+  const scheme = rawScheme.toLowerCase();
   const authority = match[3] ?? '';
   const userInfoEnd = authority.lastIndexOf('@');
   const hasUserInfo = userInfoEnd >= 0;
   const hostPort =
-    !hasAuthority || (authority === '' && !/^https?$/i.test(match[1]))
+    !hasAuthority || (authority === '' && !/^https?$/i.test(rawScheme))
       ? { host: '', port: '' }
       : parseHostPort(hasUserInfo ? authority.slice(userInfoEnd + 1) : authority, scheme);
   if (!hostPort) return undefined;

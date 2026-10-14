@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import { ApiError, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
@@ -49,7 +49,7 @@ describe('sign in', () => {
     transport.enqueue(oauthTokenReply(), (request) => {
       expect(ports.credentials.value).toContain(REFRESH_TOKEN);
       expect(ports.credentials.value).not.toContain(ACCESS_TOKEN);
-      expect(request.headers?.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
+      expect(request.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
       return Promise.resolve(successUserReply());
     });
     acceptCode(ports.authBrowser);
@@ -61,6 +61,7 @@ describe('sign in', () => {
     expect(result.kind).toBe('signedIn');
     expect(recordWasSavedAtOpen).toBe(true);
     expect(ports.authBrowser.opened).toHaveLength(1);
+    assert.isDefined(ports.authBrowser.opened[0]);
     const authorizeAddress = ports.authBrowser.opened[0].address;
     expect(authorizeAddress.startsWith('https://api.example.test/api/oauth/authorize?')).toBe(true);
     const authorize = readQueryValues(authorizeAddress);
@@ -219,6 +220,7 @@ describe('sign in', () => {
     transport.onRequest = ({ path }) => {
       if (path !== '/api/oauth/token') return;
       transactionWasConsumedBeforeExchange = !ports.credentials.value?.includes('"transaction"');
+      assert.isDefined(ports.authBrowser.opened[0]);
       const callback = callbackFor(ports.authBrowser.opened[0].address, { code: 'once' });
       ports.callbacks.deliver(callback);
       exchangeStarted.resolve();

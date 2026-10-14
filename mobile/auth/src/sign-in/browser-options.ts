@@ -9,7 +9,7 @@ export function authorizationAddress(
   state: string,
   options?: BrowserSignInOptions,
 ): string {
-  const query = [
+  const query: [string, string][] = [
     ['response_type', 'code'],
     ['client_id', configuration.clientId],
     ['redirect_uri', configuration.redirectUri],
@@ -17,9 +17,11 @@ export function authorizationAddress(
     ['code_challenge_method', 'S256'],
     ['state', state],
     ['scope', configuration.scopes.join(' ')],
-    ...(options?.providerId === undefined ? [] : [['provider_id', options.providerId]]),
-    ...(options?.flow === undefined ? [] : [['flow', options.flow]]),
-    ...(options?.locale === undefined ? [] : [['locale', options.locale]]),
+    ...(options?.providerId === undefined
+      ? []
+      : optionalParameter('provider_id', options.providerId)),
+    ...(options?.flow === undefined ? [] : optionalParameter('flow', options.flow)),
+    ...(options?.locale === undefined ? [] : optionalParameter('locale', options.locale)),
   ];
   return `${configuration.serverBaseAddress}${AUTHORIZE_PATH}?${query
     .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
@@ -55,4 +57,8 @@ function hasControlCharacter(value: string): boolean {
     if (code <= 0x1f || code === 0x7f) return true;
   }
   return false;
+}
+
+function optionalParameter(key: string, value: string): [string, string][] {
+  return [[key, value]];
 }

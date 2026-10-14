@@ -48,6 +48,16 @@ export const oauthRefusal = (error: string, description?: string) => ({
   body: { error, ...(description === undefined ? {} : { error_description: description }) },
 });
 
+interface ServerBodyFields {
+  grant_type?: unknown;
+  code?: unknown;
+  client_id?: unknown;
+  redirect_uri?: unknown;
+  code_verifier?: unknown;
+  refresh_token?: unknown;
+  token?: unknown;
+}
+
 interface ServerSignal {
   aborted: boolean;
 }
@@ -68,14 +78,14 @@ export interface ServerRequest {
   method: string;
   path: string;
   credentials: string;
-  body: Record<string, unknown>;
+  body: Record<string, unknown> & ServerBodyFields;
 }
 
 function json(status: number, body: unknown): FetchResponseApi {
   return { status, text: async () => JSON.stringify(body), headers: { get: () => null } };
 }
 
-function parseBody(text: string | undefined): Record<string, unknown> {
+function parseBody(text: string | undefined): Record<string, unknown> & ServerBodyFields {
   const value: unknown = text === undefined ? {} : JSON.parse(text);
   return typeof value === 'object' && value !== null ? { ...value } : {};
 }
@@ -146,7 +156,7 @@ export class FakeServer implements HttpApi<ServerSignal> {
 
   private answer(
     path: string,
-    body: Record<string, unknown>,
+    body: ServerBodyFields,
     headers: Record<string, string>,
   ): FetchResponseApi {
     if (path === SERVER_PATH.TOKEN) return this.token(body);
@@ -159,7 +169,7 @@ export class FakeServer implements HttpApi<ServerSignal> {
       return json(200, { success: true, data: SERVER_USER });
     }
     const code =
-      headers.Authorization === undefined
+      headers['Authorization'] === undefined
         ? SERVER_CODE.SESSION_REQUIRED
         : SERVER_CODE.SESSION_INVALID;
     const refusal = serverRefusal(401, code);
@@ -167,10 +177,10 @@ export class FakeServer implements HttpApi<ServerSignal> {
   }
 
   private authorized(headers: Record<string, string>): boolean {
-    return this.active && headers.Authorization === `Bearer access-${this.generation}`;
+    return this.active && headers['Authorization'] === `Bearer access-${this.generation}`;
   }
 
-  private token(body: Record<string, unknown>): FetchResponseApi {
+  private token(body: ServerBodyFields): FetchResponseApi {
     const validCode =
       body.grant_type === 'authorization_code' &&
       body.code === AUTHORIZATION_CODE &&

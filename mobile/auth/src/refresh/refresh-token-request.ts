@@ -60,10 +60,10 @@ async function refreshBoundToken(
           nonce = value;
         },
       },
-      ({ headers, signal: requestSignal }) =>
+      ({ headers }) =>
         client.oauth.refresh(
           { refreshToken: tokens.refreshToken, clientId: runtime.config.clientId },
-          { headers, signal: requestSignal },
+          { headers, signal },
         ),
     );
     return result.value;

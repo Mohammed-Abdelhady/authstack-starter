@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { ApiError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { AuthDisposedError } from '../../src';
 import { PortDeadlineError } from '../../src/runtime/deadlines';
@@ -46,6 +46,7 @@ describe('native methods failure and freshness', () => {
     available = false;
     const second = await engine.methods();
     const third = await engine.methods();
+    assert.isDefined(first.providers[0]);
     expect(first.providers[0].mode).toBe('googleIdentityToken');
     expect(second.providers).toEqual([{ id: 'google', displayName: 'Google', mode: 'system' }]);
     expect(third.providers).toEqual([]);

@@ -2,8 +2,8 @@ export interface ApiErrorInit {
   status: number;
   code: string;
   message: string;
-  fields?: Record<string, string[]>;
-  requestId?: string;
+  fields?: Record<string, string[]> | undefined;
+  requestId?: string | undefined;
 }
 
 const SDK_ERROR_BRAND = Symbol.for('@app/sdk/SdkError');
@@ -31,8 +31,8 @@ export class ApiError extends SdkError {
   /** An `@app/core` error code from the body, or one mapped from the status. */
   readonly code: string;
   /** Messages per field, on a validation error. */
-  readonly fields?: Record<string, string[]>;
-  readonly requestId?: string;
+  readonly fields?: Record<string, string[]> | undefined;
+  readonly requestId?: string | undefined;
 
   constructor(init: ApiErrorInit) {
     super(init.message);
@@ -47,8 +47,8 @@ export class ApiError extends SdkError {
 export interface OAuthErrorInit {
   status: number;
   error: string;
-  errorDescription?: string;
-  dpopNonce?: string;
+  errorDescription?: string | undefined;
+  dpopNonce?: string | undefined;
 }
 
 /** A raw OAuth route refused the request with `{ error }`. */
@@ -57,9 +57,9 @@ export class OAuthError extends SdkError {
   /** The OAuth error string, one of `OAUTH_ERROR` for this server. */
   readonly error: string;
   /** The `error_description` the server sent, when it sent a string. */
-  readonly errorDescription?: string;
+  readonly errorDescription?: string | undefined;
   /** The DPoP-Nonce response header on a nonce challenge, when present. */
-  readonly dpopNonce?: string;
+  readonly dpopNonce?: string | undefined;
 
   constructor(init: OAuthErrorInit) {
     super(init.error);

@@ -1,3 +1,9 @@
+import type {
+  ParsedAuthRecord,
+  ParsedAuthTransaction,
+  ParsedNativeAttempt,
+  ParsedStoredTokens,
+} from '../types/record-json';
 import {
   AUTH_SCHEMA_VERSION,
   BROWSER_AUTHORIZATION_TIMEOUT_MS,
@@ -37,14 +43,15 @@ export function makeRecord(
 }
 
 export function parseStoredRecord(value: string): StoredAuthRecord | undefined {
-  let parsed: unknown;
+  let input: unknown;
   try {
-    parsed = JSON.parse(value);
+    input = JSON.parse(value);
   } catch {
     return undefined;
   }
+  if (!isObject(input)) return undefined;
+  const parsed: ParsedAuthRecord = input;
   if (
-    !isObject(parsed) ||
     !isString(parsed.serverBaseAddress) ||
     !isString(parsed.environment) ||
     !isString(parsed.clientId) ||
@@ -137,9 +144,10 @@ export function transactionExpired(transaction: AuthTransaction, wallTime: numbe
   return wallTime > transaction.expiresAt;
 }
 
-function readTransaction(value: unknown): AuthTransaction | null | undefined {
-  if (value === undefined) return undefined;
-  if (!isObject(value)) return null;
+function readTransaction(input: unknown): AuthTransaction | null | undefined {
+  if (input === undefined) return undefined;
+  if (!isObject(input)) return null;
+  const value: ParsedAuthTransaction = input;
   if (
     !isString(value.verifier) ||
     !isString(value.state) ||
@@ -163,9 +171,10 @@ function readTransaction(value: unknown): AuthTransaction | null | undefined {
   };
 }
 
-function readNativeAttempt(value: unknown): NativePendingAttempt | null | undefined {
-  if (value === undefined) return undefined;
-  if (!isObject(value)) return null;
+function readNativeAttempt(input: unknown): NativePendingAttempt | null | undefined {
+  if (input === undefined) return undefined;
+  if (!isObject(input)) return null;
+  const value: ParsedNativeAttempt = input;
   if (
     !isString(value.id) ||
     value.id.length === 0 ||
@@ -187,13 +196,15 @@ function readNativeAttempt(value: unknown): NativePendingAttempt | null | undefi
   };
 }
 
-function readTokens(value: unknown): StoredTokens | null | undefined {
-  if (value === undefined) return undefined;
-  if (!isObject(value) || !isString(value.refreshToken)) return null;
+function readTokens(input: unknown): StoredTokens | null | undefined {
+  if (input === undefined) return undefined;
+  if (!isObject(input)) return null;
+  const value: ParsedStoredTokens = input;
+  if (!isString(value.refreshToken)) return null;
   return { refreshToken: value.refreshToken };
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
+function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 

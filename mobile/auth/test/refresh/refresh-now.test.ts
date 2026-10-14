@@ -39,7 +39,7 @@ describe('a refresh the app asks for', () => {
     expect(JSON.parse(ports.credentials.value ?? '{}')).toMatchObject({
       tokens: { refreshToken: 'refresh-rotated' },
     });
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-rotated');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-rotated');
     expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
   });
 
@@ -78,7 +78,7 @@ describe('a refresh the app asks for', () => {
     expect(await manual).toEqual({ kind: 'refreshed' });
     expect((await request).status).toBe(200);
     expect(refreshRequests(transport)).toHaveLength(1);
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-rotated');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-rotated');
   });
 
   it('answers notSignedIn without a request when there is no session', async () => {

@@ -12,7 +12,7 @@ export interface SecureStoreApi {
 
 export interface WebBrowserSessionResult {
   type: string;
-  url?: string;
+  url?: string | undefined;
 }
 
 export interface WebBrowserApi {
@@ -61,7 +61,7 @@ export interface TimerApi<THandle> {
 export interface FetchInit<TSignal> {
   method: string;
   headers: Record<string, string>;
-  body?: string;
+  body?: string | undefined;
   credentials: 'omit';
   signal: TSignal;
 }

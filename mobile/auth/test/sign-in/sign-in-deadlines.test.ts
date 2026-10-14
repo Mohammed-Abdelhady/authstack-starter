@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { type TransportSignal } from '@app/sdk';
 import { BROWSER_AUTHORIZATION_TIMEOUT_MS } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
@@ -75,6 +75,7 @@ describe('sign-in deadlines and cleanup', () => {
 
     const signIn = engine.signIn();
     await opened.promise;
+    assert.isDefined(ports.authBrowser.opened[0]);
     const browserAddress = ports.authBrowser.opened[0].address;
     ports.callbacks.deliver(redirectFrom(browserAddress, { code: 'auth-code' }));
     await exchangeStarted.promise;

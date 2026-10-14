@@ -30,7 +30,7 @@ export type NativeSafeAttemptView = ReadonlyNativeView<
 export interface BrowserSignInOptions {
   providerId?: string;
   flow?: NativeFlow;
-  locale?: NativeSignInLocale;
+  locale?: NativeSignInLocale | undefined;
 }
 
 export type NativeSignInAction =

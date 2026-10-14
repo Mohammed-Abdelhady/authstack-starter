@@ -3,6 +3,7 @@ import { malformedResponse, unwrapEnvelope, unwrapEnvelopeBody } from './envelop
 import { requireArray, requireObject } from './shapes';
 import type { TransportResponse } from './transport';
 import type { Identity, User } from './types';
+import type { JsonFields } from './types/json';
 
 function stringField(value: unknown, name: string, status: number): string {
   if (typeof value !== 'string') {
@@ -11,8 +12,20 @@ function stringField(value: unknown, name: string, status: number): string {
   return value;
 }
 
+function optionalProfileFields(
+  user: JsonFields<User>,
+): Pick<User, 'avatarUrl' | 'primaryProvider' | 'profileSyncedAt' | 'createdAt' | 'updatedAt'> {
+  return {
+    ...(typeof user.avatarUrl === 'string' ? { avatarUrl: user.avatarUrl } : {}),
+    ...(typeof user.primaryProvider === 'string' ? { primaryProvider: user.primaryProvider } : {}),
+    ...(typeof user.profileSyncedAt === 'string' ? { profileSyncedAt: user.profileSyncedAt } : {}),
+    ...(typeof user.createdAt === 'string' ? { createdAt: user.createdAt } : {}),
+    ...(typeof user.updatedAt === 'string' ? { updatedAt: user.updatedAt } : {}),
+  };
+}
+
 function userFrom(value: unknown, status: number): User {
-  const user = requireObject(value, 'data.user', status);
+  const user: JsonFields<User> = requireObject(value, 'data.user', status);
   const permissions = requireArray(user.permissions, 'data.user.permissions', status);
   const linkedProviders = requireArray(user.linkedProviders, 'data.user.linkedProviders', status);
   const validPermissions = permissions.map((entry) =>
@@ -59,16 +72,12 @@ function userFrom(value: unknown, status: number): User {
     // feature:passkeys:start
     passkeyCount: user.passkeyCount,
     // feature:passkeys:end
-    ...(typeof user.avatarUrl === 'string' ? { avatarUrl: user.avatarUrl } : {}),
-    ...(typeof user.primaryProvider === 'string' ? { primaryProvider: user.primaryProvider } : {}),
-    ...(typeof user.profileSyncedAt === 'string' ? { profileSyncedAt: user.profileSyncedAt } : {}),
-    ...(typeof user.createdAt === 'string' ? { createdAt: user.createdAt } : {}),
-    ...(typeof user.updatedAt === 'string' ? { updatedAt: user.updatedAt } : {}),
+    ...optionalProfileFields(user),
   };
 }
 
 function identityFrom(value: unknown, status: number): Identity {
-  const data = requireObject(value, 'data', status);
+  const data: JsonFields<Identity> = requireObject(value, 'data', status);
   if (data.authenticated === false && data.user === null) {
     return { authenticated: false, user: null };
   }

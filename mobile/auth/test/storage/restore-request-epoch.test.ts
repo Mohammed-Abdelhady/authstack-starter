@@ -49,7 +49,7 @@ describe('request epochs across restore', () => {
 
     expect(requestResult.status).toBe(200);
     expect(profileRequests).toBe(2);
-    expect(transport.sent[0]?.headers?.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
+    expect(transport.sent[0]?.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
     expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
   });

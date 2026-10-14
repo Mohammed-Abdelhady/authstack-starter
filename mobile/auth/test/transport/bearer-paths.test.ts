@@ -58,7 +58,7 @@ describe('bearer request paths', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(transport.sent[0]?.headers?.Authorization).toBe(`Bearer ${ACCESS_TOKEN}`);
+    expect(transport.sent[0]?.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
   });
 
   it.each([
@@ -78,6 +78,6 @@ describe('bearer request paths', () => {
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path });
 
-    expect(transport.sent[0]?.headers?.Authorization).toBeUndefined();
+    expect(transport.sent[0]?.headers?.['Authorization']).toBeUndefined();
   });
 });
