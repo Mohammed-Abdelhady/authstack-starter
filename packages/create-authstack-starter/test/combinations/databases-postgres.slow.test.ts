@@ -38,4 +38,10 @@ describeDatabaseProjects('generated PostgreSQL projects', [
     flags: ['--targets', 'web,native-expo', '--locales', 'en,ar'],
     ...POSTGRES_BUDGET,
   },
+  {
+    name: 'PostgreSQL with one provider and no first-party sign-in',
+    database: 'postgres',
+    features: ['github'],
+    ...POSTGRES_BUDGET,
+  },
 ]);
