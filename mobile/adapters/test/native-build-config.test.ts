@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { configureNativeSignIn, readNativeBuildSettings } from '../build-config/native-sign-in.cjs';
+// feature:google,facebook:start
+import type { NativeBuildConfiguration } from '../src/types/native-build-config';
+// feature:google,facebook:end
 // feature:google:start
-import type { NativeBuildConfiguration, NativeBuildPlugin } from '../src/types/native-build-config';
+import type { NativeBuildPlugin } from '../src/types/native-build-config';
 // feature:google:end
 
 describe('native SDK build configuration', () => {
@@ -78,18 +81,45 @@ describe('native SDK build configuration', () => {
     expect(configured.plugins?.[1]).toBe(host.plugins?.[1]);
   });
 
-  it('does not append a plugin already named by a host string or tuple', () => {
+  it('keeps an identical host tuple once', () => {
+    const host: NativeBuildConfiguration = {
+      plugins: [
+        'host-plugin',
+        [
+          'react-native-nitro-google-signin',
+          { iosUrlScheme: 'com.googleusercontent.apps.123-example' },
+        ],
+      ],
+    };
+    const configured = configureNativeSignIn(host, {
+      googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
+    });
+
+    expect(configured.plugins).toEqual([
+      'host-plugin',
+      [
+        'react-native-nitro-google-signin',
+        { iosUrlScheme: 'com.googleusercontent.apps.123-example' },
+      ],
+    ]);
+    expect(configured.plugins?.[1]).toBe(host.plugins?.[1]);
+  });
+
+  it('refuses a conflicting host tuple or bare string', () => {
     const plugins: NativeBuildPlugin[] = [
       'react-native-nitro-google-signin',
       ['react-native-nitro-google-signin', { iosUrlScheme: 'host-scheme' }],
     ];
     for (const plugin of plugins) {
       const host = { plugins: ['host-plugin', plugin] };
-      expect(
+      const configure = () =>
         configureNativeSignIn(host, {
           googleIosUrlScheme: 'com.googleusercontent.apps.123-example',
-        }).plugins,
-      ).toEqual(['host-plugin', plugin]);
+        });
+      expect(configure).toThrow(TypeError);
+      expect(configure).toThrow(
+        'Plugin react-native-nitro-google-signin: the host already configures it differently',
+      );
     }
   });
   // feature:google:end
@@ -103,6 +133,15 @@ describe('native SDK build configuration', () => {
     expect(configured.ios?.usesAppleSignIn).toBe(true);
     expect(original.ios).not.toHaveProperty('usesAppleSignIn');
   });
+
+  it('keeps an identical host string once', () => {
+    const configured = configureNativeSignIn(
+      { plugins: ['host-plugin', 'expo-apple-authentication'] },
+      { appleSignIn: true },
+    );
+
+    expect(configured.plugins).toEqual(['host-plugin', 'expo-apple-authentication']);
+  });
   // feature:apple:end
 
   // feature:facebook:start
@@ -113,6 +152,43 @@ describe('native SDK build configuration', () => {
     });
     expect(configured.plugins).toEqual([
       'expo-secure-store',
+      [
+        'react-native-fbsdk-next',
+        {
+          appID: '123456',
+          clientToken: 'public-client-token',
+          displayName: 'Example Mobile',
+          scheme: 'fb123456',
+          isAutoInitEnabled: false,
+          autoLogAppEventsEnabled: false,
+          advertiserIDCollectionEnabled: false,
+          iosUserTrackingPermission: false,
+        },
+      ],
+    ]);
+  });
+
+  it('keeps deeply equal host options regardless of key order', () => {
+    const options = {
+      iosUserTrackingPermission: false,
+      advertiserIDCollectionEnabled: false,
+      autoLogAppEventsEnabled: false,
+      isAutoInitEnabled: false,
+      scheme: 'fb123456',
+      displayName: 'Example Mobile',
+      clientToken: 'public-client-token',
+      appID: '123456',
+    };
+    const host: NativeBuildConfiguration = {
+      ...original,
+      plugins: [['react-native-fbsdk-next', options]],
+    };
+    const configured = configureNativeSignIn(host, {
+      facebookAppId: '123456',
+      facebookClientToken: 'public-client-token',
+    });
+
+    expect(configured.plugins).toEqual([
       [
         'react-native-fbsdk-next',
         {
@@ -226,19 +302,30 @@ describe('native SDK build configuration', () => {
     expect(readNativeBuildSettings({ MOBILE_APP_LINK_PATHS: ' , , ' })).toEqual({});
   });
 
-  it.each(['relative', '//outside.example', '/callback?query', '/callback#hash', '/two paths'])(
-    'refuses invalid list entries like a single path: %s',
-    (path) => {
-      const list = readNativeBuildSettings({
-        MOBILE_APP_LINK_HOST: 'links.example',
-        MOBILE_APP_LINK_PATHS: `/valid,${path}`,
-      });
-      expect(() => configureNativeSignIn({}, list)).toThrow(TypeError);
-      expect(() =>
-        configureNativeSignIn({}, { appLinkHost: 'links.example', appLinkPath: path }),
-      ).toThrow(TypeError);
-    },
-  );
+  it.each([
+    'relative',
+    '//outside.example',
+    '/callback?query',
+    '/callback#hash',
+    '/two paths',
+    '/call\u0001back',
+    '/call\u007fback',
+    '/callback\n',
+    '/callback\t',
+  ])('refuses invalid list entries like a single path: %s', (path) => {
+    expect(() =>
+      configureNativeSignIn(
+        {},
+        readNativeBuildSettings({
+          MOBILE_APP_LINK_HOST: 'links.example',
+          MOBILE_APP_LINK_PATHS: `/valid,${path}`,
+        }),
+      ),
+    ).toThrow(TypeError);
+    expect(() =>
+      configureNativeSignIn({}, { appLinkHost: 'links.example', appLinkPath: path }),
+    ).toThrow(TypeError);
+  });
 
   it('requires a host for a nonempty list and preserves direct single-path inputs', () => {
     expect(() => configureNativeSignIn({}, { appLinkPaths: ['/callback'] })).toThrow(TypeError);
