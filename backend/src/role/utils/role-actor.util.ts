@@ -72,6 +72,49 @@ export function assertCanGrant(
 }
 
 /**
+ * A role's level stays below the actor's own, for wildcard holders as well.
+ * Pass the level the role will hold, a default included.
+ *
+ * @throws AppException CANNOT_MODIFY_HIGHER_ROLE
+ */
+export function assertLevelBelowActor(
+  actor: FreshRoleActor,
+  level: number,
+): void {
+  if (level < actor.level) return;
+  throw new AppException(
+    ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+    'Cannot give a role a level at or above your own',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+/**
+ * The level an edit stores, or undefined when it leaves the level alone.
+ * A system role keeps its seeded level, so the admin role cannot be lowered
+ * under the level admin-only actions need.
+ *
+ * @throws AppException ROLE_PROTECTED for a system role
+ * @throws AppException CANNOT_MODIFY_HIGHER_ROLE at or above the actor
+ */
+export function levelEdit(
+  actor: FreshRoleActor,
+  role: RoleLevelSource & { isSystemRole: boolean },
+  level: number | undefined,
+): number | undefined {
+  if (level === undefined || level === resolveRoleLevel(role)) return;
+  if (role.isSystemRole) {
+    throw new AppException(
+      ErrorCode.ROLE_PROTECTED,
+      'The level of a system role cannot change',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+  assertLevelBelowActor(actor, level);
+  return level;
+}
+
+/**
  * A wildcard holder may edit all roles. Other actors must outrank the role.
  *
  * @throws AppException CANNOT_MODIFY_HIGHER_ROLE

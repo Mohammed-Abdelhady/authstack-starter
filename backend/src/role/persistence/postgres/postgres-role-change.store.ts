@@ -185,6 +185,7 @@ export class PostgresRoleChangeStore extends RoleChangeStore {
       ...(edit.description === undefined
         ? {}
         : { description: edit.description.trim() }),
+      ...(edit.level === undefined ? {} : { level: edit.level }),
       ...(edit.permissions === undefined
         ? {}
         : { permissions: edit.permissions }),
