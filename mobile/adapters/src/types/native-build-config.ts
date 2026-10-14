@@ -7,9 +7,10 @@ export interface NativeBuildSettings {
   passkeyRpId?: string;
   appLinkHost?: string;
   appLinkPath?: string;
+  appLinkPaths?: string[];
 }
 
-export type NativeBuildPlugin = string | [string, Record<string, string | boolean>];
+export type NativeBuildPlugin = string | [string, Record<string, unknown>];
 
 export interface NativeBuildIntentFilter {
   action: string;
