@@ -1,3 +1,4 @@
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { MagicLinkAccounts } from '../stores/magic-link-accounts';
 import { MagicLinkStore } from '../stores/magic-link.store';
@@ -11,6 +12,7 @@ import {
 export interface RequestWorkProbe {
   readonly links: MagicLinkStore;
   readonly accounts: MagicLinkAccounts;
+  readonly runner: UnitOfWorkRunner;
   /** Statements sent since the last time this was asked. */
   takeStatements(): number;
   seedAccount(account: { email: string; isDeleted: boolean }): Promise<void>;
@@ -43,6 +45,7 @@ export function describeRequestWork(
         clock: new FrozenClock(TEST_NOW),
         links: probe.links,
         accounts: probe.accounts,
+        runner: probe.runner,
       });
       await probe.seedAccount({
         email: 'known@example.test',

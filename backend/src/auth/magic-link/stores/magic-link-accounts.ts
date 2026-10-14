@@ -33,9 +33,8 @@ export interface LinkRecipient {
 }
 
 /**
- * The account reads and writes a link needs. They are the same single
- * statements, each committed by itself, that the flow made before the seam:
- * spending a link and writing its account were never one transaction.
+ * Account creation joins the caller's transaction. Link claiming remains a
+ * separate write, so refusing creation does not make a spent link reusable.
  */
 export abstract class MagicLinkAccounts {
   /** The account with this address, deleted ones included. */
@@ -61,9 +60,6 @@ export abstract class MagicLinkAccounts {
    * Stores a verified account with no password. An address another request
    * took first is a `UniqueConflictError`.
    */
-  abstract createPasswordless(
-    account: NewPasswordlessAccount,
-  ): Promise<MagicLinkAccount>;
   abstract createPasswordlessIn(
     unitOfWork: UnitOfWork,
     account: NewPasswordlessAccount,

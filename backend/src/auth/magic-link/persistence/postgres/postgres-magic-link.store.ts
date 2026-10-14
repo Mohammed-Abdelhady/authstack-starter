@@ -4,7 +4,6 @@ import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import {
   LinkRecipient,
-  MAGIC_LINK_ACCOUNT_CONSTRAINT,
   MagicLinkAccount,
   MagicLinkAccounts,
   MagicLinkSignIn,
@@ -39,10 +38,6 @@ import { storedLocale } from '../../../../common/constants/locales';
 
 const LINK_CONSTRAINTS = {
   pending_magic_link_token_hash_unique: MAGIC_LINK_CONSTRAINT.TOKEN_HASH,
-} as const;
-
-const ACCOUNT_CONSTRAINTS = {
-  user_email_unique: MAGIC_LINK_ACCOUNT_CONSTRAINT.ADDRESS,
 } as const;
 
 const NONE = {} as const;
@@ -250,26 +245,6 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
       .execute();
     read.signIn.isVerified = updated.length === 1;
     return updated.length === 1;
-  }
-
-  createPasswordless(
-    account: NewPasswordlessAccount,
-  ): Promise<MagicLinkAccount> {
-    return autocommit(ACCOUNT_CONSTRAINTS, async () => {
-      const row = await this.database
-        .insertInto('users')
-        .values({
-          email: storedAddress(account.email),
-          name: account.name,
-          is_verified: true,
-          auth_provider: EMAIL_PROVIDER,
-          primary_provider: EMAIL_PROVIDER,
-          locale: account.locale,
-        })
-        .returning(SIGN_IN_COLUMNS)
-        .executeTakeFirstOrThrow();
-      return new PostgresMagicLinkAccount(toSignInAccount(row), false);
-    });
   }
 
   async createPasswordlessIn(

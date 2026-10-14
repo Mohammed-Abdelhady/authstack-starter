@@ -1,3 +1,4 @@
+import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
 import { MagicLinkContractHarness } from '../../src/auth/magic-link/contract/magic-link-contract.harness-spec';
 import { FrozenClock, TEST_NOW } from '../utils/frozen-clock';
 import {
@@ -23,6 +24,7 @@ export async function bootPostgresMagicLinkHarness(): Promise<MagicLinkContractH
     clock: new FrozenClock(TEST_NOW),
     links: new PostgresMagicLinkStore(database),
     accounts: new PostgresMagicLinkAccounts(database),
+    runner: new PostgresUnitOfWorkRunner(database),
 
     seedLink: async (link) => {
       await database

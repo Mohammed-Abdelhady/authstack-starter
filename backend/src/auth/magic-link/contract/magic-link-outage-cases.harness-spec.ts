@@ -29,12 +29,6 @@ export function magicLinkStatements(
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
     'account.findLinkRecipient': () => accounts.findLinkRecipient(EMAIL),
-    'account.createPasswordless': () =>
-      accounts.createPasswordless({
-        email: EMAIL,
-        name: 'Outage Tester',
-        locale: 'en',
-      }),
   };
 }
 
@@ -46,5 +40,4 @@ export const MAGIC_LINK_OUTAGES: Record<string, string> = {
   'link.claimLink': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,
   'account.findLinkRecipient': UNAVAILABLE,
-  'account.createPasswordless': UNAVAILABLE,
 };

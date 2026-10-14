@@ -39,6 +39,10 @@ import { Clock } from '../../common/services/clock';
 import { currentRequestId } from '../../common/context/request-context';
 import { maskEmail } from './utils/mask-email.util';
 import { getAllowedNativeAuthorizeContinuation } from './utils/magic-link-continuation.util';
+import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
+import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 type MagicLinkLoginResponseData = LoginResponseDto & {
@@ -68,6 +72,8 @@ export class MagicLinkService {
     private readonly signIn: MagicLinkSignIn,
     private readonly browser: MagicLinkBrowserService,
     private readonly clock: Clock,
+    private readonly policy: AccountCreationPolicy,
+    private readonly runner: UnitOfWorkRunner,
   ) {
     this.expiresIn = this.configService.get<number>(
       'magicLink.expiresIn',
@@ -261,10 +267,19 @@ export class MagicLinkService {
     locale: SupportedLocale,
   ): Promise<MagicLinkAccount> {
     try {
-      const user = await this.accounts.createPasswordless({
-        email,
-        name: deriveNameFromEmail(email),
-        locale,
+      const user = await this.runner.run(async (unitOfWork) => {
+        await this.policy.assertMayCreate(
+          {
+            application: WEB_CLIENT_ID,
+            method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+          },
+          unitOfWork,
+        );
+        return this.accounts.createPasswordlessIn(unitOfWork, {
+          email,
+          name: deriveNameFromEmail(email),
+          locale,
+        });
       });
 
       this.logger.log('Created a new account from a magic link');

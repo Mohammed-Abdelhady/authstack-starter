@@ -1,3 +1,5 @@
+import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
 import { recorded } from '../../../../test/utils/auth/pending-codes-contract/pending-codes-contract-support';
@@ -65,6 +67,7 @@ export interface MagicLinkContractHarness {
   readonly clock: FrozenClock;
   readonly links: MagicLinkStore;
   readonly accounts: MagicLinkAccounts;
+  readonly runner: UnitOfWorkRunner;
 
   seedLink(link: SeedLink): Promise<void>;
   link(tokenHash: string): Promise<StoredLink | null>;
@@ -188,7 +191,11 @@ export const SESSION_COOKIE = 'sid';
 
 /** The real service on one database's adapters, with mail kept in memory. */
 export function linkServices(
-  harness: Pick<MagicLinkContractHarness, 'clock' | 'links' | 'accounts'>,
+  harness: Pick<
+    MagicLinkContractHarness,
+    'clock' | 'links' | 'accounts' | 'runner'
+  >,
+  policy: AccountCreationPolicy = new AccountCreationPolicy(),
 ): LinkServices {
   const config = new ConfigService({
     magicLink: { expiresIn: LINK_LIFETIME_MS, maxPerHour: LINKS_PER_HOUR },
@@ -250,6 +257,8 @@ export function linkServices(
         config,
       ),
       harness.clock,
+      policy,
+      harness.runner,
     ),
     mail,
     signedIn: signIn.accountIds,
