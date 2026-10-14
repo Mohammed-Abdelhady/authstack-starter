@@ -3,9 +3,10 @@ import { unwrapEnvelope, unwrapEnvelopeBody } from './envelope';
 import { requireArray, requireObject } from './shapes';
 import type { TransportResponse } from './transport';
 import type { Session, SessionList } from './types';
+import type { JsonFields } from './types/json';
 
 function toSessionList(data: unknown, status: number): SessionList {
-  const list = requireObject(data, 'data', status);
+  const list: JsonFields<SessionList> = requireObject(data, 'data', status);
   const sessions = requireArray(list.sessions, 'data.sessions', status) as Session[];
   return { sessions, total: typeof list.total === 'number' ? list.total : sessions.length };
 }
