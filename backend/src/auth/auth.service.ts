@@ -163,7 +163,11 @@ export class AuthService {
         email,
       );
 
-    this.authMailService.deferPasswordResetCode(email, issued.code, user.name);
+    this.authMailService.deferPasswordResetCode(
+      { email, locale: user.locale },
+      issued.code,
+      user.name,
+    );
 
     return issued;
   }

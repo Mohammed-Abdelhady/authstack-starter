@@ -19,6 +19,7 @@ import {
   PASSWORD_POLICY_DESCRIPTION,
 } from '../../common/constants/password';
 import { PasswordPolicy } from '../../common/decorators/password-policy.decorator';
+import { LanguagePreference } from '../../common/decorators/language-preference.decorator';
 
 /**
  * Activation carries the code, the password and the name in one request. No
@@ -71,4 +72,7 @@ export class ActivateDto {
   @Transform(transformTrimmedName)
   @NamePolicy()
   name!: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

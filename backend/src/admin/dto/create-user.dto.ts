@@ -17,6 +17,7 @@ import {
   PASSWORD_POLICY_DESCRIPTION,
 } from '../../common/constants/password';
 import { PasswordPolicy } from '../../common/decorators/password-policy.decorator';
+import { LanguagePreference } from '../../common/decorators/language-preference.decorator';
 
 /**
  * DTO for creating a new user via admin panel.
@@ -61,4 +62,10 @@ export class CreateUserDto {
   @MaxLength(ROLE_SLUG_MAX_LENGTH)
   @Matches(ROLE_SLUG_REGEX, { message: ROLE_SLUG_MESSAGE })
   role!: string;
+
+  @LanguagePreference(
+    "Language of the new account's mail. Unsupported or absent means " +
+      "English; the administrator's own Accept-Language is not used.",
+  )
+  locale?: string;
 }

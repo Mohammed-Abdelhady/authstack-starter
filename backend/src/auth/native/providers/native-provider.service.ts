@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import type { NativeProviderCredential, NativeProviderMethod } from '@app/sdk';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
+import type { SupportedLocale } from '../../../common/constants/locales';
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
 import { OAuthRegistryService } from '../../oauth/oauth-registry.service';
 import { OAuthService } from '../../oauth/oauth.service';
@@ -38,6 +39,7 @@ export class NativeProviderService {
     attemptId: string,
     secret: string,
     credential: NativeProviderCredential,
+    locale: SupportedLocale,
   ) {
     const claimed = await this.attempts.claim(
       attemptId,
@@ -80,7 +82,11 @@ export class NativeProviderService {
       )
         throw wrongStage();
       const oauth = this.modules.get(OAuthService, { strict: false });
-      const account = await oauth.resolveVerifiedProfile(strategy, profile);
+      const account = await oauth.resolveVerifiedProfile(
+        strategy,
+        profile,
+        locale,
+      );
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
         this.attempts.completeFactorIn(work, claimed, {
           userId: account.id,

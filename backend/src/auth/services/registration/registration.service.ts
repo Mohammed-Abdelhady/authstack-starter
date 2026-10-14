@@ -34,6 +34,7 @@ import {
 import { REGISTRATION_CONTRACT_OUTDATED_MESSAGE } from '../../constants/auth-messages';
 import { logUnknownCommit } from '../../utils/unknown-commit.util';
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
+import type { SupportedLocale } from '../../../common/constants/locales';
 
 /**
  * The sign-up code flows: start a registration, activate with the mailed code,
@@ -59,9 +60,13 @@ export class RegistrationService {
    * that still sends a password or a name is refused by the body alone, before
    * any address look-up. Any address that already has a non-deleted account is
    * treated like a verified one: a capped notice, no sign-up record, and the
-   * generic reply, because a sign-up code could never activate it.
+   * generic reply, because a sign-up code could never activate it. The code
+   * is written in the request's language; a notice in the account's.
    */
-  async register(dto: RegisterDto): Promise<ApiResponse<RegisterResponseDto>> {
+  async register(
+    dto: RegisterDto,
+    locale: SupportedLocale,
+  ): Promise<ApiResponse<RegisterResponseDto>> {
     if (dto.password !== undefined || dto.name !== undefined) {
       throw new AppException(
         ErrorCode.REGISTRATION_CONTRACT_OUTDATED,
@@ -70,18 +75,22 @@ export class RegistrationService {
       );
     }
 
-    await this.requestRegistrationCode(dto.email, false);
+    await this.requestRegistrationCode(dto.email, false, locale);
     return RegisterResponseDto.success(dto.email);
   }
 
   /** Same generic registration request, with a private generation commitment. */
-  async registerForNative(email: string): Promise<string | null> {
-    return this.requestRegistrationCode(email, true);
+  async registerForNative(
+    email: string,
+    locale: SupportedLocale,
+  ): Promise<string | null> {
+    return this.requestRegistrationCode(email, true, locale);
   }
 
   private async requestRegistrationCode(
     email: string,
     includeGeneration: boolean,
+    locale: SupportedLocale,
   ): Promise<string | null> {
     const existingUser = await this.accounts.findAddressOwner(email);
 
@@ -96,7 +105,7 @@ export class RegistrationService {
         );
         if (underCap) {
           this.authMailService.deferRegistrationAttemptNotice(
-            email,
+            { email, locale: existingUser.locale },
             existingUser.name,
           );
         }
@@ -110,7 +119,12 @@ export class RegistrationService {
           email,
           PENDING_PURPOSE.SIGNUP,
         );
-      if (issued) this.authMailService.deferActivationCode(email, issued.code);
+      if (issued) {
+        this.authMailService.deferActivationCode(
+          { email, locale },
+          issued.code,
+        );
+      }
       return issued?.generationHash ?? null;
     }
 
@@ -119,7 +133,9 @@ export class RegistrationService {
         email,
         PENDING_PURPOSE.SIGNUP,
       );
-    if (issued) this.authMailService.deferActivationCode(email, issued.code);
+    if (issued) {
+      this.authMailService.deferActivationCode({ email, locale }, issued.code);
+    }
     return null;
   }
 
@@ -128,10 +144,12 @@ export class RegistrationService {
    * password and name supplied in this same request. The code comparison and
    * the password hash run outside the unit of work; the consume and the insert
    * run inside one, so a rerun cannot spend another attempt or hash twice.
+   * The account stores the language of this request.
    */
   async activate(
     dto: ActivateDto,
     response: Response,
+    locale: SupportedLocale,
   ): Promise<ApiResponse<ActivateResponseDto>> {
     const reserved = await this.verificationCodeService.verifyCode(
       dto.email,
@@ -157,6 +175,7 @@ export class RegistrationService {
           id: accountId,
           passwordHash,
           name: dto.name,
+          locale,
         });
       });
     } catch (error) {
@@ -177,6 +196,7 @@ export class RegistrationService {
    */
   async resendActivation(
     dto: ResendActivationDto,
+    locale: SupportedLocale,
   ): Promise<ApiResponse<ResendActivationResponseDto>> {
     const existingUser = await this.accounts.findAddressOwner(dto.email);
 
@@ -191,7 +211,10 @@ export class RegistrationService {
     );
 
     if (issued) {
-      this.authMailService.deferActivationCode(dto.email, issued.code);
+      this.authMailService.deferActivationCode(
+        { email: dto.email, locale },
+        issued.code,
+      );
     }
 
     return ResendActivationResponseDto.success(dto.email);

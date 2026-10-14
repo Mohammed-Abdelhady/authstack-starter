@@ -8,6 +8,7 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MAGIC_LINK_MAX_TOKEN_LENGTH } from '../constants/magic-link.constants';
+import { LanguagePreference } from '../../../common/decorators/language-preference.decorator';
 
 /**
  * Validation stays loose on purpose: a token that is the wrong shape should
@@ -36,4 +37,7 @@ export class VerifyMagicLinkDto {
   @IsOptional()
   @IsBoolean()
   confirm?: boolean;
+
+  @LanguagePreference()
+  locale?: string;
 }

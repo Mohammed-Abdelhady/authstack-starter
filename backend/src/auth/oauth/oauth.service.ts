@@ -29,6 +29,10 @@ import {
 } from './types/oauth-service.types';
 import { SecurityNoticeService } from '../../user/services/security-notice.service';
 import { SECURITY_NOTICE } from '../../user/constants/security-notice.constants';
+import {
+  DEFAULT_LOCALE,
+  SupportedLocale,
+} from '../../common/constants/locales';
 
 const DEFAULT_ROLE = 'user';
 
@@ -57,7 +61,7 @@ export class OAuthService {
   async login(params: OAuthLoginParams): Promise<SignInOutcome> {
     const { strategy } = params;
     const profile = await this.loadVerifiedProfile(params);
-    const user = await this.findOrCreateUser(strategy, profile);
+    const user = await this.findOrCreateUser(strategy, profile, params.locale);
     await this.profileSyncService.syncProfileFromProvider(
       user.id,
       strategy.id,
@@ -183,9 +187,10 @@ export class OAuthService {
   async resolveVerifiedProfile(
     strategy: OAuthProviderStrategy,
     profile: OAuthProfile,
+    locale: SupportedLocale,
   ): Promise<StoredAccount> {
     this.assertEmailVerified(strategy, profile);
-    return this.findOrCreateUser(strategy, profile);
+    return this.findOrCreateUser(strategy, profile, locale);
   }
 
   /**
@@ -193,10 +198,12 @@ export class OAuthService {
    * or a new user. The account email is never overwritten from the provider.
    * An account that has the address is only attached to when the provider
    * vouches for each address and this server verified the account's own.
+   * A new account stores `locale`; without a request it is the default.
    */
   async findOrCreateUser(
     strategy: LinkingProvider,
     profile: OAuthProfile,
+    locale: SupportedLocale = DEFAULT_LOCALE,
   ): Promise<StoredAccount> {
     const provider = strategy.id;
     const identity = { provider, providerId: profile.providerId };
@@ -223,7 +230,7 @@ export class OAuthService {
       );
     }
 
-    return this.createUser(identity, profile);
+    return this.createUser(identity, profile, locale);
   }
 
   private async linkToExistingUser(
@@ -245,6 +252,7 @@ export class OAuthService {
   private async createUser(
     identity: { provider: string; providerId: string },
     profile: OAuthProfile,
+    locale: SupportedLocale,
   ): Promise<StoredAccount> {
     try {
       const user = await this.accounts.createFromProvider({
@@ -253,6 +261,7 @@ export class OAuthService {
         name: profile.name,
         avatarUrl: profile.avatarUrl,
         role: DEFAULT_ROLE,
+        locale,
       });
 
       this.logger.log(`Created a new user through ${identity.provider}`);
