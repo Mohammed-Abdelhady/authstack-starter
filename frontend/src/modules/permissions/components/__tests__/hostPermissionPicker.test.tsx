@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import { registerRtlDocument } from '@/tests/direction';
@@ -7,6 +8,8 @@ import { ALL_PERMISSIONS } from '@app/core';
 import { ALL_GROUPS_TAB, buildPermissionGroups } from '../../constants/permissionGroups';
 import { PermissionSelector } from '../selector/PermissionSelector';
 import { SearchPermissionTabs } from '../search/SearchPermissionTabs';
+import { PermissionTreeView } from '../permission-tree/PermissionTreeView';
+import type { PermissionGroup } from '../../types/permissionGroup.types';
 
 const HOST_PERMISSION = 'orders:refund:all';
 const HOST_GROUPS = buildPermissionGroups(ALL_PERMISSIONS, [HOST_PERMISSION]);
@@ -14,6 +17,19 @@ const HOST_GROUPS = buildPermissionGroups(ALL_PERMISSIONS, [HOST_PERMISSION]);
 const ALL_RESOURCE_PERMISSION = 'all:read:all';
 const ALL_RESOURCE_GROUPS = buildPermissionGroups(ALL_PERMISSIONS, [ALL_RESOURCE_PERMISSION]);
 const PROTO_PERMISSION = '__proto__:read:all';
+const CONSTRUCTOR_PERMISSION = 'constructor:read:all';
+const CONSTRUCTOR_GROUPS = buildPermissionGroups([], [CONSTRUCTOR_PERMISSION]);
+
+/** The selector's choice handed to the tree that shows it, as a role screen does. */
+function PickerAndTree({ groups }: { groups: readonly PermissionGroup[] }) {
+  const [selected, setSelected] = useState<string[]>([]);
+  return (
+    <>
+      <PermissionSelector selectedPermissions={selected} onChange={setSelected} groups={groups} />
+      <PermissionTreeView permissions={selected} />
+    </>
+  );
+}
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
@@ -142,6 +158,23 @@ describe.each([
     );
 
     expect(tabState()).toEqual({ selectedTabs: 1, panels: 1, repeated: [] });
+  });
+
+  it('shows a picked permission of a resource named constructor in the tree', async () => {
+    await renderForm(locale, <PickerAndTree groups={CONSTRUCTOR_GROUPS} />);
+
+    fireEvent.click(screen.getByTestId(`permission-checkbox-${CONSTRUCTOR_PERMISSION}`));
+
+    const tree = screen.getByTestId('permission-tree-view');
+    expect({
+      heading: within(tree).getByTestId('permission-group-constructor').textContent,
+      nodes: within(within(tree).getByTestId('permission-list-constructor'))
+        .getAllByTestId(/^permission-node-/)
+        .map((node) => node.getAttribute('data-testid')),
+    }).toEqual({
+      heading: 'constructor',
+      nodes: [`permission-node-${CONSTRUCTOR_PERMISSION}`],
+    });
   });
 
   it('counts the selected permissions of a resource named __proto__', async () => {
