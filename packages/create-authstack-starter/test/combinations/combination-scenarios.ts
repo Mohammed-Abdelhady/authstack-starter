@@ -1,3 +1,6 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect } from 'vitest';
 import {
   installProject,
@@ -118,4 +121,41 @@ export async function expectInstallsLintsBuilds(
     });
     expect(build.ok, build.output).toBe(true);
   }
+}
+
+/** Case 3 uses the normal project build to copy a host file into dist. */
+export function writeHostMigrationFixture(project: string): void {
+  writeFileSync(
+    join(project, 'backend/src/host/migrations/0042_orders.sql'),
+    'CREATE TABLE host_orders (id integer PRIMARY KEY); INSERT INTO host_orders VALUES (7);',
+  );
+}
+
+export async function expectBuiltHostMigrations(
+  project: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const fixture = fileURLToPath(new URL('./fixtures/built-host-migrations.ts', import.meta.url));
+  const verified = await runTool(
+    process.execPath,
+    ['--experimental-strip-types', fixture, project],
+    { cwd: join(project, 'backend'), signal },
+  );
+  expect(verified.ok, verified.output).toBe(true);
+  const result: unknown = JSON.parse((verified.stdout ?? '').trim().split('\n').pop() ?? 'null');
+  expect(result).toEqual({
+    up: 0,
+    status: 0,
+    usage: 2,
+    host: ['0042_orders.sql'],
+    orders: [{ id: 7 }],
+    lines: [
+      'Applied: 19',
+      'Pending: none',
+      'Not carried by this build: none',
+      'Host applied: 1',
+      'Host pending: none',
+      'Host not carried by this build: none',
+    ],
+  });
 }

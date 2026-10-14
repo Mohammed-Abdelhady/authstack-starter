@@ -3,6 +3,7 @@ import { DEFAULT_SELECTION, describeDatabaseProjects, POSTGRES_BUDGET } from './
 describeDatabaseProjects('generated PostgreSQL projects', [
   {
     name: 'PostgreSQL with every sign-in method',
+    checkBuiltHostMigrations: true,
     database: 'postgres',
     features: undefined,
     ...POSTGRES_BUDGET,
