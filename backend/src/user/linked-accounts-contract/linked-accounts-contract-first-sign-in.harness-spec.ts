@@ -161,6 +161,7 @@ export function firstProviderSignInCases(
       name: 'New Comer',
       avatarUrl: 'https://img.example.test/new.png',
       role: 'user',
+      locale: 'en',
     });
 
     const stored = await storedAccount(harness(), created.id);
@@ -227,6 +228,7 @@ export function firstProviderSignInCases(
       email: '  Mixed@Example.TEST ',
       name: '  Mixed Case  ',
       role: 'user',
+      locale: 'en',
     });
 
     expect({
@@ -254,6 +256,7 @@ export function firstProviderSignInCases(
         email: OWNER_EMAIL,
         name: 'Clash',
         role: 'user',
+        locale: 'en',
       }),
     );
 
@@ -279,6 +282,7 @@ export function firstProviderSignInCases(
         email: NEW_ADDRESS,
         name: 'New Comer',
         role: 'user',
+        locale: 'en',
       }),
     );
 

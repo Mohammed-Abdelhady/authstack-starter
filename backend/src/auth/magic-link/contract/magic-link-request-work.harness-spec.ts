@@ -70,5 +70,39 @@ export function describeRequestWork(
         overCap: 3,
       });
     });
+
+    it('reads the account behind an address with one statement, whether it is there, missing or deleted', async () => {
+      const current = probe;
+      if (!current) throw new Error(`the ${database} probe did not start`);
+      await current.seedAccount({
+        email: 'reader@example.test',
+        isDeleted: false,
+      });
+      await current.seedAccount({
+        email: 'reader-gone@example.test',
+        isDeleted: true,
+      });
+      const read = async (email: string) => {
+        current.takeStatements();
+        const recipient = await current.accounts.findLinkRecipient(email);
+        return { recipient, statements: current.takeStatements() };
+      };
+
+      expect({
+        existing: await read('reader@example.test'),
+        missing: await read('reader-none@example.test'),
+        deleted: await read('reader-gone@example.test'),
+      }).toEqual({
+        existing: {
+          recipient: { isDeleted: false, locale: 'en' },
+          statements: 1,
+        },
+        missing: { recipient: null, statements: 1 },
+        deleted: {
+          recipient: { isDeleted: true, locale: 'en' },
+          statements: 1,
+        },
+      });
+    });
   });
 }

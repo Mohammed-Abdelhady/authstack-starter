@@ -39,7 +39,7 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
     );
   it('refuses a second link with one token hash and a second account with one address as unique conflicts', async () => {
     const link = { email: EMAIL, tokenHash: 'same', expiresAt: LINK_EXPIRY };
-    const account = { email: EMAIL, name: 'link' };
+    const account = { email: EMAIL, name: 'link', locale: 'en' as const };
     await harness().links.insertLink(link);
     await harness().accounts.createPasswordless(account);
 

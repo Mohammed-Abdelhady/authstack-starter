@@ -34,6 +34,7 @@ function storedAccount(user: UserDocument | null): E2eStoredAccount | null {
     pendingEmail: user.pendingEmail,
     deletedAt: user.deletedAt,
     addressGeneration: user.addressGeneration,
+    locale: user.locale,
     password: user.password,
   };
 }

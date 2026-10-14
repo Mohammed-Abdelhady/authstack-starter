@@ -214,10 +214,13 @@ const CASES: Array<{
 
 const pipe: ValidationPipe = createValidationPipe();
 
+/** Any DTO class the pipe builds from a body, whatever its fields' types. */
+type BodyDto = new () => object;
+
 /** The UpdateProfileDto instance the real pipe produces for a body. */
 async function serverRow(
   name: unknown,
-  metatype = UpdateProfileDto,
+  metatype: BodyDto = UpdateProfileDto,
   body: Record<string, string> = {},
 ): Promise<{
   accepted: boolean;
@@ -292,7 +295,7 @@ describe('the name rule the server and the shared rule agree on', () => {
     }
   });
 
-  it.each<{ metatype: typeof UpdateProfileDto; body: Record<string, string> }>([
+  it.each<{ metatype: BodyDto; body: Record<string, string> }>([
     { metatype: UpdateProfileDto, body: {} },
     { metatype: UpdateUserDto, body: {} },
     {

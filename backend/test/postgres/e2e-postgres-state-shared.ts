@@ -35,6 +35,7 @@ function storedAccount(
     pendingEmail: row.pending_email ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
     addressGeneration: row.address_generation,
+    locale: row.locale,
     password: withPassword ? (row.password_hash ?? undefined) : undefined,
   };
 }
@@ -95,6 +96,7 @@ export function postgresAccountsState(
           address_generation: account.addressGeneration ?? 0,
           password_hash: account.password ?? null,
           auth_provider: EMAIL_PROVIDER,
+          ...(account.locale === undefined ? {} : { locale: account.locale }),
         })
         .returning('id')
         .executeTakeFirstOrThrow();

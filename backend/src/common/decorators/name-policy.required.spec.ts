@@ -7,7 +7,10 @@ import { UpdateUserDto } from '../../admin/dto/update-user.dto';
 import { CreateUserDto } from '../../admin/dto/create-user.dto';
 import { ActivateDto } from '../../auth/dto/activate.dto';
 
-const DTOS = [
+/** Any DTO class the pipe builds from a body, whatever its fields' types. */
+type BodyDto = new () => object;
+
+const DTOS: { metatype: BodyDto; body: object; required: boolean }[] = [
   { metatype: UpdateProfileDto, body: {}, required: false },
   { metatype: UpdateUserDto, body: {}, required: false },
   {
@@ -34,7 +37,7 @@ const pipe = createValidationPipe();
 
 async function requireNameError(
   body: object,
-  metatype: typeof UpdateProfileDto,
+  metatype: BodyDto,
 ): Promise<void> {
   try {
     await pipe.transform(body, { metatype, type: 'body' });

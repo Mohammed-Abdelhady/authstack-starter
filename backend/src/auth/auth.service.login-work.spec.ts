@@ -41,6 +41,7 @@ function account(id: string, email: string): StoredAccount {
     isDeleted: false,
     sessionVersion: 0,
     addressGeneration: 0,
+    locale: 'en',
     twoFactorEnabled: false, // feature:totp
     createdAt: at,
     updatedAt: at,

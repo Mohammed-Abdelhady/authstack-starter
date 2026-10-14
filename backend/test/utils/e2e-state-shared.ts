@@ -9,6 +9,8 @@ export interface E2eNewAccount {
   isDeleted?: boolean;
   pendingEmail?: string;
   addressGeneration?: number;
+  /** Stored as given. Left out, the store's default applies. */
+  locale?: string;
   /** Already hashed. */
   password?: string;
 }
@@ -26,6 +28,8 @@ export interface E2eStoredAccount {
   /** Absent on an account that was never deactivated or was reactivated. */
   deletedAt?: Date;
   addressGeneration: number;
+  /** The language as stored, absent where the record holds none. */
+  locale?: string;
   /** The stored hash, when the read asks for it and the account has one. */
   password?: string;
 }
