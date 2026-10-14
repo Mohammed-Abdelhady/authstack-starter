@@ -19,7 +19,8 @@ const SINGLETON_PACKAGES = ['react', 'react-native'];
  * @typedef {{ nodeModulesPaths?: readonly string[], resolveRequest?: ResolveRequest | null, [key: string]: unknown }} ResolverConfig
  * @typedef {{ watchFolders?: readonly string[], resolver?: ResolverConfig, [key: string]: unknown }} MetroConfig
  * @typedef {{ workspaceRoot?: string, singletons?: readonly string[] }} WorkspaceOptions
- * @typedef {ResolverConfig & { nodeModulesPaths: string[], resolveRequest: ResolveRequest }} WorkspaceResolver
+ * @typedef {{ unstable_enableSymlinks: true, unstable_enablePackageExports: true, disableHierarchicalLookup: false }} PnpmResolverFlags
+ * @typedef {ResolverConfig & PnpmResolverFlags & { nodeModulesPaths: string[], resolveRequest: ResolveRequest }} WorkspaceResolver
  * @typedef {MetroConfig & { watchFolders: string[], resolver: WorkspaceResolver }} WorkspaceMetroConfig
  */
 
