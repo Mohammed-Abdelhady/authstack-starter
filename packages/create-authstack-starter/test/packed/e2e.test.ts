@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -39,7 +39,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  if (packed) rmSync(packed.workspace, { recursive: true, force: true });
+  packed?.cleanup();
 });
 
 describe('the packed CLI', () => {

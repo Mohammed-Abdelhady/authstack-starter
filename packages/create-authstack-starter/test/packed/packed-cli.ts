@@ -1,23 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { delimiter, extname, join } from 'node:path';
-import {
-  MARKER_EXTENSIONS,
-  PACKAGE_MANAGER_VERSION,
-  SKIPPED_DIRS,
-} from '../../src/constants/index.js';
+import { MARKER_EXTENSIONS, SKIPPED_DIRS } from '../../src/constants/index.js';
 import { PACKAGE_DIR, STAGE_ENVIRONMENT, stagePackage } from './package-stage.js';
 import { assertWorkspaceEdgesResolve } from '../support/workspace-assertions.js';
+import { preparePackedWorkspace } from './packed-workspace.js';
 
 export { PACKAGE_DIR };
 export const BUILD_TIMEOUT = 10 * 60 * 1000;
@@ -28,20 +15,13 @@ export interface Packed {
   cli: string;
   workspace: string;
   pnpmDirectory: string;
+  cleanup: () => void;
 }
 
 /** Builds the package, packs it, and unpacks the tarball into a temp directory. */
 export function buildAndPack(): Packed {
-  const workspace = mkdtempSync(join(tmpdir(), 'cna-e2e-'));
-  const pnpmDirectory = join(workspace, 'pnpm-bin');
-  mkdirSync(pnpmDirectory);
-  const pnpm = join(pnpmDirectory, 'pnpm');
-  writeFileSync(
-    pnpm,
-    `#!${process.execPath}\nconst args = process.argv.slice(2).join(' ');\nif (args === '--version') process.stdout.write(${JSON.stringify(PACKAGE_MANAGER_VERSION)} + '\\n');\n`,
-  );
-  chmodSync(pnpm, 0o755);
-  const packed: Packed = { ok: false, cli: '', workspace, pnpmDirectory };
+  const { workspace, pnpmDirectory, cleanup } = preparePackedWorkspace();
+  const packed: Packed = { ok: false, cli: '', workspace, pnpmDirectory, cleanup };
 
   try {
     // prepack runs the build, so packing alone ships a fresh template,
@@ -71,7 +51,7 @@ export function buildAndPack(): Packed {
     packed.reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
   }
 
-  if (!packed.ok) rmSync(workspace, { recursive: true, force: true });
+  if (!packed.ok) cleanup();
   return packed;
 }
 
