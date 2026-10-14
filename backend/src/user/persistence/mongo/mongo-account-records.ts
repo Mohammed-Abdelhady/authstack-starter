@@ -2,6 +2,7 @@ import { UserDocument } from './schemas/user.schema';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { ACCOUNT_CONSTRAINT, StoredAccount } from '../../stores/stored-account';
+import { storedLocale } from '../../../common/constants/locales';
 
 const EMAIL_INDEX = /index: email_1 /;
 
@@ -49,6 +50,7 @@ export function toStoredAccount(
     primaryProvider: user.primaryProvider,
     profileSyncedAt: user.profileSyncedAt,
     lastSyncedProvider: user.lastSyncedProvider,
+    locale: storedLocale(user.locale),
     twoFactorEnabled: user.twoFactor?.enabled === true, // feature:totp
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,

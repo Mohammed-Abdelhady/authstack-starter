@@ -7,6 +7,7 @@ import {
   AccountPassword,
   AccountProfileStore,
   AdminFence,
+  ProfileChanges,
 } from '../../stores/account-profile.store';
 import { StoredAccount } from '../../stores/stored-account';
 import {
@@ -53,7 +54,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
 
   async saveProfile(
     account: StoredAccount,
-    changes: { name?: string },
+    changes: ProfileChanges,
   ): Promise<StoredAccount> {
     const id = storedId(account);
     const saved = await accountStatement(async () => {
@@ -61,6 +62,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
         .updateTable('users')
         .set({
           ...(changes.name === undefined ? {} : { name: changes.name.trim() }),
+          ...(changes.locale === undefined ? {} : { locale: changes.locale }),
           updated_at: this.clock.now(),
         })
         .where('id', '=', id)

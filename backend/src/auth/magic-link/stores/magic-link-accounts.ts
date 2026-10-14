@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
+import type { SupportedLocale } from '../../../common/constants/locales';
 
 /** Shared names of the unique rules creating an account can run into. */
 export const MAGIC_LINK_ACCOUNT_CONSTRAINT = {
@@ -20,6 +21,15 @@ export abstract class MagicLinkAccount {
 export interface NewPasswordlessAccount {
   email: string;
   name: string;
+  /** The language of the request that spends the link. */
+  locale: SupportedLocale;
+}
+
+/** What a link request needs to know of the account behind an address. */
+export interface LinkRecipient {
+  isDeleted: boolean;
+  /** The language the account's mail is written in. */
+  locale: SupportedLocale;
 }
 
 /**
@@ -36,10 +46,10 @@ export abstract class MagicLinkAccounts {
   ): Promise<MagicLinkAccount | null>;
 
   /**
-   * True when the address belongs to a deleted account. One statement of the
-   * same size whether or not any account has the address.
+   * Whether the account at the address is deleted, and its language. One
+   * statement of the same size whether or not any account has the address.
    */
-  abstract hasDeletedAccount(email: string): Promise<boolean>;
+  abstract findLinkRecipient(email: string): Promise<LinkRecipient | null>;
 
   abstract markVerified(account: MagicLinkAccount): Promise<void>;
   abstract markVerifiedIn(

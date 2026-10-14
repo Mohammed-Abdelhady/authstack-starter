@@ -1,4 +1,5 @@
 import { StoredAccount } from '../../../user/stores/stored-account';
+import type { SupportedLocale } from '../../../common/constants/locales';
 
 export interface ProviderIdentity {
   provider: string;
@@ -10,6 +11,8 @@ export interface NewProviderAccount extends ProviderIdentity {
   name: string;
   avatarUrl?: string;
   role: string;
+  /** The language of the sign-in request that creates the account. */
+  locale: SupportedLocale;
 }
 
 /**

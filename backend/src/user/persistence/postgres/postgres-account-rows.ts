@@ -13,6 +13,7 @@ import {
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
 import { mapPostgresError } from '../../../common/persistence/postgres/postgres-persistence-errors';
+import { storedLocale } from '../../../common/constants/locales';
 
 export type AccountReader =
   Kysely<PostgresTables> | Transaction<PostgresTables>;
@@ -34,6 +35,7 @@ export const ACCOUNT_COLUMNS = [
   'primary_provider',
   'profile_synced_at',
   'last_synced_provider',
+  'locale',
   'created_at',
   'updated_at',
 ] as const;
@@ -55,6 +57,7 @@ export interface AccountRow {
   primary_provider: string | null;
   profile_synced_at: Date | null;
   last_synced_provider: string | null;
+  locale: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -148,6 +151,7 @@ export function toStoredAccount(
     primaryProvider: row.primary_provider ?? undefined,
     profileSyncedAt: row.profile_synced_at ?? undefined,
     lastSyncedProvider: row.last_synced_provider ?? undefined,
+    locale: storedLocale(row.locale),
     twoFactorEnabled, // feature:totp
     createdAt: row.created_at,
     updatedAt: row.updated_at,
