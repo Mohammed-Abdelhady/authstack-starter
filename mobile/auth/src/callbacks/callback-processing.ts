@@ -199,8 +199,7 @@ export function createCallbackProcessor(
               signal,
               mayRetryChallenge: () => runtime.isEpochCurrent(epoch) && !runtime.disposed,
             },
-            ({ headers, signal: requestSignal }) =>
-              client.oauth.exchangeCode(input, { headers, signal: requestSignal }),
+            ({ headers }) => client.oauth.exchangeCode(input, { headers, signal }),
           );
           return { tokens: proof.value, proofKeyThumbprint: proof.thumbprint };
         },

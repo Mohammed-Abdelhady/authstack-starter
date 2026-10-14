@@ -9,7 +9,7 @@ import type { RuntimeTokens } from '../types/record';
 
 interface ActiveRefresh {
   epoch: number;
-  promise?: Promise<RuntimeTokens>;
+  promise?: Promise<RuntimeTokens> | undefined;
   waiters: number;
   waiting: boolean;
   waitController: PortAbortController;

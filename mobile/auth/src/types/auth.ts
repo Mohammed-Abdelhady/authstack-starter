@@ -137,8 +137,8 @@ export interface AuthSnapshot {
   readonly status: SessionStatus;
   readonly operation: AuthOperation;
   readonly reason?: AuthReason;
-  readonly warning?: 'storageBlocked';
-  readonly profile?: AuthProfile;
+  readonly warning?: 'storageBlocked' | undefined;
+  readonly profile?: AuthProfile | undefined;
   readonly nativeAttempt?: NativeSafeAttemptView;
 }
 
@@ -190,7 +190,7 @@ export type SignOutOutcome =
   | {
       kind: 'signedOut';
       revocation: RevocationOutcome;
-      error?: Error | ApiError | OAuthError | TransportError;
+      error?: Error | ApiError | OAuthError | TransportError | undefined;
     };
 
 /** `error` is what a request waiting on the same refresh would have rejected with. */
