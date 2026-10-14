@@ -3,7 +3,6 @@ import { unwrapIdentity, unwrapIdentityBody } from './identity';
 import { apiErrorFrom, respond } from './test-support';
 
 const ok = (data: unknown) => ({ success: true, data });
-// feature:totp,passkeys:start
 const IDENTITY_USER = {
   id: 'account-1',
   email: 'account@example.test',
@@ -20,7 +19,6 @@ const IDENTITY_USER = {
   passkeyCount: 0,
   // feature:passkeys:end
 };
-// feature:totp,passkeys:end
 
 describe('identity envelope', () => {
   it('reads the signed-out branch with no user', () => {
@@ -77,5 +75,49 @@ describe('identity envelope', () => {
     );
     expect(error.status).toBe(status);
     expect(error.code).toBe(code);
+  });
+});
+
+describe('optional identity profile fields', () => {
+  it('retains text values', () => {
+    const body = ok({
+      authenticated: true,
+      user: {
+        ...IDENTITY_USER,
+        avatarUrl: 'https://example.test/avatar.png',
+        primaryProvider: 'google',
+        profileSyncedAt: '2026-01-15T10:30:00.000Z',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-16T08:00:00.000Z',
+      },
+    });
+
+    expect(unwrapIdentityBody(body)).toStrictEqual({
+      authenticated: true,
+      user: {
+        ...IDENTITY_USER,
+        avatarUrl: 'https://example.test/avatar.png',
+        primaryProvider: 'google',
+        profileSyncedAt: '2026-01-15T10:30:00.000Z',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-16T08:00:00.000Z',
+      },
+    });
+  });
+
+  it('omits values that are not text', () => {
+    const body = ok({
+      authenticated: true,
+      user: {
+        ...IDENTITY_USER,
+        avatarUrl: null,
+        primaryProvider: 17,
+        profileSyncedAt: false,
+        createdAt: [],
+        updatedAt: {},
+      },
+    });
+
+    expect(unwrapIdentityBody(body)).toStrictEqual({ authenticated: true, user: IDENTITY_USER });
   });
 });

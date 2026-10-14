@@ -41,7 +41,7 @@ const TOKEN_SET = {
   scope: 'api',
 };
 
-describe('createApiClient routes', () => {
+describe('createApiClient identity', () => {
   it('reads a signed-out identity without requesting the protected profile', async () => {
     const transport = answering(200, {
       success: true,
@@ -66,7 +66,9 @@ describe('createApiClient routes', () => {
       user: IDENTITY_PROFILE,
     });
   });
+});
 
+describe('createApiClient profile', () => {
   it('reads the profile', async () => {
     const transport = answering(200, { success: true, data: PROFILE });
 
@@ -101,7 +103,9 @@ describe('createApiClient routes', () => {
     ]);
     expect(user.name).toBe('Layla H.');
   });
+});
 
+describe('createApiClient session list', () => {
   it('lists the sessions', async () => {
     const session = {
       id: '65a000000000000000000001',
@@ -132,7 +136,9 @@ describe('createApiClient routes', () => {
       total: 1,
     });
   });
+});
 
+describe('createApiClient session revocation', () => {
   it('revokes one session by id', async () => {
     const transport = answering(200, {
       success: true,
@@ -164,7 +170,9 @@ describe('createApiClient routes', () => {
     ]);
     expect(result).toEqual({ revokedCount: 3 });
   });
+});
 
+describe('createApiClient auth', () => {
   it('reads the sign-in methods and fills in what the server left out', async () => {
     const transport = answering(200, {
       success: true,
@@ -191,7 +199,9 @@ describe('createApiClient routes', () => {
     expect(transport.sent).toStrictEqual([{ method: 'POST', path: '/api/auth/logout' }]);
     expect(result).toEqual({ message: 'Logout successful' });
   });
+});
 
+describe('createApiClient OAuth exchange', () => {
   it('exchanges an authorization code in the wire naming', async () => {
     const transport = answering(200, TOKEN_BODY);
 
@@ -235,13 +245,15 @@ describe('createApiClient routes', () => {
     await client.oauth.refresh({ refreshToken: 'rt-0', clientId: 'native-app' }, options);
     await client.oauth.revoke({ token: 'rt-1', clientId: 'native-app' }, options);
 
-    expect(transport.sent.map(({ headers }) => headers?.DPoP)).toEqual([
+    expect(transport.sent.map(({ headers }) => headers?.['DPoP'])).toEqual([
       'proof-jwt',
       'proof-jwt',
       'proof-jwt',
     ]);
   });
+});
 
+describe('createApiClient OAuth refresh and revoke', () => {
   it('refreshes in the wire naming', async () => {
     const transport = answering(200, TOKEN_BODY);
 
@@ -283,6 +295,6 @@ describe('createApiClient routes', () => {
 
     await createApiClient(transport).oauth.revoke({ token: 'rt-1' });
 
-    expect(transport.sent[0].body).toStrictEqual({ token: 'rt-1' });
+    expect(transport.sent.map(({ body }) => body)).toStrictEqual([{ token: 'rt-1' }]);
   });
 });
