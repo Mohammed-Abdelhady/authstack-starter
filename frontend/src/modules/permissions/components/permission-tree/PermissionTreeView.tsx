@@ -28,20 +28,18 @@ export interface PermissionTreeViewProps {
   className?: string;
 }
 
-function groupPermissions(permissions: string[]): Record<string, string[]> {
-  const groups: Record<string, string[]> = {};
+/** A Map, so a resource named after an Object member such as `constructor` is its own group. */
+function groupPermissions(permissions: string[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
 
   permissions.forEach((perm) => {
     if (perm === '*') {
-      groups['wildcard'] = ['*'];
+      groups.set('wildcard', ['*']);
       return;
     }
 
     const resource = perm.split(':')[0];
-    if (!groups[resource]) {
-      groups[resource] = [];
-    }
-    groups[resource].push(perm);
+    groups.set(resource, [...(groups.get(resource) ?? []), perm]);
   });
 
   return groups;
@@ -97,7 +95,7 @@ export function PermissionTreeView({
 
       {/* Grouped Permissions */}
       <div className="space-y-4">
-        {Object.entries(groupedPermissions).map(([resource, perms]) => (
+        {[...groupedPermissions].map(([resource, perms]) => (
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
             {showHeaders && resource !== 'wildcard' && (
