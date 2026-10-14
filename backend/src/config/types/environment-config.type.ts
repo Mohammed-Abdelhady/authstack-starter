@@ -20,6 +20,8 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
   EMAIL_FROM?: string;
   MAIL_MAX_PENDING_SENDS?: number;
   MAIL_DRAIN_DEADLINE_MS?: number;
+  MAIL_LINKS_CUSTOMER?: string;
+  MAIL_LINKS_STAFF?: string;
 
   BCRYPT_ROUNDS?: number;
 
