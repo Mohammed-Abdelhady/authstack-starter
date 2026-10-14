@@ -163,6 +163,10 @@ export class ScriptedTransport implements Transport<AbortSignalPort> {
   }
 }
 
+export function refreshToken(suffix: string): string {
+  return `refresh-${suffix}`;
+}
+
 export function oauthTokenReply(
   accessToken = ACCESS_TOKEN,
   refreshToken = REFRESH_TOKEN,
