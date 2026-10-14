@@ -10,6 +10,7 @@ import {
   type TestAgent,
 } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { describeMagicLinkCreationGate } from './magic-link-creation-gate.harness-spec';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -19,6 +20,8 @@ const NONCE_COOKIE =
   /^ml_nonce=[A-Za-z0-9_-]{43}; Max-Age=900; Path=\/; Expires=[^;]+; HttpOnly; SameSite=Strict$/;
 const CLEARED_NONCE =
   /^ml_nonce=; Path=\/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict$/;
+
+describeMagicLinkCreationGate();
 
 interface VerifyBody {
   success: boolean;

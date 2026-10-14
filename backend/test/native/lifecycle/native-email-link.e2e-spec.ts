@@ -2,6 +2,13 @@ import { createHash } from 'node:crypto';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { hashMagicLinkToken } from '../../../src/auth/magic-link/utils/magic-link-token.util';
 import { NATIVE_ATTEMPT_PHASE } from '../../../src/auth/native/constants/native-attempt';
+import { ACCOUNT_CREATION_METHOD } from '../../../src/auth/constants/account-creation';
+import { UnitOfWork } from '../../../src/common/persistence/unit-of-work';
+import { NATIVE_CLIENT_ID } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
+import {
+  installAccountCreationPolicy,
+  type SwitchableAccountCreationPolicy,
+} from '../../utils/account-creation-policy';
 import {
   bootNativeLifecycleApp,
   callbackFromMail,
@@ -21,6 +28,7 @@ import {
 
 describe('native email-link lifecycle contract', () => {
   let e2e: E2eApp;
+  let policy: SwitchableAccountCreationPolicy;
 
   beforeAll(async () => {
     e2e = await bootNativeLifecycleApp();
@@ -29,7 +37,10 @@ describe('native email-link lifecycle contract', () => {
   beforeEach(async () => {
     e2e.clock.set(TEST_NOW);
     await e2e.reset();
+    policy = installAccountCreationPolicy(e2e.app);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   afterAll(async () => {
     await e2e?.close();
@@ -80,6 +91,62 @@ describe('native email-link lifecycle contract', () => {
     expect(consumed.details.emailTokenHash).toBeNull();
     expect(consumed.details.verifiedAccount?.firstFactor).toBe('emailLink');
     expect(await e2e.state.accounts.accountIdFor(email)).not.toBeNull();
+    expect(policy.calls).toHaveLength(1);
+    expect(policy.calls[0].request).toEqual({
+      application: NATIVE_CLIENT_ID,
+      method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    });
+    expect(policy.calls[0].unitOfWork).toBeInstanceOf(UnitOfWork);
+  });
+
+  it('rolls back account creation and the attempt transition when the policy refuses', async () => {
+    const attempt = await startLifecycleAttempt(e2e, 'signIn');
+    const email = 'native-link-policy-refused@example.test';
+    await requestLink(attempt, email).expect(200);
+    await e2e.captureMail();
+    const mailed = nativeTokenFromMail();
+    const before = await storedAttempt(e2e, attempt);
+    policy.refused = true;
+
+    const refused = await postLifecycle(e2e, attempt, 'email-link/verify', {
+      token: mailed.token,
+      state: mailed.state,
+    }).expect(403);
+
+    expect(refused.body.error.code).toBe(ErrorCode.ACCOUNT_CREATION_REFUSED);
+    expect(policy.calls).toHaveLength(1);
+    expect(await e2e.state.accounts.accountIdFor(email)).toBeNull();
+    expect(await e2e.state.sessions.countSessions()).toBe(0);
+    const after = await storedAttempt(e2e, attempt);
+    expect(after.phase).toBe(before.phase);
+    expect(after.details).toEqual(before.details);
+    expect(after.activeOperationId).toBeNull();
+  });
+
+  it('signs an existing account in while account creation is refused without asking the policy', async () => {
+    const email = 'native-link-existing@example.test';
+    const account = await e2e.state.accounts.createAccount({
+      email,
+      name: 'Existing link account',
+      isVerified: true,
+    });
+    policy.refused = true;
+    const attempt = await startLifecycleAttempt(e2e, 'signIn');
+    await requestLink(attempt, email).expect(200);
+    await e2e.captureMail();
+    const mailed = nativeTokenFromMail();
+
+    const verified = await postLifecycle(e2e, attempt, 'email-link/verify', {
+      token: mailed.token,
+      state: mailed.state,
+    }).expect(200);
+
+    expect(parseLifecycleResult(verified)).toMatchObject({
+      stage: 'consentRequired',
+      account: { id: account._id },
+    });
+    expect(policy.calls).toEqual([]);
+    expect(await e2e.state.auth.countAccountsWithAddress(email)).toBe(1);
   });
 
   it('replaces a resend token and rejects a browser token, wrong state, and wrong attempt', async () => {
