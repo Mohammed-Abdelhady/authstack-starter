@@ -3,9 +3,10 @@ import {
   hasMinimumRole,
   canManageLevel,
   canModifyLevel,
+  isAdminRole,
   isValidRoleAssignment,
-  ADMIN_LEVEL,
   CUSTOM_ROLE_LEVEL,
+  LevelActor,
   ROLE_HIERARCHY,
   UNKNOWN_ROLE_LEVEL,
   buildRoleHierarchy,
@@ -13,6 +14,10 @@ import {
 } from './role-hierarchy';
 import { generateSlug } from '../../role/utils/role.util';
 import { HostRole, ROLE_AUDIENCE } from '../../host/types/host-role.type';
+
+/** An actor on a role other than admin, at this level. */
+const actorAt = (level: number): LevelActor => ({ level, isAdmin: false });
+const ADMIN: LevelActor = { level: 4, isAdmin: true };
 
 describe('Role Hierarchy Utilities', () => {
   describe('ROLE_HIERARCHY', () => {
@@ -25,7 +30,14 @@ describe('Role Hierarchy Utilities', () => {
 
     it('should place custom roles at the default level', () => {
       expect(CUSTOM_ROLE_LEVEL).toBe(ROLE_HIERARCHY[UserRole.USER]);
-      expect(ADMIN_LEVEL).toBe(ROLE_HIERARCHY[UserRole.ADMIN]);
+    });
+  });
+
+  describe('isAdminRole', () => {
+    it('names only the admin role slug, whatever level another role holds', () => {
+      expect(
+        ['admin', 'manager', 'content-chief', 'Admin', ''].filter(isAdminRole),
+      ).toEqual(['admin']);
     });
   });
 
@@ -48,41 +60,43 @@ describe('Role Hierarchy Utilities', () => {
 
   describe('canManageLevel (non-strict, reads)', () => {
     it('should allow a higher level to reach a lower one', () => {
-      expect(canManageLevel(ADMIN_LEVEL, CUSTOM_ROLE_LEVEL)).toBe(true);
+      expect(canManageLevel(ADMIN, CUSTOM_ROLE_LEVEL)).toBe(true);
     });
 
     it('should allow peers to see each other', () => {
-      expect(canManageLevel(3, 3)).toBe(true);
+      expect(canManageLevel(actorAt(3), 3)).toBe(true);
     });
 
     it('should refuse a lower level', () => {
-      expect(canManageLevel(2, 3)).toBe(false);
+      expect(canManageLevel(actorAt(2), 3)).toBe(false);
     });
 
-    it('should reserve stranded roles for admins', () => {
-      expect(canManageLevel(3, UNKNOWN_ROLE_LEVEL)).toBe(false);
-      expect(canManageLevel(ADMIN_LEVEL, UNKNOWN_ROLE_LEVEL)).toBe(true);
+    it('should reserve stranded roles for the admin role, not its level', () => {
+      expect(canManageLevel(actorAt(3), UNKNOWN_ROLE_LEVEL)).toBe(false);
+      expect(canManageLevel(actorAt(6), UNKNOWN_ROLE_LEVEL)).toBe(false);
+      expect(canManageLevel(ADMIN, UNKNOWN_ROLE_LEVEL)).toBe(true);
     });
   });
 
   describe('canModifyLevel (strict, mutations)', () => {
     it('should allow a higher level to act on a lower one', () => {
-      expect(canModifyLevel(ADMIN_LEVEL, 3)).toBe(true);
-      expect(canModifyLevel(3, CUSTOM_ROLE_LEVEL)).toBe(true);
+      expect(canModifyLevel(ADMIN, 3)).toBe(true);
+      expect(canModifyLevel(actorAt(3), CUSTOM_ROLE_LEVEL)).toBe(true);
     });
 
     it('should refuse peers', () => {
-      expect(canModifyLevel(3, 3)).toBe(false);
-      expect(canModifyLevel(ADMIN_LEVEL, ADMIN_LEVEL)).toBe(false);
+      expect(canModifyLevel(actorAt(3), 3)).toBe(false);
+      expect(canModifyLevel(ADMIN, 4)).toBe(false);
     });
 
     it('should refuse a lower level', () => {
-      expect(canModifyLevel(1, 4)).toBe(false);
+      expect(canModifyLevel(actorAt(1), 4)).toBe(false);
     });
 
-    it('should reserve stranded roles for admins', () => {
-      expect(canModifyLevel(3, UNKNOWN_ROLE_LEVEL)).toBe(false);
-      expect(canModifyLevel(ADMIN_LEVEL, UNKNOWN_ROLE_LEVEL)).toBe(true);
+    it('should reserve stranded roles for the admin role, not its level', () => {
+      expect(canModifyLevel(actorAt(3), UNKNOWN_ROLE_LEVEL)).toBe(false);
+      expect(canModifyLevel(actorAt(6), UNKNOWN_ROLE_LEVEL)).toBe(false);
+      expect(canModifyLevel(ADMIN, UNKNOWN_ROLE_LEVEL)).toBe(true);
     });
   });
 

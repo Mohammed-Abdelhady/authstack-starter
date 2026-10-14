@@ -310,7 +310,7 @@ describe('AdminUsersService', () => {
 
       expect(
         mockEmailChangeService.assertAddressAvailable,
-      ).toHaveBeenCalledWith('new@example.com', LEVELS.admin);
+      ).toHaveBeenCalledWith('new@example.com', UserRole.ADMIN);
       expect(mockEmailChangeService.notifyPreviousAddress).toHaveBeenCalledWith(
         'target@example.com',
       );
@@ -321,7 +321,7 @@ describe('AdminUsersService', () => {
           pendingEmail: 'new@example.com',
           addressGeneration: 1,
         }),
-        LEVELS.admin,
+        UserRole.ADMIN,
       );
     });
 

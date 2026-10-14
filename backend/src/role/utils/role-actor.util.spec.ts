@@ -4,7 +4,10 @@ import { assertLevelBelowActor } from './role-actor.util';
 
 function answer(level: number, permissions: string[], actorLevel: number) {
   try {
-    assertLevelBelowActor({ level: actorLevel, permissions }, level);
+    assertLevelBelowActor(
+      { level: actorLevel, isAdmin: false, permissions },
+      level,
+    );
     return 'allowed';
   } catch (error) {
     return error instanceof HttpException ? error.getStatus() : 'not refused';
