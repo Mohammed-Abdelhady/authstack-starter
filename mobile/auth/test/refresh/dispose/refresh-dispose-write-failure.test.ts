@@ -1,3 +1,8 @@
+import {
+  REFRESH_BEFORE_REFRESH_TOKEN,
+  REFRESH_WRITE_LINEAGE_TOKEN,
+  REFRESH_AFTER_REFRESH_TOKEN,
+} from '../../support/token-values';
 import { createApiClient } from '@app/sdk';
 import type { Transport } from '@app/sdk';
 import type { AbortSignalPort } from '../../../src';
@@ -26,10 +31,10 @@ describe('dispose during a refresh record write', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before-refresh',
-      refreshToken: 'refresh-before-refresh',
+      refreshToken: REFRESH_BEFORE_REFRESH_TOKEN,
       expiresAt: 0,
       version: 1,
-      lineageId: 'refresh-write-lineage',
+      lineageId: REFRESH_WRITE_LINEAGE_TOKEN,
     };
     runtime.installDigest = INSTALL_DIGEST;
     runtime.tokens = previous;
@@ -41,7 +46,7 @@ describe('dispose during a refresh record write', () => {
     const writeStarted = new Deferred<void>();
     const releaseWrite = new Deferred<void>();
     ports.credentials.beforeReplace = (value) => {
-      if (!value.includes('refresh-after-refresh')) return Promise.resolve();
+      if (!value.includes(REFRESH_AFTER_REFRESH_TOKEN)) return Promise.resolve();
       writeStarted.resolve();
       return releaseWrite.promise;
     };
@@ -61,7 +66,7 @@ describe('dispose during a refresh record write', () => {
     const coordinator = createRefreshCoordinator(runtime, client, client);
     const refreshing = coordinator.refresh();
     await networkStarted.promise;
-    response.resolve(oauthTokenReply('access-after-refresh', 'refresh-after-refresh'));
+    response.resolve(oauthTokenReply('access-after-refresh', REFRESH_AFTER_REFRESH_TOKEN));
     await writeStarted.promise;
     runtime.dispose();
     releaseWrite.resolve();
@@ -69,7 +74,7 @@ describe('dispose during a refresh record write', () => {
     await expect(refreshing).rejects.toBeInstanceOf(AuthSessionError);
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(0);
-    expect(ports.credentials.value).toContain('refresh-after-refresh');
+    expect(ports.credentials.value).toContain(REFRESH_AFTER_REFRESH_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(ports.timer.pending).toBe(0);
   });
@@ -80,10 +85,10 @@ describe('dispose during a refresh record write', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before-refresh',
-      refreshToken: 'refresh-before-refresh',
+      refreshToken: REFRESH_BEFORE_REFRESH_TOKEN,
       expiresAt: 0,
       version: 1,
-      lineageId: 'refresh-write-lineage',
+      lineageId: REFRESH_WRITE_LINEAGE_TOKEN,
     };
     runtime.installDigest = INSTALL_DIGEST;
     runtime.tokens = previous;
@@ -96,7 +101,7 @@ describe('dispose during a refresh record write', () => {
     const releaseWrite = new Deferred<void>();
     const writeRejected = new Deferred<void>();
     ports.credentials.beforeReplace = (value) => {
-      if (!value.includes('refresh-after-refresh')) return Promise.resolve();
+      if (!value.includes(REFRESH_AFTER_REFRESH_TOKEN)) return Promise.resolve();
       writeStarted.resolve();
       return releaseWrite.promise.then(() => {
         writeRejected.resolve();
@@ -119,7 +124,7 @@ describe('dispose during a refresh record write', () => {
     const coordinator = createRefreshCoordinator(runtime, client, client);
     const refreshing = coordinator.refresh();
     await networkStarted.promise;
-    response.resolve(oauthTokenReply('access-after-refresh', 'refresh-after-refresh'));
+    response.resolve(oauthTokenReply('access-after-refresh', REFRESH_AFTER_REFRESH_TOKEN));
     await writeStarted.promise;
     runtime.dispose();
     releaseWrite.resolve();
@@ -129,7 +134,7 @@ describe('dispose during a refresh record write', () => {
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(1);
     expect(transport.sent.find(({ path }) => path === '/api/oauth/revoke')?.body).toMatchObject({
-      token: 'refresh-after-refresh',
+      token: REFRESH_AFTER_REFRESH_TOKEN,
     });
     expect(ports.credentials.events.filter((event) => event === 'read')).toHaveLength(2);
     expect(ports.credentials.value).toContain('"refreshInFlight":true');
@@ -157,10 +162,10 @@ describe('dispose during a refresh record write', () => {
       const runtime = new AuthRuntime(CONFIG, ports);
       const previous: RuntimeTokens = {
         accessToken: 'access-before-refresh',
-        refreshToken: 'refresh-before-refresh',
+        refreshToken: REFRESH_BEFORE_REFRESH_TOKEN,
         expiresAt: 0,
         version: 1,
-        lineageId: 'refresh-write-lineage',
+        lineageId: REFRESH_WRITE_LINEAGE_TOKEN,
       };
       runtime.installDigest = INSTALL_DIGEST;
       runtime.tokens = previous;
@@ -176,7 +181,7 @@ describe('dispose during a refresh record write', () => {
       const neverLands = new Deferred<void>();
       let attempts = 0;
       ports.credentials.beforeReplace = async (value) => {
-        if (!value.includes('refresh-after-refresh')) return;
+        if (!value.includes(REFRESH_AFTER_REFRESH_TOKEN)) return;
         attempts += 1;
         writeStarted.resolve();
         if (failure === 'never') await neverLands.promise;
@@ -192,11 +197,11 @@ describe('dispose during a refresh record write', () => {
         runtime,
         createApiClient(runtime.rawTransport),
         INSTALL_DIGEST,
-        'refresh-before-refresh',
+        REFRESH_BEFORE_REFRESH_TOKEN,
         {
           accessToken: 'access-after-refresh',
-          refreshToken: 'refresh-after-refresh',
-          lineageId: 'refresh-write-lineage',
+          refreshToken: REFRESH_AFTER_REFRESH_TOKEN,
+          lineageId: REFRESH_WRITE_LINEAGE_TOKEN,
         },
       );
       void completed.then(
@@ -228,10 +233,10 @@ describe('dispose during a refresh record write', () => {
       }
       await completed;
 
-      const wasSaved = ports.credentials.value?.includes('refresh-after-refresh') ?? false;
+      const wasSaved = ports.credentials.value?.includes(REFRESH_AFTER_REFRESH_TOKEN) ?? false;
       const revoked = revokedTokens(transport);
       expect(wasSaved).toBe(false);
-      expect(revoked).toEqual(['refresh-after-refresh']);
+      expect(revoked).toEqual([REFRESH_AFTER_REFRESH_TOKEN]);
       expect(ports.timer.pending).toBe(0);
     },
   );

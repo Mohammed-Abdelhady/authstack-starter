@@ -1,7 +1,10 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+import { loadManifest } from '../../src/manifest/load.js';
+import { prune } from '../../src/prune/index.js';
 import {
   prunePackageScripts,
   prunePackageDependencies,
@@ -195,6 +198,25 @@ describe('prunePackageDependencies', () => {
 });
 
 describe('pruneFeaturePackages', () => {
+  it.each([false, true])('keeps otplib only when TOTP is selected: %s', async (totp) => {
+    const root = await tempRoot();
+    const repository = fileURLToPath(new URL('../../../../', import.meta.url));
+    const manifest = await loadManifest(repository);
+    await mkdir(join(root, 'backend'));
+    await writeFile(join(root, 'package.json'), '{"name":"app"}');
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages: [backend]\n');
+    const path = join(root, 'backend/package.json');
+    await writeFile(path, await readFile(join(repository, 'backend/package.json'), 'utf8'));
+    const features = Object.keys(manifest.features).filter((id) => totp || id !== 'totp');
+
+    await prune(root, manifest, features, []);
+
+    const generated = JSON.parse(await readFile(path, 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    expect(Object.hasOwn(generated.dependencies, 'otplib')).toBe(totp);
+  });
+
   it('removes only omitted native SDKs from an installed shell manifest', async () => {
     const root = await tempRoot();
     await mkdir(join(root, 'mobile/expo'), { recursive: true });

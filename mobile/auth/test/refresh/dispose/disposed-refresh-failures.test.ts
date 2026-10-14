@@ -7,6 +7,7 @@ import {
 } from '../../../src/constants';
 import { createAuthEngine } from '../../support/engine';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -57,7 +58,7 @@ describe('refresh answers after dispose', () => {
       ports.credentials.beforeReplace = (value) => {
         if (
           expected === 'stable' &&
-          value.includes('refresh-secret-0') &&
+          value.includes(REFRESH_TOKEN) &&
           !value.includes('refreshInFlight')
         )
           storageWriteStarted = true;
@@ -70,7 +71,7 @@ describe('refresh answers after dispose', () => {
       ports.credentials.afterReplace = (value) => {
         if (
           expected === 'stable' &&
-          value.includes('refresh-secret-0') &&
+          value.includes(REFRESH_TOKEN) &&
           !value.includes('refreshInFlight')
         )
           complete.resolve();
@@ -96,7 +97,7 @@ describe('refresh answers after dispose', () => {
       await storageOperationSettled.promise;
 
       if (expected === 'stable') {
-        expect(ports.credentials.value).toContain('refresh-secret-0');
+        expect(ports.credentials.value).toContain(REFRESH_TOKEN);
         expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
       } else {
         expect(ports.credentials.value).toBeUndefined();

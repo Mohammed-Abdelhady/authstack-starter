@@ -4,6 +4,7 @@ import { BROWSER_AUTHORIZATION_TIMEOUT_MS } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -289,7 +290,7 @@ describe('sign-in deadlines and cleanup', () => {
 
     await expect(signIn).resolves.toMatchObject({ kind: 'transportFailure' });
     expect(profileSignal?.aborted).toBe(true);
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.timer.pending).toBe(0);
   });
 

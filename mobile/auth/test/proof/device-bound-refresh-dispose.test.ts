@@ -1,8 +1,9 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { AuthDisposedError as EngineDisposedError } from '../../src/errors/errors';
 import { parseStoredRecord } from '../../src/storage/persistence';
-import { Deferred, apiReply } from '../support/support';
+import { REFRESH_TOKEN, Deferred, apiReply } from '../support/support';
 import {
   dpopChallenge,
   dpopTokenReply,
@@ -38,7 +39,7 @@ describe('device-bound refresh disposal', () => {
     ports.timer.onCancel = (milliseconds) => {
       if (milliseconds === 15_000) deadlineCancelled.resolve();
     };
-    allowRefreshReplayAfterDpopNonce('refresh-secret-0');
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
     let refreshAttempt = 0;
     transport.respond = async (request) => {
       if (!isRefreshRequest(request)) return apiReply({ id: 'profile' });
@@ -67,12 +68,12 @@ describe('device-bound refresh disposal', () => {
     const replacementSaved = new Deferred<void>();
     ports.credentials.afterReplace = (value) => {
       const record = parseStoredRecord(value);
-      if (record?.tokens?.refreshToken === 'refresh-1' && !record.refreshInFlight)
+      if (record?.tokens?.refreshToken === REFRESH_1_TOKEN && !record.refreshInFlight)
         replacementSaved.resolve();
     };
     ports.clock.advance(270_000);
-    allowRefreshReplayAfterDpopNonce('refresh-secret-0');
-    allowBoundRefreshReplayAfterUnknownOutcome('refresh-secret-0');
+    allowRefreshReplayAfterDpopNonce(REFRESH_TOKEN);
+    allowBoundRefreshReplayAfterUnknownOutcome(REFRESH_TOKEN);
     let refreshAttempt = 0;
     transport.respond = async (request) => {
       if (!isRefreshRequest(request)) return apiReply({ id: 'profile' });
@@ -86,12 +87,12 @@ describe('device-bound refresh disposal', () => {
     await retryStarted.promise;
     engine.dispose();
     await expect(request).rejects.toBeInstanceOf(EngineDisposedError);
-    lateAnswer.resolve(dpopTokenReply('access-1', 'refresh-1'));
+    lateAnswer.resolve(dpopTokenReply('access-1', REFRESH_1_TOKEN));
     await replacementSaved.promise;
 
     expect(refreshRequests(transport)).toHaveLength(3);
     expect(parseStoredRecord(ports.credentials.value ?? '')?.tokens?.refreshToken).toBe(
-      'refresh-1',
+      REFRESH_1_TOKEN,
     );
     expect(parseStoredRecord(ports.credentials.value ?? '')?.refreshInFlight).toBeUndefined();
     expect(revokedTokens(transport)).toEqual([]);

@@ -1,3 +1,11 @@
+import {
+  REFRESH_2_TOKEN,
+  REFRESH_FIRST_TOKEN,
+  REFRESH_NEXT_TOKEN,
+  REFRESH_RESTORED_NEXT_TOKEN,
+  REFRESH_LEGACY_TOKEN,
+  REFRESH_WRITTEN_TOKEN,
+} from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { CREDENTIAL_DELETE_TIMEOUT_MS, CRYPTO_RANDOM_TIMEOUT_MS } from '../../src/constants';
 import { parseStoredRecord } from '../../src/storage/persistence';
@@ -22,8 +30,8 @@ describe('session lineage', () => {
     transport.respond = async ({ path, body }) => {
       if (path === '/api/oauth/token') {
         if (JSON.stringify(body).includes('authorization_code'))
-          return oauthTokenReply('access-first', 'refresh-first');
-        return oauthTokenReply('access-next', 'refresh-next');
+          return oauthTokenReply('access-first', REFRESH_FIRST_TOKEN);
+        return oauthTokenReply('access-next', REFRESH_NEXT_TOKEN);
       }
       if (path === '/api/user/profile') return successUserReply();
       throw new Error(`Unexpected request: ${path}`);
@@ -41,7 +49,7 @@ describe('session lineage', () => {
     await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
 
     expect(ports.credentials.value).toContain(`"lineageId":"${EXPECTED_LINEAGE_ID}"`);
-    expect(ports.credentials.value).toContain('refresh-next');
+    expect(ports.credentials.value).toContain(REFRESH_NEXT_TOKEN);
     expect(JSON.stringify(transport.sent)).not.toContain('"lineageId"');
     expect(ports.timer.pending).toBe(0);
   });
@@ -52,7 +60,7 @@ describe('session lineage', () => {
     transport.respond = async ({ path, body }) => {
       if (path === '/api/oauth/token') {
         if (JSON.stringify(body).includes('authorization_code'))
-          return oauthTokenReply('access-first', 'refresh-first');
+          return oauthTokenReply('access-first', REFRESH_FIRST_TOKEN);
         refreshNumber += 1;
         return oauthTokenReply(`access-${refreshNumber}`, `refresh-${refreshNumber}`);
       }
@@ -71,7 +79,7 @@ describe('session lineage', () => {
     await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
 
     expect(ports.credentials.value).toContain(`"lineageId":"${EXPECTED_LINEAGE_ID}"`);
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-2"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_2_TOKEN}"`);
     expect(refreshNumber).toBe(2);
     expect(JSON.stringify(transport.sent)).not.toContain('lineageId');
     expect(ports.timer.pending).toBe(0);
@@ -82,13 +90,13 @@ describe('session lineage', () => {
     const firstTransport = new ScriptedTransport();
     const ports = testPorts(firstTransport);
     const firstEngine = createAuthEngine(CONFIG, ports);
-    await establishSession(firstEngine, ports, firstTransport, 'access-first', 'refresh-first');
+    await establishSession(firstEngine, ports, firstTransport, 'access-first', REFRESH_FIRST_TOKEN);
     firstEngine.dispose();
 
     const restoredTransport = new ScriptedTransport();
     restoredTransport.respond = async ({ path }) => {
       if (path === '/api/oauth/token')
-        return oauthTokenReply('access-restored-next', 'refresh-restored-next');
+        return oauthTokenReply('access-restored-next', REFRESH_RESTORED_NEXT_TOKEN);
       if (path === '/api/user/profile') return successUserReply();
       throw new Error(`Unexpected request: ${path}`);
     };
@@ -102,7 +110,7 @@ describe('session lineage', () => {
     await restored.transport.request({ method: 'GET', path: '/api/user/profile' });
 
     expect(ports.credentials.value).toContain(`"lineageId":"${EXPECTED_LINEAGE_ID}"`);
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-restored-next"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_RESTORED_NEXT_TOKEN}"`);
     expect(JSON.stringify(restoredTransport.sent)).not.toContain('lineageId');
     expect(ports.timer.pending).toBe(0);
     restored.dispose();
@@ -148,11 +156,11 @@ describe('session lineage', () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const original = createAuthEngine(CONFIG, ports);
-    await establishSession(original, ports, transport, 'access-legacy', 'refresh-legacy');
+    await establishSession(original, ports, transport, 'access-legacy', REFRESH_LEGACY_TOKEN);
     original.dispose();
     ports.credentials.value = ports.credentials.value?.replace(/"lineageId":"[^"]+",/, '');
     const legacy = parseStoredRecord(ports.credentials.value ?? '');
-    expect(legacy).toMatchObject({ tokens: { refreshToken: 'refresh-legacy' } });
+    expect(legacy).toMatchObject({ tokens: { refreshToken: REFRESH_LEGACY_TOKEN } });
     expect(legacy?.lineageId).toBeUndefined();
     const engine = createAuthEngine(CONFIG, ports);
 
@@ -162,7 +170,7 @@ describe('session lineage', () => {
     });
 
     expect(engine.snapshot).toMatchObject({ status: 'reauthRequired', operation: 'none' });
-    expect(ports.credentials.value).toContain('refresh-legacy');
+    expect(ports.credentials.value).toContain(REFRESH_LEGACY_TOKEN);
     expect(ports.timer.pending).toBe(0);
     engine.dispose();
   });
@@ -172,7 +180,8 @@ describe('session lineage', () => {
     const ports = testPorts(transport);
     const recordWritten = new Deferred<void>();
     transport.respond = async ({ path }) => {
-      if (path === '/api/oauth/token') return oauthTokenReply('access-written', 'refresh-written');
+      if (path === '/api/oauth/token')
+        return oauthTokenReply('access-written', REFRESH_WRITTEN_TOKEN);
       if (path === '/api/user/profile') return successUserReply();
       throw new Error(`Unexpected request: ${path}`);
     };
@@ -186,7 +195,7 @@ describe('session lineage', () => {
       if (completedReads === 2) ownershipReads.resolve();
     };
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('refresh-written')) recordWritten.resolve();
+      if (value.includes(REFRESH_WRITTEN_TOKEN)) recordWritten.resolve();
     };
     ports.timer.onCancel = (milliseconds) => {
       if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS) deleteDeadlineCancelled.resolve();
@@ -204,7 +213,7 @@ describe('session lineage', () => {
     await ownershipReads.promise;
     await deleteDeadlineCancelled.promise;
 
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-written"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_WRITTEN_TOKEN}"`);
     expect(ports.timer.pendingDelays).toEqual([]);
   });
 });

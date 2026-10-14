@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { ApiError, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { DeviceBindingRequiredError, DeviceKeyAuthError } from '../../src/errors/errors';
@@ -177,7 +178,7 @@ describe('device-bound refresh outcomes', () => {
     enqueueBoundRefresh(
       transport,
       REFRESH_TOKEN,
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'profile' }),
     );
     await engine.transport.request({ method: 'GET', path: '/api/user/profile' });

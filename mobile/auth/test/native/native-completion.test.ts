@@ -10,7 +10,7 @@ import {
   testPorts,
   readQueryValues, // feature:locale-ar
 } from '../support/support';
-import { ATTEMPT_ID, startReply } from './native-fixtures';
+import { ATTEMPT_ID, NEW_PASSWORD, startReply, TEMPORARY_PASSWORD } from './native-fixtures';
 
 describe('native flow completion', () => {
   it('keeps activation completion when a later token exchange fails', async () => {
@@ -57,7 +57,7 @@ describe('native flow completion', () => {
       input: {
         email: 'person@example.test',
         code: '123456',
-        password: 'new-secret',
+        password: NEW_PASSWORD,
         name: 'Person',
       },
     });
@@ -168,7 +168,7 @@ describe('native flow completion', () => {
     });
     const confirmed = await engine.nativeSignIn({
       kind: 'confirmRecovery',
-      input: { email: 'person@example.test', code: '123456', newPassword: 'new-secret' },
+      input: { email: 'person@example.test', code: '123456', newPassword: NEW_PASSWORD },
     });
 
     expect(requested.kind).toBe('continue');
@@ -217,7 +217,7 @@ describe('native flow completion', () => {
     const factor = await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     const beforeConsent = transport.sent.length;
     const accepted = await engine.nativeSignIn({ kind: 'consent' });
@@ -246,7 +246,7 @@ describe('native flow completion', () => {
     await first.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
     first.dispose();
     transport.enqueue(

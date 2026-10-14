@@ -2,7 +2,13 @@ import type { NativePasskeyAssertion, NativeProviderCredential } from '@app/sdk'
 import type { NativePromptResult } from '../../src';
 import { createAuthEngine } from '../support/engine';
 import { CONFIG, Deferred, ScriptedTransport, apiReply, testPorts } from '../support/support';
-import { ATTEMPT_ID, NONCE_DIGEST, secondFactorReply, startReply } from './native-fixtures';
+import {
+  ATTEMPT_ID,
+  NONCE_DIGEST,
+  secondFactorReply,
+  startReply,
+  TEMPORARY_PASSWORD,
+} from './native-fixtures';
 import { GOOGLE_METHODS } from './native-methods-fixtures';
 
 export const NETWORK_TIMEOUT_MS = 15_000;
@@ -74,7 +80,7 @@ export async function interactiveScenario(
     await engine.nativeSignIn({
       kind: 'password',
       email: 'person@example.test',
-      password: 'temporary-secret',
+      password: TEMPORARY_PASSWORD,
     });
   }
   const action =

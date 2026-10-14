@@ -1,3 +1,4 @@
+import { REFRESH_SECRET_2_TOKEN, ACCESS_SECRET_2_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import { AuthDisposedError } from '../../src/errors/errors';
@@ -32,7 +33,7 @@ describe('disposing an established or pending session', () => {
         rotatedWriteDeadlineCancelled.resolve();
     };
     ports.credentials.afterReplace = (value) => {
-      if (!value.includes('refresh-secret-2')) return;
+      if (!value.includes(REFRESH_SECRET_2_TOKEN)) return;
       rotatedWriteStarted = true;
       finished.resolve('persisted');
     };
@@ -50,7 +51,7 @@ describe('disposing an established or pending session', () => {
     await refreshStarted.promise;
     engine.dispose();
     await expect(request).rejects.toBeInstanceOf(AuthDisposedError);
-    refreshAnswer.resolve(oauthTokenReply('access-secret-2', 'refresh-secret-2'));
+    refreshAnswer.resolve(oauthTokenReply(ACCESS_SECRET_2_TOKEN, REFRESH_SECRET_2_TOKEN));
 
     const completion = await finished.promise;
     await refreshDeadlineCancelled.promise;
@@ -59,7 +60,7 @@ describe('disposing an established or pending session', () => {
 
     expect(completion).toBe('persisted');
     expect(revokedTokens(transport)).toEqual([]);
-    expect(ports.credentials.value).toContain('refresh-secret-2');
+    expect(ports.credentials.value).toContain(REFRESH_SECRET_2_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
   });
 

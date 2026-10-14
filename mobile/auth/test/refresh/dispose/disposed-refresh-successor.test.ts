@@ -1,3 +1,4 @@
+import { REFRESH_SUCCESSOR_TOKEN, REFRESH_LATE_TOKEN } from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '@app/sdk';
 import { OAUTH_REFRESH_TIMEOUT_MS } from '../../../src/constants';
@@ -67,20 +68,23 @@ describe('a disposed refresh and a successor engine', () => {
     newTransport.respond = async ({ path }) => {
       if (path === '/api/oauth/revoke') return { status: 200, body: {} };
       if (path === '/api/oauth/token')
-        return oauthTokenReply('access-successor', 'refresh-successor');
+        return oauthTokenReply('access-successor', REFRESH_SUCCESSOR_TOKEN);
       return successUserReply();
     };
     acceptCode(newPorts.authBrowser);
     await expect(newEngine.signIn()).resolves.toMatchObject({ kind: 'signedIn' });
     const successorRecord = oldPorts.credentials.value;
 
-    refreshAnswer.resolve(oauthTokenReply('access-late', 'refresh-late'));
+    refreshAnswer.resolve(oauthTokenReply('access-late', REFRESH_LATE_TOKEN));
     await expect(refresh).rejects.toBeInstanceOf(AuthSessionError);
 
     expect(oldPorts.credentials.value).toBe(successorRecord);
     const revocations = oldTransport.sent.filter(({ path }) => path === '/api/oauth/revoke');
     expect(revocations).toHaveLength(1);
-    expect(revocations[0]?.body).toEqual({ client_id: 'native-client', token: 'refresh-late' });
+    expect(revocations[0]?.body).toEqual({
+      client_id: 'native-client',
+      token: REFRESH_LATE_TOKEN,
+    });
     expect(oldPorts.timer.pending).toBe(0);
     expect(newEngine.snapshot.status).toBe('signedIn');
   });

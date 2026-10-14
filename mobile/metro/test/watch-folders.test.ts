@@ -1,10 +1,7 @@
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import { withWorkspace, workspaceDependencyFolders } from '../src/index.cjs';
 import { type FixturePackage, makeWorkspace, removeWorkspaces, REPOSITORY_LIKE } from './fixture';
-
-const REPOSITORY = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '');
 
 afterEach(removeWorkspaces);
 
@@ -161,6 +158,24 @@ it.each([
     ],
   ],
   // feature:native-cli:end
-])('gives %s in this repository its real reach', (shell, expected) => {
-  expect(watched(REPOSITORY, shell)).toEqual(expected);
+])('gives %s its transitive fixture reach', (shell, expected) => {
+  const root = makeWorkspace({
+    ...REPOSITORY_LIKE,
+    [shell]: {
+      name: '@app/fixture-shell',
+      dependencies: {
+        ...REPOSITORY_LIKE['mobile/expo'].dependencies,
+        '@app/device-key': 'workspace:*',
+        '@app/native-ui': 'workspace:*',
+      },
+      devDependencies: { '@app/metro-config': 'workspace:*' },
+    },
+    'mobile/device-key': { name: '@app/device-key' },
+    'mobile/ui': {
+      name: '@app/native-ui',
+      dependencies: { '@app/core': 'workspace:*', '@app/native-auth': 'workspace:*' },
+    },
+  });
+
+  expect(watched(root, shell)).toEqual(expected);
 });
