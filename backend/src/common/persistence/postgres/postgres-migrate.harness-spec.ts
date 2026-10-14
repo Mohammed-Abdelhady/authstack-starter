@@ -36,6 +36,7 @@ export const EVERY_MIGRATION = [
   '0016_pending_email.sql',
   '0017_two_factor_lockout.sql', // feature:totp
   '0018_native_attempts.sql',
+  '0020_host_migrations.sql',
 ];
 
 export interface MigrateDatabases {

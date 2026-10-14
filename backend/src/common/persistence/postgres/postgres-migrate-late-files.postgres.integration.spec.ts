@@ -60,6 +60,9 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
             'Applied: 4',
             `Pending: ${AFTER_THE_FOURTH.join(', ')}`,
             'Not carried by this build: none',
+            'Host applied: 0',
+            'Host pending: none',
+            'Host not carried by this build: none',
           ],
         },
         recordedAfterFailure: [
