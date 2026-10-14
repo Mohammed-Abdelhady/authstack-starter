@@ -64,20 +64,29 @@ export class MongoSeedStore extends SeedStore {
     const exists = await this.roleModel.findOne({ slug: role.slug });
 
     if (!exists) {
-      await this.roleModel.create(role);
+      await this.roleModel.create({
+        name: role.name,
+        slug: role.slug,
+        description: role.description,
+        isSystemRole: role.isSystemRole,
+        isProtected: role.isProtected,
+        level: role.level,
+        permissions: role.permissions,
+      });
       return ROLE_SEED.CREATED;
     }
 
-    // Existing installs predate the level field and the protection flags
+    // Existing installs predate the level field and the protection flags.
+    // $max keeps a higher stored level in the same update.
+    const flags = {
+      isSystemRole: role.isSystemRole,
+      isProtected: role.isProtected,
+    };
     await this.roleModel.updateOne(
       { slug: role.slug },
-      {
-        $set: {
-          isSystemRole: role.isSystemRole,
-          isProtected: role.isProtected,
-          level: role.level,
-        },
-      },
+      role.levelNeverLowers
+        ? { $set: flags, $max: { level: role.level } }
+        : { $set: { ...flags, level: role.level } },
     );
     return ROLE_SEED.REFRESHED;
   }
