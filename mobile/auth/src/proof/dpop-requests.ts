@@ -10,8 +10,8 @@ export interface DpopRequestInput extends DpopProofDependencies {
   method: string;
   path: string;
   token?: string;
-  expectedThumbprint?: string;
-  nonce?: string;
+  expectedThumbprint?: string | undefined;
+  nonce?: string | undefined;
   signal?: AbortSignalPort;
   mayRetryChallenge?: () => boolean;
   onNonce?: (nonce: string) => void;
