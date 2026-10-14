@@ -73,6 +73,7 @@ describe('RegistrationService unknown commit re-read', () => {
             name: 'Person',
           },
           partialMock<Response>({}),
+          'en',
         ),
       ).rejects.toMatchObject({
         code: ErrorCode.TRANSACTION_OUTCOME_UNKNOWN,

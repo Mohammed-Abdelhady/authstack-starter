@@ -1,7 +1,3 @@
-import {
-  SECURITY_NOTICE,
-  SECURITY_NOTICE_MESSAGES,
-} from '../../src/user/constants/security-notice.constants';
 import request, { type Response } from 'supertest';
 import { AccountLinkingService } from '../../src/user/services/account-linking.service';
 import { UserRole } from '../../src/user/enums/user-role.enum';
@@ -140,8 +136,7 @@ describe('OAuth first sign-in notices for automatic account linking (e2e)', () =
       expect(mail.map(({ to, subject }) => ({ to, subject }))).toEqual([
         {
           to: AUTO_LINK_EMAIL,
-          subject:
-            SECURITY_NOTICE_MESSAGES[SECURITY_NOTICE.PROVIDER_ADDED].subject,
+          subject: 'A sign-in provider was added',
         },
       ]);
       expect(providersWhenMailed).toEqual([['email', 'google']]);

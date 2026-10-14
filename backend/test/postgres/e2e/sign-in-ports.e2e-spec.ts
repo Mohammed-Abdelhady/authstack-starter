@@ -80,6 +80,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
         email: 'new@example.test',
         passwordHash: bcrypt.hashSync('Correct-Horse-9', 4),
         name: 'New Person',
+        locale: 'en',
       }),
     );
     const { response, cookies } = browser('Activation/1');
@@ -158,6 +159,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
     const created = await port(MagicLinkAccounts).createPasswordless({
       email: 'passwordless@example.test',
       name: 'Passwordless',
+      locale: 'en',
     });
     const { response } = browser('Link/2');
 
