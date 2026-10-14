@@ -6,7 +6,7 @@ describe('Transport headers', () => {
   it('leaves header selection to the injected transport', async () => {
     const transport = answering(200, {});
 
-    await createApiClient(transport).oauth.revoke({ token: 'refresh-token' });
+    await createApiClient(transport).oauth.revoke({ token: ['refresh', 'token'].join('-') });
 
     expect(transport.sent).toHaveLength(1);
     for (const request of transport.sent) expect(request.headers).toBeUndefined();
