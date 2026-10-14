@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, ApiError, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -44,7 +45,7 @@ describe('refresh', () => {
         return typeof body === 'object' && body !== null && 'grant_type' in body;
       }),
     ).toHaveLength(2);
-    reply.resolve(oauthTokenReply('access-1', 'refresh-1'));
+    reply.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
 
     await Promise.all([first, second]);
 
@@ -84,7 +85,7 @@ describe('refresh', () => {
 
     const first = engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     await refreshStarted.promise;
-    reply.resolve(oauthTokenReply('access-1', 'refresh-1'));
+    reply.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
     await Promise.all([first, nested]);
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
@@ -105,7 +106,7 @@ describe('refresh', () => {
           ports.credentials.value.includes('"refreshInFlight":true') &&
           ports.credentials.events.at(-1) === 'replace:done' &&
           request.path === '/api/oauth/token';
-        return Promise.resolve(oauthTokenReply('access-1', 'refresh-1'));
+        return Promise.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
       },
       apiReply({ id: 'profile' }),
     );
@@ -124,11 +125,11 @@ describe('refresh', () => {
     const writeEntered = new Deferred<void>();
     const finishWrite = new Deferred<void>();
     ports.credentials.beforeReplace = (value) => {
-      if (!value.includes('refresh-1')) return Promise.resolve();
+      if (!value.includes(REFRESH_1_TOKEN)) return Promise.resolve();
       writeEntered.resolve();
       return finishWrite.promise;
     };
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
     const request = engine.transport.request({
       method: HTTP_METHOD.GET,
       path: '/api/user/profile',
@@ -136,11 +137,11 @@ describe('refresh', () => {
 
     await writeEntered.promise;
     expect(transport.sent.filter(({ path }) => path === '/api/user/profile')).toHaveLength(1);
-    expect(ports.credentials.value).not.toContain('refresh-1');
+    expect(ports.credentials.value).not.toContain(REFRESH_1_TOKEN);
     finishWrite.resolve();
     await request;
 
-    expect(ports.credentials.value).toContain('refresh-1');
+    expect(ports.credentials.value).toContain(REFRESH_1_TOKEN);
     expect(transport.sent.filter(({ path }) => path === '/api/user/profile')).toHaveLength(2);
   });
 
@@ -204,7 +205,7 @@ describe('refresh', () => {
     let markerRecord: string | undefined;
     let rejectRotation = true;
     ports.credentials.beforeReplace = (value) => {
-      if (rejectRotation && value.includes('refresh-1')) {
+      if (rejectRotation && value.includes(REFRESH_1_TOKEN)) {
         rejectRotation = false;
         return Promise.reject(new Error('storage locked'));
       }
@@ -215,7 +216,7 @@ describe('refresh', () => {
       (request) => {
         markerRecord = ports.credentials.value;
         expect(request.path).toBe('/api/oauth/token');
-        return Promise.resolve(oauthTokenReply('access-1', 'refresh-1'));
+        return Promise.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
       },
       apiReply({ id: 'profile' }),
     );
@@ -264,7 +265,7 @@ describe('refresh', () => {
 
     expect(engine.snapshot.status).toBe('signedIn');
     expect(ports.credentials.value).toContain(REFRESH_TOKEN);
-    expect(ports.credentials.value).not.toContain('refresh-1');
+    expect(ports.credentials.value).not.toContain(REFRESH_1_TOKEN);
   });
 
   it('revokes a rotated refresh result that arrives after sign out', async () => {
@@ -292,13 +293,13 @@ describe('refresh', () => {
     await refreshStarted.promise;
     const signOut = engine.signOut();
     await revokeStarted.promise;
-    refreshResponse.resolve(oauthTokenReply('access-1', 'refresh-1'));
+    refreshResponse.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
     await signOut;
     await expect(request).rejects.toBeInstanceOf(AuthSessionError);
 
     expect(engine.snapshot.status).toBe('signedOut');
     expect(ports.credentials.value).toBeUndefined();
-    expect([...revokedTokens(transport)].sort()).toEqual(['refresh-1', REFRESH_TOKEN].sort());
+    expect([...revokedTokens(transport)].sort()).toEqual([REFRESH_1_TOKEN, REFRESH_TOKEN].sort());
     expect(ports.timer.pending).toBe(0);
   });
 
@@ -308,7 +309,7 @@ describe('refresh', () => {
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 

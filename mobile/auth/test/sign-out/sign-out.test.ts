@@ -1,9 +1,11 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE, type TransportSignal } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import type { InstallIdentityResult } from '../../src';
 import { revokedTokens } from '../support/tracking';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   REVOKE_TIMEOUT_MS,
@@ -35,7 +37,7 @@ describe('sign out', () => {
 
     await expect(signingOut).resolves.toEqual({ kind: 'disposed' });
     await Promise.all([revokeStarted.promise, deleteFinished.promise]);
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
   });
 
@@ -63,7 +65,7 @@ describe('sign out', () => {
     const result = await engine.signOut();
 
     expect(result).toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(transport.sent.findIndex(({ path }) => path === '/api/oauth/revoke')).toBeLessThan(
       ports.credentials.events.indexOf('delete:start'),
@@ -113,7 +115,7 @@ describe('sign out', () => {
     await restore;
 
     expect(result).toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
   });
 
@@ -160,7 +162,7 @@ describe('sign out', () => {
 
     expect(result.kind).toBe('signedOut');
     expect(ports.credentials.value).toBeUndefined();
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(transport.sent.some(({ path }) => path === '/api/auth/logout')).toBe(false);
   });
 
@@ -182,7 +184,7 @@ describe('sign out', () => {
       warning: 'storageBlocked',
       reason: 'storageFailure',
     });
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
   });
 
   it('aborts revoke at the deadline and settles local sign out', async () => {
@@ -203,7 +205,7 @@ describe('sign out', () => {
 
     const pending = engine.signOut();
     await revokeStarted.promise;
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.timer.scheduled).toContain(REVOKE_TIMEOUT_MS);
     ports.timer.fireAll();
     const result = await pending;
@@ -275,7 +277,7 @@ describe('sign out', () => {
     ports.clock.advance(270_000);
     expect(engine.snapshot.operation).toBe('none');
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
@@ -294,7 +296,7 @@ describe('sign out', () => {
     await expect(engine.signIn()).resolves.toMatchObject({ kind: 'signedIn' });
     expect(ports.timer.pending).toBe(0);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     expect(ports.timer.pending).toBe(0);
     transport.enqueue({ status: 200, body: {} });

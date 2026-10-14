@@ -1,3 +1,9 @@
+import {
+  REFRESH_WITHOUT_LINEAGE_TOKEN,
+  REFRESH_SENT_TOKEN,
+  REFRESH_SUCCESSOR_TOKEN,
+  REFRESH_LATE_TOKEN,
+} from '../../support/token-values';
 import { createApiClient } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { classifyDisposedCredentialRecord } from '../../../src/storage/credential-record-store';
@@ -18,23 +24,23 @@ describe('disposed lineage classification', () => {
       environment: CONFIG.environment,
       clientId: CONFIG.clientId,
       installDigest: INSTALL_DIGEST,
-      tokens: { refreshToken: 'refresh-without-lineage' },
+      tokens: { refreshToken: REFRESH_WITHOUT_LINEAGE_TOKEN },
     });
 
     await expect(
       classifyDisposedCredentialRecord(runtime, {
         kind: 'session',
         installDigest: INSTALL_DIGEST,
-        refreshToken: 'refresh-without-lineage',
+        refreshToken: REFRESH_WITHOUT_LINEAGE_TOKEN,
       }),
     ).resolves.toBe('FOREIGN');
     expect(ports.timer.pending).toBe(0);
   });
 
   it.each([
-    ['my sent predecessor', 'refresh-sent', 'FOREIGN'],
-    ['a later refresh in my lineage', 'refresh-successor', 'OWN_OTHER'],
-    ['my own late token', 'refresh-late', 'OWN_SAME'],
+    ['my sent predecessor', REFRESH_SENT_TOKEN, 'FOREIGN'],
+    ['a later refresh in my lineage', REFRESH_SUCCESSOR_TOKEN, 'OWN_OTHER'],
+    ['my own late token', REFRESH_LATE_TOKEN, 'OWN_SAME'],
   ] as const)('classifies %s when settling a late token', async (_name, storedToken, expected) => {
     const ports = testPorts(new ScriptedTransport());
     const runtime = new AuthRuntime(CONFIG, ports);
@@ -54,8 +60,8 @@ describe('disposed lineage classification', () => {
       classifyDisposedCredentialRecord(runtime, {
         kind: 'session',
         installDigest: INSTALL_DIGEST,
-        refreshToken: 'refresh-late',
-        sentRefreshToken: 'refresh-sent',
+        refreshToken: REFRESH_LATE_TOKEN,
+        sentRefreshToken: REFRESH_SENT_TOKEN,
         lineageId: 'lineage-one',
       }),
     ).resolves.toBe(expected);
@@ -74,7 +80,7 @@ describe('disposed lineage classification', () => {
       clientId: CONFIG.clientId,
       installDigest: INSTALL_DIGEST,
       lineageId: 'lineage-one',
-      tokens: { refreshToken: 'refresh-late' },
+      tokens: { refreshToken: REFRESH_LATE_TOKEN },
     });
     ports.credentials.value = serialized;
 
@@ -83,8 +89,8 @@ describe('disposed lineage classification', () => {
       createApiClient(transport),
       INSTALL_DIGEST,
       'lineage-one',
-      'refresh-late',
-      'refresh-sent',
+      REFRESH_LATE_TOKEN,
+      REFRESH_SENT_TOKEN,
     );
 
     expect(ports.credentials.value).toBe(serialized);

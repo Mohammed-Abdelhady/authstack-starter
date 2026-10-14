@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN, REFRESH_LATE_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { parseStoredRecord } from '../../src/storage/persistence';
@@ -35,7 +36,7 @@ describe('a bound refresh the server challenges first', () => {
       REFRESH_TOKEN,
       new TransportError(TRANSPORT_FAILURE.NO_RESPONSE),
       dpopChallenge(NEXT_NONCE),
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'profile' }),
     );
 
@@ -48,7 +49,7 @@ describe('a bound refresh the server challenges first', () => {
       NEXT_NONCE,
     ]);
     expect(parseStoredRecord(ports.credentials.value ?? '')?.tokens?.refreshToken).toBe(
-      'refresh-1',
+      REFRESH_1_TOKEN,
     );
     expect(engine.snapshot.status).toBe('signedIn');
   });
@@ -61,7 +62,7 @@ describe('a bound refresh the server challenges first', () => {
       transport,
       REFRESH_TOKEN,
       dpopChallenge(NEXT_NONCE),
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'profile' }),
     );
 
@@ -69,7 +70,7 @@ describe('a bound refresh the server challenges first', () => {
 
     expect(proofNonces(refreshRequests(transport))).toEqual(['', CHALLENGE_NONCE, NEXT_NONCE]);
     expect(parseStoredRecord(ports.credentials.value ?? '')?.tokens?.refreshToken).toBe(
-      'refresh-1',
+      REFRESH_1_TOKEN,
     );
     expect(engine.snapshot.status).toBe('signedIn');
   });
@@ -186,9 +187,9 @@ describe('a bound refresh the server challenges first', () => {
       refreshInFlight: true,
     });
 
-    answer.resolve(dpopTokenReply('access-late', 'refresh-late'));
+    answer.resolve(dpopTokenReply('access-late', REFRESH_LATE_TOKEN));
     await queuedWorkDone();
-    expect(revokedTokens(transport)).toEqual(['refresh-late', 'refresh-late']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_LATE_TOKEN, REFRESH_LATE_TOKEN]);
     expect(proofNonces(transport.sent.filter(({ path }) => path === '/api/oauth/revoke'))).toEqual([
       '',
       CHALLENGE_NONCE,

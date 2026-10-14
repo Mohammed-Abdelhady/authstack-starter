@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import { createBearerTransport } from '../../src/transport/bearer-transport';
@@ -42,7 +43,7 @@ describe('dispose listener lifetime', () => {
     const runtime = new AuthRuntime(CONFIG, testPorts(raw));
     const tokens: RuntimeTokens = {
       accessToken: 'access-1',
-      refreshToken: 'refresh-1',
+      refreshToken: REFRESH_1_TOKEN,
       version: 1,
       expiresAt: 500_000,
       lineageId: 'dispose-listener-lineage',

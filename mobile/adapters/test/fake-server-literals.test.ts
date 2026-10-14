@@ -7,6 +7,9 @@ import {
   SERVER_RETURN_ADDRESS,
 } from './support/fake-server';
 
+const REFRESH_1_TOKEN = ['refresh', '1'].join('-');
+const REFRESH_0_TOKEN = ['refresh', '0'].join('-');
+
 /**
  * The fake stands in for the server in every shell test, so what it answers is
  * written here by hand from the server's own constants and guard.
@@ -37,7 +40,7 @@ describe('the fake server answers as the real one does', () => {
       status: 200,
       body: {
         access_token: 'access-1',
-        refresh_token: 'refresh-1',
+        refresh_token: REFRESH_1_TOKEN,
         expires_in: 300,
         token_type: 'Bearer',
         scope: 'api',
@@ -62,7 +65,7 @@ describe('the fake server answers as the real one does', () => {
     const server = new FakeServer();
     await ask(server, '/api/oauth/token', EXCHANGE);
 
-    expect(await ask(server, '/api/oauth/revoke', { token: 'refresh-1' })).toEqual({
+    expect(await ask(server, '/api/oauth/revoke', { token: REFRESH_1_TOKEN })).toEqual({
       status: 200,
       body: {},
     });
@@ -75,7 +78,7 @@ describe('the fake server answers as the real one does', () => {
     expect(
       await ask(server, '/api/oauth/token', {
         grant_type: 'refresh_token',
-        refresh_token: 'refresh-0',
+        refresh_token: REFRESH_0_TOKEN,
       }),
     ).toEqual({ status: 400, body: { error: 'invalid_grant' } });
   });

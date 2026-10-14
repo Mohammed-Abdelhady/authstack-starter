@@ -1,3 +1,8 @@
+import {
+  REFRESH_SECRET_2_TOKEN,
+  ACCESS_SECRET_2_TOKEN,
+  REFRESH_AFTER_RESTART_TOKEN,
+} from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -59,11 +64,11 @@ describe('restore with live or owed session state', () => {
     await establishSession(engine, ports, transport);
     ports.clock.advance(270_000);
     ports.credentials.beforeReplace = (value) =>
-      value.includes('refresh-secret-2')
+      value.includes(REFRESH_SECRET_2_TOKEN)
         ? Promise.reject(new Error('keychain busy'))
         : Promise.resolve();
     transport.enqueue(
-      oauthTokenReply('access-secret-2', 'refresh-secret-2'),
+      oauthTokenReply(ACCESS_SECRET_2_TOKEN, REFRESH_SECRET_2_TOKEN),
       apiReply({ id: 'ok' }),
     );
 
@@ -79,7 +84,9 @@ describe('restore with live or owed session state', () => {
     expect(restored).toEqual({ kind: 'restored', status: 'signedIn' });
     expect(engine.snapshot.status).toBe('signedIn');
     expect(response.status).toBe(200);
-    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-secret-2');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe(
+      `Bearer ${ACCESS_SECRET_2_TOKEN}`,
+    );
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
   });
 
@@ -136,7 +143,7 @@ describe('restore with live or owed session state', () => {
     const restarted = createAuthEngine(CONFIG, ports);
     await restarted.restore();
     transport.enqueue(
-      oauthTokenReply('access-after-restart', 'refresh-after-restart'),
+      oauthTokenReply('access-after-restart', REFRESH_AFTER_RESTART_TOKEN),
       apiReply({}),
     );
     await restarted.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
@@ -164,7 +171,10 @@ describe('restore with live or owed session state', () => {
     const second = createAuthEngine(CONFIG, secondPorts);
     await second.restore();
     firstPorts.clock.advance(270_000);
-    firstTransport.enqueue(oauthTokenReply('access-secret-2', 'refresh-secret-2'), apiReply({}));
+    firstTransport.enqueue(
+      oauthTokenReply(ACCESS_SECRET_2_TOKEN, REFRESH_SECRET_2_TOKEN),
+      apiReply({}),
+    );
     await first.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     secondTransport.enqueue({ status: 400, body: { error: 'invalid_grant' } });
     await expect(
@@ -189,7 +199,7 @@ describe('restore with live or owed session state', () => {
     };
     expect(stored).toMatchObject({
       refreshInFlight: true,
-      tokens: { refreshToken: 'refresh-secret-2' },
+      tokens: { refreshToken: REFRESH_SECRET_2_TOKEN },
     });
   });
 });

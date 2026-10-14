@@ -1,3 +1,4 @@
+import { ACCESS_SECRET_TOKEN, REFRESH_SECRET_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { AuthRuntime } from '../../src/runtime/runtime';
 import { CREDENTIAL_DELETE_TIMEOUT_MS } from '../../src/constants';
@@ -6,7 +7,7 @@ import { CONFIG, Deferred, ScriptedTransport, testPorts } from '../support/suppo
 describe('runtime disposal', () => {
   it('releases the in-memory token pair when the engine is disposed', () => {
     const runtime = new AuthRuntime(CONFIG, testPorts(new ScriptedTransport()));
-    runtime.installTokens('access-secret', 'refresh-secret', 1000, 300, 'dispose-lineage');
+    runtime.installTokens(ACCESS_SECRET_TOKEN, REFRESH_SECRET_TOKEN, 1000, 300, 'dispose-lineage');
     runtime.setState('signedIn', 'none');
 
     runtime.dispose();

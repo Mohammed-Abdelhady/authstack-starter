@@ -1,3 +1,4 @@
+import { REFRESH_AFTER_RESTORE_TOKEN } from '../support/token-values';
 import { HTTP_METHOD } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
@@ -25,7 +26,9 @@ describe('request epochs across restore', () => {
     let profileRequests = 0;
     transport.respond = (request) => {
       if (request.path === '/api/oauth/token')
-        return Promise.resolve(oauthTokenReply('access-after-restore', 'refresh-after-restore'));
+        return Promise.resolve(
+          oauthTokenReply('access-after-restore', REFRESH_AFTER_RESTORE_TOKEN),
+        );
       if (request.path === '/api/user/profile') {
         profileRequests += 1;
         if (profileRequests === 1) {

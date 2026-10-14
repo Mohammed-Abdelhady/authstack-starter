@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { parseStoredRecord } from '../../src/storage/persistence';
 import { createAuthEngine } from '../support/engine';
@@ -73,7 +74,7 @@ describe('device-bound key lifecycle', () => {
     enqueueBoundRefresh(
       transport,
       REFRESH_TOKEN,
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       successUserReply(),
     );
     ports.clock.advance(270_000);
@@ -92,7 +93,7 @@ describe('device-bound key lifecycle', () => {
       reason: 'deviceKeyInvalidated',
     });
     expect(parseStoredRecord(ports.credentials.value ?? '')?.tokens?.refreshToken).toBe(
-      'refresh-1',
+      REFRESH_1_TOKEN,
     );
   });
 
@@ -101,7 +102,7 @@ describe('device-bound key lifecycle', () => {
     enqueueBoundRefresh(
       transport,
       REFRESH_TOKEN,
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       successUserReply(),
     );
     ports.clock.advance(270_000);

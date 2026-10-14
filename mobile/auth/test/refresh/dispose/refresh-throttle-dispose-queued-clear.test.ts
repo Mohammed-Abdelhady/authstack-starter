@@ -1,3 +1,4 @@
+import { REFRESH_CURRENT_TOKEN } from '../../support/token-values';
 import { ApiError, createApiClient } from '@app/sdk';
 import type { Transport, TransportResponse } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
@@ -33,7 +34,7 @@ describe('a queued throttle marker clear across dispose', () => {
       const runtime = new AuthRuntime(CONFIG, ports);
       const tokens: RuntimeTokens = {
         accessToken: 'access-current',
-        refreshToken: 'refresh-current',
+        refreshToken: REFRESH_CURRENT_TOKEN,
         expiresAt: 0,
         version: 1,
         lineageId: 'throttle-dispose-lineage',
@@ -90,7 +91,7 @@ describe('a queued throttle marker clear across dispose', () => {
       await blocker;
       await runtime.writeTail;
 
-      expect(ports.credentials.value).toContain('"refreshToken":"refresh-current"');
+      expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_CURRENT_TOKEN}"`);
       expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
       expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
       expect(revokedTokens(transport)).toEqual([]);

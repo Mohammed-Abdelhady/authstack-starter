@@ -6,6 +6,7 @@ import {
 } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -73,7 +74,7 @@ describe('late session record writes after sign out', () => {
     await expect(restore).resolves.toMatchObject({ kind: 'storageBlocked' });
 
     expect(ports.credentials.value).toContain('"refreshInFlight":true');
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-secret-0"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_TOKEN}"`);
   });
 
   it('deletes a late token write after a later epoch', async () => {
