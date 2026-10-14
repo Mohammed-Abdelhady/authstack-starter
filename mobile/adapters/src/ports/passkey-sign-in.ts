@@ -30,6 +30,22 @@ const PASSKEY_TRANSPORTS: readonly NativePasskeyTransport[] = [
   'usb',
 ];
 
+interface PasskeyAssertionFields {
+  type?: unknown;
+  id?: unknown;
+  rawId?: unknown;
+  response?: unknown;
+  authenticatorAttachment?: unknown;
+  clientExtensionResults?: unknown;
+}
+
+interface PasskeyResponseFields {
+  clientDataJSON?: unknown;
+  authenticatorData?: unknown;
+  signature?: unknown;
+  userHandle?: unknown;
+}
+
 function isPasskeyTransport(value: string): value is NativePasskeyTransport {
   return PASSKEY_TRANSPORTS.some((transport) => transport === value);
 }
@@ -39,35 +55,36 @@ function isNativePlatform(platform: NativeSignInPlatform): boolean {
 }
 
 function assertionResponse(value: unknown): NativePasskeyAssertion['response'] | undefined {
+  if (!isRecord(value)) return undefined;
+  const response: PasskeyResponseFields = value;
   if (
-    !isRecord(value) ||
-    !nonEmptyString(value.clientDataJSON) ||
-    !nonEmptyString(value.authenticatorData) ||
-    !nonEmptyString(value.signature)
+    !nonEmptyString(response.clientDataJSON) ||
+    !nonEmptyString(response.authenticatorData) ||
+    !nonEmptyString(response.signature)
   ) {
     return undefined;
   }
 
-  const userHandle = value.userHandle;
+  const userHandle = response.userHandle;
   if (userHandle !== undefined && userHandle !== null && typeof userHandle !== 'string') {
     return undefined;
   }
   return {
-    clientDataJSON: value.clientDataJSON,
-    authenticatorData: value.authenticatorData,
-    signature: value.signature,
+    clientDataJSON: response.clientDataJSON,
+    authenticatorData: response.authenticatorData,
+    signature: response.signature,
     ...(userHandle === undefined ? {} : { userHandle }),
   };
 }
 
 function assertionOptionalFields(
-  value: Record<string, unknown>,
+  fields: PasskeyAssertionFields,
 ): Pick<NativePasskeyAssertion, 'authenticatorAttachment' | 'clientExtensionResults'> | undefined {
-  const attachment = value.authenticatorAttachment ?? undefined;
+  const attachment = fields.authenticatorAttachment ?? undefined;
   if (attachment !== undefined && attachment !== 'platform' && attachment !== 'cross-platform') {
     return undefined;
   }
-  const extensionResults = value.clientExtensionResults ?? undefined;
+  const extensionResults = fields.clientExtensionResults ?? undefined;
   if (extensionResults !== undefined && !isRecord(extensionResults)) return undefined;
   return {
     ...(attachment === undefined ? {} : { authenticatorAttachment: attachment }),
@@ -76,21 +93,18 @@ function assertionOptionalFields(
 }
 
 function assertion(value: unknown): NativePasskeyAssertion | undefined {
-  if (
-    !isRecord(value) ||
-    value.type !== 'public-key' ||
-    !nonEmptyString(value.id) ||
-    !nonEmptyString(value.rawId)
-  ) {
+  if (!isRecord(value)) return undefined;
+  const fields: PasskeyAssertionFields = value;
+  if (fields.type !== 'public-key' || !nonEmptyString(fields.id) || !nonEmptyString(fields.rawId)) {
     return undefined;
   }
-  const response = assertionResponse(value.response);
+  const response = assertionResponse(fields.response);
   if (!response) return undefined;
-  const optional = assertionOptionalFields(value);
+  const optional = assertionOptionalFields(fields);
   if (!optional) return undefined;
   return {
-    id: value.id,
-    rawId: value.rawId,
+    id: fields.id,
+    rawId: fields.rawId,
     response,
     ...optional,
     type: 'public-key',

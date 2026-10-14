@@ -1,6 +1,13 @@
 import { type NativeProviderCredential, type NativeProviderMethod } from '@app/sdk';
 import type { AbortSignalPort, ProviderSignInPort } from '@app/native-auth';
 import type { NativeSignInModules, NativeSignInSettings } from '../types/sign-in-modules';
+import type {
+  AppleCredentialFields,
+  FacebookLoginFields,
+  FacebookTokenFields,
+  GoogleCredentialFields,
+  GoogleResponseFields,
+} from '../types/native-sign-in-fields';
 import type { NativePromptResult } from '@app/native-auth';
 import { createNativePromptLease, type NativePromptLease } from '../logic/prompt-lease';
 import {
@@ -96,17 +103,21 @@ function googleCredential(
   value: unknown,
   nonceDigest: string,
 ): NativePromptResult<NativeProviderCredential> {
-  if (!isRecord(value) || typeof value.type !== 'string') return promptFailure('invalidResponse');
-  if (value.type === 'cancelled') return { kind: 'cancelled' };
-  if (value.type === 'noSavedCredentialFound') return { kind: 'unavailable' };
-  if (value.type !== 'success' || !isRecord(value.data) || !nonEmptyString(value.data.idToken)) {
+  if (!isRecord(value)) return promptFailure('invalidResponse');
+  const fields: GoogleResponseFields = value;
+  if (typeof fields.type !== 'string') return promptFailure('invalidResponse');
+  if (fields.type === 'cancelled') return { kind: 'cancelled' };
+  if (fields.type === 'noSavedCredentialFound') return { kind: 'unavailable' };
+  if (fields.type !== 'success' || !isRecord(fields.data)) {
     return promptFailure('invalidResponse');
   }
+  const data: GoogleCredentialFields = fields.data;
+  if (!nonEmptyString(data.idToken)) return promptFailure('invalidResponse');
   return {
     kind: 'success',
     value: {
       kind: NATIVE_GOOGLE_CREDENTIAL,
-      identityToken: value.data.idToken,
+      identityToken: data.idToken,
       nonceDigest,
     },
   };
@@ -117,11 +128,12 @@ function appleCredential(
   nonceDigest: string,
   state: string,
 ): NativePromptResult<NativeProviderCredential> {
+  if (!isRecord(value)) return promptFailure('invalidResponse');
+  const fields: AppleCredentialFields = value;
   if (
-    !isRecord(value) ||
-    value.state !== state ||
-    !nonEmptyString(value.identityToken) ||
-    !nonEmptyString(value.authorizationCode)
+    fields.state !== state ||
+    !nonEmptyString(fields.identityToken) ||
+    !nonEmptyString(fields.authorizationCode)
   ) {
     return promptFailure('invalidResponse');
   }
@@ -129,15 +141,15 @@ function appleCredential(
     kind: 'success',
     value: {
       kind: NATIVE_APPLE_CREDENTIAL,
-      identityToken: value.identityToken,
-      authorizationCode: value.authorizationCode,
+      identityToken: fields.identityToken,
+      authorizationCode: fields.authorizationCode,
       nonceDigest,
     },
   };
 }
 
 function facebookLimitedCredential(
-  token: Record<string, unknown>,
+  token: FacebookTokenFields,
   nonceDigest: string,
 ): NativePromptResult<NativeProviderCredential> {
   if (!nonEmptyString(token.authenticationToken) || token.nonce !== nonceDigest) {
@@ -159,20 +171,22 @@ function facebookCredential(
   settings: NativeSignInSettings,
   nonceDigest: string,
 ): NativePromptResult<NativeProviderCredential> {
-  if (!isRecord(value.login) || typeof value.login.isCancelled !== 'boolean') {
+  const login: FacebookLoginFields | undefined = isRecord(value.login) ? value.login : undefined;
+  if (!login || typeof login.isCancelled !== 'boolean') {
     return promptFailure('invalidResponse');
   }
-  if (value.login.isCancelled) return { kind: 'cancelled' };
+  if (login.isCancelled) return { kind: 'cancelled' };
   if (!isRecord(value.token)) return promptFailure('invalidResponse');
+  const token: FacebookTokenFields = value.token;
 
   if (modules.platform === 'ios') {
-    return facebookLimitedCredential(value.token, nonceDigest);
+    return facebookLimitedCredential(token, nonceDigest);
   }
 
   if (
     modules.platform !== 'android' ||
-    !nonEmptyString(value.token.accessToken) ||
-    value.token.applicationID !== settings.facebookAppId
+    !nonEmptyString(token.accessToken) ||
+    token.applicationID !== settings.facebookAppId
   ) {
     return promptFailure('invalidResponse');
   }
@@ -180,7 +194,7 @@ function facebookCredential(
     kind: 'success',
     value: {
       kind: NATIVE_FACEBOOK_ACCESS_CREDENTIAL,
-      accessToken: value.token.accessToken,
+      accessToken: token.accessToken,
     },
   };
 }
@@ -204,7 +218,8 @@ function createFacebookFlow(
         )
       : facebook.loginManager.logInWithPermissions([...FACEBOOK_PERMISSIONS]);
   return login.then(async (loginResult) => {
-    if (!isRecord(loginResult) || loginResult.isCancelled !== false) {
+    const fields: FacebookLoginFields | undefined = isRecord(loginResult) ? loginResult : undefined;
+    if (!fields || fields.isCancelled !== false) {
       return { login: loginResult, token: undefined };
     }
     const token =
