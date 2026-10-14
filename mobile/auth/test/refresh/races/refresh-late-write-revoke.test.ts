@@ -1,9 +1,11 @@
+import { REFRESH_NEXT_TOKEN } from '../../support/token-values';
 import { HTTP_METHOD } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { AuthSessionError } from '../../../src';
 import { createAuthEngine } from '../../support/engine';
 import { revokedTokens } from '../../support/tracking';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -23,7 +25,7 @@ describe('late refresh write revocation', () => {
     const finishRotation = new Deferred<void>();
     const revokeStarted = new Deferred<void>();
     ports.credentials.beforeReplace = (value) => {
-      if (!value.includes('"refreshToken":"refresh-next"')) return Promise.resolve();
+      if (!value.includes(`"refreshToken":"${REFRESH_NEXT_TOKEN}"`)) return Promise.resolve();
       rotationStarted.resolve();
       return finishRotation.promise;
     };
@@ -31,7 +33,7 @@ describe('late refresh write revocation', () => {
       if (request.path === '/api/user/profile')
         return Promise.resolve(failedApiReply(401, 'SESSION_INVALID'));
       if (request.path === '/api/oauth/token')
-        return Promise.resolve(oauthTokenReply('access-next', 'refresh-next'));
+        return Promise.resolve(oauthTokenReply('access-next', REFRESH_NEXT_TOKEN));
       if (request.path === '/api/oauth/revoke') {
         revokeStarted.resolve();
         return Promise.resolve({ status: 200, body: {} });
@@ -53,6 +55,6 @@ describe('late refresh write revocation', () => {
 
     expect(requestError).toBeInstanceOf(AuthSessionError);
     expect(signOutResult).toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0', 'refresh-next']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN, REFRESH_NEXT_TOKEN]);
   });
 });

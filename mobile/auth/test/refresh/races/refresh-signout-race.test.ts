@@ -1,3 +1,9 @@
+import {
+  REFRESH_ACCOUNT_B_TOKEN,
+  REFRESH_1_TOKEN,
+  REFRESH_2_TOKEN,
+  REFRESH_ROTATED_TOKEN,
+} from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import {
   ApiError,
@@ -11,6 +17,8 @@ import { createAuthEngine } from '../../support/engine';
 import { AuthSessionError } from '../../../src';
 import { revokedTokens } from '../../support/tracking';
 import {
+  ACCESS_TOKEN,
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -38,7 +46,7 @@ describe('refresh during sign out', () => {
           failedApiReply(401, 'SESSION_INVALID'),
           new TransportError(TRANSPORT_FAILURE.NO_RESPONSE),
           { status: 200, body: {} },
-          oauthTokenReply('access-account-b', 'refresh-account-b'),
+          oauthTokenReply('access-account-b', REFRESH_ACCOUNT_B_TOKEN),
           successUserReply(),
         );
       } else {
@@ -46,7 +54,7 @@ describe('refresh during sign out', () => {
           () => oldWriteResponse.promise,
           failedApiReply(401, 'SESSION_INVALID'),
           { status: 400, body: { error: 'invalid_grant' } },
-          oauthTokenReply('access-account-b', 'refresh-account-b'),
+          oauthTokenReply('access-account-b', REFRESH_ACCOUNT_B_TOKEN),
           successUserReply(),
         );
       }
@@ -76,7 +84,7 @@ describe('refresh during sign out', () => {
         ({ method, path }) => method === HTTP_METHOD.PATCH && path === '/api/user/profile',
       );
       expect(writes).toHaveLength(1);
-      expect(writes[0]?.headers?.['Authorization']).toBe('Bearer access-secret-0');
+      expect(writes[0]?.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
     },
   );
 
@@ -151,14 +159,14 @@ describe('refresh during sign out', () => {
     await establishSession(engine, ports, transport);
     rejectFirstRotationWrite(ports);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'first' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'first' }));
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-2', 'refresh-2'), apiReply({ id: 'second' }));
+    transport.enqueue(oauthTokenReply('access-2', REFRESH_2_TOKEN), apiReply({ id: 'second' }));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
-    expect(ports.credentials.value).toContain('refresh-2');
+    expect(ports.credentials.value).toContain(REFRESH_2_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
   });
 
@@ -169,7 +177,7 @@ describe('refresh during sign out', () => {
     await establishSession(engine, ports, transport);
     rejectFirstRotationWrite(ports);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'first' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'first' }));
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     ports.clock.advance(270_000);
     transport.enqueue({
@@ -181,7 +189,7 @@ describe('refresh during sign out', () => {
       engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' }),
     ).rejects.toBeInstanceOf(ApiError);
 
-    expect(ports.credentials.value).toContain('refresh-1');
+    expect(ports.credentials.value).toContain(REFRESH_1_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
   });
 
@@ -202,7 +210,7 @@ describe('refresh during sign out', () => {
       if (path === '/api/oauth/token') refreshStarted.resolve();
     };
     ports.credentials.beforeReplace = (value) => {
-      if (value.includes('refresh-rotated')) {
+      if (value.includes(REFRESH_ROTATED_TOKEN)) {
         rotationWriteStarted.resolve();
         return finishRotationWrite.promise;
       }
@@ -222,7 +230,7 @@ describe('refresh during sign out', () => {
       path: '/api/user/profile',
     });
     await refreshStarted.promise;
-    refreshResponse.resolve(oauthTokenReply('access-rotated', 'refresh-rotated'));
+    refreshResponse.resolve(oauthTokenReply('access-rotated', REFRESH_ROTATED_TOKEN));
     await rotationWriteStarted.promise;
 
     const requestResult = request
@@ -259,7 +267,7 @@ describe('refresh during sign out', () => {
 
     expect(engine.snapshot.status).toBe('signedOut');
     expect([...revokedTokens(transport)].sort()).toEqual(
-      ['refresh-rotated', 'refresh-secret-0'].sort(),
+      [REFRESH_ROTATED_TOKEN, REFRESH_TOKEN].sort(),
     );
     expect(ports.timer.pending).toBe(0);
   });
@@ -268,7 +276,7 @@ describe('refresh during sign out', () => {
 function rejectFirstRotationWrite(ports: ReturnType<typeof testPorts>): void {
   let reject = true;
   ports.credentials.beforeReplace = (value) => {
-    if (reject && value.includes('refresh-1')) {
+    if (reject && value.includes(REFRESH_1_TOKEN)) {
       reject = false;
       return Promise.reject(new Error('temporary storage failure'));
     }

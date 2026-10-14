@@ -1,3 +1,4 @@
+import { ACCESS_TOKEN } from '../support/support';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { describe, expect, it } from 'vitest';
@@ -36,7 +37,7 @@ describe('DPoP proof builder', () => {
       serverBaseAddress: 'https://api.example.test',
       method: 'POST',
       path: '/api/oauth/token?discard=this#fragment',
-      token: 'access-secret-0',
+      token: ACCESS_TOKEN,
       nonce: 'nonce-fixed',
     });
     const [headerPart, payloadPart, signaturePart] = result.proof.split('.');

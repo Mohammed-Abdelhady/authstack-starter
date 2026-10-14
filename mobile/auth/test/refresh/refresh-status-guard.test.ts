@@ -1,3 +1,9 @@
+import {
+  REFRESH_1_TOKEN,
+  REFRESH_SAMPLE_TOKEN,
+  REFRESH_BEFORE_TOKEN,
+  REFRESH_AFTER_TOKEN,
+} from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import { AuthSessionError } from '../../src';
@@ -25,7 +31,7 @@ describe('refresh status guard', () => {
     const oldAnswer = new Deferred<{ status: number; body: unknown }>();
     transport.enqueue(
       () => oldAnswer.promise,
-      oauthTokenReply('access-1', 'refresh-1'),
+      oauthTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'unexpected' }),
     );
     const request = engine.transport.request({
@@ -48,7 +54,7 @@ describe('refresh status guard', () => {
     const ports = testPorts(transport);
     const runtime = new AuthRuntime(CONFIG, ports);
     runtime.installDigest = 'install-digest';
-    runtime.installTokens('access-token', 'refresh-token', 1000, 300, 'status-guard-lineage');
+    runtime.installTokens('access-token', REFRESH_SAMPLE_TOKEN, 1000, 300, 'status-guard-lineage');
     runtime.setState('storageBlocked', 'none');
     const client = createApiClient(runtime.rawTransport);
     const coordinator = createRefreshCoordinator(runtime, client);
@@ -64,11 +70,11 @@ describe('refresh status guard', () => {
     const ports = testPorts(transport);
     const runtime = new AuthRuntime(CONFIG, ports);
     runtime.installDigest = 'install-digest';
-    runtime.installTokens('access-before', 'refresh-before', 1000, 300, 'status-guard-lineage');
+    runtime.installTokens('access-before', REFRESH_BEFORE_TOKEN, 1000, 300, 'status-guard-lineage');
     runtime.setState('signedIn', 'none');
     const coordinator = createRefreshCoordinator(runtime, createApiClient(runtime.rawTransport));
     const pending = coordinator.refresh();
-    runtime.installTokens('access-after', 'refresh-after', 1000, 300, 'replacement-lineage');
+    runtime.installTokens('access-after', REFRESH_AFTER_TOKEN, 1000, 300, 'replacement-lineage');
 
     await expect(pending).rejects.toBeInstanceOf(AuthSessionError);
 

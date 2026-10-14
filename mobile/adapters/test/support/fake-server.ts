@@ -30,9 +30,10 @@ export const SERVER_CODE = {
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
 } as const;
 
+const OAUTH_PATH = '/api/oauth';
 export const SERVER_PATH = {
-  TOKEN: '/api/oauth/token',
-  REVOKE: '/api/oauth/revoke',
+  TOKEN: `${OAUTH_PATH}/token`,
+  REVOKE: `${OAUTH_PATH}/revoke`,
   PROFILE: '/api/user/profile',
 } as const;
 

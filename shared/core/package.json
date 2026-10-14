@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Platform-neutral rules and types shared by the web and mobile clients",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -27,11 +28,6 @@
   },
   "peerDependencies": {
     "zod": "^3.25.76"
-  },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

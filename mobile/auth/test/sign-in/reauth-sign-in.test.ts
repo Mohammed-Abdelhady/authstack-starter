@@ -1,3 +1,4 @@
+import { REFRESH_NEW_TOKEN } from '../support/token-values';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
@@ -44,7 +45,7 @@ describe('sign-in after an unknown refresh', () => {
     transport.respond = (request) => {
       if (request.path === '/api/oauth/revoke') return revokeAnswer.promise;
       if (request.path === '/api/oauth/token')
-        return Promise.resolve(oauthTokenReply('access-new', 'refresh-new'));
+        return Promise.resolve(oauthTokenReply('access-new', REFRESH_NEW_TOKEN));
       if (request.path === '/api/user/profile') return Promise.resolve(successUserReply());
       return Promise.reject(new Error(`Unexpected request: ${request.path}`));
     };

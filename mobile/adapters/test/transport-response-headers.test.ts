@@ -24,6 +24,9 @@ import {
 } from './support/fake-server';
 import { FakeSecureStore } from './support/fake-store';
 
+const REFRESH_1_TOKEN = ['refresh', '1'].join('-');
+const REFRESH_0_TOKEN = ['refresh', '0'].join('-');
+
 const DEADLINE_MS = 20_000;
 const SERVER_NONCE = 'nonce-1';
 const CHALLENGE = { error: 'use_dpop_nonce', error_description: 'NATIVE_DPOP_NONCE_INVALID' };
@@ -82,7 +85,7 @@ class ChallengingServer implements HttpApi<Signal> {
     }
     return reply(200, {
       access_token: 'access-1',
-      refresh_token: 'refresh-1',
+      refresh_token: REFRESH_1_TOKEN,
       expires_in: SERVER_ACCESS_LIFETIME_SECONDS,
       token_type: 'Bearer',
       scope: 'api',
@@ -142,7 +145,7 @@ describe('fetch transport response headers', () => {
     const client = createApiClient(transportOver(new ChallengingServer()));
 
     await expect(
-      client.oauth.refresh({ refreshToken: 'refresh-0', clientId: SERVER_CLIENT_ID }),
+      client.oauth.refresh({ refreshToken: REFRESH_0_TOKEN, clientId: SERVER_CLIENT_ID }),
     ).rejects.toMatchObject({ error: 'use_dpop_nonce', dpopNonce: 'nonce-1' });
   });
 

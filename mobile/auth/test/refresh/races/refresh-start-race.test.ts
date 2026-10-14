@@ -1,3 +1,4 @@
+import { REFRESH_AFTER_RESTORE_TOKEN } from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { AuthSessionError } from '../../../src';
 import { HTTP_METHOD } from '@app/sdk';
@@ -52,7 +53,7 @@ describe('refresh queued before sign out', () => {
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
     ports.clock.advance(301_000);
-    transport.enqueue(oauthTokenReply('access-after-restore', 'refresh-after-restore'), {
+    transport.enqueue(oauthTokenReply('access-after-restore', REFRESH_AFTER_RESTORE_TOKEN), {
       status: 200,
       body: { success: true, data: { id: 'profile' } },
     });

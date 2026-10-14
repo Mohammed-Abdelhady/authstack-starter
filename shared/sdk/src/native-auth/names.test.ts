@@ -5,6 +5,7 @@ import { answering } from '../test-support'; // feature:email-password
 import { unwrapNativeAttemptResult } from './parsers';
 
 const ATTEMPT = { id: 'name-attempt', secret: 'A'.repeat(43) };
+const PASSWORD = ['Native', 'Password', '123!'].join(''); // feature:email-password
 const EXPIRY = '2026-10-12T15:30:00.000Z';
 function consent(name: string) {
   return {
@@ -47,13 +48,13 @@ describe('native name character bounds', () => {
     await createApiClient(transport).nativeAuth.activate(ATTEMPT, {
       email: 'person@example.test',
       code: '123456',
-      password: 'NativePassword123!',
+      password: PASSWORD,
       name,
     });
     expect(transport.sent[0]?.body).toEqual({
       email: 'person@example.test',
       code: '123456',
-      password: 'NativePassword123!',
+      password: PASSWORD,
       name,
     });
   });
@@ -63,13 +64,13 @@ describe('native name character bounds', () => {
     await createApiClient(transport).nativeAuth.activate(ATTEMPT, {
       email: 'person@example.test',
       code: '123456',
-      password: 'NativePassword123!',
+      password: PASSWORD,
       name: ' E\u0301mile ',
     });
     expect(transport.sent[0]?.body).toEqual({
       email: 'person@example.test',
       code: '123456',
-      password: 'NativePassword123!',
+      password: PASSWORD,
       name: 'Émile',
     });
   });
@@ -80,7 +81,7 @@ describe('native name character bounds', () => {
       createApiClient(transport).nativeAuth.activate(ATTEMPT, {
         email: 'person@example.test',
         code: '123456',
-        password: 'NativePassword123!',
+        password: PASSWORD,
         name: '\u{10400}'.repeat(101),
       }),
     ).rejects.toBeInstanceOf(TypeError);

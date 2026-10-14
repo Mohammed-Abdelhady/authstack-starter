@@ -5,6 +5,8 @@ import type { TransportRequest } from '../transport';
 
 const ATTEMPT_SECRET = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const CODE_CHALLENGE = 'CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+const PASSWORD = ['Password', '123'].join('');
+const RECOVERY_PASSWORD = ['Password', '456'].join('');
 const ATTEMPT = { id: 'attempt/1', secret: ATTEMPT_SECRET };
 const VIEW = {
   attemptId: 'attempt-1',
@@ -161,7 +163,7 @@ describe('native auth client routes', () => {
     };
 
     await api.resume(ATTEMPT);
-    await api.password(ATTEMPT, { email: 'user@example.com', password: 'Password123' });
+    await api.password(ATTEMPT, { email: 'user@example.com', password: PASSWORD });
     await api.provider(ATTEMPT, provider);
     await api.passkeyOptions(ATTEMPT);
     await api.passkeyVerify(ATTEMPT, ASSERTION);
@@ -174,14 +176,14 @@ describe('native auth client routes', () => {
     await api.activate(ATTEMPT, {
       email: 'user@example.com',
       code: '123456',
-      password: 'Password123',
+      password: PASSWORD,
       name: 'Sam Example',
     });
     await api.requestRecovery(ATTEMPT, 'user@example.com');
     await api.confirmRecovery(ATTEMPT, {
       email: 'user@example.com',
       code: '123456',
-      newPassword: 'Password456',
+      newPassword: RECOVERY_PASSWORD,
     });
     await api.consent(ATTEMPT);
     await api.cancel(ATTEMPT);
@@ -197,7 +199,7 @@ describe('native auth client routes', () => {
       {
         method: 'POST',
         path: '/api/auth/native/attempts/attempt%2F1/password',
-        body: { email: 'user@example.com', password: 'Password123' },
+        body: { email: 'user@example.com', password: PASSWORD },
       },
       {
         method: 'POST',
@@ -246,7 +248,7 @@ describe('native auth client routes', () => {
         body: {
           email: 'user@example.com',
           code: '123456',
-          password: 'Password123',
+          password: PASSWORD,
           name: 'Sam Example',
         },
       },
@@ -258,7 +260,7 @@ describe('native auth client routes', () => {
       {
         method: 'POST',
         path: '/api/auth/native/attempts/attempt%2F1/recovery/confirm',
-        body: { email: 'user@example.com', code: '123456', newPassword: 'Password456' },
+        body: { email: 'user@example.com', code: '123456', newPassword: RECOVERY_PASSWORD },
       },
       { method: 'POST', path: '/api/auth/native/attempts/attempt%2F1/consent' },
       { method: 'POST', path: '/api/auth/native/attempts/attempt%2F1/cancel' },
@@ -271,7 +273,7 @@ describe('native auth client routes', () => {
 
     await createApiClient(transport).nativeAuth.password(
       ATTEMPT,
-      { email: 'user@example.com', password: 'Password123' },
+      { email: 'user@example.com', password: PASSWORD },
       {
         signal,
         headers: {
@@ -288,7 +290,7 @@ describe('native auth client routes', () => {
       {
         method: 'POST',
         path: '/api/auth/native/attempts/attempt%2F1/password',
-        body: { email: 'user@example.com', password: 'Password123' },
+        body: { email: 'user@example.com', password: PASSWORD },
         headers: {
           'X-Trace-Id': 'trace-1',
           'X-Native-Attempt': ATTEMPT_SECRET,

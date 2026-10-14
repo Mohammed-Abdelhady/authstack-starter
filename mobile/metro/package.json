@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Metro settings shared by the mobile shells in this pnpm workspace",
   "private": true,
+  "license": "MIT",
   "main": "./src/index.cjs",
   "exports": {
     ".": "./src/index.cjs",

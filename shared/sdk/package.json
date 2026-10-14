@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "API paths, wire types and envelope handling shared by the web and mobile apps, with a typed client for the mobile app",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

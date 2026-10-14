@@ -6,6 +6,7 @@ import { AuthRuntime } from '../../../src/runtime/runtime';
 import type { RuntimeTokens } from '../../../src/types/record';
 import { createAuthEngine } from '../../support/engine';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -28,7 +29,7 @@ describe('dispose before a refresh request is sent', () => {
     let stableWriteStarted = false;
     const stableWriteTimerCancelled = new Deferred<void>();
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('refresh-secret-0') && !value.includes('refreshInFlight')) {
+      if (value.includes(REFRESH_TOKEN) && !value.includes('refreshInFlight')) {
         stableWriteStarted = true;
         stableWriteFinished.resolve();
       }
@@ -54,7 +55,7 @@ describe('dispose before a refresh request is sent', () => {
       writesBeforeRefresh + 2,
     );
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
-    expect(ports.credentials.value).toContain('refresh-secret-0');
+    expect(ports.credentials.value).toContain(REFRESH_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(ports.timer.pendingDelays).toEqual([]);
   });
@@ -98,7 +99,7 @@ describe('dispose before a refresh request is sent', () => {
 
     const lateMarkerLanded = new Deferred<void>();
     oldPorts.credentials.afterReplace = (value) => {
-      if (value.includes('"refreshInFlight":true') && value.includes('refresh-secret-0'))
+      if (value.includes('"refreshInFlight":true') && value.includes(REFRESH_TOKEN))
         lateMarkerLanded.resolve();
     };
     releaseMarkerWrite.resolve();

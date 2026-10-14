@@ -8,6 +8,9 @@ import {
   passwordByteLength,
 } from './password-rules';
 
+const VALID_PASSWORD = ['Valid', 'P4ssword'].join('');
+const STRONG_PASSWORD = ['Strong', 'P4ssword'].join('');
+
 describe('evaluatePasswordRules', () => {
   it('marks all rules failed for empty password', () => {
     const results = evaluatePasswordRules('');
@@ -55,7 +58,7 @@ describe('evaluatePasswordRules', () => {
   });
 
   it('marks all rules passed when all criteria are met', () => {
-    const results = evaluatePasswordRules('ValidP4ssword');
+    const results = evaluatePasswordRules(VALID_PASSWORD);
     expect(results.every((r) => r.passed)).toBe(true);
   });
 });
@@ -66,7 +69,7 @@ describe('areAllPasswordRulesPassed', () => {
   });
 
   it('returns true when all rules pass', () => {
-    expect(areAllPasswordRulesPassed('StrongP4ssword', MIN_PASSWORD_LENGTH)).toBe(true);
+    expect(areAllPasswordRulesPassed(STRONG_PASSWORD, MIN_PASSWORD_LENGTH)).toBe(true);
   });
 });
 

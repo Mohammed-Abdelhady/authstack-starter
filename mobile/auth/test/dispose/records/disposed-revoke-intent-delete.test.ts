@@ -1,3 +1,4 @@
+import { REFRESH_TO_REVOKE_TOKEN } from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { CREDENTIAL_WRITE_TIMEOUT_MS } from '../../../src/constants';
 import { makeRefreshRecord } from '../../../src/refresh/refresh-helpers';
@@ -11,7 +12,7 @@ describe('abandoned credential writes after disposal', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const tokens: RuntimeTokens = {
       accessToken: 'access-to-revoke',
-      refreshToken: 'refresh-to-revoke',
+      refreshToken: REFRESH_TO_REVOKE_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'revoke-intent-lineage',
@@ -34,7 +35,7 @@ describe('abandoned credential writes after disposal', () => {
     const guard = {
       kind: 'session' as const,
       installDigest: 'revoke-intent-install',
-      refreshToken: 'refresh-to-revoke',
+      refreshToken: REFRESH_TO_REVOKE_TOKEN,
       lineageId: 'revoke-intent-lineage',
     };
     const abandonedWrite = runtime.replaceRecord(record, runtime.epoch, { kind: 'delete' }, guard);
@@ -57,7 +58,7 @@ describe('abandoned credential writes after disposal', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const tokens: RuntimeTokens = {
       accessToken: 'access-to-revoke',
-      refreshToken: 'refresh-to-revoke',
+      refreshToken: REFRESH_TO_REVOKE_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'revoke-intent-lineage',
@@ -78,7 +79,7 @@ describe('abandoned credential writes after disposal', () => {
     const guard = {
       kind: 'refresh' as const,
       installDigest: 'revoke-intent-install',
-      refreshToken: 'refresh-to-revoke',
+      refreshToken: REFRESH_TO_REVOKE_TOKEN,
       lineageId: 'revoke-intent-lineage',
     };
     const abandonedWrite = runtime.replaceRecord(record, expectedEpoch, { kind: 'delete' }, guard);

@@ -1,7 +1,9 @@
+import { REFRESH_ROTATED_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import {
+  ACCESS_TOKEN,
   CONFIG,
   ScriptedTransport,
   establishSession,
@@ -17,12 +19,12 @@ describe('persisted refresh credentials', () => {
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-rotated', 'refresh-rotated'), apiReply({}));
+    transport.enqueue(oauthTokenReply('access-rotated', REFRESH_ROTATED_TOKEN), apiReply({}));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
-    expect(ports.credentials.value).toContain('refresh-rotated');
+    expect(ports.credentials.value).toContain(REFRESH_ROTATED_TOKEN);
     expect(ports.credentials.value).not.toContain('access-rotated');
-    expect(ports.credentials.value).not.toContain('access-secret-0');
+    expect(ports.credentials.value).not.toContain(ACCESS_TOKEN);
   });
 });

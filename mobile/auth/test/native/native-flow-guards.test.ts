@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { apiReply, CONFIG, ScriptedTransport, testPorts } from '../support/support';
-import { ATTEMPT_ID, startReply } from './native-fixtures';
+import { ATTEMPT_ID, NEW_PASSWORD, startReply } from './native-fixtures';
 import { METHODS } from './native-methods-fixtures';
 
 describe('native flow guards', () => {
@@ -79,12 +79,12 @@ describe('native flow guards', () => {
       input: {
         email: 'person@example.test',
         code: '123456',
-        newPassword: 'new-secret',
+        newPassword: NEW_PASSWORD,
       },
     });
 
     expect(result.kind).toBe('apiFailure');
     expect(ports.credentials.value).toContain(ATTEMPT_ID);
-    expect(ports.credentials.value).not.toContain('new-secret');
+    expect(ports.credentials.value).not.toContain(NEW_PASSWORD);
   });
 });

@@ -4,6 +4,7 @@ import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import { watchTimerDrain } from '../support/timer-drain';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -47,7 +48,7 @@ describe('sign out of a session read from storage', () => {
     await revokeCompleted.promise;
     await timersDrained();
 
-    expect(revokedTokens(transport)).toEqual(['refresh-secret-0']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
     firstEngine.dispose();

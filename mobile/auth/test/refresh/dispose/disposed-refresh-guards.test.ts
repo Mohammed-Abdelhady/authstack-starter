@@ -1,3 +1,9 @@
+import {
+  REFRESH_OLD_TOKEN,
+  REFRESH_NEXT_TOKEN,
+  REFRESH_OTHER_TOKEN,
+  REFRESH_SUCCESSOR_TOKEN,
+} from '../../support/token-values';
 import { ApiError, createApiClient, OAuthError } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import {
@@ -19,7 +25,7 @@ const INSTALL_DIGEST = 'device-digest';
 const LINEAGE_ID = 'disposed-guard-lineage';
 const TOKENS: RuntimeTokens = {
   accessToken: 'access-old',
-  refreshToken: 'refresh-old',
+  refreshToken: REFRESH_OLD_TOKEN,
   expiresAt: 0,
   version: 1,
   lineageId: LINEAGE_ID,
@@ -48,13 +54,13 @@ describe('disposed refresh storage guards', () => {
   it('persists a rotation while its original marker is still current', async () => {
     const { runtime, ports, transport, client } = disposedRuntime();
 
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, 'refresh-old', {
+    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_OLD_TOKEN, {
       accessToken: 'access-next',
-      refreshToken: 'refresh-next',
+      refreshToken: REFRESH_NEXT_TOKEN,
       lineageId: LINEAGE_ID,
     });
 
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-next"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_NEXT_TOKEN}"`);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(ports.credentials.value).not.toContain('access-next');
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(0);
@@ -65,20 +71,20 @@ describe('disposed refresh storage guards', () => {
     const { runtime, ports, transport, client } = disposedRuntime();
     const marker = ports.credentials.value;
     ports.credentials.beforeReplace = (value) =>
-      value.includes('refresh-next')
+      value.includes(REFRESH_NEXT_TOKEN)
         ? Promise.reject(new Error('secure storage rejected the rotation'))
         : Promise.resolve();
 
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, 'refresh-old', {
+    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_OLD_TOKEN, {
       accessToken: 'access-next',
-      refreshToken: 'refresh-next',
+      refreshToken: REFRESH_NEXT_TOKEN,
       lineageId: LINEAGE_ID,
     });
 
     expect(ports.credentials.value).toBe(marker);
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(1);
     expect(transport.sent.find(({ path }) => path === '/api/oauth/revoke')?.body).toMatchObject({
-      token: 'refresh-next',
+      token: REFRESH_NEXT_TOKEN,
     });
     expect(ports.credentials.value).toContain('"refreshInFlight":true');
     expect(ports.timer.pending).toBe(0);
@@ -107,7 +113,7 @@ describe('disposed refresh storage guards', () => {
     };
     const nextRecord = makeRefreshRecord(runtime, INSTALL_DIGEST, {
       accessToken: 'access-next',
-      refreshToken: 'refresh-next',
+      refreshToken: REFRESH_NEXT_TOKEN,
       lineageId: LINEAGE_ID,
     });
     const replacing = runtime.replaceRecord(
@@ -117,7 +123,7 @@ describe('disposed refresh storage guards', () => {
       {
         kind: 'refresh',
         installDigest: INSTALL_DIGEST,
-        refreshToken: 'refresh-old',
+        refreshToken: REFRESH_OLD_TOKEN,
         lineageId: LINEAGE_ID,
       },
     );
@@ -183,7 +189,7 @@ describe('disposed refresh storage guards', () => {
         makeRefreshRecord(
           runtime,
           INSTALL_DIGEST,
-          { ...TOKENS, refreshToken: 'refresh-other' },
+          { ...TOKENS, refreshToken: REFRESH_OTHER_TOKEN },
           true,
         ),
       );
@@ -210,9 +216,9 @@ describe('disposed refresh storage guards', () => {
     }
     const before = ports.credentials.value;
 
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, 'refresh-old', {
+    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_OLD_TOKEN, {
       accessToken: 'access-next',
-      refreshToken: 'refresh-next',
+      refreshToken: REFRESH_NEXT_TOKEN,
       lineageId: LINEAGE_ID,
     });
 
@@ -221,7 +227,7 @@ describe('disposed refresh storage guards', () => {
     if (revoke) {
       expect(revokes).toContainEqual(
         expect.objectContaining({
-          body: expect.objectContaining({ token: 'refresh-next' }),
+          body: expect.objectContaining({ token: REFRESH_NEXT_TOKEN }),
         }),
       );
     } else {
@@ -237,7 +243,7 @@ describe('disposed refresh storage guards', () => {
     const { runtime, ports } = disposedRuntime();
     const stable = makeRefreshRecord(runtime, INSTALL_DIGEST, {
       ...TOKENS,
-      refreshToken: 'refresh-successor',
+      refreshToken: REFRESH_SUCCESSOR_TOKEN,
     });
     ports.credentials.value = JSON.stringify(stable);
 

@@ -571,6 +571,7 @@
       "description": "Second factor from an authenticator app, on top of password, magic link or OAuth sign-in. Includes single-use recovery codes.",
       "kind": "second-factor",
       "default": false,
+      "packages": ["otplib"],
       "files": [
         "backend/src/auth/two-factor/**",
         "backend/src/auth/native/factors/native-second-factor.service.ts",

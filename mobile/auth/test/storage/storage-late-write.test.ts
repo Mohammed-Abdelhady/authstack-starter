@@ -4,6 +4,7 @@ import { CREDENTIAL_WRITE_TIMEOUT_MS } from '../../src/constants';
 import { PortDeadlineError } from '../../src/runtime/deadlines';
 import { createAuthEngine } from '../support/engine';
 import {
+  REFRESH_TOKEN,
   Deferred,
   CONFIG,
   ScriptedTransport,
@@ -87,7 +88,7 @@ describe('late credential writes', () => {
     await lateMarkerSaved.promise;
     await correctionSaved.promise;
 
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-secret-0"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_TOKEN}"`);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
   });

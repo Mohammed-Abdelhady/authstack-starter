@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { CredentialStoreError } from '../../src';
 import { createAuthEngine } from '../support/engine';
-import { CONFIG, ScriptedTransport, establishSession, testPorts } from '../support/support';
+import {
+  REFRESH_TOKEN,
+  CONFIG,
+  ScriptedTransport,
+  establishSession,
+  testPorts,
+} from '../support/support';
 
 describe('restore while the device is locked', () => {
   it('reports a locked install identity as locked and leaves the record alone', async () => {
@@ -62,7 +68,7 @@ describe('restore while the device is locked', () => {
     const blocked = await engine.restore();
 
     expect(blocked).toEqual({ kind: 'storageBlocked', reason: 'locked' });
-    expect(ports.credentials.value).toContain('refresh-secret-0');
+    expect(ports.credentials.value).toContain(REFRESH_TOKEN);
 
     ports.credentials.writeResult = undefined;
     const restored = await engine.restore();

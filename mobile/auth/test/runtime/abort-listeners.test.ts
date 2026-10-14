@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError } from '@app/sdk';
 import type { SignOutOutcome } from '../../src';
@@ -51,7 +52,7 @@ describe('abort listener faults', () => {
     } catch (error) {
       timerError = error;
     }
-    refreshAnswer.resolve(oauthTokenReply('access-1', 'refresh-1'));
+    refreshAnswer.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
     const result = await Promise.allSettled([request]);
 
     expect(timerError).toBeUndefined();

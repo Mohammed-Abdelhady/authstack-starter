@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TRANSPORT_FAILURE, TransportError } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -31,7 +32,7 @@ describe('requests with an already-aborted signal', () => {
       return readElapsed();
     };
     transport.sent.length = 0;
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
 
     await expect(
       engine.transport.request({
