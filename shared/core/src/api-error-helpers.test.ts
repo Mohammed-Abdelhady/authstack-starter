@@ -69,7 +69,11 @@ describe('extractFieldErrors', () => {
   it.each([
     ['no details', undefined],
     ['null details', null],
+    ['list details', []],
+    ['numeric details', 17],
     ['details without fields', { retryAfter: 60 }],
+    ['undefined fields', { fields: undefined }],
+    ['null fields', { fields: null }],
     ['fields that are a list', { fields: [['name', ['too short']]] }],
     ['fields with nothing usable', { fields: { email: 'not a list' } }],
     ['empty fields', { fields: {} }],
