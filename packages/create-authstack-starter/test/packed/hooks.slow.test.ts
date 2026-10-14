@@ -1,4 +1,3 @@
-import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { isolatedGit } from '../support/answers-helpers.js';
@@ -14,7 +13,7 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  if (packed?.ok) rmSync(packed.workspace, { recursive: true, force: true });
+  packed?.cleanup();
 });
 
 describe('packed projects with real installs and each hook alone', () => {
