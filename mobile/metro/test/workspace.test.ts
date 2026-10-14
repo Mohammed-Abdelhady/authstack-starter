@@ -59,9 +59,9 @@ it('looks for packages in the shell before the root and keeps other lookup folde
     join(root, 'node_modules'),
     '/extra/node_modules',
   ]);
-  expect(config.resolver.sourceExts).toEqual(['ts', 'tsx']);
-  expect(config.transformer).toEqual({ minifierPath: 'metro-minify-terser' });
-  expect(config.projectRoot).toBe(shell);
+  expect(config.resolver['sourceExts']).toEqual(['ts', 'tsx']);
+  expect(config['transformer']).toEqual({ minifierPath: 'metro-minify-terser' });
+  expect(config['projectRoot']).toBe(shell);
   expect(base).toEqual(snapshot);
 });
 
