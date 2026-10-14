@@ -38,6 +38,7 @@ export interface RoleEdit {
   name?: string;
   slug?: string;
   description?: string;
+  level?: number;
   permissions?: string[];
   pendingHolderSweeps?: PendingSweep[];
 }

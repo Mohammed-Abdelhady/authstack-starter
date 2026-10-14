@@ -9,7 +9,11 @@ import { asAuthorityUnavailable } from '../../session/utils/authority/authority-
 import { CreateRoleDto } from '../dto/create-role.dto';
 import { RoleChangeStore } from '../stores/role-change.store';
 import { RoleFieldsRejectedError, StoredRole } from '../stores/role-records';
-import { assertCanGrant, assertFreshRolePermission } from './role-actor.util';
+import {
+  assertCanGrant,
+  assertFreshRolePermission,
+  assertLevelBelowActor,
+} from './role-actor.util';
 import { isStoreOutage } from './role-failure.util';
 import { dedupePermissions } from './role.util';
 
@@ -36,11 +40,13 @@ export function createRoleWithinCeiling(
       ROLE_PERMISSIONS.CREATE_ALL,
     );
     assertCanGrant(actor, dto.permissions);
+    const level = dto.level ?? CUSTOM_ROLE_LEVEL;
+    assertLevelBelowActor(actor, level);
     return store.insertCustomRole(unitOfWork, {
       name: dto.name,
       slug,
       description: dto.description,
-      level: CUSTOM_ROLE_LEVEL,
+      level,
       permissions: dedupePermissions(dto.permissions),
     });
   });

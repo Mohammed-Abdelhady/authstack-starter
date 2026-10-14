@@ -13,6 +13,7 @@ import {
   assertCanGrant,
   assertFreshRolePermission,
   assertOutranksRole,
+  levelEdit,
 } from '../../utils/role-actor.util';
 import { isStoreOutage } from '../../utils/role-failure.util';
 import { moveRoleHolders } from '../../sweeps/role-holder-sweep';
@@ -151,6 +152,7 @@ export class RoleEditService {
       (permission) => !current.permissions.includes(permission),
     );
     assertCanGrant(actor, addedPermissions);
+    const level = levelEdit(actor, current, dto.level);
     const previousSlug = current.slug;
     const nextSlug = dto.name ? generateSlug(dto.name) : previousSlug;
     const renamed = nextSlug !== previousSlug;
@@ -165,6 +167,9 @@ export class RoleEditService {
     }
     if (dto.description !== undefined) {
       edit.description = dto.description;
+    }
+    if (level !== undefined) {
+      edit.level = level;
     }
     if (dto.permissions) {
       edit.permissions = dedupePermissions(dto.permissions);
