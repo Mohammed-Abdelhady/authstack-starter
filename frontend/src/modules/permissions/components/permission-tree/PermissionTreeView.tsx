@@ -107,7 +107,9 @@ export function PermissionTreeView({
                 variant="eyebrow"
                 data-testid={`permission-group-${resource}`}
               >
-                {PERMISSION_GROUPS.some((group) => group.id === resource) ? (
+                {PERMISSION_GROUPS.some(
+                  (group) => group.id === resource && group.hasCatalogName,
+                ) ? (
                   tSelector(`groups.${resource}`)
                 ) : (
                   <span dir="ltr">{resource}</span>
