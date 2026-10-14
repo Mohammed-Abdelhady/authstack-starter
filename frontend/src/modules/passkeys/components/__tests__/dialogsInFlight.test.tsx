@@ -52,6 +52,7 @@ const DIALOGS = [
   {
     name: 'remove',
     dialogId: 'passkey-delete-dialog',
+    cancelId: 'passkey-delete-cancel',
     held: 'passkey-delete-confirm',
     render: (onClose: () => void) => (
       <PasskeyDeleteDialog open passkey={PASSKEY} onClose={onClose} />
@@ -86,6 +87,7 @@ describe.each([
 
       await expectClosableOnlyOnceSettled({
         dialogId: dialog.dialogId,
+        ...('cancelId' in dialog ? { cancelId: dialog.cancelId } : {}),
         closes: view.closes,
         refuse: view.refuse,
         heldControl: () => screen.getByTestId(dialog.held),

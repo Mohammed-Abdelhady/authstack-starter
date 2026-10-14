@@ -60,6 +60,8 @@ export async function expectClosableOnlyOnceSettled({
   heldControl,
 }: InFlightDialog) {
   await waitFor(() => expect(isHeld(heldControl())).toBe(true));
+  const guard = closeGuard(dialogId, cancelId);
+  await waitFor(() => expect(isHeld(guard)).toBe(true));
   const before = closes();
 
   await askToClose(dialogId);
@@ -70,8 +72,21 @@ export async function expectClosableOnlyOnceSettled({
 
   refuse();
   await waitFor(() => expect(isHeld(heldControl())).toBe(false));
+  // The dialog's guard can clear a render after the control that sent the request.
+  await waitFor(() => expect(isHeld(guard)).toBe(false));
   expect(isOpen(dialogId)).toBe(true);
   fireEvent.keyDown(screen.getByTestId(dialogId), { key: 'Escape' });
 
-  await waitFor(() => expect(closes()).toBeGreaterThan(before));
+  await waitFor(() => expect(closes()).toBe(before + 1));
+}
+
+/**
+ * The dialog's own close control, or its Cancel where it has none. Either one
+ * reads the dialog's busy state in the same render as its Escape guard.
+ */
+function closeGuard(dialogId: string, cancelId: string | undefined): HTMLElement {
+  const closeControl = within(screen.getByTestId(dialogId)).queryByTestId('dialog-close-button');
+  if (closeControl) return closeControl;
+  if (cancelId) return screen.getByTestId(cancelId);
+  throw new Error(`${dialogId} has no close control; pass its cancelId`);
 }
