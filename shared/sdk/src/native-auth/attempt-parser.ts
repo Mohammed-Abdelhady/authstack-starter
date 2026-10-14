@@ -26,6 +26,9 @@ import {
   isoDate,
 } from './validation';
 import type { JsonObject } from './validation';
+import type { JsonFields } from '../types/json';
+
+type AttemptFields = JsonFields<NativeAttemptResult | NativeAttemptStartResult>;
 
 type AttemptContext = {
   attemptId: string;
@@ -68,7 +71,7 @@ function parseFactors<T extends string>(
 }
 
 function parseAccount(value: unknown, status: number): NativeAccountSummary {
-  const account = requireObject(value, 'account', status);
+  const account: JsonFields<NativeAccountSummary> = requireObject(value, 'account', status);
   exactKeys(account, ['id', 'email', 'name'], 'account', status);
   const name = normalizeNativeName(account.name);
   if (name === undefined) fail(status, 'account.name', 'is outside its character bounds');
@@ -80,7 +83,11 @@ function parseAccount(value: unknown, status: number): NativeAccountSummary {
 }
 
 function parseApplication(value: unknown, status: number): NativeApplicationSummary {
-  const application = requireObject(value, 'application', status);
+  const application: JsonFields<NativeApplicationSummary> = requireObject(
+    value,
+    'application',
+    status,
+  );
   exactKeys(
     application,
     ['clientId', 'displayName', 'scopes', 'alreadyGranted'],
@@ -120,7 +127,7 @@ export function parseAttemptResult(
   status: number,
   allowedExtras: readonly string[] = [],
 ): NativeAttemptResult {
-  const record = requireObject(data, 'data', status);
+  const record: AttemptFields = requireObject(data, 'data', status);
   const attemptId = boundedString(
     record.attemptId,
     'attemptId',
@@ -140,7 +147,7 @@ export function parseAttemptResult(
   });
 }
 
-function parseInitialStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+function parseInitialStage(record: AttemptFields, context: AttemptContext): NativeAttemptResult {
   const { attemptId, expiresAt, activationCompleted, allowedExtras, status } = context;
   switch (context.stage) {
     case NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED: {
@@ -194,7 +201,7 @@ function parseInitialStage(record: JsonObject, context: AttemptContext): NativeA
   }
 }
 
-function parseFollowupStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+function parseFollowupStage(record: AttemptFields, context: AttemptContext): NativeAttemptResult {
   const { attemptId, expiresAt, activationCompleted, allowedExtras, status } = context;
   switch (context.stage) {
     case NATIVE_AUTH_STAGE.SECOND_FACTOR_REQUIRED:
@@ -247,7 +254,7 @@ function parseFollowupStage(record: JsonObject, context: AttemptContext): Native
   }
 }
 
-function parseTerminalStage(record: JsonObject, context: AttemptContext): NativeAttemptResult {
+function parseTerminalStage(record: AttemptFields, context: AttemptContext): NativeAttemptResult {
   const { attemptId, expiresAt, status } = context;
   switch (context.stage) {
     case NATIVE_AUTH_STAGE.DENIED:
@@ -276,7 +283,7 @@ function parseTerminalStage(record: JsonObject, context: AttemptContext): Native
 }
 
 export function parseStartResult(data: unknown, status: number): NativeAttemptStartResult {
-  const record = requireObject(data, 'data', status);
+  const record: AttemptFields = requireObject(data, 'data', status);
   if (record.stage !== NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED) {
     fail(status, 'stage', 'is not the initial stage');
   }

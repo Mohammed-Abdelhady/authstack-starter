@@ -1,15 +1,19 @@
 import { NATIVE_AUTH_LIMITS } from '@app/core';
 import { requireArray, requireObject } from '../shapes';
 import type { NativePasskeyCredentialDescriptor, NativePasskeyOptions } from '../types/native-auth';
+import type { JsonFields } from '../types/json';
 import { boundedString, boundedStringList, exactKeys, fail } from './validation';
-import type { JsonObject } from './validation';
 
 function parsePasskeyDescriptor(
   value: unknown,
   field: string,
   status: number,
 ): NativePasskeyCredentialDescriptor {
-  const descriptor = requireObject(value, field, status);
+  const descriptor: JsonFields<NativePasskeyCredentialDescriptor> = requireObject(
+    value,
+    field,
+    status,
+  );
   exactKeys(descriptor, ['type', 'id', 'transports'], field, status);
   if (descriptor.type !== 'public-key') fail(status, `${field}.type`, 'is not public-key');
   return {
@@ -30,9 +34,9 @@ function parsePasskeyDescriptor(
 }
 
 function validateUserVerification(
-  options: JsonObject,
+  options: JsonFields<NativePasskeyOptions>,
   status: number,
-): asserts options is JsonObject & {
+): asserts options is JsonFields<NativePasskeyOptions> & {
   userVerification?: NativePasskeyOptions['userVerification'];
 } {
   if (
@@ -45,7 +49,10 @@ function validateUserVerification(
   }
 }
 
-function readTimeout(options: JsonObject, status: number): number | undefined {
+function readTimeout(
+  options: JsonFields<NativePasskeyOptions>,
+  status: number,
+): number | undefined {
   let timeout: number | undefined;
   if (options.timeout !== undefined) {
     if (
@@ -62,7 +69,7 @@ function readTimeout(options: JsonObject, status: number): number | undefined {
 }
 
 function readDescriptors(
-  options: JsonObject,
+  options: JsonFields<NativePasskeyOptions>,
   status: number,
 ): NativePasskeyCredentialDescriptor[] | undefined {
   const descriptors =
@@ -81,7 +88,7 @@ function readDescriptors(
 }
 
 export function parsePasskeyOptions(data: unknown, status: number): NativePasskeyOptions {
-  const options = requireObject(data, 'data', status);
+  const options: JsonFields<NativePasskeyOptions> = requireObject(data, 'data', status);
   exactKeys(
     options,
     ['challenge', 'timeout', 'rpId', 'allowCredentials', 'userVerification'],

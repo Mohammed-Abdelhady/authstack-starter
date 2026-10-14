@@ -1,7 +1,8 @@
 import { NATIVE_AUTH_LIMITS, NATIVE_PROVIDER_SDK_MODE } from '@app/core';
 import { unwrapAuthMethodsBody } from '../auth-methods';
 import { requireArray, requireObject } from '../shapes';
-import type { AuthMethodProvider } from '../types';
+import type { AuthMethodProvider, AuthMethods } from '../types';
+import type { JsonFields } from '../types/json';
 import type {
   NativeAuthCapabilities,
   NativeMethods,
@@ -9,7 +10,6 @@ import type {
   NativeProviderSdkConfiguration,
 } from '../types/native-auth';
 import { booleanValue, boundedString, exactKeys, fail } from './validation';
-import type { JsonObject } from './validation';
 
 function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[] {
   if (value === undefined) return [];
@@ -19,7 +19,7 @@ function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[
   }
   return providers.map((provider, index) => {
     const field = `methods.oauth[${index}]`;
-    const record = requireObject(provider, field, status);
+    const record: JsonFields<AuthMethodProvider> = requireObject(provider, field, status);
     exactKeys(record, ['id', 'displayName'], field, status);
     return {
       id: boundedString(record.id, `${field}.id`, NATIVE_AUTH_LIMITS.PROVIDER_ID, status),
@@ -34,7 +34,7 @@ function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[
 }
 
 function parseCapabilities(value: unknown, status: number): NativeAuthCapabilities {
-  const fields = requireObject(value, 'capabilities', status);
+  const fields: JsonFields<NativeAuthCapabilities> = requireObject(value, 'capabilities', status);
   exactKeys(
     fields,
     ['password', 'emailLink', 'passkeys', 'registration', 'recovery'],
@@ -55,7 +55,7 @@ function parseSdkConfiguration(
   field: string,
   status: number,
 ): NativeProviderSdkConfiguration {
-  const sdk = requireObject(value, field, status);
+  const sdk: JsonFields<NativeProviderSdkConfiguration> = requireObject(value, field, status);
   if (sdk.kind === 'google') {
     exactKeys(sdk, ['kind', 'webClientId', 'iosClientId'], field, status);
     return {
@@ -89,7 +89,7 @@ function parseSdkConfiguration(
 }
 
 function parseSdkProvider(
-  provider: JsonObject,
+  provider: JsonFields<NativeProviderMethod>,
   identity: AuthMethodProvider,
   field: string,
   status: number,
@@ -135,7 +135,7 @@ function parseProviderMethods(
   const actualIds = new Set<string>();
   return entries.map((entry, index) => {
     const field = `providers[${index}]`;
-    const provider = requireObject(entry, field, status);
+    const provider: JsonFields<NativeProviderMethod> = requireObject(entry, field, status);
     const id = boundedString(provider.id, `${field}.id`, NATIVE_AUTH_LIMITS.PROVIDER_ID, status);
     const displayName = boundedString(
       provider.displayName,
@@ -157,10 +157,10 @@ function parseProviderMethods(
 }
 
 export function parseNativeMethods(data: unknown, status: number): NativeMethods {
-  const record = requireObject(data, 'data', status);
+  const record: JsonFields<NativeMethods> = requireObject(data, 'data', status);
   exactKeys(record, ['nativeEnabled', 'methods', 'capabilities', 'providers'], 'data', status);
   const nativeEnabled = booleanValue(record.nativeEnabled, 'nativeEnabled', status);
-  const methodRecord = requireObject(record.methods, 'methods', status);
+  const methodRecord: JsonFields<AuthMethods> = requireObject(record.methods, 'methods', status);
   exactKeys(
     methodRecord,
     ['password', 'magicLink', 'twoFactor', 'passkeys', 'oauth'],

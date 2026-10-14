@@ -1,5 +1,5 @@
 import { HTTP_STATUS_OK } from './constants';
-import { malformedResponse, unwrapEnvelope, unwrapEnvelopeBody } from './envelope';
+import { malformedResponse, unwrapEnvelope, unwrapEnvelopeBody, type JsonObject } from './envelope';
 import { requireArray, requireObject } from './shapes';
 import type { TransportResponse } from './transport';
 import type { AuthMethods } from './types';
@@ -22,7 +22,12 @@ function requireBoolean(value: unknown, name: string, status: number): boolean {
  * rest, so nothing here names a key an optional feature owns as a type member.
  */
 function toAuthMethods(data: unknown, status: number): AuthMethods {
-  const methods = requireObject(requireObject(data, 'data', status).methods, 'methods', status);
+  const response: { methods?: unknown } = requireObject(data, 'data', status);
+  const methods: JsonObject & { password?: unknown } = requireObject(
+    response.methods,
+    'methods',
+    status,
+  );
   const password = requireBoolean(methods.password, 'methods.password', status);
   for (const key of OPTIONAL_SWITCHES) {
     if (key in methods) requireBoolean(methods[key], `methods.${key}`, status);
