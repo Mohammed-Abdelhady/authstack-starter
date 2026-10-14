@@ -78,7 +78,7 @@ describe('a rotated token the locked store refused', () => {
       warning: 'storageBlocked',
       reason: 'storageLocked',
     });
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-rotated');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-rotated');
     expect(storedRecord(ports.credentials.value)).toMatchObject({
       tokens: { refreshToken: 'refresh-secret-0' },
       refreshInFlight: true,

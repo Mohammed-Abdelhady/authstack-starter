@@ -1,5 +1,5 @@
 import type { NativeFlow } from '@app/sdk';
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import { CONFIG, Deferred, ScriptedTransport, testPorts, apiReply } from '../support/support';
 import { ATTEMPT_ID, startReply } from './native-fixtures';
@@ -8,11 +8,17 @@ const CREATED_AT = 1_800_000_000_000;
 const LOCAL_DEADLINE = 1_800_000_900_000;
 const FLOWS: readonly NativeFlow[] = ['signIn', 'registration', 'recovery'];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+interface SavedFields {
+  transaction?: unknown;
+  createdAt?: unknown;
+  expiresAt?: unknown;
+}
+
+function isRecord(value: unknown): value is SavedFields {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function savedTransaction(value: string | undefined): Record<string, unknown> {
+function savedTransaction(value: string | undefined): SavedFields {
   const record: unknown = JSON.parse(value ?? '{}');
   if (!isRecord(record) || !isRecord(record.transaction)) {
     throw new Error('Expected a saved transaction');
@@ -52,6 +58,7 @@ describe('native attempt creation clock', () => {
 
       expect(result.kind).toBe('continue');
       expect(prepared.createdAt).toBe(CREATED_AT);
+      assert.isDefined(transport.sent[0]);
       expect(transport.sent[0].body).toEqual({
         clientId: CONFIG.clientId,
         redirectUri: CONFIG.redirectUri,
@@ -97,6 +104,7 @@ describe('native attempt creation clock', () => {
           password: 'temporary-secret',
         });
         expect(next.kind).toBe('continue');
+        assert.isDefined(transport.sent[2]);
         expect(transport.sent[2].path).toBe('/api/auth/native/attempts/attempt-1/password');
       }
       restored.dispose();

@@ -28,7 +28,7 @@ describe('device-bound refresh', () => {
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
     const requests = refreshRequests(transport);
-    const proofs = requests.map(({ headers }) => requestPayload(headers?.DPoP ?? ''));
+    const proofs = requests.map(({ headers }) => requestPayload(headers?.['DPoP'] ?? ''));
     const stored = parseStoredRecord(ports.credentials.value ?? '');
     expect(requests.map(({ body }) => body)).toMatchObject([
       { refresh_token: REFRESH_TOKEN },
@@ -69,7 +69,7 @@ describe('device-bound refresh', () => {
 
       const requests = refreshRequests(transport);
       const stored = parseStoredRecord(ports.credentials.value ?? '');
-      const proofIds = requests.map(({ headers }) => requestPayload(headers?.DPoP ?? '').jti);
+      const proofIds = requests.map(({ headers }) => requestPayload(headers?.['DPoP'] ?? '').jti);
       expect(requests.map(({ body }) => body)).toMatchObject([
         { refresh_token: REFRESH_TOKEN },
         { refresh_token: REFRESH_TOKEN },

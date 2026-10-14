@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
   apiReply,
@@ -149,7 +149,8 @@ describe('native engine', () => {
 
     expect(methods.capabilities.passkeys).toBe(false);
     expect(methods.providers).toEqual([{ id: 'google', displayName: 'Google', mode: 'system' }]);
-    expect(transport.sent[0].headers?.Authorization).toBeUndefined();
+    assert.isDefined(transport.sent[0]);
+    expect(transport.sent[0].headers?.['Authorization']).toBeUndefined();
     expect(transport.sent[0].path).toBe('/api/auth/native/methods?clientId=native-client');
   });
 
@@ -271,6 +272,7 @@ describe('native engine', () => {
     await ports.callbacks.deliver(address);
 
     expect(engine.snapshot.status).toBe('signedIn');
+    assert.isDefined(transport.sent[2]);
     expect(transport.sent[2].body).toEqual({
       token: 'warm-token',
       state: saved.transaction?.state,

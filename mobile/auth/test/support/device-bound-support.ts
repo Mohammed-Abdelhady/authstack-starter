@@ -37,13 +37,24 @@ export function enqueueBoundRefresh(
   transport.enqueue(...challengeThen(...steps));
 }
 
-export function proofNonces(requests: readonly { headers?: Readonly<Record<string, string>> }[]) {
-  return requests.map(({ headers }) => requestPayload(headers?.DPoP ?? '').nonce);
+export function proofNonces(
+  requests: readonly { headers?: Readonly<Record<string, string>> | undefined }[],
+) {
+  return requests.map(({ headers }) => requestPayload(headers?.['DPoP'] ?? '').nonce);
 }
 
-export function requestPayload(proof: string): Record<string, unknown> {
+interface DpopPayload {
+  htm?: unknown;
+  htu?: unknown;
+  nonce?: unknown;
+  jti?: unknown;
+  ath?: unknown;
+}
+
+export function requestPayload(proof: string): DpopPayload {
   const payload = proof.split('.')[1] ?? '';
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
+  const fields: DpopPayload = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  return fields;
 }
 
 export function dpopTokenReply(

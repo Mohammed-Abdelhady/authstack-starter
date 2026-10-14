@@ -76,7 +76,7 @@ describe('refresh during sign out', () => {
         ({ method, path }) => method === HTTP_METHOD.PATCH && path === '/api/user/profile',
       );
       expect(writes).toHaveLength(1);
-      expect(writes[0]?.headers?.Authorization).toBe('Bearer access-secret-0');
+      expect(writes[0]?.headers?.['Authorization']).toBe('Bearer access-secret-0');
     },
   );
 

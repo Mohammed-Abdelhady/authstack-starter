@@ -50,7 +50,9 @@ describe('refresh', () => {
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
     expect(
-      transport.sent.slice(-2).every(({ headers }) => headers?.Authorization === 'Bearer access-1'),
+      transport.sent
+        .slice(-2)
+        .every(({ headers }) => headers?.['Authorization'] === 'Bearer access-1'),
     ).toBe(true);
   });
 
@@ -224,7 +226,7 @@ describe('refresh', () => {
 
     expect(engine.snapshot.warning).toBe('storageBlocked');
     expect(ports.credentials.value).toBe(markerRecord);
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-1');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-1');
   });
 
   it('deletes the session and shares the OAuth failure with concurrent waiters', async () => {

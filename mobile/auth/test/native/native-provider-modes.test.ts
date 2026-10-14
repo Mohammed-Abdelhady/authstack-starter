@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import type { NativeProviderCredential } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import { apiReply, CONFIG, ScriptedTransport, testPorts } from '../support/support';
@@ -91,6 +91,7 @@ describe('native provider SDK modes', () => {
       const result = await engine.nativeSignIn({ kind: 'provider', providerId });
 
       expect(result.kind).toBe('continue');
+      assert.isDefined(transport.sent[2]);
       expect(transport.sent[2].body).toEqual(credential);
       expect(base.credentials.value).not.toContain(secretValue);
     },

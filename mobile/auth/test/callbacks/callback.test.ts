@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
   CONFIG,
@@ -84,6 +84,7 @@ describe('authorization returns', () => {
     const signIn = engine.signIn();
     await opened.promise;
     ports.clock.jumpWall(360_001);
+    assert.isDefined(ports.authBrowser.opened[0]);
     const state = readQueryValues(ports.authBrowser.opened[0].address).get('state');
     if (!state) throw new Error('authorization state was missing');
     ports.callbacks.deliver(`${CONFIG.redirectUri}?code=late&state=${state}`);
@@ -116,6 +117,7 @@ describe('authorization returns', () => {
     expect(engine.snapshot.operation).toBe('authorizing');
     expect(ports.credentials.value).toContain('"transaction"');
 
+    assert.isDefined(ports.authBrowser.opened[0]);
     const authorizeAddress = ports.authBrowser.opened[0].address;
     ports.callbacks.deliver(redirectFrom(authorizeAddress, { code: 'auth-code' }));
     await expect(signIn).resolves.toMatchObject({ kind: 'signedIn' });

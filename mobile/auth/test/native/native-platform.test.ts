@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
   apiReply,
@@ -82,6 +82,7 @@ describe('native platform credentials', () => {
     expect(result.kind).toBe('continue');
     expect(receivedNonce).toBe(NONCE_DIGEST);
     expect(receivedState).toBe(JSON.parse(base.credentials.value ?? '{}').transaction.state);
+    assert.isDefined(transport.sent[2]);
     expect(transport.sent[2].body).toEqual({
       kind: 'googleIdentityToken',
       identityToken: 'real-id-token',
@@ -170,6 +171,7 @@ describe('native platform credentials', () => {
     const result = await engine.nativeSignIn({ kind: 'passkey' });
 
     expect(result.kind).toBe('continue');
+    assert.isDefined(transport.sent[4]);
     expect(transport.sent[4].path).toBe('/api/auth/native/attempts/attempt-1/second-factor');
     expect(transport.sent[4].body).toEqual({ passkeyResponse: assertion });
     expect(transport.sent.some(({ path }) => path === '/api/oauth/token')).toBe(false);
@@ -295,6 +297,7 @@ describe('native platform credentials', () => {
 
     expect(result.kind).toBe('cancelled');
     expect(ports.authBrowser.opened).toHaveLength(1);
+    assert.isDefined(ports.authBrowser.opened[0]);
     const query = readQueryValues(ports.authBrowser.opened[0].address);
     expect(query.get('provider_id')).toBe('google');
     expect(query.get('locale')).toBe(locale);

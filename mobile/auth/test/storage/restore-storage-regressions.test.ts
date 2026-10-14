@@ -79,7 +79,7 @@ describe('restore with live or owed session state', () => {
     expect(restored).toEqual({ kind: 'restored', status: 'signedIn' });
     expect(engine.snapshot.status).toBe('signedIn');
     expect(response.status).toBe(200);
-    expect(transport.sent.at(-1)?.headers?.Authorization).toBe('Bearer access-secret-2');
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-secret-2');
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
   });
 
@@ -125,9 +125,9 @@ describe('restore with live or owed session state', () => {
     const firstPorts = testPorts(firstTransport);
     const first = createAuthEngine(CONFIG, firstPorts);
     await establishSession(first, firstPorts, firstTransport);
-    const stored = JSON.parse(firstPorts.credentials.value ?? '{}') as {
-      tokens?: Record<string, unknown>;
-    };
+    const stored: { tokens?: { refreshToken?: unknown } } = JSON.parse(
+      firstPorts.credentials.value ?? '{}',
+    );
 
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
@@ -146,8 +146,8 @@ describe('restore with live or owed session state', () => {
       '/api/oauth/token',
       '/api/user/profile',
     ]);
-    expect(transport.sent[1]?.headers?.Authorization).toBe('Bearer access-after-restart');
-    expect(transport.sent[1]?.headers?.Authorization).not.toBe(`Bearer ${ACCESS_TOKEN}`);
+    expect(transport.sent[1]?.headers?.['Authorization']).toBe('Bearer access-after-restart');
+    expect(transport.sent[1]?.headers?.['Authorization']).not.toBe(`Bearer ${ACCESS_TOKEN}`);
     expect(stored.tokens?.refreshToken).toBe(REFRESH_TOKEN);
   });
 

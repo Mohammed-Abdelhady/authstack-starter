@@ -87,7 +87,9 @@ function timer(fault: string, fails: string[], after: (inner: TimerPort) => Time
 describe('sign-in browser faults', () => {
   itCatches([
     browserResult('drops the query of the return address', ['authBrowser.redirect'], (result) =>
-      result.kind === 'redirect' ? { kind: 'redirect', url: result.url.split('?')[0] } : result,
+      result.kind === 'redirect'
+        ? { kind: 'redirect', url: result.url.split('?', 1).join('') }
+        : result,
     ),
     browser(
       'changes the address before opening it',
