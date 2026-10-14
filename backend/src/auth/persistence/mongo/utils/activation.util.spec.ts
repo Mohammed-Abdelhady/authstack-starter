@@ -1,4 +1,14 @@
-import { Connection, Model, Types, createConnection } from 'mongoose';
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
+import {
+  ClientSession,
+  Connection,
+  Model,
+  Types,
+  createConnection,
+} from 'mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import {
@@ -61,17 +71,29 @@ describe('activation account writes', () => {
   });
 
   it('creates the account a verified sign-up code describes', async () => {
-    const user = await withMajorityTransaction(connection, (session) =>
-      createActivatedAccount(
+    const policy = new AccountCreationPolicy();
+    const check = jest.spyOn(policy, 'assertMayCreate');
+    let creatingSession: ClientSession | undefined;
+    const user = await withMajorityTransaction(connection, (session) => {
+      creatingSession = session;
+      return createActivatedAccount(
         signupReserved('new@example.com'),
         'hashed-password',
         'New User',
         users,
         session,
         new Types.ObjectId(),
-      ),
-    );
+        policy,
+      );
+    });
 
+    expect(check).toHaveBeenCalledTimes(1);
+    const [request, work] = check.mock.calls[0];
+    expect(request).toEqual({
+      application: WEB_CLIENT_ID,
+      method: ACCOUNT_CREATION_METHOD.PASSWORD,
+    });
+    expect(mongoSessionOf(work)).toBe(creatingSession);
     const stored = await users.findById(user._id).select('+password');
     expect(stored?.email).toBe('new@example.com');
     expect(stored?.password).toBe('hashed-password');
