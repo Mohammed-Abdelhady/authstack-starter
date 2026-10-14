@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import './run-jest-memory.test.mjs';
+import './run-jest-identity.test.mjs';
 import {
   childExitCode,
   countActiveRuns,
