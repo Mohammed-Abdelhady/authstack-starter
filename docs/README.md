@@ -29,6 +29,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 - [SMTP setup](setup/setup-smtp.md): Email verification and password resets.
 - [SMTP mail service and troubleshooting](setup/setup-smtp-mail-service.md)
 - [SMTP production recommendations](setup/setup-smtp-production.md)
+- [Mail languages and link addresses](setup/setup-mail-links.md): The language each mail is written in, and where its links point.
 - [Magic link setup](setup/setup-magic-link.md): Passwordless email sign-in links.
 - [Two-factor setup](setup/setup-two-factor.md): Time-based one-time password (TOTP) and recovery codes.
 - [Passkey setup](setup/setup-passkeys.md): WebAuthn passkey registration and sign-in.
