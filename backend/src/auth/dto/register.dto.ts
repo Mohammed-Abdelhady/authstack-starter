@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { LanguagePreference } from '../../common/decorators/language-preference.decorator';
 
 /**
  * Registration takes the address only. `password` and `name` stay declared so
@@ -42,4 +43,7 @@ export class RegisterDto {
   @IsOptional()
   @IsString({ message: 'Name must be a string' })
   name?: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

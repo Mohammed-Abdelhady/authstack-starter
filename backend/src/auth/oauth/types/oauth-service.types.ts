@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import type { SupportedLocale } from '../../../common/constants/locales';
 import {
   OAuthCallbackParams,
   OAuthProviderStrategy,
@@ -13,6 +14,8 @@ export interface OAuthLoginParams {
   /** Raw callback parameters, for providers that ship profile data with them. */
   callbackParams?: OAuthCallbackParams;
   response: Response;
+  /** The callback request's language, stored on an account it creates. */
+  locale: SupportedLocale;
 }
 
 export interface OAuthLinkParams extends OAuthLoginParams {

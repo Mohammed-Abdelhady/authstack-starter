@@ -25,6 +25,7 @@ import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-
 import { storedAddress } from './postgres-pending-codes-database';
 import { newPostgresId } from '../../../common/persistence/postgres/postgres-new-id';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import { storedLocale } from '../../../common/constants/locales';
 
 class PostgresActivatedAccount extends ActivatedAccount {
   constructor(readonly signIn: SignInAccount) {
@@ -73,10 +74,16 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('users')
-        .select(['name', 'is_deleted'])
+        .select(['name', 'is_deleted', 'locale'])
         .where('email', '=', storedAddress(email))
         .executeTakeFirst();
-      return row ? { name: row.name ?? '', isDeleted: row.is_deleted } : null;
+      return row
+        ? {
+            name: row.name ?? '',
+            isDeleted: row.is_deleted,
+            locale: storedLocale(row.locale),
+          }
+        : null;
     });
   }
 
@@ -138,6 +145,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
           is_verified: true,
           auth_provider: AuthProvider.EMAIL,
           primary_provider: AuthProvider.EMAIL,
+          locale: account.locale,
           created_at: now,
           updated_at: now,
         })

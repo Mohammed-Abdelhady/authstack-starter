@@ -40,6 +40,8 @@ export interface NativeSdkProvider extends Pick<
 }
 
 const FETCH = global.fetch;
+/** An address with no account, so a provider sign-in creates one. */
+const NEWCOMER = 'native-newcomer@example.test';
 const ONLY_THE_CALENDAR = [
   'hrtime',
   'nextTick',
@@ -204,6 +206,49 @@ export function describeNativeProviderProof(provider: NativeSdkProvider): void {
           body: approved.body,
         }).stage,
       ).toBe('codeReady');
+    });
+
+    /** A sign-in for the newcomer, with extra body fields and a header language. */
+    async function signUp(
+      extra: Record<string, unknown>,
+      language: string,
+      status: number,
+    ) {
+      const attempt = await start();
+      const body = await credential(attempt.providerNonceDigest, {
+        email: NEWCOMER,
+      });
+      return request(e2e.httpServer)
+        .post(`/api/auth/native/attempts/${attempt.attemptId}/provider`)
+        .set('X-Native-Attempt', attempt.attemptSecret)
+        .set('Accept-Language', language)
+        .send({ ...body, ...extra })
+        .expect(status);
+    }
+
+    // Facebook never creates an account for an address it cannot link.
+    if (provider.id !== 'facebook') {
+      // feature:locale-ar:start
+      it('stores the body language of a first sign-up over the header', async () => {
+        await signUp({ locale: 'ar' }, 'en', 201);
+        expect(
+          (await e2e.state.accounts.accountWithAddress(NEWCOMER))?.locale,
+        ).toBe('ar');
+      });
+      // feature:locale-ar:end
+
+      it('signs up with a body language the build lacks, stored as en', async () => {
+        await signUp({ locale: 'fr' }, 'en', 201);
+        expect(
+          (await e2e.state.accounts.accountWithAddress(NEWCOMER))?.locale,
+        ).toBe('en');
+      });
+    }
+
+    it('still refuses an unknown body key beside the language', async () => {
+      await signUp({ locale: 'en', email: NEWCOMER }, 'en', 400);
+      expect(await e2e.state.accounts.accountIdFor(NEWCOMER)).toBeNull();
+      expect(await e2e.state.sessions.countSessions()).toBe(0);
     });
 
     it('rejects a claimed nonce different from the stored attempt', async () => {

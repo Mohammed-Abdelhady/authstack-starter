@@ -87,6 +87,7 @@ describe('OAuthService sign-in', () => {
       code: 'auth-code',
       redirectUri: 'https://api.example.com/callback',
       response,
+      locale: 'en',
     });
 
     expect(outcome).toEqual({ requiresTwoFactor: true });

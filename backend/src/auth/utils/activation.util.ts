@@ -11,6 +11,7 @@ import {
   ActivationSignIn,
 } from '../pending-codes/activation-accounts';
 import { activationCodeInvalid } from './activation-error.util';
+import type { SupportedLocale } from '../../common/constants/locales';
 
 const logger = new Logger('Activation');
 
@@ -24,16 +25,21 @@ const logger = new Logger('Activation');
  * @param accounts - The account store
  * @param unitOfWork - The unit of work the insert must join
  * @param reserved - The generation verifyCode compared
- * @param account - Password hash, name and the id generated before the unit
- *   of work, so an unknown commit can be resolved by looking this exact
- *   account up afterwards
+ * @param account - Password hash, name, the request's language, and the id
+ *   generated before the unit of work, so an unknown commit can be resolved
+ *   by looking this exact account up afterwards
  * @throws AppException ACTIVATION_CODE_INVALID when an account already exists
  */
 export async function createActivatedAccount(
   accounts: ActivationAccounts,
   unitOfWork: UnitOfWork,
   reserved: ReservedCode,
-  account: { id: string; passwordHash: string; name: string },
+  account: {
+    id: string;
+    passwordHash: string;
+    name: string;
+    locale: SupportedLocale;
+  },
 ): Promise<ActivatedAccount> {
   if (await accounts.hasActiveAccount(unitOfWork, reserved.email)) {
     throw activationCodeInvalid();
@@ -45,6 +51,7 @@ export async function createActivatedAccount(
       email: reserved.email,
       passwordHash: account.passwordHash,
       name: account.name,
+      locale: account.locale,
     });
   } catch (error) {
     // A second account for the same address can win between the read and the

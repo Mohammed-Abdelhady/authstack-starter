@@ -13,7 +13,7 @@ import {
 
 const EMAIL = 'link@example.test';
 const REQUEST_CALLS = [
-  'accounts.hasDeletedAccount',
+  'accounts.findLinkRecipient',
   'links.takeRequestSlot',
   'links.insertLink',
 ];

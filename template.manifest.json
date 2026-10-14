@@ -319,7 +319,9 @@
         "mobile/ui/assets/fonts/AppUIArabic-*.ttf",
         "mobile/ui/assets/fonts/OFL-NotoSansArabic.txt",
         "mobile/expo/src/i18n/ar.ts",
-        "frontend/src/app/arabic-font.css"
+        "frontend/src/app/arabic-font.css",
+        "backend/src/mail/catalog/ar/**",
+        "backend/test/mail/mail-locale-ar.e2e-spec.ts"
       ],
       "docs": [],
       "catalogueKeys": [

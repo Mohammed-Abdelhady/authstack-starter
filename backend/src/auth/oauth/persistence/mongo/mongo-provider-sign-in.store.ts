@@ -91,6 +91,7 @@ export class MongoProviderSignInStore extends ProviderSignInStore {
           },
         ],
         role: account.role,
+        locale: account.locale,
       });
       return this.read.remember(user);
     } catch (error) {

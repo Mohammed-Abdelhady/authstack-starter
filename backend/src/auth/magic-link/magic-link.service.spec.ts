@@ -39,7 +39,7 @@ describe('MagicLinkService', () => {
         }),
       );
       expect(harness.authMailService.sendMagicLink).toHaveBeenCalledWith(
-        EMAIL,
+        { email: EMAIL, locale: 'en' },
         expect.stringContaining(
           'http://localhost:3000/auth/magic-link/verify?token=',
         ) as string,
@@ -67,7 +67,10 @@ describe('MagicLinkService', () => {
     });
 
     it('should send nothing for a soft-deleted account and answer the same way', async () => {
-      harness.userModel.exists.mockResolvedValueOnce({ _id: MOCK_USER._id });
+      harness.userModel.findOne.mockResolvedValueOnce({
+        ...MOCK_USER,
+        isDeleted: true,
+      });
 
       const result = await harness.service.request(
         { email: EMAIL },
@@ -235,6 +238,7 @@ describe('MagicLinkService', () => {
         isVerified: true,
         authProvider: 'email',
         primaryProvider: 'email',
+        locale: 'en',
       });
     });
 

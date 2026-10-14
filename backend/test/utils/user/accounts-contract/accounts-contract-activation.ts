@@ -46,6 +46,7 @@ export function accountActivationCases(
         name: ' New One ',
       },
       RESPONSE,
+      'en',
     );
 
     const id = await harness().accountIdByEmail('new@example.test');
@@ -77,6 +78,7 @@ export function accountActivationCases(
             name: 'Again',
           },
           RESPONSE,
+          'en',
         ),
       ),
     ).toEqual(CODE_INVALID);
@@ -100,6 +102,7 @@ export function accountActivationCases(
           name: 'Late',
         },
         RESPONSE,
+        'en',
       ),
     );
     try {
@@ -135,6 +138,7 @@ export function accountActivationCases(
             name: 'X',
           },
           RESPONSE,
+          'en',
         ),
       ),
     ).toEqual(CODE_INVALID);

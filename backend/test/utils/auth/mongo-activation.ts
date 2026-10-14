@@ -21,6 +21,7 @@ import {
   mongoUnitOfWork,
 } from '../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { UserDocument } from '../../../src/user/persistence/mongo/schemas/user.schema';
+import { DEFAULT_LOCALE } from '../../../src/common/constants/locales';
 
 /** The registration service on the MongoDB adapters over the given model. */
 export function mongoRegistrationService(
@@ -71,7 +72,7 @@ export async function createActivatedAccount(
     new MongoActivationAccounts(userModel),
     mongoUnitOfWork(session),
     reserved,
-    { id: accountId.toString(), passwordHash, name },
+    { id: accountId.toString(), passwordHash, name, locale: DEFAULT_LOCALE },
   );
   return { _id: new Types.ObjectId(account.id) };
 }

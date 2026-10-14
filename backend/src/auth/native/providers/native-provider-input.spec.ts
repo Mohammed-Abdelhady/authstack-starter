@@ -55,6 +55,44 @@ describe('native provider request credentials', () => {
     expect(() => nativeProviderInput(credential)).toThrow();
   });
 
+  it.each(['en', 'fr-CA', 'x'.repeat(35)])(
+    'takes a body language of %j out before checking the credential',
+    (locale) => {
+      expect(
+        nativeProviderInput({
+          kind: 'googleIdentityToken',
+          identityToken: 'signed-google-token',
+          nonceDigest: NONCE,
+          locale,
+        }),
+      ).toEqual({
+        kind: 'googleIdentityToken',
+        identityToken: 'signed-google-token',
+        nonceDigest: NONCE,
+      });
+    },
+  );
+
+  it.each([
+    { label: 'a language that is not text', extra: { locale: 7 } },
+    {
+      label: 'a language over 35 characters',
+      extra: { locale: 'x'.repeat(36) },
+    },
+    {
+      label: 'an unknown key beside a language',
+      extra: { locale: 'en', email: 'untrusted@example.test' },
+    },
+  ])('refuses $label', ({ extra }) => {
+    expect(() =>
+      nativeProviderInput({
+        kind: 'facebookAccessToken',
+        accessToken: 'opaque-access-token',
+        ...extra,
+      }),
+    ).toThrow();
+  });
+
   it.each([16_383, 16_384])('accepts a token of %i characters', (length) => {
     expect(
       nativeProviderInput({

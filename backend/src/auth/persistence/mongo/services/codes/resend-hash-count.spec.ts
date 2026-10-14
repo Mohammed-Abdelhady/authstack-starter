@@ -162,13 +162,13 @@ describe('resend activation hash count', () => {
   it('hashes once for a verified account', async () => {
     await users.create({ email: DTO.email, name: 'Known', isVerified: true });
 
-    await registrationService.resendActivation(DTO);
+    await registrationService.resendActivation(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
   });
 
   it('hashes once for an unknown address', async () => {
-    await registrationService.resendActivation(DTO);
+    await registrationService.resendActivation(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
     expect(await registrations.countDocuments({ email: DTO.email })).toBe(0);
@@ -185,7 +185,7 @@ describe('resend activation hash count', () => {
   it('hashes once for an over-cap register', async () => {
     await capTheCounter(MAIL_COUNTER_PURPOSE.SIGNUP);
 
-    await registrationService.register(DTO);
+    await registrationService.register(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
     expect(await registrations.countDocuments({ email: DTO.email })).toBe(0);
@@ -194,7 +194,7 @@ describe('resend activation hash count', () => {
   it('hashes once for an over-cap resend', async () => {
     await capTheCounter(MAIL_COUNTER_PURPOSE.SIGNUP);
 
-    await registrationService.resendActivation(DTO);
+    await registrationService.resendActivation(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
     expect(await registrations.countDocuments({ email: DTO.email })).toBe(0);
@@ -208,7 +208,7 @@ describe('resend activation hash count', () => {
       }),
     );
 
-    await registrationService.resendActivation(DTO);
+    await registrationService.resendActivation(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
     expect(await registrations.countDocuments({ email: DTO.email })).toBe(0);
@@ -222,7 +222,7 @@ describe('resend activation hash count', () => {
       }),
     );
 
-    await registrationService.resendActivation(DTO);
+    await registrationService.resendActivation(DTO, 'en');
 
     expect(hashSpy).toHaveBeenCalledTimes(1);
     const record = await registrations

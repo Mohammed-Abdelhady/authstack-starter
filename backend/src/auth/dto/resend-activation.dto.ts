@@ -1,6 +1,7 @@
 import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { LanguagePreference } from '../../common/decorators/language-preference.decorator';
 
 export class ResendActivationDto {
   @ApiProperty({
@@ -13,4 +14,7 @@ export class ResendActivationDto {
   @IsNotEmpty({ message: 'Email is required' })
   @Transform(({ value }: { value: string }) => value?.toLowerCase()?.trim())
   email!: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

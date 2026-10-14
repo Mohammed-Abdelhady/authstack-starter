@@ -312,7 +312,7 @@ describe('AdminUsersService', () => {
         mockEmailChangeService.assertAddressAvailable,
       ).toHaveBeenCalledWith('new@example.com', UserRole.ADMIN);
       expect(mockEmailChangeService.notifyPreviousAddress).toHaveBeenCalledWith(
-        'target@example.com',
+        { email: 'target@example.com', locale: 'en' },
       );
       expect(mockEmailChangeService.sendConfirmation).toHaveBeenCalledWith(
         expect.objectContaining({

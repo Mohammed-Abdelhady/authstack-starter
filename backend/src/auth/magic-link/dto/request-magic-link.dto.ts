@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { LanguagePreference } from '../../../common/decorators/language-preference.decorator';
 
 export class RequestMagicLinkDto {
   @ApiProperty({
@@ -28,4 +29,7 @@ export class RequestMagicLinkDto {
   @IsOptional()
   @IsString()
   redirect?: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

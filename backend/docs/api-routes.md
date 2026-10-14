@@ -94,7 +94,7 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 | Method | Path                               | Who may call it | Closed by               | What it does                                       |
 | ------ | ---------------------------------- | --------------- | ----------------------- | -------------------------------------------------- |
 | GET    | `/api/user/profile`                | Signed in       |                         | Returns the signed-in account                      |
-| PATCH  | `/api/user/profile`                | Signed in       |                         | Updates the profile                                |
+| PATCH  | `/api/user/profile`                | Signed in       |                         | Updates the name or the mail language              |
 | POST   | `/api/user/password`               | Signed in       | `AUTH_PASSWORD_ENABLED` | Changes the password, given the current one        |
 | DELETE | `/api/user/account`                | Signed in       |                         | Deactivates the own account and ends its sessions  |
 | GET    | `/api/user/sessions`               | Signed in       |                         | Lists the active sessions of the account           |

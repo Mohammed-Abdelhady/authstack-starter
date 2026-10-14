@@ -24,6 +24,7 @@ import {
   OAuthProviderSummary,
 } from './oauth-provider.interface';
 import { sanitizeRedirectPath } from '../../common/utils/redirect.util';
+import { requestLocaleOf } from '../../common/decorators/request-locale.decorator';
 import { toCallbackParams } from './utils/callback-params.util';
 import { OAuthRedirectService } from './oauth-redirect.service';
 
@@ -213,6 +214,7 @@ export class OAuthController {
         nonce: payload.nonce,
         callbackParams: params,
         response,
+        locale: requestLocaleOf(request),
       };
 
       if (payload.intent === 'link') {

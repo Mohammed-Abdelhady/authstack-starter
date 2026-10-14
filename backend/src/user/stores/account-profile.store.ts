@@ -1,5 +1,12 @@
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { StoredAccount } from './stored-account';
+import type { SupportedLocale } from '../../common/constants/locales';
+
+/** What a person may change on their own profile. Absent means unchanged. */
+export interface ProfileChanges {
+  name?: string;
+  locale?: SupportedLocale;
+}
 
 /** What the password check reads. The hash never leaves with a profile. */
 export interface AccountPassword {
@@ -29,10 +36,10 @@ export abstract class AccountProfileStore {
   /** The profile without the password hash. */
   abstract findProfile(userId: string): Promise<StoredAccount | null>;
   abstract findAccount(userId: string): Promise<StoredAccount | null>;
-  /** Stores the account again, with the new name when one is given. */
+  /** Stores the account again, with each change that is given. */
   abstract saveProfile(
     account: StoredAccount,
-    changes: { name?: string },
+    changes: ProfileChanges,
   ): Promise<StoredAccount>;
   abstract findPassword(userId: string): Promise<AccountPassword | null>;
   abstract findPrimaryProvider(userId: string): Promise<string | undefined>;

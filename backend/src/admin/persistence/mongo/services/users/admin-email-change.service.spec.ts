@@ -135,7 +135,7 @@ describe('AdminEmailChangeService', () => {
       addressGeneration: 1,
     });
     expect(mockAuthMailService.sendEmailChangeCode).toHaveBeenCalledWith(
-      'new@example.com',
+      { email: 'new@example.com', locale: 'en' },
       '123456',
     );
     expect((await storedTarget(target)).email).toBe('old@example.com');

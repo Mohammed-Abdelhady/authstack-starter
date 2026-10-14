@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Response } from 'express';
 import { Model } from 'mongoose';
 import { AuthProvider } from '../../../../user/enums/auth-provider.enum';
+import { storedLocale } from '../../../../common/constants/locales';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { UniqueConflictError } from '../../../../common/persistence/persistence-errors';
 import { isMongoDuplicateKeyError } from '../../../../common/persistence/mongo/mongo-error.util';
@@ -18,6 +19,7 @@ import {
 import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
+  LinkRecipient,
   MAGIC_LINK_ACCOUNT_CONSTRAINT,
   MagicLinkAccount,
   MagicLinkAccounts,
@@ -80,11 +82,19 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
     return user ? new MongoMagicLinkAccount(user) : null;
   }
 
-  async hasDeletedAccount(email: string): Promise<boolean> {
-    const deleted = await singleStatement(() =>
-      this.userModel.exists({ email: { $eq: email }, isDeleted: true }),
+  async findLinkRecipient(email: string): Promise<LinkRecipient | null> {
+    const user = await singleStatement(() =>
+      this.userModel.findOne(
+        { email: { $eq: email } },
+        { isDeleted: 1, locale: 1 },
+      ),
     );
-    return deleted !== null;
+    return user
+      ? {
+          isDeleted: user.isDeleted === true,
+          locale: storedLocale(user.locale),
+        }
+      : null;
   }
 
   async markVerified(account: MagicLinkAccount): Promise<void> {
@@ -115,6 +125,7 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
         isVerified: true,
         authProvider: AuthProvider.EMAIL,
         primaryProvider: AuthProvider.EMAIL,
+        locale: account.locale,
       }),
     );
     return new MongoMagicLinkAccount(user);
@@ -133,6 +144,7 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
             isVerified: true,
             authProvider: AuthProvider.EMAIL,
             primaryProvider: AuthProvider.EMAIL,
+            locale: account.locale,
           },
         ],
         { session: mongoSessionOf(unitOfWork) },
