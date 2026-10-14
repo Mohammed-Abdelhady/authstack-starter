@@ -118,8 +118,14 @@ export function roleRuleCases(
   });
 
   it('counts a permission the actor holds on the account itself', async () => {
+    await harness().seedRole({
+      name: 'Delegates',
+      slug: 'delegates',
+      level: 2,
+      permissions: [READ_POSTS],
+    });
     const delegate = await harness().seedAccount({
-      role: EDITOR_SLUG,
+      role: 'delegates',
       permissions: [CREATE_ROLES],
     });
 

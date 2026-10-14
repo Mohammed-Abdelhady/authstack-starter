@@ -18,6 +18,19 @@ import {
   PASSWORD_POLICY_DESCRIPTION as SharedPasswordPolicyDescription,
   PASSWORD_REQUIREMENTS_MESSAGE as SharedPasswordRequirementsMessage,
 } from '../../../../shared/core/src/password-rules';
+import {
+  HOST_PERMISSIONS as SharedHostPermissions,
+  HOST_ROLES as SharedHostRoles,
+  ROLE_AUDIENCE as SharedRoleAudience,
+} from '../../../../shared/core/src/host-access';
+import {
+  HOST_PERMISSIONS as BackendHostPermissions,
+  HOST_ROLES as BackendHostRoles,
+} from '../../host/access';
+import {
+  HostRole,
+  ROLE_AUDIENCE as BackendRoleAudience,
+} from '../../host/types/host-role.type';
 
 // Backend-only error codes the web client maps by status code or a generic message instead.
 const BACKEND_ONLY_ERROR_CODES = [
@@ -39,6 +52,13 @@ const ERROR_STATUSES = Array.from({ length: 200 }, (_, index) => 400 + index);
 
 function sortedStrings(values: readonly unknown[]): string[] {
   return [...new Set(values.map(String))].sort();
+}
+
+/** Host roles by slug, each with its permissions as a sorted set. */
+function comparableRoles(roles: readonly HostRole[]): HostRole[] {
+  return [...roles]
+    .map((role) => ({ ...role, permissions: sortedStrings(role.permissions) }))
+    .sort((left, right) => left.slug.localeCompare(right.slug));
 }
 
 interface FilterReply {
@@ -82,6 +102,22 @@ describe('shared core drift', () => {
     const shared = sortedStrings(SharedAllPermissions);
 
     expect(shared).toEqual(backend);
+  });
+
+  it('keeps the same host permission strings on both sides', () => {
+    expect(sortedStrings(SharedHostPermissions)).toEqual(
+      sortedStrings(BackendHostPermissions),
+    );
+  });
+
+  it('keeps the same host roles on both sides', () => {
+    expect(comparableRoles(SharedHostRoles)).toEqual(
+      comparableRoles(BackendHostRoles),
+    );
+  });
+
+  it('keeps the same role audiences on both sides', () => {
+    expect(SharedRoleAudience).toEqual(BackendRoleAudience);
   });
 
   it('keeps the same error-code values except the named one-sided ones', () => {
