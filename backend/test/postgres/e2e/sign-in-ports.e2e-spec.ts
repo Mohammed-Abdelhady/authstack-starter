@@ -156,11 +156,13 @@ describe('the sign-in ports on the running database (e2e)', () => {
   });
 
   it('signs in an account a magic link created', async () => {
-    const created = await port(MagicLinkAccounts).createPasswordless({
-      email: 'passwordless@example.test',
-      name: 'Passwordless',
-      locale: 'en',
-    });
+    const created = await port(UnitOfWorkRunner).run((work) =>
+      port(MagicLinkAccounts).createPasswordlessIn(work, {
+        email: 'passwordless@example.test',
+        name: 'Passwordless',
+        locale: 'en',
+      }),
+    );
     const { response } = browser('Link/2');
 
     const outcome = await port(MagicLinkSignIn).complete(created, response);

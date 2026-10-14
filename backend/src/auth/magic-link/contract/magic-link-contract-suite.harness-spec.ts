@@ -38,6 +38,8 @@ export function describeMagicLinkContract(
       await current().reset();
     }, budgets.resetMs);
 
+    afterEach(() => jest.restoreAllMocks());
+
     describe('requesting a link', () => magicLinkCases(current));
     describe('the hourly cap', () => magicLinkCapCases(current));
     describe('the browser that asked', () => magicLinkBrowserCases(current));

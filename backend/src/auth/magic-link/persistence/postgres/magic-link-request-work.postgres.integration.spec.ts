@@ -1,3 +1,4 @@
+import { PostgresUnitOfWorkRunner } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import { KyselyPlugin } from 'kysely';
 import { openTestConnection } from '../../../../../test/postgres/postgres-connection';
 import {
@@ -40,6 +41,7 @@ async function bootPostgresProbe(): Promise<RequestWorkProbe> {
   return {
     links: new PostgresMagicLinkStore(counted),
     accounts: new PostgresMagicLinkAccounts(counted),
+    runner: new PostgresUnitOfWorkRunner(counted),
     takeStatements: () => {
       const sent = statements;
       statements = 0;

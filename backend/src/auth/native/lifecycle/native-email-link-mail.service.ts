@@ -23,6 +23,8 @@ import { currentRequestId } from '../../../common/context/request-context';
 import { NATIVE_EMAIL_CALLBACK_PARAM } from '../constants/native-lifecycle.constants';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
+import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 
@@ -38,6 +40,7 @@ export class NativeEmailLinkMailService {
     private readonly authMail: AuthMailService,
     private readonly dispatcher: MailDispatcherService,
     private readonly clock: Clock,
+    private readonly policy: AccountCreationPolicy,
   ) {
     this.maxPerHour = this.config.get<number>('magicLink.maxPerHour', 5);
   }
@@ -90,6 +93,7 @@ export class NativeEmailLinkMailService {
     unitOfWork: UnitOfWork,
     email: string,
     locale: SupportedLocale,
+    clientId: string,
   ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmailIn(unitOfWork, email);
     if (existing?.isDeleted) throw this.invalidNativeLink();
@@ -104,6 +108,10 @@ export class NativeEmailLinkMailService {
       }
       return verified;
     }
+    await this.policy.assertMayCreate(
+      { application: clientId, method: ACCOUNT_CREATION_METHOD.MAGIC_LINK },
+      unitOfWork,
+    );
     return this.accounts.createPasswordlessIn(unitOfWork, {
       email,
       name: deriveNameFromEmail(email),
