@@ -1,4 +1,7 @@
-import { rejectionOf } from '../../../test/utils/session/issuance-contract/issuance-contract-support';
+import {
+  rejectionOf,
+  rerunAtOnce,
+} from '../../../test/utils/session/issuance-contract/issuance-contract-support';
 import { storedAccount } from '../../../test/utils/user/accounts-contract/accounts-contract-support';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
 import {
@@ -152,19 +155,22 @@ export function firstProviderSignInCases(
   });
 
   it('stores a verified account for a new provider identity', async () => {
-    const { providerSignIn } = harness();
+    const current = harness();
+    const { providerSignIn } = current;
 
-    const created = await providerSignIn.createFromProvider({
-      provider: 'google',
-      providerId: 'google-new',
-      email: NEW_ADDRESS,
-      name: 'New Comer',
-      avatarUrl: 'https://img.example.test/new.png',
-      role: 'user',
-      locale: 'en',
-    });
+    const created = await current.runner(rerunAtOnce).run((work) =>
+      providerSignIn.createFromProviderIn(work, {
+        provider: 'google',
+        providerId: 'google-new',
+        email: NEW_ADDRESS,
+        name: 'New Comer',
+        avatarUrl: 'https://img.example.test/new.png',
+        role: 'user',
+        locale: 'en',
+      }),
+    );
 
-    const stored = await storedAccount(harness(), created.id);
+    const stored = await storedAccount(current, created.id);
     expect({
       returned: {
         email: created.email,
@@ -187,9 +193,9 @@ export function firstProviderSignInCases(
         authProvider: stored.authProvider,
         primaryProvider: stored.primaryProvider,
       },
-      avatarUrl: (await harness().syncFacts(created.id))?.avatarUrl,
-      links: await harness().storedLinks(created.id),
-      found: (await harness().accountIdByEmail(NEW_ADDRESS)) === created.id,
+      avatarUrl: (await current.syncFacts(created.id))?.avatarUrl,
+      links: await current.storedLinks(created.id),
+      found: (await current.accountIdByEmail(NEW_ADDRESS)) === created.id,
     }).toEqual({
       returned: {
         email: NEW_ADDRESS,
@@ -220,16 +226,19 @@ export function firstProviderSignInCases(
 
   it('finds and stores an address whatever its case and the space around it', async () => {
     const { ownerId } = fixture();
-    const { providerSignIn } = harness();
+    const current = harness();
+    const { providerSignIn } = current;
 
-    const created = await providerSignIn.createFromProvider({
-      provider: 'google',
-      providerId: 'google-mixed',
-      email: '  Mixed@Example.TEST ',
-      name: '  Mixed Case  ',
-      role: 'user',
-      locale: 'en',
-    });
+    const created = await current.runner(rerunAtOnce).run((work) =>
+      providerSignIn.createFromProviderIn(work, {
+        provider: 'google',
+        providerId: 'google-mixed',
+        email: '  Mixed@Example.TEST ',
+        name: '  Mixed Case  ',
+        role: 'user',
+        locale: 'en',
+      }),
+    );
 
     expect({
       owner: (await providerSignIn.findByAddress('  OWNER@example.TEST '))?.id,
@@ -247,17 +256,20 @@ export function firstProviderSignInCases(
 
   it('refuses a new account for a taken address and stores no link', async () => {
     const { ownerId } = fixture();
-    const { providerSignIn } = harness();
+    const current = harness();
+    const { providerSignIn } = current;
 
     const refused = await rejectionOf(
-      providerSignIn.createFromProvider({
-        provider: 'google',
-        providerId: 'google-clash',
-        email: OWNER_EMAIL,
-        name: 'Clash',
-        role: 'user',
-        locale: 'en',
-      }),
+      current.runner(rerunAtOnce).run((work) =>
+        providerSignIn.createFromProviderIn(work, {
+          provider: 'google',
+          providerId: 'google-clash',
+          email: OWNER_EMAIL,
+          name: 'Clash',
+          role: 'user',
+          locale: 'en',
+        }),
+      ),
     );
 
     expect({
@@ -271,24 +283,58 @@ export function firstProviderSignInCases(
   });
 
   it('refuses a new account for a taken identity and stores no account', async () => {
-    const { providerSignIn } = harness();
+    const current = harness();
+    const { providerSignIn } = current;
     const owner = await providerSignIn.findByAddress(OWNER_EMAIL);
     if (!owner) throw new Error('the owner was not found');
     await providerSignIn.linkFirstSignIn(owner, GOOGLE_OWNER);
 
     const refused = await rejectionOf(
-      providerSignIn.createFromProvider({
-        ...GOOGLE_OWNER,
-        email: NEW_ADDRESS,
-        name: 'New Comer',
-        role: 'user',
-        locale: 'en',
-      }),
+      current.runner(rerunAtOnce).run((work) =>
+        providerSignIn.createFromProviderIn(work, {
+          ...GOOGLE_OWNER,
+          email: NEW_ADDRESS,
+          name: 'New Comer',
+          role: 'user',
+          locale: 'en',
+        }),
+      ),
     );
 
     expect({
       rule: conflictOf(refused),
       stored: await harness().accountIdByEmail(NEW_ADDRESS),
     }).toEqual({ rule: IDENTITY_RULE, stored: null });
+  });
+
+  it('rolls back both account and identity when its creating transaction aborts', async () => {
+    const abort = new Error('abort provider creation');
+    const current = harness();
+    let createdId: string | undefined;
+    await expect(
+      current.runner(rerunAtOnce).run(async (work) => {
+        const account = await current.providerSignIn.createFromProviderIn(
+          work,
+          {
+            provider: 'google',
+            providerId: 'google-aborted',
+            email: NEW_ADDRESS,
+            name: 'Aborted Account',
+            role: 'user',
+            locale: 'en',
+          },
+        );
+        createdId = account.id;
+        throw abort;
+      }),
+    ).rejects.toBe(abort);
+    if (!createdId)
+      throw new Error('the transaction did not insert an account');
+
+    expect({
+      address: await current.accountIdByEmail(NEW_ADDRESS),
+      account: await current.account(createdId),
+      links: await current.storedLinks(createdId),
+    }).toEqual({ address: null, account: null, links: [] });
   });
 }

@@ -2,6 +2,7 @@ import { DynamicModule, Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth.module';
 import { UserModule } from '../../user/user.module';
+import { SessionModule } from '../../session/session.module';
 import { OAUTH_STRATEGIES } from './oauth.constants';
 import { OAuthProviderStrategy } from './oauth-provider.interface';
 import { OAuthController } from './oauth.controller';
@@ -35,6 +36,7 @@ export class OAuthModule {
         // makes Nest register the module a second time under another key.
         AuthModule,
         UserModule,
+        SessionModule,
       ],
       controllers: [OAuthController],
       providers: [
