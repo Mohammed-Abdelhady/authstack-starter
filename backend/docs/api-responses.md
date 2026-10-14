@@ -109,9 +109,13 @@ All error responses follow this structure:
 
 ### Registration Errors
 
-| Code                             | HTTP Status | Description                                    |
-| -------------------------------- | ----------- | ---------------------------------------------- |
-| `REGISTRATION_CONTRACT_OUTDATED` | 400         | Register body still carries a password or name |
+| Code                             | HTTP Status | Description                                                                                                                                                                   |
+| -------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `REGISTRATION_CONTRACT_OUTDATED` | 400         | Register body still carries a password or name                                                                                                                                |
+| `ACCOUNT_CREATION_REFUSED`       | 403         | Creating a new account was refused by the account-creation policy for password sign-up and its code request, magic link, app email link, provider sign-in, or staff creation. |
+
+A browser provider sign-in reports `ACCOUNT_CREATION_REFUSED` through the
+callback redirect's error code instead of a 403 response body.
 
 ### Activation Errors
 
