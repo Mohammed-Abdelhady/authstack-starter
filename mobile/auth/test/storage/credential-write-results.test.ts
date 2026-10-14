@@ -1,3 +1,8 @@
+import {
+  REFRESH_ROTATED_TOKEN,
+  REFRESH_BEFORE_REFRESH_TOKEN,
+  REFRESH_AFTER_REFRESH_TOKEN,
+} from '../support/token-values';
 import { HTTP_METHOD, createApiClient } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { CredentialStoreError } from '../../src';
@@ -9,6 +14,7 @@ import { refreshRequests } from '../support/device-bound-support';
 import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   type CredentialWrite,
   ScriptedTransport,
@@ -28,7 +34,7 @@ async function rotatedWhileRefused(refusal: CredentialWrite) {
   const engine = createAuthEngine(CONFIG, ports);
   await establishSession(engine, ports, transport);
   ports.clock.advance(ACCESS_TOKEN_LIFETIME_MS);
-  transport.enqueue(oauthTokenReply('access-rotated', 'refresh-rotated'), apiReply({}));
+  transport.enqueue(oauthTokenReply('access-rotated', REFRESH_ROTATED_TOKEN), apiReply({}));
   // The marker before the refresh is saved. The rotated record after it is refused.
   ports.credentials.beforeReplace = async (value) =>
     value.includes('"refreshInFlight":true') ? undefined : refusal;
@@ -80,7 +86,7 @@ describe('a rotated token the locked store refused', () => {
     });
     expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe('Bearer access-rotated');
     expect(storedRecord(ports.credentials.value)).toMatchObject({
-      tokens: { refreshToken: 'refresh-secret-0' },
+      tokens: { refreshToken: REFRESH_TOKEN },
       refreshInFlight: true,
     });
   });
@@ -93,7 +99,7 @@ describe('a rotated token the locked store refused', () => {
 
     expect(outcome).toEqual({ kind: 'restored', status: 'signedIn' });
     expect(storedRecord(ports.credentials.value)).toMatchObject({
-      tokens: { refreshToken: 'refresh-rotated' },
+      tokens: { refreshToken: REFRESH_ROTATED_TOKEN },
     });
     expect(ports.credentials.value).not.toContain('refreshInFlight');
     expect(engine.snapshot.warning).toBeUndefined();
@@ -114,7 +120,7 @@ describe('a rotated token the locked store refused', () => {
       reason: 'storageLocked',
     });
     expect(storedRecord(ports.credentials.value)).toMatchObject({
-      tokens: { refreshToken: 'refresh-secret-0' },
+      tokens: { refreshToken: REFRESH_TOKEN },
       refreshInFlight: true,
     });
     expect(refreshRequests(transport)).toHaveLength(1);
@@ -143,7 +149,7 @@ describe('a late rotated token after dispose, with the store locked', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before-refresh',
-      refreshToken: 'refresh-before-refresh',
+      refreshToken: REFRESH_BEFORE_REFRESH_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'locked-write-lineage',
@@ -162,15 +168,15 @@ describe('a late rotated token after dispose, with the store locked', () => {
       runtime,
       createApiClient(transport),
       'install-digest',
-      'refresh-before-refresh',
+      REFRESH_BEFORE_REFRESH_TOKEN,
       {
         accessToken: 'access-after-refresh',
-        refreshToken: 'refresh-after-refresh',
+        refreshToken: REFRESH_AFTER_REFRESH_TOKEN,
         lineageId: 'locked-write-lineage',
       },
     );
 
-    expect(revokedTokens(transport)).toEqual(['refresh-after-refresh']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_AFTER_REFRESH_TOKEN]);
     expect(ports.credentials.value).toBe(marker);
     expect(ports.timer.pending).toBe(0);
   });

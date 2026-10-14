@@ -1,3 +1,4 @@
+import { REFRESH_ROTATED_TOKEN, REFRESH_CURRENT_TOKEN } from '../../support/token-values';
 import { ApiError, createApiClient } from '@app/sdk';
 import type { TransportResponse } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
@@ -46,7 +47,7 @@ describe('disposed refresh writes that time out and later land', () => {
       if (readsCompleted === 2) settleReadCompleted = true;
     };
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-rotated')) return;
+      if (!value.includes(REFRESH_ROTATED_TOKEN)) return;
       writeStarted.resolve();
       await releaseWrite.promise;
     };
@@ -60,7 +61,7 @@ describe('disposed refresh writes that time out and later land', () => {
 
     await requestStarted.promise;
     runtime.dispose();
-    response.resolve(oauthTokenReply('access-rotated', 'refresh-rotated'));
+    response.resolve(oauthTokenReply('access-rotated', REFRESH_ROTATED_TOKEN));
     await writeStarted.promise;
     ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
     await settleReadQueued.promise;
@@ -70,7 +71,7 @@ describe('disposed refresh writes that time out and later land', () => {
     await runtime.writeTail;
 
     expect(settleReadCompleted).toBe(true);
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-rotated"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_ROTATED_TOKEN}"`);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(revokedTokens(transport)).toEqual([]);
     expect(ports.timer.pending).toBe(0);
@@ -101,7 +102,8 @@ describe('disposed refresh writes that time out and later land', () => {
         if (operation === 'read' && ++readsQueued === 1) correctionReadQueued.resolve();
       };
       ports.credentials.beforeReplace = async (value) => {
-        if (!value.includes('refresh-current') || value.includes('"refreshInFlight":true')) return;
+        if (!value.includes(REFRESH_CURRENT_TOKEN) || value.includes('"refreshInFlight":true'))
+          return;
         clearWriteStarted.resolve();
         await releaseWrite.promise;
       };
@@ -124,7 +126,7 @@ describe('disposed refresh writes that time out and later land', () => {
       await correctionReadQueued.promise;
       await runtime.writeTail;
 
-      expect(ports.credentials.value).toContain('"refreshToken":"refresh-current"');
+      expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_CURRENT_TOKEN}"`);
       expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
       expect(revokedTokens(transport)).toEqual([]);
       expect(ports.timer.pending).toBe(0);
@@ -136,7 +138,7 @@ function makeRuntime(ports: ReturnType<typeof testPorts>): AuthRuntime {
   const runtime = new AuthRuntime(CONFIG, ports);
   const tokens: RuntimeTokens = {
     accessToken: 'access-current',
-    refreshToken: 'refresh-current',
+    refreshToken: REFRESH_CURRENT_TOKEN,
     expiresAt: 0,
     version: 1,
     lineageId: LINEAGE_ID,

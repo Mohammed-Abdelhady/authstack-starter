@@ -1,3 +1,4 @@
+import { REFRESH_TOKEN } from '../support/support';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import {
@@ -14,7 +15,7 @@ describe('refresh replay test support', () => {
     const request = {
       method: HTTP_METHOD.POST,
       path: '/api/oauth/token',
-      body: { grant_type: 'refresh_token', refresh_token: 'refresh-secret-0' },
+      body: { grant_type: 'refresh_token', refresh_token: REFRESH_TOKEN },
     };
     beforeRestart.sent.push(request);
     afterRestart.sent.push(request);
@@ -22,7 +23,7 @@ describe('refresh replay test support', () => {
     registerTransport(afterRestart);
 
     expect(() => assertNoRefreshTokenReplay()).toThrow();
-    allowRefreshReplayAfterThrottle('refresh-secret-0');
+    allowRefreshReplayAfterThrottle(REFRESH_TOKEN);
     expect(() => assertNoRefreshTokenReplay()).not.toThrow();
   });
 });

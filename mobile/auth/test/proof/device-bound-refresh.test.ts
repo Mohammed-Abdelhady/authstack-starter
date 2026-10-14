@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { parseStoredRecord } from '../../src/storage/persistence';
@@ -21,7 +22,7 @@ describe('device-bound refresh', () => {
     enqueueBoundRefresh(
       transport,
       REFRESH_TOKEN,
-      dpopTokenReply('access-1', 'refresh-1'),
+      dpopTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'profile' }),
     );
 
@@ -44,7 +45,7 @@ describe('device-bound refresh', () => {
     expect(stored?.lineageId).toBe('BAQEBAQEBAQEBAQEBAQEBA');
     expect(stored?.lineageId).toBe(before?.lineageId);
     expect(stored?.proofKeyThumbprint).toBe(before?.proofKeyThumbprint);
-    expect(stored?.tokens?.refreshToken).toBe('refresh-1');
+    expect(stored?.tokens?.refreshToken).toBe(REFRESH_1_TOKEN);
   });
 
   it.each([
@@ -61,7 +62,7 @@ describe('device-bound refresh', () => {
         transport,
         REFRESH_TOKEN,
         unknownOutcome,
-        dpopTokenReply('access-1', 'refresh-1'),
+        dpopTokenReply('access-1', REFRESH_1_TOKEN),
         apiReply({ id: 'profile' }),
       );
 
@@ -78,7 +79,7 @@ describe('device-bound refresh', () => {
       expect(proofNonces(requests)).toEqual(['', CHALLENGE_NONCE, CHALLENGE_NONCE]);
       expect(new Set(proofIds).size).toBe(3);
       expect(stored?.lineageId).toBe(before?.lineageId);
-      expect(stored?.tokens?.refreshToken).toBe('refresh-1');
+      expect(stored?.tokens?.refreshToken).toBe(REFRESH_1_TOKEN);
       expect(engine.snapshot.status).toBe('signedIn');
     },
   );

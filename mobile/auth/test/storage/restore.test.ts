@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
@@ -194,7 +195,7 @@ describe('restore', () => {
     const restoredPorts = { ...ports, makeTransport: (_baseAddress: string) => transport };
     const restored = createAuthEngine(CONFIG, restoredPorts);
     await restored.restore();
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
 
     await restored.transport.request({ method: 'GET', path: '/api/user/profile' });
 

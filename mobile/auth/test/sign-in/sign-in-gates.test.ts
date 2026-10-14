@@ -1,3 +1,4 @@
+import { REFRESH_NEW_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -25,7 +26,7 @@ describe('sign-in eligibility', () => {
     acceptCode(ports.authBrowser, 'new-code');
     transport.enqueue(
       { status: 200, body: {} },
-      oauthTokenReply('access-new', 'refresh-new'),
+      oauthTokenReply('access-new', REFRESH_NEW_TOKEN),
       successUserReply(),
     );
 

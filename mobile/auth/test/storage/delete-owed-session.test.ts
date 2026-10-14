@@ -1,3 +1,4 @@
+import { REFRESH_NEW_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -22,7 +23,7 @@ describe('an owed credential deletion after a later session write', () => {
 
     await expect(engine.signOut()).resolves.toMatchObject({ kind: 'signedOut' });
     ports.credentials.beforeDelete = undefined;
-    transport.enqueue(oauthTokenReply('access-new', 'refresh-new'), successUserReply());
+    transport.enqueue(oauthTokenReply('access-new', REFRESH_NEW_TOKEN), successUserReply());
     acceptCode(ports.authBrowser);
     await expect(engine.signIn()).resolves.toMatchObject({ kind: 'signedIn' });
 
@@ -32,13 +33,13 @@ describe('an owed credential deletion after a later session write', () => {
       engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' }),
     ).rejects.toThrow();
     expect(engine.snapshot.status).toBe('reauthRequired');
-    expect(ports.credentials.value).toContain('refresh-new');
+    expect(ports.credentials.value).toContain(REFRESH_NEW_TOKEN);
 
     await expect(engine.restore()).resolves.toMatchObject({
       kind: 'restored',
       status: 'reauthRequired',
     });
-    expect(ports.credentials.value).toContain('refresh-new');
+    expect(ports.credentials.value).toContain(REFRESH_NEW_TOKEN);
     expect(ports.credentials.value).toContain('"refreshInFlight":true');
   });
 });

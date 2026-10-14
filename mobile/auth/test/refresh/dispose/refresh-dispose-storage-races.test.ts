@@ -1,3 +1,11 @@
+import {
+  REFRESH_DISPOSE_INSTALL_TOKEN,
+  REFRESH_ROTATED_TOKEN,
+  REFRESH_AFTER_TIMEOUT_TOKEN,
+  REFRESH_BEFORE_TIMEOUT_TOKEN,
+  REFRESH_DISPOSE_LINEAGE_TOKEN,
+  REFRESH_SENT_TOKEN,
+} from '../../support/token-values';
 import { createApiClient } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { AuthDisposedError, AuthSessionError } from '../../../src/errors/errors';
@@ -12,6 +20,7 @@ import { createAuthEngine } from '../../support/engine';
 import { revokedTokens } from '../../support/tracking';
 import { watchTimerDrain } from '../../support/timer-drain';
 import {
+  REFRESH_TOKEN,
   CONFIG,
   Deferred,
   ScriptedTransport,
@@ -21,7 +30,7 @@ import {
   testPorts,
 } from '../../support/support';
 
-const INSTALL_DIGEST = 'refresh-dispose-install';
+const INSTALL_DIGEST = REFRESH_DISPOSE_INSTALL_TOKEN;
 
 describe('rotated credentials during sign-out and disposal', () => {
   it('removes and revokes the rotated token after sign-out interrupts its write', async () => {
@@ -37,13 +46,13 @@ describe('rotated credentials during sign-out and disposal', () => {
     const rotatedRevocation = new Deferred<void>();
     const revoked: string[] = [];
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-rotated')) return;
+      if (!value.includes(REFRESH_ROTATED_TOKEN)) return;
       rotatedWriteStarted.resolve();
       await releaseWrite.promise;
     };
     transport.respond = async (request) => {
       if (request.path === '/api/oauth/token')
-        return oauthTokenReply('access-rotated', 'refresh-rotated');
+        return oauthTokenReply('access-rotated', REFRESH_ROTATED_TOKEN);
       if (request.path === '/api/user/profile') return successUserReply();
       if (request.path === '/api/oauth/revoke') {
         const token = requestToken(request.body);
@@ -53,7 +62,10 @@ describe('rotated credentials during sign-out and disposal', () => {
       throw new Error(`Unexpected request: ${request.path}`);
     };
     transport.onResponse = (request) => {
-      if (request.path === '/api/oauth/revoke' && requestToken(request.body) === 'refresh-rotated')
+      if (
+        request.path === '/api/oauth/revoke' &&
+        requestToken(request.body) === REFRESH_ROTATED_TOKEN
+      )
         rotatedRevocation.resolve();
     };
     const request = engine.transport.request({ method: 'GET', path: '/api/user/profile' });
@@ -66,7 +78,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     await Promise.all([signOut, rotatedRevocation.promise]);
     await timersDrained();
 
-    expect(revoked).toEqual(['refresh-secret-0', 'refresh-rotated']);
+    expect(revoked).toEqual([REFRESH_TOKEN, REFRESH_ROTATED_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
   });
@@ -75,7 +87,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     const transport = new ScriptedTransport();
     transport.respond = async ({ path }) => {
       if (path === '/api/oauth/token')
-        return oauthTokenReply('access-after-timeout', 'refresh-after-timeout');
+        return oauthTokenReply('access-after-timeout', REFRESH_AFTER_TIMEOUT_TOKEN);
       if (path === '/api/oauth/revoke') return { status: 200, body: {} };
       throw new Error(`Unexpected request: ${path}`);
     };
@@ -83,10 +95,10 @@ describe('rotated credentials during sign-out and disposal', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const oldTokens: RuntimeTokens = {
       accessToken: 'access-before-timeout',
-      refreshToken: 'refresh-before-timeout',
+      refreshToken: REFRESH_BEFORE_TIMEOUT_TOKEN,
       expiresAt: 0,
       version: 1,
-      lineageId: 'refresh-dispose-lineage',
+      lineageId: REFRESH_DISPOSE_LINEAGE_TOKEN,
     };
     runtime.installDigest = INSTALL_DIGEST;
     runtime.tokens = oldTokens;
@@ -98,7 +110,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     const releaseWrite = new Deferred<void>();
     const timersDrained = watchTimerDrain(ports.timer);
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-after-timeout')) return;
+      if (!value.includes(REFRESH_AFTER_TIMEOUT_TOKEN)) return;
       writeStarted.resolve();
       await releaseWrite.promise;
     };
@@ -115,7 +127,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     await timersDrained();
 
     expect(revokedTokens(transport)).toEqual([]);
-    expect(ports.credentials.value).toContain('refresh-after-timeout');
+    expect(ports.credentials.value).toContain(REFRESH_AFTER_TIMEOUT_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(ports.timer.pending).toBe(0);
   });
@@ -131,7 +143,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     const lineageId = 'disposed-rotation-lineage';
     const previous: RuntimeTokens = {
       accessToken: 'access-before-timeout',
-      refreshToken: 'refresh-before-timeout',
+      refreshToken: REFRESH_BEFORE_TIMEOUT_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId,
@@ -145,14 +157,14 @@ describe('rotated credentials during sign-out and disposal', () => {
     const writeStarted = new Deferred<void>();
     const releaseWrite = new Deferred<void>();
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-after-timeout')) return;
+      if (!value.includes(REFRESH_AFTER_TIMEOUT_TOKEN)) return;
       writeStarted.resolve();
       await releaseWrite.promise;
     };
     const rotated = {
       ...makeRefreshRecord(runtime, INSTALL_DIGEST, {
         accessToken: 'access-after-timeout',
-        refreshToken: 'refresh-after-timeout',
+        refreshToken: REFRESH_AFTER_TIMEOUT_TOKEN,
         lineageId,
       }),
     };
@@ -164,7 +176,7 @@ describe('rotated credentials during sign-out and disposal', () => {
         {
           kind: 'session',
           installDigest: INSTALL_DIGEST,
-          refreshToken: 'refresh-after-timeout',
+          refreshToken: REFRESH_AFTER_TIMEOUT_TOKEN,
           lineageId,
         },
       )
@@ -179,13 +191,13 @@ describe('rotated credentials during sign-out and disposal', () => {
       createApiClient(runtime.rawTransport),
       INSTALL_DIGEST,
       lineageId,
-      'refresh-after-timeout',
-      'refresh-before-timeout',
+      REFRESH_AFTER_TIMEOUT_TOKEN,
+      REFRESH_BEFORE_TIMEOUT_TOKEN,
     );
     releaseWrite.resolve();
     await runtime.writeTail;
 
-    expect(revokedTokens(transport)).toEqual(['refresh-after-timeout']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_AFTER_TIMEOUT_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
   });
@@ -203,7 +215,7 @@ describe('rotated credentials during sign-out and disposal', () => {
       refreshToken: 'successor-refresh',
       expiresAt: 0,
       version: 3,
-      lineageId: 'refresh-dispose-lineage',
+      lineageId: REFRESH_DISPOSE_LINEAGE_TOKEN,
     };
     runtime.installDigest = INSTALL_DIGEST;
     runtime.tokens = successorTokens;
@@ -214,10 +226,10 @@ describe('rotated credentials during sign-out and disposal', () => {
     const successorRecord = ports.credentials.value;
     const client = createApiClient(runtime.rawTransport);
 
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, 'refresh-sent', {
+    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_SENT_TOKEN, {
       accessToken: 'late-access',
       refreshToken: 'late-refresh',
-      lineageId: 'refresh-dispose-lineage',
+      lineageId: REFRESH_DISPOSE_LINEAGE_TOKEN,
     });
 
     expect(revokedTokens(transport)).toEqual([]);
@@ -236,7 +248,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     const lineageId = 'late-rotation-lineage';
     const previous: RuntimeTokens = {
       accessToken: 'access-before-timeout',
-      refreshToken: 'refresh-before-timeout',
+      refreshToken: REFRESH_BEFORE_TIMEOUT_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId,
@@ -252,7 +264,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     const releaseWrite = new Deferred<void>();
     const timersDrained = watchTimerDrain(ports.timer);
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-rotated')) return;
+      if (!value.includes(REFRESH_ROTATED_TOKEN)) return;
       writeStarted.resolve();
       await releaseWrite.promise;
     };
@@ -260,8 +272,8 @@ describe('rotated credentials during sign-out and disposal', () => {
       runtime,
       createApiClient(runtime.rawTransport),
       INSTALL_DIGEST,
-      'refresh-before-timeout',
-      { accessToken: 'access-rotated', refreshToken: 'refresh-rotated', lineageId },
+      REFRESH_BEFORE_TIMEOUT_TOKEN,
+      { accessToken: 'access-rotated', refreshToken: REFRESH_ROTATED_TOKEN, lineageId },
     );
     await writeStarted.promise;
     ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
@@ -270,7 +282,7 @@ describe('rotated credentials during sign-out and disposal', () => {
     await runtime.writeTail;
     await timersDrained();
 
-    expect(revokedTokens(transport)).toEqual(['refresh-rotated']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_ROTATED_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
   });

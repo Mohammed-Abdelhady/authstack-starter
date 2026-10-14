@@ -1,3 +1,4 @@
+import { REFRESH_BEFORE_TOKEN, REFRESH_AFTER_TOKEN } from '../../support/token-values';
 import { createApiClient } from '@app/sdk';
 import type { Transport } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
@@ -23,7 +24,7 @@ describe('a rotated response queued behind a credential write', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before',
-      refreshToken: 'refresh-before',
+      refreshToken: REFRESH_BEFORE_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'queued-refresh-lineage',
@@ -63,7 +64,7 @@ describe('a rotated response queued behind a credential write', () => {
       await releaseBarrier.promise;
     }, runtime.epoch);
     await barrierStarted.promise;
-    response.resolve(oauthTokenReply('access-after', 'refresh-after'));
+    response.resolve(oauthTokenReply('access-after', REFRESH_AFTER_TOKEN));
     await rotatedWriteQueued.promise;
 
     runtime.dispose();
@@ -72,7 +73,7 @@ describe('a rotated response queued behind a credential write', () => {
     await expect(refreshing).rejects.toBeInstanceOf(AuthSessionError);
     await blocker;
 
-    expect(ports.credentials.value).toContain('"refreshToken":"refresh-after"');
+    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_AFTER_TOKEN}"`);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(0);
     expect(ports.timer.pending).toBe(0);

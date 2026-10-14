@@ -1,3 +1,4 @@
+import { REFRESH_AFTER_BACKOFF_TOKEN, REFRESH_AFTER_RESTART_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { ApiError, HTTP_METHOD } from '@app/sdk';
 import { REFRESH_THROTTLE_BACKOFF_MS } from '../../src/constants';
@@ -45,7 +46,7 @@ describe('refresh after a throttled answer and restart', () => {
       engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' }),
     );
     await backoffScheduled.promise;
-    refreshAnswer = oauthTokenReply('access-after-backoff', 'refresh-after-backoff');
+    refreshAnswer = oauthTokenReply('access-after-backoff', REFRESH_AFTER_BACKOFF_TOKEN);
     ports.clock.advance(REFRESH_THROTTLE_BACKOFF_MS);
     ports.timer.fireDelay(REFRESH_THROTTLE_BACKOFF_MS);
     const results = await Promise.allSettled(requests);
@@ -83,7 +84,7 @@ describe('refresh after a throttled answer and restart', () => {
     const restarted = createAuthEngine(CONFIG, nextPorts);
     await restarted.restore();
     nextTransport.enqueue(
-      oauthTokenReply('access-after-restart', 'refresh-after-restart'),
+      oauthTokenReply('access-after-restart', REFRESH_AFTER_RESTART_TOKEN),
       apiReply({ id: 'profile' }),
     );
 

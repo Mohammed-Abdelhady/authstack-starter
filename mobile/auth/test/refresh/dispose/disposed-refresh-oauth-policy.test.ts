@@ -1,3 +1,4 @@
+import { REFRESH_BEFORE_TOKEN } from '../../support/token-values';
 import { createApiClient, OAuthError } from '@app/sdk';
 import type { Transport } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
@@ -21,7 +22,7 @@ describe('OAuth failures after dispose', () => {
       const runtime = new AuthRuntime(CONFIG, ports);
       const tokens: RuntimeTokens = {
         accessToken: 'access-before',
-        refreshToken: 'refresh-before',
+        refreshToken: REFRESH_BEFORE_TOKEN,
         expiresAt: 0,
         version: 1,
         lineageId,
@@ -55,7 +56,7 @@ describe('OAuth failures after dispose', () => {
       if (expected === 'kept') {
         expect(ports.credentials.value).toBeDefined();
         expect(ports.credentials.value).toContain('"refreshInFlight":true');
-        expect(ports.credentials.value).toContain('refresh-before');
+        expect(ports.credentials.value).toContain(REFRESH_BEFORE_TOKEN);
       } else {
         expect(ports.credentials.value).toBeUndefined();
       }

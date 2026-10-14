@@ -1,3 +1,4 @@
+import { REFRESH_SECRET_2_TOKEN, ACCESS_SECRET_2_TOKEN } from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { ApiError, HTTP_METHOD, TRANSPORT_FAILURE } from '@app/sdk';
 import { PortAbortController } from '../../../src/runtime/abort-controller';
@@ -148,7 +149,7 @@ describe('refresh waiters and known non-rotation failures', () => {
     const refreshAnswer = new Deferred<{ status: number; body: unknown }>();
     const rotatedRecord = new Deferred<void>();
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('refresh-secret-2')) rotatedRecord.resolve();
+      if (value.includes(REFRESH_SECRET_2_TOKEN)) rotatedRecord.resolve();
     };
     transport.enqueue(() => {
       refreshStarted.resolve();
@@ -162,7 +163,7 @@ describe('refresh waiters and known non-rotation failures', () => {
     });
     await refreshStarted.promise;
     controller.abort();
-    refreshAnswer.resolve(oauthTokenReply('access-secret-2', 'refresh-secret-2'));
+    refreshAnswer.resolve(oauthTokenReply(ACCESS_SECRET_2_TOKEN, REFRESH_SECRET_2_TOKEN));
     await rotatedRecord.promise;
 
     await expect(request).rejects.toMatchObject({
@@ -191,7 +192,7 @@ describe('refresh waiters and known non-rotation failures', () => {
     ports.timer.onSchedule = (milliseconds) => {
       if (milliseconds === REFRESH_THROTTLE_BACKOFF_MS) backoff.resolve();
     };
-    transport.enqueue(oauthTokenReply('access-secret-2', 'refresh-secret-2'), apiReply({}));
+    transport.enqueue(oauthTokenReply(ACCESS_SECRET_2_TOKEN, REFRESH_SECRET_2_TOKEN), apiReply({}));
     allowRefreshReplayAfterNonRotatingFailure(REFRESH_TOKEN);
     const waiting = engine.transport.request({
       method: HTTP_METHOD.GET,

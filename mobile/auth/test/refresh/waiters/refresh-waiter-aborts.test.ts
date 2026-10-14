@@ -1,3 +1,8 @@
+import {
+  REFRESH_SECOND_ROTATION_TOKEN,
+  REFRESH_JOINED_TOKEN,
+  REFRESH_AFTER_ABORT_TOKEN,
+} from '../../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TRANSPORT_FAILURE } from '@app/sdk';
 import { PortAbortController } from '../../../src/runtime/abort-controller';
@@ -27,7 +32,7 @@ describe('refresh waiter aborts', () => {
         started.resolve();
         return answer.promise;
       },
-      oauthTokenReply('access-second-rotation', 'refresh-second-rotation'),
+      oauthTokenReply('access-second-rotation', REFRESH_SECOND_ROTATION_TOKEN),
       apiReply({ id: 'joined' }),
       apiReply({ id: 'unexpected-second-replay' }),
     );
@@ -52,7 +57,7 @@ describe('refresh waiter aborts', () => {
       method: HTTP_METHOD.GET,
       path: '/api/user/profile',
     });
-    answer.resolve(oauthTokenReply('access-joined', 'refresh-joined'));
+    answer.resolve(oauthTokenReply('access-joined', REFRESH_JOINED_TOKEN));
 
     await expect(joined).resolves.toMatchObject({ status: 200 });
     expect(refreshRequests(transport)).toHaveLength(1);
@@ -68,8 +73,8 @@ describe('refresh waiter aborts', () => {
     await establishSession(engine, ports, transport);
     ports.clock.advance(270_000);
     transport.enqueue(
-      oauthTokenReply('access-after-abort', 'refresh-after-abort'),
-      oauthTokenReply('access-second-rotation', 'refresh-second-rotation'),
+      oauthTokenReply('access-after-abort', REFRESH_AFTER_ABORT_TOKEN),
+      oauthTokenReply('access-second-rotation', REFRESH_SECOND_ROTATION_TOKEN),
       apiReply({}),
       apiReply({}),
     );

@@ -1,3 +1,4 @@
+import { REFRESH_1_TOKEN } from '../support/token-values';
 import { assert, describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { AuthSessionError } from '../../src';
@@ -82,7 +83,7 @@ describe('bearer transport', () => {
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile-2' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile-2' }));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
@@ -111,7 +112,7 @@ describe('bearer transport', () => {
     const signInResult = await engine.signIn();
     expect(signInResult.kind).toBe('signedIn');
     ports.clock.advance(31_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile-2' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile-2' }));
 
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
@@ -139,7 +140,7 @@ describe('bearer transport', () => {
     await establishSession(engine, ports, transport);
     transport.enqueue(
       failedApiReply(401, 'SESSION_INVALID'),
-      oauthTokenReply('access-1', 'refresh-1'),
+      oauthTokenReply('access-1', REFRESH_1_TOKEN),
       apiReply({ id: 'profile-2' }),
     );
 
@@ -159,7 +160,7 @@ describe('bearer transport', () => {
     await establishSession(engine, ports, transport);
     transport.enqueue(
       failedApiReply(401, 'SESSION_INVALID'),
-      oauthTokenReply('access-1', 'refresh-1'),
+      oauthTokenReply('access-1', REFRESH_1_TOKEN),
       failedApiReply(401, 'SESSION_INVALID'),
     );
 
@@ -191,7 +192,7 @@ describe('bearer transport', () => {
     const first = engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     await oldRequestStarted.promise;
     ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', 'refresh-1'), apiReply({ id: 'profile-2' }));
+    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile-2' }));
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
     transport.enqueue(apiReply({ id: 'profile-3' }));
     answerOldRequest?.(failedApiReply(401, 'SESSION_INVALID'));
@@ -259,7 +260,7 @@ describe('bearer transport', () => {
     assert.isDefined(transport.sent[0]);
     expect(transport.sent[0].headers).toEqual({
       'X-Trace': 'trace-1',
-      Authorization: 'Bearer access-secret-0',
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
     });
   });
 
@@ -297,7 +298,7 @@ describe('bearer transport', () => {
       path: '/api/user/profile',
     });
     await refreshStarted.promise;
-    refresh.resolve(oauthTokenReply('access-1', 'refresh-1'));
+    refresh.resolve(oauthTokenReply('access-1', REFRESH_1_TOKEN));
     await refreshFinished.promise;
 
     await expect(request).rejects.toBeInstanceOf(AuthSessionError);

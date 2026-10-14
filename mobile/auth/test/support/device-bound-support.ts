@@ -3,6 +3,8 @@ import { Buffer } from 'node:buffer';
 import { createAuthEngine } from './engine';
 import { SoftwareDeviceKey } from './software-device-key';
 import {
+  ACCESS_TOKEN,
+  REFRESH_TOKEN,
   CONFIG,
   ScriptedTransport,
   acceptCode,
@@ -58,8 +60,8 @@ export function requestPayload(proof: string): DpopPayload {
 }
 
 export function dpopTokenReply(
-  accessToken = 'access-secret-0',
-  refreshToken = 'refresh-secret-0',
+  accessToken = ACCESS_TOKEN,
+  refreshToken = REFRESH_TOKEN,
   expiresIn = 300,
 ) {
   return {

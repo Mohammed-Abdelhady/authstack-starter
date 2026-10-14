@@ -1,3 +1,10 @@
+import {
+  REFRESH_TARGET_TOKEN,
+  REFRESH_SUCCESSOR_TOKEN,
+  REFRESH_OLD_TOKEN,
+  REFRESH_BEFORE_TOKEN,
+  REFRESH_ROTATED_TOKEN,
+} from '../../support/token-values';
 import { createApiClient } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
 import { CREDENTIAL_DELETE_TIMEOUT_MS, CREDENTIAL_WRITE_TIMEOUT_MS } from '../../../src/constants';
@@ -23,7 +30,7 @@ const CLASSIFICATION_RECORD = {
   clientId: CONFIG.clientId,
   installDigest: INSTALL_DIGEST,
   lineageId: LINEAGE_A,
-  tokens: { refreshToken: 'refresh-target' },
+  tokens: { refreshToken: REFRESH_TARGET_TOKEN },
 };
 
 describe('disposed credential ownership classification', () => {
@@ -31,14 +38,14 @@ describe('disposed credential ownership classification', () => {
     { name: 'the held token in its lineage', record: CLASSIFICATION_RECORD, expected: 'OWN_SAME' },
     {
       name: 'a stable later token in its lineage',
-      record: { ...CLASSIFICATION_RECORD, tokens: { refreshToken: 'refresh-successor' } },
+      record: { ...CLASSIFICATION_RECORD, tokens: { refreshToken: REFRESH_SUCCESSOR_TOKEN } },
       expected: 'OWN_OTHER',
     },
     {
       name: 'a later token in its lineage while its own refresh marker is present',
       record: {
         ...CLASSIFICATION_RECORD,
-        tokens: { refreshToken: 'refresh-successor' },
+        tokens: { refreshToken: REFRESH_SUCCESSOR_TOKEN },
         refreshInFlight: true,
       },
       expected: 'OWN_OTHER',
@@ -56,7 +63,7 @@ describe('disposed credential ownership classification', () => {
         environment: CONFIG.environment,
         clientId: CONFIG.clientId,
         installDigest: INSTALL_DIGEST,
-        tokens: { refreshToken: 'refresh-old' },
+        tokens: { refreshToken: REFRESH_OLD_TOKEN },
       },
       expected: 'FOREIGN',
     },
@@ -68,7 +75,7 @@ describe('disposed credential ownership classification', () => {
         environment: CONFIG.environment,
         clientId: CONFIG.clientId,
         installDigest: INSTALL_DIGEST,
-        tokens: { refreshToken: 'refresh-target' },
+        tokens: { refreshToken: REFRESH_TARGET_TOKEN },
       },
       expected: 'FOREIGN',
     },
@@ -85,7 +92,7 @@ describe('disposed credential ownership classification', () => {
       classifyDisposedCredentialRecord(runtime, {
         kind: 'session',
         installDigest: INSTALL_DIGEST,
-        refreshToken: 'refresh-target',
+        refreshToken: REFRESH_TARGET_TOKEN,
         lineageId: LINEAGE_A,
       }),
     ).resolves.toBe(expected);
@@ -125,7 +132,7 @@ describe('disposed credential ownership', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before',
-      refreshToken: 'refresh-before',
+      refreshToken: REFRESH_BEFORE_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'lineage-a',
@@ -152,7 +159,7 @@ describe('disposed credential ownership', () => {
       lineageId: 'lineage-a',
     };
 
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, 'refresh-before', {
+    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_BEFORE_TOKEN, {
       ...lateTokens,
     });
 
@@ -266,7 +273,7 @@ describe('disposed credential ownership', () => {
       return read();
     };
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('"refreshToken":"refresh-rotated"'))
+      if (value.includes(`"refreshToken":"${REFRESH_ROTATED_TOKEN}"`))
         throw new Error('store reported a post-write failure');
     };
 
@@ -274,12 +281,12 @@ describe('disposed credential ownership', () => {
       runtime,
       createApiClient(runtime.rawTransport),
       INSTALL_DIGEST,
-      'refresh-before',
-      { accessToken: 'access-rotated', refreshToken: 'refresh-rotated', lineageId: LINEAGE_A },
+      REFRESH_BEFORE_TOKEN,
+      { accessToken: 'access-rotated', refreshToken: REFRESH_ROTATED_TOKEN, lineageId: LINEAGE_A },
     );
 
     expect(revokedTokens(transport)).toEqual([]);
-    expect(ports.credentials.value).toContain('refresh-rotated');
+    expect(ports.credentials.value).toContain(REFRESH_ROTATED_TOKEN);
     expect(readCalls).toBe(3);
     expect(ports.timer.pending).toBe(0);
   });
@@ -300,7 +307,7 @@ describe('disposed credential ownership', () => {
       return read();
     };
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('"refreshToken":"refresh-rotated"'))
+      if (value.includes(`"refreshToken":"${REFRESH_ROTATED_TOKEN}"`))
         throw new Error('store reported a post-write failure');
     };
 
@@ -308,12 +315,12 @@ describe('disposed credential ownership', () => {
       runtime,
       createApiClient(runtime.rawTransport),
       INSTALL_DIGEST,
-      'refresh-before',
-      { accessToken: 'access-rotated', refreshToken: 'refresh-rotated', lineageId: LINEAGE_A },
+      REFRESH_BEFORE_TOKEN,
+      { accessToken: 'access-rotated', refreshToken: REFRESH_ROTATED_TOKEN, lineageId: LINEAGE_A },
     );
     await runtime.writeTail;
 
-    expect(revokedTokens(transport)).toEqual(['refresh-rotated']);
+    expect(revokedTokens(transport)).toEqual([REFRESH_ROTATED_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(readCalls).toBe(4);
     expect(ports.timer.pending).toBe(0);
@@ -324,7 +331,7 @@ function disposedMarkerRuntime(ports: ReturnType<typeof testPorts>): AuthRuntime
   const runtime = new AuthRuntime(CONFIG, ports);
   const tokens: RuntimeTokens = {
     accessToken: 'access-before',
-    refreshToken: 'refresh-before',
+    refreshToken: REFRESH_BEFORE_TOKEN,
     expiresAt: 0,
     version: 1,
     lineageId: LINEAGE_A,

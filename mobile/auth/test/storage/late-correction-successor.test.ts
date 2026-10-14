@@ -1,3 +1,8 @@
+import {
+  REFRESH_BEFORE_TOKEN,
+  REFRESH_SUCCESSOR_TOKEN,
+  REFRESH_ROTATED_TOKEN,
+} from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { makeRefreshRecord } from '../../src/refresh/refresh-helpers';
 import { AuthRuntime } from '../../src/runtime/runtime';
@@ -13,7 +18,7 @@ describe('late credential correction with a successor record', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     const previous: RuntimeTokens = {
       accessToken: 'access-before',
-      refreshToken: 'refresh-before',
+      refreshToken: REFRESH_BEFORE_TOKEN,
       expiresAt: 0,
       version: 1,
       lineageId: 'lineage-one',
@@ -25,23 +30,23 @@ describe('late credential correction with a successor record', () => {
     ports.credentials.value = JSON.stringify(runtime.record);
     const successor = makeRefreshRecord(runtime, INSTALL_DIGEST, {
       accessToken: 'access-successor',
-      refreshToken: 'refresh-successor',
+      refreshToken: REFRESH_SUCCESSOR_TOKEN,
       lineageId: 'lineage-one',
     });
     const successorValue = JSON.stringify(successor);
     const replaceStarted = new Deferred<void>();
     const releaseReplace = new Deferred<void>();
     ports.credentials.beforeReplace = async (value) => {
-      if (!value.includes('refresh-rotated')) return;
+      if (!value.includes(REFRESH_ROTATED_TOKEN)) return;
       replaceStarted.resolve();
       await releaseReplace.promise;
     };
     ports.credentials.afterReplace = (value) => {
-      if (value.includes('refresh-rotated')) ports.credentials.value = successorValue;
+      if (value.includes(REFRESH_ROTATED_TOKEN)) ports.credentials.value = successorValue;
     };
     const rotated: RuntimeTokens = {
       accessToken: 'access-rotated',
-      refreshToken: 'refresh-rotated',
+      refreshToken: REFRESH_ROTATED_TOKEN,
       expiresAt: 0,
       version: 2,
       lineageId: 'lineage-one',
@@ -53,7 +58,7 @@ describe('late credential correction with a successor record', () => {
       {
         kind: 'session',
         installDigest: INSTALL_DIGEST,
-        refreshToken: 'refresh-rotated',
+        refreshToken: REFRESH_ROTATED_TOKEN,
         lineageId: 'lineage-one',
       },
     );
