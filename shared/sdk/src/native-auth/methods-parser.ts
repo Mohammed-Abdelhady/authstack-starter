@@ -9,6 +9,7 @@ import type {
   NativeProviderSdkConfiguration,
 } from '../types/native-auth';
 import { booleanValue, boundedString, exactKeys, fail } from './validation';
+import type { JsonObject } from './validation';
 
 function parseAuthProviders(value: unknown, status: number): AuthMethodProvider[] {
   if (value === undefined) return [];
@@ -87,6 +88,41 @@ function parseSdkConfiguration(
   return fail(status, `${field}.kind`, 'is not supported');
 }
 
+function parseSdkProvider(
+  provider: JsonObject,
+  identity: AuthMethodProvider,
+  field: string,
+  status: number,
+): NativeProviderMethod {
+  const { id, displayName } = identity;
+  const sdk = parseSdkConfiguration(provider.sdk, `${field}.sdk`, status);
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN &&
+    id === 'google' &&
+    sdk.kind === 'google'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN, sdk };
+  }
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE &&
+    id === 'apple' &&
+    sdk.kind === 'apple'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE, sdk };
+  }
+  if (
+    provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK &&
+    id === 'facebook' &&
+    sdk.kind === 'facebook'
+  ) {
+    exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
+    return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.FACEBOOK, sdk };
+  }
+  return fail(status, `${field}.mode`, 'does not match its public SDK configuration');
+}
+
 function parseProviderMethods(
   value: unknown,
   enabledProviders: readonly AuthMethodProvider[],
@@ -116,32 +152,7 @@ function parseProviderMethods(
       return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.SYSTEM };
     }
 
-    const sdk = parseSdkConfiguration(provider.sdk, `${field}.sdk`, status);
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN &&
-      id === 'google' &&
-      sdk.kind === 'google'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.GOOGLE_IDENTITY_TOKEN, sdk };
-    }
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE &&
-      id === 'apple' &&
-      sdk.kind === 'apple'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.APPLE_IDENTITY_TOKEN_AND_CODE, sdk };
-    }
-    if (
-      provider.mode === NATIVE_PROVIDER_SDK_MODE.FACEBOOK &&
-      id === 'facebook' &&
-      sdk.kind === 'facebook'
-    ) {
-      exactKeys(provider, ['id', 'displayName', 'mode', 'sdk'], field, status);
-      return { id, displayName, mode: NATIVE_PROVIDER_SDK_MODE.FACEBOOK, sdk };
-    }
-    return fail(status, `${field}.mode`, 'does not match its public SDK configuration');
+    return parseSdkProvider(provider, { id, displayName }, field, status);
   });
 }
 
