@@ -10,6 +10,8 @@ export default defineConfig({
     include: ['test/**/*.slow.test.ts'],
     globalSetup: ['./test/combinations/combination-setup.ts'],
     environment: 'node',
+    // Packed workspaces need process signals, which worker threads do not receive.
+    pool: 'forks',
     testTimeout: 15 * 60 * 1000,
     hookTimeout: 15 * 60 * 1000,
     // One project at a time; combinations share their temporary pnpm store.

@@ -10,7 +10,7 @@ import {
 } from '../../src/constants/index.js';
 import {
   BUILD_TIMEOUT,
-  buildAndPack,
+  startPackedCli,
   type Packed,
   scaffold,
   sourceFilesWithMarkers,
@@ -33,13 +33,15 @@ import { assertWorkspaceEdgesResolve } from '../support/workspace-assertions.js'
 
 let packed: Packed;
 
-beforeAll(() => {
-  packed = buildAndPack();
+beforeAll(async () => {
+  const started = startPackedCli();
+  packed = started.packed;
+  await started.ready;
   expect(packed.ok, packed.reason ?? 'the package did not build').toBe(true);
 });
 
-afterAll(() => {
-  packed?.cleanup();
+afterAll(async () => {
+  await packed?.cleanup();
 });
 
 describe('the packed CLI', () => {

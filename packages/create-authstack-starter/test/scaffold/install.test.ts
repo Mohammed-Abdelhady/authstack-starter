@@ -37,7 +37,7 @@ async function fakePnpm(failure = '', version = PACKAGE_MANAGER_VERSION): Promis
 describe('pnpm installation boundary', () => {
   it('runs the generated backend boot check through its own installed Jest', async () => {
     const root = await fakePnpm();
-    expect(await runBackendBoot(root)).toEqual({ ok: true, output: '' });
+    expect(await runBackendBoot(root)).toEqual({ ok: true, output: '', stdout: '' });
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
       '--filter backend exec jest --config test/jest-e2e.json --runInBand --runTestsByPath test/app/app.boot.e2e-spec.ts\n',
     );
@@ -53,6 +53,7 @@ describe('pnpm installation boundary', () => {
     expect(await installFromWarmStore(root, '/private/tmp/cna-test-store')).toEqual({
       ok: true,
       output: '',
+      stdout: '',
     });
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
       'install --offline --frozen-lockfile --store-dir /private/tmp/cna-test-store\n',
@@ -89,6 +90,7 @@ describe('pnpm installation boundary', () => {
     expect(await installProject(root, '/private/tmp/cna-test-store')).toEqual({
       ok: true,
       output: '',
+      stdout: '',
     });
     expect(parse(await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8'))).toEqual({
       packages: ['backend'],
