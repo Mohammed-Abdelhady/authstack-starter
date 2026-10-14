@@ -136,6 +136,23 @@ function appleCredential(
   };
 }
 
+function facebookLimitedCredential(
+  token: Record<string, unknown>,
+  nonceDigest: string,
+): NativePromptResult<NativeProviderCredential> {
+  if (!nonEmptyString(token.authenticationToken) || token.nonce !== nonceDigest) {
+    return promptFailure('invalidResponse');
+  }
+  return {
+    kind: 'success',
+    value: {
+      kind: NATIVE_FACEBOOK_LIMITED_CREDENTIAL,
+      authenticationToken: token.authenticationToken,
+      nonceDigest,
+    },
+  };
+}
+
 function facebookCredential(
   value: FacebookFlowResult,
   modules: NativeSignInModules,
@@ -149,17 +166,7 @@ function facebookCredential(
   if (!isRecord(value.token)) return promptFailure('invalidResponse');
 
   if (modules.platform === 'ios') {
-    if (!nonEmptyString(value.token.authenticationToken) || value.token.nonce !== nonceDigest) {
-      return promptFailure('invalidResponse');
-    }
-    return {
-      kind: 'success',
-      value: {
-        kind: NATIVE_FACEBOOK_LIMITED_CREDENTIAL,
-        authenticationToken: value.token.authenticationToken,
-        nonceDigest,
-      },
-    };
+    return facebookLimitedCredential(value.token, nonceDigest);
   }
 
   if (
