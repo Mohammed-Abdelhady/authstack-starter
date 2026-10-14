@@ -95,6 +95,7 @@ describe('the PostgreSQL tables of an optional feature', () => {
       '0014_code_guess_locks.sql',
       '0016_pending_email.sql',
       '0018_native_attempts.sql',
+      '0019_account_locale.sql',
       '0020_host_migrations.sql',
     ]);
     for (const file of withoutOptional) {
