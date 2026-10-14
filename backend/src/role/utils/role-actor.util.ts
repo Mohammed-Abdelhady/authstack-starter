@@ -4,13 +4,16 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { WILDCARD_PERMISSION } from '../../common/constants/permissions';
 import { hasPermission } from '../../common/utils/permission.utils';
-import { canModifyLevel } from '../../common/utils/role-hierarchy';
+import {
+  canModifyLevel,
+  isAdminRole,
+  LevelActor,
+} from '../../common/utils/role-hierarchy';
 import { RoleChangeStore } from '../stores/role-change.store';
 import { RoleLevelSource, resolveRoleLevel } from './role.util';
 
 /** What the acting account holds, read inside the caller's unit of work. */
-export interface FreshRoleActor {
-  level: number;
+export interface FreshRoleActor extends LevelActor {
   permissions: string[];
 }
 
@@ -46,6 +49,7 @@ export async function assertFreshRolePermission(
   }
   return {
     level: resolveRoleLevel(role),
+    isAdmin: isAdminRole(actor.roleSlug),
     permissions,
   };
 }
@@ -124,7 +128,7 @@ export function assertOutranksRole(
   role: RoleLevelSource,
 ): void {
   if (actor.permissions.includes(WILDCARD_PERMISSION)) return;
-  if (!canModifyLevel(actor.level, resolveRoleLevel(role))) {
+  if (!canModifyLevel(actor, resolveRoleLevel(role))) {
     throw new AppException(
       ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
       'Cannot edit a role at or above your own level',

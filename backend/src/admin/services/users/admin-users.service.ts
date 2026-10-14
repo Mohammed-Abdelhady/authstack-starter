@@ -66,12 +66,10 @@ export class AdminUsersService {
     const previousGeneration = targetUser.addressGeneration;
     const pendingEmail =
       email && email !== targetUser.email ? email : undefined;
-    let actorLevel: number | undefined;
     if (pendingEmail !== undefined) {
-      actorLevel = await this.accessService.getActorLevel(actorRole);
       await this.emailChangeService.assertAddressAvailable(
         pendingEmail,
-        actorLevel,
+        actorRole,
       );
     }
 
@@ -89,9 +87,9 @@ export class AdminUsersService {
           previousGeneration,
         },
       );
-      if (pendingEmail !== undefined && actorLevel !== undefined) {
+      if (pendingEmail !== undefined) {
         this.emailChangeService.notifyPreviousAddress(previousEmail);
-        await this.emailChangeService.sendConfirmation(saved, actorLevel);
+        await this.emailChangeService.sendConfirmation(saved, actorRole);
       }
 
       this.logger.log(`User ${id} updated by ${actorId}`);
@@ -122,8 +120,7 @@ export class AdminUsersService {
     );
     await this.accessService.assertCanModify(actorRole, targetUser.role);
 
-    const actorLevel = await this.accessService.getActorLevel(actorRole);
-    await this.emailChangeService.resend(targetUser, actorLevel);
+    await this.emailChangeService.resend(targetUser, actorRole);
 
     this.logger.log(`Email change confirmation resent for ${id} by ${actorId}`);
     return ApiResponse.success({ message: 'Confirmation email sent' });

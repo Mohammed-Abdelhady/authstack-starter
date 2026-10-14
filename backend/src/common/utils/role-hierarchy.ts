@@ -104,9 +104,19 @@ export const CUSTOM_ROLE_LEVEL = USER_LEVEL;
 export const UNKNOWN_ROLE_LEVEL = 0;
 
 /**
- * Level an actor must reach to perform admin-only operations.
+ * Whether a role slug is the stored admin role. Admin-only checks use this,
+ * never a level: a custom role can sit at a level admin once held.
  */
-export const ADMIN_LEVEL = ROLE_HIERARCHY[UserRole.ADMIN];
+export function isAdminRole(roleSlug: string): boolean {
+  return roleSlug === (UserRole.ADMIN as string);
+}
+
+/** The acting account as the level checks see it. */
+export interface LevelActor {
+  level: number;
+  /** Holds the stored admin role, see `isAdminRole`. */
+  isAdmin: boolean;
+}
 
 /**
  * Get role hierarchy level for a role string.
@@ -130,42 +140,42 @@ export function seededRoleLevel(slug: string): number | undefined {
 }
 
 /**
- * Check whether an actor level may act on a target level in a read-only way.
+ * Check whether an actor may act on a target level in a read-only way.
  * Equal levels pass. Stranded roles (level 0) are admin-only.
  *
- * @param actorLevel - Hierarchy level of the acting user
+ * @param actor - Level and admin role of the acting user
  * @param targetLevel - Hierarchy level of the target user
  * @returns true when the actor may read the target
  */
 export function canManageLevel(
-  actorLevel: number,
+  actor: LevelActor,
   targetLevel: number,
 ): boolean {
   if (targetLevel === UNKNOWN_ROLE_LEVEL) {
-    return actorLevel >= ADMIN_LEVEL;
+    return actor.isAdmin;
   }
 
-  return actorLevel >= targetLevel;
+  return actor.level >= targetLevel;
 }
 
 /**
- * Check whether an actor level may mutate a target level.
+ * Check whether an actor may mutate a target level.
  * Equal levels fail, so peers cannot act on each other.
  * Stranded roles (level 0) are admin-only.
  *
- * @param actorLevel - Hierarchy level of the acting user
+ * @param actor - Level and admin role of the acting user
  * @param targetLevel - Hierarchy level of the target user
  * @returns true when the actor may mutate the target
  */
 export function canModifyLevel(
-  actorLevel: number,
+  actor: LevelActor,
   targetLevel: number,
 ): boolean {
   if (targetLevel === UNKNOWN_ROLE_LEVEL) {
-    return actorLevel >= ADMIN_LEVEL;
+    return actor.isAdmin;
   }
 
-  return actorLevel > targetLevel;
+  return actor.level > targetLevel;
 }
 
 /**
