@@ -11,7 +11,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WILDCARD_PERMISSION } from '@app/core';
 
 import { PermissionGroupGrid } from './PermissionGroupGrid';
-import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
+import { PermissionGroupName } from './PermissionGroupName';
+import {
+  ALL_GROUPS_TAB,
+  PERMISSION_GROUPS,
+  permissionGroupTab,
+} from '../../constants/permissionGroups';
+import { usePermissionGroupName } from '../../hooks/usePermissionGroupName';
+import type { PermissionGroup } from '../../types/permissionGroup.types';
 
 export interface PermissionSelectorProps {
   /**
@@ -35,6 +42,12 @@ export interface PermissionSelectorProps {
    * Default: true
    */
   showWildcard?: boolean;
+
+  /**
+   * The groups to pick from
+   * Default: the core and host permissions grouped by resource
+   */
+  groups?: readonly PermissionGroup[];
 }
 
 /**
@@ -46,9 +59,11 @@ export const PermissionSelector = memo(function PermissionSelector({
   onChange,
   busy = false,
   showWildcard = true,
+  groups = PERMISSION_GROUPS,
 }: PermissionSelectorProps) {
   const t = useTranslations('permissions.selector');
-  const [activeTab, setActiveTab] = useState('all');
+  const groupName = usePermissionGroupName();
+  const [activeTab, setActiveTab] = useState(ALL_GROUPS_TAB);
   const handleTogglePermission = useCallback(
     (permission: string) => {
       if (busy) return;
@@ -100,14 +115,17 @@ export const PermissionSelector = memo(function PermissionSelector({
 
   const hasWildcard = selectedPermissions.includes(WILDCARD_PERMISSION);
 
-  const groupStats = useMemo(() => {
-    const stats: Record<string, number> = {};
-    PERMISSION_GROUPS.forEach((group) => {
-      const groupPerms = Object.values(group.permissions);
-      stats[group.id] = groupPerms.filter((p) => selectedPermissions.includes(p)).length;
-    });
-    return stats;
-  }, [selectedPermissions]);
+  // A Map, so a resource named after an Object member such as `__proto__` keeps its count.
+  const groupStats = useMemo(
+    () =>
+      new Map(
+        groups.map((group) => [
+          group.id,
+          Object.values(group.permissions).filter((p) => selectedPermissions.includes(p)).length,
+        ]),
+      ),
+    [groups, selectedPermissions],
+  );
 
   return (
     <div className="space-y-4">
@@ -138,9 +156,9 @@ export const PermissionSelector = memo(function PermissionSelector({
           <div className="w-full overflow-x-auto pb-1">
             <TabsList className="inline-flex w-max min-w-full justify-start flex-nowrap">
               <TabsTrigger
-                value="all"
+                value={ALL_GROUPS_TAB}
                 className="text-xs shrink-0"
-                data-testid="permission-group-tab-all"
+                data-testid="permission-group-tab"
               >
                 {t('allTab')}
                 {selectedPermissions.length > 0 && (
@@ -149,17 +167,17 @@ export const PermissionSelector = memo(function PermissionSelector({
                   </span>
                 )}
               </TabsTrigger>
-              {PERMISSION_GROUPS.map((group) => (
+              {groups.map((group) => (
                 <TabsTrigger
                   key={group.id}
-                  value={group.id}
+                  value={permissionGroupTab(group.id)}
                   className="text-xs shrink-0"
                   data-testid={`permission-group-tab-${group.id}`}
                 >
-                  {t(`groups.${group.id}`)}
-                  {groupStats[group.id] > 0 && (
+                  <PermissionGroupName group={group} />
+                  {(groupStats.get(group.id) ?? 0) > 0 && (
                     <span className="ms-1 rounded-full bg-secondary text-primary px-1.5 py-0.5 text-[10px]">
-                      {groupStats[group.id]}
+                      {groupStats.get(group.id)}
                     </span>
                   )}
                 </TabsTrigger>
@@ -168,8 +186,8 @@ export const PermissionSelector = memo(function PermissionSelector({
           </div>
 
           {/* All Permissions Tab */}
-          <TabsContent value="all" className="mt-4 space-y-6">
-            {PERMISSION_GROUPS.map((group) => {
+          <TabsContent value={ALL_GROUPS_TAB} className="mt-4 space-y-6">
+            {groups.map((group) => {
               const groupPerms = Object.values(group.permissions);
               const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
 
@@ -177,13 +195,13 @@ export const PermissionSelector = memo(function PermissionSelector({
                 <div key={group.id} className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Heading level={3} variant="subsectionTitle">
-                      {t(`groups.${group.id}`)}
+                      <PermissionGroupName group={group} />
                     </Heading>
                     <button
                       type="button"
                       {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
                       aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
-                        group: t(`groups.${group.id}`),
+                        group: groupName(group),
                       })}
                       className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                       data-testid={`permission-group-select-all-${group.id}`}
@@ -204,12 +222,16 @@ export const PermissionSelector = memo(function PermissionSelector({
           </TabsContent>
 
           {/* Individual Category Tabs */}
-          {PERMISSION_GROUPS.map((group) => {
+          {groups.map((group) => {
             const groupPerms = Object.values(group.permissions);
             const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
 
             return (
-              <TabsContent key={group.id} value={group.id} className="mt-4 space-y-4">
+              <TabsContent
+                key={group.id}
+                value={permissionGroupTab(group.id)}
+                className="mt-4 space-y-4"
+              >
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-muted-foreground">
                     {t('permissionsAvailable', { count: groupPerms.length })}
@@ -218,7 +240,7 @@ export const PermissionSelector = memo(function PermissionSelector({
                     type="button"
                     {...busyPressProps(busy, () => handleSelectAll(group.permissions))}
                     aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
-                      group: t(`groups.${group.id}`),
+                      group: groupName(group),
                     })}
                     className="min-h-6 text-xs text-primary hover:underline aria-disabled:cursor-progress aria-disabled:opacity-85"
                     data-testid={`permission-group-select-all-tab-${group.id}`}
