@@ -190,7 +190,10 @@ export class RoleEditService {
     }
     const role = await this.changes.saveRoleEdit(unitOfWork, roleId, edit);
 
-    if (!renamed && !permissionsChanged) {
+    // A new level changes what holders may do, so it ends their sessions as a
+    // permission change does.
+    const levelChanged = level !== undefined;
+    if (!renamed && !permissionsChanged && !levelChanged) {
       return { role, usersMoved: 0, previousSlug, nextSlug, renamed };
     }
 
