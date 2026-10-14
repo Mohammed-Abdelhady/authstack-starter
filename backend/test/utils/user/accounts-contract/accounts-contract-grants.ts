@@ -1,3 +1,6 @@
+import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../../../src/auth/constants/account-creation';
+import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import * as bcrypt from 'bcrypt';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
@@ -23,8 +26,12 @@ export function accountGrantCases(
 ): void {
   it('creates a verified account with a hashed password', async () => {
     const { adminId } = fixture();
+    const policy = new AccountCreationPolicy();
+    const check = jest.spyOn(policy, 'assertMayCreate');
+    const inserting = jest.spyOn(harness().admin, 'insertAccount');
 
-    const created = await servicesOn(harness()).adminCreate.createUser(
+    const services = servicesOn(harness(), undefined, policy);
+    const created = await services.adminCreate.createUser(
       {
         email: '  Created@Example.Test ',
         name: 'Created Person',
@@ -35,6 +42,12 @@ export function accountGrantCases(
       adminId,
     );
 
+    expect(check.mock.calls).toEqual([
+      [
+        { application: null, method: ACCOUNT_CREATION_METHOD.STAFF },
+        inserting.mock.calls[0]?.[0],
+      ],
+    ]);
     const id = created.data?.id ?? '';
     expect(await harness().accountIdByEmail('created@example.test')).toBe(id);
     const stored = await storedAccount(harness(), id);
@@ -53,6 +66,31 @@ export function accountGrantCases(
       true,
     );
     expect(created.data).toMatchObject({ id, role: EDITOR_SLUG });
+  });
+
+  it('refuses an actor whose stored authority no longer allows the role before asking the creation policy', async () => {
+    const { userId } = fixture();
+    const policy = new AccountCreationPolicy();
+    const check = jest.spyOn(policy, 'assertMayCreate');
+    const services = servicesOn(harness(), undefined, policy);
+    const email = 'stale-authority-creation@example.test';
+
+    await expect(
+      services.adminCreate.createUser(
+        {
+          email,
+          name: 'Refused Account',
+          password: NEW_SECRET,
+          role: DEFAULT_SLUG,
+        },
+        ADMIN_SLUG,
+        userId,
+      ),
+    ).rejects.toMatchObject({
+      code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+    });
+    expect(check).not.toHaveBeenCalled();
+    expect(await harness().accountIdByEmail(email)).toBeNull();
   });
 
   it('refuses a taken address before and during the insert', async () => {
