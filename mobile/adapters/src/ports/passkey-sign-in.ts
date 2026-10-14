@@ -38,42 +38,61 @@ function isNativePlatform(platform: NativeSignInPlatform): boolean {
   return platform === 'ios' || platform === 'android';
 }
 
+function assertionResponse(value: unknown): NativePasskeyAssertion['response'] | undefined {
+  if (
+    !isRecord(value) ||
+    !nonEmptyString(value.clientDataJSON) ||
+    !nonEmptyString(value.authenticatorData) ||
+    !nonEmptyString(value.signature)
+  ) {
+    return undefined;
+  }
+
+  const userHandle = value.userHandle;
+  if (userHandle !== undefined && userHandle !== null && typeof userHandle !== 'string') {
+    return undefined;
+  }
+  return {
+    clientDataJSON: value.clientDataJSON,
+    authenticatorData: value.authenticatorData,
+    signature: value.signature,
+    ...(userHandle === undefined ? {} : { userHandle }),
+  };
+}
+
+function assertionOptionalFields(
+  value: Record<string, unknown>,
+): Pick<NativePasskeyAssertion, 'authenticatorAttachment' | 'clientExtensionResults'> | undefined {
+  const attachment = value.authenticatorAttachment ?? undefined;
+  if (attachment !== undefined && attachment !== 'platform' && attachment !== 'cross-platform') {
+    return undefined;
+  }
+  const extensionResults = value.clientExtensionResults ?? undefined;
+  if (extensionResults !== undefined && !isRecord(extensionResults)) return undefined;
+  return {
+    ...(attachment === undefined ? {} : { authenticatorAttachment: attachment }),
+    ...(extensionResults === undefined ? {} : { clientExtensionResults: { ...extensionResults } }),
+  };
+}
+
 function assertion(value: unknown): NativePasskeyAssertion | undefined {
   if (
     !isRecord(value) ||
     value.type !== 'public-key' ||
     !nonEmptyString(value.id) ||
-    !nonEmptyString(value.rawId) ||
-    !isRecord(value.response) ||
-    !nonEmptyString(value.response.clientDataJSON) ||
-    !nonEmptyString(value.response.authenticatorData) ||
-    !nonEmptyString(value.response.signature)
+    !nonEmptyString(value.rawId)
   ) {
     return undefined;
   }
-
-  const attachment = value.authenticatorAttachment ?? undefined;
-  if (attachment !== undefined && attachment !== 'platform' && attachment !== 'cross-platform') {
-    return undefined;
-  }
-  const userHandle = value.response.userHandle;
-  if (userHandle !== undefined && userHandle !== null && typeof userHandle !== 'string') {
-    return undefined;
-  }
-  const extensionResults = value.clientExtensionResults ?? undefined;
-  if (extensionResults !== undefined && !isRecord(extensionResults)) return undefined;
-
+  const response = assertionResponse(value.response);
+  if (!response) return undefined;
+  const optional = assertionOptionalFields(value);
+  if (!optional) return undefined;
   return {
     id: value.id,
     rawId: value.rawId,
-    response: {
-      clientDataJSON: value.response.clientDataJSON,
-      authenticatorData: value.response.authenticatorData,
-      signature: value.response.signature,
-      ...(userHandle === undefined ? {} : { userHandle }),
-    },
-    ...(attachment === undefined ? {} : { authenticatorAttachment: attachment }),
-    ...(extensionResults === undefined ? {} : { clientExtensionResults: { ...extensionResults } }),
+    response,
+    ...optional,
     type: 'public-key',
   };
 }
