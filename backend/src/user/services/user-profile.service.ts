@@ -69,8 +69,11 @@ export class UserProfileService {
     const user = await this.accounts.findAccount(userId);
     assertActiveUser(user);
 
-    // Only a provided name is written.
-    const saved = await this.accounts.saveProfile(user, { name: dto.name });
+    // Only what was provided is written.
+    const saved = await this.accounts.saveProfile(user, {
+      name: dto.name,
+      locale: dto.locale,
+    });
 
     this.logger.log(`Profile updated: userId=${saved.id}`);
     const profileDto = await this.mapToProfileDto(saved);
@@ -247,6 +250,7 @@ export class UserProfileService {
       linkedProviders: user.linkedProviders,
       primaryProvider: user.primaryProvider,
       profileSyncedAt: user.profileSyncedAt,
+      locale: user.locale,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

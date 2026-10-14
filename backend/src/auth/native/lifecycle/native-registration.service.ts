@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { SupportedLocale } from '../../../common/constants/locales';
 import { HashService } from '../../../common/services/hash.service';
 import {
   UnitOfWork,
@@ -34,6 +35,15 @@ import {
   requireLifecycleAttempt,
 } from './native-lifecycle-guards';
 
+/** What activation takes, with the language the account stores. */
+interface NativeActivationInput {
+  email: string;
+  code: string;
+  password: string;
+  name: string;
+  locale: SupportedLocale;
+}
+
 @Injectable()
 export class NativeRegistrationService {
   constructor(
@@ -48,7 +58,12 @@ export class NativeRegistrationService {
     private readonly clock: Clock,
   ) {}
 
-  async request(attemptId: string, secret: string, email: string) {
+  async request(
+    attemptId: string,
+    secret: string,
+    email: string,
+    locale: SupportedLocale,
+  ) {
     const attempt = await requireLifecycleAttempt(
       this.attempts,
       this.methods,
@@ -61,7 +76,10 @@ export class NativeRegistrationService {
     const claimed = await this.attempts.claim(attemptId, secret, attempt.phase);
     let stateCommitted = false;
     try {
-      const generationHash = await this.registration.registerForNative(email);
+      const generationHash = await this.registration.registerForNative(
+        email,
+        locale,
+      );
       const next = await this.attempts.transition(
         claimed,
         NATIVE_ATTEMPT_PHASE.REGISTRATION_CODE_REQUIRED,
@@ -88,7 +106,7 @@ export class NativeRegistrationService {
   async activate(
     attemptId: string,
     secret: string,
-    input: { email: string; code: string; password: string; name: string },
+    input: NativeActivationInput,
   ) {
     const attempt = await requireLifecycleAttempt(
       this.attempts,
@@ -148,7 +166,7 @@ export class NativeRegistrationService {
     expected: NativeAttempt,
     attemptId: string,
     secret: string,
-    input: { email: string; code: string; password: string; name: string },
+    input: NativeActivationInput,
     reserved: Awaited<ReturnType<VerificationCodeService['verifyCode']>>,
     passwordHash: string,
     accountId: string,
@@ -175,7 +193,7 @@ export class NativeRegistrationService {
       this.activationAccounts,
       unitOfWork,
       reserved,
-      { id: accountId, passwordHash, name: input.name },
+      { id: accountId, passwordHash, name: input.name, locale: input.locale },
     );
     const storedAccount = await this.accounts.readAccount(
       unitOfWork,

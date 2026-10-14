@@ -41,6 +41,7 @@ export interface UsersTable {
     Date | null
   >;
   last_synced_provider: string | null;
+  locale: Generated<string>;
   created_at: ColumnType<Date, Date | undefined, never>;
   updated_at: ColumnType<Date, Date | undefined, Date>;
 }

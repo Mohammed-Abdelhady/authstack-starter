@@ -32,6 +32,8 @@ import { ErrorCode } from '../common/enums/error-code.enum';
 import { RequestWithUser } from './guards/auth.guard';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
 import { CREDENTIAL_PURPOSE } from '../session/constants/credential-purpose';
+import { RequestLocale } from '../common/decorators/request-locale.decorator';
+import type { SupportedLocale } from '../common/constants/locales';
 import {
   THROTTLE_LOGIN,
   THROTTLE_FORGOT_PASSWORD,
@@ -114,8 +116,11 @@ export class AuthController {
       'REGISTRATION_CONTRACT_OUTDATED.',
   })
   @ApiBody({ type: RegisterDto })
-  async register(@Body() dto: RegisterDto) {
-    return this.registrationService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @RequestLocale() locale: SupportedLocale,
+  ) {
+    return this.registrationService.register(dto, locale);
   }
 
   /**
@@ -135,8 +140,16 @@ export class AuthController {
       'The address must not already have an account.',
   })
   @ApiBody({ type: ActivateDto })
-  async activate(@Body() dto: ActivateDto, @Res() response: Response) {
-    const result = await this.registrationService.activate(dto, response);
+  async activate(
+    @Body() dto: ActivateDto,
+    @Res() response: Response,
+    @RequestLocale() locale: SupportedLocale,
+  ) {
+    const result = await this.registrationService.activate(
+      dto,
+      response,
+      locale,
+    );
     return response.status(HttpStatus.OK).json(result);
   }
 
@@ -176,8 +189,11 @@ export class AuthController {
       'Rate limited to 3 requests per hour per client IP.',
   })
   @ApiBody({ type: ResendActivationDto })
-  async resendActivation(@Body() dto: ResendActivationDto) {
-    return this.registrationService.resendActivation(dto);
+  async resendActivation(
+    @Body() dto: ResendActivationDto,
+    @RequestLocale() locale: SupportedLocale,
+  ) {
+    return this.registrationService.resendActivation(dto, locale);
   }
 
   /**

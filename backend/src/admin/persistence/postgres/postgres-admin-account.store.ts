@@ -238,6 +238,7 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
           permissions: [],
           auth_provider: AuthProvider.EMAIL,
           primary_provider: AuthProvider.EMAIL,
+          locale: account.locale,
           created_at: now,
           updated_at: now,
         })

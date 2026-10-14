@@ -1,6 +1,6 @@
 import {
-  applyPostgresMigrations, // feature:totp,passkeys,magic-link
-  MIGRATION_LOCK_WAIT_MS, // feature:totp,passkeys,magic-link
+  applyPostgresMigrations,
+  MIGRATION_LOCK_WAIT_MS,
 } from './postgres-migrations';
 import {
   EVERY_MIGRATION,
@@ -10,6 +10,9 @@ import {
 
 /** What is left to apply once the first four files are in. */
 const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
+
+/** The core file the previous build did not carry, though it carried 0020. */
+const ACCOUNT_LOCALE = '0019_account_locale.sql';
 
 // feature:totp,passkeys,magic-link:start
 /** The files a feature owns. A project that gains the feature gets its files late. */
@@ -77,6 +80,47 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           said: [`Applied: ${AFTER_THE_FOURTH.join(', ')}`],
         },
         recorded: EVERY_MIGRATION,
+        after: 'serves',
+      });
+    },
+    MIGRATE_CASE_TIMEOUT_MS,
+  );
+
+  it(
+    'applies 0019 to a database the previous build left at 0020, and its accounts read en',
+    async () => {
+      const pool = await emptyDatabase();
+      const previousBuild = EVERY_MIGRATION.filter(
+        (name) => name !== ACCOUNT_LOCALE,
+      );
+      await applyPostgresMigrations(
+        pool,
+        MIGRATION_LOCK_WAIT_MS,
+        previousBuild,
+      );
+      await pool.query(
+        "INSERT INTO users (email, name, role, created_at, updated_at) VALUES ('before@example.test', 'Before', 'user', now(), now())",
+      );
+
+      const refused = await startUp(pool);
+      const up = await run('up', pool);
+      const locale = await pool.query<{ locale: string }>(
+        "SELECT locale FROM users WHERE email = 'before@example.test'",
+      );
+
+      expect({
+        previousBuild: previousBuild.slice(-2),
+        refused,
+        up,
+        recorded: await recorded(pool),
+        locales: locale.rows,
+        after: await startUp(pool),
+      }).toEqual({
+        previousBuild: ['0018_native_attempts.sql', '0020_host_migrations.sql'],
+        refused: 'StorageNotReadyError',
+        up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
+        recorded: EVERY_MIGRATION,
+        locales: [{ locale: 'en' }],
         after: 'serves',
       });
     },

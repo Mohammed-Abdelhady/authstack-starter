@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
 import { NATIVE_LIFECYCLE_LIMITS } from '../../constants/native-lifecycle.constants';
+import { LanguagePreference } from '../../../../common/decorators/language-preference.decorator';
 
 export class NativeEmailRequestDto {
   @IsEmail()
@@ -10,4 +11,7 @@ export class NativeEmailRequestDto {
     typeof value === 'string' ? value.toLowerCase().trim() : value,
   )
   email!: string;
+
+  @LanguagePreference()
+  locale?: string;
 }

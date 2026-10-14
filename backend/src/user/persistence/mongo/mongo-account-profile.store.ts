@@ -23,6 +23,7 @@ import {
   AccountPassword,
   AccountProfileStore,
   AdminFence,
+  ProfileChanges,
 } from '../../stores/account-profile.store';
 import { StoredAccount } from '../../stores/stored-account';
 import { MongoAccountDocuments } from './mongo-account-records';
@@ -68,11 +69,14 @@ export class MongoAccountProfileStore extends AccountProfileStore {
 
   async saveProfile(
     account: StoredAccount,
-    changes: { name?: string },
+    changes: ProfileChanges,
   ): Promise<StoredAccount> {
     const user = this.read.documentOf(account);
     if (changes.name !== undefined) {
       user.name = changes.name;
+    }
+    if (changes.locale !== undefined) {
+      user.locale = changes.locale;
     }
     await user.save();
     return this.read.remember(user, account.id);

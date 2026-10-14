@@ -12,7 +12,6 @@ import { RequestMagicLinkDto } from './dto/request-magic-link.dto';
 import { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
 import { MagicLinkRequestResponseDto } from './dto/magic-link-request-response.dto';
 import {
-  MAGIC_LINK_CLIENT_PATH,
   MAGIC_LINK_CONFIRM_MESSAGE,
   MAGIC_LINK_INVALID_MESSAGE,
   MAGIC_LINK_RATE_WINDOW_MS,
@@ -23,7 +22,11 @@ import {
   hashMagicLinkToken,
   sameHash,
 } from './utils/magic-link-token.util';
-import { buildClientUrl } from '../../common/utils/client-url.util';
+import type { SupportedLocale } from '../../common/constants/locales';
+import { requestLocaleOf } from '../../common/decorators/request-locale.decorator';
+import { MAIL_NAME } from '../../mail/constants/mail-names';
+import { mailLink } from '../../mail/links/mail-links';
+import type { MailRecipient } from '../../mail/types/mail-recipient.types';
 import { LoginResponseDto } from '../dto/login-response.dto';
 import { AuthMailService } from '../services/mail/auth-mail.service';
 import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../constants/auth-messages';
@@ -83,7 +86,8 @@ export class MagicLinkService {
    * one link stored. A request that mails nothing stores a link that is
    * already spent and whose token is thrown away. The mail leaves through the
    * dispatcher, so no answer waits on SMTP. Every answer also leaves the nonce
-   * that ties the link to this browser.
+   * that ties the link to this browser. The mail is in the account's
+   * language, or the request's when the address has no account.
    */
   async request(
     dto: RequestMagicLinkDto,
@@ -92,7 +96,8 @@ export class MagicLinkService {
   ): Promise<ApiResponse<MagicLinkRequestResponseDto>> {
     const now = this.clock.now();
     const requestNonceHash = this.browser.bind(request, response);
-    const deleted = await this.accounts.hasDeletedAccount(dto.email);
+    const owner = await this.accounts.findLinkRecipient(dto.email);
+    const deleted = owner?.isDeleted === true;
     const underCap = await this.links.takeRequestSlot(dto.email, {
       now,
       windowMs: MAGIC_LINK_RATE_WINDOW_MS,
@@ -115,7 +120,8 @@ export class MagicLinkService {
 
     const requestId = currentRequestId() ?? 'unknown';
     if (mailed) {
-      this.deferLink(dto.email, token, requestId);
+      const locale = owner?.locale ?? requestLocaleOf(request);
+      this.deferLink({ email: dto.email, locale }, token, requestId);
     } else if (deleted) {
       this.logger.warn('Magic link request for a deleted account');
     } else {
@@ -132,6 +138,7 @@ export class MagicLinkService {
    * it, the link is spent only in the browser that asked for it, and only when
    * that browser is not signed in to another account. Otherwise the answer is
    * `requiresConfirmation` with the masked address, and the link stays unspent.
+   * An account it creates stores the language of this request.
    *
    * @throws AppException MAGIC_LINK_INVALID when the token is unknown, already
    * spent, expired, or belongs to a deleted account
@@ -176,7 +183,7 @@ export class MagicLinkService {
       throw this.invalidLink('token has expired');
     }
 
-    const user = await this.resolveUser(link.email);
+    const user = await this.resolveUser(link.email, requestLocaleOf(request));
     const outcome = await this.signIn.complete(user, response);
     this.browser.release(response);
 
@@ -225,7 +232,10 @@ export class MagicLinkService {
    * The account behind a spent link. Following the link proves control of the
    * address, so it both creates the account and verifies an existing one.
    */
-  private async resolveUser(email: string): Promise<MagicLinkAccount> {
+  private async resolveUser(
+    email: string,
+    locale: SupportedLocale,
+  ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmail(email);
 
     if (existing?.isDeleted) {
@@ -239,18 +249,22 @@ export class MagicLinkService {
       return existing;
     }
 
-    return this.createUser(email);
+    return this.createUser(email, locale);
   }
 
   /**
    * Create the passwordless account. It carries no password hash, which is how
    * the rest of the application tells that password sign-in does not apply.
    */
-  private async createUser(email: string): Promise<MagicLinkAccount> {
+  private async createUser(
+    email: string,
+    locale: SupportedLocale,
+  ): Promise<MagicLinkAccount> {
     try {
       const user = await this.accounts.createPasswordless({
         email,
         name: deriveNameFromEmail(email),
+        locale,
       });
 
       this.logger.log('Created a new account from a magic link');
@@ -271,18 +285,18 @@ export class MagicLinkService {
     }
   }
 
-  private buildLink(token: string): string {
-    return buildClientUrl(this.configService, MAGIC_LINK_CLIENT_PATH, {
-      token,
-    });
-  }
-
   /** Start the mail and return at once. A dropped send is logged, not thrown. */
-  private deferLink(email: string, token: string, requestId: string): void {
+  private deferLink(
+    recipient: MailRecipient,
+    token: string,
+    requestId: string,
+  ): void {
     this.mailDispatcher.dispatch(async () => {
       const sent = await this.authMailService.sendMagicLink(
-        email,
-        this.buildLink(token),
+        recipient,
+        mailLink(this.configService, MAIL_NAME.MAGIC_LINK, recipient, {
+          token,
+        }),
         Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
       );
       if (sent) {

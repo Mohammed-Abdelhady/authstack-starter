@@ -2,34 +2,36 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { MailOptions } from './interfaces/mail-options.interface';
-import { escapeHtml } from '../common/utils/escape-html';
-import { buildClientUrl } from '../common/utils/client-url.util';
 import { currentRequestId } from '../common/context/request-context';
 import {
-  ACTIVATION_BODY_TEXT,
-  ACTIVATION_EMAIL_SUBJECT,
-  codeExpirySentence,
-  EMAIL_CHANGE_BODY_TEXT,
-  EMAIL_CHANGE_CONFIRM_PATH,
-  EMAIL_CHANGE_EMAIL_SUBJECT,
-  EMAIL_CHANGE_NOTICE_BODY_TEXT,
-  EMAIL_CHANGE_NOTICE_SUBJECT,
-  magicLinkExpirySentence,
-  MAGIC_LINK_EMAIL_SUBJECT,
   MAIL_CONNECTION_TIMEOUT_MS,
   MAIL_GREETING_TIMEOUT_MS,
   MAIL_POOL_MAX_CONNECTIONS,
   MAIL_POOL_MAX_MESSAGES,
   MAIL_SOCKET_TIMEOUT_MS,
   MS_PER_MINUTE,
-  NEUTRAL_GREETING,
-  PASSWORD_RESET_EMAIL_SUBJECT,
-  REGISTRATION_NOTICE_EMAIL_SUBJECT,
 } from './constants/mail.constants';
+import { MAIL_NAME } from './constants/mail-names';
+import type { MailContent } from './types/mail-catalogue.types';
+import type { MailRecipient } from './types/mail-recipient.types';
+import { mailLink } from './links/mail-links';
+import { buildActivationCodeMail } from './builders/activation-code';
+import { buildEmailChangeCodeMail } from './builders/email-change-code';
+import { buildEmailChangeNoticeMail } from './builders/email-change-notice';
+import { buildPasswordResetCodeMail } from './builders/password-reset-code';
+import { buildMagicLinkMail } from './builders/magic-link';
+import { buildRegistrationNoticeMail } from './builders/registration-notice';
+import { buildSecurityNoticeMail } from './builders/security-notice';
+import type { SecurityNotice } from '../user/types/security-notice.type';
 
 /** Default code lifetime in milliseconds, matching the activation default. */
 const DEFAULT_CODE_EXPIRES_IN_MS = 900000;
 
+/**
+ * Sends each mail in the recipient's language. The copy lives in the
+ * catalogue and each mail's layout in its builder; this service reads the
+ * configuration a mail needs and hands the result to SMTP.
+ */
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -114,232 +116,104 @@ export class MailService {
     }
   }
 
-  /**
-   * Send an activation code email. The greeting is neutral: no name is stored
-   * before the address is proved, so none can be shown.
-   * Values that come from user input are escaped before they reach the HTML.
-   * @param email - Recipient email address
-   * @param code - 6-digit activation code
-   */
-  async sendActivationCode(email: string, code: string): Promise<void> {
-    const safeCode = escapeHtml(code);
-    const expiresInMinutes = this.codeExpiresInMinutes();
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verify Your Email</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Verify Your Email Address</h2>
-            <p>${NEUTRAL_GREETING}</p>
-            <p>Thank you for registering! ${ACTIVATION_BODY_TEXT}</p>
-            <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${safeCode}</span>
-            </div>
-            <p>${codeExpirySentence(expiresInMinutes)}</p>
-            <p>If you didn't request this code, you can safely ignore this email.</p>
-            <p>Best regards,<br>The Team</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const text = `${NEUTRAL_GREETING}\n\nThank you for registering! ${ACTIVATION_BODY_TEXT}\n\n${code}\n\n${codeExpirySentence(expiresInMinutes)}\n\nIf you didn't request this code, you can safely ignore this email.\n\nBest regards,\nThe Team`;
-
-    await this.sendMail({
-      to: email,
-      subject: ACTIVATION_EMAIL_SUBJECT,
-      html,
-      text,
-    });
+  private send(recipient: MailRecipient, content: MailContent): Promise<void> {
+    return this.sendMail({ to: recipient.email, ...content });
   }
 
-  /**
-   * Send the code that confirms a new address an admin moved an account to.
-   * The copy names the change and links to the confirmation page, so it is not
-   * mistaken for a sign-up code. The link carries no address and no code.
-   * @param email - New address the code is sent to
-   * @param code - 6-digit confirmation code
-   */
-  async sendEmailChangeCode(email: string, code: string): Promise<void> {
-    const safeCode = escapeHtml(code);
-    const expiresInMinutes = this.codeExpiresInMinutes();
-    const confirmUrl = buildClientUrl(
-      this.configService,
-      EMAIL_CHANGE_CONFIRM_PATH,
+  /** The sign-up code, to an address that has no account yet. */
+  async sendActivationCode(
+    recipient: MailRecipient,
+    code: string,
+  ): Promise<void> {
+    await this.send(
+      recipient,
+      buildActivationCodeMail({
+        locale: recipient.locale,
+        code,
+        expiresInMinutes: this.codeExpiresInMinutes(),
+      }),
     );
-    const safeConfirmUrl = escapeHtml(confirmUrl);
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Confirm Your New Email</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Confirm Your New Email Address</h2>
-            <p>${NEUTRAL_GREETING}</p>
-            <p>${EMAIL_CHANGE_BODY_TEXT}</p>
-            <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${safeCode}</span>
-            </div>
-            <div style="margin: 20px 0;">
-              <a href="${safeConfirmUrl}" style="background-color: #007bff; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Confirm the new address</a>
-            </div>
-            <p>If the button does not work, paste this address into your browser:</p>
-            <p style="word-break: break-all; color: #555;">${safeConfirmUrl}</p>
-            <p>${codeExpirySentence(expiresInMinutes)}</p>
-            <p>If you didn't expect this change, contact your administrator.</p>
-            <p>Best regards,<br>The Team</p>
-          </div>
-        </body>
-      </html>
-    `;
+  }
 
-    const text = `${NEUTRAL_GREETING}\n\n${EMAIL_CHANGE_BODY_TEXT}\n\n${confirmUrl}\n\nCode: ${code}\n\n${codeExpirySentence(expiresInMinutes)}\n\nIf you didn't expect this change, contact your administrator.\n\nBest regards,\nThe Team`;
-
-    await this.sendMail({
-      to: email,
-      subject: EMAIL_CHANGE_EMAIL_SUBJECT,
-      html,
-      text,
-    });
+  /** The code and link that confirm a new address an admin moved an account to. */
+  async sendEmailChangeCode(
+    recipient: MailRecipient,
+    code: string,
+  ): Promise<void> {
+    await this.send(
+      recipient,
+      buildEmailChangeCodeMail({
+        locale: recipient.locale,
+        code,
+        expiresInMinutes: this.codeExpiresInMinutes(),
+        confirmUrl: mailLink(
+          this.configService,
+          MAIL_NAME.EMAIL_CHANGE_CODE,
+          recipient,
+        ),
+      }),
+    );
   }
 
   /** Notify the current mailbox that an admin requested an address change. */
-  async sendEmailChangeNotice(email: string): Promise<void> {
-    const text = `${NEUTRAL_GREETING}\n\n${EMAIL_CHANGE_NOTICE_BODY_TEXT}\n\nBest regards,\nThe Team`;
-    const html = `<!DOCTYPE html><html><body><p>${NEUTRAL_GREETING}</p><p>${EMAIL_CHANGE_NOTICE_BODY_TEXT}</p><p>Best regards,<br>The Team</p></body></html>`;
-    await this.sendMail({
-      to: email,
-      subject: EMAIL_CHANGE_NOTICE_SUBJECT,
-      html,
-      text,
-    });
+  async sendEmailChangeNotice(recipient: MailRecipient): Promise<void> {
+    await this.send(recipient, buildEmailChangeNoticeMail(recipient.locale));
   }
 
-  /**
-   * Send a password reset code email to a user.
-   * Values that come from user input are escaped before they reach the HTML.
-   * @param email - Recipient email address
-   * @param code - 6-digit password reset code
-   * @param name - Recipient's name
-   */
   async sendPasswordResetCode(
-    email: string,
+    recipient: MailRecipient,
     code: string,
     name: string,
   ): Promise<void> {
-    const safeName = escapeHtml(name);
-    const safeCode = escapeHtml(code);
-    const expiresInMinutes = this.codeExpiresInMinutes();
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Password</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Reset Your Password</h2>
-            <p>Hi ${safeName},</p>
-            <p>You requested to reset your password. Please use the following 6-digit code to reset your password:</p>
-            <div style="background-color: #f5f5f5; padding: 20px; text-align: center; border-radius: 5px; margin: 20px 0;">
-              <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #dc3545;">${safeCode}</span>
-            </div>
-            <p>${codeExpirySentence(expiresInMinutes)}</p>
-            <p>If you didn't request this code, you can safely ignore this email. Your password will remain unchanged.</p>
-            <p>Best regards,<br>The Team</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const text = `Hi ${name},\n\nYou requested to reset your password. Please use the following 6-digit code to reset your password:\n\n${code}\n\n${codeExpirySentence(expiresInMinutes)}\n\nIf you didn't request this code, you can safely ignore this email. Your password will remain unchanged.\n\nBest regards,\nThe Team`;
-
-    await this.sendMail({
-      to: email,
-      subject: PASSWORD_RESET_EMAIL_SUBJECT,
-      html,
-      text,
-    });
+    await this.send(
+      recipient,
+      buildPasswordResetCodeMail({
+        locale: recipient.locale,
+        code,
+        name,
+        expiresInMinutes: this.codeExpiresInMinutes(),
+      }),
+    );
   }
 
   /**
-   * Send a one-time sign-in link.
-   * The link is escaped before it reaches the HTML, in the text of the anchor
-   * and in its href.
-   * @param email - Recipient email address
-   * @param link - Client URL carrying the one-time token
-   * @param expiresInMinutes - Minutes until the link stops working
+   * A one-time sign-in link. The caller builds the link: the web page's from
+   * the link templates, a native app's from its registered callback.
    */
   async sendMagicLink(
-    email: string,
+    recipient: MailRecipient,
     link: string,
     expiresInMinutes: number,
   ): Promise<void> {
-    const safeLink = escapeHtml(link);
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Your Sign-In Link</title>
-        </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #333;">Your Sign-In Link</h2>
-            <p>Use this link to sign in. It works once.</p>
-            <div style="margin: 20px 0;">
-              <a href="${safeLink}" style="background-color: #007bff; color: #ffffff; padding: 12px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Sign in</a>
-            </div>
-            <p>If the button does not work, paste this address into your browser:</p>
-            <p style="word-break: break-all; color: #555;">${safeLink}</p>
-            <p>${magicLinkExpirySentence(expiresInMinutes)}</p>
-            <p>If you did not request this, ignore this email.</p>
-            <p>Best regards,<br>The Team</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const text = `Use this link to sign in. It works once:\n\n${link}\n\n${magicLinkExpirySentence(expiresInMinutes)}\n\nIf you did not request this, ignore this email.\n\nBest regards,\nThe Team`;
-
-    await this.sendMail({
-      to: email,
-      subject: MAGIC_LINK_EMAIL_SUBJECT,
-      html,
-      text,
-    });
+    await this.send(
+      recipient,
+      buildMagicLinkMail({ locale: recipient.locale, link, expiresInMinutes }),
+    );
   }
 
   /**
    * Tell an account holder that their address was used in a registration.
    * Sent instead of an activation code, so registration answers the same way
    * for an address that has an account and one that does not.
-   * Plain text only: there is nothing to click.
-   * @param email - Recipient email address
-   * @param name - Recipient's name
    */
   async sendRegistrationAttemptNotice(
-    email: string,
+    recipient: MailRecipient,
     name: string,
   ): Promise<void> {
-    const text = `Hi ${name},\n\nSomeone just tried to register an account with this email address. You already have an account, so nothing has changed and no new account was created.\n\nIf this was you, sign in instead. If you have forgotten your password, use the forgot password link on the sign-in page.\n\nIf it was not you, you can ignore this email.\n\nBest regards,\nThe Team`;
+    await this.send(
+      recipient,
+      buildRegistrationNoticeMail({ locale: recipient.locale, name }),
+    );
+  }
 
-    await this.sendMail({
-      to: email,
-      subject: REGISTRATION_NOTICE_EMAIL_SUBJECT,
-      text,
-    });
+  /** Tell an account holder that a security change was made on the account. */
+  async sendSecurityNotice(
+    recipient: MailRecipient,
+    notice: SecurityNotice,
+  ): Promise<void> {
+    await this.send(
+      recipient,
+      buildSecurityNoticeMail(recipient.locale, notice),
+    );
   }
 }

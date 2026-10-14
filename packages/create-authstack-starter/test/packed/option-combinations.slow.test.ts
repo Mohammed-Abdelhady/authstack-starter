@@ -77,6 +77,8 @@ const OPTION_COMBINATIONS: OptionCombination[] = [
       'frontend/src/i18n/messages/native-auth.ar.json',
       'frontend/src/components/LanguageSwitcher.tsx',
       'frontend/src/components/LanguageSwitcher.test.tsx',
+      'backend/src/mail/catalog/ar/index.ts',
+      'backend/test/mail/mail-locale-ar.e2e-spec.ts',
     ],
     unitTests: true,
   },

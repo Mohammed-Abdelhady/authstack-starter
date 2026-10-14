@@ -10,7 +10,7 @@ import {
 const EMAIL = 'link@example.test';
 const LINK_EXPIRY = new Date('2099-01-01T12:15:00.000Z');
 const REQUEST_CALLS = [
-  'accounts.hasDeletedAccount',
+  'accounts.findLinkRecipient',
   'links.takeRequestSlot',
   'links.insertLink',
 ];

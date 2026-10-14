@@ -28,9 +28,13 @@ export function magicLinkStatements(
     'link.findUnspentLink': () => links.findUnspentLink('hash'),
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
-    'account.hasDeletedAccount': () => accounts.hasDeletedAccount(EMAIL),
+    'account.findLinkRecipient': () => accounts.findLinkRecipient(EMAIL),
     'account.createPasswordless': () =>
-      accounts.createPasswordless({ email: EMAIL, name: 'Outage Tester' }),
+      accounts.createPasswordless({
+        email: EMAIL,
+        name: 'Outage Tester',
+        locale: 'en',
+      }),
   };
 }
 
@@ -41,6 +45,6 @@ export const MAGIC_LINK_OUTAGES: Record<string, string> = {
   'link.findUnspentLink': UNAVAILABLE,
   'link.claimLink': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,
-  'account.hasDeletedAccount': UNAVAILABLE,
+  'account.findLinkRecipient': UNAVAILABLE,
   'account.createPasswordless': UNAVAILABLE,
 };

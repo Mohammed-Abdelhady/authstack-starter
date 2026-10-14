@@ -24,6 +24,8 @@ import { rejectBrowserContext } from '../utils/native-request.util';
 import { NativeEmailRequestDto } from './dto/native-email-request.dto';
 import { NativeEmailLinkVerifyDto } from './dto/native-email-link-verify.dto';
 import { NativeEmailLinkService } from './native-email-link.service'; // feature:magic-link
+import { RequestLocale } from '../../../common/decorators/request-locale.decorator';
+import type { SupportedLocale } from '../../../common/constants/locales';
 
 @Public()
 @SkipBrowserProof()
@@ -40,10 +42,11 @@ export class NativeEmailLinkController {
     @Param('attemptId') attemptId: string,
     @Headers(NATIVE_ATTEMPT_HEADER) secret: string,
     @Body() body: NativeEmailRequestDto,
+    @RequestLocale() locale: SupportedLocale,
   ) {
     rejectBrowserContext(request);
     return ApiResponse.success(
-      await this.emailLink.request(attemptId, secret, body.email),
+      await this.emailLink.request(attemptId, secret, body.email, locale),
     );
   }
 
@@ -55,10 +58,11 @@ export class NativeEmailLinkController {
     @Param('attemptId') attemptId: string,
     @Headers(NATIVE_ATTEMPT_HEADER) secret: string,
     @Body() body: NativeEmailLinkVerifyDto,
+    @RequestLocale() locale: SupportedLocale,
   ) {
     rejectBrowserContext(request);
     return ApiResponse.success(
-      await this.emailLink.verify(attemptId, secret, body),
+      await this.emailLink.verify(attemptId, secret, { ...body, locale }),
     );
   }
 }

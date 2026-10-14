@@ -41,6 +41,7 @@ import {
   MAIL_DRAIN_DEADLINE_MS,
   MAIL_MAX_PENDING_SENDS,
 } from '../mail/constants/mail.constants';
+import { MailLinkTemplatesConstraint } from '../mail/links/mail-link-templates.constraint';
 
 export { EnvironmentConfig } from './types/environment-config.type';
 
@@ -122,6 +123,24 @@ export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @Max(60000)
   @IsOptional()
   MAIL_DRAIN_DEADLINE_MS: number = MAIL_DRAIN_DEADLINE_MS;
+
+  /**
+   * Link templates for customers' mail: a JSON object that gives every mail
+   * with a link its template. Unset, each link is CLIENT_URL plus its fixed
+   * path. A name that is not a mail with a link stops start-up.
+   */
+  @Transform(transformOptionalString)
+  @IsString()
+  @Validate(MailLinkTemplatesConstraint)
+  @IsOptional()
+  MAIL_LINKS_CUSTOMER?: string;
+
+  /** The same for staff members' mail. */
+  @Transform(transformOptionalString)
+  @IsString()
+  @Validate(MailLinkTemplatesConstraint)
+  @IsOptional()
+  MAIL_LINKS_STAFF?: string;
 
   @Type(() => Number)
   @Validate(BcryptRoundsConstraint)

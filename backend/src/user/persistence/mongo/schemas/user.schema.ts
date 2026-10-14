@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import { EMAIL_PROVIDER } from '../../../../common/constants/oauth-providers';
+import { DEFAULT_LOCALE } from '../../../../common/constants/locales';
 import { TwoFactor, TwoFactorSchema } from './two-factor.schema'; // feature:totp
 
 /**
@@ -89,6 +90,13 @@ export class User {
 
   @Prop()
   lastSyncedProvider?: string;
+
+  /**
+   * The language the account's mail is written in. A document written before
+   * this field existed has none, and reads as the default.
+   */
+  @Prop({ type: String, default: DEFAULT_LOCALE })
+  locale?: string;
 
   // feature:totp:start
   /**

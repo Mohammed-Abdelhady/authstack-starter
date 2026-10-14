@@ -52,6 +52,7 @@ describe('MongoActivationSignIn', () => {
           email: 'activated@example.test',
           passwordHash: 'a-stored-password-hash',
           name: 'Activated Tester',
+          locale: 'en',
         }),
     );
     const completeSignIn = jest

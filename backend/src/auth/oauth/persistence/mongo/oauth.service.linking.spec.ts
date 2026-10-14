@@ -13,6 +13,7 @@ import { User } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { AppException } from '../../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../../common/enums/error-code.enum';
 import { OAuthProviderStrategy } from '../../oauth-provider.interface';
+import type { OAuthLinkParams } from '../../types/oauth-service.types';
 import { MONGO_PROVIDER_SIGN_IN_STORE } from './mongo-provider-sign-in.store';
 import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
 import { Passkey } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema'; // feature:passkeys
@@ -123,7 +124,7 @@ describe('OAuthService linking', () => {
 
   function params(
     overrides: { linkUserId?: string; linkSessionId?: string } = {},
-  ) {
+  ): OAuthLinkParams {
     return {
       strategy: strategy(),
       code: 'auth-code',
@@ -131,6 +132,7 @@ describe('OAuthService linking', () => {
       response: {} as Response,
       linkUserId: overrides.linkUserId ?? USER_ID,
       linkSessionId: overrides.linkSessionId ?? SESSION_ID,
+      locale: 'en',
     };
   }
 

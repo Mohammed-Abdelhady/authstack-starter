@@ -12,6 +12,13 @@ import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { isAdminRole } from '../../../common/utils/role-hierarchy';
 import { StoredAccount } from '../../../user/stores/stored-account';
 import { AdminAccountStore } from '../../stores/admin-account.store';
+import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
+
+/** The account a confirmation code is issued for, as it was read. */
+type ConfirmationTarget = Pick<
+  StoredAccount,
+  'id' | 'pendingEmail' | 'addressGeneration' | 'locale'
+>;
 
 /**
  * Admin-initiated email changes.
@@ -55,9 +62,12 @@ export class AdminEmailChangeService {
     }
   }
 
-  /** Issue a code for the account's already-persisted pending address. */
+  /**
+   * Issue a code for the account's already-persisted pending address, in the
+   * account's language.
+   */
   async sendConfirmation(
-    user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
+    user: ConfirmationTarget,
     actorRole: string,
   ): Promise<void> {
     this.assertAdmin(actorRole);
@@ -82,12 +92,12 @@ export class AdminEmailChangeService {
       throw this.limitReached();
     }
 
-    await this.sendCode(pending, issued.code);
+    await this.sendCode({ email: pending, locale: user.locale }, issued.code);
   }
 
   /** Notify the active mailbox without delaying the admin response on SMTP. */
-  notifyPreviousAddress(email: string): void {
-    this.authMailService.deferEmailChangeNotice(email);
+  notifyPreviousAddress(recipient: MailRecipient): void {
+    this.authMailService.deferEmailChangeNotice(recipient);
   }
 
   /**
@@ -101,10 +111,7 @@ export class AdminEmailChangeService {
    * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_SEND_LIMIT_REACHED or
    * EMAIL_SEND_FAILED
    */
-  async resend(
-    user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
-    actorRole: string,
-  ): Promise<void> {
+  async resend(user: ConfirmationTarget, actorRole: string): Promise<void> {
     await this.sendConfirmation(user, actorRole);
   }
 
@@ -139,10 +146,16 @@ export class AdminEmailChangeService {
     );
   }
 
-  private async sendCode(email: string, code: string): Promise<void> {
+  private async sendCode(
+    recipient: MailRecipient,
+    code: string,
+  ): Promise<void> {
     // AuthMailService logs the failure with the request id and never the raw
     // transport message; the admin gets the shared send failure.
-    const sent = await this.authMailService.sendEmailChangeCode(email, code);
+    const sent = await this.authMailService.sendEmailChangeCode(
+      recipient,
+      code,
+    );
     if (!sent) {
       this.logger.error('Email change confirmation was not handed over');
       throw new AppException(

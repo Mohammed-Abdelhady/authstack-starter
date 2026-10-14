@@ -42,6 +42,7 @@ const CORE_MIGRATIONS = [
   '0014_code_guess_locks.sql',
   '0016_pending_email.sql',
   '0018_native_attempts.sql',
+  '0019_account_locale.sql',
   '0020_host_migrations.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
@@ -230,6 +231,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0016_pending_email.sql',
       '0017_two_factor_lockout.sql',
       '0018_native_attempts.sql',
+      '0019_account_locale.sql',
       '0020_host_migrations.sql',
     ]);
   });

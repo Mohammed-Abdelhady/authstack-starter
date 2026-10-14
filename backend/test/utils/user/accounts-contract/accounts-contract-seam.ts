@@ -112,6 +112,7 @@ export function accountSeamCases(
           name: 'Second',
           passwordHash: 'hash',
           role: DEFAULT_SLUG,
+          locale: 'en',
         }),
       ),
     );
@@ -132,6 +133,7 @@ export function accountSeamCases(
           email: 'person@example.test',
           passwordHash: 'hash',
           name: 'Third',
+          locale: 'en',
         }),
       ),
     );
@@ -161,6 +163,7 @@ export function accountSeamCases(
         name: 'Mixed',
         passwordHash: 'hash',
         role: DEFAULT_SLUG,
+        locale: 'en',
       }),
     );
 
@@ -173,7 +176,7 @@ export function accountSeamCases(
     );
     expect(
       await stores.activation.findAddressOwner('Mixed.Case@Example.Test'),
-    ).toEqual({ name: 'Mixed', isDeleted: false });
+    ).toEqual({ name: 'Mixed', isDeleted: false, locale: 'en' });
     expect(await stores.admin.isAddressTaken('nobody@example.test')).toBe(
       false,
     );
@@ -187,6 +190,7 @@ export function accountSeamCases(
         name: 'Created',
         passwordHash: 'hash',
         role: DEFAULT_SLUG,
+        locale: 'en',
       }),
     );
     const mark = {

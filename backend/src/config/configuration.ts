@@ -8,6 +8,8 @@ import {
 import type { NativeApplicationConfiguration } from './types/native-application.type';
 import { parseNativeApplications } from './utils/native-application-config.util';
 import { defaultSessionCookieName } from './utils/production-environment.util';
+import { parseMailLinkTemplates } from '../mail/links/mail-link-templates';
+import { MAIL_LINK_SETTING, MailLinkSettings } from '../mail/links/mail-links';
 
 export { EnvironmentConfig, EnvironmentVariables } from './env.schema';
 
@@ -40,6 +42,7 @@ export interface Configuration {
   mail: {
     maxPendingSends: number;
     drainDeadlineMs: number;
+    links: MailLinkSettings;
   };
   bcrypt: {
     rounds: number;
@@ -153,6 +156,16 @@ const configuration = (): Configuration => {
         process.env.MAIL_DRAIN_DEADLINE_MS || String(MAIL_DRAIN_DEADLINE_MS),
         10,
       ),
+      links: {
+        customer: parseMailLinkTemplates(
+          process.env.MAIL_LINKS_CUSTOMER,
+          MAIL_LINK_SETTING.customer,
+        ),
+        staff: parseMailLinkTemplates(
+          process.env.MAIL_LINKS_STAFF,
+          MAIL_LINK_SETTING.staff,
+        ),
+      },
     },
     bcrypt: {
       rounds: Number.parseInt(process.env.BCRYPT_ROUNDS || '10', 10),
