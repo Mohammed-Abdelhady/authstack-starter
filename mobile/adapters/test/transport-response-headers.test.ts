@@ -74,7 +74,7 @@ class ChallengingServer implements HttpApi<Signal> {
     if (path === '/api/user/profile') return reply(200, { success: true, data: SERVER_USER });
     const body: unknown = init.body === undefined ? {} : JSON.parse(init.body);
     const code = typeof body === 'object' && body !== null && 'code' in body ? body.code : null;
-    const proof = init.headers.DPoP;
+    const proof = init.headers['DPoP'];
     this.tokenRequests.push({ code, proof });
     // As the server does: a proof without the nonce it handed out is challenged again.
     if (nonceOf(proof) !== SERVER_NONCE) {
