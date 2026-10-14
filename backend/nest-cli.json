@@ -8,6 +8,10 @@
       {
         "include": "common/persistence/postgres/migrations/*.sql",
         "watchAssets": true
+      },
+      {
+        "include": "host/migrations/*.sql",
+        "watchAssets": true
       }
     ]
   }
