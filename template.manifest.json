@@ -454,6 +454,7 @@
       "files": [
         "backend/src/auth/oauth/strategies/google-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/native-google.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-google.e2e-spec.ts",
         "mobile/expo/test/native-sign-in-readiness.test.ts",
         "mobile/cli/test/native-sign-in-readiness.test.ts",
         "backend/test/native/attempts/native-account-email.e2e-spec.ts"
@@ -500,7 +501,8 @@
       "default": true,
       "files": [
         "backend/src/auth/oauth/strategies/facebook-oauth.strategy.ts",
-        "backend/src/auth/oauth/strategies/native-facebook.strategy.spec.ts"
+        "backend/src/auth/oauth/strategies/native-facebook.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-facebook.e2e-spec.ts"
       ],
       "packages": ["react-native-fbsdk-next"],
       "envVars": [
@@ -649,6 +651,7 @@
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.ts",
         "backend/src/auth/oauth/strategies/apple-oauth.strategy.spec.ts",
         "backend/src/auth/oauth/strategies/native-apple.strategy.spec.ts",
+        "backend/test/native/providers/native-provider-apple.e2e-spec.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.ts",
         "backend/src/auth/oauth/utils/apple-client-secret.util.spec.ts",
         "backend/src/auth/oauth/utils/apple-user-payload.util.ts",
