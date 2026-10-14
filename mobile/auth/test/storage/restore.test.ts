@@ -146,6 +146,20 @@ describe('restore', () => {
     expect(engine.snapshot.status).toBe('signedOut');
   });
 
+  it('deletes a record whose refresh token is not text', async () => {
+    const { ports } = await storedSession();
+    ports.credentials.value = ports.credentials.value?.replace(
+      /"refreshToken":"[^"]*"/,
+      '"refreshToken":7',
+    );
+    const engine = createAuthEngine(CONFIG, ports);
+
+    await engine.restore();
+
+    expect(ports.credentials.value).toBeUndefined();
+    expect(engine.snapshot.status).toBe('signedOut');
+  });
+
   it('reads the cold-start callback at most once', async () => {
     const ports = testPorts(new ScriptedTransport());
     ports.callbacks.initial = undefined;
