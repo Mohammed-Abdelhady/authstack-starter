@@ -19,7 +19,7 @@ Before deploying, ensure you have:
 
 - **Docker** (v20.10 or later) - [Install Docker](https://docs.docker.com/get-docker/)
 - **Docker Compose** (v2.0 or later) - Included with Docker Desktop
-- **Node.js** (22.12 through 22.x) - [Install Node.js](https://nodejs.org/)
+- **Node.js** (22.12 or newer on the 22 line, or 24) - [Install Node.js](https://nodejs.org/)
 - **pnpm** 12.6.0, enabled with `corepack enable` and `corepack prepare pnpm@12.6.0 --activate`
 - **Git** - For cloning the repository
 

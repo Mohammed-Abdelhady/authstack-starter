@@ -58,6 +58,8 @@ function workflow(source: string, layout: RulesLayout, trusted: boolean): string
   if (!isRecord(jobs)) throw new Error('Invalid bundled workflow.');
   for (const job of Object.values(jobs)) {
     if (!isRecord(job) || !Array.isArray(job.steps)) throw new Error('Invalid bundled job.');
+    // Existing project engines may exclude the template's additional Node version.
+    delete job.strategy;
     job.steps = job.steps.filter((step: unknown) => {
       if (!isRecord(step)) return false;
       if (typeof step.uses === 'string' && step.uses.startsWith('actions/setup-node@'))

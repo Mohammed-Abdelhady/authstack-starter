@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { parseDocument } from 'yaml';
+import { templateContent } from '../../scripts/sync-template.mjs';
 import { isRecord } from '../../src/manifest/read.js';
 import {
   CACHE_ACTION,
   CHECKOUT_ACTION,
   expectSupportedActionInputs,
+  expectNodeVersions,
   jobsOf,
   PNPM_SETUP_ACTION,
   PNPM_SETUP_WITH,
@@ -81,9 +84,6 @@ describe('CI workflow contract', () => {
       readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8'),
     ) as { packageManager: string };
     expect(rootPackage.packageManager).toBe('pnpm@12.6.0');
-    expect(stepsOf(jobs.quality)[1].with).toEqual({
-      'node-version-file': '.nvmrc',
-    });
     expect(stepsOf(jobs.quality)[2]).toMatchObject({
       uses: PNPM_SETUP_ACTION,
       with: PNPM_SETUP_WITH,
@@ -251,4 +251,22 @@ it('protects scanner ownership and schedules grouped weekly action updates', () 
     schedule: { interval: 'weekly' },
     groups: { actions: { patterns: ['*'] } },
   });
+});
+
+it('runs exactly the test jobs on Node 22 and 24', () => {
+  const jobs = jobsOf(readWorkflow(WORKFLOW));
+  for (const id of ['quality', 'api', 'installer', 'installer-postgres', 'installer-mongodb'])
+    expectNodeVersions(jobs[id], [22, 24]);
+  for (const id of ['range-scan', 'browser']) expectNodeVersions(jobs[id]);
+});
+
+it('preserves both Node versions in the jobs generated projects keep', () => {
+  const source = templateContent('.github/workflows/ci.yml', readFileSync(WORKFLOW));
+  const workflow: unknown = parseDocument(source.toString()).toJS();
+  if (!isRecord(workflow)) throw new Error('Workflow must be a mapping');
+  const jobs = jobsOf(workflow);
+  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api']);
+  expectNodeVersions(jobs['range-scan']);
+  expectNodeVersions(jobs.quality, [22, 24]);
+  expectNodeVersions(jobs.api, [22, 24]);
 });

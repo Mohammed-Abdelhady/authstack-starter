@@ -324,7 +324,7 @@ list, contents and executable bits, which every generated project records in
 Publish from the package directory after a version bump: `pnpm --filter create-authstack-starter run build`, then `npm publish --access public` from
 `packages/create-authstack-starter`.
 
-Supports Node 22.12 through Node 22.x for both the CLI and generated project.
+The CLI and generated projects support Node 22.12 or newer on the 22 line, or Node 24. Both are tested.
 Corepack is not bundled from Node 25. The installer is still packed and published
 with npm. Its template carries `_pnpm-lock.yaml`, restored to `pnpm-lock.yaml`
 before pruning and installation.

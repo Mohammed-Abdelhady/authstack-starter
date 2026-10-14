@@ -140,6 +140,17 @@ export function mobileTargetCases(getPacked: () => Packed): void {
       const project = generate(getPacked(), name, ['--targets', targets, ...IDENTITY_FLAGS]);
 
       expectExpoWorkspace(project);
+      for (const file of [
+        'mobile/adapters/package.json',
+        'mobile/auth/package.json',
+        'mobile/device-key/package.json',
+        'mobile/expo/package.json',
+        'mobile/metro/package.json',
+        'mobile/ui/package.json',
+      ]) {
+        const manifest = JSON.parse(read(project, file)) as { engines: Record<string, string> };
+        expect(manifest.engines, file).toEqual({ node: '^22.12.0 || ^24.0.0', pnpm: '12.6.0' });
+      }
       expectEngineSuitesStayInRepository(project);
       expect(sourceFilesWithMarkers(project)).toEqual([]);
       expect(read(project, 'README.md')).not.toContain('feature:');
