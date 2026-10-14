@@ -5,6 +5,11 @@ export interface SeedRole {
   isSystemRole: boolean;
   isProtected: boolean;
   level: number;
+  /**
+   * A stored level above `level` stays. Set for admin, so a reseed with fewer
+   * or lower host roles never puts admin under a role still stored.
+   */
+  levelNeverLowers: boolean;
   permissions: string[];
 }
 
@@ -48,7 +53,9 @@ export function assertResetAllowed(
 export abstract class SeedStore {
   /**
    * Stores the role when no role carries its slug. A role that does keeps its
-   * name, description and permissions, and takes the seed's level and flags.
+   * name, description and permissions, and takes the seed's flags and level.
+   * With `levelNeverLowers` it takes the higher of the stored and seed level,
+   * in the same statement.
    */
   abstract seedRole(role: SeedRole): Promise<RoleSeedOutcome>;
 

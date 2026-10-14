@@ -5,7 +5,13 @@ import { useTranslations } from 'next-intl';
 import { busyPressProps } from '@/components/ui/busy';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SearchPermissionGrid } from './SearchPermissionGrid';
-import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
+import {
+  ALL_GROUPS_TAB,
+  PERMISSION_GROUPS,
+  permissionGroupTab,
+} from '../../constants/permissionGroups';
+import { usePermissionGroupName } from '../../hooks/usePermissionGroupName';
+import { PermissionGroupName } from '../selector/PermissionGroupName';
 import type { PermissionGroup } from '../../types/permissionGroup.types';
 
 export interface FilteredPermissionGroup extends PermissionGroup {
@@ -21,6 +27,8 @@ export interface SearchPermissionTabsProps {
   onTogglePermission: (permission: string) => void;
   isLoading?: boolean;
   searchQuery: string;
+  /** The groups that get a tab. Default: the core and host permissions grouped by resource */
+  groups?: readonly PermissionGroup[];
 }
 
 export function SearchPermissionTabs({
@@ -32,9 +40,11 @@ export function SearchPermissionTabs({
   onTogglePermission,
   isLoading = false,
   searchQuery,
+  groups = PERMISSION_GROUPS,
 }: SearchPermissionTabsProps) {
   const t = useTranslations('permissions.selector');
   const tDialog = useTranslations('permissions.searchDialog');
+  const groupName = usePermissionGroupName();
 
   return (
     <Tabs
@@ -44,24 +54,24 @@ export function SearchPermissionTabs({
     >
       <div className="w-full overflow-x-auto pb-1">
         <TabsList className="inline-flex w-max min-w-full justify-start flex-nowrap">
-          <TabsTrigger value="all" className="shrink-0" data-testid="permission-tab-all">
+          <TabsTrigger value={ALL_GROUPS_TAB} className="shrink-0" data-testid="permission-tab">
             {t('allTab')}
           </TabsTrigger>
-          {PERMISSION_GROUPS.map((group) => (
+          {groups.map((group) => (
             <TabsTrigger
               key={group.id}
-              value={group.id}
+              value={permissionGroupTab(group.id)}
               className="shrink-0"
               data-testid={`permission-tab-${group.id}`}
             >
-              {t(`groups.${group.id}`)}
+              <PermissionGroupName group={group} />
             </TabsTrigger>
           ))}
         </TabsList>
       </div>
 
       {/* All Permissions Tab */}
-      <TabsContent value="all" className="flex-1 overflow-y-auto mt-4 space-y-6">
+      <TabsContent value={ALL_GROUPS_TAB} className="flex-1 overflow-y-auto mt-4 space-y-6">
         {filteredGroups.map((group) => {
           const groupPerms = Object.values(group.filteredPermissions);
           const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
@@ -70,14 +80,14 @@ export function SearchPermissionTabs({
             <div key={group.id} className="space-y-3">
               <div className="flex items-center justify-between">
                 <Heading level={3} variant="subsectionTitle">
-                  {t(`groups.${group.id}`)}
+                  <PermissionGroupName group={group} />
                 </Heading>
                 <button
                   type="button"
                   disabled={groupPerms.length === 0}
                   {...busyPressProps(isLoading, () => onSelectAll(group.filteredPermissions))}
                   aria-label={t(allSelected ? 'deselectAllForGroup' : 'selectAllForGroup', {
-                    group: t(`groups.${group.id}`),
+                    group: groupName(group),
                   })}
                   className="min-h-6 text-xs text-primary hover:underline disabled:opacity-50 aria-disabled:cursor-progress aria-disabled:opacity-85"
                   data-testid={`select-all-${group.id}`}
@@ -104,16 +114,16 @@ export function SearchPermissionTabs({
       </TabsContent>
 
       {/* Individual Category Tabs */}
-      {PERMISSION_GROUPS.map((group) => {
+      {groups.map((group) => {
         const filtered = filteredGroups.find((g) => g.id === group.id);
         const groupPerms = filtered ? Object.values(filtered.filteredPermissions) : [];
         const allSelected = groupPerms.every((p) => selectedPermissions.includes(p));
-        const category = t(`groups.${group.id}`);
+        const category = groupName(group);
 
         return (
           <TabsContent
             key={group.id}
-            value={group.id}
+            value={permissionGroupTab(group.id)}
             className="flex-1 overflow-y-auto mt-4 space-y-4"
           >
             {filtered && groupPerms.length > 0 ? (

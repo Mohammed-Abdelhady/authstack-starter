@@ -7,10 +7,11 @@ import { AdminAccountStore } from '../../stores/admin-account.store';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import {
-  ADMIN_LEVEL,
   canManageLevel,
   canModifyLevel,
+  isAdminRole,
   isValidRoleAssignment,
+  LevelActor,
 } from '../../../common/utils/role-hierarchy';
 
 /**
@@ -66,12 +67,12 @@ export class AdminUserAccessService {
    * @throws AppException CANNOT_MODIFY_HIGHER_ROLE
    */
   async assertCanView(actorRole: string, targetRole: string): Promise<void> {
-    const [actorLevel, targetLevel] = await this.resolveLevels(
+    const [actor, targetLevel] = await this.resolveLevels(
       actorRole,
       targetRole,
     );
 
-    if (!canManageLevel(actorLevel, targetLevel)) {
+    if (!canManageLevel(actor, targetLevel)) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
         'Cannot view user with higher role',
@@ -90,12 +91,12 @@ export class AdminUserAccessService {
     targetRole: string,
     message = 'Cannot modify user with higher or equal role',
   ): Promise<void> {
-    const [actorLevel, targetLevel] = await this.resolveLevels(
+    const [actor, targetLevel] = await this.resolveLevels(
       actorRole,
       targetRole,
     );
 
-    if (!canModifyLevel(actorLevel, targetLevel)) {
+    if (!canModifyLevel(actor, targetLevel)) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
         message,
@@ -123,7 +124,12 @@ export class AdminUserAccessService {
     const targetLevel = await this.roleHierarchyService.getLevelOrFail(newRole);
     const actorLevel = await this.getActorLevel(actorRole);
 
-    if (!canModifyLevel(actorLevel, targetLevel)) {
+    if (
+      !canModifyLevel(
+        { level: actorLevel, isAdmin: isAdminRole(actorRole) },
+        targetLevel,
+      )
+    ) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
         'Cannot assign a role at or above your own level',
@@ -164,7 +170,8 @@ export class AdminUserAccessService {
       targetRole,
       unitOfWork,
     );
-    if (requireAdmin && actorLevel < ADMIN_LEVEL) {
+    const isAdmin = isAdminRole(actor.role);
+    if (requireAdmin && !isAdmin) {
       throw new AppException(
         ErrorCode.EMAIL_CHANGE_NOT_ALLOWED,
         'Only admins can change the email address of another account',
@@ -172,7 +179,7 @@ export class AdminUserAccessService {
       );
     }
 
-    if (!canModifyLevel(actorLevel, targetLevel)) {
+    if (!canModifyLevel({ level: actorLevel, isAdmin }, targetLevel)) {
       throw new AppException(
         ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
         message,
@@ -199,10 +206,14 @@ export class AdminUserAccessService {
   private async resolveLevels(
     actorRole: string,
     targetRole: string,
-  ): Promise<[number, number]> {
-    return Promise.all([
+  ): Promise<[LevelActor, number]> {
+    const [actorLevel, targetLevel] = await Promise.all([
       this.roleHierarchyService.getLevel(actorRole),
       this.roleHierarchyService.getLevel(targetRole),
     ]);
+    return [
+      { level: actorLevel, isAdmin: isAdminRole(actorRole) },
+      targetLevel,
+    ];
   }
 }

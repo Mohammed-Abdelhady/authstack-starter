@@ -8,6 +8,7 @@ import {
   ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RoleLevelProperty } from './role-level.decorator';
 
 export class CreateRoleDto {
   @ApiProperty({
@@ -48,4 +49,7 @@ export class CreateRoleDto {
       'Permission must be in format resource:action[:scope] or wildcard *',
   })
   permissions!: string[];
+
+  @RoleLevelProperty()
+  level?: number;
 }

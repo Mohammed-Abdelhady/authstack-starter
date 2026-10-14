@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
+import { WILDCARD_PERMISSION } from '@app/core';
 import { PermissionNode } from './PermissionNode';
 import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
 import { Shield } from 'lucide-react';
@@ -28,20 +29,24 @@ export interface PermissionTreeViewProps {
   className?: string;
 }
 
-function groupPermissions(permissions: string[]): Record<string, string[]> {
-  const groups: Record<string, string[]> = {};
+/**
+ * Group id of the `*` permission. Resources match `[a-z-]+`, so no resource,
+ * a host resource named `wildcard` included, can share it.
+ */
+export const WILDCARD_GROUP_ID = '*';
+
+/** A Map, so a resource named after an Object member such as `constructor` is its own group. */
+function groupPermissions(permissions: string[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>();
 
   permissions.forEach((perm) => {
-    if (perm === '*') {
-      groups['wildcard'] = ['*'];
+    if (perm === WILDCARD_PERMISSION) {
+      groups.set(WILDCARD_GROUP_ID, [WILDCARD_PERMISSION]);
       return;
     }
 
     const resource = perm.split(':')[0];
-    if (!groups[resource]) {
-      groups[resource] = [];
-    }
-    groups[resource].push(perm);
+    groups.set(resource, [...(groups.get(resource) ?? []), perm]);
   });
 
   return groups;
@@ -77,7 +82,7 @@ export function PermissionTreeView({
   const treeId = useId();
 
   // Check for wildcard
-  const hasWildcard = permissions.includes('*');
+  const hasWildcard = permissions.includes(WILDCARD_PERMISSION);
 
   if (permissions.length === 0) {
     return <div className="text-center py-8 text-sm text-muted-foreground">{t('empty')}</div>;
@@ -97,17 +102,19 @@ export function PermissionTreeView({
 
       {/* Grouped Permissions */}
       <div className="space-y-4">
-        {Object.entries(groupedPermissions).map(([resource, perms]) => (
+        {[...groupedPermissions].map(([resource, perms]) => (
           <div key={resource} className="space-y-2">
             {/* Resource Header */}
-            {showHeaders && resource !== 'wildcard' && (
+            {showHeaders && resource !== WILDCARD_GROUP_ID && (
               <Heading
                 id={`${treeId}-group-${resource}`}
                 level={4}
                 variant="eyebrow"
                 data-testid={`permission-group-${resource}`}
               >
-                {PERMISSION_GROUPS.some((group) => group.id === resource) ? (
+                {PERMISSION_GROUPS.some(
+                  (group) => group.id === resource && group.hasCatalogName,
+                ) ? (
                   tSelector(`groups.${resource}`)
                 ) : (
                   <span dir="ltr">{resource}</span>
@@ -118,7 +125,9 @@ export function PermissionTreeView({
             {/* Permission Nodes */}
             <ul
               aria-labelledby={
-                showHeaders && resource !== 'wildcard' ? `${treeId}-group-${resource}` : undefined
+                showHeaders && resource !== WILDCARD_GROUP_ID
+                  ? `${treeId}-group-${resource}`
+                  : undefined
               }
               className="m-0 list-none space-y-1 p-0"
               data-testid={`permission-list-${resource}`}

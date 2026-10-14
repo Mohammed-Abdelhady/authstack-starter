@@ -137,6 +137,7 @@ export class MongoRoleChangeStore extends RoleChangeStore {
     if (edit.name !== undefined) role.name = edit.name;
     if (edit.slug !== undefined) role.slug = edit.slug;
     if (edit.description !== undefined) role.description = edit.description;
+    if (edit.level !== undefined) role.level = edit.level;
     if (edit.permissions !== undefined) role.permissions = edit.permissions;
     if (edit.pendingHolderSweeps !== undefined) {
       role.pendingHolderSweeps =

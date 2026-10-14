@@ -21,7 +21,7 @@ import { FREE_TEXT_SEARCH_CLASSES } from '@/constants/freeText';
 import { MAX_ADMIN_SEARCH_LENGTH } from '../../constants/search';
 import { usePermissionLabel } from '../../hooks/usePermissionLabel';
 import { SearchPermissionTabs } from './SearchPermissionTabs';
-import { PERMISSION_GROUPS } from '../../constants/permissionGroups';
+import { ALL_GROUPS_TAB, PERMISSION_GROUPS } from '../../constants/permissionGroups';
 
 export interface PermissionSearchDialogProps {
   /**
@@ -108,7 +108,7 @@ export const PermissionSearchDialog = memo(function PermissionSearchDialog({
   const tSelector = useTranslations('permissions.selector');
   const formatPermissionLabel = usePermissionLabel();
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState(ALL_GROUPS_TAB);
 
   const handleTogglePermission = useCallback(
     (permission: string) => {

@@ -9,7 +9,7 @@ import {
 } from '../../../auth/constants/registration';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { ADMIN_LEVEL } from '../../../common/utils/role-hierarchy';
+import { isAdminRole } from '../../../common/utils/role-hierarchy';
 import { StoredAccount } from '../../../user/stores/stored-account';
 import { AdminAccountStore } from '../../stores/admin-account.store';
 
@@ -42,9 +42,9 @@ export class AdminEmailChangeService {
   /** Refuse an active address before the account stores it as pending. */
   async assertAddressAvailable(
     email: string,
-    actorLevel: number,
+    actorRole: string,
   ): Promise<void> {
-    this.assertAdmin(actorLevel);
+    this.assertAdmin(actorRole);
 
     if (await this.accounts.isAddressTaken(email)) {
       throw new AppException(
@@ -58,9 +58,9 @@ export class AdminEmailChangeService {
   /** Issue a code for the account's already-persisted pending address. */
   async sendConfirmation(
     user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
-    actorLevel: number,
+    actorRole: string,
   ): Promise<void> {
-    this.assertAdmin(actorLevel);
+    this.assertAdmin(actorRole);
     const pending = this.pendingAddress(user.pendingEmail);
 
     if (await this.accounts.isAddressTaken(pending)) {
@@ -97,15 +97,15 @@ export class AdminEmailChangeService {
    * or the generation.
    *
    * @param user - The target account as it was read
-   * @param actorLevel - Hierarchy level of the acting admin
+   * @param actorRole - Role slug of the acting account
    * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_SEND_LIMIT_REACHED or
    * EMAIL_SEND_FAILED
    */
   async resend(
     user: Pick<StoredAccount, 'id' | 'pendingEmail' | 'addressGeneration'>,
-    actorLevel: number,
+    actorRole: string,
   ): Promise<void> {
-    await this.sendConfirmation(user, actorLevel);
+    await this.sendConfirmation(user, actorRole);
   }
 
   private pendingAddress(address: string | undefined): string {
@@ -119,8 +119,9 @@ export class AdminEmailChangeService {
     return address;
   }
 
-  private assertAdmin(actorLevel: number): void {
-    if (actorLevel < ADMIN_LEVEL) {
+  /** Admin by the stored admin role, never by a level another role can reach. */
+  private assertAdmin(actorRole: string): void {
+    if (!isAdminRole(actorRole)) {
       throw new AppException(
         ErrorCode.EMAIL_CHANGE_NOT_ALLOWED,
         'Only admins can change the email address of another account',

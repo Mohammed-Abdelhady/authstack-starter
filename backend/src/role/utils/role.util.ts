@@ -4,7 +4,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { PERMISSION_REGEX } from '../../common/constants/permissions';
 import {
   CUSTOM_ROLE_LEVEL,
-  ROLE_HIERARCHY,
+  seededRoleLevel,
 } from '../../common/utils/role-hierarchy';
 import { RoleResponseDto } from '../dto/role-response.dto';
 import { StoredRole } from '../stores/role-records';
@@ -89,7 +89,7 @@ export function dedupePermissions(permissions: string[]): string[] {
  * @param role - Role slug and stored level
  */
 export function resolveRoleLevel(role: RoleLevelSource): number {
-  return role.level ?? ROLE_HIERARCHY[role.slug] ?? CUSTOM_ROLE_LEVEL;
+  return role.level ?? seededRoleLevel(role.slug) ?? CUSTOM_ROLE_LEVEL;
 }
 
 /**
