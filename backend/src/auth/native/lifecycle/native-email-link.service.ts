@@ -45,6 +45,8 @@ export interface NativeEmailProof {
   /** Throws when the proof no longer holds for the claimed attempt. */
   spendIn: (unitOfWork: UnitOfWork, claimed: NativeAttempt) => Promise<void>;
   refuse: () => AppException;
+  /** Answers a deactivated account once the proof held. Absent, `refuse` does. */
+  refuseDeactivated?: () => AppException;
   creationMethod: AccountCreationMethod;
 }
 
@@ -205,6 +207,7 @@ export class NativeEmailLinkService {
       throw wrongStage();
     }
     await proof.spendIn(unitOfWork, claimed);
+    const refuseDeactivated = proof.refuseDeactivated ?? proof.refuse;
     const linkAccount = await this.links.resolveAccountIn(
       unitOfWork,
       email,
@@ -212,11 +215,11 @@ export class NativeEmailLinkService {
       claimed.clientId,
       proof.refuse,
       proof.creationMethod,
+      refuseDeactivated,
     );
     const account = await this.accounts.readAccount(unitOfWork, linkAccount.id);
-    if (!account || account.isDeleted || account.email !== email) {
-      throw proof.refuse();
-    }
+    if (account?.isDeleted) throw refuseDeactivated();
+    if (!account || account.email !== email) throw proof.refuse();
     return this.attempts.completeFactorIn(
       unitOfWork,
       {
