@@ -1,4 +1,8 @@
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
+import { StoredApplicationPolicyReader } from '../../../../src/session/applications/stored-application-policy-reader';
+import { AuthFeaturesService } from '../../../../src/auth/services/features/auth-features.service';
+import { PasskeyConfigService } from '../../../../src/auth/passkeys/services/passkey-config.service'; // feature:passkeys
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
 import type { NativeApplicationConfiguration } from '../../../../src/config/types/native-application.type';
@@ -154,4 +158,21 @@ export async function eventsFor(
     .filter((event) => event.clientId === clientId)
     .filter(({ action }) => action !== 'session_issued')
     .map(({ action, reasonCode }) => ({ action, reasonCode }));
+}
+
+export function applicationPolicyOn(
+  harness: ApplicationsContractHarness,
+  config: ConfigService = new ConfigService({}),
+): StoredApplicationPolicyReader {
+  const browserApplications = browserApplicationsForTest(
+    config,
+    async (clientId) =>
+      (await registryOn(harness).findByClientId(clientId))?.enabled ?? false,
+  );
+  return new StoredApplicationPolicyReader(
+    harness.authority.issuance.applications,
+    config,
+    new AuthFeaturesService(config, browserApplications),
+    new PasskeyConfigService(config), // feature:passkeys
+  );
 }
