@@ -1,3 +1,5 @@
+import { nativeSessionPolicy } from '../../config/utils/session-limit-config';
+import { refuseRequiredPasskeyUntilPlan3 } from '../../config/utils/refuse-required-passkey-until-plan3';
 import { Injectable } from '@nestjs/common';
 import {
   runLeavingFailuresAsRaised,
@@ -20,8 +22,6 @@ import {
 import {
   ADMIN_ABSOLUTE_LIFETIME_MS,
   ADMIN_IDLE_LIFETIME_MS,
-  NATIVE_ABSOLUTE_LIFETIME_MS,
-  NATIVE_IDLE_LIFETIME_MS,
   WEB_ABSOLUTE_LIFETIME_MS,
   WEB_IDLE_LIFETIME_MS,
 } from '../constants/session-policy';
@@ -188,10 +188,24 @@ export class ApplicationRegistry {
    */
   async reconcileNativeApplications(): Promise<void> {
     if (!this.authEpoch.nativeEnabled()) {
+      await this.assertNoStoredRequiredPasskey();
       return;
     }
     const environment = this.authEpoch.environment();
     const configured = this.authEpoch.nativeApplications();
+    for (const application of configured) {
+      refuseRequiredPasskeyUntilPlan3(
+        application.requirePasskey,
+        application.clientId,
+      );
+    }
+    const configuredPolicies = configured.map((application) => ({
+      application,
+      policy: nativeSessionPolicy(
+        application.session,
+        `${NATIVE_APPLICATIONS_CONFIG_VARIABLE} entry ${JSON.stringify(application.clientId)}.session`,
+      ),
+    }));
     const clientIds = configured.map(({ clientId }) => clientId);
 
     await runLeavingFailuresAsRaised(this.unitOfWork, async (unitOfWork) => {
@@ -206,7 +220,7 @@ export class ApplicationRegistry {
           throw anotherKind(application.clientId);
         }
       }
-      for (const application of configured) {
+      for (const { application, policy } of configuredPolicies) {
         await this.store.storeNativeRegistration(unitOfWork, {
           clientId: application.clientId,
           environment,
@@ -214,10 +228,7 @@ export class ApplicationRegistry {
           redirectUris: application.redirectUris,
           allowedScopes: application.allowedScopes,
           audiences: [DEFAULT_API_AUDIENCE],
-          policy: {
-            absoluteLifetimeMs: NATIVE_ABSOLUTE_LIFETIME_MS,
-            idleLifetimeMs: NATIVE_IDLE_LIFETIME_MS,
-          },
+          policy,
           endsSessions: endsSessions(
             stored.get(application.clientId),
             application,
@@ -230,6 +241,14 @@ export class ApplicationRegistry {
         clientIds,
       );
     });
+    await this.assertNoStoredRequiredPasskey();
+  }
+
+  private async assertNoStoredRequiredPasskey(): Promise<void> {
+    const clientId = await this.store.findRequiredPasskeyApplication(
+      this.authEpoch.environment(),
+    );
+    if (clientId !== null) refuseRequiredPasskeyUntilPlan3(true, clientId);
   }
 
   private clientOrigin(): string {
