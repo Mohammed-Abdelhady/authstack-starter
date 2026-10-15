@@ -58,6 +58,7 @@ DECLARE
   cleared_codeless bigint;
   codes_killed bigint;
   conflicting_claims bigint;
+  kept_code_ids uuid[];
 BEGIN
   WITH pending AS MATERIALIZED (
     SELECT id, lower(btrim(pending_email)) AS address, address_generation
@@ -81,11 +82,16 @@ BEGIN
               WHERE lower(btrim(u.email)) = g.address
            ) AS taken,
            count(DISTINCT m.owner) AS candidate_count,
-           min(m.owner::text) AS owner, min(m.expires_at) AS expires_at
+           min(m.owner::text) AS owner
       FROM pending_groups g LEFT JOIN matches m ON m.address = g.address
      GROUP BY g.address, g.user_count
-  ), keepers AS (
-    SELECT * FROM plans WHERE NOT taken AND candidate_count = 1
+  ), newest_codes AS (
+    SELECT DISTINCT ON (address) address, code_id, expires_at
+      FROM matches ORDER BY address, expires_at DESC, code_id DESC
+  ), keepers AS MATERIALIZED (
+    SELECT p.*, c.code_id, c.expires_at
+      FROM plans p JOIN newest_codes c USING (address)
+     WHERE NOT p.taken AND p.candidate_count = 1
   ), inserted AS (
     INSERT INTO address_claims (address, kind, owner, lapses_at)
     SELECT address, CLAIM_KIND, owner, expires_at FROM keepers
@@ -104,11 +110,10 @@ BEGIN
     RETURNING u.pending_email IS NULL AS cleared,
               p.taken, p.user_count, p.candidate_count
   ), killed AS (
-    -- A keeper preserves every code variant for its folded address.
     DELETE FROM pending_registrations c
      USING codes old, plans p
      WHERE c.id = old.id AND old.address = p.address
-       AND (p.taken OR p.candidate_count <> 1)
+       AND NOT EXISTS (SELECT 1 FROM keepers k WHERE k.code_id = c.id)
     RETURNING c.id
   )
   SELECT (SELECT count(*) FROM inserted),
@@ -119,16 +124,22 @@ BEGIN
            AND user_count = 1 AND candidate_count <= 1),
          (SELECT count(*) FROM killed),
          (SELECT count(*) FROM keepers k JOIN address_claims c
-            ON c.address = k.address
+           ON c.address = k.address
            WHERE c.owner <> k.owner OR c.kind <> CLAIM_KIND
-              OR c.lapses_at <> k.expires_at)
+              OR c.lapses_at <> k.expires_at),
+         (SELECT array_agg(code_id) FROM keepers)
     INTO kept, cleared_taken, cleared_ambiguous,
-         cleared_codeless, codes_killed, conflicting_claims;
+         cleared_codeless, codes_killed, conflicting_claims, kept_code_ids;
 
   IF conflicting_claims > 0 THEN
     RAISE EXCEPTION 'Address backfill conflicts with % existing claims',
       conflicting_claims;
   END IF;
+
+  -- Delete variants first so a loser's canonical key cannot block the keeper.
+  UPDATE pending_registrations SET email = lower(btrim(email))
+   WHERE id = ANY(kept_code_ids) AND email <> lower(btrim(email));
+
   RAISE NOTICE
     'Address ledger backfill: kept=% cleared_taken=% cleared_ambiguous=% cleared_codeless=% codes_killed=%',
     kept, cleared_taken, cleared_ambiguous, cleared_codeless, codes_killed;

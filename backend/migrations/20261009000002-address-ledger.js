@@ -41,6 +41,7 @@ async function backfill(db, session, now) {
         },
         { session },
       )
+      .sort({ expiresAt: -1, _id: -1 })
       .toArray();
     const matches = group.members.flatMap((member) => {
       const matchingCodes = addressCodes.filter(
@@ -51,19 +52,14 @@ async function backfill(db, session, now) {
           code.addressGeneration === member.generation,
       );
       if (matchingCodes.length === 0) return [];
-      const lapsesAt = matchingCodes.reduce(
-        (earliest, code) =>
-          code.expiresAt < earliest ? code.expiresAt : earliest,
-        matchingCodes[0].expiresAt,
-      );
-      return [{ member, lapsesAt }];
+      return [{ member, code: matchingCodes[0] }];
     });
     const keeper = !taken && matches.length === 1 ? matches[0] : undefined;
     if (keeper) {
       const claim = {
         kind: CLAIM_KIND,
         owner: String(keeper.member.id),
-        lapsesAt: keeper.lapsesAt,
+        lapsesAt: keeper.code.expiresAt,
       };
       const existing = await claims.findOne({ _id: address }, { session });
       if (
@@ -80,6 +76,22 @@ async function backfill(db, session, now) {
         { session, upsert: true },
       );
       counts.kept += inserted.upsertedCount;
+      const discardedIds = addressCodes
+        .filter((code) => !code._id.equals(keeper.code._id))
+        .map((code) => code._id);
+      if (discardedIds.length > 0) {
+        const killed = await codes.deleteMany(
+          { _id: { $in: discardedIds } },
+          { session },
+        );
+        counts.codes_killed += killed.deletedCount;
+      }
+      // Remove a canonical losing row before giving its key to the keeper.
+      await codes.updateOne(
+        { _id: keeper.code._id, email: { $ne: address } },
+        { $set: { email: address } },
+        { session },
+      );
       await users.updateOne(
         { _id: keeper.member.id, pendingEmail: { $ne: address } },
         { $set: { pendingEmail: address } },
@@ -99,7 +111,6 @@ async function backfill(db, session, now) {
       else if (group.members.length > 1 || matches.length > 1) {
         counts.cleared_ambiguous += cleared.modifiedCount;
       } else counts.cleared_codeless += cleared.modifiedCount;
-      // A keeper preserves every code variant for its folded address.
       if (!keeper && addressCodes.length > 0) {
         const killed = await codes.deleteMany(
           { _id: { $in: addressCodes.map((code) => code._id) } },
