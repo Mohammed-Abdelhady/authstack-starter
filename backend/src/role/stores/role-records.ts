@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 /** Shared names of the unique rules a role write can run into. */
 export const ROLE_CONSTRAINT = {
   SLUG: 'role.slug',
@@ -12,6 +13,7 @@ export interface PendingSweep {
 }
 
 export interface StoredRole {
+  audience?: RoleAudience;
   id: string;
   name: string;
   slug: string;
@@ -26,6 +28,7 @@ export interface StoredRole {
 }
 
 export interface NewCustomRole {
+  audience?: RoleAudience;
   name: string;
   slug: string;
   description?: string;
@@ -62,10 +65,18 @@ export interface RoleListPage {
 }
 
 export interface HolderMove {
+  audience?: RoleAudience;
   fromSlugs: string[];
   toSlug: string;
   /** Narrows the move to these accounts when given. */
   holderIds?: string[];
+}
+
+/** End sessions without changing any account's assigned role. */
+export interface HolderSessionBump {
+  fromSlugs: string[];
+  /** Matching holders already moved and were revoked in the same edit. */
+  excludingAudience?: RoleAudience;
 }
 
 export interface MovedHolders {
@@ -88,6 +99,7 @@ export interface RoleDeletionRecord {
 }
 
 export interface StrandedHolder {
+  audience?: RoleAudience;
   id: string;
   role: string;
 }
