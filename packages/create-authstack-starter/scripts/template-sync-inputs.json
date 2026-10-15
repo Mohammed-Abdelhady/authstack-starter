@@ -6,5 +6,6 @@
   "paths": "scripts/manifest-paths.mjs",
   "glob": "scripts/glob.mjs",
   "commit": "scripts/template-commit.mjs",
+  "sources": "scripts/template-sources.mjs",
   "gitEnvironment": "src/constants/git-environment.json"
 }

@@ -3,11 +3,12 @@ import { realpathSync } from 'node:fs';
 // boilerplate. Runs from the package's prebuild script. template/ is gitignored.
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cp, lstat, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { manifestPathProblems } from './manifest-paths.mjs';
 import { templateCommit } from './template-commit.mjs';
+import { isExcludedPath, selectSources, sourceStats } from './template-sources.mjs';
 import TEMPLATE_SYNC_INPUTS from './template-sync-inputs.json' with { type: 'json' };
 const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const PACKAGE_MANAGER_CONFIG = JSON.parse(
@@ -184,7 +185,7 @@ function entryLine(path, mode, bytes) {
 // the working directory. A hook exports them, so they are dropped here.
 const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 
-function git(root, args, input) {
+function git(root, args) {
   const env = { ...process.env };
   for (const variable of Object.keys(env)) {
     if (
@@ -196,7 +197,6 @@ function git(root, args, input) {
   const result = spawnSync('git', args, {
     cwd: root,
     env,
-    input,
     encoding: 'utf8',
     maxBuffer: GIT_OUTPUT_LIMIT,
   });
@@ -225,65 +225,59 @@ export function trackedFiles(root) {
   return git(root, ['ls-files', '-z']).split('\0').filter(Boolean);
 }
 
-function isExcludedPath(segments) {
-  return segments.some((name, index) =>
-    isExcluded(segments.slice(0, index + 1).join(sep), name, index < segments.length - 1),
-  );
-}
+// The build inputs outside template/ that decide its bytes, as Git names them.
+const BUILD_INPUTS = [
+  MANIFEST_NAME,
+  REWRITES_NAME,
+  ...Object.values(TEMPLATE_SYNC_INPUTS).map((input) =>
+    relative(REPO_ROOT, join(PACKAGE_DIR, input)).split(sep).join('/'),
+  ),
+];
 
 // Whether a path Git reports decides the template's bytes: a shipped file or a build input.
 function isTemplateSource(path) {
-  const inputs = Object.values(TEMPLATE_SYNC_INPUTS).map((input) =>
-    relative(REPO_ROOT, join(PACKAGE_DIR, input)).split(sep).join('/'),
-  );
-  if ([MANIFEST_NAME, REWRITES_NAME, ...inputs].includes(path)) return true;
-  return !isExcludedPath(path.split('/'));
+  return BUILD_INPUTS.includes(path) || !isExcludedPath(path.split('/'), isExcluded);
 }
 
-async function fileStats(source) {
-  try {
-    const stats = await lstat(source);
-    if (!stats.isFile()) return null;
-    // A tracked child must not make a replaced parent symlink traversable.
-    for (let directory = dirname(source); directory !== REPO_ROOT; directory = dirname(directory)) {
-      if (!(await lstat(directory)).isDirectory()) return null;
-    }
-    return stats;
-  } catch (error) {
-    // Tracked, then deleted from the working tree: there is nothing to ship.
-    if (error.code === 'ENOENT') return null;
-    throw error;
+// The build inputs read from disk, as provenance compares them. Rewrites count only when tracked.
+async function readBuildInputs(trackedPaths) {
+  const inputs = [];
+  for (const path of BUILD_INPUTS) {
+    if (path === REWRITES_NAME && !trackedPaths.includes(REWRITES_NAME)) continue;
+    const source = join(REPO_ROOT, ...path.split('/'));
+    const stats = await sourceStats(REPO_ROOT, source);
+    if (stats !== null) inputs.push({ path, mode: stats.mode, bytes: await readFile(source) });
   }
+  return inputs;
 }
 
-async function copyTracked(trackedPaths, counters, hashes, shippedBy) {
-  for (const tracked of trackedPaths) {
+// Copies what the selection ships and records each source's original bytes in build.copied.
+async function copyTracked(trackedPaths, build) {
+  for (const { path: tracked, stats } of await selectSources(REPO_ROOT, trackedPaths, isExcluded)) {
     const segments = tracked.split('/');
-    if (isExcludedPath(segments)) continue;
     const relativePath = segments.join(sep);
     const source = join(REPO_ROOT, relativePath);
-    const stats = await fileStats(source);
-    if (stats === null) continue;
 
     const name = segments.at(-1);
     const shipped = [...segments.slice(0, -1), RENAMED_FILES.get(name) ?? name].join('/');
-    const clash = shippedBy.get(shipped);
+    const clash = build.shippedBy.get(shipped);
     if (clash !== undefined) {
       // The rename table could map two sources onto one shipped path; only one
       // of them would survive the copy, so the identity would lie.
       throw new Error(`Two template files ship as ${shipped}: ${clash} and ${relativePath}`);
     }
-    shippedBy.set(shipped, relativePath);
+    build.shippedBy.set(shipped, relativePath);
 
     const target = join(TEMPLATE_DIR, ...shipped.split('/'));
     const original = await readFile(source);
+    build.copied.push({ path: tracked, mode: stats.mode, bytes: original });
     const bytes = templateContent(tracked, original);
     await mkdir(dirname(target), { recursive: true });
     await cp(source, target);
     if (!bytes.equals(original)) await writeFile(target, bytes);
-    counters.files += 1;
-    counters.bytes += bytes.length;
-    hashes.push(entryLine(shipped, stats.mode, bytes));
+    build.counters.files += 1;
+    build.counters.bytes += bytes.length;
+    build.hashes.push(entryLine(shipped, stats.mode, bytes));
   }
 }
 
@@ -292,12 +286,11 @@ async function main() {
   // beside a half-copied or stale template.
   await rm(TEMPLATE_DIR, { recursive: true, force: true });
   await rm(join(PACKAGE_DIR, TEMPLATE_IDENTITY_FILE), { force: true });
-  const counters = { files: 0, bytes: 0 };
-  const hashes = [];
-  const shippedBy = new Map();
+  const build = { counters: { files: 0, bytes: 0 }, hashes: [], shippedBy: new Map(), copied: [] };
+  const { counters, hashes } = build;
   await mkdir(TEMPLATE_DIR, { recursive: true });
   const trackedPaths = trackedFiles(REPO_ROOT);
-  await copyTracked(trackedPaths, counters, hashes, shippedBy);
+  await copyTracked(trackedPaths, build);
 
   const manifestPath = join(REPO_ROOT, MANIFEST_NAME);
   const manifestBytes = await readFile(manifestPath);
@@ -331,7 +324,8 @@ async function main() {
   const identity = createHash('sha256')
     .update(`${hashes.join('\n')}\n`)
     .digest('hex');
-  const commit = templateCommit(git, REPO_ROOT, isTemplateSource);
+  const copied = [...build.copied, ...(await readBuildInputs(trackedPaths))];
+  const commit = templateCommit(git, REPO_ROOT, { copied, isTemplateSource });
   await writeFile(
     join(PACKAGE_DIR, TEMPLATE_IDENTITY_FILE),
     `${JSON.stringify({ sha256: identity, commit }, null, 2)}\n`,
