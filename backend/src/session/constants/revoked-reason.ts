@@ -1,4 +1,5 @@
 export const REVOKED_REASON = {
+  EXPIRED: 'expired',
   CURRENT: 'current_logout',
   EMAIL_CHANGED: 'email_changed',
   SELECTED: 'selected_revoke',
@@ -7,6 +8,8 @@ export const REVOKED_REASON = {
   GRANT_BLOCKED: 'grant_blocked',
   APPLICATION_DISABLED: 'application_disabled',
   ADMIN_FORCED: 'admin_forced',
+  ENROLMENT_PROMOTED: 'enrolment_promoted',
+  ENROLMENT_REPLACED: 'enrolment_replaced',
 } as const;
 
 export type RevokedReason =
