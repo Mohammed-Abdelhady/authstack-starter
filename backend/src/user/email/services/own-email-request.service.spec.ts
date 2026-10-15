@@ -1,6 +1,7 @@
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ADDRESS_CLAIM_KIND } from '../../../common/persistence/address-ledger';
 import { MAIL_CATALOGUES } from '../../../mail/catalog/mail-catalogue';
+import { CREDENTIAL_PURPOSE } from '../../../session/constants/credential-purpose';
 import { MemoryLedger } from '../testing/own-email-memory.harness-spec';
 import {
   ACCOUNT_ID,
@@ -14,6 +15,7 @@ jest.mock('nodemailer');
 
 const NEW_ADDRESS = 'new@example.test';
 const HELD_ADDRESS = 'held@example.test';
+const PASSWORD = 'Signs-in-with-this-1';
 const OTHER_ID = 'account-2';
 const CODE_SUBJECT = MAIL_CATALOGUES.en.ownEmailChangeCode.subject;
 const REQUESTED_SUBJECT =
@@ -69,6 +71,34 @@ describe('OwnEmailRequestService', () => {
     expect(world.codes.records.size).toBe(0);
     expect(world.counter.counted).toEqual([]);
     expect(await world.sent()).toEqual([]);
+  });
+
+  it("refuses a mobile session's age as proof, however new, before anything is held, stored, counted or mailed", async () => {
+    const mobile = world.caller(1, CREDENTIAL_PURPOSE.NATIVE_ACCESS);
+
+    await expect(
+      world.requests.request(mobile, NEW_ADDRESS),
+    ).rejects.toMatchObject({ code: ErrorCode.REAUTH_REQUIRED });
+
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+    expect(world.ledger.claims.size).toBe(0);
+    expect(world.codes.records.size).toBe(0);
+    expect(world.counter.counted).toEqual([]);
+    expect(await world.sent()).toEqual([]);
+  });
+
+  it('takes the password of an account that has one in place of a recent sign-in, and refuses a wrong one', async () => {
+    await world.givePassword(PASSWORD);
+    const mobile = world.caller(1, CREDENTIAL_PURPOSE.NATIVE_ACCESS);
+
+    await expect(
+      world.requests.request(mobile, NEW_ADDRESS, 'Not-the-password-1'),
+    ).rejects.toMatchObject({ code: ErrorCode.INVALID_CURRENT_PASSWORD });
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+
+    await expect(
+      world.requests.request(mobile, NEW_ADDRESS, PASSWORD),
+    ).resolves.toEqual({ email: OLD_ADDRESS, pendingEmail: NEW_ADDRESS });
   });
 
   it('refuses the address the account already has, in any case and spacing', async () => {
