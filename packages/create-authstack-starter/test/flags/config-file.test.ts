@@ -2,11 +2,31 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ConfigFileError, parseConfigFile, readConfigFile } from '../../src/flags/config-file.js';
+import {
+  ConfigFileError,
+  parseAnswersConfig,
+  parseConfigFile,
+  readConfigFile,
+} from '../../src/flags/config-file.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
 const roots: string[] = [];
 const SOURCE = { manifest: PLAN_MANIFEST, template: { sha256: 'a'.repeat(64), commit: null } };
+const ANSWERS = {
+  schemaVersion: 4,
+  packageManager: 'pnpm@12.6.0',
+  rules: { policy: 'strict' },
+  installer: { name: 'create-authstack-starter', version: '0.1.0' },
+  template: { sha256: 'a'.repeat(64), commit: null },
+  answers: {
+    targets: ['native-expo', 'web'],
+    database: 'mongodb',
+    features: ['email-password'],
+    options: ['docker', 'production'],
+    locales: ['en'],
+    mobile: { name: 'Notes', slug: 'notes', appId: 'org.sample.notes', scheme: 'notes' },
+  },
+};
 
 async function tempFile(content: string, name = 'config.json'): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'cna-config-'));
@@ -74,6 +94,34 @@ describe('parseConfigFile', () => {
 
   it('rejects a non-object', () => {
     expect(() => parseConfigFile(['web'])).toThrow(/must be a JSON object/);
+  });
+});
+
+// Catches a replay that quietly drops what it does not understand, or runs under another pnpm.
+describe('parseAnswersConfig refuses what a replay cannot honour', () => {
+  it.each([
+    [
+      'an unknown nested key',
+      {
+        ...ANSWERS,
+        answers: { ...ANSWERS.answers, mobile: { ...ANSWERS.answers.mobile, icon: 'x' } },
+      },
+      /unknown key "answers\.mobile\.icon"/,
+    ],
+    [
+      'an unknown option',
+      { ...ANSWERS, answers: { ...ANSWERS.answers, options: ['docker', 'turbo'] } },
+      /got "turbo"/,
+    ],
+    [
+      'another package manager',
+      { ...ANSWERS, packageManager: 'pnpm@11.0.0' },
+      /packageManager must be pnpm@12\.6\.0, got "pnpm@11\.0\.0"/,
+    ],
+  ])('stops on %s and names it', (_label, record, named) => {
+    expect(() => parseAnswersConfig(ANSWERS, SOURCE)).not.toThrow();
+    expect(() => parseAnswersConfig(record, SOURCE)).toThrow(ConfigFileError);
+    expect(() => parseAnswersConfig(record, SOURCE)).toThrow(named);
   });
 });
 
