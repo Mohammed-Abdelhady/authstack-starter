@@ -16,7 +16,13 @@ export interface OwnEmail {
   pendingEmail?: string;
 }
 
-/** What a mobile app sends to confirm a change for a person who may be signed out. */
+/** What a person adds when the session alone cannot prove who is asking. */
+export interface OwnEmailProof {
+  /** The account's password, for an account that has one. */
+  password?: string;
+}
+
+/** What a mobile app sends to confirm a change staff started, for a person who may be signed out. */
 export interface AppEmailChangeConfirmation {
   /** The app's registered client id. */
   clientId: string;
@@ -30,18 +36,27 @@ export interface ApiClientAccount<TSignal extends TransportSignal = TransportSig
     email: {
       get(options?: CallOptions<TSignal>): Promise<OwnEmail>;
       /**
-       * Asks to move the account to `email`. Needs a sign-in in the last five
-       * minutes, or rejects with `REAUTH_REQUIRED`. A taken address is
-       * answered like a free one and never gets a code.
+       * Asks to move the account to `email`. Needs a browser sign-in in the
+       * last five minutes or the account's password; a mobile app session
+       * always needs the password. Otherwise rejects with `REAUTH_REQUIRED`.
+       * A taken address is answered like a free one and never gets a code.
        */
-      request(email: string, options?: CallOptions<TSignal>): Promise<OwnEmail>;
+      request(
+        email: string,
+        proof?: OwnEmailProof,
+        options?: CallOptions<TSignal>,
+      ): Promise<OwnEmail>;
       /** Moves the account. This session stays signed in; the others end. */
       confirm(code: string, options?: CallOptions<TSignal>): Promise<OwnEmail>;
-      /** Cancels the pending change. Resolves when nothing was pending too. */
-      cancel(options?: CallOptions<TSignal>): Promise<OwnEmail>;
       /**
-       * Confirms a change, started by staff or by the person, from a native
-       * app with no session needed. Every session of the account ends.
+       * Cancels the pending change, with the proof a request needs. Resolves
+       * when nothing was pending too.
+       */
+      cancel(proof?: OwnEmailProof, options?: CallOptions<TSignal>): Promise<OwnEmail>;
+      /**
+       * Confirms a change staff started, from a native app with no session
+       * needed. Every session of the account ends. A change the person asked
+       * for is confirmed with `confirm` from a signed-in session.
        */
       confirmFromApp(
         confirmation: AppEmailChangeConfirmation,
@@ -49,6 +64,11 @@ export interface ApiClientAccount<TSignal extends TransportSignal = TransportSig
       ): Promise<MessageResult>;
     };
   };
+}
+
+/** The password field of a body, left out when none was given. */
+function passwordOf(proof: OwnEmailProof | undefined): { password?: string } {
+  return proof?.password === undefined ? {} : { password: proof.password };
 }
 
 export function createAccountArea<TSignal extends TransportSignal>({
@@ -59,9 +79,13 @@ export function createAccountArea<TSignal extends TransportSignal>({
       email: {
         get: (options) =>
           sendObject({ method: HTTP_METHOD.GET, path: ACCOUNT_PATHS.email }, options),
-        request: (email, options) =>
+        request: (email, proof, options) =>
           sendObject(
-            { method: HTTP_METHOD.POST, path: ACCOUNT_PATHS.email, body: { email } },
+            {
+              method: HTTP_METHOD.POST,
+              path: ACCOUNT_PATHS.email,
+              body: { email, ...passwordOf(proof) },
+            },
             options,
           ),
         confirm: (code, options) =>
@@ -69,8 +93,15 @@ export function createAccountArea<TSignal extends TransportSignal>({
             { method: HTTP_METHOD.POST, path: ACCOUNT_PATHS.confirmEmail, body: { code } },
             options,
           ),
-        cancel: (options) =>
-          sendObject({ method: HTTP_METHOD.DELETE, path: ACCOUNT_PATHS.email }, options),
+        cancel: (proof, options) =>
+          sendObject(
+            {
+              method: HTTP_METHOD.DELETE,
+              path: ACCOUNT_PATHS.email,
+              ...(proof?.password === undefined ? {} : { body: passwordOf(proof) }),
+            },
+            options,
+          ),
         confirmFromApp: (confirmation, options) =>
           sendObject(
             {
