@@ -69,10 +69,13 @@ export interface LinkedServices {
 export interface SignInSwitchesOf {
   password?: boolean;
   magicLink?: boolean;
+  emailCode?: boolean; // feature:email-code
 }
 
 /** A case that names no switch runs on the first of these the project has. */
-const EMAIL_WAYS_IN: Required<SignInSwitchesOf>[] = [
+const EMAIL_WAYS_IN: Required<
+  Pick<SignInSwitchesOf, 'password' | 'magicLink'>
+>[] = [
   { password: true, magicLink: false }, // feature:email-password
   { password: false, magicLink: true }, // feature:magic-link
   { password: false, magicLink: false },
@@ -94,7 +97,22 @@ export function linkedServicesOn(
   return {
     linking: new AccountLinkingService(
       harness.links,
-      new SignInMethodRule(harness.signInMethods, features),
+      new SignInMethodRule(
+        harness.signInMethods,
+        features,
+        // feature:email-code:start
+        new ConfigService({
+          emailCode: { enabled: switches.emailCode ?? false },
+          // An application has to offer the code for it to be a way in.
+          auth: {
+            nativeEnabled: true,
+            nativeApplications: [
+              { clientId: 'native-app', signIn: { emailCode: true } },
+            ],
+          },
+        }),
+        // feature:email-code:end
+      ),
       harness.runner(pause),
     ),
     sync: new ProfileSyncService(
