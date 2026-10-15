@@ -239,6 +239,7 @@ test('the PostgreSQL configuration leaves out the MongoDB-only suites by their n
       'app/app.startup-indexes.mongo.e2e-spec.ts',
       'auth/activation-contract-legacy.mongo.e2e-spec.ts',
       'auth/registration-limits-legacy.mongo.e2e-spec.ts',
+      'migrations/address-ledger.mongo.e2e-spec.ts',
       'migrations/mail-counter-expiry.mongo.e2e-spec.ts',
       'migrations/registration-binding.mongo.e2e-spec.ts',
       'migrations/rollback-ownership.mongo.e2e-spec.ts',
