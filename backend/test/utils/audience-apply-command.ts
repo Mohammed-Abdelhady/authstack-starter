@@ -13,14 +13,20 @@ interface AudienceCommandResult {
   stderr: string;
 }
 
-/** The package script's real entry point, outside the checkout's environment files. */
+/**
+ * The command's entry point run from TypeScript, as `audience:apply:dev` runs it,
+ * so the cases need no build. Outside the checkout's environment files.
+ */
 export async function runAudienceApplyCommand(
   config: ConfigService,
   args: readonly string[] = [],
 ): Promise<AudienceCommandResult> {
   const cwd = await mkdtemp(join(tmpdir(), 'audience-command-'));
   const backend = resolve(__dirname, '../..');
-  const environment: NodeJS.ProcessEnv = { ...process.env };
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    TS_NODE_PROJECT: resolve(backend, 'tsconfig.json'),
+  };
   for (const setting of [
     'ADMIN_URL',
     'AUTH_WEB_ENABLED',
@@ -43,7 +49,14 @@ export async function runAudienceApplyCommand(
     return await new Promise<AudienceCommandResult>((resolveResult, reject) => {
       execFile(
         process.execPath,
-        [resolve(backend, 'dist/cli/audience-apply.js'), ...args],
+        [
+          '-r',
+          require.resolve('ts-node/register/transpile-only'),
+          '-r',
+          require.resolve('tsconfig-paths/register'),
+          resolve(backend, 'src/cli/audience-apply.ts'),
+          ...args,
+        ],
         {
           cwd,
           env: environment,
