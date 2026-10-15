@@ -16,6 +16,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../../../../../../test/utils/hook-timeouts';
 import { partialMock } from '../../../../../common/testing/test-doubles.harness-spec';
+import { holdAddress } from '../../../../../../test/utils/address-claim';
 
 describe('unknown commit followed by an unreadable account', () => {
   let harness: MongoAccountsHarness;
@@ -51,6 +52,15 @@ describe('unknown commit followed by an unreadable account', () => {
           userId === undefined ? {} : { userId, addressGeneration: 4 },
         );
       if (!issued) throw new Error('code was not issued');
+      if (userId !== undefined) {
+        await holdAddress(
+          harness.ledger,
+          harness.runner(() => Promise.resolve()),
+          harness.clock,
+          'person@example.test',
+          userId,
+        );
+      }
       const connection = harness.booted.connection;
       const lost = loseCommitAnswers(connection, {
         lands: true,

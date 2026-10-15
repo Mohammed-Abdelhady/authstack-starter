@@ -10,6 +10,58 @@ import {
 } from './address-ledger-support';
 
 export function ledgerRaceCases(current: LedgerHarnessSource): void {
+  // Ownership cannot change between the confirmation check and UOW completion.
+  it('holds the checked claim against a takeover until the UOW ends', async () => {
+    const h = current();
+    await claim(h);
+    const held = new RaceGate();
+    const committed = new RaceGate();
+    const contending = h.contention(committed.hold());
+    const reader = h.runner().run(async (uow) => {
+      expect(
+        await h.ledger.holdsLiveClaim(uow, {
+          address: ADDRESS,
+          owner: FIRST_OWNER,
+          now: h.clock.now(),
+        }),
+      ).toBe(true);
+      await held.hold();
+    });
+    let takeover: Promise<string> | undefined;
+    let observer: Promise<void> | undefined;
+    try {
+      await Promise.race([
+        held.reached(),
+        reader.then(() => {
+          throw new Error('claim check ended before the gate');
+        }),
+      ]);
+      h.clock.advance(LAPSE_MS);
+      takeover = claim(h, claimInput(h, SECOND_OWNER), contending.runner);
+      observer = contending.blocked();
+      await Promise.race([
+        observer,
+        takeover.then(() => {
+          throw new Error(
+            'takeover completed while the checked claim was held',
+          );
+        }),
+      ]);
+      held.release();
+      await reader;
+      committed.release();
+      expect(await takeover).toBe('claimed');
+      expect((await h.claims()).map((row) => row.owner)).toEqual([
+        SECOND_OWNER,
+      ]);
+    } finally {
+      contending.stop();
+      held.release();
+      committed.release();
+      await Promise.allSettled([reader, takeover, observer]);
+    }
+  });
+
   it.each([false, true])(
     'L2/L4 serialises two claimers with lapsed=%s',
     async (lapsed) => {

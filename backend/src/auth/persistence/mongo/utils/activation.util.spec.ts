@@ -7,6 +7,7 @@ import {
 } from 'mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { ADDRESS_CLAIM_KIND } from '../../../../common/persistence/address-ledger';
 import {
   AddressClaim,
   AddressClaimSchema,
@@ -135,6 +136,12 @@ describe('activation account writes', () => {
       name: 'Target',
       isVerified: true,
       addressGeneration: 2,
+    });
+    await connection.model(AddressClaim.name).create({
+      _id: 'new@example.com',
+      owner: target._id.toString(),
+      kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+      lapsesAt: new Date('2099-01-01T12:15:00.000Z'),
     });
 
     await withMajorityTransaction(connection, (session) =>

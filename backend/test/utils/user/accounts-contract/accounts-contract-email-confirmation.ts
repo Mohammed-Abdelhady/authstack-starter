@@ -1,5 +1,6 @@
 import { CLAIM_OWNER, holdAddress } from '../../address-claim';
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
+import { ADDRESS_CLAIM_KIND } from '../../../../src/common/persistence/address-ledger';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
   AccountsFixture,
@@ -127,9 +128,9 @@ export function accountEmailConfirmationCases(
     });
   });
 
-  // Neither a current account nor another live claim may be displaced by a code.
-  it.each(['account', 'claim'])(
-    'keeps the pending code when another owner holds the address by %s',
+  // A valid code cannot replace the existing live ownership requirement.
+  it.each(['account', 'claim', 'missing', 'lapsed'])(
+    'refuses confirmation while preserving pending data for %s',
     async (mode) => {
       const { userId, adminId } = fixture();
       const services = servicesOn(harness());
@@ -147,6 +148,20 @@ export function accountEmailConfirmationCases(
           email: requested,
           role: DEFAULT_SLUG,
         });
+      } else if (mode === 'lapsed') {
+        const h = harness();
+        await h
+          .runner(() => Promise.resolve())
+          .run((uow) =>
+            h.ledger.claim(uow, {
+              address: requested,
+              owner: userId,
+              kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+              now: h.clock.now(),
+              lapsesAt: new Date('2099-01-01T12:01:00.000Z'),
+            }),
+          );
+        h.clock.set(new Date('2099-01-01T12:01:00.000Z'));
       } else {
         const h = harness();
         await h
@@ -154,12 +169,14 @@ export function accountEmailConfirmationCases(
           .run((uow) =>
             h.ledger.release(uow, { address: requested, owner: userId }),
           );
-        await holdAddress(
-          h.ledger,
-          h.runner(() => Promise.resolve()),
-          h.clock,
-          requested,
-        );
+        if (mode === 'claim') {
+          await holdAddress(
+            h.ledger,
+            h.runner(() => Promise.resolve()),
+            h.clock,
+            requested,
+          );
+        }
       }
 
       expect(
@@ -178,6 +195,17 @@ export function accountEmailConfirmationCases(
       if (mode === 'claim') {
         expect((await harness().claims()).map((row) => row.owner)).toEqual([
           CLAIM_OWNER,
+        ]);
+      }
+      if (mode === 'missing') expect(await harness().claims()).toEqual([]);
+      if (mode === 'lapsed') {
+        expect(await harness().claims()).toEqual([
+          {
+            address: requested,
+            owner: userId,
+            kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+            lapsesAt: new Date('2099-01-01T12:01:00.000Z'),
+          },
         ]);
       }
     },

@@ -71,6 +71,7 @@ function unexpectedLedgerCall(): Promise<never> {
 
 class UnexpectedLedger extends AddressLedger {
   claim = unexpectedLedgerCall;
+  holdsLiveClaim = unexpectedLedgerCall;
   release = unexpectedLedgerCall;
   isFree = unexpectedLedgerCall;
 }

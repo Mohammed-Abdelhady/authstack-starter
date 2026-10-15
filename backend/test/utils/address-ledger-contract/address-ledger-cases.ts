@@ -11,6 +11,37 @@ import {
 } from './address-ledger-support';
 
 export function ledgerCases(current: LedgerHarnessSource): void {
+  it.each(['owned', 'missing', 'lapsed', 'foreign'])(
+    'locks only an existing live owned claim with state=%s',
+    async (state) => {
+      const h = current();
+      if (state !== 'missing') await claim(h);
+      if (state === 'owned') h.clock.advance(LAPSE_MS - 1);
+      if (state === 'lapsed') h.clock.advance(LAPSE_MS);
+      expect(
+        await h.runner().run((uow) =>
+          h.ledger.holdsLiveClaim(uow, {
+            address: ' FOO@Example.COM ',
+            owner: state === 'foreign' ? SECOND_OWNER : FIRST_OWNER,
+            now: h.clock.now(),
+          }),
+        ),
+      ).toBe(state === 'owned');
+      expect(await h.claims()).toEqual(
+        state === 'missing'
+          ? []
+          : [
+              {
+                address: ADDRESS,
+                owner: FIRST_OWNER,
+                kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+                lapsesAt: new Date('2099-01-01T12:01:00.000Z'),
+              },
+            ],
+      );
+    },
+  );
+
   it('L3 blocks before lapse and permits takeover at the exact lapse', async () => {
     const h = current();
     await claim(h);
