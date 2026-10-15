@@ -74,7 +74,8 @@ describe('reserved host settings validation', () => {
     const REVIEW = {
       EMAIL_CODE_REVIEW_ACCOUNT_ID: 'account',
       EMAIL_CODE_REVIEW_CLIENT_ID: 'mobile',
-      EMAIL_CODE_REVIEW_CODE_HASH: 'digest',
+      // The shape of a bcrypt hash. Start-up reads the shape, never the code.
+      EMAIL_CODE_REVIEW_CODE_HASH: `$2b$12$${'a'.repeat(53)}`,
       EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.000Z',
     };
 
@@ -114,6 +115,26 @@ describe('reserved host settings validation', () => {
       expect(() => validateEnvironment({ ...BASE_ENV, ...partial })).toThrow(
         new RegExp(`- ${settings[0]}: .*set all four or none`),
       );
+    });
+
+    it('refuses a blank setting as one left out, since review access would be off', () => {
+      expect(() =>
+        validateEnvironment({
+          ...BASE_ENV,
+          ...REVIEW,
+          EMAIL_CODE_REVIEW_CLIENT_ID: '   ',
+        }),
+      ).toThrow(/- EMAIL_CODE_REVIEW_CLIENT_ID: .*set all four or none/);
+    });
+
+    it('refuses a code hash that is not a bcrypt hash, such as the code itself', () => {
+      expect(() =>
+        validateEnvironment({
+          ...BASE_ENV,
+          ...REVIEW,
+          EMAIL_CODE_REVIEW_CODE_HASH: '246810',
+        }),
+      ).toThrow(/- EMAIL_CODE_REVIEW_CODE_HASH: .*bcrypt hash/);
     });
 
     it('refuses an end more than 30 days ahead at start-up', () => {
