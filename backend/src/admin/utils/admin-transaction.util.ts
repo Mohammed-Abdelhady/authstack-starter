@@ -1,4 +1,5 @@
 import { HttpStatus, Logger } from '@nestjs/common';
+import { AdminEmailChangeService } from '../services/users/admin-email-change.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import {
@@ -91,6 +92,7 @@ export function saveUserUpdate(
     previousEmail: string;
     previousGeneration: number;
   },
+  emailChange: AdminEmailChangeService,
 ): Promise<StoredAccount> {
   return runner.run(async (unitOfWork) => {
     const current = await loadAuthorizedUser(
@@ -112,6 +114,9 @@ export function saveUserUpdate(
         'The email address changed while this edit was prepared',
         HttpStatus.CONFLICT,
       );
+    }
+    if (edit.pendingEmail !== undefined) {
+      await emailChange.claimPendingIn(unitOfWork, current, edit.pendingEmail);
     }
     return accounts.saveIdentity(unitOfWork, current, {
       name: edit.name,

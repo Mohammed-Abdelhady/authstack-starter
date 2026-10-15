@@ -1,7 +1,8 @@
-import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
-import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
+import { AddressLedger } from '../../../common/persistence/address-ledger';
+import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { recorded } from '../../../../test/utils/auth/pending-codes-contract/pending-codes-contract-support';
 import { FrozenClock } from '../../../../test/utils/frozen-clock';
 import {
@@ -68,6 +69,7 @@ export interface MagicLinkContractHarness {
   readonly links: MagicLinkStore;
   readonly accounts: MagicLinkAccounts;
   readonly runner: UnitOfWorkRunner;
+  readonly ledger: AddressLedger;
 
   seedLink(link: SeedLink): Promise<void>;
   link(tokenHash: string): Promise<StoredLink | null>;
@@ -81,6 +83,7 @@ export interface MagicLinkContractHarness {
   /** Looked up by the stored form of the address. */
   account(email: string): Promise<StoredLinkAccount | null>;
   accountCount(): Promise<number>;
+  claimCount(): Promise<number>;
 
   reset(): Promise<void>;
   close(): Promise<void>;
@@ -193,7 +196,7 @@ export const SESSION_COOKIE = 'sid';
 export function linkServices(
   harness: Pick<
     MagicLinkContractHarness,
-    'clock' | 'links' | 'accounts' | 'runner'
+    'clock' | 'links' | 'accounts' | 'runner' | 'ledger'
   >,
   policy: AccountCreationPolicy = new AccountCreationPolicy(),
 ): LinkServices {
@@ -258,6 +261,7 @@ export function linkServices(
       ),
       harness.clock,
       policy,
+      harness.ledger,
       harness.runner,
     ),
     mail,

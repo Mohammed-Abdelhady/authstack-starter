@@ -1,7 +1,3 @@
-import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
-import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
-import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
-import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   ClientSession,
   Connection,
@@ -11,6 +7,15 @@ import {
 } from 'mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
+import { ADDRESS_CLAIM_KIND } from '../../../../common/persistence/address-ledger';
+import {
+  AddressClaim,
+  AddressClaimSchema,
+} from '../../../../common/persistence/mongo/schemas/address-claim.schema';
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   User,
   UserDocument,
@@ -53,6 +58,7 @@ describe('activation account writes', () => {
     connection = await createConnection(
       mongo.uri('activation_util'),
     ).asPromise();
+    await connection.model(AddressClaim.name, AddressClaimSchema).init();
     const model = connection.model<User>(User.name, UserSchema);
     const module: TestingModule = await Test.createTestingModule({
       providers: [{ provide: getModelToken(User.name), useValue: model }],
@@ -67,6 +73,7 @@ describe('activation account writes', () => {
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   beforeEach(async () => {
+    await connection.model(AddressClaim.name).deleteMany({});
     await users.deleteMany({});
   });
 
@@ -129,6 +136,12 @@ describe('activation account writes', () => {
       name: 'Target',
       isVerified: true,
       addressGeneration: 2,
+    });
+    await connection.model(AddressClaim.name).create({
+      _id: 'new@example.com',
+      owner: target._id.toString(),
+      kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+      lapsesAt: new Date('2099-01-01T12:15:00.000Z'),
     });
 
     await withMajorityTransaction(connection, (session) =>

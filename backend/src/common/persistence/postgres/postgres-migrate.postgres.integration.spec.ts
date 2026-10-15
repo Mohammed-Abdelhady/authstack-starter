@@ -4,6 +4,7 @@ import {
   runMigrateCommand,
 } from './postgres-migrate';
 import {
+  ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
   MIGRATE_CASE_TIMEOUT_MS,
   useMigrateDatabases,
@@ -75,7 +76,13 @@ describe('the PostgreSQL migration command', () => {
         after: await startUp(pool),
       }).toEqual({
         before: 'StorageNotReadyError',
-        first: { exit: 0, said: [`Applied: ${EVERY_MIGRATION.join(', ')}`] },
+        first: {
+          exit: 0,
+          said: [
+            ADDRESS_BACKFILL_ZERO_COUNTS,
+            `Applied: ${EVERY_MIGRATION.join(', ')}`,
+          ],
+        },
         second: {
           exit: 0,
           said: ['Nothing to apply. The database is up to date.'],
@@ -116,6 +123,7 @@ describe('the PostgreSQL migration command', () => {
       }).toEqual({
         exits: [0, 0],
         said: [
+          ADDRESS_BACKFILL_ZERO_COUNTS,
           `Applied: ${EVERY_MIGRATION.join(', ')}`,
           'Nothing to apply. The database is up to date.',
         ],
@@ -213,7 +221,13 @@ describe('the PostgreSQL migration command', () => {
           'Another session held the migration lock for 300 ms. Either another migration run is still going, or one was interrupted and its session is still connected. Nothing was applied. Wait for the other run, or end that session, and run this again.',
         ],
         record: null,
-        after: { exit: 0, said: [`Applied: ${EVERY_MIGRATION.join(', ')}`] },
+        after: {
+          exit: 0,
+          said: [
+            ADDRESS_BACKFILL_ZERO_COUNTS,
+            `Applied: ${EVERY_MIGRATION.join(', ')}`,
+          ],
+        },
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,

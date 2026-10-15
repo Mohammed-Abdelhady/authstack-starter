@@ -81,6 +81,11 @@ export abstract class AdminAccountStore {
     unitOfWork: UnitOfWork,
     userId: string,
   ): Promise<StoredAccount | null>;
+  abstract takeEmailChangeTarget(
+    uow: UnitOfWork,
+    userId: string,
+  ): Promise<StoredAccount | null>;
+
   abstract takeAccountForChange(
     unitOfWork: UnitOfWork,
     userId: string,

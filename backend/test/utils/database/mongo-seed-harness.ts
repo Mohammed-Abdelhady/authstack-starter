@@ -1,3 +1,5 @@
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
 import { MongoSeedStore } from '../../../src/database/seeds/persistence/mongo/mongo-seed.store';
 import {
   Role,
@@ -25,6 +27,8 @@ export async function bootMongoSeedHarness(): Promise<SeedContractHarness> {
 
   return {
     clock,
+    ledger: app.get(AddressLedger),
+    runner: app.get(UnitOfWorkRunner),
     seeds: new MongoSeedStore(users, roles),
     registry: app.get(ApplicationRegistry),
 

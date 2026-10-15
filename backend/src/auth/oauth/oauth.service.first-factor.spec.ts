@@ -1,6 +1,8 @@
+import { ConfigService } from '@nestjs/config';
+import { AddressLedger } from '../../common/persistence/address-ledger';
+import { Clock } from '../../common/services/clock';
 import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
-import { ConfigService } from '@nestjs/config';
 import {
   createResponseMock,
   partialMock,
@@ -63,6 +65,17 @@ class LinkedAccountStore extends ProviderSignInStore {
   }
 }
 
+function unexpectedLedgerCall(): Promise<never> {
+  return Promise.reject(new Error('unexpected ledger call'));
+}
+
+class UnexpectedLedger extends AddressLedger {
+  claim = unexpectedLedgerCall;
+  holdsLiveClaim = unexpectedLedgerCall;
+  release = unexpectedLedgerCall;
+  isFree = unexpectedLedgerCall;
+}
+
 describe('OAuthService sign-in', () => {
   it('finishes the sign-in as one a provider opened', async () => {
     const account = partialMock<StoredAccount>({
@@ -84,6 +97,8 @@ describe('OAuthService sign-in', () => {
       partialMock<Sessions>({}),
       new SessionCookieService(new ConfigService({})),
       policy,
+      new UnexpectedLedger(),
+      new Clock(),
       partialMock<UnitOfWorkRunner>({}),
     );
     const response = createResponseMock({});

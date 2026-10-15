@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AddressLedger } from '../../../common/persistence/address-ledger';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import { HashService } from '../../../common/services/hash.service';
 import {
@@ -58,6 +59,7 @@ export class NativeRegistrationService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
+    private readonly ledger: AddressLedger,
   ) {}
 
   async request(
@@ -199,6 +201,8 @@ export class NativeRegistrationService {
       { id: accountId, passwordHash, name: input.name, locale: input.locale },
       this.policy,
       claimed.clientId,
+      this.ledger,
+      this.clock.now(),
     );
     const storedAccount = await this.accounts.readAccount(
       unitOfWork,

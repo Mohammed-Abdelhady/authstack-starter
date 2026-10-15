@@ -1,6 +1,6 @@
-import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
 import {
   PERMISSION_PERMISSIONS,
   USER_PERMISSIONS,
@@ -109,6 +109,9 @@ export function servicesOn(
     verification,
     authMail,
     config,
+    harness.ledger,
+    runner,
+    harness.clock,
   );
   return {
     profile: new UserProfileService(
@@ -143,6 +146,8 @@ export function servicesOn(
       access,
       hash,
       policy,
+      harness.ledger,
+      harness.clock,
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(
@@ -154,12 +159,16 @@ export function servicesOn(
       mailCounter,
       harness.signIn,
       policy,
+      harness.ledger,
+      harness.clock,
     ),
     emailChange: new EmailChangeConfirmationService(
       harness.activation,
       runner,
       verification,
       harness.sessions,
+      harness.ledger,
+      harness.clock,
     ),
     verification,
     mail,
@@ -310,4 +319,12 @@ export async function storedAccount(
     throw new Error(`account ${userId} is not stored`);
   }
   return account;
+}
+
+/** Read the code from the real mail handed to the transport boundary. */
+export function lastMailedCode(services: AccountServices): string {
+  const last = services.mail[services.mail.length - 1];
+  const code = /\b(\d{6})\b/.exec(`${last?.text ?? ''} ${last?.html ?? ''}`);
+  if (!code) throw new Error('the last mail carried no code');
+  return code[1];
 }

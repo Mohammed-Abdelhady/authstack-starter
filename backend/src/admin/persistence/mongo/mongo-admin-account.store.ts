@@ -122,6 +122,22 @@ export class MongoAdminAccountStore extends AdminAccountStore {
     return this.readAccount(unitOfWork, userId);
   }
 
+  async takeEmailChangeTarget(
+    unitOfWork: UnitOfWork,
+    userId: string,
+  ): Promise<StoredAccount | null> {
+    const user = await castingId(() =>
+      this.userModel
+        .findOneAndUpdate(
+          { _id: userId },
+          { $inc: { issuanceFence: 1 } },
+          { session: mongoSessionOf(unitOfWork), new: true },
+        )
+        .exec(),
+    );
+    return this.read.remember(user, userId);
+  }
+
   async readRoleBySlug(
     unitOfWork: UnitOfWork,
     slug: string,

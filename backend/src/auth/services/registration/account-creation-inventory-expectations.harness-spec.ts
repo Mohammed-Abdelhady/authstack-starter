@@ -1,5 +1,4 @@
-export type InventoryBoundary =
-  'parameter' | 'run' | 'runForAuthority' | 'seed';
+export type InventoryBoundary = 'parameter' | 'run' | 'runForAuthority';
 
 interface InventoryCaller {
   readonly file: string;
@@ -17,7 +16,7 @@ const CALLERS: readonly InventoryCaller[] = [
   },
   // feature:magic-link:start
   {
-    file: 'auth/magic-link/magic-link.service.ts',
+    file: 'auth/magic-link/magic-link-account-creation.ts',
     owner: 'createUser',
     method: 'createPasswordlessIn',
     boundary: 'run',
@@ -47,7 +46,7 @@ const CALLERS: readonly InventoryCaller[] = [
     file: 'database/seeds/seed.service.ts',
     owner: 'seedUsers',
     method: 'createAccount',
-    boundary: 'seed',
+    boundary: 'run',
   },
 ];
 

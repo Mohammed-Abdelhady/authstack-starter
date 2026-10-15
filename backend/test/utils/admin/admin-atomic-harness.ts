@@ -1,7 +1,9 @@
-import { AccountCreationPolicy } from '../../../src/auth/services/registration/account-creation-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { Clock } from '../../../src/common/services/clock';
+import { AccountCreationPolicy } from '../../../src/auth/services/registration/account-creation-policy';
 import { AdminUsersService } from '../../../src/admin/services/users/admin-users.service';
 import { AdminUserCreateService } from '../../../src/admin/services/users/admin-user-create.service';
 import { AdminPermissionsService } from '../../../src/admin/services/roles/admin-permissions.service';
@@ -65,6 +67,8 @@ export async function bootAdminAtomic(
       AdminUsersService,
       AdminUserCreateService,
       AccountCreationPolicy,
+      { provide: AddressLedger, useValue: harness.app.get(AddressLedger) },
+      { provide: Clock, useValue: harness.clock },
       AdminPermissionsService,
       UserPermissionsService,
       { provide: HashService, useValue: harness.app.get(HashService) },
@@ -95,6 +99,7 @@ export async function bootAdminAtomic(
       {
         provide: AdminEmailChangeService,
         useValue: partialMock<AdminEmailChangeService>({
+          claimPendingIn: jest.fn().mockResolvedValue(undefined),
           assertAddressAvailable: jest.fn().mockResolvedValue(undefined),
           notifyPreviousAddress: jest.fn(),
           sendConfirmation: jest.fn().mockResolvedValue(undefined),

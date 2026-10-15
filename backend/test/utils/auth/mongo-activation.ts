@@ -1,7 +1,16 @@
+import { ClientSession, Connection, Model, Types } from 'mongoose';
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { MongoAddressLedger } from '../../../src/common/persistence/mongo/mongo-address-ledger';
+import {
+  AddressClaim,
+  AddressClaimDocument,
+  AddressClaimSchema,
+} from '../../../src/common/persistence/mongo/schemas/address-claim.schema';
+import { FrozenClock, TEST_NOW } from '../frozen-clock';
+
 import { AccountCreationPolicy } from '../../../src/auth/services/registration/account-creation-policy';
 import { WEB_CLIENT_ID } from '../../../src/session/constants/client-ids';
 import { AccountSessions } from '../../../src/user/stores/account-sessions';
-import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { ReservedCode } from '../../../src/auth/interfaces/pending-code.interface';
 import {
   MongoActivationAccounts,
@@ -25,6 +34,14 @@ import {
 import { UserDocument } from '../../../src/user/persistence/mongo/schemas/user.schema';
 import { DEFAULT_LOCALE } from '../../../src/common/constants/locales';
 
+function ledgerOn(users: Model<UserDocument>): AddressLedger {
+  users.db.model(AddressClaim.name, AddressClaimSchema);
+  return new MongoAddressLedger(
+    users.db.model<AddressClaimDocument>(AddressClaim.name),
+    users,
+  );
+}
+
 /** The registration service on the MongoDB adapters over the given model. */
 export function mongoRegistrationService(
   userModel: Model<UserDocument>,
@@ -45,6 +62,8 @@ export function mongoRegistrationService(
     mailCounterService,
     new MongoActivationSignIn(signInService),
     policy,
+    ledgerOn(userModel),
+    new FrozenClock(TEST_NOW),
   );
 }
 
@@ -60,6 +79,8 @@ export function mongoEmailChangeConfirmation(
     new MongoUnitOfWorkRunner(connection),
     verificationCodeService,
     sessions,
+    ledgerOn(userModel),
+    new FrozenClock(TEST_NOW),
   );
 }
 
@@ -81,6 +102,8 @@ export async function createActivatedAccount(
     { id: accountId.toString(), passwordHash, name, locale: DEFAULT_LOCALE },
     policy,
     application,
+    ledgerOn(userModel),
+    new FrozenClock(TEST_NOW).now(),
   );
   return { _id: new Types.ObjectId(account.id) };
 }
@@ -95,5 +118,7 @@ export function confirmEmailChange(
     new MongoActivationAccounts(userModel),
     mongoUnitOfWork(session),
     reserved,
+    ledgerOn(userModel),
+    new FrozenClock(TEST_NOW).now(),
   );
 }

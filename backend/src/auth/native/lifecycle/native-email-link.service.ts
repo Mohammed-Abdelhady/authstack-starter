@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AddressReservationTakenError } from '../../../common/persistence/address-reservation-taken.error';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import {
   UnitOfWork,
@@ -142,6 +143,12 @@ export class NativeEmailLinkService {
       try {
         return await this.runner.run(work);
       } catch (error) {
+        if (error instanceof AddressReservationTakenError) {
+          const owner = await this.links.hasAccountAtAddress(
+            attempt.details.email?.address ?? '',
+          );
+          if (!owner) throw this.links.invalidNativeLink();
+        }
         if (
           !this.isAddressConflict(error) ||
           pass + 1 === EMAIL_LINK_RETRY_LIMIT

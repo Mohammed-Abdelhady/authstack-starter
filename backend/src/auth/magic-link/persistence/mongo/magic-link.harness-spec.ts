@@ -1,12 +1,13 @@
-import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
-import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
-import { createConnectionMock } from '../../../../common/persistence/mongo/mongo-test-doubles.harness-spec';
-import { MongoUnitOfWorkRunner } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Types } from 'mongoose';
 import type { Request } from 'express';
+import { AddressLedger } from '../../../../common/persistence/address-ledger';
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
+import { createConnectionMock } from '../../../../common/persistence/mongo/mongo-test-doubles.harness-spec';
+import { MongoUnitOfWorkRunner } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   MAGIC_LINK_EXPIRES_IN,
   MAGIC_LINK_MAX_PER_HOUR,
@@ -137,6 +138,7 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       MagicLinkService,
+      { provide: AddressLedger, useValue: partialMock<AddressLedger>({}) },
       { provide: AccountCreationPolicy, useValue: policy },
       {
         provide: UnitOfWorkRunner,

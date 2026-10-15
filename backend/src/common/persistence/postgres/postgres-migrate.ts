@@ -66,6 +66,7 @@ export async function runMigrateCommand(
         lockWaitMs,
         undefined,
         options.sources,
+        say,
       );
       say(
         applied.length === 0
