@@ -1,5 +1,7 @@
 import { Module, OnModuleInit, type INestApplication } from '@nestjs/common';
 import { CommonModule } from '../common/common.module';
+import { ApplicationPolicyReader } from '../auth/contracts/application-policy';
+import { EventRecorder } from '../auth/contracts/event-recorder';
 import { StorageStartup } from '../common/persistence/storage-startup';
 import { UnitOfWorkRunner } from '../common/persistence/unit-of-work';
 import { ApplicationAccess } from './applications/application-access';
@@ -34,6 +36,8 @@ import {
 @Module({
   imports: [CommonModule, ...SESSION_PERSISTENCE_IMPORTS],
   providers: [
+    { provide: ApplicationPolicyReader, useExisting: IssuanceApplications },
+    { provide: EventRecorder, useExisting: SecurityEventRecorder },
     ...SESSION_PERSISTENCE_PROVIDERS,
     ApplicationRegistry,
     ApplicationAccess,
@@ -48,6 +52,8 @@ import {
     NativeAccessService,
   ],
   exports: [
+    ApplicationPolicyReader,
+    EventRecorder,
     ...SESSION_PERSISTENCE_EXPORTS,
     CommonModule,
     ApplicationRegistryStore,

@@ -14,6 +14,7 @@ import { UnitOfWork } from './unit-of-work';
 export const ADDRESS_CLAIM_KIND = {
   ACCOUNT: 'ACCOUNT',
   EMAIL_CHANGE: 'EMAIL_CHANGE',
+  INVITATION: 'INVITATION', // feature:invitations
 } as const;
 
 export const ADDRESS_CLAIM_RESULT = {

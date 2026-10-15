@@ -20,6 +20,8 @@ import { NativeFactorsModule } from './auth/native/factors/native-factors.module
 import { NativeProviderModule } from './auth/native/providers/native-provider.module'; // feature:oauth-core
 import { NativeLifecycleModule } from './auth/native/lifecycle/native-lifecycle.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthContractsModule } from './auth/contracts/auth-contracts.module';
+import { PasskeyFactsModule } from './auth/contracts/passkey-facts.module';
 import { AuthMethodsController } from './auth/auth-methods.controller';
 import { MagicLinkModule } from './auth/magic-link/magic-link.module'; // feature:magic-link
 import { TwoFactorModule } from './auth/two-factor/two-factor.module'; // feature:totp
@@ -72,6 +74,8 @@ import { STORAGE_CONNECTION_IMPORTS } from './common/persistence/common-persiste
     NativeLifecycleModule,
     RoleModule,
     AuthModule,
+    AuthContractsModule,
+    PasskeyFactsModule,
     // feature:oauth-core:start
     OAuthModule.register([
       GoogleOAuthStrategy, // feature:google

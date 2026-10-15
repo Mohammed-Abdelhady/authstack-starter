@@ -234,18 +234,18 @@ with `web`, `mongodb` and no options.
 }
 ```
 
-| Field           | Meaning                                                                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `label`         | Shown in the prompt                                                                                                          |
-| `description`   | The hint next to the label                                                                                                   |
-| `kind`          | `credential`, `oauth`, `second-factor`, `passwordless`, or `hidden` for an entry another feature requires; groups the prompt |
-| `default`       | Preselected in the prompt and picked by `--yes`                                                                              |
-| `files`         | Globs, relative to the project root, for files only this method needs                                                        |
-| `envVars`       | Env var names stripped from the examples when the method is dropped                                                          |
-| `requires`      | Other feature ids pulled in with this one                                                                                    |
-| `docs`          | Markdown files deleted with the method, along with links to them                                                             |
-| `catalogueKeys` | For an option: catalogue paths and dotted keys removed when it is off                                                        |
-| `status`        | `planned` hides the entry from the prompt and from `--features`; omit it for a working method                                |
+| Field           | Meaning                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `label`         | Shown in the prompt                                                                                                       |
+| `description`   | The hint next to the label                                                                                                |
+| `kind`          | `credential`, `oauth`, `second-factor`, `passwordless`, `administration`, or `hidden` for dependencies; groups the prompt |
+| `default`       | Preselected in the prompt and picked by `--yes`                                                                           |
+| `files`         | Globs, relative to the project root, for files only this method needs                                                     |
+| `envVars`       | Env var names stripped from the examples when the method is dropped                                                       |
+| `requires`      | Other feature ids pulled in with this one                                                                                 |
+| `docs`          | Markdown files deleted with the method, along with links to them                                                          |
+| `catalogueKeys` | For an option: catalogue paths and dotted keys removed when it is off                                                     |
+| `status`        | `planned` hides the entry from the prompt and from `--features`; omit it for a working method                             |
 
 A target or shared module owns its `files`, `envFiles` and `workspaces`. They are
 removed when it is not part of the plan, and its id is a marker name like a

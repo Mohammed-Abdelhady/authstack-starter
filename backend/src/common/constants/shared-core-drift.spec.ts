@@ -2,7 +2,10 @@ import { HttpException, Logger } from '@nestjs/common';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ErrorCode as BackendErrorCode } from '../enums/error-code.enum';
 import { GlobalExceptionFilter } from '../filters/global-exception.filter';
-import { ALL_PERMISSIONS as BackendAllPermissions } from './permissions';
+import {
+  ALL_PERMISSIONS as BackendAllPermissions,
+  RESERVED_PERMISSIONS as BackendReservedPermissions,
+} from './permissions';
 import {
   PASSWORD_MAX_BYTES,
   PASSWORD_MIN_LENGTH,
@@ -11,7 +14,10 @@ import {
 } from './password';
 import { ErrorCode as SharedErrorCode } from '../../../../shared/core/src/error-codes';
 import { getStatusErrorCode } from '../../../../shared/core/src/api-error-helpers';
-import { ALL_PERMISSIONS as SharedAllPermissions } from '../../../../shared/core/src/permissions';
+import {
+  ALL_PERMISSIONS as SharedAllPermissions,
+  RESERVED_PERMISSIONS as SharedReservedPermissions,
+} from '../../../../shared/core/src/permissions';
 import {
   MIN_PASSWORD_LENGTH as SharedMinPasswordLength,
   MAX_PASSWORD_BYTES as SharedMaxPasswordBytes,
@@ -93,6 +99,15 @@ describe('shared core drift', () => {
     const shared = sortedStrings(SharedAllPermissions);
 
     expect(shared).toEqual(backend);
+  });
+
+  it('keeps reserved permissions equal and out of the active catalogue', () => {
+    expect(SharedReservedPermissions).toEqual(BackendReservedPermissions);
+    expect(SharedReservedPermissions).toHaveLength(10);
+    for (const permission of SharedReservedPermissions) {
+      expect(SharedAllPermissions).not.toContain(permission);
+      expect(BackendAllPermissions).not.toContain(permission);
+    }
   });
 
   // Exact and in order: the seed and the picker follow list order, and a

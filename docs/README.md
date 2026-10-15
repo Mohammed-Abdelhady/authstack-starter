@@ -4,6 +4,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 
 ## Core guides
 
+- [Upgrade notes](upgrading.md): Permission changes and steps to take before upgrading.
 - [Session device names](../backend/docs/session-device-names.md): Session response parts, localized names, and legacy fallback.
 - [Architecture](reference/ARCHITECTURE.md): Request pipeline, session storage, OAuth provider registry, and security model.
 - [Database schema](reference/DATABASE_SCHEMA.md): MongoDB collections, document models, indexes, and migrations.
@@ -32,6 +33,11 @@ Index of architecture documents, system guides, and provider setup tutorials.
 - [Mail languages and link addresses](setup/setup-mail-links.md): The language each mail is written in, and where its links point.
 - [Magic link setup](setup/setup-magic-link.md): Passwordless email sign-in links.
 - [Two-factor setup](setup/setup-two-factor.md): Time-based one-time password (TOTP) and recovery codes.
+- [Email code](setup/setup-email-code.md): Used from plan 2. Reserved sign-in settings. <!-- feature:email-code -->
+- [Applications](setup/setup-applications.md): Used from plan 1. Reserved application policies.
+- [Invitations](setup/setup-invitations.md): Used from plan 4. Reserved invitation settings. <!-- feature:invitations -->
+- [Staff console](setup/setup-staff-console.md): Used from plan 4. Reserved activity and strict mutation settings.
+- [Account lifecycle](setup/setup-account-lifecycle.md): Used from plan 5. Reserved erasure and provider-token settings.
 - [Passkey setup](setup/setup-passkeys.md): WebAuthn passkey registration and sign-in.
 
 ### OAuth and OIDC providers

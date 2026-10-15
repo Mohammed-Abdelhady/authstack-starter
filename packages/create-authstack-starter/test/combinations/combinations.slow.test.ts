@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { databaseMarkerIds, defaultDatabaseIds } from '../../src/manifest/dimensions.js';
@@ -110,6 +110,33 @@ describe('generated projects', () => {
     await expectLints(project);
     const api = await runBackendBoot(project);
     expect(api.ok, api.output).toBe(true);
+  });
+
+  it('keeps mailed proof and its sender when email-code sign-in is off', async () => {
+    const project = join(workspace, 'email-code-off');
+    const result = await scaffold(project, ['email-password']);
+    expect(result.ok, result.output).toBe(true);
+    for (const path of [
+      'backend/src/mail/builders/proof-code.ts',
+      'backend/src/mail/catalog/en/proof-code.ts',
+      'backend/src/mail/catalog/ar/proof-code.ts',
+    ]) {
+      expect(existsSync(join(project, path)), path).toBe(true);
+    }
+    const contracts = readFileSync(
+      join(project, 'backend/src/auth/contracts/auth-contracts.module.ts'),
+      'utf8',
+    );
+    expect(contracts).toMatch(/provide:\s*FreshProofSender\b[^}]*useExisting:\s*MailService\b/u);
+    const mail = readFileSync(join(project, 'backend/src/mail/mail.service.ts'), 'utf8');
+    expect(mail).toContain('sendProofCode');
+    const errors = readFileSync(join(project, 'shared/core/src/error-codes.ts'), 'utf8');
+    const signIn = readFileSync(
+      join(project, 'backend/src/config/utils/native-sign-in-config.util.ts'),
+      'utf8',
+    );
+    expect(errors).not.toContain('EMAIL_CODE_INVALID');
+    expect(signIn).not.toContain('emailCode');
   });
 
   it('typechecks and lints with everything the manifest offers', async () => {

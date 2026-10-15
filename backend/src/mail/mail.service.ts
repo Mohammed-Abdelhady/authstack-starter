@@ -23,6 +23,9 @@ import { buildMagicLinkMail } from './builders/magic-link';
 import { buildRegistrationNoticeMail } from './builders/registration-notice';
 import { buildSecurityNoticeMail } from './builders/security-notice';
 import type { SecurityNotice } from '../user/types/security-notice.type';
+import type { FreshProofSender } from '../auth/contracts/fresh-proof';
+import type { FreshProofMail } from '../auth/contracts/types/fresh-proof';
+import { buildProofCodeMail } from './builders/proof-code';
 
 /** Default code lifetime in milliseconds, matching the activation default. */
 const DEFAULT_CODE_EXPIRES_IN_MS = 900000;
@@ -33,7 +36,7 @@ const DEFAULT_CODE_EXPIRES_IN_MS = 900000;
  * configuration a mail needs and hands the result to SMTP.
  */
 @Injectable()
-export class MailService {
+export class MailService implements FreshProofSender {
   private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter;
 
@@ -118,6 +121,11 @@ export class MailService {
 
   private send(recipient: MailRecipient, content: MailContent): Promise<void> {
     return this.sendMail({ to: recipient.email, ...content });
+  }
+
+  /** Core action proof. Plan 4 supplies the issuer; no route calls this yet. */
+  async sendProofCode(mail: FreshProofMail): Promise<void> {
+    await this.send(mail.recipient, buildProofCodeMail(mail));
   }
 
   /** The sign-up code, to an address that has no account yet. */

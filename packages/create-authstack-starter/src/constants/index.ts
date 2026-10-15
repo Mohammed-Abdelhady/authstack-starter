@@ -162,6 +162,7 @@ export const FEATURE_KIND_ORDER: PromptedKind[] = [
   'oauth',
   'passwordless',
   'second-factor',
+  'administration',
 ];
 
 export const FEATURE_KIND_LABELS: Record<PromptedKind, string> = {
@@ -169,6 +170,7 @@ export const FEATURE_KIND_LABELS: Record<PromptedKind, string> = {
   oauth: 'OAuth providers',
   passwordless: 'Passwordless',
   'second-factor': 'Second factor',
+  administration: 'Administration',
 };
 
 /** Extensions scanned by the post-prune reference check. */

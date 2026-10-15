@@ -14,6 +14,12 @@ import {
 const NEW_ROLE_NAME = 'Grant Ceiling';
 const NEW_ROLE_SLUG = 'grant-ceiling';
 const EXISTING_PERMISSION = 'posts:read:all';
+const RESERVED_PERMISSION = 'sessions:read:staff';
+const RESERVED_REFUSAL = {
+  code: ErrorCode.INVALID_PERMISSION_FORMAT,
+  status: 400,
+  message: 'sessions:read:staff is reserved and cannot be granted yet',
+};
 const FORBIDDEN = { code: ErrorCode.FORBIDDEN, status: 403 };
 const HIERARCHY_REFUSAL = {
   code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
@@ -172,6 +178,58 @@ describe('role grants use fresh permissions and strict hierarchy', () => {
       EXISTING_PERMISSION,
       USER_PERMISSIONS.READ_ALL,
     ]);
+  });
+
+  it('keeps a stored reserved permission while adding a held grant', async () => {
+    await fixture.h.roleModel.updateOne(
+      { slug: EDITOR_SLUG },
+      { $set: { permissions: [EXISTING_PERMISSION, RESERVED_PERMISSION] } },
+    );
+
+    await update([
+      EXISTING_PERMISSION,
+      RESERVED_PERMISSION,
+      USER_PERMISSIONS.READ_ALL,
+    ]);
+
+    expect(await storedPermissions()).toEqual([
+      EXISTING_PERMISSION,
+      RESERVED_PERMISSION,
+      USER_PERMISSIONS.READ_ALL,
+    ]);
+  });
+
+  it('refuses a reserved permission the role does not already hold', async () => {
+    await expect(
+      update(
+        [EXISTING_PERMISSION, RESERVED_PERMISSION],
+        EDITOR_SLUG,
+        fixture.actorId,
+      ),
+    ).rejects.toMatchObject(RESERVED_REFUSAL);
+    expect(await storedPermissions()).toEqual([EXISTING_PERMISSION]);
+  });
+
+  it('refuses to restore a reserved permission removed before the transaction', async () => {
+    await fixture.h.roleModel.updateOne(
+      { slug: EDITOR_SLUG },
+      { $set: { permissions: [EXISTING_PERMISSION, RESERVED_PERMISSION] } },
+    );
+    fixture.beforeTransaction(async () => {
+      await fixture.h.roleModel.updateOne(
+        { slug: EDITOR_SLUG },
+        { $pull: { permissions: RESERVED_PERMISSION } },
+      );
+    });
+
+    await expect(
+      update(
+        [EXISTING_PERMISSION, RESERVED_PERMISSION],
+        EDITOR_SLUG,
+        fixture.actorId,
+      ),
+    ).rejects.toMatchObject(RESERVED_REFUSAL);
+    expect(await storedPermissions()).toEqual([EXISTING_PERMISSION]);
   });
 
   it('lets a wildcard holder add permissions to a lower role', async () => {

@@ -54,6 +54,8 @@ A rollback to a build lacking an applied file is refused by `up` and by server s
 
 `0012_retention_indexes.sql` builds four indexes with plain `CREATE INDEX` inside its transaction. Writes to `sessions`, `authorization_transactions`, `native_credentials` and `native_dpop_proof_ids` wait until it commits. On a new database that takes no time. On a database that already holds many sessions, apply it with the server stopped.
 
+Run `0021_address_claims.sql` with writes paused, or rerun the upgrade if PostgreSQL aborts it as a deadlock victim, since the whole migration rolls back and is safe to rerun.
+
 Each optional sign-in method that has tables of its own brings a migration file of its own. A project made without that method does not carry the file, so the numbers in the folder can have gaps. The order is the order of the names.
 
 ### Adopting existing host records
