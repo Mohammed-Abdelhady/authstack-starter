@@ -105,6 +105,15 @@ describe('native SDK build configuration', () => {
     expect(configured.plugins?.[1]).toBe(host.plugins?.[1]);
   });
 
+  it.each([3, 4])('refuses a host tuple with trailing holes and length %i', (length) => {
+    const iosUrlScheme = 'com.googleusercontent.apps.123-example';
+    const plugin: NativeBuildPlugin = ['react-native-nitro-google-signin', { iosUrlScheme }];
+    Object.defineProperty(plugin, 'length', { value: length });
+    expect(() =>
+      configureNativeSignIn({ plugins: [plugin] }, { googleIosUrlScheme: iosUrlScheme }),
+    ).toThrow(new TypeError(`Plugin ${plugin[0]}: the host already configures it differently`));
+  });
+
   it('refuses a conflicting host tuple or bare string', () => {
     const plugins: NativeBuildPlugin[] = [
       'react-native-nitro-google-signin',
