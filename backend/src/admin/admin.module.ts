@@ -1,6 +1,11 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminPermissionsController } from './admin-permissions.controller';
+import { AdminSessionsController } from './sessions/admin-sessions.controller';
+import { AdminSessionsService } from './sessions/admin-sessions.service';
+import { AdminSessionAccessService } from './sessions/admin-session-access.service';
+import { AdminActivityController } from './activity/admin-activity.controller';
+import { AdminActivityService } from './activity/admin-activity.service';
 import { AdminUsersService } from './services/users/admin-users.service';
 import { AdminUserCreateService } from './services/users/admin-user-create.service';
 import { AdminUserQueriesService } from './services/users/admin-user-queries.service';
@@ -33,7 +38,12 @@ import {
     RoleModule,
     forwardRef(() => UserModule),
   ],
-  controllers: [AdminUsersController, AdminPermissionsController],
+  controllers: [
+    AdminUsersController,
+    AdminPermissionsController,
+    AdminSessionsController,
+    AdminActivityController,
+  ],
   providers: [
     AdminUsersService,
     AdminUserCreateService,
@@ -41,6 +51,9 @@ import {
     AdminUserAccessService,
     AdminEmailChangeService,
     AdminPermissionsService,
+    AdminSessionsService,
+    AdminSessionAccessService,
+    AdminActivityService,
     ...ADMIN_PERSISTENCE_PROVIDERS,
   ],
   exports: [AdminUsersService],
