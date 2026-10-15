@@ -92,7 +92,9 @@ A sign-in code belongs to one native attempt, never to an address. Its wrong
 guesses are counted on that attempt's row. The fifth wrong guess spends the
 code and ends the attempt. It never locks the address and never touches
 another attempt, so a new attempt for the same address works at once. A resend
-on the same attempt keeps the count it has.
+on the same attempt keeps the count it has. Cleanup keeps the row until the
+attempt ends, not the code, so a code that expired while its attempt lives
+leaves the attempt's wrong guesses in place for the next code.
 
 | Limit                            | Value                              | Where                                        |
 | -------------------------------- | ---------------------------------- | -------------------------------------------- |
