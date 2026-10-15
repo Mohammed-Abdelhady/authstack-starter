@@ -32,4 +32,14 @@ export abstract class AccountSessions {
     keptSessionId: string,
     reasonCode?: string,
   ): Promise<number>;
+
+  /**
+   * Refuses with SESSION_INVALID unless the session is a live session of the
+   * account, read in the caller's unit of work.
+   */
+  abstract assertLive(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    sessionId: string,
+  ): Promise<void>;
 }

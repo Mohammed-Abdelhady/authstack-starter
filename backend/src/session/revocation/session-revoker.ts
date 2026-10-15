@@ -186,12 +186,7 @@ export class SessionRevoker {
       account.id,
     );
     const currentVersion = account.sessionVersion;
-    if (
-      !survivor ||
-      !survivor.isValid ||
-      survivor.revoked ||
-      survivor.userVersion !== currentVersion
-    ) {
+    if (!isLiveAt(survivor, currentVersion)) {
       throw sessionNoLongerActive();
     }
 
@@ -223,6 +218,30 @@ export class SessionRevoker {
       reasonCode,
     });
     return Math.max(0, count - 1);
+  }
+
+  /**
+   * Refuses unless the session is a live session of the account. It reads the
+   * account and the session with the locks ending sessions takes, inside the
+   * caller's unit of work, so a sign-out cannot interleave with the change.
+   *
+   * @throws AppException SESSION_INVALID when the session has ended
+   */
+  async assertLiveSessionIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    sessionId: string,
+  ): Promise<void> {
+    const account = await this.store.readAccountForRevocation(
+      unitOfWork,
+      userId,
+    );
+    const session = account
+      ? await this.findSurvivor(unitOfWork, sessionId, account.id)
+      : null;
+    if (!account || !isLiveAt(session, account.sessionVersion)) {
+      throw sessionNoLongerActive();
+    }
   }
 
   /** An id no session could carry names no session to keep. */
@@ -281,6 +300,19 @@ export class SessionRevoker {
       asAuthorityUnavailable(error);
     }
   }
+}
+
+/** Valid, not revoked, and issued at the account's current session version. */
+function isLiveAt(
+  session: RevocableSession | null,
+  sessionVersion: number,
+): session is RevocableSession {
+  return (
+    session !== null &&
+    session.isValid &&
+    !session.revoked &&
+    session.userVersion === sessionVersion
+  );
 }
 
 function sessionNoLongerActive(): AppException {

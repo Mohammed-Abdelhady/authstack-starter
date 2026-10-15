@@ -18,6 +18,7 @@ import { Clock } from '../../../common/services/clock';
 import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { SECURITY_NOTICE } from '../../constants/security-notice.constants';
 import { SecurityNoticeService } from '../../services/security-notice.service';
+import { AccountSessions } from '../../stores/account-sessions';
 import type {
   OwnEmailCaller,
   OwnEmailProof,
@@ -66,6 +67,7 @@ export class OwnEmailRequestService {
     private readonly codes: VerificationCodeService,
     private readonly ledger: AddressLedger,
     private readonly proofs: OwnEmailProofService,
+    private readonly sessions: AccountSessions,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly mail: OwnEmailMailService,
@@ -211,6 +213,9 @@ export class OwnEmailRequestService {
       caller.userId,
     );
     if (!account) throw sessionEnded();
+    // A confirm elsewhere may have ended this session without moving the
+    // generation, so the session is read again with the account taken.
+    await this.sessions.assertLive(unitOfWork, caller.userId, caller.sessionId);
     if (account.addressGeneration !== request.readGeneration) {
       throw changedMeanwhile();
     }

@@ -34,8 +34,8 @@ import {
   MemoryAccounts,
   MemoryLedger,
   MemoryRunner,
-  MemorySessions,
 } from './own-email-memory.harness-spec';
+import { MemorySessions } from './own-email-sessions.harness-spec';
 
 export const ACCOUNT_ID = 'account-1';
 export const OLD_ADDRESS = 'old@example.test';
@@ -158,6 +158,7 @@ export function ownEmailWorld(
       verification,
       ledger,
       proofs,
+      sessions,
       runner,
       clock,
       new OwnEmailMailService(mail.service, dispatcher, config),
