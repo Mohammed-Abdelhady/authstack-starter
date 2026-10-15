@@ -223,6 +223,14 @@ export enum ErrorCode {
   // feature:oauth-core:end
   /** Re-authentication required for sensitive operation */
   REAUTH_REQUIRED = 'REAUTH_REQUIRED',
+  // feature:email-code:start
+  EMAIL_CODE_INVALID = 'EMAIL_CODE_INVALID',
+  // feature:email-code:end
+  // feature:invitations:start
+  INVITATION_INVALID = 'INVITATION_INVALID',
+  // feature:invitations:end
+  /** Returned once account erasure is enabled (plan 5). */
+  ACCOUNT_ERASURE_PENDING = 'ACCOUNT_ERASURE_PENDING',
 
   // Permission errors
   /** Permission already exists for user */
