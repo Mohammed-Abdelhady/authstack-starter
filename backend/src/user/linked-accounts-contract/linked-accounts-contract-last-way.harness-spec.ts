@@ -3,6 +3,11 @@ import { holdReruns } from '../../../test/utils/session/issuance-contract/issuan
 import { refusalOf } from '../../../test/utils/user/accounts-contract/accounts-contract-support';
 import { AppException } from '../../common/exceptions/app.exception';
 import {
+  // feature:email-code:start
+  accessOn,
+  CODE_APPLICATION,
+  offerEmailCodes,
+  // feature:email-code:end
   LinkedFixture,
   LinkedHarnessSource,
   linkedServicesOn,
@@ -165,6 +170,7 @@ export function lastWayInCases(
       },
       // feature:email-code:end
     };
+    await offerEmailCodes(harness()); // feature:email-code
 
     const unlinked: Record<string, boolean> = {};
     for (const [name, account] of Object.entries(accounts)) {
@@ -204,4 +210,61 @@ export function lastWayInCases(
       'email codes': true, // feature:email-code
     });
   });
+
+  // feature:email-code:start
+  it('counts email codes only while the stored application really lets the account in', async () => {
+    const access = accessOn(harness());
+    const cases: Record<
+      string,
+      { arrange: (userId: string) => Promise<void>; unlinked: boolean }
+    > = {
+      'an application open to it': {
+        arrange: () => Promise.resolve(),
+        unlinked: true,
+      },
+      'its grant there blocked': {
+        arrange: (userId) =>
+          access.blockGrant(userId, CODE_APPLICATION.clientId),
+        unlinked: false,
+      },
+      'the application switched off': {
+        arrange: () => access.disableApplication(CODE_APPLICATION.clientId),
+        unlinked: false,
+      },
+    };
+
+    const unlinked: Record<string, boolean> = {};
+    for (const [name, account] of Object.entries(cases)) {
+      // Stored and switched on again, as every start-up does.
+      await offerEmailCodes(harness());
+      const email = `${name.replaceAll(' ', '-')}@example.test`;
+      const userId = await harness().seedAccount({ email, role: 'user' });
+      const { linking } = linkedServicesOn(harness(), undefined, {
+        password: false,
+        magicLink: false,
+        emailCode: true,
+      });
+      await linking.linkProvider(
+        userId,
+        'google',
+        profileOf(`google-${name}`, { email }),
+      );
+      await account.arrange(userId);
+
+      const attempt = linking.unlinkProvider(userId, 'google');
+      if (account.unlinked) {
+        await attempt;
+      } else {
+        expect(await refusalOf(attempt)).toEqual(LAST_PROVIDER);
+      }
+      unlinked[name] = (await harness().storedLinks(userId)).length === 0;
+    }
+
+    expect(unlinked).toEqual({
+      'an application open to it': true,
+      'its grant there blocked': false,
+      'the application switched off': false,
+    });
+  });
+  // feature:email-code:end
 }
