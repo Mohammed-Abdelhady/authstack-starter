@@ -12,6 +12,8 @@ export const BROWSER_SIGN_IN_METHODS = [
 
 // feature:email-code:start
 export const EMAIL_CODE_EXPIRES_IN_DEFAULT = 600000;
+/** How far past start-up `EMAIL_CODE_REVIEW_UNTIL` may lie: 30 days. */
+export const EMAIL_CODE_REVIEW_MAX_AHEAD_MS = 2_592_000_000;
 // feature:email-code:end
 // feature:invitations:start
 export const INVITATION_EXPIRES_IN_DEFAULT = 604800000;
