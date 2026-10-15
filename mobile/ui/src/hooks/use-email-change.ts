@@ -9,6 +9,7 @@ import {
   type EmailStep,
 } from '../constants/email-change';
 import { useUi } from '../context/ui-context';
+import { useEngineSnapshot } from './use-engine-snapshot';
 import { emailNotice, outcomeOfFailure, type EmailNotice } from '../logic/email-change';
 import { validNativeEmail } from '../logic/native-form-validation';
 import { toApiFailure } from '../logic/request-failure';
@@ -21,6 +22,9 @@ const CODE_SHAPE = new RegExp(`^\\d{${EMAIL_CODE_LENGTH}}$`);
 export function useEmailChange() {
   const { runtime, t } = useUi();
   const client = useMemo(() => createApiClient(runtime.engine.transport), [runtime.engine]);
+  // Renders again on every engine change, after the runtime has counted it.
+  useEngineSnapshot(runtime.engine);
+  const epoch = runtime.epoch.current();
   const [view, setView] = useState<ListView>(LIST_VIEW.LOADING);
   const [current, setCurrent] = useState<string>();
   const [pending, setPending] = useState<string>();
@@ -29,8 +33,9 @@ export function useEmailChange() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<EmailNotice>();
-  // Blocks a second press before the busy state reaches the screen.
-  const inFlight = useRef(false);
+  // The account a call is on its way for. Blocks a second press before the
+  // busy state reaches the screen, and never the next account's first call.
+  const inFlight = useRef<number>(undefined);
 
   const tell = useCallback(
     (outcome: EmailOutcome, about = '') => setNotice(emailNotice(t, outcome, about)),
@@ -49,18 +54,20 @@ export function useEmailChange() {
       done: (value: T) => void,
       failed: (failure: ApiFailure) => void,
     ) => {
-      if (inFlight.current) return;
-      inFlight.current = true;
+      const callEpoch = runtime.epoch.current();
+      if (inFlight.current === callEpoch) return;
+      inFlight.current = callEpoch;
       setBusy(true);
-      const epoch = runtime.epoch.current();
       try {
         const value = await call();
-        if (runtime.epoch.current() === epoch) done(value);
+        if (runtime.epoch.current() === callEpoch) done(value);
       } catch (error) {
-        if (runtime.epoch.current() === epoch) failed(toApiFailure(error));
+        if (runtime.epoch.current() === callEpoch) failed(toApiFailure(error));
       } finally {
-        inFlight.current = false;
-        setBusy(false);
+        if (inFlight.current === callEpoch) {
+          inFlight.current = undefined;
+          setBusy(false);
+        }
       }
     },
     [runtime.epoch],
@@ -79,7 +86,16 @@ export function useEmailChange() {
     );
   }, [apply, client, run]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    // The next account starts from nothing the last one saw or typed.
+    setCurrent(undefined);
+    setPending(undefined);
+    setStep(EMAIL_STEP.IDLE);
+    setAddress('');
+    setCode('');
+    setNotice(undefined);
+    load();
+  }, [epoch, load]);
 
   const start = useCallback(() => {
     setNotice(undefined);
