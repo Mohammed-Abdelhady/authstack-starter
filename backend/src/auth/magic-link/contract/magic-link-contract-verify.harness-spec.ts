@@ -1,3 +1,6 @@
+import { SwitchableAccountCreationPolicy } from '../../../../test/utils/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { holdBefore, RaceGate } from '../../../../test/utils/race-gate';
 import { hashMagicLinkToken } from '../utils/magic-link-token.util';
@@ -19,9 +22,11 @@ const LINK_EXPIRY = new Date('2099-01-01T12:15:00.000Z');
 /** Spending a link once, and the account it signs in. */
 export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
   let services: LinkServices;
+  let policy: SwitchableAccountCreationPolicy;
 
   beforeEach(() => {
-    services = linkServices(harness());
+    policy = new SwitchableAccountCreationPolicy();
+    services = linkServices(harness(), policy);
   });
 
   const verify = (token = TOKEN) =>
@@ -57,6 +62,7 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
 
     const first = await verify();
     const second = await refusalOf(verify());
+    expect(policy.calls).toEqual([]);
 
     expect({
       user: first.data.user?.id,
@@ -133,6 +139,7 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
   });
 
   it('creates a verified account for a new address and signs it in', async () => {
+    const creating = jest.spyOn(harness().accounts, 'createPasswordlessIn');
     await harness().seedLink({
       email: 'new.person@example.test',
       tokenHash: hashMagicLinkToken(TOKEN),
@@ -142,6 +149,16 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
 
     await verify();
     const account = await harness().account('new.person@example.test');
+    expect(policy.calls).toEqual([
+      {
+        request: {
+          application: WEB_CLIENT_ID,
+          method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+        },
+        unitOfWork: creating.mock.calls[0]?.[0],
+      },
+    ]);
+    creating.mockRestore();
 
     expect({
       account: account && {
@@ -163,7 +180,7 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
       calls: [
         'links.claimLink',
         'accounts.findByEmail',
-        'accounts.createPasswordless',
+        'accounts.createPasswordlessIn',
       ],
     });
   });
@@ -217,7 +234,7 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
     const gate = new RaceGate();
     const restore = holdBefore(
       harness().accounts,
-      'createPasswordless',
+      'createPasswordlessIn',
       () => gate,
     );
     try {
@@ -234,5 +251,24 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
       accounts: await harness().accountCount(),
       signedIn: services.signedIn,
     }).toEqual({ accounts: 1, signedIn: [account?.id, account?.id] });
+  });
+
+  it('leaves no account when creation is refused after claiming its link', async () => {
+    await seedLink();
+    policy.refused = true;
+
+    expect({
+      refusal: await refusalOf(verify()),
+      account: await harness().account(EMAIL),
+      accounts: await harness().accountCount(),
+      signedIn: services.signedIn,
+      claimedAt: (await harness().link(hashMagicLinkToken(TOKEN)))?.consumedAt,
+    }).toEqual({
+      refusal: 'ACCOUNT_CREATION_REFUSED',
+      account: null,
+      accounts: 0,
+      signedIn: [],
+      claimedAt: TEST_NOW,
+    });
   });
 }

@@ -7,6 +7,16 @@ import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import type { ApiBody, UserResponse } from '../types/e2e-responses';
 import { bootE2eApp, loginAs, type E2eApp } from '../utils/e2e-app';
 import { SEED_ADMIN } from '../constants/seed-users';
+import { ACCOUNT_CREATION_METHOD } from '../../src/auth/constants/account-creation';
+import { UnitOfWork } from '../../src/common/persistence/unit-of-work';
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { ProviderSignInStore } from '../../src/auth/oauth/stores/provider-sign-in.store';
+import { OAuthService } from '../../src/auth/oauth/oauth.service';
+import { AccountCreationRefusedError } from '../../src/auth/services/registration/account-creation-refused.error';
+import {
+  installAccountCreationPolicy,
+  type SwitchableAccountCreationPolicy,
+} from '../utils/account-creation-policy';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -46,6 +56,7 @@ const PROVIDER: OAuthProviderStrategy = {
 
 describe('OAuth first sign-in notices for automatic account linking (e2e)', () => {
   let e2e: E2eApp;
+  let policy: SwitchableAccountCreationPolicy;
 
   beforeAll(async () => {
     e2e = await bootE2eApp(0, { browserStrategy: PROVIDER });
@@ -57,7 +68,10 @@ describe('OAuth first sign-in notices for automatic account linking (e2e)', () =
 
   beforeEach(async () => {
     await e2e.reset();
+    policy = installAccountCreationPolicy(e2e.app);
   });
+
+  afterEach(() => jest.restoreAllMocks());
 
   async function beginProviderSignIn(): Promise<{
     browser: ReturnType<typeof request.agent>;
@@ -93,6 +107,7 @@ describe('OAuth first sign-in notices for automatic account linking (e2e)', () =
   }
 
   it('links the verified account before sending one notice to its verified address', async () => {
+    policy.refused = true;
     const account = await e2e.state.accounts.createAccount({
       email: AUTO_LINK_EMAIL,
       name: 'Account Holder',
@@ -140,9 +155,107 @@ describe('OAuth first sign-in notices for automatic account linking (e2e)', () =
         },
       ]);
       expect(providersWhenMailed).toEqual([['email', 'google']]);
+      expect(policy.calls).toEqual([]);
     } finally {
       sendMailSpy.mockRestore();
     }
+  });
+
+  it('creates a provider account through one policy call in the browser transaction', async () => {
+    const { callback } = await beginProviderSignIn();
+
+    expect(callbackAnswer(callback)).toEqual({ status: 'ok', code: null });
+    expect(policy.calls).toHaveLength(1);
+    expect(policy.calls[0].request).toEqual({
+      application: WEB_CLIENT_ID,
+      method: ACCOUNT_CREATION_METHOD.PROVIDER,
+    });
+    expect(policy.calls[0].unitOfWork).toBeInstanceOf(UnitOfWork);
+    const stored = await e2e.state.accounts.accountWithAddress(AUTO_LINK_EMAIL);
+    expect(stored).toMatchObject({ email: AUTO_LINK_EMAIL, isVerified: true });
+    expect(await e2e.state.auth.countAccountsWithAddress(AUTO_LINK_EMAIL)).toBe(
+      1,
+    );
+    expect(
+      await e2e.app.get(ProviderSignInStore).findByIdentity({
+        provider: PROVIDER.id,
+        providerId: PROVIDER_ACCOUNT.providerId,
+      }),
+    ).toMatchObject({ id: stored?._id });
+  });
+
+  it('refuses provider creation without storing an account, link, or session', async () => {
+    policy.refused = true;
+
+    const creating = e2e.app
+      .get(OAuthService)
+      .findOrCreateUser(PROVIDER, PROVIDER_ACCOUNT);
+
+    await expect(creating).rejects.toBeInstanceOf(AccountCreationRefusedError);
+    await expect(creating).rejects.toMatchObject({
+      code: ErrorCode.ACCOUNT_CREATION_REFUSED,
+    });
+    expect(policy.calls).toHaveLength(1);
+    expect(await e2e.state.accounts.accountIdFor(AUTO_LINK_EMAIL)).toBeNull();
+    expect(
+      await e2e.app.get(ProviderSignInStore).findByIdentity({
+        provider: PROVIDER.id,
+        providerId: PROVIDER_ACCOUNT.providerId,
+      }),
+    ).toBeNull();
+    expect(await e2e.state.sessions.countSessions()).toBe(0);
+  });
+
+  it('redirects a refused browser provider callback without storing an account, link or session', async () => {
+    policy.refused = true;
+
+    const { callback } = await beginProviderSignIn();
+
+    expect(callback.status).toBe(302);
+    expect(callbackAnswer(callback)).toEqual({
+      status: 'error',
+      code: ErrorCode.ACCOUNT_CREATION_REFUSED,
+    });
+    expect(policy.calls).toHaveLength(1);
+    expect(policy.calls[0].request).toEqual({
+      application: WEB_CLIENT_ID,
+      method: ACCOUNT_CREATION_METHOD.PROVIDER,
+    });
+    expect(
+      await e2e.state.accounts.accountWithAddress(AUTO_LINK_EMAIL),
+    ).toBeNull();
+    expect(await e2e.state.auth.countAccountsWithAddress(AUTO_LINK_EMAIL)).toBe(
+      0,
+    );
+    expect(
+      await e2e.app.get(ProviderSignInStore).findByIdentity({
+        provider: 'google',
+        providerId: 'provider-auto-link-user',
+      }),
+    ).toBeNull();
+    expect(await e2e.state.sessions.countSessions()).toBe(0);
+  });
+
+  it('signs an already linked provider account in without asking the refusing policy', async () => {
+    const account = await e2e.state.accounts.createAccount({
+      email: AUTO_LINK_EMAIL,
+      name: 'Linked account',
+      isVerified: true,
+    });
+    await e2e.app
+      .get(AccountLinkingService)
+      .linkProvider(account._id, PROVIDER.id, PROVIDER_ACCOUNT);
+    policy.refused = true;
+
+    const { browser, callback } = await beginProviderSignIn();
+
+    expect(callbackAnswer(callback)).toEqual({ status: 'ok', code: null });
+    const profile = await browser.get('/api/user/profile').expect(200);
+    expect((profile.body as ApiBody<UserResponse>).data.id).toBe(account._id);
+    expect(policy.calls).toEqual([]);
+    expect(await e2e.state.auth.countAccountsWithAddress(AUTO_LINK_EMAIL)).toBe(
+      1,
+    );
   });
 
   it('refuses an unverified account match without linking it or sending a notice', async () => {

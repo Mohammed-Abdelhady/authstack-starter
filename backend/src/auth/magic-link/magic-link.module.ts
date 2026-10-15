@@ -8,6 +8,7 @@ import { MagicLinkAccounts } from './stores/magic-link-accounts';
 import { MagicLinkStore } from './stores/magic-link.store';
 import { CommonModule } from '../../common/common.module';
 import { MailModule } from '../../mail/mail.module';
+import { SessionModule } from '../../session/session.module';
 import {
   MAGIC_LINK_PERSISTENCE_IMPORTS,
   MAGIC_LINK_PERSISTENCE_PROVIDERS,
@@ -25,6 +26,7 @@ import {
     ...MAGIC_LINK_PERSISTENCE_IMPORTS,
     AuthModule,
     MailModule,
+    SessionModule,
   ],
   controllers: [MagicLinkController],
   providers: [

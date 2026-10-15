@@ -1,3 +1,4 @@
+import { AccountCreationPolicy } from '../../../src/auth/services/registration/account-creation-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
@@ -63,6 +64,7 @@ export async function bootAdminAtomic(
     providers: [
       AdminUsersService,
       AdminUserCreateService,
+      AccountCreationPolicy,
       AdminPermissionsService,
       UserPermissionsService,
       { provide: HashService, useValue: harness.app.get(HashService) },

@@ -1,3 +1,4 @@
+import { AccountCreationPolicy } from '../../../../services/registration/account-creation-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -100,6 +101,7 @@ describe('resend activation hash count', () => {
         ...MONGO_ACTIVATION_STORES,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         RegistrationService,
+        AccountCreationPolicy,
         VerificationCodeService,
         HashService,
         { provide: ConfigService, useValue: config },

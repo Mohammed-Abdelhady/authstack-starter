@@ -20,6 +20,7 @@ async function bootMongoProbe(): Promise<RequestWorkProbe> {
   return {
     links: harness.links,
     accounts: harness.accounts,
+    runner: harness.runner,
     takeStatements: () => {
       const sent = statements;
       statements = 0;

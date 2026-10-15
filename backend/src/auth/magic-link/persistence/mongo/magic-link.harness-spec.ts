@@ -1,3 +1,7 @@
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
+import { createConnectionMock } from '../../../../common/persistence/mongo/mongo-test-doubles.harness-spec';
+import { MongoUnitOfWorkRunner } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -46,6 +50,7 @@ import {
 export interface MagicLinkHarness {
   service: MagicLinkService;
   clock: FrozenClock;
+  policy: AccountCreationPolicy;
   pendingModel: { create: jest.Mock; findOneAndUpdate: jest.Mock };
   /** The cap's counter. Its answer is the count after this request. */
   counterModel: { findOneAndUpdate: jest.Mock };
@@ -101,6 +106,7 @@ const CONFIG_VALUES: Record<string, string | number> = {
 
 export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const clock = new FrozenClock(TEST_NOW);
+  const policy = new AccountCreationPolicy();
   const pendingModel = {
     create: jest.fn().mockResolvedValue(undefined),
     findOneAndUpdate: jest.fn(),
@@ -112,7 +118,7 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const userModel = {
     findOne: jest.fn().mockResolvedValue(null),
     exists: jest.fn().mockResolvedValue(null),
-    create: jest.fn().mockResolvedValue(MOCK_USER),
+    create: jest.fn().mockResolvedValue([MOCK_USER]),
   };
 
   const configService = new ConfigService(CONFIG_VALUES);
@@ -131,6 +137,11 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       MagicLinkService,
+      { provide: AccountCreationPolicy, useValue: policy },
+      {
+        provide: UnitOfWorkRunner,
+        useValue: new MongoUnitOfWorkRunner(createConnectionMock()),
+      },
       { provide: MagicLinkStore, useClass: MongoMagicLinkStore },
       { provide: MagicLinkAccounts, useClass: MongoMagicLinkAccounts },
       { provide: MagicLinkSignIn, useClass: MongoMagicLinkSignIn },
@@ -165,6 +176,7 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   return {
     service: module.get<MagicLinkService>(MagicLinkService),
     clock,
+    policy,
     pendingModel,
     counterModel,
     userModel,

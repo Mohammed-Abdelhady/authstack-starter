@@ -20,6 +20,8 @@ import type { AssignedRoleRef } from '../../types/assigned-role-ref';
 import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 import { chosenLocale } from '../../../common/constants/locales';
+import { AccountCreationPolicy } from '../../../auth/services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../../auth/constants/account-creation';
 
 /**
  * Creating an account from the admin area. The role must exist and sit below
@@ -37,6 +39,7 @@ export class AdminUserCreateService {
     private readonly roleSweeps: RoleSweepStore,
     private readonly accessService: AdminUserAccessService,
     private readonly hashService: HashService,
+    private readonly policy: AccountCreationPolicy,
   ) {}
 
   /**
@@ -93,6 +96,10 @@ export class AdminUserCreateService {
             actorId,
             USER_PERMISSIONS.CREATE_ALL,
             assignedRole.slug,
+          );
+          await this.policy.assertMayCreate(
+            { application: null, method: ACCOUNT_CREATION_METHOD.STAFF },
+            unitOfWork,
           );
           const newUser = await this.accounts.insertAccount(unitOfWork, {
             email,

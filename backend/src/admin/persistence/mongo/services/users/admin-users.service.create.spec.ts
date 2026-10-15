@@ -1,3 +1,6 @@
+import { mongoSessionOf } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
+import { ACCOUNT_CREATION_METHOD } from '../../../../../auth/constants/account-creation';
+import { AccountCreationPolicy } from '../../../../../auth/services/registration/account-creation-policy';
 import { SecurityEventService } from '../../../../../session/persistence/mongo/security-event.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
@@ -33,6 +36,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
   let service: AdminUserCreateService;
   let created: CreatedDoc[];
   let findOne: jest.Mock;
+  let policy: AccountCreationPolicy;
 
   const createUserDto = {
     email: 'new@example.com',
@@ -48,6 +52,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
 
   beforeEach(async () => {
     created = [];
+    policy = new AccountCreationPolicy();
     findOne = jest.fn().mockReturnValue(createChainableQueryMock(null));
 
     const userModel = Object.assign(
@@ -90,6 +95,7 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminUserCreateService,
+        { provide: AccountCreationPolicy, useValue: policy },
         {
           provide: HashService,
           useValue: new HashService(
@@ -114,16 +120,24 @@ describe('AdminUserCreateService.createUser (D-12)', () => {
   });
 
   it('should record email as the provider the account was created with', async () => {
+    const check = jest.spyOn(policy, 'assertMayCreate');
     await service.createUser(
       createUserDto,
       'admin',
       new Types.ObjectId().toString(),
     );
 
+    expect(check).toHaveBeenCalledTimes(1);
+    expect(check.mock.calls[0]?.[0]).toEqual({
+      application: null,
+      method: ACCOUNT_CREATION_METHOD.STAFF,
+    });
     expect(created).toHaveLength(1);
     expect(created[0].authProvider).toBe(AuthProvider.EMAIL);
     expect(created[0].primaryProvider).toBe(AuthProvider.EMAIL);
-    expect(created[0].save).toHaveBeenCalled();
+    expect(created[0].save).toHaveBeenCalledWith({
+      session: mongoSessionOf(check.mock.calls[0][1]),
+    });
   });
 
   it('should hash the password instead of storing it', async () => {

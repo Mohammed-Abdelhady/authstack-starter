@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegistrationService } from './services/registration/registration.service';
+import { AccountCreationPolicy } from './services/registration/account-creation-policy';
 import { AuthController } from './auth.controller';
 import { IdentityController } from './identity.controller';
 import { Sessions } from './services/sessions/sessions';
@@ -46,6 +47,7 @@ import {
   providers: [
     AuthService,
     RegistrationService,
+    AccountCreationPolicy,
     Sessions,
     SessionCookieService,
     VerificationCodeService,
@@ -83,6 +85,7 @@ import {
     SessionCookieService,
     VerificationCodeService,
     RegistrationService,
+    AccountCreationPolicy,
     MailCounterService,
     PasswordResetCodeService,
     ActivationAccounts,
