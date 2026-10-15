@@ -1,5 +1,7 @@
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
+import { AddressLedger } from '../../../common/persistence/address-ledger';
+import { Clock } from '../../../common/services/clock';
 import { RegisterDto } from '../../dto/register.dto';
 import { ActivateDto } from '../../dto/activate.dto';
 import { ResendActivationDto } from '../../dto/resend-activation.dto';
@@ -57,6 +59,8 @@ export class RegistrationService {
     private readonly mailCounterService: MailCounterService,
     private readonly signIn: ActivationSignIn,
     private readonly policy: AccountCreationPolicy,
+    private readonly ledger: AddressLedger,
+    private readonly clock: Clock,
   ) {}
 
   /**
@@ -99,7 +103,16 @@ export class RegistrationService {
     application = WEB_CLIENT_ID,
   ): Promise<string | null> {
     await this.assertMayIssueRegistrationCode(application);
-    const existingUser = await this.accounts.findAddressOwner(email);
+    const free = await this.runner.run((uow) =>
+      this.ledger.isFree(uow, { address: email, now: this.clock.now() }),
+    );
+    const existingUser = free
+      ? null
+      : await this.accounts.findAddressOwner(email);
+    if (!free && !existingUser) {
+      await this.spendCodeHashingTime();
+      return null;
+    }
 
     if (existingUser) {
       await this.spendCodeHashingTime();
@@ -185,6 +198,8 @@ export class RegistrationService {
           { id: accountId, passwordHash, name: dto.name, locale },
           this.policy,
           WEB_CLIENT_ID,
+          this.ledger,
+          this.clock.now(),
         );
       });
     } catch (error) {
@@ -208,9 +223,14 @@ export class RegistrationService {
     locale: SupportedLocale,
   ): Promise<ApiResponse<ResendActivationResponseDto>> {
     await this.assertMayIssueRegistrationCode(WEB_CLIENT_ID);
-    const existingUser = await this.accounts.findAddressOwner(dto.email);
+    const free = await this.runner.run((uow) =>
+      this.ledger.isFree(uow, { address: dto.email, now: this.clock.now() }),
+    );
+    const existingUser = free
+      ? null
+      : await this.accounts.findAddressOwner(dto.email);
 
-    if (existingUser) {
+    if (!free || existingUser) {
       await this.spendCodeHashingTime();
       return ResendActivationResponseDto.success(dto.email);
     }

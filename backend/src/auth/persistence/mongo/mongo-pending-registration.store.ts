@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { BoundEmailChangeGeneration } from '../../types/prepared-email-change';
+import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
@@ -81,6 +83,51 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
     private readonly mailCounterModel: Model<MailCounterDocument>,
   ) {
     super();
+  }
+
+  async putEmailChangeCodeIn(
+    uow: UnitOfWork,
+    email: string,
+    generation: BoundEmailChangeGeneration,
+  ): Promise<CodeRotation> {
+    const session = mongoSessionOf(uow);
+    await this.pendingRegistrationModel
+      .deleteOne(
+        {
+          email,
+          purpose: { $exists: false },
+          hashedPassword: { $exists: true },
+        },
+        { session },
+      )
+      .exec();
+    try {
+      await this.pendingRegistrationModel
+        .findOneAndUpdate(
+          {
+            email,
+            purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+            ...generationFence(PENDING_PURPOSE.EMAIL_CHANGE, generation),
+          },
+          {
+            $set: {
+              hashedCode: generation.hashedCode,
+              attempts: 0,
+              expiresAt: generation.expiresAt,
+              userId: boundUser(generation),
+              addressGeneration: generation.addressGeneration,
+            },
+          },
+          { upsert: true, session },
+        )
+        .exec();
+      return CODE_ROTATION.ROTATED;
+    } catch (error) {
+      // A stale generation or old confirmation blocks the upsert. Caller rolls back.
+      if (isMongoDuplicateKeyError(error))
+        return CODE_ROTATION.NO_MATCHING_RECORD;
+      throw error;
+    }
   }
 
   async rotateLiveCode(

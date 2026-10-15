@@ -1,3 +1,5 @@
+import { ledgerInventoryCases } from './account-creation-inventory-ledger-cases.harness-spec';
+import { callerKey } from './account-creation-inventory-expectations.harness-spec';
 import {
   replaceInventoryCall,
   moveInventoryPolicyToEnd,
@@ -20,12 +22,16 @@ import { withoutInventoryDatabase } from './account-creation-inventory-databases
 describe('account creation inventory', () => {
   const documents = readInventoryDocuments();
   const creators = expectedInventory(new Set(documents.keys())).callers.filter(
-    (entry) => entry.boundary !== 'seed',
+    (entry) =>
+      callerKey(entry.file, entry.owner, entry.method) !==
+      SEED_BOOTSTRAP_EXEMPTION,
   );
 
   it('covers every creator and raw account insert in the source tree', () => {
     expect(scanAccountCreation(documents).errors).toEqual([]);
   });
+
+  ledgerInventoryCases(documents);
 
   it('names the deployment bootstrap exemption', () => {
     const inventory = scanAccountCreation(documents);

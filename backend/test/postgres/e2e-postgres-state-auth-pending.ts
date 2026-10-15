@@ -52,6 +52,14 @@ export function postgresPendingCodeState(
   };
 
   return {
+    countAddressClaims: async (address) => {
+      const row = await database
+        .selectFrom('address_claims')
+        .select((select) => select.fn.countAll<string>().as('count'))
+        .where('address', '=', storedAddress(address))
+        .executeTakeFirstOrThrow();
+      return Number(row.count);
+    },
     storePendingRegistration: async (record) => {
       await database
         .insertInto('pending_registrations')

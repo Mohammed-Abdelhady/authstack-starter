@@ -27,10 +27,7 @@ import { AdminEmailChangeService } from './admin-email-change.service';
 import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
-/**
- * Mutating user operations for the admin area.
- * Every one of them needs the actor's level to exceed the target's level.
- */
+/** Admin mutations require the actor's level to exceed the target's. */
 @Injectable()
 export class AdminUsersService {
   private readonly logger = new Logger(AdminUsersService.name);
@@ -70,6 +67,7 @@ export class AdminUsersService {
       await this.emailChangeService.assertAddressAvailable(
         pendingEmail,
         actorRole,
+        targetUser.id,
       );
     }
 
@@ -86,6 +84,7 @@ export class AdminUsersService {
           previousEmail,
           previousGeneration,
         },
+        this.emailChangeService,
       );
       if (pendingEmail !== undefined) {
         this.emailChangeService.notifyPreviousAddress({

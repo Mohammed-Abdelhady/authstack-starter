@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { AddressLedger } from '../../../common/persistence/address-ledger';
+import { Clock } from '../../../common/services/clock';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { storeFailureCause } from '../../../common/persistence/store-failure';
@@ -32,6 +34,8 @@ export class EmailChangeConfirmationService {
     private readonly runner: UnitOfWorkRunner,
     private readonly verificationCodeService: VerificationCodeService,
     private readonly sessions: AccountSessions,
+    private readonly ledger: AddressLedger,
+    private readonly clock: Clock,
   ) {}
 
   async confirm(
@@ -56,6 +60,8 @@ export class EmailChangeConfirmationService {
           this.accounts,
           unitOfWork,
           reserved,
+          this.ledger,
+          this.clock.now(),
         );
         if (left !== null && reserved.userId) {
           await this.sessions.revokeAll(

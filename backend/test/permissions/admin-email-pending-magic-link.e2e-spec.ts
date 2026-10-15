@@ -5,7 +5,6 @@ import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { UserRole } from '../../src/user/enums/user-role.enum';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { SEED_ADMIN } from '../constants/seed-users';
-import type { ApiBody, UserResponse } from '../types/e2e-responses';
 import {
   bootE2eApp,
   browserAgent,
@@ -18,10 +17,6 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
-
-interface AdminUserBody extends UserResponse {
-  pendingEmail?: string;
-}
 
 const OLD = 'holder@example.test';
 const NEW = 'stranger@example.test';
@@ -64,31 +59,34 @@ describe('Admin pending email and magic link confirmation (e2e)', () => {
     return agent
       .post('/api/auth/magic-link/verify')
       .set(CSRF_HEADER, (proof.body as { data: { token: string } }).data.token)
-      .send({ token, ...(confirm ? { confirm: true } : {}) })
-      .expect(200);
+      .send({ token, ...(confirm ? { confirm: true } : {}) });
   }
 
-  it('keeps another browser unspent until it confirms the pending address link', async () => {
+  // A magic link must not take the address held by an email-change code.
+  it('refuses a confirmed magic link on a claimed address and preserves the pending change', async () => {
     await admin
       .patch(`/api/admin/users/${targetId}`)
       .send({ email: NEW })
       .expect(200);
     const code = await e2e.mailedCode();
+    const mailedBefore = (await e2e.captureMail()).length;
     const requester = await browserAgent(e2e.httpServer);
     await requester
       .post('/api/auth/magic-link/request')
       .send({ email: NEW })
       .expect(200);
-    const link = (await e2e.captureMail())
-      .at(-1)
-      ?.text?.match(/https?:\/\/[^\s]+/)?.[0];
+    const mailed = (await e2e.captureMail()).slice(mailedBefore);
+    expect(mailed.map((mail) => mail.to)).toEqual([NEW]);
+    const link = mailed[0]?.text?.match(/https?:\/\/[^\s]+/)?.[0];
     const token = link ? new URL(link).searchParams.get('token') : null;
+    if (!token) throw new Error('the mailed link had no token');
     const agent = request.agent(e2e.httpServer);
 
     const first = await verifyMagicLink(agent, token);
     const repeated = await verifyMagicLink(agent, token);
 
     for (const response of [first, repeated]) {
+      expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
         data: {
           requiresTwoFactor: false,
@@ -108,32 +106,35 @@ describe('Admin pending email and magic link confirmation (e2e)', () => {
       addressGeneration: 1,
     });
     const waiting = await admin.get(`/api/admin/users/${targetId}`).expect(200);
-    expect((waiting.body as ApiBody<AdminUserBody>).data.pendingEmail).toBe(
-      NEW,
-    );
+    expect(waiting.body).toMatchObject({ data: { pendingEmail: NEW } });
 
-    const confirmed = await verifyMagicLink(agent, token, true);
-    const profile = await agent.get('/api/user/profile').expect(200);
-    const signedIn = (profile.body as ApiBody<UserResponse>).data;
-    expect(signedIn.id).not.toBe(targetId);
-    expect(signedIn.role).toBe(UserRole.USER);
-    expect(confirmed.body).toMatchObject({
-      data: { user: { id: signedIn.id, email: NEW } },
+    const refused = await verifyMagicLink(agent, token, true);
+    expect(refused.status).toBe(400);
+    expect(refused.body).toMatchObject({
+      success: false,
+      error: { code: ErrorCode.MAGIC_LINK_INVALID },
+    });
+    await agent.get('/api/user/profile').expect(401);
+    expect(await e2e.state.accounts.accountIdFor(NEW)).toBeNull();
+    expect(await e2e.state.accounts.accountWithId(targetId)).toMatchObject({
+      email: OLD,
+      pendingEmail: NEW,
+      addressGeneration: 1,
+      isVerified: true,
     });
 
     const confirmation = await browserAgent(e2e.httpServer);
-    const changeConfirmation = await confirmation
+    await confirmation
       .post('/api/auth/confirm-email-change')
       .send({ email: NEW, code })
-      .expect(400);
-    expect(changeConfirmation.body.error.code).toBe(
-      ErrorCode.ACTIVATION_CODE_INVALID,
-    );
-    expect(await e2e.state.accounts.accountWithId(targetId)).toMatchObject({
-      email: OLD,
+      .expect(200);
+    expect(await e2e.state.accounts.accountIdFor(NEW)).toBe(targetId);
+    const confirmed = await e2e.state.accounts.accountWithId(targetId);
+    expect(confirmed).toMatchObject({
+      email: NEW,
       isVerified: true,
-      pendingEmail: NEW,
       addressGeneration: 1,
     });
+    expect(confirmed?.pendingEmail).toBeUndefined();
   });
 });

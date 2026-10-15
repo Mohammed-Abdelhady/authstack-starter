@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { Model, Types } from 'mongoose';
 import * as path from 'path';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   Role,
   RoleDocument,
@@ -103,17 +105,25 @@ export class MongoSeedStore extends SeedStore {
     return existing ? existing._id.toString() : null;
   }
 
-  async createAccount(account: NewSeedAccount): Promise<string> {
-    const created = await this.userModel.create({
-      _id: new Types.ObjectId(),
-      email: account.email,
-      name: account.name,
-      role: account.role,
-      password: account.passwordHash,
-      isVerified: true,
-      authProvider: AuthProvider.EMAIL,
-      permissions: account.permissions,
-    });
+  async createAccount(
+    uow: UnitOfWork,
+    account: NewSeedAccount,
+  ): Promise<string> {
+    const [created] = await this.userModel.create(
+      [
+        {
+          _id: new Types.ObjectId(),
+          email: account.email,
+          name: account.name,
+          role: account.role,
+          password: account.passwordHash,
+          isVerified: true,
+          authProvider: AuthProvider.EMAIL,
+          permissions: account.permissions,
+        },
+      ],
+      { session: mongoSessionOf(uow) },
+    );
     return created._id.toString();
   }
 

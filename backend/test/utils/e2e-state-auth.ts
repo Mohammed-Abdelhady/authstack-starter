@@ -117,6 +117,7 @@ export interface E2eAccountState {
 
 /** Mailed codes, their counters and mailed links. */
 export interface E2ePendingCodeState {
+  countAddressClaims(address: string): Promise<number>;
   storePendingRegistration(record: E2eNewPendingRegistration): Promise<void>;
   pendingRegistrationFor(email: string): Promise<E2ePendingRegistration | null>;
   /** Every stored field of the record, under the names the record gives them. */

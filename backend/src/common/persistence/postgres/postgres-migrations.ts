@@ -120,9 +120,14 @@ async function applyFile(
   client: PoolClient,
   source: MigrationSource,
   file: string,
+  say?: (line: string) => void,
 ): Promise<void> {
   const statements = readFileSync(join(source.directory, file), 'utf8');
   await client.query('BEGIN');
+  const onNotice = (notice: { message?: string }) => {
+    if (notice.message) say?.(notice.message);
+  };
+  client.on('notice', onNotice);
   try {
     await client.query(statements);
     await client.query(`INSERT INTO ${source.ledger} (name) VALUES ($1)`, [
@@ -133,6 +138,8 @@ async function applyFile(
     await client.query('ROLLBACK');
     if (source.id === 'host') throw new HostMigrationError(file, error);
     throw error;
+  } finally {
+    client.off('notice', onNotice);
   }
 }
 
@@ -142,6 +149,7 @@ async function applySource(
   files: string[],
   host: ListedMigrationSource,
   lockWaitMs: number,
+  say?: (line: string) => void,
 ): Promise<string[]> {
   const client = await pool.connect();
   const applied: string[] = [];
@@ -175,7 +183,7 @@ async function applySource(
       if (adopted.length > 0) throw new AdoptedCoreMigrationError(adopted);
     }
     for (const file of status.pending) {
-      await applyFile(client, source, file);
+      await applyFile(client, source, file, say);
       applied.push(file);
     }
     return applied;
@@ -190,6 +198,7 @@ export async function applyPostgresMigrations(
   lockWaitMs: number = MIGRATION_LOCK_WAIT_MS,
   files?: string[],
   sources: MigrationSources = POSTGRES_MIGRATION_SOURCES,
+  say?: (line: string) => void,
 ): Promise<string[]> {
   const listed = listPostgresMigrationSources(sources);
   const applied: string[] = [];
@@ -201,6 +210,7 @@ export async function applyPostgresMigrations(
         source.id === 'core' ? (files ?? carried) : carried,
         listed[1],
         lockWaitMs,
+        say,
       )),
     );
   }

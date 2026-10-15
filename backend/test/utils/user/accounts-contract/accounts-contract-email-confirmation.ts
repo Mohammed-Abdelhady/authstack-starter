@@ -1,4 +1,6 @@
+import { CLAIM_OWNER, holdAddress } from '../../address-claim';
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
+import { ADDRESS_CLAIM_KIND } from '../../../../src/common/persistence/address-ledger';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
   AccountsFixture,
@@ -8,17 +10,10 @@ import {
   refusalOf,
   servicesOn,
   storedAccount,
+  lastMailedCode as mailedCode,
 } from './accounts-contract-support';
 
 const CODE_INVALID = { code: 'ACTIVATION_CODE_INVALID', status: 400 };
-
-/** The six digits of the newest mail, which is the code it carries. */
-function mailedCode(services: ReturnType<typeof servicesOn>): string {
-  const last = services.mail[services.mail.length - 1];
-  const code = /\b(\d{6})\b/.exec(`${last?.text ?? ''} ${last?.html ?? ''}`);
-  if (!code) throw new Error('the last mail carried no code');
-  return code[1];
-}
 
 export function accountEmailConfirmationCases(
   harness: AccountsHarnessSource,
@@ -59,6 +54,17 @@ export function accountEmailConfirmationCases(
       addressGeneration: 1,
     });
     expect(await harness().pendingRegistrations('moved@example.test')).toBe(0);
+    expect(await harness().claims()).toEqual([]);
+    expect(
+      await harness()
+        .runner(() => Promise.resolve())
+        .run((uow) =>
+          harness().ledger.isFree(uow, {
+            address: 'person@example.test',
+            now: harness().clock.now(),
+          }),
+        ),
+    ).toBe(true);
   });
 
   it('confirms nothing with the code of a superseded move', async () => {
@@ -69,6 +75,9 @@ export function accountEmailConfirmationCases(
     await move('first-move@example.test');
     const firstCode = mailedCode(services);
     await move('second-move@example.test');
+    expect((await harness().claims()).map((row) => row.address)).toEqual([
+      'second-move@example.test',
+    ]);
 
     expect(
       await refusalOf(
@@ -119,34 +128,88 @@ export function accountEmailConfirmationCases(
     });
   });
 
-  it('keeps the pending code when another account claims the address', async () => {
-    const { userId, adminId } = fixture();
-    const services = servicesOn(harness());
-    const requested = 'claimed-after-request@example.test';
-    await services.adminUsers.updateUser(
-      userId,
-      { email: requested },
-      adminId,
-      ADMIN_SLUG,
-    );
-    const code = mailedCode(services);
-    const claimantId = await harness().seedAccount({
-      email: requested,
-      role: DEFAULT_SLUG,
-    });
+  // A valid code cannot replace the existing live ownership requirement.
+  it.each(['account', 'claim', 'missing', 'lapsed'])(
+    'refuses confirmation while preserving pending data for %s',
+    async (mode) => {
+      const { userId, adminId } = fixture();
+      const services = servicesOn(harness());
+      const requested = 'claimed-after-request@example.test';
+      await services.adminUsers.updateUser(
+        userId,
+        { email: requested },
+        adminId,
+        ADMIN_SLUG,
+      );
+      const code = mailedCode(services);
+      let claimantId: string | null = null;
+      if (mode === 'account') {
+        claimantId = await harness().seedAccount({
+          email: requested,
+          role: DEFAULT_SLUG,
+        });
+      } else if (mode === 'lapsed') {
+        const h = harness();
+        await h
+          .runner(() => Promise.resolve())
+          .run((uow) =>
+            h.ledger.claim(uow, {
+              address: requested,
+              owner: userId,
+              kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+              now: h.clock.now(),
+              lapsesAt: new Date('2099-01-01T12:01:00.000Z'),
+            }),
+          );
+        h.clock.set(new Date('2099-01-01T12:01:00.000Z'));
+      } else {
+        const h = harness();
+        await h
+          .runner(() => Promise.resolve())
+          .run((uow) =>
+            h.ledger.release(uow, { address: requested, owner: userId }),
+          );
+        if (mode === 'claim') {
+          await holdAddress(
+            h.ledger,
+            h.runner(() => Promise.resolve()),
+            h.clock,
+            requested,
+          );
+        }
+      }
 
-    expect(
-      await refusalOf(services.emailChange.confirm({ email: requested, code })),
-    ).toEqual(CODE_INVALID);
-    expect(await storedAccount(harness(), userId)).toMatchObject({
-      email: 'person@example.test',
-      pendingEmail: requested,
-      isVerified: true,
-      addressGeneration: 1,
-    });
-    expect(await harness().accountIdByEmail(requested)).toBe(claimantId);
-    expect(await harness().pendingRegistrations(requested)).toBe(1);
-  });
+      expect(
+        await refusalOf(
+          services.emailChange.confirm({ email: requested, code }),
+        ),
+      ).toEqual(CODE_INVALID);
+      expect(await storedAccount(harness(), userId)).toMatchObject({
+        email: 'person@example.test',
+        pendingEmail: requested,
+        isVerified: true,
+        addressGeneration: 1,
+      });
+      expect(await harness().accountIdByEmail(requested)).toBe(claimantId);
+      expect(await harness().pendingRegistrations(requested)).toBe(1);
+      if (mode === 'claim') {
+        expect((await harness().claims()).map((row) => row.owner)).toEqual([
+          CLAIM_OWNER,
+        ]);
+      }
+      if (mode === 'missing') expect(await harness().claims()).toEqual([]);
+      if (mode === 'lapsed') {
+        expect(await harness().claims()).toEqual([
+          {
+            address: requested,
+            owner: userId,
+            kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+            lapsesAt: new Date('2099-01-01T12:01:00.000Z'),
+          },
+        ]);
+      }
+    },
+  );
 
   it('confirms nothing with a code issued under another address generation', async () => {
     const { userId } = fixture();
@@ -180,6 +243,23 @@ export function accountEmailConfirmationCases(
         services.adminUsers.updateUser(
           userId,
           { email: 'manager@example.test' },
+          adminId,
+          ADMIN_SLUG,
+        ),
+      ),
+    ).toEqual({ code: 'EMAIL_ALREADY_EXISTS', status: 409 });
+    expect(services.mail).toEqual([]);
+    await holdAddress(
+      harness().ledger,
+      harness().runner(() => Promise.resolve()),
+      harness().clock,
+      'held-edit@example.test',
+    );
+    expect(
+      await refusalOf(
+        services.adminUsers.updateUser(
+          userId,
+          { email: 'held-edit@example.test' },
           adminId,
           ADMIN_SLUG,
         ),

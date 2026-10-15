@@ -1,4 +1,5 @@
 import ts from 'typescript';
+import { verifyLedgerReservation } from './account-creation-inventory-ledger.harness-spec';
 import {
   ACCOUNT_INSERT_METHODS,
   callerKey,
@@ -43,7 +44,6 @@ function verifyCaller(
   expected: ReturnType<typeof expectedInventory>['callers'][number] | undefined,
 ): string[] {
   const key = callerKey(file, ownerOf(insert), method);
-  if (key === SEED_BOOTSTRAP_EXEMPTION) return [];
   const body = nearestFunction(insert);
   if (!body) return [`${key}: no function body`];
   const unitOfWork = insert.arguments[0]?.getText();
@@ -59,12 +59,13 @@ function verifyCaller(
   });
   const errors: string[] = [];
   if (
-    policies.length !== 1 ||
-    !policies.some(
-      (policy) =>
-        dominatingPolicy(policy, insert) &&
-        policy.arguments[1]?.getText() === unitOfWork,
-    )
+    key !== SEED_BOOTSTRAP_EXEMPTION &&
+    (policies.length !== 1 ||
+      !policies.some(
+        (policy) =>
+          dominatingPolicy(policy, insert) &&
+          policy.arguments[1]?.getText() === unitOfWork,
+      ))
   ) {
     errors.push(
       `${key}: requires one earlier awaited policy with the insert UOW`,
@@ -75,7 +76,7 @@ function verifyCaller(
     if (!body.parameters.some((entry) => entry.name.getText() === unitOfWork)) {
       errors.push(`${key}: insert UOW is not a function parameter`);
     }
-  } else if (expected && expected.boundary !== 'seed') {
+  } else if (expected) {
     const runner = body.parent;
     if (
       !ts.isCallExpression(runner) ||
@@ -88,6 +89,7 @@ function verifyCaller(
       errors.push(`${key}: insert must use the runner callback UOW`);
     }
   }
+  errors.push(...verifyLedgerReservation(key, insert));
   return errors;
 }
 

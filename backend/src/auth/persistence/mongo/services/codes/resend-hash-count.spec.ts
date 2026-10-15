@@ -1,13 +1,19 @@
-import { AccountCreationPolicy } from '../../../../services/registration/account-creation-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Connection, Model, createConnection } from 'mongoose';
+import * as bcrypt from 'bcrypt';
+import { AccountCreationPolicy } from '../../../../services/registration/account-creation-policy';
+import { AddressLedger } from '../../../../../common/persistence/address-ledger';
+import { MongoAddressLedger } from '../../../../../common/persistence/mongo/mongo-address-ledger';
+import {
+  AddressClaim,
+  AddressClaimSchema,
+} from '../../../../../common/persistence/mongo/schemas/address-claim.schema';
 import {
   startMemoryReplSet,
   type MemoryReplSet,
 } from '../../../../../../test/utils/memory-replset';
-import * as bcrypt from 'bcrypt';
 import { RegistrationService } from '../../../../services/registration/registration.service';
 import { VerificationCodeService } from '../../../../services/codes/verification-code.service';
 import { HashService } from '../../../../../common/services/hash.service';
@@ -67,26 +73,31 @@ const EXPIRED_EXPIRY = new Date(TEST_NOW.getTime() - 1000);
  * resendActivationCode paths. This counts at the HashService boundary.
  */
 describe('resend activation hash count', () => {
-  let mongo: MemoryReplSet;
-  let connection: Connection;
+  let mongo: MemoryReplSet | undefined;
+  let connection: Connection | undefined;
+  let module: TestingModule | undefined;
   let users: Model<User>;
+  let claims: Model<AddressClaim>;
   let registrations: Model<PendingRegistration>;
   let counters: Model<MailCounter>;
   let registrationService: RegistrationService;
   let service: VerificationCodeService;
   let registrationStore: PendingRegistrationStore;
-  let hashSpy: jest.SpyInstance;
+  let hashSpy: jest.SpyInstance | undefined;
 
   beforeAll(async () => {
     mongo = await startMemoryReplSet();
-    connection = await createConnection(mongo.getUri()).asPromise();
+    connection = createConnection(mongo.getUri());
+    await connection.asPromise();
     users = connection.model(User.name, UserSchema);
+    claims = connection.model(AddressClaim.name, AddressClaimSchema);
     registrations = connection.model(
       PendingRegistration.name,
       PendingRegistrationSchema,
     );
     counters = connection.model(MailCounter.name, MailCounterSchema);
     await users.init();
+    await claims.init();
     await registrations.init();
     await counters.init();
 
@@ -94,12 +105,13 @@ describe('resend activation hash count', () => {
       get: (key: string, fallback?: number) =>
         key === 'bcrypt.rounds' ? ROUNDS : fallback,
     };
-    const module: TestingModule = await Test.createTestingModule({
+    module = await Test.createTestingModule({
       providers: [
         MONGO_PENDING_REGISTRATION_STORE,
         MONGO_MAIL_COUNTER_STORE,
         ...MONGO_ACTIVATION_STORES,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
+        { provide: AddressLedger, useClass: MongoAddressLedger },
         RegistrationService,
         AccountCreationPolicy,
         VerificationCodeService,
@@ -108,6 +120,7 @@ describe('resend activation hash count', () => {
         { provide: Clock, useValue: new FrozenClock(TEST_NOW) },
         { provide: getConnectionToken(), useValue: connection },
         { provide: getModelToken(User.name), useValue: users },
+        { provide: getModelToken(AddressClaim.name), useValue: claims },
         {
           provide: getModelToken(PendingRegistration.name),
           useValue: registrations,
@@ -138,14 +151,25 @@ describe('resend activation hash count', () => {
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
-    hashSpy.mockRestore();
-    await connection.close();
-    await mongo.stop();
+    try {
+      hashSpy?.mockRestore();
+    } finally {
+      try {
+        await module?.close();
+      } finally {
+        try {
+          await connection?.close();
+        } finally {
+          await mongo?.stop();
+        }
+      }
+    }
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   beforeEach(async () => {
-    hashSpy.mockClear();
+    hashSpy?.mockClear();
     await users.deleteMany({});
+    await claims.deleteMany({});
     await registrations.deleteMany({});
     await counters.deleteMany({});
   });

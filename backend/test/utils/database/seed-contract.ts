@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { TEST_NOW } from '../frozen-clock';
+import { CLAIM_OWNER, holdAddress } from '../address-claim';
 import { SeedContractHarness, StoredSeedRole } from './seed-contract-harness';
 import { seedHostRoleCases } from './seed-contract-host-roles';
 import {
@@ -104,6 +105,26 @@ export function describeSeedContract(
           'Role seeding completed',
         ],
       });
+    });
+
+    // A deployment seed must not take an address held for another account's move.
+    it('skips a seed account while its address has a live claim', async () => {
+      const h = current();
+      const { seeds } = servicesOn(h);
+      await holdAddress(h.ledger, h.runner, h.clock, 'admin@seed.local');
+      expect(await seeds.seedUsers()).toBe(3);
+      expect((await h.storedAccounts()).map(({ email }) => email)).toEqual([
+        'manager@seed.local',
+        'support@seed.local',
+        'user@seed.local',
+      ]);
+      await h.runner.run((uow) =>
+        h.ledger.release(uow, {
+          address: 'admin@seed.local',
+          owner: CLAIM_OWNER,
+        }),
+      );
+      expect(await seeds.seedUsers()).toBe(1);
     });
 
     it('changes nothing when it is run a second time', async () => {

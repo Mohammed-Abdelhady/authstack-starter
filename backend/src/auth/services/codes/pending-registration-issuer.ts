@@ -1,5 +1,9 @@
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  EmailChangeCodeTarget,
+  PreparedEmailChange,
+} from '../../types/prepared-email-change';
 import { HashService } from '../../../common/services/hash.service';
 import { Clock } from '../../../common/services/clock';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -9,6 +13,7 @@ import { generateVerificationCode } from '../../utils/verification-code.util';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
+  PENDING_PURPOSE,
   PendingPurpose,
 } from '../../constants/registration';
 import {
@@ -113,6 +118,34 @@ export class PendingRegistrationIssuer {
     );
   }
 
+  codeExpiresAt(now: Date): Date {
+    return new Date(now.getTime() + this.codeExpiresIn);
+  }
+
+  async prepareEmailChange(
+    email: string,
+    details: EmailChangeCodeTarget,
+  ): Promise<PreparedEmailChange> {
+    const input = await this.newGeneration(
+      email,
+      PENDING_PURPOSE.EMAIL_CHANGE,
+      details,
+      {
+        includeExpired: true,
+        createWhenAbsent: true,
+      },
+    );
+    return {
+      email,
+      code: input.code,
+      generation: {
+        ...input.generation,
+        userId: details.userId,
+        addressGeneration: details.addressGeneration,
+      },
+    };
+  }
+
   private async newGeneration(
     email: string,
     purpose: PendingPurpose,
@@ -126,7 +159,7 @@ export class PendingRegistrationIssuer {
       key: { email, purpose },
       generation: {
         hashedCode,
-        expiresAt: new Date(now.getTime() + this.codeExpiresIn),
+        expiresAt: this.codeExpiresAt(now),
         userId: details.userId?.toString(),
         addressGeneration: details.addressGeneration,
       },

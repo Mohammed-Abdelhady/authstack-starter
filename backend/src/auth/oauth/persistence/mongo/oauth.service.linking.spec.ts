@@ -1,34 +1,42 @@
-import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
-import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
-import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
-import { HttpStatus } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Request, Response } from 'express';
-import { OAuthService } from '../../oauth.service';
+import { OAuthProviderStrategy } from '../../oauth-provider.interface';
+import { OAuthLinkParams } from '../../types/oauth-service.types';
+import { AccountLinkingService } from '../../../../user/services/account-linking.service';
+import { ProfileSyncService } from '../../../../user/services/profile-sync.service';
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { Sessions } from '../../../services/sessions/sessions';
 import { SessionCookieService } from '../../../services/sessions/session-cookie.service';
-import { ProfileSyncService } from '../../../../user/services/profile-sync.service';
-import { AccountLinkingService } from '../../../../user/services/account-linking.service';
-import { User } from '../../../../user/persistence/mongo/schemas/user.schema';
-import { AppException } from '../../../../common/exceptions/app.exception';
-import { ErrorCode } from '../../../../common/enums/error-code.enum';
-import { OAuthProviderStrategy } from '../../oauth-provider.interface';
-import type { OAuthLinkParams } from '../../types/oauth-service.types';
-import { MONGO_PROVIDER_SIGN_IN_STORE } from './mongo-provider-sign-in.store';
-import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
-import { Passkey } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema'; // feature:passkeys
-import { MONGO_ACCOUNT_PROFILE_STORE } from '../../../../user/persistence/mongo/mongo-account-stores';
-import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+// feature:totp:start
+import { AuthFeaturesService } from '../../../services/features/auth-features.service';
+import { TwoFactorChallengeService } from '../../../two-factor/services/two-factor-challenge.service';
+import { TotpSecretCryptoService } from '../../../two-factor/services/totp-secret-crypto.service';
+import { MongoSecondFactorChallengeStore } from '../../../two-factor/persistence/mongo/mongo-second-factor-challenge.store';
 import {
-  securityNoticeProviders,
-  stubSmtpBoundary,
-} from '../../../../../test/utils/security-notice-fixture';
+  TwoFactorChallenge,
+  TwoFactorChallengeDocument,
+  TwoFactorChallengeSchema,
+} from '../../../two-factor/persistence/mongo/schemas/two-factor-challenge.schema';
+// feature:totp:end
+import { ErrorCode } from '../../../../common/enums/error-code.enum';
+import {
+  createRequestMock,
+  createResponseMock,
+} from '../../../../common/testing/test-doubles.harness-spec';
+import { bootMongoLinkedAccountsHarness } from '../../../../user/persistence/mongo/linked-accounts-contract/mongo-linked-accounts.harness-spec';
+import { linkedServicesOn } from '../../../../user/linked-accounts-contract/linked-accounts-contract.harness-spec';
+import { hashToken } from '../../../../session/utils/hashing/token-hash';
+import { rerunAtOnce } from '../../../../../test/utils/session/issuance-contract/issuance-contract-support';
+import { refusalOf } from '../../../../../test/utils/user/accounts-contract/accounts-contract-support';
+import { TEST_NOW } from '../../../../../test/utils/frozen-clock';
+import {
+  SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+  SESSION_AUTHORITY_RESET_TIMEOUT_MS,
+  SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
+} from '../../../../../test/utils/hook-timeouts';
+import { OAuthService } from '../../oauth.service';
 
-const USER_ID = 'user-1';
-const SESSION_ID = 'session-1';
+const PROVIDER = 'google';
 const PROFILE = {
   providerId: 'google-42',
   email: 'user@example.com',
@@ -36,9 +44,89 @@ const PROFILE = {
   name: 'Ada',
 };
 
-function strategy(): OAuthProviderStrategy {
+async function createOAuthLinkingFixture(
+  harness: Awaited<ReturnType<typeof bootMongoLinkedAccountsHarness>>,
+) {
+  await harness.seedRole({
+    name: 'User',
+    slug: 'user',
+    level: 1,
+    permissions: [],
+  });
+  const userId = await harness.seedAccount({
+    email: PROFILE.email,
+    name: 'Before linking',
+    role: 'user',
+  });
+  const otherId = await harness.seedAccount({
+    email: 'other@example.test',
+    role: 'user',
+  });
+  const sessions = harness.booted.app.get(Sessions);
+  const issued = await sessions.createSession(
+    userId,
+    'oauth-linking-contract',
+    '127.0.0.1',
+  );
+  const storedSession = await harness.booted.sessions
+    .findOne({ tokenHash: hashToken(issued.sessionToken) })
+    .orFail()
+    .lean()
+    .exec();
+  const config = new ConfigService({ session: { cookieName: 'link-session' } });
+  const cookies = new SessionCookieService(config);
+  // feature:totp:start
+  const connection = harness.booted.connection;
+  connection.model(TwoFactorChallenge.name, TwoFactorChallengeSchema);
+  const challenges = connection.model<TwoFactorChallengeDocument>(
+    TwoFactorChallenge.name,
+  );
+  await challenges.init();
+  await challenges.deleteMany({});
+  const challengeService = new TwoFactorChallengeService(
+    new MongoSecondFactorChallengeStore(challenges),
+    config,
+    new TotpSecretCryptoService(config),
+  );
+  // feature:totp:end
+  const signIn = new SignInCompletion(
+    harness.rolePermissions,
+    sessions,
+    cookies,
+    new AuthFeaturesService(config), // feature:totp
+    challengeService, // feature:totp
+  );
+  const { linking, sync } = linkedServicesOn(harness);
   return {
-    id: 'google',
+    userId,
+    otherId,
+    sessionId: storedSession._id.toString(),
+    sessions,
+    linking,
+    sync,
+    signIn,
+    request: createRequestMock({
+      cookies: { [cookies.name]: issued.sessionToken },
+      headers: {},
+    }),
+    service: new OAuthService(
+      harness.providerSignIn,
+      signIn,
+      sync,
+      linking,
+      sessions,
+      cookies,
+      new AccountCreationPolicy(),
+      harness.ledger,
+      harness.clock,
+      harness.runner(rerunAtOnce),
+    ),
+  };
+}
+
+function strategy() {
+  return {
+    id: PROVIDER,
     displayName: 'Google',
     envPrefix: 'GOOGLE',
     supportsPkce: true,
@@ -48,190 +136,173 @@ function strategy(): OAuthProviderStrategy {
     callbackMethod: 'GET',
     isEnabled: () => true,
     getAuthorizationUrl: () => 'https://example.test',
-    exchangeCode: jest.fn().mockResolvedValue({ accessToken: 'token' }),
-    fetchProfile: jest.fn().mockResolvedValue(PROFILE),
-  };
+    exchangeCode: jest
+      .fn<
+        ReturnType<OAuthProviderStrategy['exchangeCode']>,
+        Parameters<OAuthProviderStrategy['exchangeCode']>
+      >()
+      .mockResolvedValue({ accessToken: 'token' }),
+    fetchProfile: jest
+      .fn<
+        ReturnType<OAuthProviderStrategy['fetchProfile']>,
+        Parameters<OAuthProviderStrategy['fetchProfile']>
+      >()
+      .mockResolvedValue(PROFILE),
+  } satisfies OAuthProviderStrategy;
 }
 
 describe('OAuthService linking', () => {
-  let service: OAuthService;
-  let accountLinking: { linkProvider: jest.Mock };
-  let profileSync: { syncProfileFromProvider: jest.Mock };
-  let signIn: { completeSignIn: jest.Mock };
-  let sessions: { validateSession: jest.Mock; getUserSessions: jest.Mock };
-  let cookies: { read: jest.Mock };
-  let module: TestingModule | undefined;
-  let restoreSmtp: (() => void) | undefined;
+  let harness:
+    Awaited<ReturnType<typeof bootMongoLinkedAccountsHarness>> | undefined;
+  let fixture: Awaited<ReturnType<typeof createOAuthLinkingFixture>>;
+  let linkProvider: jest.SpiedFunction<AccountLinkingService['linkProvider']>;
+  let syncProfile: jest.SpiedFunction<
+    ProfileSyncService['syncProfileFromProvider']
+  >;
+  let completeSignIn: jest.SpiedFunction<SignInCompletion['completeSignIn']>;
+  let validateSession: jest.SpiedFunction<Sessions['validateSession']>;
+
+  function current() {
+    if (!harness) throw new Error('the Mongo linking harness did not start');
+    return harness;
+  }
+
+  beforeAll(async () => {
+    harness = await bootMongoLinkedAccountsHarness();
+  }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
-    restoreSmtp = stubSmtpBoundary();
-    accountLinking = {
-      linkProvider: jest.fn().mockResolvedValue({ id: USER_ID }),
-    };
-    profileSync = {
-      syncProfileFromProvider: jest.fn().mockResolvedValue(undefined),
-    };
-    signIn = { completeSignIn: jest.fn() };
-    sessions = {
-      validateSession: jest.fn().mockResolvedValue({
-        id: SESSION_ID,
-        user: { id: USER_ID, isDeleted: false },
-      }),
-      // The live sessions of the account that started the link, and of no other.
-      getUserSessions: jest.fn((userId: string) =>
-        Promise.resolve(userId === USER_ID ? [{ id: SESSION_ID }] : []),
-      ),
-    };
-    cookies = { read: jest.fn().mockReturnValue('session-token') };
-    const config = new ConfigService({
-      smtp: { from: 'security-notice@example.test' },
-      mail: { maxPendingSends: 4, drainDeadlineMs: 250 },
-    });
-    const userModel = {
-      findOne: jest.fn(),
-      findById: jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        exec: jest.fn().mockResolvedValue(null),
-      }),
-    };
-    const roleModel = { findOne: jest.fn() };
+    const h = current();
+    h.clock.set(TEST_NOW);
+    await h.reset();
+    fixture = await createOAuthLinkingFixture(h);
+    linkProvider = jest.spyOn(fixture.linking, 'linkProvider');
+    syncProfile = jest.spyOn(fixture.sync, 'syncProfileFromProvider');
+    completeSignIn = jest.spyOn(fixture.signIn, 'completeSignIn');
+    validateSession = jest.spyOn(fixture.sessions, 'validateSession');
+  }, SESSION_AUTHORITY_RESET_TIMEOUT_MS);
 
-    module = await Test.createTestingModule({
-      providers: [
-        OAuthService,
-        AccountCreationPolicy,
-        {
-          provide: UnitOfWorkRunner,
-          useValue: partialMock<UnitOfWorkRunner>({}),
-        },
-        { provide: getModelToken(User.name), useValue: userModel },
-        { provide: getModelToken(Role.name), useValue: roleModel },
-        { provide: getModelToken(Passkey.name), useValue: {} }, // feature:passkeys
-        MONGO_ACCOUNT_PROFILE_STORE,
-        MONGO_PROVIDER_SIGN_IN_STORE,
-        { provide: SignInCompletion, useValue: signIn },
-        { provide: ProfileSyncService, useValue: profileSync },
-        { provide: AccountLinkingService, useValue: accountLinking },
-        { provide: Sessions, useValue: sessions },
-        { provide: SessionCookieService, useValue: cookies },
-        ...securityNoticeProviders(config),
-      ],
-    }).compile();
+  afterEach(() => jest.restoreAllMocks());
 
-    service = module.get(OAuthService);
-  });
+  afterAll(async () => {
+    await harness?.close();
+  }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
-  afterEach(async () => {
-    try {
-      await module?.get(MailDispatcherService).flush();
-      await module?.close();
-    } finally {
-      restoreSmtp?.();
-    }
-  });
-
-  function params(
-    overrides: { linkUserId?: string; linkSessionId?: string } = {},
-  ): OAuthLinkParams {
+  function params(overrides: { linkUserId?: string } = {}) {
     return {
       strategy: strategy(),
       code: 'auth-code',
       redirectUri: 'https://api.example.com/callback',
-      response: {} as Response,
-      linkUserId: overrides.linkUserId ?? USER_ID,
-      linkSessionId: overrides.linkSessionId ?? SESSION_ID,
+      response: createResponseMock({ req: fixture.request }),
+      linkUserId: overrides.linkUserId ?? fixture.userId,
+      linkSessionId: fixture.sessionId,
       locale: 'en',
-    };
-  }
-
-  async function refusalOf(attempt: Promise<unknown>): Promise<unknown> {
-    try {
-      await attempt;
-    } catch (error) {
-      return error instanceof AppException
-        ? { code: error.getCode(), status: error.getStatus() }
-        : error;
-    }
-    throw new Error('expected a rejection');
+    } satisfies OAuthLinkParams;
   }
 
   it('links the provider to the account in the state without the session cookie and without issuing a session', async () => {
-    cookies.read.mockReturnValue(undefined);
+    fixture.request.cookies = {};
 
-    await service.link(params());
+    await fixture.service.link(params());
 
-    expect(accountLinking.linkProvider).toHaveBeenCalledWith(
-      USER_ID,
-      'google',
+    expect(linkProvider).toHaveBeenCalledWith(
+      fixture.userId,
+      PROVIDER,
       PROFILE,
     );
-    expect(profileSync.syncProfileFromProvider).toHaveBeenCalledWith(
-      USER_ID,
-      'google',
-      PROFILE,
-    );
-    expect(signIn.completeSignIn).not.toHaveBeenCalled();
+    expect(syncProfile).toHaveBeenCalledWith(fixture.userId, PROVIDER, PROFILE);
+    expect(completeSignIn).not.toHaveBeenCalled();
+    expect(await current().storedLinks(fixture.userId)).toEqual([
+      { provider: 'google', providerId: 'google-42' },
+    ]);
+    expect(await current().syncFacts(fixture.userId)).toMatchObject({
+      name: 'Ada',
+      primaryProvider: 'google',
+      lastSyncedProvider: 'google',
+    });
+    expect(await current().liveSessionIds(fixture.userId)).toEqual([
+      fixture.sessionId,
+    ]);
   });
 
   it('answers the start with the account and the session that asked', async () => {
-    expect(await service.requireSession({} as Request)).toEqual({
-      userId: 'user-1',
-      sessionId: 'session-1',
+    expect(await fixture.service.requireSession(fixture.request)).toEqual({
+      userId: fixture.userId,
+      sessionId: fixture.sessionId,
     });
   });
 
   it('rejects a logged-out start', async () => {
-    cookies.read.mockReturnValue(undefined);
+    fixture.request.cookies = {};
 
     await expect(
-      service.requireSessionUserId({} as Request),
-    ).rejects.toMatchObject({
-      code: ErrorCode.SESSION_REQUIRED,
-    });
+      fixture.service.requireSessionUserId(fixture.request),
+    ).rejects.toMatchObject({ code: ErrorCode.SESSION_REQUIRED });
   });
 
   it('refuses a link start carrying both a cookie and a bearer token', async () => {
+    fixture.request.headers.authorization = 'Bearer access-token';
+
     await expect(
-      service.requireSessionUserId({
-        headers: { authorization: 'Bearer access-token' },
-      } as Request),
-    ).rejects.toMatchObject({
-      code: ErrorCode.MIXED_CREDENTIALS,
-    });
-    expect(sessions.validateSession).not.toHaveBeenCalled();
+      fixture.service.requireSessionUserId(fixture.request),
+    ).rejects.toMatchObject({ code: ErrorCode.MIXED_CREDENTIALS });
+    expect(validateSession).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['the session that asked was ended', { linkSessionId: 'session-ended' }],
-    ['the session belongs to another account', { linkUserId: 'other-user' }],
-    ['the account has no live session left', { linkUserId: 'gone-user' }],
-  ])('refuses the link when %s, before the code is spent', async (_, state) => {
-    const linking = params(state);
+    ['the session that asked was ended', 'ended'],
+    ['the session belongs to another account', 'other-account'],
+    ['the account has no live session left', 'no-sessions'],
+  ] as const)(
+    'refuses the link when %s, before the code is spent',
+    async (_, state) => {
+      const h = current();
+      if (state === 'ended') {
+        await fixture.sessions.invalidateSessionById(
+          fixture.sessionId,
+          fixture.userId,
+        );
+        await h.seedSession(fixture.userId);
+      } else if (state === 'other-account') {
+        await h.seedSession(fixture.otherId);
+      } else {
+        await fixture.sessions.invalidateAllSessions(fixture.userId);
+      }
+      const linking = params({
+        linkUserId:
+          state === 'other-account' ? fixture.otherId : fixture.userId,
+      });
 
-    expect({
-      refusal: await refusalOf(service.link(linking)),
-      exchanged: (linking.strategy.exchangeCode as jest.Mock).mock.calls.length,
-      linked: accountLinking.linkProvider.mock.calls.length,
-    }).toEqual({
-      refusal: { code: 'SESSION_INVALID', status: 401 },
-      exchanged: 0,
-      linked: 0,
-    });
-  });
+      expect({
+        refusal: await refusalOf(fixture.service.link(linking)),
+        exchanged: linking.strategy.exchangeCode.mock.calls.length,
+        linked: linkProvider.mock.calls.length,
+      }).toEqual({
+        refusal: { code: 'SESSION_INVALID', status: 401 },
+        exchanged: 0,
+        linked: 0,
+      });
+      expect(await h.storedLinks(fixture.userId)).toEqual([]);
+      expect(await h.storedLinks(fixture.otherId)).toEqual([]);
+    },
+  );
 
   it('surfaces a provider identity that already belongs to another user', async () => {
-    accountLinking.linkProvider.mockRejectedValue(
-      new AppException(
-        ErrorCode.OAUTH_ACCOUNT_LINKED_ELSEWHERE,
-        'already linked',
-        HttpStatus.CONFLICT,
-        { provider: 'google' },
-      ),
-    );
+    const h = current();
+    const other = await h.links.findAccount(fixture.otherId);
+    if (!other) throw new Error('the other account is missing');
+    await h.links.addLink(other, {
+      provider: PROVIDER,
+      providerId: PROFILE.providerId,
+    });
 
-    await expect(service.link(params())).rejects.toMatchObject({
+    await expect(fixture.service.link(params())).rejects.toMatchObject({
       code: ErrorCode.OAUTH_ACCOUNT_LINKED_ELSEWHERE,
     });
-    expect(signIn.completeSignIn).not.toHaveBeenCalled();
+    expect(completeSignIn).not.toHaveBeenCalled();
+    expect(await h.storedLinks(fixture.userId)).toEqual([]);
+    expect(await h.storedLinks(fixture.otherId)).toEqual([
+      { provider: 'google', providerId: 'google-42' },
+    ]);
   });
 });
