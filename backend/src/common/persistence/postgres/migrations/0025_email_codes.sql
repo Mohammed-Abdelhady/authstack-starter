@@ -2,9 +2,9 @@
 -- and a project without that feature does not carry it. It depends on no
 -- other file. One code per owner and purpose, where the owner is a native
 -- attempt, so wrong guesses are counted on that attempt's row and never lock
--- an address or touch another attempt. PostgreSQL has no TTL index, so a row
--- stays after it expires until the retention job removes it, and no statement
--- may read "stored" as "still valid".
+-- an address or touch another attempt. PostgreSQL does not expire rows by
+-- itself, so a row stays after it expires until the retention job removes
+-- it, and no statement may read "stored" as "still valid".
 
 CREATE TABLE email_codes (
   id uuid PRIMARY KEY DEFAULT uuidv7(),
