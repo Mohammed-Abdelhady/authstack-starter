@@ -1,0 +1,218 @@
+import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { ADDRESS_CLAIM_KIND } from '../../../common/persistence/address-ledger';
+import { MAIL_CATALOGUES } from '../../../mail/catalog/mail-catalogue';
+import { MemoryLedger } from '../testing/own-email-memory.harness-spec';
+import {
+  ACCOUNT_ID,
+  addAccount,
+  OLD_ADDRESS,
+  ownEmailWorld,
+  OwnEmailWorld,
+} from '../testing/own-email-world.harness-spec';
+
+jest.mock('nodemailer');
+
+const NEW_ADDRESS = 'new@example.test';
+const HELD_ADDRESS = 'held@example.test';
+const OTHER_ID = 'account-2';
+const CODE_SUBJECT = MAIL_CATALOGUES.en.ownEmailChangeCode.subject;
+const REQUESTED_SUBJECT =
+  MAIL_CATALOGUES.en.securityNotice.emailChangeRequestedSubject;
+
+async function sentTo(world: OwnEmailWorld): Promise<string[][]> {
+  return (await world.sent()).map((mail) => [mail.to, mail.subject]);
+}
+
+describe('OwnEmailRequestService', () => {
+  let world: OwnEmailWorld;
+
+  beforeEach(() => {
+    world = ownEmailWorld();
+  });
+
+  it('holds a free address, mails it a code for the next generation and tells the current address', async () => {
+    const state = await world.requests.request(
+      world.caller(),
+      ' New@Example.test ',
+    );
+
+    expect(state).toEqual({ email: OLD_ADDRESS, pendingEmail: NEW_ADDRESS });
+    expect(world.accounts.row(ACCOUNT_ID)).toMatchObject({
+      email: OLD_ADDRESS,
+      pendingEmail: NEW_ADDRESS,
+      addressGeneration: 4,
+    });
+    expect(world.ledger.claims.get(NEW_ADDRESS)).toMatchObject({
+      owner: ACCOUNT_ID,
+      kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+    });
+    expect([...world.codes.records.values()]).toEqual([
+      expect.objectContaining({
+        email: NEW_ADDRESS,
+        userId: ACCOUNT_ID,
+        addressGeneration: 4,
+      }),
+    ]);
+    expect(await sentTo(world)).toEqual([
+      [NEW_ADDRESS, CODE_SUBJECT],
+      [OLD_ADDRESS, REQUESTED_SUBJECT],
+    ]);
+  });
+
+  it('refuses a sign-in older than five minutes before anything is held, stored, counted or mailed', async () => {
+    await expect(
+      world.requests.request(world.caller(6), NEW_ADDRESS),
+    ).rejects.toMatchObject({ code: ErrorCode.REAUTH_REQUIRED });
+
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+    expect(world.ledger.claims.size).toBe(0);
+    expect(world.codes.records.size).toBe(0);
+    expect(world.counter.counted).toEqual([]);
+    expect(await world.sent()).toEqual([]);
+  });
+
+  it('refuses the address the account already has, in any case and spacing', async () => {
+    await expect(
+      world.requests.request(world.caller(), ' OLD@example.TEST'),
+    ).rejects.toMatchObject({ code: ErrorCode.VALIDATION_ERROR });
+
+    expect(world.ledger.claims.size).toBe(0);
+    expect(world.counter.counted).toEqual([]);
+    expect(await world.sent()).toEqual([]);
+  });
+
+  it.each([
+    [
+      'an account',
+      (held: OwnEmailWorld) =>
+        addAccount(held, { id: OTHER_ID, email: HELD_ADDRESS }),
+    ],
+    [
+      'a pending change',
+      (held: OwnEmailWorld) =>
+        held.ledger.claims.set(HELD_ADDRESS, {
+          address: HELD_ADDRESS,
+          owner: OTHER_ID,
+          kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+          lapsesAt: new Date('2099-01-02T00:00:00.000Z'),
+        }),
+    ],
+    [
+      'an invitation',
+      (held: OwnEmailWorld) =>
+        held.ledger.claims.set(HELD_ADDRESS, {
+          address: HELD_ADDRESS,
+          owner: 'invitation-1',
+          kind: ADDRESS_CLAIM_KIND.INVITATION,
+          lapsesAt: new Date('2099-01-02T00:00:00.000Z'),
+        }),
+    ],
+  ])(
+    'answers an address held by %s exactly like a free one, and sends it no code',
+    async (_holder, hold) => {
+      hold(world);
+      const owner = world.ledger.claims.get(HELD_ADDRESS)?.owner;
+
+      const state = await world.requests.request(world.caller(), HELD_ADDRESS);
+
+      expect(state).toEqual({ email: OLD_ADDRESS, pendingEmail: HELD_ADDRESS });
+      expect(world.accounts.row(ACCOUNT_ID)).toMatchObject({
+        pendingEmail: HELD_ADDRESS,
+        addressGeneration: 4,
+      });
+      expect(world.ledger.claims.get(HELD_ADDRESS)?.owner).toBe(owner);
+      expect(world.codes.records.size).toBe(0);
+      // The code is prepared all the same, so both answers cost the same.
+      expect(world.counter.counted).toEqual([HELD_ADDRESS]);
+      expect(await sentTo(world)).toEqual([[OLD_ADDRESS, REQUESTED_SUBJECT]]);
+    },
+  );
+
+  it('answers the mail cap the same for a held address and a free one', async () => {
+    addAccount(world, { id: OTHER_ID, email: HELD_ADDRESS });
+    world.counter.full.add(HELD_ADDRESS);
+    world.counter.full.add(NEW_ADDRESS);
+
+    for (const address of [HELD_ADDRESS, NEW_ADDRESS]) {
+      await expect(
+        world.requests.request(world.caller(), address),
+      ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_LIMIT_REACHED });
+    }
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+    expect(await world.sent()).toEqual([]);
+  });
+
+  it('rolls back a claim lost to another request and stores the request as held', async () => {
+    // isFree said free, then an account took the address before the claim.
+    class RacingLedger extends MemoryLedger {
+      isFree(): Promise<boolean> {
+        return Promise.resolve(true);
+      }
+    }
+    const racing = ownEmailWorld({
+      ledger: (accounts) => new RacingLedger(accounts),
+    });
+    addAccount(racing, { id: OTHER_ID, email: HELD_ADDRESS });
+
+    const state = await racing.requests.request(racing.caller(), HELD_ADDRESS);
+
+    expect(state).toEqual({ email: OLD_ADDRESS, pendingEmail: HELD_ADDRESS });
+    expect(racing.accounts.row(ACCOUNT_ID).pendingEmail).toBe(HELD_ADDRESS);
+    expect(racing.ledger.claims.size).toBe(0);
+    expect(racing.codes.records.size).toBe(0);
+    expect(await sentTo(racing)).toEqual([[OLD_ADDRESS, REQUESTED_SUBJECT]]);
+  });
+
+  it('refuses a request whose address generation moved after it was read, and stores nothing', async () => {
+    // A staff change commits between the read and the request's own work.
+    const read = world.accounts.readMovedAccount.bind(world.accounts);
+    jest
+      .spyOn(world.accounts, 'readMovedAccount')
+      .mockImplementationOnce((unitOfWork, userId) => {
+        world.accounts.row(userId).addressGeneration += 1;
+        return read(unitOfWork, userId);
+      });
+
+    await expect(
+      world.requests.request(world.caller(), NEW_ADDRESS),
+    ).rejects.toMatchObject({ code: ErrorCode.CONFLICT });
+
+    expect(world.ledger.claims.size).toBe(0);
+    expect(world.codes.records.size).toBe(0);
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+  });
+
+  it('replaces an earlier request: the next generation, and the first address freed', async () => {
+    await world.requests.request(world.caller(), NEW_ADDRESS);
+    await world.requests.request(world.caller(), 'second@example.test');
+
+    expect(world.accounts.row(ACCOUNT_ID)).toMatchObject({
+      pendingEmail: 'second@example.test',
+      addressGeneration: 5,
+    });
+    expect(world.ledger.claims.has(NEW_ADDRESS)).toBe(false);
+    expect(world.ledger.claims.get('second@example.test')?.owner).toBe(
+      ACCOUNT_ID,
+    );
+  });
+
+  it('cancels a pending change: the address is freed and the generation moves on', async () => {
+    await world.requests.request(world.caller(), NEW_ADDRESS);
+
+    const state = await world.requests.cancel(world.caller());
+
+    expect(state).toEqual({ email: OLD_ADDRESS });
+    expect(world.accounts.row(ACCOUNT_ID)).toMatchObject({
+      pendingEmail: undefined,
+      addressGeneration: 5,
+    });
+    expect(world.ledger.claims.size).toBe(0);
+  });
+
+  it('cancels nothing when nothing is pending, and leaves the generation alone', async () => {
+    await expect(world.requests.cancel(world.caller())).resolves.toEqual({
+      email: OLD_ADDRESS,
+    });
+    expect(world.accounts.row(ACCOUNT_ID).addressGeneration).toBe(3);
+  });
+});
