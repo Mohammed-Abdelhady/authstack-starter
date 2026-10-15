@@ -1,19 +1,16 @@
 import { AppException } from '../../../common/exceptions/app.exception';
-import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
-import { RoleHierarchyService } from '../../../role/services/role-hierarchy.service';
-import { AdminAccountStore } from '../../stores/admin-account.store';
 import { AdminUserAccessService } from './admin-user-access.service';
 
 const SELF = { code: 'CANNOT_MODIFY_SELF', status: 400 };
 
 /** How the self check answered: let through, or the refusal it raised. */
 function selfCheckOf(targetId: string, actorId: string): unknown {
-  const access = new AdminUserAccessService(
-    partialMock<AdminAccountStore>({}),
-    partialMock<RoleHierarchyService>({}),
-  );
   try {
-    access.assertNotSelf(targetId, actorId, 'Cannot change your own account');
+    AdminUserAccessService.prototype.assertNotSelf(
+      targetId,
+      actorId,
+      'Cannot change your own account',
+    );
   } catch (error) {
     if (error instanceof AppException) {
       return { code: error.code, status: error.getStatus() };

@@ -103,7 +103,12 @@ describe('admin changes end sessions atomically', () => {
   }
 
   function login(user: UserDocument): Promise<{ sessionToken: string }> {
-    return harness.sessionService.createSession(user._id, 'agent', '127.0.0.1');
+    return harness.sessionService.createSession(
+      user._id,
+      'agent',
+      '127.0.0.1',
+      WEB_CLIENT_ID,
+    );
   }
 
   async function storedUser(id: Types.ObjectId): Promise<UserDocument | null> {
