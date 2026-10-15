@@ -41,6 +41,8 @@ export interface NativeAuthCapabilities {
   passkeys: boolean;
   registration: boolean;
   recovery: boolean;
+  /** Absent from a server that does not carry email-code sign-in. */
+  emailCode?: boolean; // feature:email-code
 }
 
 export interface NativeGoogleSdkConfiguration {
