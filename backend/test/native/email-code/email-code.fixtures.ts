@@ -86,23 +86,24 @@ export interface MailedSignIn {
   link: URL | null;
 }
 
-/** The code is read where the catalogue puts it in the subject. */
+/** The code is read from the code line the catalogue puts in the plain-text body. */
 export async function lastSignInMail(
   e2e: E2eApp,
   locale: SupportedLocale = 'en',
 ): Promise<MailedSignIn> {
   const last = (await e2e.captureMail()).at(-1);
   if (!last) throw new Error('no mail was sent');
-  const [before, after] =
-    MAIL_CATALOGUES[locale].signInCode.subject.split('{code}');
-  if (!last.subject.startsWith(before) || !last.subject.endsWith(after)) {
+  const copy = MAIL_CATALOGUES[locale].signInCode;
+  if (last.subject !== copy.subject) {
     throw new Error('the last mail is not a sign-in code mail');
   }
-  const code = last.subject.slice(
-    before.length,
-    last.subject.length - after.length,
-  );
   const text = last.text ?? '';
+  const [before, after] = copy.codeLine.split('{code}');
+  const line = text
+    .split('\n')
+    .find((part) => part.startsWith(before) && part.endsWith(after));
+  if (line === undefined) throw new Error('the sign-in code mail has no code');
+  const code = line.slice(before.length, line.length - after.length);
   const link = /myapp:\/\/callback#\S+/u.exec(text)?.[0];
   return {
     to: last.to,
