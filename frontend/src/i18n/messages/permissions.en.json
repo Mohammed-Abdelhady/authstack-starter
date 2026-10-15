@@ -96,7 +96,8 @@
         "roles": "Roles",
         "permissions": "Permissions",
         "sessions": "Sessions",
-        "reports": "Reports"
+        "reports": "Reports",
+        "activity": "Staff activity"
       },
       "allTab": "All",
       "selectAll": "Select All",

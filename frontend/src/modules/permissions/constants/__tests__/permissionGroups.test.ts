@@ -68,7 +68,7 @@ const CORE_OUTLINE = [
   },
   {
     id: 'activity',
-    hasCatalogName: false,
+    hasCatalogName: true,
     permissions: ['activity:read:all'],
   },
 ];
