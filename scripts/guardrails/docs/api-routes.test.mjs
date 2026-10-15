@@ -4,12 +4,16 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { globalPrefix } from './http-prefix.mjs';
+
+export { globalPrefix };
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const BACKEND_SOURCE = 'backend/src';
 const ROUTES_DOC = 'backend/docs/api-routes.md';
 const PERMISSIONS_FILE = 'backend/src/common/constants/permissions.ts';
-const BOOTSTRAP_FILE = 'backend/src/main.ts';
+const BOOTSTRAP_FILE = 'backend/src/common/security/configure-http-application.ts';
+const HTTP_ROUTES_FILE = 'backend/src/common/constants/http-routes.ts';
 const CONTROLLER_SUFFIX = '.controller.ts';
 const HTTP_DECORATORS = { Get: 'GET', Post: 'POST', Put: 'PUT', Patch: 'PATCH', Delete: 'DELETE' };
 const ACCESS = { PUBLIC: 'Public', SIGNED_IN: 'Signed in' };
@@ -20,7 +24,6 @@ const FEATURE_SWITCHES = {
   TWO_FACTOR: 'TWO_FACTOR_ENABLED',
   PASSKEYS: 'PASSKEYS_ENABLED',
 };
-const GLOBAL_PREFIX = /setGlobalPrefix\(\s*'([^']+)'\s*,\s*\{\s*exclude:\s*\[([^\]]*)\]/;
 const DOC_ROW = /^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|/;
 const CODE_SPAN = /`([^`]+)`/g;
 
@@ -87,16 +90,6 @@ export function permissionConstants(source) {
     }
   });
   return constants;
-}
-
-/** `{ prefix, exclude }` as the server sets them at start. */
-export function globalPrefix(source) {
-  const match = GLOBAL_PREFIX.exec(source);
-  if (!match) throw new Error('the global prefix call was not found');
-  return {
-    prefix: match[1],
-    exclude: [...match[2].matchAll(/'([^']+)'/g)].map(([, path]) => path),
-  };
 }
 
 /** Every route one controller file declares. */
@@ -331,7 +324,7 @@ test('a wrong guard, a wrong switch and a repeated row are named', () => {
 test('the documented routes are the routes the controllers serve', () => {
   const settings = {
     permissions: permissionConstants(read(PERMISSIONS_FILE)),
-    bootstrap: globalPrefix(read(BOOTSTRAP_FILE)),
+    bootstrap: globalPrefix(read(BOOTSTRAP_FILE), read(HTTP_ROUTES_FILE)),
   };
   const coded = controllerFiles(BACKEND_SOURCE).flatMap((file) => controllerRoutes(file, read(file), settings));
   assert.ok(
