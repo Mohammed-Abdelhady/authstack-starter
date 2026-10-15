@@ -4,10 +4,11 @@ import { SdkError } from '../errors';
 import {
   createBrowserTransport,
   createOperationHandle,
+  isUnknownOutcomeError,
   UnknownOutcomeError,
   type OperationHandle,
 } from '../browser-transport';
-import type { BrowserRequest } from './types';
+import type { BrowserFetchResponse, BrowserRequest } from './types';
 import { network, refusal, reply } from './test-support';
 
 const BODY = {
@@ -125,5 +126,38 @@ describe('local logical create operations', () => {
       retryable: false,
     });
     expect(io.sent).toHaveLength(2);
+  });
+
+  const GATEWAY_TIMEOUT_PAGE: BrowserFetchResponse = {
+    status: 504,
+    headers: { get: () => null },
+    text: async () => '<html>Gateway Timeout</html>',
+  };
+
+  // Mutation: areas/admin.ts settleWrite, rethrow a 5xx ApiError unchanged.
+  it.each([
+    {
+      answer: 'a JSON 503 TRANSACTION_OUTCOME_UNKNOWN',
+      response: refusal('TRANSACTION_OUTCOME_UNKNOWN', 503),
+      expected: { status: 503, cause: { code: 'TRANSACTION_OUTCOME_UNKNOWN' } },
+    },
+    {
+      answer: 'an HTML 504 from a gateway',
+      response: GATEWAY_TIMEOUT_PAGE,
+      expected: { status: 504 },
+    },
+  ])('h2 reports $answer to a create as unknown with its key', async ({ response, expected }) => {
+    const io = network(response);
+    const browser = createBrowserTransport({ fetch: io.fetch });
+    browser.rememberBrowserProof('session', 'session');
+    const failure: unknown = await createApiClient(browser)
+      .admin.accounts.create(BODY, { createOperationKey: () => 'lost-create-1' })
+      .catch((error: unknown) => error);
+
+    expect(isUnknownOutcomeError(failure)).toBe(true);
+    expect(failure).toMatchObject({ ...expected, operationKey: 'lost-create-1', retryable: false });
+    expect(io.sent.map(({ url, init }) => `${init.method} ${url}`)).toEqual([
+      'POST /api/admin/users',
+    ]);
   });
 });
