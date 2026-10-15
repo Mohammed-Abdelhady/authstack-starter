@@ -19,11 +19,7 @@ import {
   transformOptionalString,
 } from '../common/utils/environment-transform';
 import { ProductionGuardEnvironmentVariables } from './env.production.schema';
-import { ProductionPublicUrlConstraint } from './env.production.constraints';
-import {
-  DistinctAdminOriginConstraint,
-  HostPolicyJsonConstraint,
-} from './env.host-contracts.constraints';
+import { HostPolicyJsonConstraint } from './env.host-contracts.constraints';
 import {
   ACTIVITY_RETENTION_DAYS_DEFAULT,
   EMAIL_CODE_EXPIRES_IN_DEFAULT, // feature:email-code
@@ -34,8 +30,6 @@ import {
 export class HostContractsEnvironmentVariables extends ProductionGuardEnvironmentVariables {
   @Transform(transformOptionalString)
   @IsUrl({ require_protocol: true, require_tld: false })
-  @Validate(ProductionPublicUrlConstraint)
-  @Validate(DistinctAdminOriginConstraint)
   @IsOptional()
   ADMIN_URL?: string;
 
