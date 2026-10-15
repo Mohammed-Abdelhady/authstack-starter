@@ -1,7 +1,13 @@
-import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { createConnection } from 'mongoose';
+import { AddressLedger } from '../../../../../common/persistence/address-ledger';
+import { MongoAddressLedger } from '../../../../../common/persistence/mongo/mongo-address-ledger';
+import {
+  AddressClaim,
+  AddressClaimSchema,
+} from '../../../../../common/persistence/mongo/schemas/address-claim.schema';
+import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   FrozenClock,
   TEST_NOW,
@@ -36,6 +42,8 @@ export async function bootMongoMagicLinkHarness(
   connection.getClient().on('commandStarted', (command) => {
     onCommand?.(command.commandName);
   });
+  const claims = connection.model(AddressClaim.name, AddressClaimSchema);
+  await claims.init();
   const links = connection.model(PendingMagicLink.name, PendingMagicLinkSchema);
   const users = connection.model(User.name, UserSchema);
   const counters = connection.model(MailCounter.name, MailCounterSchema);
@@ -45,6 +53,8 @@ export async function bootMongoMagicLinkHarness(
   // Built the way the application builds them: each adapter over its model.
   const module = await Test.createTestingModule({
     providers: [
+      { provide: AddressLedger, useClass: MongoAddressLedger },
+      { provide: getModelToken(AddressClaim.name), useValue: claims },
       { provide: MagicLinkStore, useClass: MongoMagicLinkStore },
       { provide: MagicLinkAccounts, useClass: MongoMagicLinkAccounts },
       { provide: getModelToken(PendingMagicLink.name), useValue: links },
@@ -55,6 +65,7 @@ export async function bootMongoMagicLinkHarness(
 
   return {
     clock: new FrozenClock(TEST_NOW),
+    ledger: module.get(AddressLedger),
     links: module.get(MagicLinkStore),
     accounts: module.get(MagicLinkAccounts),
     runner: new MongoUnitOfWorkRunner(connection),
@@ -100,10 +111,12 @@ export async function bootMongoMagicLinkHarness(
         : null;
     },
     accountCount: () => users.countDocuments({}).exec(),
+    claimCount: () => claims.countDocuments({}).exec(),
 
     reset: async () => {
       await links.deleteMany({});
       await counters.deleteMany({});
+      await claims.deleteMany({});
       await users.deleteMany({});
     },
     close: async () => {

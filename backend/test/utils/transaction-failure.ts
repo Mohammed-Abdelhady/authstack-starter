@@ -74,6 +74,12 @@ export interface LostCommitAnswers {
   restore: () => void;
 }
 
+function lostCommitError(): Error {
+  const failure = new MongoNetworkError('the commit reply was lost');
+  failure.addErrorLabel(UNKNOWN_COMMIT_RESULT_LABEL);
+  return failure;
+}
+
 /**
  * Lose the answer to the next `times` commits on this connection. With `lands`
  * the real commit runs first and only its reply is lost; without it the commit
@@ -81,7 +87,12 @@ export interface LostCommitAnswers {
  */
 export function loseCommitAnswers(
   connection: Connection,
-  options: { lands: boolean; times: number },
+  options: {
+    lands: boolean;
+    times: number;
+    afterLanding?: () => Promise<void>;
+    errorFactory?: () => Error;
+  },
 ): LostCommitAnswers {
   const startSession = connection.startSession.bind(connection);
   let lost = 0;
@@ -99,10 +110,9 @@ export function loseCommitAnswers(
         lost += 1;
         if (options.lands) {
           await commit();
+          await options.afterLanding?.();
         }
-        const failure = new MongoNetworkError('the commit reply was lost');
-        failure.addErrorLabel(UNKNOWN_COMMIT_RESULT_LABEL);
-        throw failure;
+        throw (options.errorFactory ?? lostCommitError)();
       });
       return session;
     });

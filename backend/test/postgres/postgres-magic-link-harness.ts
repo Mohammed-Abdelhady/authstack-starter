@@ -1,3 +1,4 @@
+import { PostgresAddressLedger } from '../../src/common/persistence/postgres/postgres-address-ledger';
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
 import { MagicLinkContractHarness } from '../../src/auth/magic-link/contract/magic-link-contract.harness-spec';
 import { FrozenClock, TEST_NOW } from '../utils/frozen-clock';
@@ -11,7 +12,7 @@ export async function bootPostgresMagicLinkHarness(): Promise<MagicLinkContractH
   const connection = await openTestConnection();
   const { database } = connection;
   const countRows = async (
-    table: 'pending_magic_links' | 'users',
+    table: 'pending_magic_links' | 'users' | 'address_claims',
   ): Promise<number> => {
     const row = await database
       .selectFrom(table)
@@ -22,6 +23,7 @@ export async function bootPostgresMagicLinkHarness(): Promise<MagicLinkContractH
 
   return {
     clock: new FrozenClock(TEST_NOW),
+    ledger: new PostgresAddressLedger(),
     links: new PostgresMagicLinkStore(database),
     accounts: new PostgresMagicLinkAccounts(database),
     runner: new PostgresUnitOfWorkRunner(database),
@@ -89,6 +91,7 @@ export async function bootPostgresMagicLinkHarness(): Promise<MagicLinkContractH
         : null;
     },
     accountCount: () => countRows('users'),
+    claimCount: () => countRows('address_claims'),
 
     reset: connection.reset,
     close: connection.close,
