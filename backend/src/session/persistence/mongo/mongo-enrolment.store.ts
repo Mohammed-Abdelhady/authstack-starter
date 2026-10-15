@@ -77,15 +77,27 @@ export class MongoEnrolmentStore extends EnrolmentStore {
     userId: string,
     clientId: string,
     now: Date,
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const session = mongoSessionOf(work);
+    const live = {
+      user: toObjectId(userId),
+      clientId,
+      credentialPurpose: CREDENTIAL_PURPOSE.ENROLMENT,
+      isValid: true,
+      revokedAt: null,
+    };
+    // Both statements share the transaction's snapshot; a concurrent change
+    // to one of these sessions makes the update conflict and the work rerun.
+    const replaced = await this.sessions
+      .find(live)
+      .select('_id')
+      .session(session)
+      .lean()
+      .exec();
+    if (replaced.length === 0) return [];
+    const ids = replaced.map(({ _id }) => _id);
     await this.sessions.updateMany(
-      {
-        user: toObjectId(userId),
-        clientId,
-        credentialPurpose: CREDENTIAL_PURPOSE.ENROLMENT,
-        isValid: true,
-        revokedAt: null,
-      },
+      { ...live, _id: { $in: ids } },
       {
         $set: {
           isValid: false,
@@ -93,7 +105,8 @@ export class MongoEnrolmentStore extends EnrolmentStore {
           revokedReason: REVOKED_REASON.ENROLMENT_REPLACED,
         },
       },
-      { session: mongoSessionOf(work) },
+      { session },
     );
+    return ids.map((id) => id.toString());
   }
 }

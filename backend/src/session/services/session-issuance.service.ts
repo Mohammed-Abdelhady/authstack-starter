@@ -28,6 +28,7 @@ import {
   DEFAULT_API_AUDIENCE,
 } from '../constants/client-ids';
 import { CREDENTIAL_PURPOSE } from '../constants/credential-purpose';
+import { REVOKED_REASON } from '../constants/revoked-reason';
 import {
   SECURITY_EVENT_ACTION,
   SECURITY_EVENT_OUTCOME,
@@ -200,7 +201,7 @@ export class SessionIssuanceService {
     const now = this.clock.now();
     await this.assertSessionLimit(unitOfWork, account, application, now);
     if (purpose === CREDENTIAL_PURPOSE.ENROLMENT) {
-      await this.enrolments.replaceIn(unitOfWork, account.id, clientId, now);
+      await this.replaceEnrolments(unitOfWork, account.id, clientId, now);
     }
 
     const token =
@@ -264,6 +265,30 @@ export class SessionIssuanceService {
     });
 
     return { sessionToken: token, csrfToken };
+  }
+
+  /** Ends this account's earlier enrolments here, each with its own event. */
+  private async replaceEnrolments(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    clientId: string,
+    now: Date,
+  ): Promise<void> {
+    const ended = await this.enrolments.replaceIn(
+      unitOfWork,
+      userId,
+      clientId,
+      now,
+    );
+    for (const sessionId of ended) {
+      await this.store.appendSecurityEvent(unitOfWork, {
+        targetUserId: userId,
+        clientId,
+        sessionId,
+        action: SECURITY_EVENT_ACTION.SESSION_REVOKED,
+        reasonCode: REVOKED_REASON.ENROLMENT_REPLACED,
+      });
+    }
   }
 
   private assertNativeAllowed(application: IssuanceApplication): void {

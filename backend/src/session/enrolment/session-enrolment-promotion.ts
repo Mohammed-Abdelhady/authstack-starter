@@ -17,6 +17,7 @@ import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { Clock } from '../../common/services/clock';
 import { AuthEpochService } from '../../common/services/auth-epoch.service';
 import { CREDENTIAL_PURPOSE } from '../constants/credential-purpose';
+import { REVOKED_REASON } from '../constants/revoked-reason';
 import {
   SECURITY_EVENT_ACTION,
   SECURITY_EVENT_OUTCOME,
@@ -163,6 +164,7 @@ export class SessionEnrolmentPromotion extends EnrolmentPromotion {
       clientId: input.clientId,
       sessionId: session.id,
       action: SECURITY_EVENT_ACTION.SESSION_REVOKED,
+      reasonCode: REVOKED_REASON.ENROLMENT_PROMOTED,
     });
     this.receipts.set(work, issued);
   }

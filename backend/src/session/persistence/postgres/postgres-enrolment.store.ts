@@ -62,8 +62,8 @@ export class PostgresEnrolmentStore extends EnrolmentStore {
     userId: string,
     clientId: string,
     now: Date,
-  ): Promise<void> {
-    await postgresTransactionOf(work)
+  ): Promise<string[]> {
+    const ended = await postgresTransactionOf(work)
       .updateTable('sessions')
       .set({
         is_valid: false,
@@ -75,6 +75,8 @@ export class PostgresEnrolmentStore extends EnrolmentStore {
       .where('credential_purpose', '=', CREDENTIAL_PURPOSE.ENROLMENT)
       .where('is_valid', '=', true)
       .where('revoked_at', 'is', null)
+      .returning('id')
       .execute();
+    return ended.map(({ id }) => id);
   }
 }

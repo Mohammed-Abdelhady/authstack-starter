@@ -116,6 +116,7 @@ export interface IssuanceSecurityEvent {
   clientId: string;
   sessionId: string;
   action: string;
+  reasonCode?: string;
 }
 
 /**
