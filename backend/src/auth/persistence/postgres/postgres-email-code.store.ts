@@ -23,6 +23,7 @@ function toCode(row: Selectable<EmailCodesTable>): StoredEmailCode {
     codeHash: row.code_hash,
     wrongGuesses: row.wrong_guesses,
     expiresAt: row.expires_at,
+    purgeAfter: row.purge_after,
     spentAt: row.spent_at,
   };
 }
@@ -46,6 +47,7 @@ export class PostgresEmailCodeStore extends EmailCodeStore {
           email: storedAddress(code.email),
           code_hash: code.codeHash,
           expires_at: code.expiresAt,
+          purge_after: code.purgeAfter,
           spent_at: spentAt,
         })
         .onConflict((conflict) =>
@@ -53,6 +55,7 @@ export class PostgresEmailCodeStore extends EmailCodeStore {
             email: excluded.ref('excluded.email'),
             code_hash: excluded.ref('excluded.code_hash'),
             expires_at: excluded.ref('excluded.expires_at'),
+            purge_after: excluded.ref('excluded.purge_after'),
             spent_at: excluded.ref('excluded.spent_at'),
           })),
         )
