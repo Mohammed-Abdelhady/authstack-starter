@@ -3,9 +3,12 @@ import request from 'supertest';
 import { StaffGuard } from '../../src/auth/guards/staff.guard';
 import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { createExecutionContextMock } from '../../src/common/testing/test-doubles.harness-spec';
-import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../src/session/constants/client-ids';
 import { CREDENTIAL_PURPOSE } from '../../src/session/constants/credential-purpose';
-import { reconcileStartupApplications } from '../../src/session/session.module';
+import { storeBrowserPolicy } from '../utils/session/store-browser-policy';
 import { ROLE_AUDIENCE } from '../../src/host/types/host-role.type';
 import { bootE2eApp, type E2eApp } from '../utils/e2e-app';
 import { SEED_USER } from '../constants/seed-users';
@@ -121,17 +124,17 @@ describe('staff routes require a full admin browser credential', () => {
     'requires passkey with user verification: $methods / $verified',
     async ({ methods, verified, status }) => {
       const fixture = await arrangeAudiences(e2e, ['*']);
-      e2e.app.get(ConfigService).set('auth.admin.signIn', {
-        audience: ROLE_AUDIENCE.STAFF,
-        signUp: 'closed',
-        requirePasskey: true,
-      });
-      await reconcileStartupApplications(e2e.app);
       const issued = await issueAudienceBrowser(
         e2e,
         fixture.actorId,
         undefined,
         { authenticationMethods: methods, userVerified: verified },
+      );
+      await storeBrowserPolicy(
+        e2e,
+        ADMIN_CLIENT_ID,
+        { requirePasskey: true },
+        false,
       );
       await audienceRequest(e2e, issued, PROFILE_ROUTE).expect(200);
       await audienceRequest(e2e, issued, STAFF_ROUTE).expect(status);
