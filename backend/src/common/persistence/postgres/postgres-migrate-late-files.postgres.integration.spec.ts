@@ -3,6 +3,7 @@ import {
   MIGRATION_LOCK_WAIT_MS,
 } from './postgres-migrations';
 import {
+  ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
   MIGRATE_CASE_TIMEOUT_MS,
   useMigrateDatabases,
@@ -77,7 +78,10 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
         refused: 'StorageNotReadyError',
         again: {
           exit: 0,
-          said: [`Applied: ${AFTER_THE_FOURTH.join(', ')}`],
+          said: [
+            ADDRESS_BACKFILL_ZERO_COUNTS,
+            `Applied: ${AFTER_THE_FOURTH.join(', ')}`,
+          ],
         },
         recorded: EVERY_MIGRATION,
         after: 'serves',
@@ -222,7 +226,15 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
         after: await startUp(pool),
       }).toEqual({
         refused: 'StorageNotReadyError',
-        up: { exit: 0, said: ['Applied: 0013_magic_links.sql'] },
+        up: {
+          exit: 0,
+          said: [
+            'relation "pending_magic_links" already exists, skipping',
+            'relation "pending_magic_link_email_created" already exists, skipping',
+            'relation "pending_magic_link_expires_at" already exists, skipping',
+            'Applied: 0013_magic_links.sql',
+          ],
+        },
         recorded: EVERY_MIGRATION,
         shape: {
           columns: [

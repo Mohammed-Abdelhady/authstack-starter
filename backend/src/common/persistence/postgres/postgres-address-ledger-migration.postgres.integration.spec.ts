@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
 import {
   applyPostgresMigrations,
   MIGRATION_LOCK_WAIT_MS,
 } from './postgres-migrations';
 import {
+  ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
   MIGRATE_CASE_TIMEOUT_MS,
   useMigrateDatabases,
@@ -31,53 +30,10 @@ const USER_IDS = [
   '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e63',
 ];
 const LIVE_EXPIRY = new Date('2099-01-01T13:00:00.000Z');
+const EARLIER_EXPIRY = new Date('2099-01-01T12:30:00.000Z');
 const EXPIRED = new Date('2000-01-01T00:00:00.000Z');
-const ZERO_COUNTS =
-  'Address ledger backfill: kept=0 cleared_taken=0 cleared_ambiguous=0 cleared_codeless=0 codes_killed=0';
 const BACKFILL_COUNTS =
   'Address ledger backfill: kept=2 cleared_taken=1 cleared_ambiguous=5 cleared_codeless=4 codes_killed=6';
-
-async function notices(pool: Pool, work: () => Promise<unknown>) {
-  const lines: string[] = [];
-  const clients = new Set<PoolClient>();
-  const onNotice = (notice: { message?: string }) => {
-    if (notice.message?.startsWith('Address ledger backfill:')) {
-      lines.push(notice.message);
-    }
-  };
-  const onAcquire = (client: PoolClient) => {
-    if (clients.has(client)) return;
-    clients.add(client);
-    client.on('notice', onNotice);
-  };
-  pool.on('acquire', onAcquire);
-  try {
-    await work();
-    return lines;
-  } finally {
-    pool.off('acquire', onAcquire);
-    for (const client of clients) client.off('notice', onNotice);
-  }
-}
-
-async function replay(pool: Pool) {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      readFileSync(
-        join(__dirname, 'migrations', ADDRESS_CLAIMS_MIGRATION),
-        'utf8',
-      ),
-    );
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 async function seedBackfill(pool: Pool) {
   const pending = [
@@ -114,6 +70,7 @@ async function seedBackfill(pool: Pool) {
     [' taken@EXAMPLE.test ', 1, 1, LIVE_EXPIRY],
     [' SHARED@example.test ', 2, 7, LIVE_EXPIRY],
     ['shared@example.test', 3, 0, LIVE_EXPIRY],
+    ['shared@example.test ', 2, 7, EARLIER_EXPIRY],
     ['stale@example.test', 6, 3, LIVE_EXPIRY],
     ['expired@example.test', 7, 1, EXPIRED],
     [' SOLO@example.test ', 8, 2, LIVE_EXPIRY],
@@ -168,7 +125,7 @@ async function expectBackfilled(pool: Pool) {
       address: 'shared@example.test',
       kind: 'EMAIL_CHANGE',
       owner: THIRD_ID,
-      lapses_at: LIVE_EXPIRY,
+      lapses_at: EARLIER_EXPIRY,
     },
     {
       address: 'solo@example.test',
@@ -185,6 +142,7 @@ async function expectBackfilled(pool: Pool) {
     { email: ' SOLO@example.test ', purpose: 'email-change' },
     { email: ' taken@EXAMPLE.test ', purpose: 'signup' },
     { email: 'shared@example.test', purpose: 'email-change' },
+    { email: 'shared@example.test ', purpose: 'email-change' },
     { email: 'unrelated@example.test', purpose: 'email-change' },
   ]);
 }
@@ -211,19 +169,20 @@ describe('address ledger PostgreSQL migration', () => {
   };
 
   it(
-    'normalises legacy email, preserves nulls and reruns without changes',
+    'normalises legacy email and preserves nulls without pending addresses',
     async () => {
       const pool = await previousDatabase();
       await pool.query(
         'INSERT INTO users (id, email) VALUES ($1, $2), ($3, NULL)',
         [FIRST_ID, ' Foo@Example.COM ', SECOND_ID],
       );
-      expect(await notices(pool, () => run('up', pool))).toEqual([ZERO_COUNTS]);
-      expect(await emails(pool)).toEqual([
-        { id: FIRST_ID, email: 'foo@example.com' },
-        { id: SECOND_ID, email: null },
-      ]);
-      expect((await run('up', pool)).exit).toBe(0);
+      expect(await run('up', pool)).toEqual({
+        exit: 0,
+        said: [
+          ADDRESS_BACKFILL_ZERO_COUNTS,
+          'Applied: 0021_address_claims.sql',
+        ],
+      });
       expect(await emails(pool)).toEqual([
         { id: FIRST_ID, email: 'foo@example.com' },
         { id: SECOND_ID, email: null },
@@ -240,11 +199,22 @@ describe('address ledger PostgreSQL migration', () => {
     async () => {
       const pool = await previousDatabase();
       await seedBackfill(pool);
-      expect(await notices(pool, () => run('up', pool))).toEqual([
-        BACKFILL_COUNTS,
-      ]);
+      expect(await run('up', pool)).toEqual({
+        exit: 0,
+        said: [BACKFILL_COUNTS, 'Applied: 0021_address_claims.sql'],
+      });
       await expectBackfilled(pool);
-      expect(await notices(pool, () => replay(pool))).toEqual([ZERO_COUNTS]);
+      await pool.query('DELETE FROM schema_migrations WHERE name = $1', [
+        ADDRESS_CLAIMS_MIGRATION,
+      ]);
+      expect(await run('up', pool)).toEqual({
+        exit: 0,
+        said: [
+          'relation "address_claims" already exists, skipping',
+          ADDRESS_BACKFILL_ZERO_COUNTS,
+          'Applied: 0021_address_claims.sql',
+        ],
+      });
       await expectBackfilled(pool);
     },
     MIGRATE_CASE_TIMEOUT_MS,
@@ -292,7 +262,13 @@ describe('address ledger PostgreSQL migration', () => {
     'enforces canonical claims and emails while keeping email uniqueness',
     async () => {
       const pool = await previousDatabase();
-      expect(await notices(pool, () => run('up', pool))).toEqual([ZERO_COUNTS]);
+      expect(await run('up', pool)).toEqual({
+        exit: 0,
+        said: [
+          ADDRESS_BACKFILL_ZERO_COUNTS,
+          'Applied: 0021_address_claims.sql',
+        ],
+      });
       await pool.query("INSERT INTO users (email) VALUES ('a@x.com')");
       await expect(
         pool.query("INSERT INTO users (email) VALUES (' A@X.com ')"),
