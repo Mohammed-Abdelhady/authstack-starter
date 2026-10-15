@@ -4,6 +4,7 @@ import { VerificationCodeService } from '../../../auth/services/codes/verificati
 import { MailCounterService } from '../../../auth/services/mail/mail-counter.service';
 import { EmailChangeConfirmationService } from '../../../auth/services/registration/email-change-confirmation.service';
 import type { SupportedLocale } from '../../../common/constants/locales';
+import { ADDRESS_CLAIM_KIND } from '../../../common/persistence/address-ledger';
 import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
 import { HashService } from '../../../common/services/hash.service';
 import { MailDispatcherService } from '../../../mail/mail-dispatcher.service';
@@ -52,6 +53,12 @@ export interface OwnEmailWorld {
   sent(): Promise<SentMail[]>;
   /** A caller on the kept session, signed in `minutesAgo` minutes ago. */
   caller(minutesAgo?: number): OwnEmailCaller;
+  /**
+   * What staff starting a change stores for the account: the address held, a
+   * staff code for the next generation, and the pending address. Answers the
+   * code staff would mail.
+   */
+  startStaffChange(address: string): Promise<string>;
 }
 
 export function addAccount(
@@ -152,6 +159,30 @@ export function ownEmailWorld(
       clientId: 'web',
       signedInAt: new Date(clock.now().getTime() - minutesAgo * MINUTE_MS),
     }),
+    startStaffChange: async (address) => {
+      const prepared = await verification.prepareEmailChange(address, {
+        userId: ACCOUNT_ID,
+        addressGeneration: accounts.row(ACCOUNT_ID).addressGeneration + 1,
+      });
+      if (!prepared) throw new Error('the staff code was over its cap');
+      await runner.run(async (unitOfWork) => {
+        const account = await accounts.readMovedAccount(unitOfWork, ACCOUNT_ID);
+        if (!account) throw new Error('no account to move');
+        await ledger.claim(unitOfWork, {
+          address,
+          owner: ACCOUNT_ID,
+          kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+          now: clock.now(),
+          lapsesAt: prepared.generation.expiresAt,
+        });
+        await verification.storeEmailChangeIn(unitOfWork, prepared);
+        await accounts.savePendingAddress(unitOfWork, account, {
+          email: address,
+          addressGeneration: prepared.generation.addressGeneration,
+        });
+      });
+      return prepared.code;
+    },
   };
   addAccount(world, { id: ACCOUNT_ID, email: OLD_ADDRESS });
   sessions.signIn(ACCOUNT_ID, KEPT_SESSION, OTHER_SESSION);

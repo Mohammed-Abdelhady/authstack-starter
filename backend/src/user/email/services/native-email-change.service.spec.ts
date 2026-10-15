@@ -57,11 +57,10 @@ describe('NativeEmailChangeService', () => {
 
   beforeEach(async () => {
     world = ownEmailWorld();
-    await world.requests.request(world.caller(), NEW_ADDRESS);
-    code = mailedCode((await world.sent()).find((m) => m.to === NEW_ADDRESS));
+    code = await world.startStaffChange(NEW_ADDRESS);
   });
 
-  it('confirms for a signed-out person through an enabled native app, and ends every session', async () => {
+  it('confirms a change staff started for a signed-out person through an enabled native app, and ends every session', async () => {
     const changes = nativeChanges(world, NATIVE_APP);
 
     await changes.confirm({ clientId: APP_CLIENT, email: NEW_ADDRESS, code });
@@ -103,6 +102,35 @@ describe('NativeEmailChangeService', () => {
       expect([...world.codes.records.values()][0]?.attempts).toBe(0);
     },
   );
+
+  it('refuses a change the account asked for itself on the public and the app route, which leave it to the signed-in session', async () => {
+    const own = ownEmailWorld();
+    await own.requests.request(own.caller(), NEW_ADDRESS);
+    const ownCode = mailedCode(
+      (await own.sent()).find((mail) => mail.to === NEW_ADDRESS),
+    );
+    const changes = nativeChanges(own, NATIVE_APP);
+
+    await expect(
+      own.staffConfirmation.confirm({ email: NEW_ADDRESS, code: ownCode }),
+    ).rejects.toMatchObject({ code: ErrorCode.ACTIVATION_CODE_INVALID });
+    await expect(
+      changes.confirm({
+        clientId: APP_CLIENT,
+        email: NEW_ADDRESS,
+        code: ownCode,
+      }),
+    ).rejects.toMatchObject({ code: ErrorCode.ACTIVATION_CODE_INVALID });
+
+    expect(own.accounts.row(ACCOUNT_ID)).toMatchObject({
+      email: OLD_ADDRESS,
+      pendingEmail: NEW_ADDRESS,
+    });
+    expect(own.sessions.revocations).toEqual([]);
+    await expect(
+      own.confirmations.confirm(own.caller(), ownCode),
+    ).resolves.toEqual({ email: NEW_ADDRESS });
+  });
 
   it('answers a wrong code and a code for another address with the one shared error', async () => {
     const changes = nativeChanges(world, NATIVE_APP);
