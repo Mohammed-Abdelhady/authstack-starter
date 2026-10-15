@@ -16,4 +16,4 @@ export const ACCOUNT_EN = {
   'account.signOutHint': 'Signs you out on this device',
   'account.signOutFailed.title': 'You are still signed in',
   'account.signOutFailed.description': 'This device could not sign out. Try again.',
-};
+} satisfies Record<`account.${string}`, string>;

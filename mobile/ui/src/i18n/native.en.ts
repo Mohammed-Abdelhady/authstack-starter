@@ -60,4 +60,4 @@ export const NATIVE_EN = {
   'native.webRegistration': 'Create an account in browser',
   'native.webRecovery': 'Reset password in browser',
   'native.providerWeb': 'Continue with \u2068{provider}\u2069 in browser',
-};
+} satisfies Record<`native.${string}`, string>;
