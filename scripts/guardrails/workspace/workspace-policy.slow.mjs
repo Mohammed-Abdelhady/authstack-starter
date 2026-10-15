@@ -231,7 +231,8 @@ test('parser setup failure registers its cases before the hook fails', (t) => {
   }
   const result = spawnSync(
     process.execPath,
-    ['--test', 'scripts/guardrails/workspace/type-policy.test.mjs'],
+    // Node 24's default reporter prints no TAP summary lines.
+    ['--test', '--test-reporter=tap', 'scripts/guardrails/workspace/type-policy.test.mjs'],
     {
       cwd: repo.root,
       env: repo.env,
