@@ -9,6 +9,7 @@ import {
 import { Clock } from '../../common/services/clock';
 import { REVOKED_REASON } from '../constants/revoked-reason';
 import { SECURITY_EVENT_ACTION } from '../constants/security-event-action';
+import { EnrolmentStore } from '../enrolment/enrolment.store';
 import type { IssuanceApplication } from '../issuance/browser-issuance.store';
 import { IssuanceApplications } from '../issuance/issuance-applications';
 import {
@@ -20,7 +21,6 @@ import {
   effectiveSessionDeadlines,
   sessionPastDeadline,
 } from '../utils/session/session-deadlines';
-import { SessionAuthorityStore } from './session-authority.store';
 
 const LOGGER = new Logger('SessionExpiry');
 
@@ -28,7 +28,7 @@ const LOGGER = new Logger('SessionExpiry');
 export class SessionExpiry {
   constructor(
     private readonly runner: UnitOfWorkRunner,
-    private readonly sessions: SessionAuthorityStore,
+    private readonly sessions: EnrolmentStore,
     private readonly applications: IssuanceApplications,
     private readonly revocations: SessionRevocationStore,
     private readonly clock: Clock,
@@ -62,8 +62,9 @@ export class SessionExpiry {
       );
       if (!found?.isValid || found.revoked) return;
 
-      // Re-read after taking the session so a committed idle extension wins.
-      const session = await this.sessions.readCommittedSessionById(sessionId);
+      // Read inside this unit of work, after it took the session: a committed
+      // idle extension wins, and no second pooled connection is needed.
+      const session = await this.sessions.readSessionIn(work, sessionId);
       if (!session || !session.isValid || session.revokedAt) return;
       if (
         !isValidDate(session.authenticatedAt) ||

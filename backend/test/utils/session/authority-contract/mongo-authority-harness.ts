@@ -4,6 +4,7 @@ import { MongoIdFormat } from '../../../../src/common/persistence/mongo/mongo-id
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
 import { AuthorityApplications } from '../../../../src/session/authority/authority-applications';
 import { SessionAuthorityStore } from '../../../../src/session/authority/session-authority.store';
+import { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import { SessionValidator } from '../../../../src/session/authority/session-validator';
 import { MongoUnitOfWorkRunner } from '../../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { SessionRevocationStore } from '../../../../src/session/revocation/session-revocation.store';
@@ -56,7 +57,7 @@ export async function bootMongoAuthority(
         authEpoch,
         new SessionExpiry(
           new MongoUnitOfWorkRunner(connection),
-          authorityStore,
+          app.get(EnrolmentStore),
           issuance.applications,
           revocationStore,
           issuance.clock,
