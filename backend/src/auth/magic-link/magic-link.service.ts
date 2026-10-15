@@ -1,6 +1,8 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
+import { MagicLinkAccountCreation } from './magic-link-account-creation';
+import { AddressLedger } from '../../common/persistence/address-ledger';
 import { MagicLinkStore, UnspentMagicLink } from './stores/magic-link.store';
 import { MagicLinkBrowserService } from './magic-link-browser.service';
 import {
@@ -18,7 +20,6 @@ import {
 } from './constants/magic-link.constants';
 import {
   createMagicLinkToken,
-  deriveNameFromEmail,
   hashMagicLinkToken,
   sameHash,
 } from './utils/magic-link-token.util';
@@ -34,15 +35,12 @@ import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { UniqueConflictError } from '../../common/persistence/persistence-errors';
 import { Clock } from '../../common/services/clock';
 import { currentRequestId } from '../../common/context/request-context';
 import { maskEmail } from './utils/mask-email.util';
 import { getAllowedNativeAuthorizeContinuation } from './utils/magic-link-continuation.util';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
-import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
-import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 type MagicLinkLoginResponseData = LoginResponseDto & {
@@ -62,6 +60,7 @@ export class MagicLinkService {
   private readonly logger = new Logger(MagicLinkService.name);
   private readonly expiresIn: number;
   private readonly maxPerHour: number;
+  private readonly accountCreation: MagicLinkAccountCreation;
 
   constructor(
     private readonly links: MagicLinkStore,
@@ -72,14 +71,23 @@ export class MagicLinkService {
     private readonly signIn: MagicLinkSignIn,
     private readonly browser: MagicLinkBrowserService,
     private readonly clock: Clock,
-    private readonly policy: AccountCreationPolicy,
-    private readonly runner: UnitOfWorkRunner,
+    policy: AccountCreationPolicy,
+    ledger: AddressLedger,
+    runner: UnitOfWorkRunner,
   ) {
     this.expiresIn = this.configService.get<number>(
       'magicLink.expiresIn',
       900000,
     );
     this.maxPerHour = this.configService.get<number>('magicLink.maxPerHour', 5);
+    this.accountCreation = new MagicLinkAccountCreation(
+      accounts,
+      runner,
+      policy,
+      ledger,
+      clock,
+      () => this.invalidLink('address is taken'),
+    );
   }
 
   /**
@@ -255,49 +263,7 @@ export class MagicLinkService {
       return existing;
     }
 
-    return this.createUser(email, locale);
-  }
-
-  /**
-   * Create the passwordless account. It carries no password hash, which is how
-   * the rest of the application tells that password sign-in does not apply.
-   */
-  private async createUser(
-    email: string,
-    locale: SupportedLocale,
-  ): Promise<MagicLinkAccount> {
-    try {
-      const user = await this.runner.run(async (unitOfWork) => {
-        await this.policy.assertMayCreate(
-          {
-            application: WEB_CLIENT_ID,
-            method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
-          },
-          unitOfWork,
-        );
-        return this.accounts.createPasswordlessIn(unitOfWork, {
-          email,
-          name: deriveNameFromEmail(email),
-          locale,
-        });
-      });
-
-      this.logger.log('Created a new account from a magic link');
-      return user;
-    } catch (error) {
-      if (!(error instanceof UniqueConflictError)) {
-        throw error;
-      }
-
-      // Two links for the same new address were spent at once.
-      const created = await this.accounts.findByEmail(email);
-      if (!created) {
-        // Still the database's own refusal, which is what the global filter
-        // answers with a conflict.
-        throw error.cause instanceof Error ? error.cause : error;
-      }
-      return created;
-    }
+    return this.accountCreation.createUser(email, locale);
   }
 
   /** Start the mail and return at once. A dropped send is logged, not thrown. */

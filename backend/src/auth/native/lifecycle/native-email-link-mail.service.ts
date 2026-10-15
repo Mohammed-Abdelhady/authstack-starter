@@ -1,5 +1,10 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AddressReservationTakenError } from '../../../common/persistence/address-reservation-taken.error';
+import {
+  ACCOUNT_RESERVATION_RESULT,
+  AddressLedger,
+} from '../../../common/persistence/address-ledger';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { Clock } from '../../../common/services/clock';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -41,6 +46,7 @@ export class NativeEmailLinkMailService {
     private readonly dispatcher: MailDispatcherService,
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
+    private readonly ledger: AddressLedger,
   ) {
     this.maxPerHour = this.config.get<number>('magicLink.maxPerHour', 5);
   }
@@ -112,11 +118,27 @@ export class NativeEmailLinkMailService {
       { application: clientId, method: ACCOUNT_CREATION_METHOD.MAGIC_LINK },
       unitOfWork,
     );
-    return this.accounts.createPasswordlessIn(unitOfWork, {
+    const reservation = await this.ledger.reserveForAccount(unitOfWork, {
+      address: email,
+      now: this.clock.now(),
+    });
+    if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN) {
+      throw new AddressReservationTakenError();
+    }
+    const created = await this.accounts.createPasswordlessIn(unitOfWork, {
       email,
       name: deriveNameFromEmail(email),
       locale,
     });
+    await this.ledger.finishAccountReservation(
+      unitOfWork,
+      reservation.reservation,
+    );
+    return created;
+  }
+
+  async hasAccountAtAddress(email: string): Promise<boolean> {
+    return (await this.accounts.findByEmail(email)) !== null;
   }
 
   invalidNativeLink(): AppException {
