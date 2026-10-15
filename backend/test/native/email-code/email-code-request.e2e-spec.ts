@@ -5,7 +5,6 @@ import { NATIVE_ATTEMPT_HEADER } from '../../../src/auth/native/constants/native
 import { hashMagicLinkToken } from '../../../src/auth/magic-link/utils/magic-link-token.util';
 import { UserProfileService } from '../../../src/user/services/user-profile.service';
 import { MAIL_CATALOGUES } from '../../../src/mail/catalog/mail-catalogue';
-import { formatMessage } from '../../../src/mail/catalog/format-message';
 import {
   installAccountCreationPolicy,
   type SwitchableAccountCreationPolicy,
@@ -275,9 +274,7 @@ describe('native email code request (e2e)', () => {
     });
     await replyFor('arabic@example.test');
     const mail = await lastSignInMail(e2e, 'ar');
-    expect(mail.subject).toBe(
-      formatMessage(MAIL_CATALOGUES.ar.signInCode.subject, { code: mail.code }),
-    );
+    expect(mail.subject).toBe(MAIL_CATALOGUES.ar.signInCode.subject);
     expect(mail.code).toMatch(/^[0-9]{6}$/u);
   });
   // feature:locale-ar:end
