@@ -32,14 +32,18 @@ const OUTCOME_TEXT: Record<Outcome, { title: MessageKey; description: MessageKey
   failed: { title: 'passkeys.failed.title', description: 'passkeys.failed.description' },
 };
 
-/** A passkey's name, read in its own direction inside a line of either. */
-export function passkeyName(passkey: PasskeySummary): string {
+/**
+ * A passkey's name, read in its own direction inside a line of either. An older
+ * rename could store a blank one, which reads as the app's own word for it.
+ */
+export function passkeyName(t: Translate, passkey: PasskeySummary): string {
+  if (passkey.name.trim().length === 0) return t('passkeys.unnamed');
   return isolateTyped(passkey.name);
 }
 
 export function outcomeNotice(t: Translate, outcome: PasskeyRegisterOutcome): PasskeyNotice {
   const text = OUTCOME_TEXT[outcome.kind];
-  const name = outcome.kind === 'created' ? passkeyName(outcome.passkey) : '';
+  const name = outcome.kind === 'created' ? passkeyName(t, outcome.passkey) : '';
   return {
     tone: outcome.kind === 'created' ? NOTICE_TONE.INFO : NOTICE_TONE.PROBLEM,
     title: t(text.title),

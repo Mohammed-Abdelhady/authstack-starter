@@ -32,7 +32,7 @@ export const PasskeyRow = memo(function PasskeyRow({
 }: PasskeyRowProps) {
   const { t, locale } = useUi();
   const [draft, setDraft] = useState<string>();
-  const name = passkeyName(passkey);
+  const name = passkeyName(t, passkey);
   const blank = draft === undefined || draft.trim().length === 0;
 
   const startRename = useCallback(() => setDraft(passkey.name), [passkey.name]);

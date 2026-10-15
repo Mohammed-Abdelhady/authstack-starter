@@ -11,6 +11,7 @@ export const PASSKEYS_EN = {
   'passkeys.addedOn': 'Added {date}',
   'passkeys.lastUsed': 'Last used {date}',
   'passkeys.neverUsed': 'Not used yet',
+  'passkeys.unnamed': 'Unnamed passkey',
   'passkeys.rename': 'Rename',
   'passkeys.renameLabel': 'Rename {name}',
   'passkeys.nameField': 'Passkey name',
