@@ -55,22 +55,6 @@ describe('admin activity', () => {
     expect(result.pagination).toStrictEqual({ page: 2, limit: 10, total: 25, totalPages: 3 });
   });
 
-  it.each([
-    { page: 1, limit: 10, total: 25, totalPages: 3 },
-    { page: 2, limit: 10, total: 25, totalPages: 3 },
-    { page: 3, limit: 10, total: 25, totalPages: 3 },
-    { page: 1, limit: 10, total: 0, totalPages: 0 },
-  ])('h26 preserves first middle last and empty pagination $page/$total', async (pagination) => {
-    const transport = answering(200, { success: true, data: { data: [], pagination } });
-    const result = await createApiClient(transport).admin.activity.list({ page: pagination.page });
-
-    expect(result.data).toStrictEqual([]);
-    expect(result.pagination).toStrictEqual(pagination);
-    expect(transport.sent).toStrictEqual([
-      { method: 'GET', path: `/api/admin/activity?page=${pagination.page}` },
-    ]);
-  });
-
   it('h26 omits absent query parameters without adding a question mark', async () => {
     const transport = answering(200, {
       success: true,

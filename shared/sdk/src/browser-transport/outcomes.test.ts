@@ -16,9 +16,9 @@ describe('browser dispatch outcomes', () => {
     const { admin } = createApiClient(transport);
     await expect(admin.accounts.delete('account-1')).resolves.toBeUndefined();
     await expect(admin.roles.delete('role-1')).resolves.toBeUndefined();
-    expect(io.sent.map(({ url }) => url)).toEqual([
-      '/api/admin/users/account-1',
-      '/api/roles/role-1',
+    expect(io.sent.map(({ url, init }) => `${init.method} ${url}`)).toEqual([
+      'DELETE /api/admin/users/account-1',
+      'DELETE /api/roles/role-1',
     ]);
   });
 
