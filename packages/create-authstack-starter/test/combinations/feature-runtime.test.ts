@@ -34,7 +34,7 @@ describe('generated backend feature availability', () => {
           source,
           file,
           new Set(selected),
-          new Set([...FEATURES, 'oauth-core']),
+          new Set([...FEATURES, 'oauth-core', 'email-code', 'invitations']),
         );
         const destination = join(project, file);
         mkdirSync(dirname(destination), { recursive: true });
