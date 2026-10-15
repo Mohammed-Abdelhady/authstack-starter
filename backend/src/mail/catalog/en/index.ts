@@ -8,6 +8,7 @@ import { PASSWORD_RESET_CODE_EN } from './password-reset-code';
 import { PROOF_CODE_EN } from './proof-code';
 import { REGISTRATION_NOTICE_EN } from './registration-notice';
 import { SECURITY_NOTICE_EN } from './security-notice';
+import { OWN_EMAIL_CHANGE_CODE_EN } from './own-email-change-code';
 
 export const EN_MAIL_CATALOGUE: MailCatalogue = {
   common: COMMON_EN,
@@ -19,4 +20,5 @@ export const EN_MAIL_CATALOGUE: MailCatalogue = {
   magicLink: MAGIC_LINK_EN,
   registrationNotice: REGISTRATION_NOTICE_EN,
   securityNotice: SECURITY_NOTICE_EN,
+  ownEmailChangeCode: OWN_EMAIL_CHANGE_CODE_EN,
 };

@@ -8,6 +8,7 @@ import { PASSWORD_RESET_CODE_AR } from './password-reset-code';
 import { PROOF_CODE_AR } from './proof-code';
 import { REGISTRATION_NOTICE_AR } from './registration-notice';
 import { SECURITY_NOTICE_AR } from './security-notice';
+import { OWN_EMAIL_CHANGE_CODE_AR } from './own-email-change-code';
 
 export const AR_MAIL_CATALOGUE: MailCatalogue = {
   common: COMMON_AR,
@@ -19,4 +20,5 @@ export const AR_MAIL_CATALOGUE: MailCatalogue = {
   magicLink: MAGIC_LINK_AR,
   registrationNotice: REGISTRATION_NOTICE_AR,
   securityNotice: SECURITY_NOTICE_AR,
+  ownEmailChangeCode: OWN_EMAIL_CHANGE_CODE_AR,
 };
