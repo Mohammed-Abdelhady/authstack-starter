@@ -1,4 +1,6 @@
 import { Types } from 'mongoose';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
 import { PendingRoleSweep } from './schemas/role.schema';
 import {
@@ -12,6 +14,7 @@ export interface RoleFields {
   _id: { toString(): string };
   name: string;
   slug: string;
+  audience?: RoleAudience | null;
   description?: string;
   isSystemRole: boolean;
   isProtected: boolean;
@@ -51,6 +54,7 @@ export function toStoredRole(role: RoleFields): StoredRole {
     id: role._id.toString(),
     name: role.name,
     slug: role.slug,
+    audience: role.audience ?? undefined,
     description: role.description,
     isSystemRole: role.isSystemRole,
     isProtected: role.isProtected,

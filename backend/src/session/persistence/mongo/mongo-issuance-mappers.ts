@@ -1,4 +1,8 @@
+import type { ApplicationSignInMethods } from '../../applications/types/application-sign-in-methods';
 import { Types } from 'mongoose';
+import { SIGN_UP_POLICY } from '../../../config/constants/host-contracts';
+import type { ApplicationPolicyConfiguration } from '../../../config/types/host-policy.type';
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import { MalformedIdError } from '../../../common/persistence/persistence-errors';
 import {
   IssuanceAccount,
@@ -20,10 +24,12 @@ export function toIssuanceAccount(user: {
   _id: Types.ObjectId;
   isDeleted?: boolean;
   sessionVersion?: number;
+  audience?: RoleAudience | null;
 }): IssuanceAccount {
   return {
     id: user._id.toString(),
     isDeleted: Boolean(user.isDeleted),
+    accountAudience: user.audience ?? undefined,
     sessionVersion: user.sessionVersion ?? 0,
   };
 }
@@ -34,7 +40,13 @@ export function toIssuanceApplication(application: {
   enabled: boolean;
   sessionVersion?: number;
   allowedScopes: string[];
-  policy: { absoluteLifetimeMs: number; idleLifetimeMs: number };
+  signUp?: ApplicationPolicyConfiguration['signUp'];
+  requirePasskey?: boolean;
+  signInMethods?: ApplicationSignInMethods | null;
+  accountAudience?: RoleAudience | null;
+  policyVersion?: number;
+  sessionCap?: number | null;
+  policy: IssuanceApplication['policy'];
 }): IssuanceApplication {
   return {
     clientId: application.clientId,
@@ -42,9 +54,19 @@ export function toIssuanceApplication(application: {
     enabled: application.enabled,
     sessionVersion: application.sessionVersion ?? 0,
     allowedScopes: [...application.allowedScopes],
+    signUp: application.signUp ?? SIGN_UP_POLICY.OPEN,
+    requirePasskey: application.requirePasskey ?? false,
+    signInMethods: application.signInMethods ?? null,
+    accountAudience: application.accountAudience ?? undefined,
+    policyVersion: application.policyVersion ?? 0,
+    sessionCap: application.sessionCap ?? undefined,
     policy: {
       absoluteLifetimeMs: application.policy.absoluteLifetimeMs,
       idleLifetimeMs: application.policy.idleLifetimeMs,
+      unboundAbsoluteLifetimeMs:
+        application.policy.unboundAbsoluteLifetimeMs ?? undefined,
+      unboundIdleLifetimeMs:
+        application.policy.unboundIdleLifetimeMs ?? undefined,
     },
   };
 }

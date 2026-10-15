@@ -1,4 +1,8 @@
+import { hasPostgresAccountAudience } from './postgres-application-audience';
+import { storePostgresBrowserRegistration } from './postgres-browser-registration';
+import type { BrowserRegistration } from '../../applications/types/browser-registration';
 import { Kysely, sql } from 'kysely';
+import { postgresApplicationPolicyFields } from './postgres-application-policy-fields';
 import { RetryableAbortError } from '../../../common/persistence/persistence-errors';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
@@ -69,6 +73,13 @@ function toRegisteredClient(
 export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
   constructor(private readonly database: Kysely<PostgresTables>) {
     super();
+  }
+
+  hasAccountAudience(
+    unitOfWork: UnitOfWork,
+    environment: string,
+  ): Promise<boolean> {
+    return hasPostgresAccountAudience(unitOfWork, environment);
   }
 
   async readCommittedApplication(
@@ -162,6 +173,7 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
     registration: FirstPartyRegistration,
   ): Promise<void> {
     const configured = {
+      ...postgresApplicationPolicyFields(registration),
       display_name: registration.displayName,
       platform: registration.platform,
       client_type: registration.clientType,
@@ -232,23 +244,34 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
     );
     const rows = await transaction
       .selectFrom('applications')
-      .select([
-        'client_id',
-        'platform',
-        'client_type',
-        'enabled',
-        'redirect_uris',
-      ])
+      .select([...APPLICATION_COLUMNS, 'client_type', 'redirect_uris'])
       .where('client_id', '=', sql<string>`ANY(${clientIds})`)
       .where('environment', '=', environment)
       .execute();
-    return rows.map((row) => ({
-      clientId: row.client_id,
-      platform: row.platform,
-      clientType: row.client_type,
-      enabled: row.enabled,
-      redirectUris: row.redirect_uris,
-    }));
+    return rows.map((row) => {
+      const policy = toIssuanceApplication(row);
+      return {
+        clientId: row.client_id,
+        platform: row.platform,
+        clientType: row.client_type,
+        enabled: row.enabled,
+        redirectUris: row.redirect_uris,
+        signUp: policy.signUp,
+        requirePasskey: policy.requirePasskey,
+        signInMethods: policy.signInMethods,
+        accountAudience: policy.accountAudience,
+        policyVersion: policy.policyVersion,
+        sessionCap: policy.sessionCap,
+        policy: policy.policy,
+      };
+    });
+  }
+
+  storeBrowserRegistration(
+    unitOfWork: UnitOfWork,
+    registration: BrowserRegistration,
+  ): Promise<void> {
+    return storePostgresBrowserRegistration(unitOfWork, registration);
   }
 
   async storeNativeRegistration(
@@ -256,6 +279,7 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
     registration: NativeRegistration,
   ): Promise<void> {
     const configured = {
+      ...postgresApplicationPolicyFields(registration),
       display_name: registration.displayName,
       enabled: true,
       redirect_uris: registration.redirectUris,

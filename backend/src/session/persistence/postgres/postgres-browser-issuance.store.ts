@@ -66,13 +66,14 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
   ): Promise<IssuanceAccount | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('users')
-      .select(['id', 'is_deleted', 'session_version'])
+      .select(['id', 'is_deleted', 'session_version', 'audience'])
       .where('id', '=', toUuid(userId))
       .executeTakeFirst();
     return row
       ? {
           id: row.id,
           isDeleted: row.is_deleted,
+          accountAudience: row.audience ?? undefined,
           sessionVersion: row.session_version,
         }
       : null;
@@ -84,7 +85,7 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
   ): Promise<IssuanceAccount | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('users')
-      .select(['id', 'is_deleted', 'session_version'])
+      .select(['id', 'is_deleted', 'session_version', 'audience'])
       .where('id', '=', toUuid(userId))
       .forNoKeyUpdate()
       .noWait()
@@ -95,6 +96,7 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
     return {
       id: row.id,
       isDeleted: row.is_deleted,
+      accountAudience: row.audience ?? undefined,
       sessionVersion: row.session_version,
     };
   }
@@ -176,6 +178,8 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
       )
       .select([
         's.is_valid',
+        's.user_verified',
+        's.policy_version as session_policy_version',
         's.revoked_at',
         's.credential_purpose',
         's.auth_epoch',
@@ -194,6 +198,14 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
         'a.allowed_scopes as application_allowed_scopes',
         'a.absolute_lifetime_ms',
         'a.idle_lifetime_ms',
+        'a.sign_up',
+        'a.require_passkey',
+        'a.sign_in_methods',
+        'a.account_audience',
+        'a.policy_version',
+        'a.session_cap',
+        'a.unbound_absolute_lifetime_ms',
+        'a.unbound_idle_lifetime_ms',
         'g.id as grant_id',
         'g.allowed as grant_allowed',
         'g.session_version as grant_session_version',
@@ -235,6 +247,8 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
         scopes: session.scopes,
         audience: session.audience,
         authentication_methods: session.authenticationMethods,
+        user_verified: session.userVerified ?? false,
+        policy_version: session.policyVersion ?? 0,
         credential_purpose: session.credentialPurpose,
         browser_generation: session.browserGeneration,
         authenticated_at: session.authenticatedAt,

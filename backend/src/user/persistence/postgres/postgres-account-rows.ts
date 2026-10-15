@@ -1,4 +1,6 @@
 import { Kysely, Transaction } from 'kysely';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+
 import {
   MalformedIdError,
   UniqueConflictError,
@@ -25,6 +27,7 @@ export const ACCOUNT_COLUMNS = [
   'name',
   'avatar_url',
   'role',
+  'audience',
   'permissions',
   'auth_provider',
   'is_verified',
@@ -47,6 +50,7 @@ export interface AccountRow {
   name: string | null;
   avatar_url: string | null;
   role: string;
+  audience: RoleAudience | null;
   permissions: string[];
   auth_provider: string | null;
   is_verified: boolean;
@@ -139,6 +143,7 @@ export function toStoredAccount(
     name: row.name ?? '',
     avatarUrl: row.avatar_url ?? undefined,
     role: row.role,
+    audience: row.audience ?? undefined,
     permissions: row.permissions,
     authProvider,
     linkedAccounts,

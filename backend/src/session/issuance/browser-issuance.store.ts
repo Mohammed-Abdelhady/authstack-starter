@@ -1,4 +1,6 @@
+import type { ApplicationPolicyFields } from '../applications/types/application-policy-fields';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { CredentialPurpose } from '../constants/credential-purpose';
 import { SECURITY_EVENT_CONSTRAINT } from '../events/security-event.store';
 import {
@@ -25,9 +27,11 @@ export type AccountIssuanceMark =
 
 export interface IssuanceAccount extends AccountAuthorityFields {
   id: string;
+  accountAudience?: RoleAudience;
 }
 
-export interface IssuanceApplication extends ApplicationAuthorityFields {
+export interface IssuanceApplication
+  extends ApplicationAuthorityFields, ApplicationPolicyFields {
   clientId: string;
   platform: string;
   allowedScopes: string[];
@@ -96,6 +100,8 @@ export interface NewBrowserSession {
   scopes: string[];
   audience: string;
   authenticationMethods: string[];
+  userVerified?: boolean;
+  policyVersion?: number;
   credentialPurpose: CredentialPurpose;
   browserGeneration: number;
   authenticatedAt: Date;

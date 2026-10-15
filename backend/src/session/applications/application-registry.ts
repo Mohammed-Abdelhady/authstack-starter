@@ -51,6 +51,13 @@ export class ApplicationRegistry {
     private readonly authEpoch: AuthEpochService,
   ) {}
 
+  hasAccountAudienceIn(unitOfWork: UnitOfWork): Promise<boolean> {
+    return this.store.hasAccountAudience(
+      unitOfWork,
+      this.authEpoch.environment(),
+    );
+  }
+
   /** Judged on a committed authority read. */
   async requireEnabled(clientId: string): Promise<RegisteredApplication> {
     return requireEnabledApplication(
