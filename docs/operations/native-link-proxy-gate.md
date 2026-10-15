@@ -30,7 +30,7 @@ The image build uses the existing nginx Dockerfile. The script creates an
 isolated Compose project, a temporary certificate, random loopback-only published
 ports and a new manifest for `links.proxy.test`. Host headers select the virtual
 hosts, so no DNS or hosts-file edit is required. Its synthetic allowed paths
-include `/custom/ar/activate`, `/native/return`, a Unicode pathname and a
+include `/custom/en/activate`, `/native/return`, a Unicode pathname and a
 literal-dollar pathname. A second handwritten manifest changes the API prefix,
 reserved namespaces and association paths. Its previous namespace paths become
 ordinary exact page paths, so copied renderer constants cannot pass that case.
