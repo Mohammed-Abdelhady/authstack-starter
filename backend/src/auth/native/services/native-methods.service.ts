@@ -158,7 +158,7 @@ export class NativeMethodsService {
 
 // feature:email-code:start
 /** Present only when on: apps on an older SDK refuse any capability key they do not know. */
-export function emailCodeCapability(on: boolean): { emailCode?: true } {
+function emailCodeCapability(on: boolean): { emailCode?: true } {
   return on ? { emailCode: true } : {};
 }
 // feature:email-code:end
