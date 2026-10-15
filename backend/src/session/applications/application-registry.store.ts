@@ -1,3 +1,5 @@
+import type { BrowserRegistration } from './types/browser-registration';
+import type { ApplicationPolicyFields } from './types/application-policy-fields';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { IssuanceApplication } from '../issuance/browser-issuance.store';
 
@@ -17,7 +19,8 @@ export interface RegisteredClient extends RegisteredApplication {
 }
 
 /** What a reconciliation needs to know of an application already stored. */
-export interface StoredRegistration {
+export interface StoredRegistration extends ApplicationPolicyFields {
+  policy?: ApplicationPolicyValues;
   clientId: string;
   platform: string;
   clientType: string;
@@ -28,9 +31,15 @@ export interface StoredRegistration {
 export interface ApplicationPolicyValues {
   absoluteLifetimeMs: number;
   idleLifetimeMs: number;
+  unboundAbsoluteLifetimeMs?: number;
+  unboundIdleLifetimeMs?: number;
 }
 
-export interface FirstPartyRegistration {
+export interface ApplicationPolicyWrite extends ApplicationPolicyFields {
+  policy: ApplicationPolicyValues;
+}
+
+export interface FirstPartyRegistration extends ApplicationPolicyWrite {
   clientId: string;
   environment: string;
   displayName: string;
@@ -43,7 +52,7 @@ export interface FirstPartyRegistration {
   initialScopes: string[];
 }
 
-export interface NativeRegistration {
+export interface NativeRegistration extends ApplicationPolicyWrite {
   clientId: string;
   environment: string;
   displayName: string;
@@ -71,6 +80,12 @@ export function issuanceApplicationOf(
     sessionVersion: application.sessionVersion,
     allowedScopes: application.allowedScopes,
     policy: application.policy,
+    signUp: application.signUp,
+    requirePasskey: application.requirePasskey,
+    signInMethods: application.signInMethods,
+    accountAudience: application.accountAudience,
+    policyVersion: application.policyVersion,
+    sessionCap: application.sessionCap,
   };
 }
 
@@ -95,6 +110,12 @@ export function issuanceApplicationOf(
  * not wait.
  */
 export abstract class ApplicationRegistryStore {
+  /** Include every stored application, enabled or not, in this environment. */
+  abstract hasAccountAudience(
+    unitOfWork: UnitOfWork,
+    environment: string,
+  ): Promise<boolean>;
+
   abstract readCommittedApplication(
     environment: string,
     clientId: string,
@@ -152,6 +173,12 @@ export abstract class ApplicationRegistryStore {
     environment: string,
     clientIds: string[],
   ): Promise<StoredRegistration[]>;
+
+  /** Stores against the version read by takeRegistrations, or refuses a stale snapshot. */
+  abstract storeBrowserRegistration(
+    unitOfWork: UnitOfWork,
+    registration: BrowserRegistration,
+  ): Promise<void>;
 
   /**
    * Creates a public native application, or replaces the configured fields of

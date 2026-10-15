@@ -15,6 +15,10 @@ import { ApplicationDocument } from './schemas/application.schema';
 export class ApplicationRegistryService {
   constructor(private readonly registry: ApplicationRegistry) {}
 
+  hasAccountAudience(session: ClientSession): Promise<boolean> {
+    return this.registry.hasAccountAudienceIn(mongoUnitOfWork(session));
+  }
+
   async requireEnabled(
     clientId: string,
     session?: ClientSession,

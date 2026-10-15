@@ -1,4 +1,6 @@
 import { Kysely } from 'kysely';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+
 import {
   PendingSweep,
   RoleFieldsRejectedError,
@@ -21,6 +23,7 @@ export const ROLE_COLUMNS = [
   'id',
   'name',
   'slug',
+  'audience',
   'description',
   'is_system_role',
   'is_protected',
@@ -34,6 +37,7 @@ export interface RoleRow {
   id: string;
   name: string;
   slug: string;
+  audience: RoleAudience | null;
   description: string | null;
   is_system_role: boolean;
   is_protected: boolean;
@@ -65,6 +69,7 @@ function toStoredRole(row: RoleRow, owed: PendingSweep[]): StoredRole {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    audience: row.audience ?? undefined,
     description: row.description ?? undefined,
     isSystemRole: row.is_system_role,
     isProtected: row.is_protected,

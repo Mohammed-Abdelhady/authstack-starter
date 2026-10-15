@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { CredentialPurpose } from '../constants/credential-purpose';
 import {
   IssuanceAccount,
@@ -27,6 +28,8 @@ export interface StoredSession extends SessionAuthorityFields {
   /** The secret a browser sends back with its requests. Not a credential. */
   csrfToken?: string | null;
   authenticationMethods: string[];
+  userVerified: boolean;
+  policyVersion: number;
   createdAt: Date;
 }
 
@@ -39,6 +42,7 @@ export interface AccountIdentity {
   email: string;
   name: string;
   role: string;
+  audience?: RoleAudience;
   /** Permissions held directly, apart from the role's. */
   permissions: string[];
   isVerified: boolean;

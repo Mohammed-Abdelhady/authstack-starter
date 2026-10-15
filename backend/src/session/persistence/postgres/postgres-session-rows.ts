@@ -30,6 +30,8 @@ export const STORED_SESSION_COLUMNS = [
   'proof_key_thumbprint',
   'csrf_token',
   'authentication_methods',
+  'user_verified',
+  'policy_version',
   'created_at',
 ] as const;
 
@@ -57,6 +59,8 @@ export interface StoredSessionRow {
   proof_key_thumbprint: string | null;
   csrf_token: string | null;
   authentication_methods: string[];
+  user_verified: boolean;
+  policy_version: number;
   created_at: Date;
 }
 
@@ -127,6 +131,8 @@ export function toStoredSession(row: StoredSessionRow): StoredSession {
     proofKeyThumbprint: row.proof_key_thumbprint,
     csrfToken: row.csrf_token,
     authenticationMethods: [...row.authentication_methods],
+    userVerified: row.user_verified,
+    policyVersion: row.policy_version,
     createdAt: row.created_at,
     isValid: row.is_valid,
     revokedAt: row.revoked_at,
