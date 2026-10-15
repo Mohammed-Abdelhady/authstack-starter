@@ -63,7 +63,7 @@ function workflow(source: string, layout: RulesLayout, trusted: boolean): string
     job.steps = job.steps.filter((step: unknown) => {
       if (!isRecord(step)) return false;
       if (typeof step.uses === 'string' && step.uses.startsWith('actions/setup-node@'))
-        step.with = { 'node-version': '22' };
+        step.with = { 'node-version': '22', 'check-latest': true };
       if (
         step.id === 'mongo' ||
         (typeof step.uses === 'string' && step.uses.startsWith('actions/cache@'))
