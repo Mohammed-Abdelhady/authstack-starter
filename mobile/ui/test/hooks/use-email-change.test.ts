@@ -1,6 +1,7 @@
 import { API_PATHS, HTTP_METHOD } from '@app/sdk';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EMAIL_STEP } from '../../src/constants/email-change';
 import { useEmailChange } from '../../src/hooks/use-email-change';
 import { signedInAs, SIGNED_OUT } from '../support/fake-engine';
 import { ok } from '../support/fake-server';
@@ -15,6 +16,20 @@ const READ = `${HTTP_METHOD.GET} ${API_PATHS.account.email}`;
 const ASK = `${HTTP_METHOD.POST} ${API_PATHS.account.email}`;
 
 type EmailChange = ReturnType<typeof useEmailChange>;
+
+/** What the section shows and holds of an account's address. */
+function shown({ current, pending, step, address, code, notice }: EmailChange) {
+  return { current, pending, step, address, code, notice };
+}
+
+const NOTHING_SHOWN = {
+  current: undefined,
+  pending: undefined,
+  step: EMAIL_STEP.IDLE,
+  address: '',
+  code: '',
+  notice: undefined,
+};
 
 async function editing(): Promise<UiHookSubject<EmailChange>> {
   const subject = await renderUiHook(useEmailChange, signedInAs('ada'));
@@ -47,12 +62,11 @@ describe('the email change hook', () => {
       subject.fake.publish(SIGNED_OUT);
       subject.fake.publish(signedInAs('ben'));
     });
+    await flush();
+    const beforeTheAnswer = shown(subject.current());
     subject.server.answer(ASK, ok({ email: 'ada@example.test', pendingEmail: 'new@example.test' }));
     await flush();
 
-    expect({
-      pending: subject.current().pending,
-      notice: subject.current().notice,
-    }).toEqual({ pending: undefined, notice: undefined });
+    expect([beforeTheAnswer, shown(subject.current())]).toEqual([NOTHING_SHOWN, NOTHING_SHOWN]);
   });
 });
