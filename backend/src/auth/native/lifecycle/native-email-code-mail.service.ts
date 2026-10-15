@@ -26,10 +26,10 @@ import {
   EmailCodeStore,
 } from '../../pending-codes/email-code.store';
 import { generateVerificationCode } from '../../utils/verification-code.util';
-import { hashPendingCodeGeneration } from '../../utils/pending-code-generation.util';
 import { NATIVE_EMAIL_CALLBACK_PARAM } from '../constants/native-lifecycle.constants';
 import type { NativeAttempt } from '../types/native-attempt';
 import { mailedCodeMinutes } from './email-code-minutes';
+import { NativeEmailCodeReviewService } from './native-email-code-review.service';
 
 /** Immediate resends of one mail before the dispatcher logs it as failed. */
 const SIGN_IN_CODE_MAIL_SENDS = 3;
@@ -56,13 +56,15 @@ export class NativeEmailCodeMailService {
     private readonly policy: AccountCreationPolicy,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly review: NativeEmailCodeReviewService,
   ) {}
 
   /**
    * Stores a code, and a link token when asked, for this attempt alone. Every
    * branch hashes and stores a code, so the reply never tells a known address
    * from an unknown, closed, capped or deactivated one. A code that will not
-   * be mailed is stored already spent.
+   * be mailed is stored already spent. The review account on its application
+   * gets the fixed code stored instead, and no mail.
    */
   async issue(
     requested: MailRecipient,
@@ -80,7 +82,9 @@ export class NativeEmailCodeMailService {
       windowMs: MAGIC_LINK_RATE_WINDOW_MS,
       limit: this.config.get<number>('magicLink.maxPerHour', 5),
     });
-    const mailed = owner?.isDeleted !== true && mayCreate && underCap;
+    const reviewHash = await this.review.codeHashFor(attempt, email);
+    const mailed =
+      reviewHash === null && owner?.isDeleted !== true && mayCreate && underCap;
     const code = generateVerificationCode();
     const token = withLink ? createMagicLinkToken() : null;
     const lifetimeMs = this.config.get<number>(
@@ -90,16 +94,23 @@ export class NativeEmailCodeMailService {
     const expiresAt = new Date(
       Math.min(now.getTime() + lifetimeMs, attempt.expiresAt.getTime()),
     );
+    // Hashed on every branch, the review one too, so each costs the same.
+    const codeHash = await this.hashService.hash(code);
     const stored = await this.codes.put({
       ownerId: attempt.attemptId,
       purpose: EMAIL_CODE_PURPOSE.SIGN_IN,
       email,
-      codeHash: await this.hashService.hash(code),
+      codeHash: reviewHash ?? codeHash,
       expiresAt,
       purgeAfter: attempt.expiresAt,
-      spent: !mailed,
+      // Past the mail limit the fixed code is stored spent like any other.
+      spent: reviewHash === null ? !mailed : !underCap,
     });
-    if (!mailed) this.logger.warn(this.unsentReason(owner, mayCreate));
+    if (!mailed) {
+      this.logger.warn(
+        this.unsentReason(owner, mayCreate, reviewHash !== null && underCap),
+      );
+    }
     const recipient = { email, locale: owner?.locale ?? requested.locale };
     const mail: SignInCodeMail = {
       locale: recipient.locale,
@@ -111,7 +122,7 @@ export class NativeEmailCodeMailService {
       link: token ? nativeCodeCallback(attempt, token) : null,
     };
     return {
-      generationHash: hashPendingCodeGeneration(stored.codeHash),
+      generationHash: this.review.generationOf(stored),
       tokenHash: token ? hashMagicLinkToken(token) : null,
       deliver: mailed ? () => this.deliver(recipient, mail) : null,
     };
@@ -138,8 +149,12 @@ export class NativeEmailCodeMailService {
   private unsentReason(
     owner: { isDeleted: boolean } | null,
     mayCreate: boolean,
+    review: boolean,
   ): string {
     const requestId = currentRequestId() ?? 'unknown';
+    if (review) {
+      return `Sign-in code not mailed: review access requestId=${requestId}`;
+    }
     if (owner?.isDeleted) {
       return `Sign-in code not mailed: deactivated account requestId=${requestId}`;
     }
