@@ -38,7 +38,7 @@ function checkDirectory(directory, prefix = '') {
 }
 
 try {
-  for (const entry of ['main.js', 'cli/audience-apply.js']) {
+  for (const entry of ['main.js', 'cli/audience-apply.js', 'cli/native-link-host.js']) {
     const artifact = join(DIST, entry);
     if (!existsSync(artifact) || !statSync(artifact).isFile()) {
       throw new Error(`dist/${entry} is missing or is not a file`);
