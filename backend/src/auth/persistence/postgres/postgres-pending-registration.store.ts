@@ -1,4 +1,5 @@
 import { Kysely, sql } from 'kysely';
+import { BoundEmailChangeGeneration } from '../../types/prepared-email-change';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import {
@@ -52,6 +53,32 @@ function generationColumns(generation: PendingCodeGeneration) {
 export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
   constructor(private readonly database: Kysely<PostgresTables>) {
     super();
+  }
+
+  async putEmailChangeCodeIn(
+    uow: UnitOfWork,
+    email: string,
+    generation: BoundEmailChangeGeneration,
+  ): Promise<CodeRotation> {
+    const owner = toUuid(generation.userId);
+    const row = await postgresTransactionOf(uow)
+      .insertInto('pending_registrations')
+      .values({
+        email: storedAddress(email),
+        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+        ...generationColumns(generation),
+      })
+      .onConflict((conflict) =>
+        conflict
+          .columns(['email', 'purpose'])
+          .doUpdateSet(generationColumns(generation))
+          .where(
+            sql<boolean>`(pending_registrations.user_id IS DISTINCT FROM ${owner} OR pending_registrations.address_generation <= ${generation.addressGeneration})`,
+          ),
+      )
+      .returning('id')
+      .executeTakeFirst();
+    return row ? CODE_ROTATION.ROTATED : CODE_ROTATION.NO_MATCHING_RECORD;
   }
 
   rotateLiveCode(

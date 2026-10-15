@@ -155,6 +155,13 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     return readAccount(postgresTransactionOf(unitOfWork), userId);
   }
 
+  takeEmailChangeTarget(
+    uow: UnitOfWork,
+    userId: string,
+  ): Promise<StoredAccount | null> {
+    return readAccount(postgresTransactionOf(uow), userId, true);
+  }
+
   takeAccountForChange(
     unitOfWork: UnitOfWork,
     userId: string,

@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  EmailChangeCodeTarget,
+  PreparedEmailChange,
+} from '../../types/prepared-email-change';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { HashService } from '../../../common/services/hash.service';
 import { Clock } from '../../../common/services/clock';
@@ -9,10 +13,15 @@ import { generateVerificationCode } from '../../utils/verification-code.util';
 import { PendingRegistrationIssuer } from './pending-registration-issuer';
 import {
   CODE_CLAIM,
+  CodeRotation,
   PendingRegistrationStore,
 } from '../../pending-codes/pending-registration.store';
 import { MailCounterService } from '../mail/mail-counter.service';
-import { CODE_GUESS_RULE, PendingPurpose } from '../../constants/registration';
+import {
+  CODE_GUESS_RULE,
+  PENDING_PURPOSE,
+  PendingPurpose,
+} from '../../constants/registration';
 import {
   IssuedCode,
   IssuedCodeWithGeneration,
@@ -45,6 +54,36 @@ export class VerificationCodeService {
       this.hashService,
       configService,
       clock,
+    );
+  }
+
+  codeExpiresAt(now: Date): Date {
+    return this.issuer.codeExpiresAt(now);
+  }
+
+  async prepareEmailChange(
+    email: string,
+    details: EmailChangeCodeTarget,
+  ): Promise<PreparedEmailChange | null> {
+    const underCap = await this.mailCounterService.tryRecord(
+      email,
+      PENDING_PURPOSE.EMAIL_CHANGE,
+    );
+    if (!underCap) {
+      await this.spendCodeHashingTime();
+      return null;
+    }
+    return this.issuer.prepareEmailChange(email, details);
+  }
+
+  storeEmailChangeIn(
+    uow: UnitOfWork,
+    prepared: PreparedEmailChange,
+  ): Promise<CodeRotation> {
+    return this.store.putEmailChangeCodeIn(
+      uow,
+      prepared.email,
+      prepared.generation,
     );
   }
 

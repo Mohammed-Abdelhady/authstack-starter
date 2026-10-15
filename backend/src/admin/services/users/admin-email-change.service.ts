@@ -1,10 +1,21 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CODE_ROTATION } from '../../../auth/pending-codes/pending-registration.store';
+import {
+  ADDRESS_CLAIM_KIND,
+  ADDRESS_CLAIM_RESULT,
+  AddressLedger,
+} from '../../../common/persistence/address-ledger';
+import {
+  UnitOfWork,
+  UnitOfWorkRunner,
+} from '../../../common/persistence/unit-of-work';
+import { storedAddress } from '../../../common/persistence/stored-address';
+import { Clock } from '../../../common/services/clock';
 import { VerificationCodeService } from '../../../auth/services/codes/verification-code.service';
 import { AuthMailService } from '../../../auth/services/mail/auth-mail.service';
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
-  PENDING_PURPOSE,
   mailedCodeWindowMs,
 } from '../../../auth/constants/registration';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -35,6 +46,9 @@ export class AdminEmailChangeService {
     private readonly verificationCodeService: VerificationCodeService,
     private readonly authMailService: AuthMailService,
     configService: ConfigService,
+    private readonly ledger: AddressLedger,
+    private readonly runner: UnitOfWorkRunner,
+    private readonly clock: Clock,
   ) {
     this.retryMinutes = Math.ceil(
       mailedCodeWindowMs(
@@ -50,15 +64,20 @@ export class AdminEmailChangeService {
   async assertAddressAvailable(
     email: string,
     actorRole: string,
+    owner?: string,
   ): Promise<void> {
     this.assertAdmin(actorRole);
 
-    if (await this.accounts.isAddressTaken(email)) {
-      throw new AppException(
-        ErrorCode.EMAIL_ALREADY_EXISTS,
-        'Email already in use',
-        HttpStatus.CONFLICT,
-      );
+    if (
+      !(await this.runner.run((uow) =>
+        this.ledger.isFree(uow, {
+          address: email,
+          now: this.clock.now(),
+          owner,
+        }),
+      ))
+    ) {
+      throw this.addressTaken();
     }
   }
 
@@ -73,26 +92,83 @@ export class AdminEmailChangeService {
     this.assertAdmin(actorRole);
     const pending = this.pendingAddress(user.pendingEmail);
 
-    if (await this.accounts.isAddressTaken(pending)) {
-      throw new AppException(
-        ErrorCode.EMAIL_ALREADY_EXISTS,
-        'Email already in use',
-        HttpStatus.CONFLICT,
-      );
+    if (
+      !(await this.runner.run((uow) =>
+        this.ledger.isFree(uow, {
+          address: pending,
+          now: this.clock.now(),
+          owner: user.id,
+        }),
+      ))
+    ) {
+      throw this.addressTaken();
     }
 
-    const issued =
-      await this.verificationCodeService.createOrUpdatePendingRegistration(
-        pending,
-        PENDING_PURPOSE.EMAIL_CHANGE,
-        { userId: user.id, addressGeneration: user.addressGeneration },
-      );
-
-    if (!issued) {
-      throw this.limitReached();
-    }
+    const issued = await this.verificationCodeService.prepareEmailChange(
+      pending,
+      { userId: user.id, addressGeneration: user.addressGeneration },
+    );
+    if (!issued) throw this.limitReached();
+    await this.runner.run(async (uow) => {
+      const current = await this.accounts.takeEmailChangeTarget(uow, user.id);
+      if (
+        !current ||
+        current.isDeleted ||
+        current.pendingEmail !== pending ||
+        current.addressGeneration !== user.addressGeneration
+      ) {
+        throw this.addressTaken();
+      }
+      const claimed = await this.ledger.claim(uow, {
+        address: pending,
+        owner: current.id,
+        kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+        now: this.clock.now(),
+        lapsesAt: issued.generation.expiresAt,
+      });
+      if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw this.addressTaken();
+      if (
+        (await this.verificationCodeService.storeEmailChangeIn(uow, issued)) !==
+        CODE_ROTATION.ROTATED
+      ) {
+        throw this.limitReached();
+      }
+    });
 
     await this.sendCode({ email: pending, locale: user.locale }, issued.code);
+  }
+
+  async claimPendingIn(
+    uow: UnitOfWork,
+    current: StoredAccount,
+    address: string,
+  ): Promise<void> {
+    const now = this.clock.now();
+    const claimed = await this.ledger.claim(uow, {
+      address,
+      owner: current.id,
+      kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+      now,
+      lapsesAt: this.verificationCodeService.codeExpiresAt(now),
+    });
+    if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw this.addressTaken();
+    if (
+      current.pendingEmail &&
+      storedAddress(current.pendingEmail) !== storedAddress(address)
+    ) {
+      await this.ledger.release(uow, {
+        address: current.pendingEmail,
+        owner: current.id,
+      });
+    }
+  }
+
+  private addressTaken(): AppException {
+    return new AppException(
+      ErrorCode.EMAIL_ALREADY_EXISTS,
+      'Email already in use',
+      HttpStatus.CONFLICT,
+    );
   }
 
   /** Notify the active mailbox without delaying the admin response on SMTP. */
