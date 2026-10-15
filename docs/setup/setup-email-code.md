@@ -6,20 +6,23 @@ application also has the email link, the same mail carries a button that
 finishes the same sign-in on the phone that asked. An unknown address becomes an
 account when the application lets people sign up.
 
-This guide covers the server side. The app screens arrive with plan 2.3, and
-access for app store reviewers with plan 2.4. Until then the review settings
-below are parsed and used by nothing.
+This guide covers the server side. The review settings below give app store
+reviewers a way in, as
+[Access for app store reviewers](#access-for-app-store-reviewers) explains.
 
 ## Settings
 
-| Setting                        | Meaning                                                                  |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| `EMAIL_CODE_ENABLED`           | Turns email-code sign-in on for the server. Default `false`.             |
-| `EMAIL_CODE_EXPIRES_IN`        | Code lifetime in milliseconds. Default `600000`, ten minutes.            |
-| `EMAIL_CODE_REVIEW_ACCOUNT_ID` | Plan 2.4. Review account. Parsed today, not used.                        |
-| `EMAIL_CODE_REVIEW_CLIENT_ID`  | Plan 2.4. Review application. Parsed today, not used.                    |
-| `EMAIL_CODE_REVIEW_CODE_HASH`  | Plan 2.4. Digest of the fixed review code. Parsed today, not used.       |
-| `EMAIL_CODE_REVIEW_UNTIL`      | Plan 2.4. ISO timestamp that ends review access. Parsed today, not used. |
+| Setting                        | Meaning                                                                    |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `EMAIL_CODE_ENABLED`           | Turns email-code sign-in on for the server. Default `false`.               |
+| `EMAIL_CODE_EXPIRES_IN`        | Code lifetime in milliseconds. Default `600000`, ten minutes.              |
+| `EMAIL_CODE_REVIEW_ACCOUNT_ID` | Id of the customer account a store reviewer signs in as.                   |
+| `EMAIL_CODE_REVIEW_CLIENT_ID`  | The native application that takes the fixed review code.                   |
+| `EMAIL_CODE_REVIEW_CODE_HASH`  | bcrypt hash of the fixed six-digit review code.                            |
+| `EMAIL_CODE_REVIEW_UNTIL`      | ISO timestamp that ends review access, at most 30 days after the start-up. |
+
+The four review settings go together. The server refuses to start with one to
+three of them set, or with an end more than 30 days ahead.
 
 A code never outlives the sign-in attempt it belongs to. An attempt lasts
 fifteen minutes, so a lifetime longer than that has no effect.
@@ -84,6 +87,31 @@ voids the link, and spending the link voids the code.
 
 [`backend/docs/registration-limits.md`](../../backend/docs/registration-limits.md)
 explains what an attacker can still do with these limits.
+
+## Access for app store reviewers
+
+An app with no password has no password to give a store reviewer. Review
+access names one customer account and one native application. On that
+application the account's current address takes a fixed code, and no mail is
+sent for it. The code has six digits like any other, so the app needs no
+special screen.
+
+Store a bcrypt hash of the code, never the code itself. From `backend/`:
+
+```bash
+node -e "require('bcrypt').hash(process.argv[1], 12).then(console.log)" 246810
+```
+
+Every use checks again that the account still has that id, is not
+deactivated, has no staff role and no permission of its own, and that
+`EMAIL_CODE_REVIEW_UNTIL` has not passed. The end takes effect without a
+restart. On any other application, or at any other address, nothing changes.
+
+Each sign-in through it records `email_code_review_signed_in`. Five wrong codes
+for the account in one UTC day, from any attempts, switch review access off
+until the next day and record `email_code_review_locked`. Removing the settings
+voids the codes already handed out. The server logs a warning at start-up while
+the settings are set.
 
 ## The mail
 
