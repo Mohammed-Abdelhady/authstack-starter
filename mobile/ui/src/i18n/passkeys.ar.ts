@@ -12,6 +12,7 @@ export const PASSKEYS_AR: Record<keyof typeof PASSKEYS_EN, string> = {
   'passkeys.addedOn': 'أُضيف في {date}',
   'passkeys.lastUsed': 'آخر استخدام في {date}',
   'passkeys.neverUsed': 'لم يُستخدم بعد',
+  'passkeys.unnamed': 'مفتاح مرور بلا اسم',
   'passkeys.rename': 'إعادة التسمية',
   'passkeys.renameLabel': 'إعادة تسمية ⁨{name}⁩',
   'passkeys.nameField': 'اسم مفتاح المرور',

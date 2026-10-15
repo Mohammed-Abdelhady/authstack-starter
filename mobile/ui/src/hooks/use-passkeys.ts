@@ -98,7 +98,7 @@ export function usePasskeys(actions: PasskeyActions) {
       } catch {
         setNotice({
           tone: NOTICE_TONE.PROBLEM,
-          title: t('passkeys.renameFailed.title', { name: passkeyName(passkey) }),
+          title: t('passkeys.renameFailed.title', { name: passkeyName(t, passkey) }),
           description: t('passkeys.renameFailed.description'),
         });
         return false;
@@ -111,7 +111,7 @@ export function usePasskeys(actions: PasskeyActions) {
     async (passkey: PasskeySummary) => {
       if (pending.current.has(passkey.id)) return;
       setNotice(undefined);
-      const name = passkeyName(passkey);
+      const name = passkeyName(t, passkey);
       const confirmed = await confirm({
         title: t('passkeys.confirmRemove.title', { name }),
         message: t('passkeys.confirmRemove.message'),
