@@ -125,7 +125,7 @@ describe('effective link-host paths', () => {
 
   it('keeps unrelated prefixes and Unicode but rejects incoming ambiguity', () => {
     expect(canonicalLinkHostPath('/apiary')).toBe('/apiary');
-    expect(canonicalLinkHostPath('/mail/%D8%B1%D9%85%D8%B2')).toBe('/mail/رمز');
+    expect(canonicalLinkHostPath('/mail/%C3%A9t%C3%A9')).toBe('/mail/été');
     expect(canonicalLinkHostPath('/%ZZ')).toBeUndefined();
     expect(canonicalLinkHostPath('/%3fsecret')).toBeUndefined();
     expect(canonicalLinkHostPath('/a/../handoff')).toBeUndefined();
@@ -221,7 +221,7 @@ describe('Apple link-host associations', () => {
           'https://foreign.example.test/foreign',
           'http://links.example.test/insecure',
           'https://LINKS.example.test./handoff',
-          'https://links.example.test/mail/%D8%B1%D9%85%D8%B2',
+          'https://links.example.test/mail/%C3%A9t%C3%A9',
           'https://links.example.test/api/auth/identity',
           'https://links.example.test/%2fambiguous',
         ],
@@ -247,7 +247,7 @@ describe('Apple link-host associations', () => {
         details: [
           {
             appID: 'TEAM123456.com.example.mobile',
-            paths: ['/handoff', '/mail/رمز'],
+            paths: ['/handoff', '/mail/été'],
           },
         ],
       },
