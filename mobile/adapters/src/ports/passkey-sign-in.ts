@@ -1,12 +1,22 @@
-import type { NativePasskeyAssertion, NativePasskeyOptions } from '@app/sdk';
-import type { AbortSignalPort, PasskeyPort } from '@app/native-auth';
+import type {
+  NativePasskeyAssertion,
+  NativePasskeyOptions,
+  PasskeyAttestation,
+  PasskeyCreationOptions,
+} from '@app/sdk';
+import type { AbortSignalPort, NativeRegistrationResult, PasskeyPort } from '@app/native-auth';
 import type {
   NativePasskeysApi,
   NativePasskeyRequestOptions,
-  NativePasskeyTransport,
   NativeSignInPlatform,
   NativeSignInSettings,
 } from '../types/sign-in-modules';
+import {
+  attestation,
+  creationRequest,
+  isExcludedCredentialError,
+  isPasskeyTransport,
+} from '../logic/passkey-attestation';
 import { createNativePromptLease, type NativePromptLease } from '../logic/prompt-lease';
 import {
   errorHasCode,
@@ -15,19 +25,17 @@ import {
   promptFailure,
 } from '../logic/native-sign-in-values';
 
+/**
+ * How the module says this device cannot make a passkey although it passed
+ * the availability check: Android's message (its check reads only the API
+ * level), the code Expo gives iOS's NotSupportedException, and the web name.
+ */
+const PASSKEY_NOT_SUPPORTED_CODES = ['NotSupported', 'ERR_NOT_SUPPORTED', 'NotSupportedError'];
 const PASSKEY_CANCEL_CODES = [
   'ERR_REQUEST_CANCELED',
   'NotAllowedError',
   'UserCancelled',
   'UserCancelledException',
-];
-const PASSKEY_TRANSPORTS: readonly NativePasskeyTransport[] = [
-  'ble',
-  'hybrid',
-  'internal',
-  'nfc',
-  'smart-card',
-  'usb',
 ];
 
 interface PasskeyAssertionFields {
@@ -44,10 +52,6 @@ interface PasskeyResponseFields {
   authenticatorData?: unknown;
   signature?: unknown;
   userHandle?: unknown;
-}
-
-function isPasskeyTransport(value: string): value is NativePasskeyTransport {
-  return PASSKEY_TRANSPORTS.some((transport) => transport === value);
 }
 
 function isNativePlatform(platform: NativeSignInPlatform): boolean {
@@ -159,7 +163,7 @@ export function createPasskeySignInPort(
     return pending;
   };
 
-  return {
+  const port: PasskeyPort = {
     available,
 
     async authenticate(options: NativePasskeyOptions, signal: AbortSignalPort) {
@@ -184,4 +188,41 @@ export function createPasskeySignInPort(
       );
     },
   };
+
+  // Only a module that can create passkeys gets a registration prompt.
+  const create = module?.create?.bind(module);
+  if (create === undefined) return port;
+
+  const register = async (
+    options: PasskeyCreationOptions,
+    signal: AbortSignalPort,
+  ): Promise<NativeRegistrationResult<PasskeyAttestation>> => {
+    const request = creationRequest(options, settings);
+    if (!request) return promptFailure('invalidResponse');
+    if (signal.aborted) return { kind: 'cancelled' };
+    if (!(await available())) return { kind: 'unavailable' };
+
+    // An excluded credential is told apart inside the failure branch, so the
+    // lease keeps its one prompt at a time and its cancel handling.
+    const failure = { excluded: false };
+    const result = await lease.run<unknown, PasskeyAttestation>(
+      signal,
+      () => create(request),
+      (value) => {
+        if (value === null) return { kind: 'cancelled' };
+        const made = attestation(value);
+        return made === undefined
+          ? promptFailure('invalidResponse')
+          : { kind: 'success', value: made };
+      },
+      (error) => {
+        if (errorHasCode(error, PASSKEY_CANCEL_CODES)) return { kind: 'cancelled' };
+        if (errorHasCode(error, PASSKEY_NOT_SUPPORTED_CODES)) return { kind: 'unavailable' };
+        failure.excluded = isExcludedCredentialError(error);
+        return promptFailure('sdk');
+      },
+    );
+    return failure.excluded ? { kind: 'excluded' } : result;
+  };
+  return { ...port, register };
 }
