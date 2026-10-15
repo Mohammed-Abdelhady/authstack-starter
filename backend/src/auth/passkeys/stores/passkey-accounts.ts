@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
 
 /** An account as the passkey routes need it. */
@@ -30,6 +31,15 @@ export abstract class PasskeyAccounts {
   abstract findSignInMethods(
     userId: string,
   ): Promise<StoredSignInMethods | null>;
+  /**
+   * Whether the account is deactivated, read in the unit of work that stores
+   * a passkey for it. A deactivation that commits first is seen; one that
+   * starts later waits for the work or sees the passkey.
+   */
+  abstract readStanding(
+    unitOfWork: UnitOfWork,
+    userId: string,
+  ): Promise<{ isDeleted: boolean } | null>;
 }
 
 export type PasskeySignInOutcome =

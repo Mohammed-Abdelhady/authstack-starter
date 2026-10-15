@@ -1,13 +1,16 @@
 import * as bcrypt from 'bcrypt';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { counterCases } from './passkeys-contract-counter.harness-spec';
+import { enrolmentCases } from './passkeys-contract-enrolment.harness-spec';
 import { managementCases } from './passkeys-contract-management.harness-spec';
+import { nativeRegistrationCases } from './passkeys-contract-native-registration.harness-spec';
 import { removalHintCases } from './passkeys-contract-removal-hint.harness-spec';
 import { removalRaceCases } from './passkeys-contract-removal-race.harness-spec';
 import { reauthPasswordCases } from './passkeys-contract-reauth-password.harness-spec'; // feature:email-password
 import { reauthCases } from './passkeys-contract-reauth.harness-spec';
 import { registrationRuleCases } from './passkeys-contract-registration-rules.harness-spec';
 import { registrationCases } from './passkeys-contract-registration.harness-spec';
+import { relyingPartyCases } from './passkeys-contract-relying-party.harness-spec';
 import { routeIdCases } from './passkeys-contract-route-ids.harness-spec';
 import { seamCases } from './passkeys-contract-seam.harness-spec';
 import { signInRuleCases } from './passkeys-contract-sign-in-rules.harness-spec';
@@ -91,5 +94,8 @@ export function describePasskeysContract(
     unlinkRaceCases(current); // feature:oauth-core
     seamCases(current, seeded);
     routeIdCases(current, seeded);
+    nativeRegistrationCases(current, seeded);
+    relyingPartyCases(current, seeded);
+    enrolmentCases(current, seeded);
   });
 }

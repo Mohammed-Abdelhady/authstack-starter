@@ -1,7 +1,37 @@
 import { hostCookieName } from '../../utils/cookie-name.util';
 
 /** Which ceremony a challenge was handed out for. */
-export type PasskeyChallengePurpose = 'register' | 'login';
+export type PasskeyChallengePurpose = 'register' | 'login' | 'nativeRegister';
+
+/** What a ceremony asks of the authenticator before it signs. */
+export const USER_VERIFICATION = {
+  REQUIRED: 'required',
+  PREFERRED: 'preferred',
+} as const;
+
+export type UserVerificationRequirement =
+  (typeof USER_VERIFICATION)[keyof typeof USER_VERIFICATION];
+
+/** Which route a registration ceremony runs on. */
+export const PASSKEY_CEREMONY = {
+  NATIVE: 'native',
+  BROWSER: 'browser',
+} as const;
+
+export type PasskeyCeremony =
+  (typeof PASSKEY_CEREMONY)[keyof typeof PASSKEY_CEREMONY];
+
+/**
+ * The registration policy until the application policy reader exposes
+ * `requirePasskey` and enrolment sessions: neither applies, as today.
+ */
+export const REGISTRATION_POLICY_UNTIL_READER = {
+  requirePasskey: false,
+  enrolment: false,
+} as const;
+
+/** Label that keeps a native registration digest apart from any other. */
+export const NATIVE_REGISTRATION_DIGEST_LABEL = 'native-passkey-register';
 export const PASSKEY_CHALLENGE_COOKIE = hostCookieName(
   process.env.NODE_ENV,
   'pk_challenge',

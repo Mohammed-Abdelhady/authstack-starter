@@ -25,6 +25,7 @@ function at(offsetMs: number): Date {
 function newPasskey(userId: string, credentialId: string): NewPasskey {
   return {
     userId,
+    rpId: 'localhost',
     credentialId,
     publicKey: Buffer.from([0, 255, 1, 128]),
     counter: HIGH_COUNTER,
