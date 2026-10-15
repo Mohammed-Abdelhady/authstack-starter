@@ -75,8 +75,8 @@ pnpm --filter backend run audience:apply --role editors=customer --role operator
 
 The production command runs `node dist/cli/audience-apply.js` and needs no
 development dependencies. In a source checkout, `audience:apply:dev` runs the same
-command from TypeScript. After a backend build, the command E2E cases exercise
-the compiled entry point.
+command from TypeScript. The command's E2E cases run that TypeScript entry too, so
+they need no build; the backend build checks that the compiled entry exists.
 
 For the shipped image, keep the database running and use a one-off backend
 container while the API is stopped:
