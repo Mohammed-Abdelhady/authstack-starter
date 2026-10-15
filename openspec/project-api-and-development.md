@@ -237,7 +237,7 @@ GET    /api/user/list (Admin only)
 
 -   [ ] No sensitive data (API keys, passwords) in code
 -   [ ] TypeScript strict mode passes (no `any` types)
--   [ ] All new features have tests
+-   [ ] Changed critical behavior has a focused test, with existing coverage reused where possible
 -   [ ] Error handling implemented
 -   [ ] Input validation on all endpoints/forms
 -   [ ] Documentation updated (if API changes)
