@@ -37,14 +37,17 @@ Policy keys are `signUp: "open" | "closed"`,
 `requirePasskey: boolean` and `audience: "customer" | "staff"`. Missing policy
 keys mean open sign-up, no required passkey and unrestricted audience. A staff
 application must specify `signUp: "closed"`; `requirePasskey: true` requires
-passkeys to be available for that application. Startup names the invalid setting
-and its repair.
+passkeys to be available for that application. It is temporarily refused at
+startup until the passkeys work in plan 3 supplies verified passkey sign-in
+evidence. Keep `requirePasskey` false until that work lands. Startup names the
+application and its repair.
 
 Audience admission and target scopes activate when any application names an
 audience. The staff browser guard activates only when an application names
 `staff`. Closed sign-up refuses new self-created accounts. Staff account creation
-and seed bootstrap remain allowed. Required-passkey issuance enforcement lands in
-sub-wave 5; do not rely on that key before that change.
+and seed bootstrap remain allowed. The issuer enforces required-passkey policy;
+the startup refusal prevents enabling it before the passkey route can supply
+verified evidence.
 A real change to the admission snapshot or configured method list
 advances the application policy version and records `policy_changed` in the same
 transaction. Changing server-wide method availability does not advance this version.
@@ -76,8 +79,9 @@ stored application.
 
 Use `audience: "customer"` or `audience: "staff"` in an application's sign-in
 policy. A named audience admits only accounts of that audience. An application
-without an audience admits either. Browser admission is live; native admission
-lands with the native sign-in integration in sub-wave 4. With no application
+without an audience admits either. Browser admission is live. Native attempt
+and credential-path integration is not yet complete; do not treat configured
+native policy as proof that every native flow enforces it. With no application
 naming an audience, audience admission and the staff guard stay inactive.
 
 Before naming an audience on an existing installation, stop the API and run
@@ -117,14 +121,155 @@ Configure `ADMIN_URL` to provide that browser application. When admin requires a
 passkey, the session must contain server-verified passkey evidence with user
 verification.
 
-## Settings completed in later sub-waves
+## Session limits
 
-`AUTH_WEB_SESSION` and `AUTH_ADMIN_SESSION` accept
-`{ "absoluteHours": 168, "idleMinutes": 30, "cap": 20 }`. Their live-limit
-behavior lands separately. Absence keeps today's web lifetime and global cap,
-with the existing lower admin cap.
+`AUTH_WEB_SESSION` and `AUTH_ADMIN_SESSION` accept JSON containing all three
+fields, for example:
 
-`AUTH_NATIVE_LINK_HOST` and native application policy, session and signing
-identifiers are completed with the native and link-host work. Native `session`
-has `bound` and `unbound` objects, each with `absoluteHours` and `idleMinutes`.
-Absent `firstParty` means false; signing identifiers remain absent.
+```text
+AUTH_WEB_SESSION={"absoluteHours":168,"idleMinutes":30,"cap":20}
+AUTH_ADMIN_SESSION={"absoluteHours":4,"idleMinutes":10,"cap":3}
+```
+
+| Application | Initial absolute limit | Initial idle limit | Absent cap                                |
+| ----------- | ---------------------- | ------------------ | ----------------------------------------- |
+| Web         | 168 hours              | 30 minutes         | Existing global cap of 20                 |
+| Admin       | 8 hours                | 15 minutes         | Existing admin cap of 5, within global 20 |
+
+Without a browser session setting, the application uses the initial limits
+above. Removing the setting restores those lifetimes and the global cap fallback
+at startup.
+
+Admin settings cannot exceed 8 hours, 15 minutes or 5 sessions. Startup refuses
+an above-bound value and names `AUTH_ADMIN_SESSION`. A configured `cap` counts
+sessions for that application. When no cap is configured, the existing global
+cap of 20 and lower admin cap of 5 still apply.
+
+Limits apply to existing sessions at their next validation. Shortening a limit
+can end a session immediately. Expiry is persisted with reason `expired`. Once
+that ending is stored, lengthening the limit cannot revive the session. If the
+write fails, the expired credential still receives the usual signed-out reply;
+its next use retries the write. A longer limit cannot extend a session past the
+absolute deadline stored when it was issued.
+Lifetime and cap changes do not advance the application policy version.
+Enrolment keeps its separate fixed 15-minute lifetime. These are server limits.
+`SESSION_COOKIE_MAX_AGE` still controls browser-cookie persistence and can end
+browser access earlier.
+
+A native application accepts `session.bound` and `session.unbound`, each with
+`absoluteHours` and `idleMinutes`. The unbound pair applies when the session has
+no device-key binding. Each unbound limit must be no longer than its bound
+limit. Absent settings retain 30 days absolute and 7 days idle. Every new native
+session starts with an idle window of at most 5 minutes, including when limits
+are configured; a shorter configured idle wins. The shared limit selector is
+available, but native issue, exchange, refresh and retry paths
+still need their integration. Do not enable custom native limits expecting
+complete enforcement until that work is verified.
+
+## Native link host
+
+Set `AUTH_NATIVE_LINK_HOST` to a bare hostname, for example `links.example.com`.
+It must differ from the hostnames in `API_URL`, `CLIENT_URL` and `ADMIN_URL`.
+In production, a first-party native application's redirect must use HTTPS on
+this link host. An absent setting adds no link-host responses.
+
+The backend serves these exact association paths on that host, as JSON without
+a redirect:
+
+- `/.well-known/apple-app-site-association`, for applications with `appleAppId`.
+- `/.well-known/assetlinks.json`, for applications with both `androidPackage`
+  and `androidCertificates`.
+
+Use the signed application's identifiers and SHA-256 signing-certificate
+fingerprints. These identifiers are public association data. Applications
+without the required identifiers are omitted from that platform's file.
+
+Native redirect paths and the paths in effective mail-link templates, including
+custom and localized templates, serve a fixed page that tells the reader to
+continue on the requesting phone or use the mailed code. It has no script,
+echoes no request data, and sends `noindex`, `Referrer-Policy: no-referrer` and a
+CSP containing `script-src 'none'`. The language is selected from the project's
+supported languages. API routes, documentation, health and frontend assets are
+unavailable on the link host. Passkey origins remain exact, with no domain
+wildcard.
+
+### Configure the shipped proxy
+
+The nginx files use static `server_name` directives. `setup-production` rewrites
+the frontend and API names; `NGINX_HOST` is not an nginx template substitution.
+The link-host renderer receives a manifest exported by the backend's validated
+effective configuration. It does not parse an environment file itself.
+
+Build the backend or use its production image, then generate the include
+atomically from the same configuration that will run the API:
+
+```bash
+set -euo pipefail
+mkdir -p nginx/native-link-host
+chmod 755 nginx/native-link-host
+pending="$(mktemp nginx/native-link-host/link-host.XXXXXX)"
+trap 'rm -f "$pending"' EXIT
+docker compose -f docker-compose.prod.yml run --rm --no-deps backend \
+  node dist/cli/native-link-host.js --nginx-manifest \
+  | node nginx/render-native-link-host.mjs > "$pending"
+chmod 644 "$pending"
+mv "$pending" nginx/native-link-host/link-host.conf
+trap - EXIT
+```
+
+Use `docker-compose.postgres.prod.yml` for PostgreSQL. With no configured link
+host, the renderer emits an empty include. Regenerate it when the host, native
+redirects or mail templates change, including when removing the setting.
+
+Add this mount in a local Compose override, `compose.link-host.yml`:
+
+```yaml
+services:
+  nginx:
+    volumes:
+      - ./nginx/native-link-host:/etc/nginx/native-link-host:ro
+```
+
+The generated servers use the existing container ports 8080 and 8443, published
+as 80 and 443 by Compose. Permitted paths proxy to the backend on both HTTP and
+HTTPS without redirects. The HTTP server also serves ACME HTTP-01 challenge
+files from `/var/www/certbot`, never from an upstream. That exception is absent
+on HTTPS. Every other path returns 404; other methods on proxied paths return 405. The servers overwrite `Host` and forwarding headers. The backend boundary
+uses raw `Host`, never `X-Forwarded-Host`.
+
+The certificate installed under `/etc/nginx/ssl/` must cover the link hostname.
+Point its DNS at the proxy. The shipped `ssl-setup.sh` only requests its domain
+and `www` name; it does not add the link host. Expand the existing certificate
+lineage explicitly. Replace the example certificate name, email and **all**
+existing DNS names below with those in your installation, retaining every
+current SAN and adding `-d links.example.com`:
+
+```bash
+docker compose -f docker-compose.prod.yml -f compose.link-host.yml run --rm \
+  --entrypoint certbot certbot certonly --webroot -w /var/www/certbot \
+  --email ops@example.com --agree-tos --no-eff-email \
+  --cert-name example.com --expand \
+  -d example.com -d www.example.com -d api.example.com -d links.example.com
+```
+
+The nginx service must already serve the shared webroot on port 80. The explicit
+entrypoint bypasses the Compose certbot service's renewal loop so this command
+actually runs `certonly`. Later renewal uses the expanded lineage and the same
+HTTP challenge exception. The renewal loop updates `/etc/letsencrypt`; it does
+not replace the copied files mounted from `nginx/ssl`. Install the issued or
+renewed files there through your existing certificate deployment procedure,
+then validate and reload nginx. Keep both Compose files in the deployment:
+
+```bash
+docker compose -f docker-compose.prod.yml -f compose.link-host.yml up -d --build nginx
+docker compose -f docker-compose.prod.yml -f compose.link-host.yml exec nginx nginx -t
+docker compose -f docker-compose.prod.yml -f compose.link-host.yml exec nginx nginx -s reload
+```
+
+The optional include glob preserves current proxy behavior when no generated
+server block is present. The renderer refuses path lists that overlap API,
+documentation, health or frontend asset namespaces, or contain ambiguous URL
+escapes. Repair the redirect or mail template and regenerate the include.
+
+Run the separate [real nginx gate](../operations/native-link-proxy-gate.md)
+before deploying this boundary. API tests alone do not verify the shipped proxy.
