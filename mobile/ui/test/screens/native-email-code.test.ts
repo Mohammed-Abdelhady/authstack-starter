@@ -159,6 +159,25 @@ describe.each(LOCALES)('native sign-in by emailed code in %s', (locale) => {
     expect(app.engine.snapshot.status).toBe('signedIn');
   });
 
+  it('offers no link-only resend while the methods reply fails after a restart, and gets the code screen back on retry', async () => {
+    const app = await nativeApp(locale, { methods: CODE_METHODS });
+    serveCodeJourney(app, async () => undefined);
+    await askForCode(app, locale);
+    app.failMethods(true);
+    await app.remount();
+    const resendsWithoutMethods = buttons(app.root, locale, 'native.resend').length;
+
+    app.failMethods(false);
+    await pressButton(app, locale, 'common.tryAgain');
+    await typeInto(app, locale, 'native.emailCode', RIGHT_CODE);
+    await pressButton(app, locale, 'native.verify');
+
+    expect(resendsWithoutMethods).toBe(0);
+    expect(bodiesTo(app, `${ATTEMPT_PATH}/email-code/verify`)).toEqual([
+      { code: RIGHT_CODE, locale },
+    ]);
+  });
+
   it('ends the journey when the server ends the attempt after a refused code', async () => {
     const app = await nativeApp(locale, { methods: CODE_METHODS });
     serveCodeJourney(app, async () => undefined);
