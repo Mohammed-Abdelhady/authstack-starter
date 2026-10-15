@@ -248,6 +248,19 @@ describe('the SDK transport through the RTK adapter', () => {
     expect(requests).toEqual(['PATCH /api/admin/users/user-2/role']);
   });
 
+  it('returns the role response as a partial result without inventing an account', async () => {
+    rememberBrowserProof('session-proof', 'session');
+    vi.stubGlobal('fetch', async () =>
+      Response.json({ success: true, data: { id: 'user-2', role: 'admin' } }),
+    );
+
+    const result = await makeStore()
+      .dispatch(usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }))
+      .unwrap();
+
+    expect(result).toEqual({ id: 'user-2', role: 'admin' });
+  });
+
   it('refreshes sensitive reads when a successful HTTP write has an unreadable answer', async () => {
     rememberBrowserProof('session-proof', 'session');
     vi.stubGlobal('fetch', async () => new Response('<html>proxy</html>', { status: 200 }));
