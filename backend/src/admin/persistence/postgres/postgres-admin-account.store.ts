@@ -1,4 +1,7 @@
+import { assertPostgresAccountAudience } from '../../../user/persistence/postgres/postgres-account-audience';
+import { linkedAccountsByUser } from './postgres-admin-links';
 import { Kysely, Transaction } from 'kysely';
+import { assignableRoleOf } from './postgres-admin-role';
 import {
   AccountIdentityEdit,
   AdminAccountPage,
@@ -10,10 +13,7 @@ import {
 } from '../../stores/admin-account.store';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import {
-  LinkedAccountRecord,
-  StoredAccount,
-} from '../../../user/stores/stored-account';
+import { StoredAccount } from '../../../user/stores/stored-account';
 import {
   ACCOUNT_COLUMNS,
   accountFailure,
@@ -23,7 +23,6 @@ import {
   toStoredAccount,
 } from '../../../user/persistence/postgres/postgres-account-rows';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
-import { anyUuid } from '../../../session/persistence/postgres/postgres-bind-parameters';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
 import { storedAddress } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
@@ -75,6 +74,10 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
           : matching.where('role', 'in', query.viewableRoles);
       if (query.viewableRoles.length === 0) {
         return { accounts: [], total: 0 };
+      }
+      if (query.audiences !== undefined) {
+        if (query.audiences.length === 0) return { accounts: [], total: 0 };
+        matching = matching.where('audience', 'in', query.audiences);
       }
       if (query.search) {
         const pattern = literalPattern(query.search);
@@ -130,10 +133,10 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('roles')
-        .select(['id', 'slug'])
+        .select(['id', 'slug', 'audience'])
         .where('id', '=', toUuid(roleId))
         .executeTakeFirst();
-      return row ?? null;
+      return assignableRoleOf(row);
     });
   }
 
@@ -141,10 +144,10 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('roles')
-        .select(['id', 'slug'])
+        .select(['id', 'slug', 'audience'])
         .where('slug', '=', slug)
         .executeTakeFirst();
-      return row ?? null;
+      return assignableRoleOf(row);
     });
   }
 
@@ -175,10 +178,10 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
   ): Promise<AssignableRole | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('roles')
-      .select(['id', 'slug'])
+      .select(['id', 'slug', 'audience'])
       .where('slug', '=', slug)
       .executeTakeFirst();
-    return row ?? null;
+    return assignableRoleOf(row);
   }
 
   saveActivation(
@@ -232,6 +235,11 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     unitOfWork: UnitOfWork,
     account: NewAdminAccount,
   ): Promise<StoredAccount> {
+    await assertPostgresAccountAudience(
+      unitOfWork,
+      account.role,
+      account.audience,
+    );
     const now = this.clock.now();
     try {
       const row = await postgresTransactionOf(unitOfWork)
@@ -246,6 +254,7 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
           auth_provider: AuthProvider.EMAIL,
           primary_provider: AuthProvider.EMAIL,
           locale: account.locale,
+          audience: account.audience ?? null,
           created_at: now,
           updated_at: now,
         })
@@ -300,34 +309,6 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
     }
     return saved;
   }
-}
-
-/**
- * The links of a page of accounts in one statement, each account's in the
- * order they were made.
- */
-async function linkedAccountsByUser(
-  database: Kysely<PostgresTables>,
-  userIds: string[],
-): Promise<Map<string, LinkedAccountRecord[]>> {
-  const links = new Map<string, LinkedAccountRecord[]>();
-  if (userIds.length === 0) return links;
-  const rows = await database
-    .selectFrom('user_linked_accounts')
-    .select(['user_id', 'provider', 'provider_id', 'linked_at'])
-    .where('user_id', '=', anyUuid(userIds))
-    .orderBy('id')
-    .execute();
-  for (const row of rows) {
-    const ofUser = links.get(row.user_id) ?? [];
-    ofUser.push({
-      provider: row.provider,
-      providerId: row.provider_id,
-      linkedAt: row.linked_at,
-    });
-    links.set(row.user_id, ofUser);
-  }
-  return links;
 }
 
 function statusFilter(query: AdminAccountQuery): {

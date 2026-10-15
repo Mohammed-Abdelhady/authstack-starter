@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { escapeRegex } from '../../common/utils/escape-regex';
 
 /**
@@ -9,6 +10,7 @@ import { escapeRegex } from '../../common/utils/escape-regex';
  */
 export function buildUserFilter(
   query: {
+    audiences?: readonly RoleAudience[];
     search?: string;
     role?: string;
     status?: 'active' | 'inactive' | 'deleted';
@@ -18,6 +20,10 @@ export function buildUserFilter(
 ): Record<string, unknown> {
   const { search, role, status, isVerified } = query;
   const filter: Record<string, unknown> = { role: { $in: viewableRoles } };
+
+  if (query.audiences !== undefined) {
+    filter.audience = { $in: [...query.audiences] };
+  }
 
   if (search) {
     const escaped = escapeRegex(search);

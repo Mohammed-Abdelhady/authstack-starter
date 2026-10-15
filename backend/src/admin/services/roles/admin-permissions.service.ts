@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UserPermissionsService } from '../../../user/services/user-permissions.service';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
@@ -42,14 +44,23 @@ export class AdminPermissionsService {
     private readonly userPermissionsService: UserPermissionsService,
     private readonly runner: UnitOfWorkRunner,
     private readonly roleChanges: RoleChangeStore,
+    private readonly audiences: AudiencePolicy,
   ) {}
 
   /** Read the permissions of a user the actor is allowed to see. */
   async getUserPermissions(
     userId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<UserPermissionsWithRole>> {
     const target = await this.accessService.loadActiveUser(userId);
+    if (this.audiences.enabled()) {
+      this.accessService.assertTargetScope(
+        USER_SCOPE_ACTION.READ,
+        target.audience,
+        actorPermissions,
+      );
+    }
     await this.accessService.assertCanView(actorRole, target.role);
 
     return this.userPermissionsService.getUserPermissions(userId);
@@ -61,8 +72,9 @@ export class AdminPermissionsService {
     permission: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<UserPermissionsData>> {
-    await this.assertCanGrant(userId, actorId, actorRole);
+    await this.assertCanGrant(userId, actorId, actorRole, actorPermissions);
     const saved = await this.changePermissions(
       userId,
       actorId,
@@ -83,8 +95,9 @@ export class AdminPermissionsService {
     permission: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<UserPermissionsData>> {
-    await this.assertCanGrant(userId, actorId, actorRole);
+    await this.assertCanGrant(userId, actorId, actorRole, actorPermissions);
     const saved = await this.changePermissions(
       userId,
       actorId,
@@ -113,6 +126,7 @@ export class AdminPermissionsService {
           actorId,
         );
         if (change === 'grant') {
+          this.audiences.assertDirectPermissions(target.audience, [permission]);
           await assertActorHolds(
             this.roleChanges,
             unitOfWork,
@@ -191,9 +205,17 @@ export class AdminPermissionsService {
     userId: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<void> {
     const target = await this.accessService.loadActiveUser(userId);
 
+    if (this.audiences.enabled()) {
+      this.accessService.assertTargetScope(
+        USER_SCOPE_ACTION.UPDATE,
+        target.audience,
+        actorPermissions,
+      );
+    }
     this.accessService.assertNotSelf(
       userId,
       actorId,

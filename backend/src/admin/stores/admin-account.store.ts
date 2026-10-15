@@ -1,8 +1,10 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { StoredAccount } from '../../user/stores/stored-account';
 import type { SupportedLocale } from '../../common/constants/locales';
 
 export interface AdminAccountQuery {
+  audiences?: readonly RoleAudience[];
   /** Matched against name and address, ignoring case, taken literally. */
   search?: string;
   role?: string;
@@ -22,6 +24,7 @@ export interface AdminAccountPage {
 }
 
 export interface NewAdminAccount {
+  audience?: RoleAudience;
   email: string;
   name: string;
   passwordHash: string;
@@ -31,6 +34,7 @@ export interface NewAdminAccount {
 
 /** A role as an assignment refers to it. */
 export interface AssignableRole {
+  audience?: RoleAudience;
   id: string;
   slug: string;
 }

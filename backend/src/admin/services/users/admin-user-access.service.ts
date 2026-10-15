@@ -1,3 +1,6 @@
+import type { UserScopeAction } from '../../types/user-scope-action';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+import { AdminAudienceScopes } from './admin-audience-scopes';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { RoleHierarchyService } from '../../../role/services/role-hierarchy.service';
@@ -24,7 +27,33 @@ export class AdminUserAccessService {
   constructor(
     private readonly accounts: AdminAccountStore,
     private readonly roleHierarchyService: RoleHierarchyService,
+    private readonly scopes: AdminAudienceScopes,
   ) {}
+
+  allowedAudiences(action: UserScopeAction, permissions?: readonly string[]) {
+    return this.scopes.allowedAudiences(action, permissions);
+  }
+
+  scopePermission(action: UserScopeAction, audience?: RoleAudience): string {
+    return this.scopes.permission(action, audience);
+  }
+
+  assertTargetScope(
+    action: UserScopeAction,
+    audience: RoleAudience | undefined,
+    permissions?: readonly string[],
+  ): void {
+    this.scopes.assertTarget(action, audience, permissions);
+  }
+
+  assertTargetScopeInWork(
+    work: UnitOfWork,
+    actorId: string,
+    audience: RoleAudience | undefined,
+    action: UserScopeAction,
+  ): Promise<void> {
+    return this.scopes.assertInWork(work, actorId, audience, action);
+  }
 
   /**
    * Load a user that is present and not soft deleted.

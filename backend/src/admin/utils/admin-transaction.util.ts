@@ -1,3 +1,5 @@
+import type { UserScopeAction } from '../types/user-scope-action';
+import { USER_SCOPE_ACTION } from '../constants/user-scope-permissions';
 import { HttpStatus, Logger } from '@nestjs/common';
 import { AdminEmailChangeService } from '../services/users/admin-email-change.service';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -55,7 +57,11 @@ export async function loadAuthorizedUser(
   targetId: string,
   actorId: string,
   message?: string,
-  options: { includeDeleted?: boolean; requireAdmin?: boolean } = {},
+  options: {
+    includeDeleted?: boolean;
+    requireAdmin?: boolean;
+    action?: UserScopeAction;
+  } = {},
 ): Promise<StoredAccount> {
   const current = await accounts.takeAccountForChange(unitOfWork, targetId);
   if (!current || (current.isDeleted && !options.includeDeleted)) {
@@ -65,6 +71,12 @@ export async function loadAuthorizedUser(
       HttpStatus.NOT_FOUND,
     );
   }
+  await accessService.assertTargetScopeInWork(
+    unitOfWork,
+    actorId,
+    current.audience,
+    options.action ?? USER_SCOPE_ACTION.UPDATE,
+  );
   await accessService.assertFreshActorCanModify(
     actorId,
     current.role,

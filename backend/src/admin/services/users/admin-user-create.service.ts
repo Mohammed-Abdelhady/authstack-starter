@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Clock } from '../../../common/services/clock';
 import {
@@ -22,7 +24,6 @@ import { rethrowOrUnavailable } from '../../utils/admin-transaction.util';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { reconcileAssignedRole } from '../../utils/admin-role-reconcile.util';
 import type { AssignedRoleRef } from '../../types/assigned-role-ref';
-import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 import { chosenLocale } from '../../../common/constants/locales';
 import { AccountCreationPolicy } from '../../../auth/services/registration/account-creation-policy';
@@ -47,6 +48,7 @@ export class AdminUserCreateService {
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
     private readonly clock: Clock,
+    private readonly audiences: AudiencePolicy,
   ) {}
 
   /**
@@ -58,6 +60,7 @@ export class AdminUserCreateService {
     dto: CreateUserDto,
     actorRole: string,
     actorId: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<AdminUserDto>> {
     const locale = chosenLocale(dto.locale);
     const { email, name, password, role } = dto;
@@ -92,6 +95,17 @@ export class AdminUserCreateService {
               HttpStatus.NOT_FOUND,
             );
           }
+          this.accessService.assertTargetScope(
+            USER_SCOPE_ACTION.CREATE,
+            assignedRole.audience,
+            actorPermissions,
+          );
+          await this.accessService.assertTargetScopeInWork(
+            unitOfWork,
+            actorId,
+            assignedRole.audience,
+            USER_SCOPE_ACTION.CREATE,
+          );
           await this.accessService.assertFreshActorCanModify(
             actorId,
             assignedRole.slug,
@@ -101,7 +115,10 @@ export class AdminUserCreateService {
             this.roleChanges,
             unitOfWork,
             actorId,
-            USER_PERMISSIONS.CREATE_ALL,
+            this.accessService.scopePermission(
+              USER_SCOPE_ACTION.CREATE,
+              assignedRole.audience,
+            ),
             assignedRole.slug,
           );
           await this.policy.assertMayCreate(
@@ -124,6 +141,7 @@ export class AdminUserCreateService {
             name,
             passwordHash: hashedPassword,
             role: assignedRole.slug,
+            audience: assignedRole.audience,
             locale,
           });
           await this.ledger.finishAccountReservation(
@@ -202,6 +220,7 @@ export class AdminUserCreateService {
       runner: this.runner,
       changes: this.roleChanges,
       sweeps: this.roleSweeps,
+      audiencePolicy: this.audiences,
     };
   }
 }
