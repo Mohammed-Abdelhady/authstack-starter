@@ -8,7 +8,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCookieAuth, ApiTags } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { SESSION_PERMISSIONS } from '../../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
@@ -16,6 +16,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RouteIdPipe } from '../../common/pipes/route-id.pipe';
 import { AdminSessionsService } from './admin-sessions.service';
+import { AdminSessionListResponseDto } from './dto/admin-session-response.dto';
 
 @ApiTags('admin')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
@@ -26,6 +27,7 @@ export class AdminSessionsController {
 
   @Get()
   @RequirePermissions(SESSION_PERMISSIONS.READ_ALL)
+  @ApiOkResponse({ type: AdminSessionListResponseDto })
   list(
     @Param('id', RouteIdPipe) id: string,
     @CurrentUser('id') actorId: string,
