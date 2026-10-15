@@ -157,6 +157,7 @@ describe('OwnEmailRequestService', () => {
           lapsesAt: new Date('2099-01-02T00:00:00.000Z'),
         }),
     ],
+    // feature:invitations:start
     [
       'an invitation',
       (held: OwnEmailWorld) =>
@@ -167,6 +168,7 @@ describe('OwnEmailRequestService', () => {
           lapsesAt: new Date('2099-01-02T00:00:00.000Z'),
         }),
     ],
+    // feature:invitations:end
   ])(
     'answers an address held by %s exactly like a free one, and sends it no code',
     async (_holder, hold) => {
