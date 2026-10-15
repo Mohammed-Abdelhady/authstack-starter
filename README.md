@@ -59,7 +59,7 @@ At runtime, the frontend calls `GET /api/auth/methods` to learn which authentica
 
 ## Quick start
 
-Use Node 22.12 or newer on the 22 line, or Node 24, and pnpm 12.6.0. Node 22 and Node 24 include Corepack. Enable the pinned manager before cloning or scaffolding:
+Use Node 22.12 or newer on the 22 line, or Node 24.22 or newer on the 24 line, and pnpm 12.6.0. Node 24.21 and earlier can crash under load in V8's garbage collector (nodejs/node#62393), which 24.22.0 fixes. Node 22 and Node 24 include Corepack. Enable the pinned manager before cloning or scaffolding:
 
 ```bash
 nvm use 22

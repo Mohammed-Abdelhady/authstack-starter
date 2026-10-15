@@ -51,14 +51,20 @@ export const PERMISSION_PERMISSIONS = {
 export const SESSION_PERMISSIONS = {
   READ_ALL: 'sessions:read:all',
   READ_OWN: 'sessions:read:own',
+  READ_STAFF: 'sessions:read:staff',
   DELETE_ALL: 'sessions:delete:all',
   DELETE_OWN: 'sessions:delete:own',
+  DELETE_STAFF: 'sessions:delete:staff',
 } as const;
 
 // ========== Report Permissions ==========
 export const REPORT_PERMISSIONS = {
   READ_ALL: 'reports:read:all',
   CREATE_ALL: 'reports:create:all',
+} as const;
+
+export const ACTIVITY_PERMISSIONS = {
+  READ_ALL: 'activity:read:all',
 } as const;
 
 // ========== Wildcard Permission ==========
@@ -77,6 +83,7 @@ export const ALL_PERMISSIONS = [
   ...Object.values(PERMISSION_PERMISSIONS),
   ...Object.values(SESSION_PERMISSIONS),
   ...Object.values(REPORT_PERMISSIONS),
+  ...Object.values(ACTIVITY_PERMISSIONS),
 ] as const;
 
 /**
@@ -109,10 +116,4 @@ export const PERMISSION_SCOPES = ['own', 'all', 'staff'] as const;
  * Outside the active catalogue and picker. The permission format accepts these,
  * but grant validation refuses them until their plan.
  */
-export const RESERVED_PERMISSIONS = [
-  'users:suspend:all',
-  'users:suspend:staff',
-  'activity:read:all',
-  'sessions:read:staff',
-  'sessions:delete:staff',
-] as const;
+export const RESERVED_PERMISSIONS = ['users:suspend:all', 'users:suspend:staff'] as const;

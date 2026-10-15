@@ -127,6 +127,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0022_application_policy.sql',
           '0023_account_audience.sql',
           '0024_session_evidence.sql',
+          '0027_activity_log.sql',
         ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },

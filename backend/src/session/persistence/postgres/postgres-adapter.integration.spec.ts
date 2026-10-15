@@ -148,6 +148,7 @@ describe('PostgreSQL adapter', () => {
         '0022_application_policy.sql',
         '0023_account_audience.sql',
         '0024_session_evidence.sql',
+        '0027_activity_log.sql',
       ],
       again: [],
       recorded: [
@@ -175,6 +176,7 @@ describe('PostgreSQL adapter', () => {
         '0022_application_policy.sql',
         '0023_account_audience.sql',
         '0024_session_evidence.sql',
+        '0027_activity_log.sql',
       ],
     });
   });

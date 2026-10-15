@@ -1,0 +1,79 @@
+{
+  "activity": {
+    "title": "نشاط الموظفين",
+    "description": "إجراءات الموظفين المسجّلة في جميع التطبيقات.",
+    "refresh": "تحديث النشاط",
+    "loading": "جارٍ تحميل نشاط الموظفين...",
+    "loadError": "تعذّر تحميل نشاط الموظفين.",
+    "results": "نتائج النشاط",
+    "empty": "لا توجد إجراءات للموظفين تطابق عوامل التصفية هذه.",
+    "count": "الإجراءات المطابقة: {count, number}",
+    "apply": "تطبيق التصفية",
+    "clear": "مسح التصفية",
+    "dateWindow": "تستخدم التواريخ توقيتك المحلي. يشمل النطاق وقت «من» ويستبعد وقت «قبل».",
+    "invalidRange": "أدخل تواريخ صالحة بحيث يكون وقت «من» أسبق من وقت «قبل».",
+    "unavailable": "غير مسجّل",
+    "details": "التفاصيل المسجّلة",
+    "filters": {
+      "actor": "معرّف حساب المنفّذ",
+      "action": "معرّف الإجراء",
+      "target": "معرّف الحساب المستهدف",
+      "from": "من",
+      "to": "قبل"
+    },
+    "fields": {
+      "actor": "معرّف حساب المنفّذ",
+      "target": "معرّف الحساب المستهدف",
+      "application": "التطبيق",
+      "event": "معرّف الحدث"
+    },
+    "outcomes": {
+      "succeeded": "نجح",
+      "failed": "فشل"
+    },
+    "actions": {
+      "account_created": "إنشاء حساب",
+      "account_updated": "تحديث حساب",
+      "account_status_changed": "تغيير حالة حساب",
+      "account_deleted": "حذف حساب",
+      "permission_granted": "منح صلاحية",
+      "permission_revoked": "سحب صلاحية",
+      "role_created": "إنشاء دور",
+      "role_updated": "تحديث دور",
+      "role_deleted": "حذف دور",
+      "passkeys_reset": "إعادة تعيين مفاتيح المرور",
+      "admin_recovery_started": "بدء استرداد حساب مسؤول",
+      "invitation_created": "إنشاء دعوة",
+      "invitation_resent": "إعادة إرسال دعوة",
+      "invitation_revoked": "إلغاء دعوة",
+      "invitation_accepted": "قبول دعوة",
+      "session_revoked": "إنهاء جلسة",
+      "sessions_revoked_all": "إنهاء جميع الجلسات",
+      "sessions_revoked_others": "إنهاء الجلسات الأخرى",
+      "application_disabled": "تعطيل تطبيق",
+      "application_enabled": "تفعيل تطبيق"
+    },
+    "invalidInput": "أدخل معرّفات حسابات ومعرّفات إجراءات صالحة.",
+    "detailFields": {
+      "name": "الاسم",
+      "email": "عنوان البريد الإلكتروني",
+      "roleId": "معرّف الدور",
+      "changedFields": "الحقول المعدّلة",
+      "isDeleted": "الحساب معطّل",
+      "permission": "الصلاحية",
+      "slug": "معرّف الدور النصي",
+      "permissions": "الصلاحيات",
+      "assignedRoleId": "معرّف الدور المعيّن",
+      "previousRoleId": "معرّف الدور السابق"
+    },
+    "values": {
+      "yes": "نعم",
+      "no": "لا"
+    }
+  },
+  "dashboard": {
+    "nav": {
+      "staffActivity": "نشاط الموظفين"
+    }
+  }
+}

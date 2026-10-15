@@ -60,14 +60,21 @@ const CORE_OUTLINE = [
     permissions: [
       'sessions:read:all',
       'sessions:read:own',
+      'sessions:read:staff',
       'sessions:delete:all',
       'sessions:delete:own',
+      'sessions:delete:staff',
     ],
   },
   {
     id: 'reports',
     hasCatalogName: true,
     permissions: ['reports:read:all', 'reports:create:all'],
+  },
+  {
+    id: 'activity',
+    hasCatalogName: true,
+    permissions: ['activity:read:all'],
   },
 ];
 
@@ -80,7 +87,7 @@ describe('permission groups built from the resource of each permission', () => {
     const groups = buildPermissionGroups(ALL_PERMISSIONS, ['orders:refund:all', 'orders:read:own']);
 
     expect(outline(groups).slice(-2)).toEqual([
-      CORE_OUTLINE[5],
+      CORE_OUTLINE[6],
       {
         id: 'orders',
         hasCatalogName: false,

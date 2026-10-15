@@ -1,3 +1,9 @@
+import {
+  ActivityEventFields,
+  ActivityQuery,
+  ActivityDetails,
+  SecurityEventKind,
+} from './types/activity-event';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { RoleAssignmentEvent } from '../types/role-assignment-event';
 import { RoleDeletionSweep } from '../types/role-deletion-sweep';
@@ -7,7 +13,7 @@ export const SECURITY_EVENT_CONSTRAINT = {
 } as const;
 
 /** One event as the recorder hands it over. Ids of other records are opaque text. */
-export interface NewSecurityEvent {
+export interface NewSecurityEvent extends ActivityEventFields {
   eventId: string;
   actorId?: string;
   targetUserId?: string;
@@ -23,6 +29,9 @@ export interface NewSecurityEvent {
 }
 
 export interface StoredSecurityEvent {
+  kind: SecurityEventKind;
+  details: ActivityDetails;
+  purgeAfter: Date;
   eventId: string;
   actorId: string | null;
   targetUserId: string | null;
@@ -47,6 +56,10 @@ export interface StoredSecurityEvent {
  * the cleanup having run.
  */
 export abstract class SecurityEventStore {
+  abstract listActivity(
+    query: ActivityQuery,
+    now: Date,
+  ): Promise<{ data: StoredSecurityEvent[]; total: number }>;
   /** Commits or rolls back with the unit of work, and never on its own. */
   abstract append(
     unitOfWork: UnitOfWork,
