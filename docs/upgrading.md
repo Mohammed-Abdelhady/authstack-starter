@@ -46,7 +46,9 @@ creation remains allowed. Registration and activation resend return their usual
 generic reply without mailing either known or unknown addresses. Magic-link
 requests keep the same reply and mail behavior for both; following a link cannot
 create an account on a closed application. Provider creation returns the existing
-provider-authentication-failed reply. No rejected creation is committed.
+provider-authentication-failed reply. No rejected creation is committed. An
+application with `requirePasskey: true` refuses self sign-up in the same way,
+because no sign-up method gives a new account its first passkey.
 
 New accounts with an audience must match their assigned role's audience. A
 self-sign-up audience that differs from the default role is refused, even on an
