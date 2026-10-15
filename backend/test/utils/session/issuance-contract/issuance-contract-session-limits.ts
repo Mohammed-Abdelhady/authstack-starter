@@ -71,7 +71,7 @@ export function issuanceSessionLimitCases(harness: HarnessSource): void {
     });
   });
 
-  // Failure: the PostgreSQL cap join discards the proof key and misclassifies a bound native session.
+  // Failure: the cap candidate read discards the proof key and misclassifies a bound native session.
   it('carries a persisted proof-key thumbprint through cap candidate reads', async () => {
     const h = harness();
     const userId = await h.seedAccount();

@@ -41,7 +41,7 @@ export async function runAudienceApplyCommand(
     CLIENT_URL: 'http://localhost:3000',
     OAUTH_STATE_SECRET: 'audience-command-fixture-secret-0000',
     AUTH_NATIVE_ENABLED: 'false',
-    DATABASE_TYPE: config.get<string>('DATABASE_TYPE'),
+    DATABASE_TYPE: config.get<string>('DATABASE_TYPE'), // feature:database-choice
     MONGO_URI: config.get<string>('MONGO_URI'), // feature:mongodb
     POSTGRES_URL: config.get<string>('POSTGRES_URL'), // feature:postgres
   });

@@ -76,7 +76,7 @@ export function applicationSessionLimitCases(
     },
   );
 
-  // Failure: the Mongo insertion path omits a configured cap while the update path stores it.
+  // Failure: the insertion path omits a configured cap while the update path stores it.
   it('stores configured session policy when startup creates a browser row', async () => {
     const h = harness();
     const config = configuration();
