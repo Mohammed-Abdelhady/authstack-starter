@@ -70,6 +70,65 @@ export function authorityValidationCases(
     });
   });
 
+  it('keeps legacy sessions valid with unverified baseline evidence', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const { token, sessionId } = await signIn(harness(), userId);
+    await harness().clearSessionEvidence(sessionId);
+
+    const validated = await harness().validator().validateByToken(token, false);
+
+    expect({
+      id: validated?.session.id,
+      userVerified: validated?.session.userVerified,
+      policyVersion: validated?.session.policyVersion,
+    }).toEqual({ id: sessionId, userVerified: false, policyVersion: 0 });
+  });
+
+  it('retains verified evidence when the application policy version matches', async () => {
+    const userId = await harness().issuance.seedAccount();
+    await harness().issuance.seedApplication({
+      ...WEB_APPLICATION,
+      policyVersion: 4,
+    });
+    const { token, sessionId } = await signIn(harness(), userId);
+    await harness().patchSession(sessionId, {
+      userVerified: true,
+      policyVersion: 4,
+    });
+
+    const byId = await harness().authorityStore.findSessionById(sessionId);
+    const validated = await harness().validator().validateByToken(token, false);
+    expect({
+      byId: [byId?.userVerified, byId?.policyVersion],
+      byToken: [
+        validated?.session.userVerified,
+        validated?.session.policyVersion,
+      ],
+    }).toEqual({ byId: [true, 4], byToken: [true, 4] });
+  });
+
+  // Failure: changed application policy leaves a browser or native access session usable.
+  it('refuses policy-stale sessions at validation and in active-session reads', async () => {
+    const userId = await harness().issuance.seedAccount();
+    const browser = await signIn(harness(), userId);
+    const native = await signIn(harness(), userId);
+    await harness().patchSession(native.sessionId, {
+      credentialPurpose: 'native_access',
+    });
+    await harness().issuance.seedApplication({
+      ...WEB_APPLICATION,
+      policyVersion: 1,
+    });
+    const validator = harness().validator();
+    expect({
+      browser: await validator.validateByToken(browser.token, false),
+      native: await validator.validateById(native.sessionId, false),
+      active: await validator.listActive(userId),
+    }).toEqual({ browser: null, native: null, active: [] });
+    const current = await signIn(harness(), userId);
+    expect(await validates(harness(), current.token)).toBe(true);
+  });
+
   it('answers a malformed session id as unavailable and an absent one as no session', async () => {
     const validator = harness().validator();
     expect({

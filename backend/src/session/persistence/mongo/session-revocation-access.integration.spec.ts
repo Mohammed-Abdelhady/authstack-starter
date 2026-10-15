@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { Types } from 'mongoose';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -52,6 +53,7 @@ describe('revocation across users (plan S1)', () => {
         user._id,
         'Mozilla/5.0',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       return { userId: user._id, token: issued.sessionToken };
     } catch (error) {

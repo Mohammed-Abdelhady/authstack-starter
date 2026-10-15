@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import {
   RerunPause,
   UnitOfWorkRunner,
@@ -15,6 +16,8 @@ export interface SeedApplication {
   platform: string;
   enabled: boolean;
   sessionVersion: number;
+  policyVersion?: number;
+  accountAudience?: RoleAudience;
   absoluteLifetimeMs: number;
   idleLifetimeMs: number;
 }
@@ -35,6 +38,9 @@ export interface StoredSession {
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  authenticationMethods: string[];
+  userVerified: boolean;
+  policyVersion: number;
   deviceName: string | null;
   /** The device label exactly as the database holds it, every stored field. */
   device: unknown;
@@ -52,6 +58,7 @@ export interface StoredGrant {
 
 export interface StoredEvent {
   action: string;
+  outcome: string;
   targetUserId: string | null;
   clientId: string | null;
   sessionId: string | null;
@@ -76,7 +83,10 @@ export interface IssuanceContractHarness {
   /** The real sign-in service on this adapter and that runner. */
   service(pause: RerunPause): SessionIssuanceService;
 
-  seedAccount(options?: { deleted?: boolean }): Promise<string>;
+  seedAccount(options?: {
+    deleted?: boolean;
+    audience?: RoleAudience;
+  }): Promise<string>;
   seedApplication(application: SeedApplication): Promise<void>;
   seedBlockedGrant(userId: string, clientId: string): Promise<void>;
   revokeOneSession(userId: string): Promise<void>;

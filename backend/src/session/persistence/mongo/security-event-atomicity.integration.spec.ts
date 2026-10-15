@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -68,6 +69,7 @@ describe('a browser session change whose security event is refused', () => {
       userId,
       agent,
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     return issued.sessionToken;
   }

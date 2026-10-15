@@ -97,11 +97,20 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
           }
         : null;
     },
+    clearSessionEvidence: async (sessionId) => {
+      await database
+        .updateTable('sessions')
+        .set({ user_verified: false, policy_version: 0 })
+        .where('id', '=', sessionId)
+        .execute();
+    },
     patchSession: async (sessionId, patch) => {
       await database
         .updateTable('sessions')
         .set({
           credential_purpose: patch.credentialPurpose,
+          user_verified: patch.userVerified,
+          policy_version: patch.policyVersion,
           auth_epoch: patch.authEpoch,
           schema_version: patch.schemaVersion,
           user_version: patch.userVersion,
@@ -144,6 +153,7 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
           email: identity.email,
           name: identity.name,
           role: identity.role,
+          audience: identity.audience,
           permissions: identity.permissions,
           is_verified: identity.verified,
         })

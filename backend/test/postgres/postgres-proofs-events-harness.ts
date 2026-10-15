@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../src/common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
 import { BrowserProofService } from '../../src/session/services/browser-proof.service';
@@ -16,6 +17,8 @@ export async function bootPostgresProofsEventsHarness(): Promise<ProofsEventsCon
   const connection = await openTestConnection();
   const { database } = connection;
   const clock = new FrozenClock(TEST_NOW);
+  const config = new ConfigService({ NODE_ENV: 'test' });
+  const browserApplications = browserApplicationsForTest(config);
   const proofs = new PostgresBrowserProofStore(database);
   const events = new PostgresSecurityEventStore(database);
 
@@ -25,8 +28,9 @@ export async function bootPostgresProofsEventsHarness(): Promise<ProofsEventsCon
     events,
     proofService: new BrowserProofService(
       proofs,
-      new ConfigService({ NODE_ENV: 'test' }),
+      config,
       clock,
+      browserApplications,
     ),
     recorder: new SecurityEventRecorder(events, clock),
     runner: (pause) => new PostgresUnitOfWorkRunner(database, pause),

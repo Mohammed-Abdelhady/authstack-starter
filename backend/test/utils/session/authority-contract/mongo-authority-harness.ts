@@ -75,6 +75,15 @@ export async function bootMongoAuthority(
           }
         : null;
     },
+    clearSessionEvidence: async (sessionId) => {
+      const filter = { _id: new Types.ObjectId(sessionId) };
+      await sessions.collection.updateOne(filter, {
+        $unset: { userVerified: '', policyVersion: '' },
+      });
+      const raw = await sessions.collection.findOne(filter);
+      expect(raw).not.toHaveProperty('userVerified');
+      expect(raw).not.toHaveProperty('policyVersion');
+    },
     patchSession: async (sessionId, patch) => {
       await sessions.updateOne({ _id: sessionId }, { $set: patch });
     },
@@ -101,6 +110,7 @@ export async function bootMongoAuthority(
             email: identity.email,
             name: identity.name,
             role: identity.role,
+            audience: identity.audience,
             permissions: identity.permissions,
             isVerified: identity.verified,
           },

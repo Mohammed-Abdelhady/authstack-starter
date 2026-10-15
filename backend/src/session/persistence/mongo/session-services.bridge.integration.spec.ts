@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
@@ -57,6 +58,7 @@ describe('session services as Mongoose callers see them', () => {
         user._id,
         agent,
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       tokens.push(issued.sessionToken);
     }
