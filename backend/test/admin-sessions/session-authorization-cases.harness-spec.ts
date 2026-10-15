@@ -120,12 +120,24 @@ export function staffSessionAuthorizationCases(
         'sessions:read:all',
         'sessions:delete:all',
         'sessions:read:staff',
+      ],
+    });
+    const listed = await harness.service().list(targetId, actorId);
+    expect({
+      total: listed.data.total,
+      targetClass: listed.data.targetClass,
+    }).toEqual({
+      total: 1,
+      targetClass: 'staff',
+    });
+    await harness.patchAccount(actorId, {
+      permissions: [
+        'sessions:read:all',
+        'sessions:delete:all',
+        'sessions:read:staff',
         'sessions:delete:staff',
       ],
     });
-    expect((await harness.service().list(targetId, actorId)).data.total).toBe(
-      1,
-    );
     await harness.service().revokeOne(targetId, session.sessionId, actorId);
     expect(await validates(harness.authority, session.token)).toBe(false);
   });
