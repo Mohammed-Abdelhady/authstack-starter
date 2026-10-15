@@ -11,9 +11,9 @@ import { NativeEmailChangeConfirmDto } from '../dto/native-email-change-confirm.
 import { clientRefused } from '../utils/own-email-errors';
 
 /**
- * Confirms an address change from a mobile app, for a person who may be
- * signed out: the same confirmation as the public route, for a registered
- * native client, without a browser proof.
+ * Confirms an address change staff started, from a mobile app, for a person
+ * who may be signed out. It is the public route's confirmation, for a
+ * registered native client, without a browser proof.
  */
 @Injectable()
 export class NativeEmailChangeService {
