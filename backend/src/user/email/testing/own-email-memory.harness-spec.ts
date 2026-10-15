@@ -89,6 +89,7 @@ class MemoryMovedAccount extends MovedAccount {
 /** Accounts by id, with the unique address rule the databases keep. */
 export class MemoryAccounts extends ActivationAccounts implements RollsBack {
   readonly rows = new Map<string, MemoryAccount>();
+  private issuedIds = 0;
 
   snapshot(): () => void {
     return copied(this.rows);
@@ -111,7 +112,8 @@ export class MemoryAccounts extends ActivationAccounts implements RollsBack {
   }
 
   newAccountId(): string {
-    throw unused();
+    this.issuedIds += 1;
+    return `new-account-${this.issuedIds}`;
   }
 
   findAddressOwner(): Promise<AddressOwner | null> {
@@ -139,8 +141,8 @@ export class MemoryAccounts extends ActivationAccounts implements RollsBack {
     );
   }
 
-  hasActiveAccount(): Promise<boolean> {
-    throw unused();
+  hasActiveAccount(_unitOfWork: UnitOfWork, email: string): Promise<boolean> {
+    return Promise.resolve(this.holderOf(email)?.isDeleted === false);
   }
 
   insertActivated(): Promise<ActivatedAccount> {

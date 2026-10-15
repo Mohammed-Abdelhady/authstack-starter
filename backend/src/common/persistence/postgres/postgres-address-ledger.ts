@@ -78,6 +78,7 @@ export class PostgresAddressLedger extends AddressLedger {
       .execute();
   }
 
+  /** Both reads run on every path, so a held address answers no sooner. */
   async isFree(uow: UnitOfWork, input: AddressAvailability): Promise<boolean> {
     const transaction = postgresTransactionOf(uow);
     const address = storedAddress(input.address);
@@ -86,7 +87,6 @@ export class PostgresAddressLedger extends AddressLedger {
       .select('id')
       .where('email', '=', address)
       .executeTakeFirst();
-    if (account) return false;
     let claims = transaction
       .selectFrom('address_claims')
       .select('owner')
@@ -96,6 +96,6 @@ export class PostgresAddressLedger extends AddressLedger {
       claims = claims.where('owner', '!=', input.owner);
     }
     const claim = await claims.executeTakeFirst();
-    return claim === undefined;
+    return account === undefined && claim === undefined;
   }
 }

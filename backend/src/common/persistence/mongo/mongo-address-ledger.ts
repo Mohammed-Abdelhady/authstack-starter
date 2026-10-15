@@ -102,6 +102,7 @@ export class MongoAddressLedger extends AddressLedger {
       .exec();
   }
 
+  /** Both reads run on every path, so a held address answers no sooner. */
   async isFree(uow: UnitOfWork, input: AddressAvailability): Promise<boolean> {
     const session = mongoSessionOf(uow);
     const address = storedAddress(input.address);
@@ -111,7 +112,6 @@ export class MongoAddressLedger extends AddressLedger {
       .session(session)
       .lean()
       .exec();
-    if (account) return false;
     const claim = await this.claims
       .findOne({
         _id: address,
@@ -121,6 +121,6 @@ export class MongoAddressLedger extends AddressLedger {
       .session(session)
       .lean()
       .exec();
-    return claim === null;
+    return account === null && claim === null;
   }
 }
