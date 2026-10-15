@@ -1,3 +1,4 @@
+import { AudienceAdmissionRefused } from '../../session/utils/authority/audience-admission';
 import { Logger } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -55,7 +56,7 @@ export async function createActivatedAccount(
     throw activationCodeInvalid();
   }
 
-  await policy.assertMayCreate(
+  const audience = await policy.assertMayCreate(
     { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
     unitOfWork,
   );
@@ -73,6 +74,7 @@ export async function createActivatedAccount(
       passwordHash: account.passwordHash,
       name: account.name,
       locale: account.locale,
+      audience,
     });
     await ledger.finishAccountReservation(unitOfWork, reservation.reservation);
     return created;
@@ -170,6 +172,8 @@ export async function finishActivation(
     }
     return ActivateResponseDto.success(outcome.user);
   } catch (error) {
+    if (error instanceof AudienceAdmissionRefused)
+      throw activationCodeInvalid();
     const cause = error instanceof Error ? error.name : typeof error;
     logger.error(
       `Sign-in after activation failed for user ${account.id} cause=${cause}`,

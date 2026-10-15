@@ -1,3 +1,5 @@
+import { applicationSecret } from '../../../session/utils/hashing/application-secret';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -171,6 +173,7 @@ export class VerificationCodeService {
     email: string,
     code: string,
     purpose: PendingPurpose,
+    application = WEB_CLIENT_ID,
   ): Promise<ReservedCode> {
     const now = this.clock.now();
     const reserved = await this.store.reserveAttempt(
@@ -185,7 +188,7 @@ export class VerificationCodeService {
     }
 
     const isCodeValid = await this.hashService.compare(
-      code,
+      applicationSecret(code, application),
       reserved.hashedCode,
     );
     if (!isCodeValid) {

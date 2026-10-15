@@ -1,3 +1,6 @@
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { assertMongoAccountAudience } from '../../../user/persistence/mongo/mongo-account-audience';
+import { UserRole } from '../../../user/enums/user-role.enum';
 import { Injectable, Provider } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Response } from 'express';
@@ -23,7 +26,7 @@ import {
   MovedAccount,
   NewActivatedAccount,
 } from '../../pending-codes/activation-accounts';
-import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../services/sessions/first-factor';
 import { SignInService } from './sign-in.service';
 
 class MongoActivatedAccount extends ActivatedAccount {
@@ -117,6 +120,12 @@ export class MongoActivationAccounts extends ActivationAccounts {
     unitOfWork: UnitOfWork,
     account: NewActivatedAccount,
   ): Promise<ActivatedAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     const user = new this.userModel({
       _id: new Types.ObjectId(account.id),
       email: account.email,
@@ -126,6 +135,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
       locale: account.locale,
+      audience: account.audience,
     });
     try {
       await user.save({ session: mongoSessionOf(unitOfWork) });
@@ -180,6 +190,13 @@ export class MongoActivationSignIn extends ActivationSignIn {
     super();
   }
 
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.signInService.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.PASSWORD,
+    );
+  }
+
   complete(
     account: ActivatedAccount,
     response: Response,
@@ -187,7 +204,7 @@ export class MongoActivationSignIn extends ActivationSignIn {
     return this.signInService.completeSignIn(
       activatedDocumentOf(account),
       response,
-      FIRST_FACTOR.EMAIL_CODE, // feature:totp
+      FIRST_FACTOR.EMAIL_CODE,
     );
   }
 }
