@@ -1,3 +1,4 @@
+import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
 import { hashMagicLinkToken } from '../utils/magic-link-token.util';
 import {
@@ -39,7 +40,12 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
     );
   it('refuses a second link with one token hash and a second account with one address as unique conflicts', async () => {
     const link = { email: EMAIL, tokenHash: 'same', expiresAt: LINK_EXPIRY };
-    const account = { email: EMAIL, name: 'link', locale: 'en' as const };
+    const account = {
+      audience: undefined,
+      email: EMAIL,
+      name: 'link',
+      locale: 'en' as const,
+    };
     await harness().links.insertLink(link);
     await harness().runner.run((work) =>
       harness().accounts.createPasswordlessIn(work, account),
@@ -79,5 +85,31 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
       account: services.signedIn[0],
       signedIn: 1,
     });
+  });
+
+  // Failure: a stale refusal reopens a link consumed by a later request.
+  it('restores only the link claim with the exact claimed timestamp', async () => {
+    const h = harness();
+    const tokenHash = hashMagicLinkToken(TOKEN);
+    const firstClaim = TEST_NOW;
+    const laterClaim = new Date(firstClaim.getTime() + 1);
+    await h.seedLink({
+      email: EMAIL,
+      tokenHash,
+      expiresAt: LINK_EXPIRY,
+      createdAt: TEST_NOW,
+    });
+    expect(await h.links.claimLink(tokenHash, firstClaim)).not.toBeNull();
+    expect(await h.links.restoreUnspentLink(tokenHash, laterClaim)).toBe(false);
+    expect(await h.links.findUnspentLink(tokenHash)).toBeNull();
+    expect((await h.link(tokenHash))?.consumedAt).toEqual(firstClaim);
+    expect(await h.links.restoreUnspentLink(tokenHash, firstClaim)).toBe(true);
+    expect(await h.links.findUnspentLink(tokenHash)).toMatchObject({
+      email: EMAIL,
+    });
+    expect(await h.links.claimLink(tokenHash, laterClaim)).not.toBeNull();
+    expect(await h.links.restoreUnspentLink(tokenHash, firstClaim)).toBe(false);
+    expect(await h.links.findUnspentLink(tokenHash)).toBeNull();
+    expect((await h.link(tokenHash))?.consumedAt).toEqual(laterClaim);
   });
 }

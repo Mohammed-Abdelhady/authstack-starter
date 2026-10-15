@@ -183,7 +183,7 @@ describe('MagicLinkService', () => {
       expect(harness.signInService.completeSignIn).toHaveBeenCalledWith(
         MOCK_USER,
         MOCK_RESPONSE,
-        'magic_link', // feature:totp
+        'magic_link',
       );
       expect(check).not.toHaveBeenCalled();
       expect(result.data.requiresTwoFactor).toBe(false);

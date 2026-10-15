@@ -28,6 +28,7 @@ describe('MongoDB magic link statements that commit by themselves', () => {
           select: () => ({ lean: away() }),
         }),
         findOneAndUpdate: away(),
+        updateOne: away(),
         deleteMany: away(),
       }),
       createModelMock<Model<MailCounterDocument>>({

@@ -1,3 +1,19 @@
+import { ConfigService } from '@nestjs/config';
+import { AuthEpochService } from '../../../../../common/services/auth-epoch.service';
+import { ApplicationRegistry } from '../../../../../session/applications/application-registry';
+import { ApplicationRegistryService } from '../../../../../session/persistence/mongo/application-registry.service';
+import { MongoApplicationRegistryStore } from '../../../../../session/persistence/mongo/mongo-application-registry.store';
+import { MongoIssuanceApplications } from '../../../../../session/persistence/mongo/mongo-issuance-applications';
+import {
+  Application,
+  type ApplicationDocument,
+  ApplicationSchema,
+} from '../../../../../session/persistence/mongo/schemas/application.schema';
+import { SIGN_UP_POLICY } from '../../../../../config/constants/host-contracts';
+import {
+  Role,
+  RoleSchema,
+} from '../../../../../role/persistence/mongo/schemas/role.schema';
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { createConnection } from 'mongoose';
@@ -42,10 +58,14 @@ export async function bootMongoMagicLinkHarness(
   connection.getClient().on('commandStarted', (command) => {
     onCommand?.(command.commandName);
   });
+  const applications = connection.model(Application.name, ApplicationSchema);
+  await applications.init();
   const claims = connection.model(AddressClaim.name, AddressClaimSchema);
   await claims.init();
   const links = connection.model(PendingMagicLink.name, PendingMagicLinkSchema);
   const users = connection.model(User.name, UserSchema);
+  const roles = connection.model(Role.name, RoleSchema);
+  await roles.init();
   const counters = connection.model(MailCounter.name, MailCounterSchema);
   await links.init();
   await counters.init();
@@ -63,13 +83,59 @@ export async function bootMongoMagicLinkHarness(
     ],
   }).compile();
 
+  const runner = new MongoUnitOfWorkRunner(connection);
+  const authEpoch = new AuthEpochService(new ConfigService({}));
+  const registry = new ApplicationRegistry(
+    runner,
+    new MongoApplicationRegistryStore(
+      connection.model<ApplicationDocument>(Application.name),
+    ),
+    authEpoch,
+  );
+  await registry.seedFirstPartyApplications();
+
   return {
     clock: new FrozenClock(TEST_NOW),
     ledger: module.get(AddressLedger),
     links: module.get(MagicLinkStore),
     accounts: module.get(MagicLinkAccounts),
-    runner: new MongoUnitOfWorkRunner(connection),
+    runner,
+    issuanceApplications: new MongoIssuanceApplications(
+      new ApplicationRegistryService(registry),
+    ),
 
+    setApplicationPolicy: async (clientId, policy) => {
+      const result = await applications.updateOne(
+        { clientId, environment: authEpoch.environment() },
+        {
+          $set: {
+            signUp: policy.signUp ?? SIGN_UP_POLICY.OPEN,
+            requirePasskey: policy.requirePasskey ?? false,
+            accountAudience: policy.audience ?? null,
+          },
+        },
+      );
+      if (result.matchedCount !== 1) {
+        throw new Error(`Missing application ${clientId}`);
+      }
+    },
+
+    seedDefaultRoleAudience: async (audience) => {
+      await roles.collection.updateOne(
+        { slug: 'user' },
+        {
+          $set: { audience: audience ?? null },
+          $setOnInsert: {
+            name: 'User',
+            permissions: [],
+            level: 1,
+            createdAt: TEST_NOW,
+            updatedAt: TEST_NOW,
+          },
+        },
+        { upsert: true },
+      );
+    },
     seedLink: async (link) => {
       await links.create({ ...link, consumedAt: link.consumedAt ?? null });
     },
@@ -103,6 +169,7 @@ export async function bootMongoMagicLinkHarness(
       return stored
         ? {
             id: stored._id.toString(),
+            audience: stored.audience,
             name: stored.name ?? null,
             isVerified: Boolean(stored.isVerified),
             isDeleted: Boolean(stored.isDeleted),
@@ -118,6 +185,9 @@ export async function bootMongoMagicLinkHarness(
       await counters.deleteMany({});
       await claims.deleteMany({});
       await users.deleteMany({});
+      await roles.deleteMany({});
+      await applications.deleteMany({});
+      await registry.seedFirstPartyApplications();
     },
     close: async () => {
       await connection.close();
