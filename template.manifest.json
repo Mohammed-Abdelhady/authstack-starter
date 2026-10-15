@@ -410,7 +410,9 @@
         "frontend/src/modules/auth/native/__tests__/NativeAuthorizeSelection.test.tsx",
         "backend/test/native/authorize/native-browser-selectors.e2e-spec.ts",
         "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts",
-        "backend/test/native/attempts/native-attempt-sdk-providers.ts"
+        "backend/test/native/attempts/native-attempt-sdk-providers.ts",
+        "backend/test/auth/audience-provider.e2e-spec.ts",
+        "backend/test/auth/audience-provider-effects.e2e-spec.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -455,7 +457,8 @@
         "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts",
-        "mobile/ui/test/native-name.test.ts"
+        "mobile/ui/test/native-name.test.ts",
+        "backend/test/auth/audience-password.e2e-spec.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
       "requires": [],
@@ -587,7 +590,8 @@
         "backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql",
         "frontend/src/modules/auth/methods/magic-link/**",
         "frontend/src/app/[locale]/(auth)/auth/magic-link/**",
-        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts"
+        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts",
+        "backend/test/auth/audience-magic-link.e2e-spec.ts"
       ],
       "envVars": [
         "MAGIC_LINK_ENABLED",
@@ -657,7 +661,14 @@
         "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
         "backend/test/auth/passkey-first-account.e2e-spec.ts",
         "mobile/adapters/test/passkey-readiness.test.ts",
-        "mobile/auth/test/native/native-passkey-readiness.test.ts"
+        "mobile/auth/test/native/native-passkey-readiness.test.ts",
+        "backend/test/auth/enrolment-promotion.e2e-spec.ts",
+        "backend/test/auth/enrolment-refusals.e2e-spec.ts",
+        "backend/test/auth/enrolment-registration.e2e-spec.ts",
+        "backend/test/auth/enrolment-replacement.e2e-spec.ts",
+        "backend/test/auth/enrolment-routes.e2e-spec.ts",
+        "backend/test/auth/required-passkey.e2e-spec.ts",
+        "backend/test/utils/auth/required-passkey.fixture.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
@@ -883,7 +894,9 @@
       "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
       "backend/test/auth/passkey-first-account.e2e-spec.ts",
       "backend/test/native/engine/native-auth-engine-consent.e2e-spec.ts",
-      "backend/test/utils/native/native-auth-engine-consent.ts"
+      "backend/test/utils/native/native-auth-engine-consent.ts",
+      "backend/test/auth/required-passkey.e2e-spec.ts",
+      "backend/test/utils/auth/required-passkey.fixture.ts"
     ]
   }
 }
