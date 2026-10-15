@@ -4,6 +4,7 @@ import { NATIVE_EN } from './native.en';
 import { ROLE_EN } from './role.en';
 import { SESSIONS_EN } from './sessions.en';
 import { SIGN_IN_EN } from './sign-in.en';
+import { EMAIL_EN } from './email.en';
 
 export const EN = {
   ...COMMON_EN,
@@ -12,6 +13,7 @@ export const EN = {
   ...ROLE_EN,
   ...SESSIONS_EN,
   ...NATIVE_EN,
+  ...EMAIL_EN,
 };
 
 export type MessageKey = keyof typeof EN;
