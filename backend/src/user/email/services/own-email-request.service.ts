@@ -271,7 +271,10 @@ export class OwnEmailRequestService {
       now,
       owner,
     });
-    if (!free) return false;
+    if (!free) {
+      await this.spendHeldWork(unitOfWork, request);
+      return false;
+    }
     const result = await this.ledger.claim(unitOfWork, {
       address: request.address,
       owner,
@@ -283,6 +286,32 @@ export class OwnEmailRequestService {
       throw new AddressClaimLostError();
     }
     return true;
+  }
+
+  /**
+   * A held address runs the statements a free one runs after the availability
+   * read, against rows that cannot exist: a claim write for this account,
+   * whose claim cannot sit on an address held elsewhere, an account read, and
+   * a code write for an id no record carries. Both answers cost the same.
+   */
+  private async spendHeldWork(
+    unitOfWork: UnitOfWork,
+    request: PendingRequest,
+  ): Promise<void> {
+    await this.ledger.release(unitOfWork, {
+      address: request.address,
+      owner: request.caller.userId,
+    });
+    await this.accounts.hasActiveAccount(unitOfWork, request.address);
+    await this.codes.consumeCode(
+      {
+        id: this.accounts.newAccountId(),
+        email: request.address,
+        purpose: request.prepared.purpose,
+        hashedCode: request.prepared.generation.hashedCode,
+      },
+      unitOfWork,
+    );
   }
 }
 
