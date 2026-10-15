@@ -5,6 +5,7 @@ import { makeRefreshRecord } from '../../../src/refresh/refresh-helpers';
 import { AuthRuntime } from '../../../src/runtime/runtime';
 import type { RuntimeTokens } from '../../../src/types/record';
 import { createAuthEngine } from '../../support/engine';
+import { OLD_ACCESS_2_TOKEN, OLD_REFRESH_2_TOKEN } from '../../support/token-values';
 import {
   REFRESH_TOKEN,
   CONFIG,
@@ -78,7 +79,7 @@ describe('dispose before a refresh request is sent', () => {
       }
       return Promise.resolve();
     };
-    oldTransport.enqueue(oauthTokenReply('old-access-2', 'old-refresh-2'), apiReply({}));
+    oldTransport.enqueue(oauthTokenReply(OLD_ACCESS_2_TOKEN, OLD_REFRESH_2_TOKEN), apiReply({}));
     const oldRequest = oldEngine.transport.request({
       method: HTTP_METHOD.GET,
       path: '/api/user/profile',
