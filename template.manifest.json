@@ -326,7 +326,9 @@
         "mobile/expo/src/i18n/ar.ts",
         "frontend/src/app/arabic-font.css",
         "backend/src/mail/catalog/ar/**",
-        "backend/test/mail/mail-locale-ar.e2e-spec.ts"
+        "backend/test/mail/mail-locale-ar.e2e-spec.ts",
+        "frontend/src/modules/activity/messages/ar.json",
+        "frontend/src/modules/admin-sessions/messages/ar.json"
       ],
       "docs": [],
       "catalogueKeys": [
