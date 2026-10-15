@@ -31,6 +31,7 @@ const SESSION_END_WAIT_MS = 30_000;
  * table added to the map and not named here does not compile.
  */
 const EVERY_TABLE: Record<keyof PostgresTables, true> = {
+  address_claims: true,
   security_events: true,
   native_dpop_proof_ids: true,
   native_attempts: true,
