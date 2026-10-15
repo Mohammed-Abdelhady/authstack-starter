@@ -154,3 +154,23 @@ export type PermissionAction =
  */
 export type PermissionScope =
   (typeof PERMISSION_SCOPES)[keyof typeof PERMISSION_SCOPES];
+
+/**
+ * Outside the active catalogue and picker. The permission format accepts these,
+ * but grant validation refuses them until their plan.
+ */
+export const RESERVED_PERMISSIONS = [
+  'users:list:staff',
+  'users:read:staff',
+  'users:update:staff',
+  'users:delete:staff',
+  'users:create:staff',
+  'users:suspend:all',
+  'users:suspend:staff',
+  'activity:read:all',
+  'sessions:read:staff',
+  'sessions:delete:staff',
+] as const;
+
+export const RESERVED_PERMISSION_MESSAGE =
+  '$value is reserved and cannot be granted yet';

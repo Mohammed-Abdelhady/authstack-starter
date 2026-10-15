@@ -103,7 +103,7 @@ export class RoleService {
     }
 
     if (dto.permissions) {
-      assertValidPermissions(dto.permissions);
+      assertValidPermissions(dto.permissions, role.permissions);
       this.assertAdminKeepsWildcard(previousSlug, dto.permissions);
     }
 
