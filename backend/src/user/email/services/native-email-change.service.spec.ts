@@ -60,7 +60,7 @@ describe('NativeEmailChangeService', () => {
     code = await world.startStaffChange(NEW_ADDRESS);
   });
 
-  it('confirms a change staff started for a signed-out person through an enabled native app, and ends every session', async () => {
+  it('confirms a change staff started for a signed-out person through an enabled native app, and ends every session for the move', async () => {
     const changes = nativeChanges(world, NATIVE_APP);
 
     await changes.confirm({ clientId: APP_CLIENT, email: NEW_ADDRESS, code });
@@ -71,7 +71,7 @@ describe('NativeEmailChangeService', () => {
     });
     expect(world.sessions.liveOf(ACCOUNT_ID)).toEqual([]);
     expect(world.sessions.revocations).toEqual([
-      { userId: ACCOUNT_ID, reason: REVOKED_REASON.ADMIN_FORCED },
+      { userId: ACCOUNT_ID, reason: REVOKED_REASON.EMAIL_CHANGED },
     ]);
     const notices = (await world.sent()).filter(
       (mail) => mail.subject === CHANGED_SUBJECT,
