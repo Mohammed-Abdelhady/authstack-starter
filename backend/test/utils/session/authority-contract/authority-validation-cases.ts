@@ -232,7 +232,7 @@ export function authorityValidationCases(
     }).toEqual({ blocked: false, moved: false, gone: false });
   });
 
-  it('ends authority at the idle deadline while the session is still stored', async () => {
+  it('persists expiry exactly at the idle deadline', async () => {
     const userId = await harness().issuance.seedAccount();
     const { token, sessionId } = await signIn(harness(), userId);
     harness().issuance.clock.set(before(IDLE_DEADLINE));
@@ -242,7 +242,7 @@ export function authorityValidationCases(
       justBefore,
       atDeadline: await validates(harness(), token),
       storedAsValid: (await harness().session(sessionId))?.isValid,
-    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
+    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: false });
   });
 
   it('ends authority at the absolute deadline whatever the activity', async () => {
@@ -259,7 +259,7 @@ export function authorityValidationCases(
       justBefore,
       atDeadline: await validates(harness(), token),
       storedAsValid: (await harness().session(sessionId))?.isValid,
-    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: true });
+    }).toEqual({ justBefore: true, atDeadline: false, storedAsValid: false });
   });
 
   it('ends authority early when the application shortens its idle lifetime', async () => {

@@ -1,3 +1,5 @@
+import { authorityReadOutageCases } from './authority-read-outage-cases';
+import { authorityLiveLimitCases } from './authority-live-limit-cases';
 import { TEST_NOW } from '../../frozen-clock';
 import {
   ADMIN_APPLICATION,
@@ -52,7 +54,9 @@ export function describeSessionAuthorityContract(
 
     authorityValidationCases(current);
     authorityExtensionCases(current);
+    authorityLiveLimitCases(current);
     authorityReadCases(current);
+    authorityReadOutageCases(current);
     revocationRuleCases(current);
     revocationStoreCases(current);
     revocationAtomicityCases(current);
