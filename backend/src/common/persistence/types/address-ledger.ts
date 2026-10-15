@@ -19,6 +19,10 @@ export interface AddressAvailability extends AddressLookup {
   owner?: string;
 }
 
+export interface OwnedAddressLookup extends AddressLookup {
+  owner: string;
+}
+
 export interface AddressRelease {
   address: string;
   owner: string;

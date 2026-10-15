@@ -62,7 +62,6 @@ export class EmailChangeConfirmationService {
           reserved,
           this.ledger,
           this.clock.now(),
-          this.verificationCodeService.codeExpiresAt(this.clock.now()),
         );
         if (left !== null && reserved.userId) {
           await this.sessions.revokeAll(

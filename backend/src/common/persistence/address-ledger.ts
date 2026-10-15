@@ -7,6 +7,7 @@ import {
   AddressClaimResult,
   AddressLookup,
   AddressRelease,
+  OwnedAddressLookup,
 } from './types/address-ledger';
 import { UnitOfWork } from './unit-of-work';
 
@@ -31,6 +32,12 @@ export abstract class AddressLedger {
     uow: UnitOfWork,
     input: AddressClaimInput,
   ): Promise<AddressClaimResult>;
+
+  /** Locks an existing live claim until the caller's unit of work ends. */
+  abstract holdsLiveClaim(
+    uow: UnitOfWork,
+    input: OwnedAddressLookup,
+  ): Promise<boolean>;
 
   async reserveForAccount(
     uow: UnitOfWork,

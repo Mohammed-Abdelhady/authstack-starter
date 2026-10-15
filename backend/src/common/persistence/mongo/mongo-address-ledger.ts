@@ -13,6 +13,7 @@ import {
   AddressClaimResult,
   AddressAvailability,
   AddressRelease,
+  OwnedAddressLookup,
 } from '../types/address-ledger';
 import { UnitOfWork } from '../unit-of-work';
 import { isMongoDuplicateKeyError } from './mongo-error.util';
@@ -68,6 +69,25 @@ export class MongoAddressLedger extends AddressLedger {
     return account && account._id.toString() !== input.owner
       ? ADDRESS_CLAIM_RESULT.TAKEN
       : ADDRESS_CLAIM_RESULT.CLAIMED;
+  }
+
+  async holdsLiveClaim(
+    uow: UnitOfWork,
+    input: OwnedAddressLookup,
+  ): Promise<boolean> {
+    const claim = await this.claims
+      .findOneAndUpdate(
+        {
+          _id: storedAddress(input.address),
+          owner: input.owner,
+          lapsesAt: { $gt: input.now },
+        },
+        // A same-owner write alone can be a no-op and leave the row unlocked.
+        { $set: { owner: input.owner }, $inc: { lockVersion: 1 } },
+        { session: mongoSessionOf(uow), returnDocument: 'after' },
+      )
+      .exec();
+    return claim !== null;
   }
 
   async release(uow: UnitOfWork, input: AddressRelease): Promise<void> {
