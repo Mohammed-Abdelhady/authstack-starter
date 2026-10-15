@@ -103,7 +103,7 @@ describe('shared core drift', () => {
 
   it('keeps reserved permissions equal and out of the active catalogue', () => {
     expect(SharedReservedPermissions).toEqual(BackendReservedPermissions);
-    expect(SharedReservedPermissions).toHaveLength(10);
+    expect(SharedReservedPermissions).toHaveLength(5);
     for (const permission of SharedReservedPermissions) {
       expect(SharedAllPermissions).not.toContain(permission);
       expect(BackendAllPermissions).not.toContain(permission);

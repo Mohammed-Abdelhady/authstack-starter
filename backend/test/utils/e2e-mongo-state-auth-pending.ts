@@ -1,3 +1,6 @@
+// feature:totp:start
+import type { TwoFactorChallengeDocument } from '../../src/auth/two-factor/persistence/mongo/schemas/two-factor-challenge.schema';
+// feature:totp:end
 import type { INestApplication } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -42,6 +45,15 @@ export function mongoPendingCodeState(
   );
 
   return {
+    // feature:totp:start
+    countSecondFactorChallenges: () =>
+      app
+        .get<Model<TwoFactorChallengeDocument>>(
+          getModelToken('TwoFactorChallenge'),
+        )
+        .countDocuments({})
+        .exec(),
+    // feature:totp:end
     countAddressClaims: (address) =>
       app
         .get<Model<AddressClaimDocument>>(getModelToken(AddressClaim.name))
