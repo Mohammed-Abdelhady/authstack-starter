@@ -5,6 +5,7 @@ import {
 } from '../constants/security-event-action';
 import { asAuthorityUnavailable } from '../utils/authority/authority-unavailable';
 import { AudienceAdmissionRefused } from '../utils/authority/audience-admission';
+import { PasskeyRequiredRefused } from '../utils/authority/passkey-sign-in';
 
 /** Record a definite refusal only after the issuing unit of work has ended. */
 export async function withAudienceRefusal<Result>(
@@ -19,7 +20,10 @@ export async function withAudienceRefusal<Result>(
     if (error instanceof AudienceAdmissionRefused) {
       try {
         await events.recordOutsideUnitOfWork({
-          action: SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
+          action:
+            error instanceof PasskeyRequiredRefused
+              ? SECURITY_EVENT_ACTION.PASSKEY_REQUIRED
+              : SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
           outcome: SECURITY_EVENT_OUTCOME.FAILED,
           targetUserId: userId,
           clientId,
