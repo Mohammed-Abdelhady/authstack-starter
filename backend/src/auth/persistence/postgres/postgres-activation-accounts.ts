@@ -1,3 +1,6 @@
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { assertPostgresAccountAudience } from '../../../user/persistence/postgres/postgres-account-audience';
+import { UserRole } from '../../../user/enums/user-role.enum';
 import { Response } from 'express';
 import { Kysely } from 'kysely';
 import {
@@ -12,7 +15,7 @@ import {
 } from '../../pending-codes/activation-accounts';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../services/sessions/first-factor';
 import { SignInCompletion } from '../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../utils/authenticated-user.util';
 import { SIGN_IN_COLUMNS, toSignInAccount } from './postgres-sign-in-accounts';
@@ -133,6 +136,11 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     unitOfWork: UnitOfWork,
     account: NewActivatedAccount,
   ): Promise<ActivatedAccount> {
+    await assertPostgresAccountAudience(
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     const now = this.clock.now();
     try {
       const row = await postgresTransactionOf(unitOfWork)
@@ -146,6 +154,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
           auth_provider: AuthProvider.EMAIL,
           primary_provider: AuthProvider.EMAIL,
           locale: account.locale,
+          audience: account.audience ?? null,
           created_at: now,
           updated_at: now,
         })
@@ -211,6 +220,13 @@ export class PostgresActivationSignIn extends ActivationSignIn {
     super();
   }
 
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.completion.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.PASSWORD,
+    );
+  }
+
   complete(
     account: ActivatedAccount,
     response: Response,
@@ -218,7 +234,7 @@ export class PostgresActivationSignIn extends ActivationSignIn {
     return this.completion.completeSignIn(
       activatedSignInAccountOf(account),
       response,
-      FIRST_FACTOR.EMAIL_CODE, // feature:totp
+      FIRST_FACTOR.EMAIL_CODE,
     );
   }
 }

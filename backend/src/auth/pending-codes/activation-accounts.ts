@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { Response } from 'express';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { SignInOutcome } from '../interfaces/authenticated-user.interface';
@@ -17,6 +18,7 @@ export interface AddressOwner {
 }
 
 export interface NewActivatedAccount {
+  audience: RoleAudience | undefined;
   /** Made by `newAccountId` before the unit of work started. */
   id: string;
   email: string;
@@ -98,6 +100,8 @@ export type ActivationSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account just activated. */
 export abstract class ActivationSignIn {
+  abstract recordCreationRefusal(clientId: string): Promise<void>;
+
   abstract complete(
     account: ActivatedAccount,
     response: Response,

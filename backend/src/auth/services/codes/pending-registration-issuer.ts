@@ -1,3 +1,5 @@
+import { applicationSecret } from '../../../session/utils/hashing/application-secret';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -153,7 +155,9 @@ export class PendingRegistrationIssuer {
     mode: Pick<IssueInput, 'includeExpired' | 'createWhenAbsent'>,
   ): Promise<IssueInput> {
     const code = generateVerificationCode();
-    const hashedCode = await this.hashService.hash(code);
+    const hashedCode = await this.hashService.hash(
+      applicationSecret(code, details.application ?? WEB_CLIENT_ID),
+    );
     const now = this.clock.now();
     return {
       key: { email, purpose },
