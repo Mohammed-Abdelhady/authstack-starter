@@ -1,5 +1,6 @@
 import type { BrowserRegistration } from './types/browser-registration';
 import type { ApplicationPolicyFields } from './types/application-policy-fields';
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { IssuanceApplication } from '../issuance/browser-issuance.store';
 
@@ -52,7 +53,10 @@ export interface FirstPartyRegistration extends ApplicationPolicyWrite {
   initialScopes: string[];
 }
 
-export interface NativeRegistration extends ApplicationPolicyWrite {
+export interface NativeRegistration extends Omit<
+  ApplicationPolicyWrite,
+  'accountAudience'
+> {
   clientId: string;
   environment: string;
   displayName: string;
@@ -60,6 +64,8 @@ export interface NativeRegistration extends ApplicationPolicyWrite {
   allowedScopes: string[];
   audiences: string[];
   policy: ApplicationPolicyValues;
+  /** Null clears an audience the configured entry no longer names. */
+  accountAudience?: RoleAudience | null;
   /** The change must end the application's sessions: its version advances. */
   endsSessions: boolean;
 }
