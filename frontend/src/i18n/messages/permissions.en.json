@@ -44,7 +44,8 @@
     },
     "scopes": {
       "own": "own",
-      "all": "all"
+      "all": "all",
+      "staff": "staff"
     },
     "permissionLabelWithScope": "{action} ({scope})",
     "tree": {
