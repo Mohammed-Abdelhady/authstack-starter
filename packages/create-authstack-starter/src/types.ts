@@ -2,7 +2,8 @@ import type { ANSWERS_SCHEMA_VERSION, RULES_POLICIES } from './constants/index.j
 import type { MobileIdentity, MobileIdentityRequest } from './types/mobile.js';
 
 /** `hidden` features are never offered; another feature pulls them in. */
-export type FeatureKind = 'credential' | 'oauth' | 'second-factor' | 'passwordless' | 'hidden';
+export type FeatureKind =
+  'credential' | 'oauth' | 'second-factor' | 'passwordless' | 'administration' | 'hidden';
 
 export type FeatureStatus = 'available' | 'planned';
 
