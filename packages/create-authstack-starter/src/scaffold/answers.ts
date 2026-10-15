@@ -72,7 +72,7 @@ function identityCommit(parsed: Record<string, unknown>, path: string): string |
   const { commit } = parsed;
   if (commit === undefined || commit === null) return null;
   if (typeof commit !== 'string' || !GIT_COMMIT_HEX_PATTERN.test(commit)) {
-    throw brokenPackage(`${path} carries a commit that is not a 40-character hash.`);
+    throw brokenPackage(`${path} carries a commit that is not a 40- or 64-character hash.`);
   }
   return commit;
 }
@@ -171,7 +171,7 @@ function readRecordedTemplate(
   const { commit } = template;
   if (!current || commit === null) return { sha256, commit: null };
   if (typeof commit === 'string' && GIT_COMMIT_HEX_PATTERN.test(commit)) return { sha256, commit };
-  problems.push('template.commit must be a 40-character hash or null');
+  problems.push('template.commit must be a 40- or 64-character hash or null');
   return { sha256, commit: null };
 }
 

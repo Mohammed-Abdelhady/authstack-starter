@@ -146,8 +146,8 @@ export const TEMPLATE_IDENTITY_FILE = 'template.identity.json';
 /** Shape of a hex SHA-256 digest, wherever one is read. */
 export const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 
-/** Shape of the Git commit the template was built from. */
-export const GIT_COMMIT_HEX_PATTERN = /^[0-9a-f]{40}$/;
+/** Shape of the Git commit the template was built from: SHA-1 (40) or SHA-256 (64) hex. */
+export const GIT_COMMIT_HEX_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 /** Names npm strips from a tarball. sync-template.mjs writes the left side. */
 export const RESTORED_FILENAMES: Record<string, string> = {
