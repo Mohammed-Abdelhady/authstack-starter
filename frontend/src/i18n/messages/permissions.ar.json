@@ -44,7 +44,8 @@
     },
     "scopes": {
       "own": "الخاصة به",
-      "all": "الكل"
+      "all": "الكل",
+      "staff": "الموظفون"
     },
     "permissionLabelWithScope": "{action} ({scope})",
     "tree": {

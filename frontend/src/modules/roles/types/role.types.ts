@@ -1,3 +1,5 @@
+import type { RoleAudience } from '@app/core';
+
 /**
  * Role data structure
  */
@@ -19,6 +21,7 @@ export interface Role {
  * Create role request payload
  */
 export interface CreateRoleRequest {
+  audience?: RoleAudience;
   name: string;
   description?: string;
   permissions: string[];

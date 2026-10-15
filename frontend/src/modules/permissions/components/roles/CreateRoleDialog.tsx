@@ -6,6 +6,7 @@ import {
   validateRoleForm,
 } from '../../utils/roleFormValidation';
 import { RoleCodePreview, describedBy, previewedRoleCode } from './RoleCodePreview';
+import { ROLE_AUDIENCE, type RoleAudience } from '@app/core';
 import { useId, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
@@ -20,6 +21,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { FieldError, FormRootError, SubmitButton } from '@/components/forms';
 import { useCreateRoleMutation } from '../../api/rolesApi';
 import { PermissionSelector } from '../selector/PermissionSelector';
@@ -29,6 +37,8 @@ import { showsOwnRefusal } from '@/lib/refusal';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';
 import { fieldElementId, useLocalFieldTarget } from '@/hooks/useServerFieldErrors';
+
+const UNSET_AUDIENCE = 'unset';
 
 export interface CreateRoleDialogProps {
   /**
@@ -67,12 +77,16 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
   const nameCodeId = `${nameId}-code`;
   const descriptionId = fieldElementId(uid, 'description');
   const descriptionErrorId = `${descriptionId}-error`;
+  const audienceId = fieldElementId(uid, 'audience');
+  const audienceHintId = `${audienceId}-hint`;
+  const audienceErrorId = `${audienceId}-error`;
   const permissionsLabelId = `${uid}-permissions-label`;
   const permissionsErrorId = `${uid}-permissions-error`;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [audience, setAudience] = useState<RoleAudience>();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const submissionInFlight = useRef(false);
 
@@ -85,6 +99,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
     setName('');
     setDescription('');
     setPermissions([]);
+    setAudience(undefined);
     setErrors({});
     refusal.clear();
   };
@@ -111,6 +126,7 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
           name: name.trim(),
           description: description.trim() || undefined,
           permissions,
+          ...(audience === undefined ? {} : { audience }),
         }),
       ).unwrap();
 
@@ -206,6 +222,47 @@ export function CreateRoleDialog({ open, onOpenChange, onSuccess }: CreateRoleDi
                 id={descriptionErrorId}
                 message={errors.description}
                 testId="role-description-error"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor={audienceId}>{t('audienceLabel')}</Label>
+              <Select
+                value={audience ?? UNSET_AUDIENCE}
+                onValueChange={(value) => {
+                  setAudience(
+                    value === ROLE_AUDIENCE.CUSTOMER || value === ROLE_AUDIENCE.STAFF
+                      ? value
+                      : undefined,
+                  );
+                  if (errors.audience) setErrors((prev) => ({ ...prev, audience: '' }));
+                }}
+                busy={isLoading}
+              >
+                <SelectTrigger
+                  id={audienceId}
+                  aria-invalid={Boolean(errors.audience)}
+                  aria-describedby={describedBy(
+                    audienceHintId,
+                    Boolean(errors.audience) && audienceErrorId,
+                  )}
+                  data-testid="role-audience-select"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNSET_AUDIENCE}>{t('audienceUnset')}</SelectItem>
+                  <SelectItem value={ROLE_AUDIENCE.CUSTOMER}>{t('audienceCustomer')}</SelectItem>
+                  <SelectItem value={ROLE_AUDIENCE.STAFF}>{t('audienceStaff')}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p id={audienceHintId} className="text-xs text-tertiary">
+                {t('audienceHint')}
+              </p>
+              <FieldError
+                id={audienceErrorId}
+                message={errors.audience}
+                testId="role-audience-error"
               />
             </div>
 
