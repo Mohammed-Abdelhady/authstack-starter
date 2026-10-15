@@ -82,7 +82,7 @@ export function restoreStaleResponse(error: StaleResponseError): BrowserQueryRes
   const response = error.response;
   if (!response) return { error: serializeSdkError(error.cause) };
   try {
-    return { data: requireHttpSuccess(response).body };
+    return { data: requireHttpSuccess(response).body ?? null };
   } catch (originalError) {
     return { error: serializeSdkError(originalError) };
   }
