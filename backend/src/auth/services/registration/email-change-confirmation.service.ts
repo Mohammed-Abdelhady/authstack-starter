@@ -68,11 +68,12 @@ export class EmailChangeConfirmationService {
           this.ledger,
           this.clock.now(),
         );
+        // The move ends the sessions; no staff member acts at this point.
         if (moved !== null && reserved.userId) {
           await this.sessions.revokeAll(
             unitOfWork,
             reserved.userId.toString(),
-            { reasonCode: REVOKED_REASON.ADMIN_FORCED },
+            { reasonCode: REVOKED_REASON.EMAIL_CHANGED },
           );
         }
         return moved;
