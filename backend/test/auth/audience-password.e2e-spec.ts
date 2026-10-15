@@ -1,4 +1,3 @@
-// feature:email-password:start
 import { ConfigService } from '@nestjs/config';
 // feature:passkeys:start
 import request from 'supertest';
@@ -238,4 +237,3 @@ describe('closed admin password entry points', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(1);
   });
 });
-// feature:email-password:end

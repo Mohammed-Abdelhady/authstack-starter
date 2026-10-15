@@ -1,4 +1,3 @@
-// feature:passkeys:start
 import request from 'supertest';
 import { AuthService } from '../../src/auth/auth.service';
 import { PasskeyManagementService } from '../../src/auth/passkeys/services/passkey-management.service';
@@ -148,4 +147,3 @@ describe('enrolment HTTP route boundary', () => {
     }
   });
 });
-// feature:passkeys:end

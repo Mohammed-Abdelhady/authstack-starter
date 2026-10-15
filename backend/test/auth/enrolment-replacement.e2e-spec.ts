@@ -1,4 +1,3 @@
-// feature:passkeys:start
 import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { UnitOfWorkRunner } from '../../src/common/persistence/unit-of-work';
 import {
@@ -120,4 +119,3 @@ describe('enrolment replacement', () => {
     expect(await sessionRevocations(e2e, first.userId)).toEqual([]);
   });
 });
-// feature:passkeys:end

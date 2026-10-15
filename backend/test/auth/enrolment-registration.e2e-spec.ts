@@ -1,4 +1,3 @@
-// feature:passkeys:start
 import request from 'supertest';
 import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
@@ -51,4 +50,3 @@ describe('enrolment registration expiry', () => {
     ).toBeNull();
   });
 });
-// feature:passkeys:end

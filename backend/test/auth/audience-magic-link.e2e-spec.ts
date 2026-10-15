@@ -1,4 +1,3 @@
-// feature:magic-link:start
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { ADMIN_CLIENT_ID } from '../../src/session/constants/client-ids';
@@ -122,4 +121,3 @@ describe('closed admin magic links', () => {
     },
   );
 });
-// feature:magic-link:end
