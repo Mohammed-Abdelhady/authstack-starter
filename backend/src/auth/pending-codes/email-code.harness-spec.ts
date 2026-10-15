@@ -15,9 +15,13 @@ export interface EmailCodeHarness {
   reset: () => Promise<void>;
   close: () => Promise<void>;
   checkSetup: () => Promise<void>;
+  /** Removes what this database's own cleanup removes at the clock's time. */
+  cleanUp: () => Promise<void>;
 }
 
 const LIFETIME_MS = 600_000;
+/** The owner, an attempt, outlives its code. */
+const OWNER_LIFETIME_MS = 900_000;
 const MINE: EmailCodeKey = {
   ownerId: 'attempt-mine',
   purpose: EMAIL_CODE_PURPOSE.SIGN_IN,
@@ -37,6 +41,7 @@ function code(
     email: 'Person@Example.Test ',
     codeHash,
     expiresAt: new Date(TEST_NOW.getTime() + LIFETIME_MS),
+    purgeAfter: new Date(TEST_NOW.getTime() + OWNER_LIFETIME_MS),
     spent: false,
     ...overrides,
   };
@@ -83,6 +88,7 @@ export function describeEmailCodeContract(
         codeHash: 'hash-1',
         wrongGuesses: 0,
         expiresAt: new Date(TEST_NOW.getTime() + LIFETIME_MS),
+        purgeAfter: new Date(TEST_NOW.getTime() + OWNER_LIFETIME_MS),
         spentAt: null,
       });
       expect(await harness.store.find(MINE)).toEqual(stored);
@@ -174,6 +180,37 @@ export function describeEmailCodeContract(
       expect(
         await harness.store.recordWrongGuess(MINE, EMAIL_CODE_GUESS_LIMIT),
       ).toBeNull();
+      expect(await harness.store.find(MINE)).toBeNull();
+    });
+
+    it('keeps four wrong guesses through cleanup and a resend while the owner lives', async () => {
+      await harness.store.put(code(MINE, 'hash-1'));
+      for (let guess = 1; guess < EMAIL_CODE_GUESS_LIMIT; guess += 1) {
+        await harness.store.recordWrongGuess(MINE, EMAIL_CODE_GUESS_LIMIT);
+      }
+      harness.clock.advance(LIFETIME_MS);
+      await harness.cleanUp();
+      // The resend's code may live only as long as what is left of the owner.
+      await harness.store.put(
+        code(MINE, 'hash-2', {
+          expiresAt: new Date(TEST_NOW.getTime() + OWNER_LIFETIME_MS),
+        }),
+      );
+
+      expect((await harness.store.find(MINE))?.wrongGuesses).toBe(4);
+      expect(
+        await harness.store.recordWrongGuess(MINE, EMAIL_CODE_GUESS_LIMIT),
+      ).toBe(EMAIL_CODE_GUESS_LIMIT);
+      expect(await spend(MINE, 'hash-2')).toBe(false);
+    });
+
+    it('lets cleanup remove a row once its owner has ended', async () => {
+      await harness.store.put(code(MINE, 'hash-1'));
+      harness.clock.advance(OWNER_LIFETIME_MS - 1);
+      await harness.cleanUp();
+      expect(await harness.store.find(MINE)).not.toBeNull();
+      harness.clock.advance(1);
+      await harness.cleanUp();
       expect(await harness.store.find(MINE)).toBeNull();
     });
   });
