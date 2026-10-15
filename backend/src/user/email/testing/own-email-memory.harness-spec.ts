@@ -1,7 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
 import type { SupportedLocale } from '../../../common/constants/locales';
-import { ErrorCode } from '../../../common/enums/error-code.enum';
-import { AppException } from '../../../common/exceptions/app.exception';
 import {
   ADDRESS_CLAIM_RESULT,
   AddressLedger,
@@ -28,10 +25,6 @@ import {
   MovedAccount,
   OwnPendingAddress,
 } from '../../../auth/pending-codes/activation-accounts';
-import {
-  AccountSessions,
-  SessionRevocationReason,
-} from '../../stores/account-sessions';
 
 /** A fake that puts its state back when the unit of work it joined rolls back. */
 export interface RollsBack {
@@ -57,7 +50,9 @@ export class MemoryRunner extends UnitOfWorkRunner {
   }
 }
 
-function copied<Key, Value extends object>(rows: Map<Key, Value>): () => void {
+export function copied<Key, Value extends object>(
+  rows: Map<Key, Value>,
+): () => void {
   const saved = [...rows].map(([key, row]): [Key, Value] => [key, { ...row }]);
   return () => {
     rows.clear();
@@ -276,67 +271,5 @@ export class MemoryLedger extends AddressLedger implements RollsBack {
         held.lapsesAt <= input.now ||
         held.owner === input.owner,
     );
-  }
-}
-
-export interface RevocationRecord {
-  userId: string;
-  keptSessionId?: string;
-  reason?: string;
-}
-
-/** Live sessions by account, ended the way the revoker ends them. */
-export class MemorySessions extends AccountSessions implements RollsBack {
-  readonly live = new Map<string, { ids: string[] }>();
-  readonly revocations: RevocationRecord[] = [];
-
-  snapshot(): () => void {
-    const restore = copied(this.live);
-    const count = this.revocations.length;
-    return () => {
-      restore();
-      this.revocations.length = count;
-    };
-  }
-
-  signIn(userId: string, ...sessionIds: string[]): void {
-    const ids = this.live.get(userId)?.ids ?? [];
-    this.live.set(userId, { ids: [...ids, ...sessionIds] });
-  }
-
-  liveOf(userId: string): string[] {
-    return this.live.get(userId)?.ids ?? [];
-  }
-
-  revokeAll(
-    _unitOfWork: UnitOfWork,
-    userId: string,
-    reason?: SessionRevocationReason,
-  ): Promise<number> {
-    const ended = this.liveOf(userId).length;
-    this.live.set(userId, { ids: [] });
-    this.revocations.push({ userId, reason: reason?.reasonCode });
-    return Promise.resolve(ended);
-  }
-
-  revokeAllExcept(
-    _unitOfWork: UnitOfWork,
-    userId: string,
-    keptSessionId: string,
-    reasonCode?: string,
-  ): Promise<number> {
-    const ids = this.liveOf(userId);
-    if (!ids.includes(keptSessionId)) {
-      return Promise.reject(
-        new AppException(
-          ErrorCode.SESSION_INVALID,
-          'Current session is no longer active',
-          HttpStatus.UNAUTHORIZED,
-        ),
-      );
-    }
-    this.live.set(userId, { ids: [keptSessionId] });
-    this.revocations.push({ userId, keptSessionId, reason: reasonCode });
-    return Promise.resolve(ids.length - 1);
   }
 }

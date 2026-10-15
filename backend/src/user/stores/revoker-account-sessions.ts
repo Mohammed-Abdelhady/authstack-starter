@@ -35,4 +35,12 @@ export class RevokerAccountSessions extends AccountSessions {
       reasonCode,
     );
   }
+
+  assertLive(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    sessionId: string,
+  ): Promise<void> {
+    return this.revoker.assertLiveSessionIn(unitOfWork, userId, sessionId);
+  }
 }
