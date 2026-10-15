@@ -1,3 +1,5 @@
+import { IssuanceApplications } from '../../session/issuance/issuance-applications';
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { AddressLedger } from '../../common/persistence/address-ledger';
 import { Clock } from '../../common/services/clock';
@@ -85,8 +87,12 @@ describe('OAuthService sign-in', () => {
     const completeSignIn = jest
       .fn()
       .mockResolvedValue({ requiresTwoFactor: true });
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(
+      partialMock<IssuanceApplications>({}),
+    );
     const assertMayCreate = jest.spyOn(policy, 'assertMayCreate');
+    const config = new ConfigService({});
+    const browserApplications = browserApplicationsForTest(config);
     const service = new OAuthService(
       new LinkedAccountStore(account),
       partialMock<SignInCompletion>({ completeSignIn }),
@@ -94,8 +100,8 @@ describe('OAuthService sign-in', () => {
         syncProfileFromProvider: () => Promise.resolve(account),
       }),
       partialMock<AccountLinkingService>({}),
-      partialMock<Sessions>({}),
-      new SessionCookieService(new ConfigService({})),
+      partialMock<Sessions>({ assertAdmission: () => Promise.resolve() }),
+      new SessionCookieService(config, browserApplications),
       policy,
       new UnexpectedLedger(),
       new Clock(),
@@ -114,11 +120,7 @@ describe('OAuthService sign-in', () => {
     expect(assertMayCreate).not.toHaveBeenCalled();
     expect(outcome).toEqual({ requiresTwoFactor: true });
     expect(completeSignIn.mock.calls).toEqual([
-      [
-        account,
-        response,
-        'provider', // feature:totp
-      ],
+      [account, response, 'provider'],
     ]);
   });
 });
