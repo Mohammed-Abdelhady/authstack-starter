@@ -1,4 +1,9 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { Clock } from '../../../common/services/clock';
+import {
+  ACCOUNT_RESERVATION_RESULT,
+  AddressLedger,
+} from '../../../common/persistence/address-ledger';
 import { HashService } from '../../../common/services/hash.service';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
@@ -40,6 +45,8 @@ export class AdminUserCreateService {
     private readonly accessService: AdminUserAccessService,
     private readonly hashService: HashService,
     private readonly policy: AccountCreationPolicy,
+    private readonly ledger: AddressLedger,
+    private readonly clock: Clock,
   ) {}
 
   /**
@@ -101,6 +108,17 @@ export class AdminUserCreateService {
             { application: null, method: ACCOUNT_CREATION_METHOD.STAFF },
             unitOfWork,
           );
+          const reservation = await this.ledger.reserveForAccount(unitOfWork, {
+            address: email,
+            now: this.clock.now(),
+          });
+          if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN) {
+            throw new AppException(
+              ErrorCode.EMAIL_ALREADY_EXISTS,
+              'Email already in use',
+              HttpStatus.CONFLICT,
+            );
+          }
           const newUser = await this.accounts.insertAccount(unitOfWork, {
             email,
             name,
@@ -108,6 +126,10 @@ export class AdminUserCreateService {
             role: assignedRole.slug,
             locale,
           });
+          await this.ledger.finishAccountReservation(
+            unitOfWork,
+            reservation.reservation,
+          );
           createdUserId = newUser.id;
           assignmentRef = {
             roleId: assignedRole.id,
