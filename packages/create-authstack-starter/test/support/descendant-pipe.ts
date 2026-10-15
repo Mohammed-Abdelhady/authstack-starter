@@ -3,14 +3,18 @@ import { closeSync, createReadStream, openSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const DESCENDANT_PIPE_ENV = 'AUTHSTACK_DESCENDANT_PIPE';
+export const WORKER_PIPE_ENV = 'AUTHSTACK_WORKER_PIPE';
 
-export function createDescendantPipe(root: string): {
+export function createDescendantPipe(
+  root: string,
+  name = 'descendant-death.pipe',
+): {
   path: string;
   ready: Promise<void>;
   ended: Promise<string>;
   close: () => void;
 } {
-  const path = join(root, 'descendant-death.pipe');
+  const path = join(root, name);
   execFileSync('mkfifo', [path]);
   let bootstrap: number | undefined = openSync(path, 'r+');
   const reader = createReadStream(path, { fd: openSync(path, 'r'), encoding: 'utf8' });
