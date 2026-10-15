@@ -1,5 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { Response } from 'express';
+import {
+  ACCOUNT_RESERVATION_RESULT,
+  ADDRESS_CLAIM_KIND,
+  ADDRESS_CLAIM_RESULT,
+  AddressLedger,
+} from '../../common/persistence/address-ledger';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { ApiResponse } from '../../common/dto/api-response.dto';
@@ -44,6 +50,8 @@ export async function createActivatedAccount(
   },
   policy: AccountCreationPolicy,
   application: string,
+  ledger: AddressLedger,
+  now: Date,
 ): Promise<ActivatedAccount> {
   if (await accounts.hasActiveAccount(unitOfWork, reserved.email)) {
     throw activationCodeInvalid();
@@ -53,14 +61,23 @@ export async function createActivatedAccount(
     { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
     unitOfWork,
   );
+  const reservation = await ledger.reserveForAccount(unitOfWork, {
+    address: reserved.email,
+    now,
+  });
+  if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN) {
+    throw activationCodeInvalid();
+  }
   try {
-    return await accounts.insertActivated(unitOfWork, {
+    const created = await accounts.insertActivated(unitOfWork, {
       id: account.id,
       email: reserved.email,
       passwordHash: account.passwordHash,
       name: account.name,
       locale: account.locale,
     });
+    await ledger.finishAccountReservation(unitOfWork, reservation.reservation);
+    return created;
   } catch (error) {
     // A second account for the same address can win between the read and the
     // insert. The caller gets the shared failure and the unit of work rolls
@@ -91,6 +108,9 @@ export async function confirmEmailChange(
   accounts: ActivationAccounts,
   unitOfWork: UnitOfWork,
   reserved: ReservedCode,
+  ledger: AddressLedger,
+  now: Date,
+  lapsesAt: Date,
 ): Promise<string | null> {
   if (!reserved.userId) {
     throw activationCodeInvalid();
@@ -109,9 +129,21 @@ export async function confirmEmailChange(
     throw activationCodeInvalid();
   }
 
+  const claimed = await ledger.claim(unitOfWork, {
+    address: reserved.email,
+    owner: reserved.userId.toString(),
+    kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+    now,
+    lapsesAt,
+  });
+  if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw activationCodeInvalid();
   const previous = user.email;
   try {
     await accounts.confirmAddress(unitOfWork, user, reserved.email);
+    await ledger.release(unitOfWork, {
+      address: reserved.email,
+      owner: reserved.userId.toString(),
+    });
   } catch (error) {
     if (error instanceof UniqueConflictError) {
       throw activationCodeInvalid();
