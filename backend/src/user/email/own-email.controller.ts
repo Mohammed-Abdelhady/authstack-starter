@@ -22,6 +22,7 @@ import { OWN_EMAIL_MESSAGE } from './constants/own-email';
 import {
   ConfirmOwnEmailChangeDto,
   OwnEmailDto,
+  OwnEmailProofDto,
   RequestOwnEmailChangeDto,
 } from './dto/own-email.dto';
 import { OwnEmailConfirmationService } from './services/own-email-confirmation.service';
@@ -99,13 +100,17 @@ export class OwnEmailController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Cancel the pending change',
-    description: 'Frees the address asked for. Its code stops working.',
+    description:
+      'Frees the address asked for. Its code stops working. It needs the ' +
+      'proof a request needs, whoever started the change.',
   })
+  @ApiBody({ type: OwnEmailProofDto, required: false })
   async cancel(
     @Req() request: RequestWithUser,
+    @Body() dto: OwnEmailProofDto,
   ): Promise<ApiResponse<OwnEmailDto>> {
     return ApiResponse.success(
-      await this.requests.cancel(ownEmailCaller(request)),
+      await this.requests.cancel(ownEmailCaller(request), dto.password),
       OWN_EMAIL_MESSAGE.CANCELLED,
     );
   }

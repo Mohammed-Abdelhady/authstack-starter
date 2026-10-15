@@ -99,11 +99,27 @@ export class OwnEmailRequestService {
     );
   }
 
-  /** Clears the pending address and kills its code. Nothing pending is fine. */
-  cancel(caller: OwnEmailCaller): Promise<OwnEmailState> {
-    return this.runner
-      .run((unitOfWork) => this.cancelIn(unitOfWork, caller))
-      .catch(asOwnEmailFailure);
+  /**
+   * Clears the pending address and kills its code. Nothing pending is fine.
+   * It needs the proof a request needs: a change staff started is stored the
+   * same way, and an idle session must not undo it.
+   *
+   * @throws AppException REAUTH_REQUIRED without a fresh proof,
+   *   INVALID_CURRENT_PASSWORD for a wrong password
+   */
+  cancel(caller: OwnEmailCaller, password?: string): Promise<OwnEmailState> {
+    return this.cancelChange(caller, password).catch(asOwnEmailFailure);
+  }
+
+  private async cancelChange(
+    caller: OwnEmailCaller,
+    password: string | undefined,
+  ): Promise<OwnEmailState> {
+    const proof = await this.proofs.prove(caller, password);
+    return this.runner.run(async (unitOfWork) => {
+      await this.proofs.assertStillProvedIn(unitOfWork, caller, proof);
+      return this.cancelIn(unitOfWork, caller);
+    });
   }
 
   private async requestChange(
