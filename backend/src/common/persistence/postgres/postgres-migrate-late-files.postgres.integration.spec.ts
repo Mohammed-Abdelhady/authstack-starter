@@ -21,6 +21,7 @@ const FEATURE_FILES = [
   ['0008_two_factor.sql', '0017_two_factor_lockout.sql'], // feature:totp
   ['0009_passkeys.sql'], // feature:passkeys
   ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'], // feature:magic-link
+  ['0025_email_codes.sql'], // feature:email-code
 ];
 // feature:totp,passkeys,magic-link:end
 
@@ -113,17 +114,18 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
       );
 
       expect({
-        previousBuild: previousBuild.slice(-3),
+        // Every migration newer than 0019 was applied before 0019 was.
+        newerThanLocale: previousBuild.filter((name) => name > ACCOUNT_LOCALE),
         refused,
         up,
         recorded: await recorded(pool),
         locales: locale.rows,
         after: await startUp(pool),
       }).toEqual({
-        previousBuild: [
-          '0018_native_attempts.sql',
+        newerThanLocale: [
           '0020_host_migrations.sql',
           '0021_address_claims.sql',
+          '0025_email_codes.sql', // feature:email-code
         ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
@@ -178,6 +180,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0015_magic_link_request_nonce.sql',
         ),
         // feature:magic-link:end
+        '0025_email_codes.sql': gained('0025_email_codes.sql'), // feature:email-code
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,

@@ -1,4 +1,5 @@
 import { NativeAttemptsTable } from '../../../auth/native/persistence/postgres/postgres-native-attempt.table';
+import { EmailCodesTable } from '../../../auth/persistence/postgres/postgres-email-code.table'; // feature:email-code
 import { ColumnType, Generated, Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { commitCheckedPool } from './postgres-commit-tag';
@@ -309,6 +310,7 @@ export interface PostgresTables {
   native_credentials: NativeCredentialsTable;
   native_dpop_proof_ids: NativeDpopProofIdsTable;
   native_attempts: NativeAttemptsTable;
+  email_codes: EmailCodesTable; // feature:email-code
 }
 
 /**
