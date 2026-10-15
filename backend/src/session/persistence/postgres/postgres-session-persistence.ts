@@ -1,3 +1,5 @@
+import { EnrolmentStore } from '../../enrolment/enrolment.store';
+import { PostgresEnrolmentStore } from './postgres-enrolment.store';
 import { Provider } from '@nestjs/common';
 import { Pool } from 'pg';
 import {
@@ -42,6 +44,7 @@ import { PostgresSessionRevocationStore } from './postgres-session-revocation.st
 
 /** The session stores on PostgreSQL, each over the shared pool. */
 export const POSTGRES_SESSION_PROVIDERS: Provider[] = [
+  { provide: EnrolmentStore, useClass: PostgresEnrolmentStore },
   onDatabase(
     ApplicationRegistryStore,
     (database) => new PostgresApplicationRegistryStore(database),
