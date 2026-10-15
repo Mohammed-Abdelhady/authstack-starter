@@ -1,5 +1,6 @@
-import { PostgresUnitOfWorkRunner } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import { KyselyPlugin } from 'kysely';
+import { PostgresAddressLedger } from '../../../../common/persistence/postgres/postgres-address-ledger';
+import { PostgresUnitOfWorkRunner } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import { openTestConnection } from '../../../../../test/postgres/postgres-connection';
 import {
   POSTGRES_BOOT_TIMEOUT_MS,
@@ -42,6 +43,7 @@ async function bootPostgresProbe(): Promise<RequestWorkProbe> {
     links: new PostgresMagicLinkStore(counted),
     accounts: new PostgresMagicLinkAccounts(counted),
     runner: new PostgresUnitOfWorkRunner(counted),
+    ledger: new PostgresAddressLedger(),
     takeStatements: () => {
       const sent = statements;
       statements = 0;

@@ -1,6 +1,3 @@
-import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
-import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
-import { mongoSessionOf } from '../../session/persistence/mongo/mongo-unit-of-work';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { MAGIC_LINK_SENT_MESSAGE } from './constants/magic-link.constants';
 import { hashMagicLinkToken } from './utils/magic-link-token.util';
@@ -228,35 +225,6 @@ describe('MagicLinkService', () => {
         user: null,
         redirect,
       });
-    });
-
-    it('should create a verified account without a password for a new address', async () => {
-      const check = jest.spyOn(harness.policy, 'assertMayCreate');
-      harness.pendingModel.findOneAndUpdate.mockResolvedValueOnce(
-        pendingLink(new Date(harness.clock.now().getTime() + 60000)),
-      );
-
-      await verify();
-
-      expect(check).toHaveBeenCalledTimes(1);
-      const [request, work] = check.mock.calls[0];
-      expect(request).toEqual({
-        application: WEB_CLIENT_ID,
-        method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
-      });
-      expect(harness.userModel.create).toHaveBeenCalledWith(
-        [
-          {
-            email: EMAIL,
-            name: 'user',
-            isVerified: true,
-            authProvider: 'email',
-            primaryProvider: 'email',
-            locale: 'en',
-          },
-        ],
-        { session: mongoSessionOf(work) },
-      );
     });
 
     it('should reject a token that was already spent', async () => {

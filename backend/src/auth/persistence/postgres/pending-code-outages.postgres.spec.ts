@@ -32,6 +32,8 @@ const A_UUID = '018f3c5e-7b1a-7c3e-9d2f-0a1b2c3d4e5f';
 const NOT_ONE_STATEMENT: Record<string, string> = {
   'registration.rotate': 'private, reached through the two rotations',
   'registration.claimCode': 'runs inside the unit of work of its caller',
+  'registration.putEmailChangeCodeIn':
+    'runs inside the unit of work of its caller',
   'reset.claimCodeIn': 'runs inside the unit of work of its caller',
 };
 

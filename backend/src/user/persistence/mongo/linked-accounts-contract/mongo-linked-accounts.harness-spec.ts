@@ -5,13 +5,18 @@ import {
   PasskeyDocument,
 } from '../../../../auth/passkeys/persistence/mongo/schemas/passkey.schema';
 // feature:passkeys:end
-import { bootMongoAccountsHarness } from '../../../../../test/utils/user/accounts-contract/mongo-accounts-harness';
+import {
+  bootMongoAccountsHarness,
+  MongoAccountsHarness,
+} from '../../../../../test/utils/user/accounts-contract/mongo-accounts-harness';
 import { MongoProviderSignInStore } from '../../../../auth/oauth/persistence/mongo/mongo-provider-sign-in.store';
 import { MongoLinkedAccountStore } from '../mongo-linked-account.store';
 import { MongoSignInMethodStore } from '../mongo-sign-in-method.store';
 import { LinkedAccountsContractHarness } from '../../../linked-accounts-contract/linked-accounts-contract.harness-spec';
 
-export async function bootMongoLinkedAccountsHarness(): Promise<LinkedAccountsContractHarness> {
+export async function bootMongoLinkedAccountsHarness(): Promise<
+  LinkedAccountsContractHarness & MongoAccountsHarness
+> {
   const accounts = await bootMongoAccountsHarness();
   const { users } = accounts.booted;
   // feature:passkeys:start
