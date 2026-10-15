@@ -51,10 +51,14 @@ export async function bootMongoRoleHarness(): Promise<RoleContractHarness> {
     sweeps: stores.sweeps,
     runner: (pause) => new MongoUnitOfWorkRunner(connection, pause),
 
+    alterRoleAudience: async (slug, audience) => {
+      await roles.collection.updateOne({ slug }, { $set: { audience } });
+    },
     seedRole: async (role) => {
       const created = await roles.create({
         name: role.name,
         slug: role.slug,
+        audience: role.audience,
         permissions: role.permissions,
         level: role.level,
         isSystemRole: role.isSystemRole ?? false,
@@ -71,6 +75,7 @@ export async function bootMongoRoleHarness(): Promise<RoleContractHarness> {
         email: `role-contract-${accounts}@example.test`,
         name: 'Contract Tester',
         role: account.role,
+        audience: account.audience,
         permissions: account.permissions ?? [],
         isVerified: true,
         sessionVersion: 0,
@@ -151,6 +156,7 @@ export async function bootMongoRoleHarness(): Promise<RoleContractHarness> {
         id: stored._id.toString(),
         name: stored.name,
         slug: stored.slug,
+        ...(stored.audience ? { audience: stored.audience } : {}),
         description: stored.description ?? null,
         level: stored.level ?? null,
         permissions: stored.permissions,
@@ -164,7 +170,11 @@ export async function bootMongoRoleHarness(): Promise<RoleContractHarness> {
     account: async (userId) => {
       const user = await users.findById(userId).lean().exec();
       return user
-        ? { role: user.role, sessionVersion: user.sessionVersion }
+        ? {
+            role: user.role,
+            sessionVersion: user.sessionVersion,
+            ...(user.audience ? { audience: user.audience } : {}),
+          }
         : null;
     },
     events: async () => {

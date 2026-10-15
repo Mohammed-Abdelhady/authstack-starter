@@ -33,6 +33,21 @@ describe.each([
     jest.restoreAllMocks();
   });
 
+  it('accepts audience on create and refuses it on update', async () => {
+    const body = { ...base, audience: 'staff' };
+    if (metatype === CreateRoleDto) {
+      const dto: unknown = await createValidationPipe().transform(body, {
+        type: 'body',
+        metatype,
+      });
+      expect(dto).toMatchObject({ audience: 'staff' });
+      return;
+    }
+    expect(await bodyLevel(metatype, body)).toEqual({
+      refused: 'ValidationFailedException',
+    });
+  });
+
   it('may be left out', async () => {
     expect(await bodyLevel(metatype, { ...base })).toEqual({
       level: undefined,

@@ -1,3 +1,5 @@
+import { roleAudienceEditCases } from './role-contract-audience-edits';
+import { roleAudienceRepairCases } from './role-contract-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { roleAtomicityCases } from './role-contract-atomicity';
 import { roleEditCases } from './role-contract-edits';
@@ -54,6 +56,8 @@ export function describeRoleStoresContract(
 
     afterEach(() => jest.restoreAllMocks());
 
+    roleAudienceRepairCases(current, seeded);
+    roleAudienceEditCases(current, seeded);
     roleRuleCases(current, seeded);
     roleEditCases(current, seeded);
     roleLevelCases(current, seeded);
