@@ -4,6 +4,7 @@ import { RetryableAbortError } from '../../../../src/common/persistence/persiste
 import { IssuedBrowserSession } from '../../../../src/session/services/session-issuance.service';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
+  WEB_APPLICATION,
   HarnessSource,
   holdReruns,
   rejectionOf,
@@ -134,6 +135,25 @@ export function issuanceRaceCases(harness: HarnessSource): void {
         accountFence: 20,
         events: 20,
       },
+    });
+  });
+
+  it('admits only one concurrent sign-in at a configured per-application cap', async () => {
+    await harness().seedApplication({ ...WEB_APPLICATION, sessionCap: 1 });
+    const userId = await harness().seedAccount();
+
+    const race = await raceTwoSignIns(userId);
+
+    expect({
+      first: race.first,
+      second: race.second,
+      pauses: race.pauses,
+      sessions: (await harness().sessions(userId)).length,
+    }).toEqual({
+      first: SIGNED_IN,
+      second: ErrorCode.SESSION_LIMIT_REACHED,
+      pauses: [1],
+      sessions: 1,
     });
   });
 
