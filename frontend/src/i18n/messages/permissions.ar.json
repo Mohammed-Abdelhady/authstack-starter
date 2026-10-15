@@ -44,7 +44,8 @@
     },
     "scopes": {
       "own": "الخاصة به",
-      "all": "الكل"
+      "all": "الكل",
+      "staff": "الموظفون"
     },
     "permissionLabelWithScope": "{action} ({scope})",
     "tree": {
@@ -95,7 +96,8 @@
         "roles": "الأدوار",
         "permissions": "الصلاحيات",
         "sessions": "الجلسات",
-        "reports": "التقارير"
+        "reports": "التقارير",
+        "activity": "نشاط الموظفين"
       },
       "allTab": "الكل",
       "selectAll": "تحديد الكل",
