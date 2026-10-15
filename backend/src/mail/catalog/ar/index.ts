@@ -5,6 +5,7 @@ import { EMAIL_CHANGE_CODE_AR } from './email-change-code';
 import { EMAIL_CHANGE_NOTICE_AR } from './email-change-notice';
 import { MAGIC_LINK_AR } from './magic-link';
 import { PASSWORD_RESET_CODE_AR } from './password-reset-code';
+import { PROOF_CODE_AR } from './proof-code';
 import { REGISTRATION_NOTICE_AR } from './registration-notice';
 import { SECURITY_NOTICE_AR } from './security-notice';
 
@@ -14,6 +15,7 @@ export const AR_MAIL_CATALOGUE: MailCatalogue = {
   emailChangeCode: EMAIL_CHANGE_CODE_AR,
   emailChangeNotice: EMAIL_CHANGE_NOTICE_AR,
   passwordResetCode: PASSWORD_RESET_CODE_AR,
+  proofCode: PROOF_CODE_AR,
   magicLink: MAGIC_LINK_AR,
   registrationNotice: REGISTRATION_NOTICE_AR,
   securityNotice: SECURITY_NOTICE_AR,

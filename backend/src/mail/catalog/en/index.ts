@@ -5,6 +5,7 @@ import { EMAIL_CHANGE_CODE_EN } from './email-change-code';
 import { EMAIL_CHANGE_NOTICE_EN } from './email-change-notice';
 import { MAGIC_LINK_EN } from './magic-link';
 import { PASSWORD_RESET_CODE_EN } from './password-reset-code';
+import { PROOF_CODE_EN } from './proof-code';
 import { REGISTRATION_NOTICE_EN } from './registration-notice';
 import { SECURITY_NOTICE_EN } from './security-notice';
 
@@ -14,6 +15,7 @@ export const EN_MAIL_CATALOGUE: MailCatalogue = {
   emailChangeCode: EMAIL_CHANGE_CODE_EN,
   emailChangeNotice: EMAIL_CHANGE_NOTICE_EN,
   passwordResetCode: PASSWORD_RESET_CODE_EN,
+  proofCode: PROOF_CODE_EN,
   magicLink: MAGIC_LINK_EN,
   registrationNotice: REGISTRATION_NOTICE_EN,
   securityNotice: SECURITY_NOTICE_EN,
