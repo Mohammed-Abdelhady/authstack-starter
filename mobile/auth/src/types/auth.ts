@@ -191,7 +191,9 @@ export type SignOutOutcome =
       kind: 'signedOut';
       revocation: RevocationOutcome;
       error?: Error | ApiError | OAuthError | TransportError | undefined;
-    };
+    }
+  /** The sign-out could not be saved, so nothing changed: the person is still signed in. */
+  | { kind: 'signOutNotSaved'; revocation?: undefined; error?: Error | undefined };
 
 /** `error` is what a request waiting on the same refresh would have rejected with. */
 export type RefreshOutcome =
