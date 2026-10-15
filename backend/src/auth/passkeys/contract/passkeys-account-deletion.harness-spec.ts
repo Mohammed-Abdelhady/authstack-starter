@@ -24,6 +24,7 @@ function register(
 ): Promise<unknown> {
   return store.insert({
     userId,
+    rpId: 'localhost',
     credentialId,
     publicKey: Buffer.from([1, 2, 3]),
     counter: 4,

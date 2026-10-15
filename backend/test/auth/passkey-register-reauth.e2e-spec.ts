@@ -114,28 +114,20 @@ describe('adding a passkey asks who is there again (e2e)', () => {
     expect(challengeCookieOf(right)).toContain('HttpOnly');
   });
 
-  it('asks a mobile access token for the same proof', async () => {
+  it('refuses a mobile access token on the browser routes, which register through the native ones', async () => {
     const { tokens } = await signInNative(e2e);
-    const ask = (body: Record<string, string>) =>
+    const bearer = (path: string, body: object) =>
       request(e2e.httpServer)
-        .post(OPTIONS)
+        .post(path)
         .set('Authorization', `Bearer ${tokens.accessToken}`)
         .send(body);
 
-    const bare = await ask({});
-    const wrong = await ask({ password: 'NotThePassword1!' });
-    const right = await ask({ password: SEED_USER.password });
+    const options = await bearer(OPTIONS, { password: SEED_USER.password });
+    const verify = await bearer(VERIFY, UNSIGNED_CREDENTIAL);
 
-    expect(refusalOf(bare)).toEqual({
-      status: 401,
-      code: 'REAUTH_REQUIRED',
-      required: 'password',
-    });
-    expect(refusalOf(wrong)).toEqual({
-      status: 400,
-      code: 'INVALID_CURRENT_PASSWORD',
-    });
-    expect(right.status).toBe(200);
+    expect(refusalOf(options)).toEqual({ status: 403, code: 'FORBIDDEN' });
+    expect(refusalOf(verify)).toEqual({ status: 403, code: 'FORBIDDEN' });
+    expect(await e2e.state.auth.countPasskeys()).toBe(0);
   });
 
   it('takes the challenge from the session that gave its password and from no other', async () => {

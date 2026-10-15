@@ -31,8 +31,9 @@ async function signOutThisDevice(runtime: Runtime, confirm?: Confirmation): Prom
   if (confirm !== undefined && !(await confirm())) return REVOKE_RESULT.CANCELLED;
   if (runtime.epoch.current() !== started) return REVOKE_RESULT.SUPERSEDED;
   try {
-    await runtime.engine.signOut();
-    return REVOKE_RESULT.SIGNED_OUT;
+    const outcome = await runtime.engine.signOut();
+    // A sign-out that was not saved leaves this device signed in.
+    return outcome.kind === 'signedOut' ? REVOKE_RESULT.SIGNED_OUT : REVOKE_RESULT.UNDONE;
   } catch {
     // Reported as not done, so the screen says the device is still signed in.
     return REVOKE_RESULT.UNDONE;

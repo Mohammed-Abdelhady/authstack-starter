@@ -19,6 +19,10 @@ export class PasskeyChallenge {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User' })
   user?: Types.ObjectId;
 
+  /** Session the challenge was issued to, when only it may spend it. */
+  @Prop({ type: String })
+  sessionId?: string;
+
   @Prop({ required: true, index: { expireAfterSeconds: 0 } })
   expiresAt!: Date;
 }

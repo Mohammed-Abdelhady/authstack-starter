@@ -6,6 +6,7 @@ import {
   passkeyServices,
   PASSWORD,
   refusalOf,
+  SESSION,
   sha256,
 } from './passkeys-contract.harness-spec';
 import { requirementOf } from './passkeys-contract-reauth.harness-spec';
@@ -54,7 +55,7 @@ export function reauthPasswordCases(
     const services = passkeyServices(harness());
     const weekOld = browser(
       {},
-      { id: 'session-one', createdAt: new Date(NOW.getTime() - WEEK_MS) },
+      { ...SESSION, createdAt: new Date(NOW.getTime() - WEEK_MS) },
     );
 
     const options = await services.registration.createOptions(

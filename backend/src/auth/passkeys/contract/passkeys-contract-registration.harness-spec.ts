@@ -65,6 +65,8 @@ export function registrationCases(
         userName: OWNER_EMAIL,
         userDisplayName: 'Contract Tester',
         excludeCredentials: [{ id: CREDENTIAL_ID, transports: ['internal'] }],
+        // The browser keeps today's rule while no policy requires more.
+        userVerification: 'preferred',
       },
     ]);
     expect(await harness().storedChallenges()).toEqual([

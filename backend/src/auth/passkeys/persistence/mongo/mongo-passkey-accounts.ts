@@ -4,6 +4,8 @@ import { Model, Types } from 'mongoose';
 import { Response } from 'express';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import { mapMongoError } from '../../../../session/persistence/mongo/mongo-persistence-errors';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import {
   User,
   UserDocument,
@@ -83,6 +85,37 @@ export class MongoPasskeyAccounts extends PasskeyAccounts {
       hasPassword: Boolean(user.password),
       hasLinkedAccount: (user.linkedAccounts ?? []).length > 0,
     };
+  }
+
+  /**
+   * Fences the account first, the way the sign-in method rule does: a write
+   * to the account inside the work, so a deactivation that writes it before
+   * the work ends conflicts and is refused or rerun, never committed under
+   * the passkey. The standing is read after the fence.
+   */
+  async readStanding(
+    unitOfWork: UnitOfWork,
+    userId: string,
+  ): Promise<{ isDeleted: boolean } | null> {
+    if (!Types.ObjectId.isValid(userId)) {
+      throw new MalformedIdError();
+    }
+    const session = mongoSessionOf(unitOfWork);
+    const fenced = await this.userModel
+      .updateOne(
+        { _id: userId },
+        { $inc: { signInFence: 1 } },
+        { session, timestamps: false },
+      )
+      .exec();
+    if (fenced.matchedCount !== 1) {
+      return null;
+    }
+    const user = await this.userModel
+      .findById(userId)
+      .select('isDeleted')
+      .session(session);
+    return user ? { isDeleted: Boolean(user.isDeleted) } : null;
   }
 }
 

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD } from '@app/sdk';
-import { CREDENTIAL_DELETE_TIMEOUT_MS } from '../../src/constants';
+import { CREDENTIAL_WRITE_TIMEOUT_MS } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
+import { watchTimerDrain } from '../support/timer-drain';
+import { revokedTokens } from '../support/tracking';
 import {
   Deferred,
   CONFIG,
+  REFRESH_TOKEN,
   ScriptedTransport,
   apiReply,
   establishSession,
@@ -89,34 +92,40 @@ describe('engine disposal', () => {
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    const deleteStarted = new Deferred<void>();
-    const finishDelete = new Deferred<void>();
-    const deleteFinished = new Deferred<void>();
-    const deleteDeadlineCancelled = new Deferred<void>();
-    let deletionCompleted = false;
-    ports.credentials.beforeDelete = () => {
-      deleteStarted.resolve();
-      return finishDelete.promise;
+    // The sign-out's one write is a replace that stores the intent; its deadline is the write's.
+    const writeStarted = new Deferred<void>();
+    const finishWrite = new Deferred<void>();
+    const writeDeadlineCancelled = new Deferred<void>();
+    const slotCleared = new Deferred<void>();
+    let writeCompleted = false;
+    ports.credentials.beforeReplace = () => {
+      writeStarted.resolve();
+      return finishWrite.promise;
     };
-    ports.credentials.afterDelete = () => {
-      deletionCompleted = true;
-      deleteFinished.resolve();
+    ports.credentials.afterReplace = () => {
+      writeCompleted = true;
     };
-    ports.timer.onCancel = (milliseconds) => {
-      if (deletionCompleted && milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS)
-        deleteDeadlineCancelled.resolve();
-    };
+    ports.credentials.afterDelete = () => slotCleared.resolve();
+    const timersDrained = watchTimerDrain(ports.timer, {
+      onCancel: (milliseconds) => {
+        if (writeCompleted && milliseconds === CREDENTIAL_WRITE_TIMEOUT_MS)
+          writeDeadlineCancelled.resolve();
+      },
+    });
     transport.enqueue({ status: 200, body: {} });
     const signOut = engine.signOut();
-    await deleteStarted.promise;
+    await writeStarted.promise;
 
     engine.dispose();
 
     await expect(signOut).resolves.toEqual({ kind: 'disposed' });
-    expect(ports.timer.pendingDelays).toContain(CREDENTIAL_DELETE_TIMEOUT_MS);
-    finishDelete.resolve();
-    await deleteFinished.promise;
-    await deleteDeadlineCancelled.promise;
+    expect(ports.timer.pendingDelays).toContain(CREDENTIAL_WRITE_TIMEOUT_MS);
+    finishWrite.resolve();
+    await writeDeadlineCancelled.promise;
+    await slotCleared.promise;
+    await timersDrained();
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+    expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
   });
 

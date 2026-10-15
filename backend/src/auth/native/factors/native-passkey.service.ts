@@ -15,6 +15,15 @@ import {
   COUNTER_OUTCOME,
 } from '../../passkeys/stores/passkey.store';
 import { WebAuthnAdapter } from '../../passkeys/services/webauthn.adapter';
+import {
+  belongsTo,
+  relyingPartyScope,
+} from '../../passkeys/utils/relying-party.util';
+import { PasskeyConfigService } from '../../passkeys/services/passkey-config.service';
+import {
+  NativeRelyingParties,
+  PasskeyRelyingParty,
+} from '../../passkeys/native/native-relying-parties';
 import { NativeAttemptStore } from '../stores/native-attempt.store';
 import {
   NativeAttemptService,
@@ -52,6 +61,8 @@ export class NativePasskeyService {
     private readonly epoch: AuthEpochService,
     private readonly clock: Clock,
     private readonly runner: UnitOfWorkRunner,
+    private readonly relyingParties: NativeRelyingParties,
+    private readonly passkeyConfig: PasskeyConfigService,
   ) {}
 
   async options(
@@ -67,8 +78,13 @@ export class NativePasskeyService {
         purpose === 'secondFactor'
           ? claimed.details.verifiedAccount?.userId
           : undefined;
+      // Only this application's relying party; a passkey stored with none is
+      // the web one's, and never offered to an app with another relying party.
       const descriptors = userId
-        ? await this.credentials.listDescriptors(userId)
+        ? await this.credentials.listDescriptorsFor(
+            userId,
+            relyingPartyScope(config.rpId, this.passkeyConfig.rpId),
+          )
         : [];
       if (purpose === 'secondFactor' && descriptors.length === 0)
         throw featureDisabled();
@@ -125,6 +141,8 @@ export class NativePasskeyService {
         throw wrongStage();
       const passkey = await this.credentials.findByCredentialId(assertion.id);
       if (!passkey || (userId && passkey.userId !== userId)) throw wrongStage();
+      if (!belongsTo(passkey, config.rpId, this.passkeyConfig.rpId))
+        throw wrongStage();
       if (!assertHandle(assertion.response.userHandle, passkey.userId, purpose))
         throw wrongStage();
       const account = await this.accounts.findProfile(passkey.userId);
@@ -251,15 +269,11 @@ export class NativePasskeyService {
     throw wrongStage();
   }
 
-  private async config(
-    attempt: NativeAttempt,
-  ): Promise<{ rpId: string; origins: string[] }> {
+  private async config(attempt: NativeAttempt): Promise<PasskeyRelyingParty> {
     const methods = await this.methods.forClient(attempt.clientId);
     if (!methods.capabilities.passkeys) throw featureDisabled();
-    const signIn = this.epoch
-      .nativeApplications()
-      .find((item) => item.clientId === attempt.clientId)?.signIn;
-    if (!signIn?.rpId || !signIn.origins?.length) throw featureDisabled();
-    return { rpId: signIn.rpId, origins: signIn.origins };
+    const relyingParty = this.relyingParties.of(attempt.clientId);
+    if (!relyingParty) throw featureDisabled();
+    return relyingParty;
   }
 }
