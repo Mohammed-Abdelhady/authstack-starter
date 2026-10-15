@@ -46,7 +46,7 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'passkey_challenges', column: 'expires_at', keepForMs: 0 }, // feature:passkeys
   { table: 'authorization_transactions', column: 'expires_at', keepForMs: 0 },
   { table: 'native_attempts', column: 'expires_at', keepForMs: 0 },
-  { table: 'email_codes', column: 'expires_at', keepForMs: 0 }, // feature:email-code
+  { table: 'email_codes', column: 'purge_after', keepForMs: 0 }, // feature:email-code
   { table: 'native_credentials', column: 'expires_at', keepForMs: 0 },
   { table: 'native_dpop_proof_ids', column: 'expires_at', keepForMs: 0 },
   { table: 'sessions', column: 'expires_at', keepForMs: 0 },

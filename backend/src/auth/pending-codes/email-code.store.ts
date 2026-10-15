@@ -30,6 +30,11 @@ export interface NewEmailCode extends EmailCodeKey {
   email: string;
   codeHash: string;
   expiresAt: Date;
+  /**
+   * When the owner itself ends, never before `expiresAt`. The row, and with it
+   * the owner's wrong guesses, is kept until then.
+   */
+  purgeAfter: Date;
   /** Stored already spent: the code was never mailed and must never match. */
   spent: boolean;
 }
@@ -39,12 +44,15 @@ export interface StoredEmailCode extends EmailCodeKey {
   codeHash: string;
   wrongGuesses: number;
   expiresAt: Date;
+  purgeAfter: Date;
   spentAt: Date | null;
 }
 
 /**
  * Codes are judged by `expiresAt`, never by whether their row is still there.
- * Wrong guesses belong to the owner, so replacing its code keeps them.
+ * Wrong guesses belong to the owner, so replacing its code keeps them, and
+ * cleanup keeps the row until `purgeAfter`: a code that expired while its
+ * owner lives must not hand the owner a fresh count on the next code.
  */
 export abstract class EmailCodeStore {
   /** Stores the owner's code for the purpose, replacing the one before it. */

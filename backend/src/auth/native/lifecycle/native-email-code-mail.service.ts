@@ -96,6 +96,7 @@ export class NativeEmailCodeMailService {
       email,
       codeHash: await this.hashService.hash(code),
       expiresAt,
+      purgeAfter: attempt.expiresAt,
       spent: !mailed,
     });
     if (!mailed) this.logger.warn(this.unsentReason(owner, mayCreate));

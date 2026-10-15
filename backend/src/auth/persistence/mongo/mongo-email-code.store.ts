@@ -36,9 +36,10 @@ export class MongoEmailCodeStore extends EmailCodeStore {
       { ownerId: 1, purpose: 1 },
       { unique: true, name: 'email_code_owner_purpose_unique' },
     );
+    // Kept until the owner ends, not the code: the owner's wrong guesses live on the row.
     await this.collection.createIndex(
-      { expiresAt: 1 },
-      { expireAfterSeconds: 0, name: 'email_code_expiry' },
+      { purgeAfter: 1 },
+      { expireAfterSeconds: 0, name: 'email_code_purge_after' },
     );
   }
 
@@ -50,6 +51,7 @@ export class MongoEmailCodeStore extends EmailCodeStore {
           email: storedAddress(code.email),
           codeHash: code.codeHash,
           expiresAt: code.expiresAt,
+          purgeAfter: code.purgeAfter,
           spentAt: code.spent ? this.clock.now() : null,
         },
         $setOnInsert: { wrongGuesses: 0 },
