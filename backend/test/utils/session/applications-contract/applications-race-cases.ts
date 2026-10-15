@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import type { NativeApplicationConfiguration } from '../../../../src/config/types/native-application.type';
@@ -215,7 +216,7 @@ export function applicationRaceCases(harness: ApplicationsHarnessSource): void {
 
     const signingIn = harness()
       .authority.issuance.service(rerunAtOnce)
-      .createBrowserSession(userId, 'racing/1', SIGN_IN_ADDRESS);
+      .createBrowserSession(userId, 'racing/1', SIGN_IN_ADDRESS, WEB_CLIENT_ID);
     await signInCounted.reached(1);
     const blocking = outcomeOf(
       accessOn(harness(), reruns.pause).blockGrant(userId, WEB_CLIENT),
@@ -276,7 +277,12 @@ export function applicationRaceCases(harness: ApplicationsHarnessSource): void {
     const signingIn = outcomeOf(
       harness()
         .authority.issuance.service(reruns.pause)
-        .createBrowserSession(userId, 'racing/1', SIGN_IN_ADDRESS),
+        .createBrowserSession(
+          userId,
+          'racing/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        ),
     );
     const signInWas = await refusedOr(reruns.refused, signInCounted);
     blockWrote.release();

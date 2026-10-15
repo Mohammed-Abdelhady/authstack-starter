@@ -11,29 +11,53 @@ const BASE_ENV = {
 };
 
 describe('reserved host settings validation', () => {
-  it('accepts ADMIN_URL equal to CLIENT_URL at startup', () => {
-    expect(
-      validateEnvironment({ ...BASE_ENV, ADMIN_URL: 'http://localhost:3000' })
-        .ADMIN_URL,
-    ).toBe('http://localhost:3000');
+  it.each([
+    'https://APP.example.test:443/admin',
+    'https://app.example.test/another-path',
+  ])('refuses the same normalized client and admin origin: %s', (adminUrl) => {
+    expect(() =>
+      validateEnvironment({
+        ...BASE_ENV,
+        CLIENT_URL: 'https://app.example.test',
+        ADMIN_URL: adminUrl,
+      }),
+    ).toThrow(/ADMIN_URL.*different origin.*CLIENT_URL/);
   });
 
-  it('accepts a reserved http ADMIN_URL in production', () => {
+  it.each(['http://admin.example.test', 'https://localhost:3001'])(
+    'refuses an insecure or loopback production admin origin: %s',
+    (adminUrl) => {
+      expect(() =>
+        validateEnvironment({
+          ...BASE_ENV,
+          NODE_ENV: 'production',
+          CLIENT_URL: 'https://app.example.test',
+          ADMIN_URL: adminUrl,
+        }),
+      ).toThrow(/ADMIN_URL.*public.*HTTPS/);
+    },
+  );
+
+  it('accepts distinct public production browser origins', () => {
     expect(
       validateEnvironment({
         ...BASE_ENV,
         NODE_ENV: 'production',
-        CLIENT_URL: 'https://app.example.com',
-        ADMIN_URL: 'http://localhost:3001',
+        CLIENT_URL: 'https://app.example.test',
+        ADMIN_URL: 'https://admin.example.test',
       }).ADMIN_URL,
-    ).toBe('http://localhost:3001');
+    ).toBe('https://admin.example.test');
   });
 
   it.each(['AUTH_WEB_SIGN_IN', 'AUTH_ADMIN_SIGN_IN'] as const)(
     'accepts browser passkeys without native fields in %s',
     (setting) => {
       const raw = '{"passkeys":true,"signUp":"closed","audience":"staff"}';
-      const validated = validateEnvironment({ ...BASE_ENV, [setting]: raw });
+      const validated = validateEnvironment({
+        ...BASE_ENV,
+        ADMIN_URL: 'http://localhost:3001',
+        [setting]: raw,
+      });
       expect(parseBrowserSignIn(validated[setting], setting)).toEqual({
         passkeys: true,
         signUp: 'closed',
