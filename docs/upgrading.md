@@ -92,16 +92,21 @@ contains the compiled command and production dependencies.
 Core `admin` becomes `staff` and core `user` becomes `customer`. Host role mappings
 come from `HOST_ROLES`; custom role names and permissions are never interpreted
 as audiences. The command refuses missing or conflicting mappings before writing,
-fills only absent audiences, and ends each changed account's sessions in the same
-transaction. Customer mappings with direct or inherited wildcard or `:staff` grants
-are refused; repair those grants explicitly before retrying. Reruns leave already
-mapped data and session authority unchanged.
+fills only absent audiences, and ends each changed account's sessions in the
+transaction that maps it. Customer mappings with direct or inherited wildcard or
+`:staff` grants are refused; repair those grants explicitly before retrying. Reruns
+leave already mapped data and session authority unchanged.
+
+Every refusal is checked, and the role mappings commit, in one transaction before
+any account changes. Each account then gets its own transaction, so a large installation stays
+within the database's transaction limits. If the command stops part way, the
+accounts it mapped keep their audience and their ended sessions; run it again to
+map the rest.
 
 After the command succeeds, configure application audiences and restart. Startup
 refuses to serve when any role or account still lacks an audience. Without an
 application audience, the mapping check, audience authorization and staff guard
-remain inactive. On very large MongoDB installations the all-or-nothing command
-can reach the database transaction lifetime; a refusal rolls back the mapping.
+remain inactive.
 
 ## Role audience choice in the web console
 
