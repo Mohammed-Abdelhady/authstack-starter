@@ -63,12 +63,13 @@ function createAccounts<TSignal extends TransportSignal>({
   writeNoContent,
 }: AdminSenders<TSignal>): ApiClientAdmin<TSignal>['admin']['accounts'] {
   return {
-    list: (query, options) =>
+    list: async (query, options) =>
       sendObject(
         { method: HTTP_METHOD.GET, path: withQuery(ADMIN_PATHS.accounts, query) },
         options,
       ),
-    create: (body, options) => write(createCall(ADMIN_PATHS.accounts, body, options), options),
+    create: async (body, options) =>
+      write(createCall(ADMIN_PATHS.accounts, body, options), options),
     get: async (id, options) =>
       sendObject({ method: HTTP_METHOD.GET, path: ADMIN_PATHS.account(id) }, options),
     update: async (id, body, options) =>
@@ -90,11 +91,11 @@ function createRoles<TSignal extends TransportSignal>({
   writeNoContent,
 }: AdminSenders<TSignal>): ApiClientAdmin<TSignal>['admin']['roles'] {
   return {
-    list: (query, options) =>
+    list: async (query, options) =>
       sendObject({ method: HTTP_METHOD.GET, path: withQuery(ADMIN_PATHS.roles, query) }, options),
     get: async (id, options) =>
       sendObject({ method: HTTP_METHOD.GET, path: ADMIN_PATHS.role(id) }, options),
-    create: (body, options) => write(createCall(ADMIN_PATHS.roles, body, options), options),
+    create: async (body, options) => write(createCall(ADMIN_PATHS.roles, body, options), options),
     update: async (id, body, options) =>
       write({ method: HTTP_METHOD.PATCH, path: ADMIN_PATHS.role(id), body }, options),
     delete: async (id, options) =>
@@ -148,7 +149,7 @@ export function createAdminArea<TSignal extends TransportSignal>(
       roles: createRoles(senders),
       sessions: createSessions(senders),
       activity: {
-        list: (query, options) =>
+        list: async (query, options) =>
           senders.sendObject(
             { method: HTTP_METHOD.GET, path: withQuery(ADMIN_PATHS.activity, query) },
             options,
