@@ -21,7 +21,7 @@ function temporary(t) {
 test('template sync preserves pnpm manifests, workspace edges and packed lock naming', () => {
   const root = JSON.parse(templateContent('package.json', readFileSync(join(ROOT, 'package.json'))));
   assert.equal(root.packageManager, 'pnpm@12.6.0');
-  assert.deepEqual(root.engines, { node: '^22.12.0 || ^24.0.0', pnpm: '12.6.0' });
+  assert.deepEqual(root.engines, { node: '^22.12.0 || ^24.22.0', pnpm: '12.6.0' });
   const mobileAuth = JSON.parse(
     templateContent('mobile/auth/package.json', readFileSync(join(ROOT, 'mobile/auth/package.json'))),
   );
@@ -40,7 +40,7 @@ test('template sync preserves pnpm manifests, workspace edges and packed lock na
       rootWorkspace: true,
       workspaceFile: true,
       packageManager: 'pnpm@12.6.0',
-      engines: { node: '^22.12.0 || ^24.0.0', pnpm: '12.6.0' },
+      engines: { node: '^22.12.0 || ^24.22.0', pnpm: '12.6.0' },
       sdk: 'workspace:*',
       rootScripts: {
         lint: 'pnpm -r --if-present run lint',

@@ -133,7 +133,7 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
     'shared/sdk/package.json',
   ]) {
     expect(readPackage(join(project, file)).engines, file).toEqual({
-      node: '^22.12.0 || ^24.0.0',
+      node: '^22.12.0 || ^24.22.0',
       pnpm: '12.6.0',
     });
   }

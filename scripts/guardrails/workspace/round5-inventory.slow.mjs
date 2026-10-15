@@ -77,11 +77,16 @@ export default tseslint.config(...tseslint.configs.recommended,
   );
   installWorkspaceTools(repo.root, 'apps/one');
   installPolicyTestDependencies(repo.root);
-  const result = spawnSync(process.execPath, ['--test', 'scripts/eslint-policy.test.mjs'], {
-    cwd: repo.root,
-    env: repo.env,
-    encoding: 'utf8',
-  });
+  // Node 24's default reporter prints no TAP summary lines.
+  const result = spawnSync(
+    process.execPath,
+    ['--test', '--test-reporter=tap', 'scripts/eslint-policy.test.mjs'],
+    {
+      cwd: repo.root,
+      env: repo.env,
+      encoding: 'utf8',
+    },
+  );
   assert.deepEqual(
     {
       status: result.status,
