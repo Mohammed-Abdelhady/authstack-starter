@@ -1,0 +1,79 @@
+{
+  "activity": {
+    "title": "Staff activity",
+    "description": "Recorded staff actions across applications.",
+    "refresh": "Refresh activity",
+    "loading": "Loading staff activity...",
+    "loadError": "Staff activity could not be loaded.",
+    "results": "Activity results",
+    "empty": "No staff actions match these filters.",
+    "count": "Matching actions: {count, number}",
+    "apply": "Apply filters",
+    "clear": "Clear filters",
+    "dateWindow": "Dates use your local time. From is inclusive; before is exclusive.",
+    "invalidRange": "Enter valid dates with the from time earlier than the before time.",
+    "unavailable": "Not recorded",
+    "details": "Recorded details",
+    "filters": {
+      "actor": "Actor account ID",
+      "action": "Action identifier",
+      "target": "Target account ID",
+      "from": "From",
+      "to": "Before"
+    },
+    "fields": {
+      "actor": "Actor account ID",
+      "target": "Target account ID",
+      "application": "Application",
+      "event": "Event ID"
+    },
+    "outcomes": {
+      "succeeded": "Succeeded",
+      "failed": "Failed"
+    },
+    "actions": {
+      "account_created": "Account created",
+      "account_updated": "Account updated",
+      "account_status_changed": "Account status changed",
+      "account_deleted": "Account deleted",
+      "permission_granted": "Permission granted",
+      "permission_revoked": "Permission revoked",
+      "role_created": "Role created",
+      "role_updated": "Role updated",
+      "role_deleted": "Role deleted",
+      "passkeys_reset": "Passkeys reset",
+      "admin_recovery_started": "Administrator recovery started",
+      "invitation_created": "Invitation created",
+      "invitation_resent": "Invitation resent",
+      "invitation_revoked": "Invitation revoked",
+      "invitation_accepted": "Invitation accepted",
+      "session_revoked": "Session ended",
+      "sessions_revoked_all": "All sessions ended",
+      "sessions_revoked_others": "Other sessions ended",
+      "application_disabled": "Application disabled",
+      "application_enabled": "Application enabled"
+    },
+    "invalidInput": "Enter valid account IDs and action identifiers.",
+    "detailFields": {
+      "name": "Name",
+      "email": "Email address",
+      "roleId": "Role ID",
+      "changedFields": "Changed fields",
+      "isDeleted": "Account deactivated",
+      "permission": "Permission",
+      "slug": "Role identifier",
+      "permissions": "Permissions",
+      "assignedRoleId": "Assigned role ID",
+      "previousRoleId": "Previous role ID"
+    },
+    "values": {
+      "yes": "Yes",
+      "no": "No"
+    }
+  },
+  "dashboard": {
+    "nav": {
+      "staffActivity": "Staff activity"
+    }
+  }
+}

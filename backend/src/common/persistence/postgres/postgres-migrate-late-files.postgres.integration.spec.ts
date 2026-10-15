@@ -113,7 +113,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
       );
 
       expect({
-        previousBuild: previousBuild.slice(-3),
+        previousBuild: previousBuild.slice(-4),
         refused,
         up,
         recorded: await recorded(pool),
@@ -124,6 +124,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0018_native_attempts.sql',
           '0020_host_migrations.sql',
           '0021_address_claims.sql',
+          '0027_activity_log.sql',
         ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },

@@ -1,3 +1,13 @@
+import { ACTIVITY_RETENTION_DAYS_DEFAULT } from '../../../config/constants/host-contracts';
+import { ConfigService } from '@nestjs/config';
+import { SecurityEventsTable } from './types/security-events.table';
+import { eventActivityFields } from '../../events/utils/activity-details';
+import { activityQuery } from '../../events/utils/activity-query';
+import { ActivityQuery } from '../../events/types/activity-event';
+import {
+  ACTIVITY_DAY_MS,
+  SIGN_IN_RETENTION_DAYS,
+} from '../../events/constants/activity-details';
 import { Kysely, Selectable } from 'kysely';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
@@ -5,10 +15,7 @@ import {
   SecurityEventStore,
   StoredSecurityEvent,
 } from '../../events/security-event.store';
-import {
-  PostgresTables,
-  SecurityEventsTable,
-} from '../../../common/persistence/postgres/postgres-database';
+import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { autocommit } from '../../../auth/persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
 import { rowSlices } from './postgres-bind-parameters';
@@ -18,6 +25,9 @@ const NO_LOCAL_CONSTRAINTS = {};
 
 const EVENT_COLUMNS = [
   'event_id',
+  'kind',
+  'details',
+  'purge_after',
   'actor_id',
   'target_user_id',
   'client_id',
@@ -43,12 +53,20 @@ type EventRow = Pick<
 
 /**
  * A deletion's actor is the event's actor: the row has one column for both.
- * `purge_after` is left to the column's default, the database's own setting.
+ * Retention is fixed at write time; the shared purge job reads its deadline.
  */
-function toRow(event: NewSecurityEvent): EventRow {
+function toRow(event: NewSecurityEvent, retentionDays: number): EventRow {
+  const activity = eventActivityFields(event, true);
+  const days =
+    activity.kind === 'staff' ? retentionDays : SIGN_IN_RETENTION_DAYS;
   const assignment = event.roleAssignment;
   const deletion = event.roleDeletionSweep;
   return {
+    kind: activity.kind,
+    details: activity.details,
+    purge_after:
+      event.purgeAfter ??
+      new Date(event.occurredAt.getTime() + days * ACTIVITY_DAY_MS),
     event_id: event.eventId,
     actor_id: event.actorId ?? null,
     target_user_id: event.targetUserId ?? null,
@@ -71,6 +89,9 @@ function toRow(event: NewSecurityEvent): EventRow {
 
 function toStoredEvent(row: EventRow): StoredSecurityEvent {
   return {
+    kind: row.kind,
+    details: row.details,
+    purgeAfter: row.purge_after,
     eventId: row.event_id,
     actorId: row.actor_id,
     targetUserId: row.target_user_id,
@@ -111,14 +132,25 @@ function toStoredEvent(row: EventRow): StoredSecurityEvent {
  * runner that owns the transaction maps it.
  */
 export class PostgresSecurityEventStore extends SecurityEventStore {
-  constructor(private readonly database: Kysely<PostgresTables>) {
+  constructor(
+    private readonly database: Kysely<PostgresTables>,
+    private readonly config?: ConfigService,
+  ) {
     super();
+  }
+
+  private row(event: NewSecurityEvent): EventRow {
+    return toRow(
+      event,
+      this.config?.get<number>('activity.retentionDays') ??
+        ACTIVITY_RETENTION_DAYS_DEFAULT,
+    );
   }
 
   async append(unitOfWork: UnitOfWork, event: NewSecurityEvent): Promise<void> {
     await postgresTransactionOf(unitOfWork)
       .insertInto('security_events')
-      .values(toRow(event))
+      .values(this.row(event))
       .execute();
   }
 
@@ -130,7 +162,7 @@ export class PostgresSecurityEventStore extends SecurityEventStore {
       return;
     }
     const work = postgresTransactionOf(unitOfWork);
-    const rows = events.map(toRow);
+    const rows = events.map((event) => this.row(event));
     for (const slice of rowSlices(rows, EVENT_COLUMNS.length)) {
       await work.insertInto('security_events').values(slice).execute();
     }
@@ -140,8 +172,46 @@ export class PostgresSecurityEventStore extends SecurityEventStore {
     await autocommit(NO_LOCAL_CONSTRAINTS, () =>
       this.database
         .insertInto('security_events')
-        .values(toRow(event))
+        .values(this.row(event))
         .execute(),
+    );
+  }
+
+  async listActivity(input: ActivityQuery, now: Date) {
+    const query = activityQuery(input);
+    return autocommit(NO_LOCAL_CONSTRAINTS, () =>
+      this.database
+        .transaction()
+        .setIsolationLevel('repeatable read')
+        .execute(async (transaction) => {
+          let matching = transaction
+            .selectFrom('security_events')
+            .where('kind', '=', 'staff')
+            .where('purge_after', '>', now);
+          if (query.actor)
+            matching = matching.where('actor_id', '=', query.actor);
+          if (query.action)
+            matching = matching.where('action', '=', query.action);
+          if (query.target)
+            matching = matching.where('target_user_id', '=', query.target);
+          if (query.from)
+            matching = matching.where('occurred_at', '>=', query.from);
+          if (query.to) matching = matching.where('occurred_at', '<', query.to);
+          const counted = await matching
+            .select((eb) => eb.fn.countAll<string>().as('total'))
+            .executeTakeFirstOrThrow();
+          const rows = await matching
+            .select(EVENT_COLUMNS)
+            .orderBy('occurred_at', 'desc')
+            .orderBy('id', 'desc')
+            .offset((query.page - 1) * query.limit)
+            .limit(query.limit)
+            .execute();
+          return {
+            data: rows.map(toStoredEvent),
+            total: Number(counted.total),
+          };
+        }),
     );
   }
 

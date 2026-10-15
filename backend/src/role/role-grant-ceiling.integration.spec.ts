@@ -14,11 +14,11 @@ import {
 const NEW_ROLE_NAME = 'Grant Ceiling';
 const NEW_ROLE_SLUG = 'grant-ceiling';
 const EXISTING_PERMISSION = 'posts:read:all';
-const RESERVED_PERMISSION = 'sessions:read:staff';
+const RESERVED_PERMISSION = 'users:suspend:staff';
 const RESERVED_REFUSAL = {
   code: ErrorCode.INVALID_PERMISSION_FORMAT,
   status: 400,
-  message: 'sessions:read:staff is reserved and cannot be granted yet',
+  message: 'users:suspend:staff is reserved and cannot be granted yet',
 };
 const FORBIDDEN = { code: ErrorCode.FORBIDDEN, status: 403 };
 const HIERARCHY_REFUSAL = {

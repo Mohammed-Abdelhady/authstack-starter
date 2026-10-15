@@ -1,6 +1,11 @@
+import {
+  ActivityDetails,
+  SecurityEventKind,
+} from '../../../events/types/activity-event';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 import { SECURITY_EVENT_PURGE_MS } from '../../../constants/session-policy';
+import { SECURITY_EVENT_KIND } from '../../../events/constants/activity-details';
 import { RoleDeletionSweep } from '../../../types/role-deletion-sweep';
 import { RoleAssignmentEvent } from '../../../types/role-assignment-event';
 
@@ -22,6 +27,21 @@ const RoleDeletionSweepSchema = new MongooseSchema<RoleDeletionSweep>(
 
 @Schema({ timestamps: true })
 export class SecurityEvent {
+  @Prop({
+    type: String,
+    required: true,
+    enum: Object.values(SECURITY_EVENT_KIND),
+    default: SECURITY_EVENT_KIND.SIGN_IN,
+  })
+  kind!: SecurityEventKind;
+
+  @Prop({
+    type: MongooseSchema.Types.Mixed,
+    required: true,
+    default: () => ({}),
+  })
+  details!: ActivityDetails;
+
   @Prop({ required: true, unique: true })
   eventId!: string;
 
@@ -75,3 +95,7 @@ export const SecurityEventSchema: MongooseSchema<SecurityEvent> =
 
 SecurityEventSchema.index({ purgeAfter: 1 }, { expireAfterSeconds: 0 });
 SecurityEventSchema.index({ targetUserId: 1, occurredAt: -1 });
+
+SecurityEventSchema.index({ kind: 1, occurredAt: -1, _id: -1 });
+SecurityEventSchema.index({ actorId: 1 });
+SecurityEventSchema.index({ action: 1 });
