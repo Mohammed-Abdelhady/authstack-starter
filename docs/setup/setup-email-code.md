@@ -89,7 +89,10 @@ application has the email link too.
   attempt, also while the code screen is open. The app reads its values after
   `#`.
 - Closing and reopening the app keeps the attempt. The code screen comes back
-  once the methods reply arrives, and the code still works.
+  once the methods reply arrives, and the code still works. Until then the app
+  says it is loading, and when the reply fails it offers to try again. It never
+  falls back to the link screen there, whose resend would mail a link alone and
+  void the code.
 
 ## Routes
 
