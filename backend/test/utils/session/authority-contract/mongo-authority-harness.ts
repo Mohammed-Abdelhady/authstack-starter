@@ -1,3 +1,4 @@
+import { SessionExpiry } from '../../../../src/session/authority/session-expiry';
 import { Types } from 'mongoose';
 import { MongoIdFormat } from '../../../../src/common/persistence/mongo/mongo-id-format';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
@@ -53,6 +54,13 @@ export async function bootMongoAuthority(
         authorityApplications,
         issuance.clock,
         authEpoch,
+        new SessionExpiry(
+          new MongoUnitOfWorkRunner(connection),
+          authorityStore,
+          issuance.applications,
+          revocationStore,
+          issuance.clock,
+        ),
       ),
     revoker: (pause) =>
       new SessionRevoker(

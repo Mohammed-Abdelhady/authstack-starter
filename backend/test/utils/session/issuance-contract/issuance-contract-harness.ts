@@ -17,6 +17,10 @@ export interface SeedApplication {
   enabled: boolean;
   sessionVersion: number;
   policyVersion?: number;
+  requirePasskey?: boolean;
+  sessionCap?: number;
+  unboundAbsoluteLifetimeMs?: number;
+  unboundIdleLifetimeMs?: number;
   accountAudience?: RoleAudience;
   absoluteLifetimeMs: number;
   idleLifetimeMs: number;
@@ -90,6 +94,7 @@ export interface IssuanceContractHarness {
   seedApplication(application: SeedApplication): Promise<void>;
   seedBlockedGrant(userId: string, clientId: string): Promise<void>;
   revokeOneSession(userId: string): Promise<void>;
+  setSessionProofKey(sessionId: string, thumbprint: string): Promise<void>;
   bumpAccountVersion(userId: string): Promise<void>;
 
   account(userId: string): Promise<StoredAccount | null>;
