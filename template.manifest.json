@@ -298,13 +298,17 @@
         "scripts/lib/docker-command.mjs",
         "scripts/lib/docker-smoke-model.mjs",
         "scripts/lib/docker-source-export.mjs",
-        "docker-compose.postgres.prod.yml"
+        "docker-compose.postgres.prod.yml",
+        "scripts/verify-native-link-proxy.mjs",
+        "scripts/lib/native-link-proxy-fixtures.mjs",
+        "scripts/lib/native-link-proxy-probes.mjs"
       ],
       "docs": [
         "docs/operations/deployment.md",
         "docs/operations/deployment-custom-domain.md",
         "docs/operations/PRODUCTION-SETUP.md",
-        "docs/operations/production-security.md"
+        "docs/operations/production-security.md",
+        "docs/operations/native-link-proxy-gate.md"
       ],
       "catalogueKeys": []
     },
