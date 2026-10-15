@@ -1,4 +1,6 @@
+import { assertPostgresAccountAudience } from '../../../../user/persistence/postgres/postgres-account-audience';
 import { Kysely, sql } from 'kysely';
+import type { RoleAudience } from '../../../../host/types/host-role.type';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import {
@@ -42,6 +44,7 @@ export class PostgresSeedStore extends SeedStore {
           is_protected: role.isProtected,
           level: role.level,
           permissions: role.permissions,
+          audience: role.audience ?? null,
           created_at: now,
           updated_at: now,
         })
@@ -85,10 +88,23 @@ export class PostgresSeedStore extends SeedStore {
     return row ? row.id : null;
   }
 
+  async roleAudience(
+    uow: UnitOfWork,
+    slug: string,
+  ): Promise<RoleAudience | undefined> {
+    const role = await postgresTransactionOf(uow)
+      .selectFrom('roles')
+      .select('audience')
+      .where('slug', '=', slug)
+      .executeTakeFirst();
+    return role?.audience ?? undefined;
+  }
+
   async createAccount(
     uow: UnitOfWork,
     account: NewSeedAccount,
   ): Promise<string> {
+    await assertPostgresAccountAudience(uow, account.role, account.audience);
     const now = this.clock.now();
     const row = await postgresTransactionOf(uow)
       .insertInto('users')
@@ -96,6 +112,7 @@ export class PostgresSeedStore extends SeedStore {
         email: storedAddress(account.email),
         name: account.name.trim(),
         role: account.role,
+        audience: account.audience ?? null,
         permissions: account.permissions,
         password_hash: account.passwordHash,
         is_verified: true,

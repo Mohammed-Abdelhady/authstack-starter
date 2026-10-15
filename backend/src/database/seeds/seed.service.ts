@@ -88,7 +88,12 @@ export class SeedService {
           });
           if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN)
             throw new AddressReservationTakenError();
+          const audience = await this.store.roleAudience(
+            unitOfWork,
+            userData.role,
+          );
           const id = await this.store.createAccount(unitOfWork, {
+            audience,
             email: userData.email,
             name: userData.name,
             role: userData.role,
