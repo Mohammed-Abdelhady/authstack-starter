@@ -1,7 +1,13 @@
 import { NATIVE_AUTH_LIMITS } from '@app/core';
 import { HTTP_STATUS_OK } from '../constants';
 import { isJsonObject, unwrapEnvelope, unwrapEnvelopeBody } from '../envelope';
-import { boundedString, booleanValue, fail, isoDate } from '../native-auth/validation';
+import {
+  boundedLabel,
+  boundedString,
+  booleanValue,
+  fail,
+  isoDate,
+} from '../native-auth/validation';
 import { requireArray, requireObject } from '../shapes';
 import type { TransportResponse } from '../transport';
 import type { JsonFields } from '../types/json';
@@ -57,7 +63,7 @@ function readSummary(value: unknown, field: string, status: number): PasskeySumm
       : boundedString(summary.deviceType, `${field}.deviceType`, NATIVE_AUTH_LIMITS.NAME, status);
   return {
     id: boundedString(summary.id, `${field}.id`, NATIVE_AUTH_LIMITS.ATTEMPT_ID, status),
-    name: boundedString(summary.name, `${field}.name`, NATIVE_AUTH_LIMITS.NAME, status),
+    name: boundedLabel(summary.name, `${field}.name`, NATIVE_AUTH_LIMITS.NAME, status),
     ...(deviceType === undefined ? {} : { deviceType }),
     backedUp: booleanValue(summary.backedUp, `${field}.backedUp`, status),
     createdAt: isoDate(summary.createdAt, `${field}.createdAt`, status),
