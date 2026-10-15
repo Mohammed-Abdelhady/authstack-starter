@@ -128,12 +128,12 @@ step and exits 1. A failed update stops with exit 1 and keeps the bundled lockfi
 11. Runs `pnpm install --lockfile-only --prefer-offline` before the first commit. Without
     pnpm it removes `pnpm-lock.yaml` and prints `pnpm install` as the next step. A
     failed update stops with exit 1, leaving the tree and `pnpm-lock.yaml`.
-12. Writes `.create-authstack-starter.json` into the project root. It records the
-    installer name and version, the pinned package manager, a SHA-256 of the
-    template content the project was generated from, the commit that template
-    was built from (or `null`), and the resolved selection: clients, database,
-    features, options, locales and, with a native client, the mobile app
-    identity. It holds no secrets, paths or machine names. Keep it committed.
+12. Writes `.create-authstack-starter.json` into the project root: the installer name and
+    version, the pinned package manager, a SHA-256 of the template content, the resolved
+    selection (clients, database, features, options, locales, the mobile app identity with a
+    native client) and `template.commit`. That commit is recorded only when the files the build
+    copied and the inputs it read equal its tree byte for byte, mode included. Otherwise it is
+    `null`. The file holds no secrets, paths or machine names. Keep it committed.
 13. Runs `git init` and one commit with the updated lockfile, or without one if
     pnpm was unavailable.
 14. When installation is requested, runs `pnpm install --frozen-lockfile` after
