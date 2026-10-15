@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { FreshProofCheck } from '../../../auth/contracts/fresh-proof';
+import { PENDING_PURPOSE } from '../../../auth/constants/registration';
 import { CODE_ROTATION } from '../../../auth/pending-codes/pending-registration.store';
 import { ActivationAccounts } from '../../../auth/pending-codes/activation-accounts';
 import { VerificationCodeService } from '../../../auth/services/codes/verification-code.service';
@@ -107,10 +108,14 @@ export class OwnEmailRequestService {
     if (storedAddress(current.email) === address) throw sameAddress();
 
     // Prepared for a held address too: the cap and the hashing cost the same.
-    const prepared = await this.codes.prepareEmailChange(address, {
-      userId: caller.userId,
-      addressGeneration: current.addressGeneration + 1,
-    });
+    const prepared = await this.codes.prepareEmailChange(
+      address,
+      {
+        userId: caller.userId,
+        addressGeneration: current.addressGeneration + 1,
+      },
+      PENDING_PURPOSE.OWN_EMAIL_CHANGE,
+    );
     if (!prepared) throw limitReached();
 
     const stored = await this.store({

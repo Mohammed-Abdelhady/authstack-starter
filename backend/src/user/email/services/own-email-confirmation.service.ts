@@ -27,7 +27,9 @@ import { asOwnEmailFailure } from '../utils/own-email-errors';
 /**
  * The signed-in account holder types the code mailed to the address they
  * asked for. The account moves, the session that confirmed stays, and every
- * other session ends with a reason of its own. The old address is told.
+ * other session ends with a reason of its own. The old address is told. Only
+ * codes of the holder's own requests are read here; a change staff started is
+ * confirmed on the public or the app route.
  */
 @Injectable()
 export class OwnEmailConfirmationService {
@@ -60,7 +62,7 @@ export class OwnEmailConfirmationService {
     const reserved = await this.codes.verifyCode(
       before.pendingEmail,
       code,
-      PENDING_PURPOSE.EMAIL_CHANGE,
+      PENDING_PURPOSE.OWN_EMAIL_CHANGE,
     );
     if (reserved.userId?.toString() !== caller.userId) {
       throw activationCodeInvalid();

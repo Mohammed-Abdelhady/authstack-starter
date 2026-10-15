@@ -13,6 +13,7 @@ import { generateVerificationCode } from '../../utils/verification-code.util';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
+  EmailChangePurpose,
   PENDING_PURPOSE,
   PendingPurpose,
 } from '../../constants/registration';
@@ -125,16 +126,12 @@ export class PendingRegistrationIssuer {
   async prepareEmailChange(
     email: string,
     details: EmailChangeCodeTarget,
+    purpose: EmailChangePurpose = PENDING_PURPOSE.EMAIL_CHANGE,
   ): Promise<PreparedEmailChange> {
-    const input = await this.newGeneration(
-      email,
-      PENDING_PURPOSE.EMAIL_CHANGE,
-      details,
-      {
-        includeExpired: true,
-        createWhenAbsent: true,
-      },
-    );
+    const input = await this.newGeneration(email, purpose, details, {
+      includeExpired: true,
+      createWhenAbsent: true,
+    });
     return {
       email,
       code: input.code,
@@ -143,6 +140,7 @@ export class PendingRegistrationIssuer {
         userId: details.userId,
         addressGeneration: details.addressGeneration,
       },
+      purpose,
     };
   }
 
