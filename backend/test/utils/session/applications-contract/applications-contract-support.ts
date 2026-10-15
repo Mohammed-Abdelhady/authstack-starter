@@ -1,3 +1,4 @@
+import { BrowserPolicyReconciler } from '../../../../src/session/applications/browser-policy-reconciler';
 import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { StoredApplicationPolicyReader } from '../../../../src/session/applications/stored-application-policy-reader';
@@ -174,5 +175,23 @@ export function applicationPolicyOn(
     config,
     new AuthFeaturesService(config, browserApplications),
     new PasskeyConfigService(config), // feature:passkeys
+  );
+}
+
+export function browserReconcilerOn(
+  harness: ApplicationsContractHarness,
+  config: ConfigService,
+): BrowserPolicyReconciler {
+  return new BrowserPolicyReconciler(
+    harness.authority.issuance.runner(rerunAtOnce),
+    harness.registryStore,
+    browserApplicationsForTest(
+      config,
+      async (clientId) =>
+        (await registryOn(harness).findByClientId(clientId))?.enabled ?? false,
+    ),
+    new AuthEpochService(config),
+    harness.recorder,
+    config,
   );
 }

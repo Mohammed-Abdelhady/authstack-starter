@@ -5,6 +5,7 @@ import {
 } from '../../../../src/session/constants/client-ids';
 import { ConfigService } from '@nestjs/config'; // feature:passkeys
 import type { IssuanceApplication } from '../../../../src/session/issuance/browser-issuance.store';
+import { ROLE_AUDIENCE } from '../../../../src/host/types/host-role.type';
 import {
   rerunAtOnce,
   SIGN_IN_ADDRESS,
@@ -148,7 +149,9 @@ export function applicationPolicyCases(
     ).toEqual(['api']);
 
     const issuance = harness().authority.issuance;
-    const userId = await issuance.seedAccount();
+    const userId = await issuance.seedAccount({
+      audience: ROLE_AUDIENCE.STAFF,
+    });
     await issuance
       .service(rerunAtOnce)
       .createBrowserSession(
@@ -156,6 +159,7 @@ export function applicationPolicyCases(
         'Contract/1',
         SIGN_IN_ADDRESS,
         WEB_CLIENT_ID,
+        { authenticationMethods: ['passkey'], userVerified: true },
       );
     const candidates = await issuance.runner(rerunAtOnce).run((work) =>
       issuance.store.listSessionCapCandidates(work, {

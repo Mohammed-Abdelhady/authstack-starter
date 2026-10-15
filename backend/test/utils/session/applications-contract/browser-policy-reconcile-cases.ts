@@ -6,12 +6,10 @@ import {
 import type { BrowserRegistration } from '../../../../src/session/applications/types/browser-registration';
 import { RetryableAbortError } from '../../../../src/common/persistence/persistence-errors';
 import { ConfigService } from '@nestjs/config';
-import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
-import { BrowserApplications } from '../../../../src/session/applications/browser-applications';
-import { BrowserPolicyReconciler } from '../../../../src/session/applications/browser-policy-reconciler';
 import { rerunAtOnce } from '../issuance-contract/issuance-contract-support';
 import {
   ApplicationsHarnessSource,
+  browserReconcilerOn,
   CLIENT_ORIGIN,
   registryOn,
 } from './applications-contract-support';
@@ -30,22 +28,8 @@ function configuration(): ConfigService {
 export function browserPolicyReconcileCases(
   harness: ApplicationsHarnessSource,
 ): void {
-  function reconciler(config: ConfigService) {
-    const current = harness();
-    return new BrowserPolicyReconciler(
-      current.authority.issuance.runner(rerunAtOnce),
-      current.registryStore,
-      new BrowserApplications(
-        config,
-        async (clientId) =>
-          (await registryOn(current).findByClientId(clientId))?.enabled ??
-          false,
-      ),
-      new AuthEpochService(config),
-      current.recorder,
-      config,
-    );
-  }
+  const reconciler = (config: ConfigService) =>
+    browserReconcilerOn(harness(), config);
   const web = () => registryOn(harness()).requireEnabled(WEB_CLIENT_ID);
   const events = async () =>
     (await harness().authority.events()).filter(
@@ -53,9 +37,8 @@ export function browserPolicyReconcileCases(
     );
 
   // Failure: restarts invalidate sessions despite unchanged effective policy.
-  it('keeps baseline versions and lifetimes across restarts and explicit default methods', async () => {
+  it('restores default lifetimes and keeps versions across restarts and explicit default methods', async () => {
     const config = configuration();
-    const before = await web();
     await reconciler(config).reconcile();
     config.set('auth.web.signIn', { password: true });
     await reconciler(config).reconcile();
@@ -63,7 +46,16 @@ export function browserPolicyReconcileCases(
       version: (await web()).policyVersion,
       limits: (await web()).policy,
       events: await events(),
-    }).toEqual({ version: 0, limits: before.policy, events: [] });
+    }).toEqual({
+      version: 0,
+      limits: {
+        absoluteLifetimeMs: 604_800_000,
+        idleLifetimeMs: 1_800_000,
+        unboundAbsoluteLifetimeMs: undefined,
+        unboundIdleLifetimeMs: undefined,
+      },
+      events: [],
+    });
   });
 
   // feature:email-code:start
