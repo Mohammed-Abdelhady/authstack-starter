@@ -32,6 +32,7 @@ function checkPurpose(
     },
     { isDeleted: false, sessionVersion: 0 },
     {
+      platform: 'native',
       enabled: true,
       sessionVersion: 0,
       policy: { absoluteLifetimeMs: 7_200_000, idleLifetimeMs: 3_600_000 },
