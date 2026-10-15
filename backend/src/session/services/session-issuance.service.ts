@@ -1,3 +1,13 @@
+import { sessionLimitsFor } from '../utils/session/session-limits';
+import { assertPasskeySignIn } from '../utils/authority/passkey-sign-in';
+import {
+  ENROLMENT_LIFETIME_MS,
+  ENROLMENT_TOKEN_PREFIX,
+} from '../constants/enrolment';
+import {
+  accountNotFound,
+  grantBlocked,
+} from '../issuance/session-issuance-errors';
 import type { AccountCreationMethod } from '../../auth/types/account-creation';
 import { withAudienceRefusal } from '../issuance/audience-refusal';
 import { EventRecorder } from '../../auth/contracts/event-recorder';
@@ -14,7 +24,6 @@ import { Clock } from '../../common/services/clock';
 import { AuthEpochService } from '../../common/services/auth-epoch.service';
 import { parseUserAgent } from '../../common/utils/parse-user-agent';
 import {
-  ADMIN_CLIENT_ID,
   APPLICATION_PLATFORM,
   DEFAULT_API_AUDIENCE,
 } from '../constants/client-ids';
@@ -26,9 +35,6 @@ import {
 import {
   AUTH_SCHEMA_VERSION,
   DEVICE_NAME_MAX_LENGTH,
-  MAX_ADMIN_SESSIONS_PER_USER,
-  MAX_SESSIONS_PER_USER,
-  NATIVE_INITIAL_IDLE_MS,
   USER_AGENT_MAX_LENGTH,
 } from '../constants/session-policy';
 import {
@@ -43,7 +49,8 @@ import { boundLabel } from '../utils/session/bound-label';
 import { addMs, capIdleByAbsolute } from '../utils/session/session-deadline';
 import { asAuthorityUnavailable } from '../utils/authority/authority-unavailable';
 import { hashToken, randomSecret } from '../utils/hashing/token-hash';
-import { currentSessionDeadlines } from '../utils/authority/session-authority-rule';
+import { assertSessionLimitIn } from '../issuance/session-limit';
+import { EnrolmentStore } from '../enrolment/enrolment.store';
 
 export interface IssuedBrowserSession {
   sessionToken: string;
@@ -60,6 +67,7 @@ export class SessionIssuanceService {
     private readonly authEpoch: AuthEpochService,
     @Inject(EventRecorder)
     private readonly events: Pick<EventRecorder, 'recordOutsideUnitOfWork'>,
+    private readonly enrolments: EnrolmentStore,
   ) {}
 
   async createBrowserSession(
@@ -79,6 +87,36 @@ export class SessionIssuanceService {
     );
   }
 
+  /** Only invitation acceptance and passkey reset may call this trusted seam. */
+  createEnrolmentSessionIn(
+    work: UnitOfWork,
+    userId: string,
+    userAgent: string,
+    ip: string,
+    clientId: string,
+  ): Promise<IssuedBrowserSession> {
+    return this.issue(
+      work,
+      userId,
+      userAgent,
+      ip,
+      clientId,
+      { authenticationMethods: [], userVerified: false },
+      CREDENTIAL_PURPOSE.ENROLMENT,
+    );
+  }
+
+  createBrowserSessionIn(
+    work: UnitOfWork,
+    userId: string,
+    userAgent: string,
+    ip: string,
+    clientId: string,
+    evidence: BrowserEvidence,
+  ): Promise<IssuedBrowserSession> {
+    return this.issue(work, userId, userAgent, ip, clientId, evidence);
+  }
+
   assertAdmission(userId: string, clientId: string): Promise<void> {
     return withAudienceRefusal(this.events, userId, clientId, () =>
       this.unitOfWork.run(async (unitOfWork) => {
@@ -92,6 +130,7 @@ export class SessionIssuanceService {
           account.accountAudience,
           application.accountAudience,
         );
+        assertPasskeySignIn(application.requirePasskey, undefined);
       }),
     );
   }
@@ -119,6 +158,9 @@ export class SessionIssuanceService {
     ip: string,
     clientId: string,
     evidence: BrowserEvidence,
+    purpose:
+      | typeof CREDENTIAL_PURPOSE.BROWSER_SESSION
+      | typeof CREDENTIAL_PURPOSE.ENROLMENT = CREDENTIAL_PURPOSE.BROWSER_SESSION,
   ): Promise<IssuedBrowserSession> {
     const account = await this.store.readAccountForIssuance(unitOfWork, userId);
     if (!account || account.isDeleted) {
@@ -134,6 +176,13 @@ export class SessionIssuanceService {
       account.accountAudience,
       application.accountAudience,
     );
+    if (purpose === CREDENTIAL_PURPOSE.ENROLMENT) {
+      if (application.platform === APPLICATION_PLATFORM.NATIVE) {
+        throw grantBlocked();
+      }
+    } else {
+      assertPasskeySignIn(application.requirePasskey, evidence);
+    }
 
     const marked = await this.store.markAccountIssuance(unitOfWork, account.id);
     if (marked !== ACCOUNT_ISSUANCE_MARK.MARKED) {
@@ -150,14 +199,26 @@ export class SessionIssuanceService {
 
     const now = this.clock.now();
     await this.assertSessionLimit(unitOfWork, account, application, now);
+    if (purpose === CREDENTIAL_PURPOSE.ENROLMENT) {
+      await this.enrolments.replaceIn(unitOfWork, account.id, clientId, now);
+    }
 
-    const token = randomSecret();
+    const token =
+      purpose === CREDENTIAL_PURPOSE.ENROLMENT
+        ? `${ENROLMENT_TOKEN_PREFIX}${randomSecret()}`
+        : randomSecret();
     const csrfToken = randomSecret();
-    const absoluteExpiresAt = addMs(now, application.policy.absoluteLifetimeMs);
+    const limits = sessionLimitsFor(application, false);
+    const absoluteExpiresAt = addMs(
+      now,
+      purpose === CREDENTIAL_PURPOSE.ENROLMENT
+        ? ENROLMENT_LIFETIME_MS
+        : limits.absoluteLifetimeMs,
+    );
     const idleMs =
-      application.platform === APPLICATION_PLATFORM.NATIVE
-        ? NATIVE_INITIAL_IDLE_MS
-        : application.policy.idleLifetimeMs;
+      purpose === CREDENTIAL_PURPOSE.ENROLMENT
+        ? ENROLMENT_LIFETIME_MS
+        : limits.initialIdleLifetimeMs;
     const idleExpiresAt = capIdleByAbsolute(
       addMs(now, idleMs),
       absoluteExpiresAt,
@@ -190,7 +251,7 @@ export class SessionIssuanceService {
       authenticatedAt: now,
       idleExpiresAt,
       lastActivityAt: now,
-      credentialPurpose: CREDENTIAL_PURPOSE.BROWSER_SESSION,
+      credentialPurpose: purpose,
       browserGeneration: 1,
       csrfToken,
     });
@@ -243,74 +304,19 @@ export class SessionIssuanceService {
     });
   }
 
-  async assertSessionLimit(
+  assertSessionLimit(
     unitOfWork: UnitOfWork,
     account: IssuanceAccount,
     application: IssuanceApplication,
     now: Date,
   ): Promise<void> {
-    const authEpoch = this.authEpoch.current();
-    const candidates = await this.store.listSessionCapCandidates(unitOfWork, {
-      userId: account.id,
-      userVersion: account.sessionVersion,
-      authEpoch,
+    return assertSessionLimitIn(
+      this.store,
+      this.authEpoch.current(),
+      unitOfWork,
+      account,
+      application,
       now,
-      purposes: [
-        CREDENTIAL_PURPOSE.BROWSER_SESSION,
-        CREDENTIAL_PURPOSE.NATIVE_ACCESS,
-      ],
-    });
-    const activeSessions = candidates.filter(
-      (candidate) =>
-        candidate.session.policyVersion ===
-          (candidate.application?.policyVersion ?? 0) &&
-        currentSessionDeadlines(
-          candidate.session,
-          account,
-          candidate.application,
-          candidate.grant,
-          now,
-          authEpoch,
-          candidate.session.credentialPurpose,
-        ) !== null,
     );
-    if (activeSessions.length >= MAX_SESSIONS_PER_USER) {
-      throw sessionLimitReached();
-    }
-
-    if (application.clientId !== ADMIN_CLIENT_ID) {
-      return;
-    }
-
-    const adminCount = activeSessions.filter(
-      (candidate) => candidate.session.clientId === ADMIN_CLIENT_ID,
-    ).length;
-    if (adminCount >= MAX_ADMIN_SESSIONS_PER_USER) {
-      throw sessionLimitReached();
-    }
   }
-}
-
-function accountNotFound(): AppException {
-  return new AppException(
-    ErrorCode.USER_NOT_FOUND,
-    'User not found',
-    HttpStatus.NOT_FOUND,
-  );
-}
-
-function grantBlocked(): AppException {
-  return new AppException(
-    ErrorCode.GRANT_BLOCKED,
-    'Application access is blocked for this account',
-    HttpStatus.FORBIDDEN,
-  );
-}
-
-function sessionLimitReached(): AppException {
-  return new AppException(
-    ErrorCode.SESSION_LIMIT_REACHED,
-    'Session limit reached',
-    HttpStatus.CONFLICT,
-  );
 }
