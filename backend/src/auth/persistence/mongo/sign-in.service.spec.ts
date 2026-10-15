@@ -1,7 +1,9 @@
-import { ConfigService } from '@nestjs/config'; // feature:totp
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
+import { ConfigService } from '@nestjs/config';
 import { Types } from 'mongoose';
 import { SignInService } from './sign-in.service';
 import { Sessions } from '../../services/sessions/sessions';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { SignInCompletion } from '../../services/sessions/sign-in-completion';
 import { MongoRolePermissions } from '../../../role/persistence/mongo/mongo-role-permissions';
 import { SessionCookieService } from '../../services/sessions/session-cookie.service';
@@ -43,14 +45,28 @@ function createHarness(): Harness {
     sessionToken: 'session-token-123',
     csrfToken: 'csrf-token-123',
   });
-  const sessionService = partialMock<Sessions>({ createSession });
+  const sessionService = partialMock<Sessions>({
+    createSession,
+    assertAdmission: () => Promise.resolve(),
+  });
+  const configService = new ConfigService({
+    'twoFactor.enabled': true, // feature:totp
+  });
+  const browserApplications = browserApplicationsForTest(configService);
   const set = jest.fn();
-  const sessionCookieService = partialMock<SessionCookieService>({ set });
+  const sessionCookieService = new SessionCookieService(
+    configService,
+    browserApplications,
+  );
+  jest.spyOn(sessionCookieService, 'set').mockImplementation(set);
   // feature:totp:start
+  const authFeatures = new AuthFeaturesService(
+    configService,
+    browserApplications,
+  );
   const issue = jest.fn().mockResolvedValue(undefined);
   const challengeService = partialMock<TwoFactorChallengeService>({ issue });
 
-  const configService = new ConfigService({ 'twoFactor.enabled': true });
   // feature:totp:end
 
   return {
@@ -63,8 +79,9 @@ function createHarness(): Harness {
         ),
         sessionService,
         sessionCookieService,
-        new AuthFeaturesService(configService), // feature:totp
+        authFeatures, // feature:totp
         challengeService, // feature:totp
+        browserApplications,
       ),
     ),
     roleModel,
@@ -105,7 +122,7 @@ describe('SignInService', () => {
       const outcome = await harness.service.completeSignIn(
         plainUser(),
         MOCK_RESPONSE,
-        'password', // feature:totp
+        'password',
       );
 
       expect(outcome).toEqual({
@@ -119,10 +136,13 @@ describe('SignInService', () => {
         USER_ID,
         'test-agent',
         '127.0.0.1',
+        WEB_CLIENT_ID,
+        { authenticationMethods: ['password'], userVerified: false },
       );
       expect(harness.sessionCookieService.set).toHaveBeenCalledWith(
         MOCK_RESPONSE,
         'session-token-123',
+        WEB_CLIENT_ID,
       );
       expect(harness.challengeService.issue).not.toHaveBeenCalled(); // feature:totp
     });

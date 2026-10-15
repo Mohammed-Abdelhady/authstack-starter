@@ -1,3 +1,7 @@
+import type { SessionIssuanceService } from '../../../../src/session/services/session-issuance.service';
+import type { IssuanceApplications } from '../../../../src/session/issuance/issuance-applications';
+import type { ApplicationPolicyConfiguration } from '../../../../src/config/types/host-policy.type';
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import { AddressLedger } from '../../../../src/common/persistence/address-ledger';
 import { StoredAddressClaim } from '../../../../src/common/persistence/types/address-ledger';
 import { AdminAccountStore } from '../../../../src/admin/stores/admin-account.store';
@@ -23,6 +27,7 @@ import { AccountSessions } from '../../../../src/user/stores/account-sessions';
 import { FrozenClock } from '../../frozen-clock';
 
 export interface SeedRole {
+  audience?: RoleAudience;
   name: string;
   slug: string;
   level?: number;
@@ -30,6 +35,7 @@ export interface SeedRole {
 }
 
 export interface SeedAccount {
+  audience?: RoleAudience;
   email: string;
   pendingEmail?: string;
   name?: string;
@@ -44,6 +50,7 @@ export interface SeedAccount {
 }
 
 export interface StoredAccountFacts {
+  audience?: RoleAudience;
   email: string;
   pendingEmail: string | null;
   name: string;
@@ -77,6 +84,12 @@ export interface StoredAccountEvent {
  */
 export interface AccountsContractHarness {
   readonly clock: FrozenClock;
+  readonly issuanceApplications: IssuanceApplications;
+  readonly sessionIssuance: SessionIssuanceService;
+  configureCreationApplication(
+    clientId: string,
+    policy: ApplicationPolicyConfiguration,
+  ): Promise<void>;
   readonly ledger: AddressLedger;
   claims(): Promise<StoredAddressClaim[]>;
   emailChangeCode(
@@ -101,6 +114,7 @@ export interface AccountsContractHarness {
   runner(pause: RerunPause): UnitOfWorkRunner;
 
   seedRole(role: SeedRole): Promise<string>;
+  alterRoleAudience(slug: string, audience: RoleAudience): Promise<void>;
   seedAccount(account: SeedAccount): Promise<string>;
   /** A session that is live at the account's current version. */
   seedSession(userId: string): Promise<string>;
@@ -109,6 +123,7 @@ export interface AccountsContractHarness {
     userId: string,
     change: {
       role?: string;
+      audience?: RoleAudience;
       deleted?: boolean;
       email?: string;
       verified?: boolean;

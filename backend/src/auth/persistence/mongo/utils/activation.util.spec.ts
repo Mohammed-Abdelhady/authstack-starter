@@ -1,3 +1,15 @@
+import { ROLE_AUDIENCE } from '../../../../host/types/host-role.type';
+import {
+  Role,
+  RoleSchema,
+} from '../../../../role/persistence/mongo/schemas/role.schema';
+import { UserRole } from '../../../../user/enums/user-role.enum';
+import { CONTRACT_ENVIRONMENT } from '../../../../../test/utils/session/issuance-contract/issuance-contract-harness';
+import { Application } from '../../../../session/persistence/mongo/schemas/application.schema';
+import {
+  mongoActivationPolicy,
+  mongoActivationRegistry,
+} from '../../../../../test/utils/auth/mongo-activation-policy';
 import {
   ClientSession,
   Connection,
@@ -12,7 +24,6 @@ import {
   AddressClaim,
   AddressClaimSchema,
 } from '../../../../common/persistence/mongo/schemas/address-claim.schema';
-import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
 import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
@@ -65,6 +76,7 @@ describe('activation account writes', () => {
     }).compile();
     users = module.get<Model<UserDocument>>(getModelToken(User.name));
     await users.init();
+    await connection.model(Role.name, RoleSchema).init();
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -75,10 +87,14 @@ describe('activation account writes', () => {
   beforeEach(async () => {
     await connection.model(AddressClaim.name).deleteMany({});
     await users.deleteMany({});
+    await connection.model(Role.name).deleteMany({});
+    const registry = mongoActivationRegistry(connection);
+    await connection.model(Application.name).deleteMany({});
+    await registry.seedFirstPartyApplications();
   });
 
   it('creates the account a verified sign-up code describes', async () => {
-    const policy = new AccountCreationPolicy();
+    const policy = mongoActivationPolicy(connection);
     const check = jest.spyOn(policy, 'assertMayCreate');
     let creatingSession: ClientSession | undefined;
     const user = await withMajorityTransaction(connection, (session) => {
@@ -107,6 +123,70 @@ describe('activation account writes', () => {
     expect(stored?.name).toBe('New User');
     expect(stored?.isVerified).toBe(true);
     expect(stored?.authProvider).toBe(AuthProvider.EMAIL);
+  });
+
+  // Failure: audience parity writes one shared role and makes unrelated signups conflict.
+  it('creates two customer accounts in overlapping transactions without changing their role', async () => {
+    const roles = connection.model<Role>(Role.name);
+    await roles.create({
+      slug: UserRole.USER,
+      name: 'User',
+      audience: ROLE_AUDIENCE.CUSTOMER,
+      permissions: [],
+    });
+    await connection
+      .model<Application>(Application.name)
+      .updateOne(
+        { clientId: WEB_CLIENT_ID, environment: CONTRACT_ENVIRONMENT },
+        { $set: { accountAudience: ROLE_AUDIENCE.CUSTOMER } },
+      );
+    const roleBefore = await roles.collection.findOne({ slug: UserRole.USER });
+    const sessions = await Promise.all([
+      connection.startSession(),
+      connection.startSession(),
+    ]);
+    try {
+      for (const session of sessions) {
+        session.startTransaction({
+          writeConcern: { w: 'majority' },
+          readPreference: 'primary',
+        });
+      }
+      for (const [index, session] of sessions.entries()) {
+        await createActivatedAccount(
+          signupReserved(`concurrent-${index}@example.test`),
+          'hashed-password',
+          'Concurrent Customer',
+          users,
+          session,
+          new Types.ObjectId(),
+        );
+      }
+      await sessions[1].commitTransaction();
+      await sessions[0].commitTransaction();
+    } finally {
+      for (const session of sessions) {
+        if (session.inTransaction()) await session.abortTransaction();
+        await session.endSession();
+      }
+    }
+
+    const stored = await users
+      .find({
+        email: {
+          $in: ['concurrent-0@example.test', 'concurrent-1@example.test'],
+        },
+      })
+      .sort({ email: 1 })
+      .select('email audience -_id')
+      .lean();
+    expect(stored).toEqual([
+      { email: 'concurrent-0@example.test', audience: ROLE_AUDIENCE.CUSTOMER },
+      { email: 'concurrent-1@example.test', audience: ROLE_AUDIENCE.CUSTOMER },
+    ]);
+    expect(await roles.collection.findOne({ slug: UserRole.USER })).toEqual(
+      roleBefore,
+    );
   });
 
   it('refuses a sign-up aimed at an address that already has an account', async () => {

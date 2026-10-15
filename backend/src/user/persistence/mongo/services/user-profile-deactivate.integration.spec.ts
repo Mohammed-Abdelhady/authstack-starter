@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import { MongoNetworkError } from 'mongodb';
 import { failNextVersionWrite } from '../../../../../test/utils/transaction-failure';
 import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
@@ -54,7 +55,12 @@ describe('account self-deletion keeps one active admin', () => {
       isVerified: true,
       sessionVersion: 0,
     });
-    const issued = await sessions.createSession(user._id, 'agent', '127.0.0.1');
+    const issued = await sessions.createSession(
+      user._id,
+      'agent',
+      '127.0.0.1',
+      WEB_CLIENT_ID,
+    );
     return { user, token: issued.sessionToken };
   }
 

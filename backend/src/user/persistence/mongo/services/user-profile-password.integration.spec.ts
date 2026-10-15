@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import * as bcrypt from 'bcrypt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
@@ -153,11 +154,13 @@ describe('password change keeps the calling session (plan S1)', () => {
       objectId,
       'current',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const other = await harness.sessionService.createSession(
       objectId,
       'other',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
 
     const result = await service.changePassword(
@@ -196,6 +199,7 @@ describe('password change keeps the calling session (plan S1)', () => {
       await userObjectId(userId),
       'current',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const currentId = await sessionIdFor(current.sessionToken);
     await harness.sessions.updateOne(

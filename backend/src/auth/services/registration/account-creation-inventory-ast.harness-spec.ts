@@ -17,15 +17,28 @@ import {
 } from './account-creation-inventory-nodes.harness-spec';
 import { rawInsertMatcher } from './account-creation-inventory-raw.harness-spec';
 
+function policyStatement(
+  policy: ts.CallExpression,
+): ts.ExpressionStatement | ts.VariableStatement | undefined {
+  if (!ts.isAwaitExpression(policy.parent)) return undefined;
+  const parent = policy.parent.parent;
+  if (ts.isExpressionStatement(parent)) return parent;
+  if (
+    ts.isVariableDeclaration(parent) &&
+    ts.isVariableDeclarationList(parent.parent) &&
+    ts.isVariableStatement(parent.parent.parent)
+  ) {
+    return parent.parent.parent;
+  }
+  return undefined;
+}
+
 function dominatingPolicy(
   policy: ts.CallExpression,
   insert: ts.CallExpression,
 ): boolean {
-  if (!ts.isAwaitExpression(policy.parent)) return false;
-  const statement = policy.parent.parent;
-  if (!ts.isExpressionStatement(statement) || !ts.isBlock(statement.parent)) {
-    return false;
-  }
+  const statement = policyStatement(policy);
+  if (!statement || !ts.isBlock(statement.parent)) return false;
   const block = statement.parent;
   let insertStatement: ts.Node = insert;
   while (insertStatement.parent && insertStatement.parent !== block) {
@@ -212,15 +225,13 @@ export function moveInventoryPolicyToEnd(
   const text = documents.get(file);
   if (text === undefined) throw new Error(`Missing fixture source ${file}`);
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-  let selected: ts.ExpressionStatement | undefined;
+  let selected: ts.ExpressionStatement | ts.VariableStatement | undefined;
   walk(source, (node) => {
     if (
       ts.isCallExpression(node) &&
-      memberName(node.expression) === 'assertMayCreate' &&
-      ts.isAwaitExpression(node.parent) &&
-      ts.isExpressionStatement(node.parent.parent)
+      memberName(node.expression) === 'assertMayCreate'
     ) {
-      selected ??= node.parent.parent;
+      selected ??= policyStatement(node);
     }
   });
   const body = selected && nearestFunction(selected);
