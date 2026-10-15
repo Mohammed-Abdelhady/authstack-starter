@@ -22,7 +22,10 @@ describe('native email code verify body', () => {
     ['five digits', { code: '12345' }],
     ['seven digits', { code: '1234567' }],
     ['a letter', { code: '12a456' }],
-    ['Arabic-Indic digits', { code: '٠١٢٣٤٥' }],
+    [
+      'digits of another script, U+0660 to U+0665',
+      { code: String.fromCodePoint(0x660, 0x661, 0x662, 0x663, 0x664, 0x665) },
+    ],
     ['an empty code', { code: '' }],
     ['no code', {}],
     ['a number', { code: 123456 }],

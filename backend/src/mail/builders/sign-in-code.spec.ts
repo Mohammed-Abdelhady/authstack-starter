@@ -33,6 +33,7 @@ describe('sign-in code mail', () => {
     expect(withoutLink.html).not.toContain('myapp://');
   });
 
+  // feature:locale-ar:start
   it('keeps Western digits in an Arabic mail', () => {
     const mail = buildSignInCodeMail({
       locale: 'ar',
@@ -47,4 +48,5 @@ describe('sign-in code mail', () => {
     expect(mail.text).toContain('042137');
     expect(mail.text).not.toMatch(/[٠-٩]/u);
   });
+  // feature:locale-ar:end
 });
