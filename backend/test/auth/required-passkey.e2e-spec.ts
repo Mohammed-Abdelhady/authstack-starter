@@ -20,6 +20,8 @@ import {
   webPost, // feature:email-password,magic-link
   webProviderCallback, // feature:oauth-core
 } from '../utils/auth/required-passkey.fixture';
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids'; // feature:email-password
+import { storeBrowserPolicy } from '../utils/session/store-browser-policy'; // feature:email-password
 // feature:totp:start
 // feature:email-password:start
 import { oweSecondFactor } from '../utils/auth/required-passkey.fixture';
@@ -119,8 +121,10 @@ describe('required web passkey credential refusals', () => {
     },
   );
 
-  // Failure: activation issues a password session after committing its account.
-  it('refuses valid activation like a wrong code after storing the account', async () => {
+  // Failure: activation stores an account that a required passkey never lets in,
+  // and tells the caller the code was wrong.
+  it('refuses a code issued before the requirement like a wrong code and stores nothing', async () => {
+    await storeBrowserPolicy(e2e, WEB_CLIENT_ID, { requirePasskey: false });
     const browser = request.agent(e2e.httpServer);
     const requested = await webPost(
       e2e,
@@ -130,6 +134,8 @@ describe('required web passkey credential refusals', () => {
     );
     expect(requested.status).toBe(200);
     const code = await e2e.mailedCode();
+    const before = await e2e.state.auth.pendingRegistrationFor(NEW_EMAIL);
+    await requireWebPasskey(e2e);
     const body = {
       email: NEW_EMAIL,
       password: 'ActivatedPassword1!',
@@ -138,7 +144,11 @@ describe('required web passkey credential refusals', () => {
     const wrong = await webPost(
       e2e,
       ACTIVATE,
-      { ...body, code: code === '000000' ? '000001' : '000000' },
+      {
+        ...body,
+        email: SEED_USER.email,
+        code: code === '000000' ? '000001' : '000000',
+      },
       browser,
     );
     const refused = await webPost(e2e, ACTIVATE, { ...body, code }, browser);
@@ -149,10 +159,10 @@ describe('required web passkey credential refusals', () => {
     });
     expectNoAuthority(e2e, refused);
     expect(await e2e.state.sessions.countSessions()).toBe(0);
-    expect(await e2e.state.auth.countAccountsWithAddress(NEW_EMAIL)).toBe(1);
-    expect(
-      await e2e.state.accounts.accountWithAddress(NEW_EMAIL),
-    ).toMatchObject({ email: NEW_EMAIL, isVerified: true });
+    expect(await e2e.state.auth.countAccountsWithAddress(NEW_EMAIL)).toBe(0);
+    expect(await e2e.state.auth.pendingRegistrationFor(NEW_EMAIL)).toEqual(
+      before,
+    );
   });
   // feature:email-password:end
 
