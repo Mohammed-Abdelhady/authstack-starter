@@ -14,6 +14,9 @@ const CONTROLLER_FILE = /\.controller\.ts$/;
 const CONTROLLER_BASE = /@Controller\(\s*(?:'([^']*)')?\s*\)/;
 const HANDLER_PATH = /@(?:Get|Post|Put|Patch|Delete)\(\s*(?:'([^']*)')?\s*\)/g;
 const MARKER_ID_LIST = /(?:\/\/|\{\/\*)\s*feature:([a-z0-9,-]+)/g;
+const SPEC_FILE = /\.(?:e2e-)?spec\.ts$/;
+const TEST_CALL = /\b(?:it|test)(?:\.each)?\s*[(`]/;
+const DATABASE_CHOICE = 'database-choice';
 
 interface OwnedFeature {
   files: string[];
@@ -24,6 +27,15 @@ interface LeftBehind {
   file: string;
   feature: string;
   route: string;
+}
+
+/** Who owns which files, as far as keeping a spec at all goes. */
+interface SpecOwners {
+  /** Every feature, option, target, shared module and database id, with its globs. */
+  files: Record<string, string[]>;
+  requires: Record<string, string[]>;
+  databases: string[];
+  alwaysRemoved: string[];
 }
 
 /** The fixed part of a route, up to its first parameter. */
@@ -108,6 +120,45 @@ export function featureRoutesLeftBehind(
       for (const route of routes) {
         if (names(remaining, route)) left.push({ file, feature: id, route });
       }
+    }
+  }
+  return left;
+}
+
+/** A selection a project can have: requirements kept, and one database at most. */
+function possible(kept: Set<string>, owners: SpecOwners, known: Set<string>): boolean {
+  const databases = owners.databases.filter((id) => kept.has(id));
+  if (databases.length > 1) return false;
+  const naming = owners.databases.filter((id) => known.has(id));
+  if (databases.length === 0 && naming.length > 1) return false;
+  return [...kept].every((id) =>
+    (owners.requires[id] ?? []).every((needed) => !known.has(needed) || kept.has(needed)),
+  );
+}
+
+/**
+ * The backend specs some project would keep with every test call taken out by
+ * markers, each with the ids that project keeps. Jest fails such a file: a
+ * suite must contain at least one test.
+ */
+export function specsLeftWithoutTests(files: Map<string, string>, owners: SpecOwners): string[] {
+  const left: string[] = [];
+  for (const [file, content] of files) {
+    if (!SPEC_FILE.test(file) || !TEST_CALL.test(content)) continue;
+    if (matchesAnyGlob(file, owners.alwaysRemoved)) continue;
+    const known = new Set(
+      [...content.matchAll(MARKER_ID_LIST)].flatMap((marker) => marker[1].split(',')),
+    );
+    const required = Object.keys(owners.files).filter((id) =>
+      matchesAnyGlob(file, owners.files[id]),
+    );
+    const free = [...known].filter((id) => !required.includes(id) && id !== DATABASE_CHOICE);
+    for (let mask = 0; mask < 2 ** free.length; mask += 1) {
+      const kept = new Set([...required, ...free.filter((_, bit) => mask & (2 ** bit))]);
+      if (!possible(kept, owners, known)) continue;
+      if (TEST_CALL.test(stripFeatureMarkers(content, file, kept, known).content)) continue;
+      left.push(`${file} keeping ${[...kept].sort().join(',') || 'none'}`);
+      break;
     }
   }
   return left;
@@ -213,5 +264,66 @@ describe('backend tests that outlive the feature whose routes they call', () => 
     );
 
     expect(featureRoutesLeftBehind(files, features, manifest.core.alwaysRemoveFiles)).toEqual([]);
+  });
+});
+
+const NO_OWNERS: SpecOwners = { files: {}, requires: {}, databases: [], alwaysRemoved: [] };
+const CASE = "it('refuses', () => undefined);";
+
+describe('backend specs that keep no test once markers are taken out', () => {
+  it('reports a spec wrapped whole in a feature it is not listed under', () => {
+    const wrapped = `// feature:magic-link:start\n${CASE}\n// feature:magic-link:end\n`;
+
+    expect(
+      specsLeftWithoutTests(new Map([['backend/test/auth/a.e2e-spec.ts', wrapped]]), NO_OWNERS),
+    ).toEqual(['backend/test/auth/a.e2e-spec.ts keeping none']);
+    expect(
+      specsLeftWithoutTests(new Map([['backend/test/auth/a.e2e-spec.ts', wrapped]]), {
+        ...NO_OWNERS,
+        files: { 'magic-link': ['backend/test/auth/a.e2e-spec.ts'] },
+      }),
+    ).toEqual([]);
+  });
+
+  it('reports the selection that empties a spec through nested blocks, and no other', () => {
+    const nested = `// feature:email-password,magic-link:start\n${CASE}\n// feature:email-password,magic-link:end\n`;
+    const owners = { ...NO_OWNERS, files: { passkeys: ['backend/test/auth/b.e2e-spec.ts'] } };
+
+    expect(
+      specsLeftWithoutTests(new Map([['backend/test/auth/b.e2e-spec.ts', nested]]), owners),
+    ).toEqual(['backend/test/auth/b.e2e-spec.ts keeping passkeys']);
+    expect(
+      specsLeftWithoutTests(
+        new Map([['backend/test/auth/b.e2e-spec.ts', `${nested}${CASE}\n`]]),
+        owners,
+      ),
+    ).toEqual([]);
+  });
+
+  it('finds none in this repository', async () => {
+    const manifest = await loadManifest(REPO_ROOT);
+    const files = new Map([...sourceFiles(BACKEND_SOURCE), ...sourceFiles(BACKEND_TESTS)]);
+    const dimensions = [
+      manifest.features,
+      manifest.options,
+      manifest.databases,
+      manifest.targets,
+      manifest.shared,
+    ];
+
+    expect(
+      specsLeftWithoutTests(files, {
+        files: Object.fromEntries(
+          dimensions.flatMap((owners) =>
+            Object.entries(owners).map(([id, owner]) => [id, owner.files]),
+          ),
+        ),
+        requires: Object.fromEntries(
+          Object.entries(manifest.features).map(([id, feature]) => [id, feature.requires]),
+        ),
+        databases: Object.keys(manifest.databases),
+        alwaysRemoved: manifest.core.alwaysRemoveFiles,
+      }),
+    ).toEqual([]);
   });
 });
