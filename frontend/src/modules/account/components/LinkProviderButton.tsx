@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,9 +26,14 @@ export function LinkProviderButton({ provider, disabled = false }: LinkProviderB
   const pathname = usePathname();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  const handleLinkClick = () => {
+  const handleLinkClick = async () => {
     setIsRedirecting(true);
-    startOAuthFlow(provider.id, getRedirectPath(pathname), 'link');
+    try {
+      await startOAuthFlow(provider.id, getRedirectPath(pathname), 'link');
+    } catch (error) {
+      setIsRedirecting(false);
+      reportUnlessHandled(error);
+    }
   };
 
   return (
