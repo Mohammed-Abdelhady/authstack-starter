@@ -10,10 +10,18 @@ import { parseNativeApplications } from './utils/native-application-config.util'
 import { defaultSessionCookieName } from './utils/production-environment.util';
 import { parseMailLinkTemplates } from '../mail/links/mail-link-templates';
 import { MAIL_LINK_SETTING, MailLinkSettings } from '../mail/links/mail-links';
+import {
+  createHostAuthConfig,
+  createHostContractsConfig,
+} from './host-contracts.config';
+import type {
+  HostAuthConfiguration,
+  HostContractsConfiguration,
+} from './types/host-contracts-config.type';
 
 export { EnvironmentConfig, EnvironmentVariables } from './env.schema';
 
-export interface Configuration {
+export interface Configuration extends HostContractsConfiguration {
   server: {
     port: number;
     nodeEnv: string;
@@ -26,6 +34,7 @@ export interface Configuration {
   // feature:mongodb:end
   cors: {
     clientUrl: string;
+    adminUrl?: string;
   };
   throttle: {
     ttl: number;
@@ -55,7 +64,7 @@ export interface Configuration {
     codeExpiresIn: number;
     maxAttempts: number;
   };
-  auth: {
+  auth: HostAuthConfiguration & {
     passwordEnabled: boolean;
     epoch: number;
     nativeEnabled: boolean;
@@ -120,6 +129,7 @@ const configuration = (): Configuration => {
   const nativeEnabled = process.env.AUTH_NATIVE_ENABLED === 'true';
 
   return {
+    ...createHostContractsConfig(),
     server: {
       port,
       nodeEnv: process.env.NODE_ENV || 'development',
@@ -132,6 +142,7 @@ const configuration = (): Configuration => {
     // feature:mongodb:end
     cors: {
       clientUrl,
+      adminUrl: process.env.ADMIN_URL,
     },
     throttle: {
       ttl: Number.parseInt(process.env.THROTTLE_TTL || '60', 10),
@@ -191,6 +202,7 @@ const configuration = (): Configuration => {
       ),
     },
     auth: {
+      ...createHostAuthConfig(),
       passwordEnabled: process.env.AUTH_PASSWORD_ENABLED !== 'false',
       epoch: Number.parseInt(process.env.AUTH_EPOCH || '1', 10),
       nativeEnabled,
