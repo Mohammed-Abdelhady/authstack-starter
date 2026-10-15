@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import * as bcrypt from 'bcrypt';
 import { UserProfileService } from './user-profile.service';
 import { UserPermissionsService } from './user-permissions.service';
@@ -59,6 +60,7 @@ describe('UserProfileService and UserPermissionsService logging with real reposi
       user._id,
       'logging-test',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const currentSession = await sessions.getSessionByToken(
       issued.sessionToken,

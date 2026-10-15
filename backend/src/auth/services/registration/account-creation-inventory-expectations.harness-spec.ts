@@ -30,8 +30,8 @@ const CALLERS: readonly InventoryCaller[] = [
   // feature:magic-link:end
   // feature:oauth-core:start
   {
-    file: 'auth/oauth/oauth.service.ts',
-    owner: 'createUser',
+    file: 'auth/oauth/create-provider-account.ts',
+    owner: 'createProviderAccount',
     method: 'createFromProviderIn',
     boundary: 'run',
   },

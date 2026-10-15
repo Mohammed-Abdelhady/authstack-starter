@@ -27,7 +27,7 @@ export function accountGrantCases(
 ): void {
   it('creates a verified account with a hashed password', async () => {
     const { adminId } = fixture();
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate');
     const inserting = jest.spyOn(harness().admin, 'insertAccount');
 
@@ -71,7 +71,7 @@ export function accountGrantCases(
 
   it('refuses an actor whose stored authority no longer allows the role before asking the creation policy', async () => {
     const { userId } = fixture();
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate');
     const services = servicesOn(harness(), undefined, policy);
     const email = 'stale-authority-creation@example.test';

@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { AccountsContractHarness } from '../../../test/utils/user/accounts-contract/accounts-contract-harness';
 import { rerunAtOnce } from '../../../test/utils/session/issuance-contract/issuance-contract-support';
@@ -85,12 +86,12 @@ export function linkedServicesOn(
   pause: RerunPause = rerunAtOnce,
   switches: SignInSwitchesOf = {},
 ): LinkedServices {
-  const features = new AuthFeaturesService(
-    new ConfigService({
-      auth: { passwordEnabled: switches.password ?? UNSET.password },
-      magicLink: { enabled: switches.magicLink ?? UNSET.magicLink },
-    }),
-  );
+  const config = new ConfigService({
+    auth: { passwordEnabled: switches.password ?? UNSET.password },
+    magicLink: { enabled: switches.magicLink ?? UNSET.magicLink },
+  });
+  const browserApplications = browserApplicationsForTest(config);
+  const features = new AuthFeaturesService(config, browserApplications);
   return {
     linking: new AccountLinkingService(
       harness.links,

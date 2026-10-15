@@ -1,3 +1,8 @@
+import {
+  mongoActivationPolicy,
+  mongoActivationRegistry,
+} from '../../../../../../test/utils/auth/mongo-activation-policy';
+import { BROWSER_APPLICATIONS_TEST_PROVIDER } from '../../../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -100,6 +105,7 @@ describe('resend activation hash count', () => {
     await claims.init();
     await registrations.init();
     await counters.init();
+    await mongoActivationRegistry(connection).seedFirstPartyApplications();
 
     const config = {
       get: (key: string, fallback?: number) =>
@@ -113,7 +119,11 @@ describe('resend activation hash count', () => {
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: AddressLedger, useClass: MongoAddressLedger },
         RegistrationService,
-        AccountCreationPolicy,
+        BROWSER_APPLICATIONS_TEST_PROVIDER,
+        {
+          provide: AccountCreationPolicy,
+          useValue: mongoActivationPolicy(connection),
+        },
         VerificationCodeService,
         HashService,
         { provide: ConfigService, useValue: config },

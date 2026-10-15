@@ -1,3 +1,6 @@
+import { seedAccountsFixture } from './accounts-contract-fixture';
+import { accountAudienceCases } from './accounts-contract-audience';
+import { accountActivationAudienceCases } from './accounts-contract-activation-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { accountAbortCases } from './accounts-contract-abort';
 import { accountActivationCases } from './accounts-contract-activation';
@@ -16,10 +19,7 @@ import { accountProfileCases } from './accounts-contract-profile';
 import { accountRaceCases } from './accounts-contract-races';
 import { accountRouteIdCases } from './accounts-contract-route-ids';
 import { accountSeamCases } from './accounts-contract-seam';
-import {
-  AccountsFixture,
-  seedAccountsFixture,
-} from './accounts-contract-support';
+import { AccountsFixture } from './accounts-contract-support';
 
 /**
  * The account stores' contract. Every database runs these same cases through
@@ -63,6 +63,8 @@ export function describeAccountStoresContract(
 
     afterEach(() => jest.restoreAllMocks());
 
+    accountAudienceCases(current, seeded);
+    accountActivationAudienceCases(current);
     accountProfileCases(current, seeded);
     accountLeavingCases(current, seeded);
     accountAdminCases(current, seeded);

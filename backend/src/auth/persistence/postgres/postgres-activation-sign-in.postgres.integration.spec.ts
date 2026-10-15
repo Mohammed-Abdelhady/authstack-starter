@@ -40,6 +40,7 @@ describe('PostgresActivationSignIn', () => {
     const account = await new PostgresUnitOfWorkRunner(database).run(
       (unitOfWork) =>
         accounts.insertActivated(unitOfWork, {
+          audience: undefined,
           id,
           email: 'activated@example.test',
           passwordHash: 'a-stored-password-hash',
@@ -62,7 +63,7 @@ describe('PostgresActivationSignIn', () => {
       [
         expect.objectContaining({ id, email: 'activated@example.test' }),
         response,
-        'email_code', // feature:totp
+        'email_code',
       ],
     ]);
   });

@@ -48,6 +48,7 @@ describe('MongoActivationSignIn', () => {
     const account = await new MongoUnitOfWorkRunner(connection).run(
       (unitOfWork) =>
         accounts.insertActivated(unitOfWork, {
+          audience: undefined,
           id,
           email: 'activated@example.test',
           passwordHash: 'a-stored-password-hash',
@@ -70,7 +71,7 @@ describe('MongoActivationSignIn', () => {
       [
         expect.objectContaining({ email: 'activated@example.test' }),
         response,
-        'email_code', // feature:totp
+        'email_code',
       ],
     ]);
     expect(await users.countDocuments({ _id: id })).toBe(1);

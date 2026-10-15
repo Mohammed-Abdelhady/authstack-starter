@@ -1,3 +1,6 @@
+import { ConfigService } from '@nestjs/config';
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import {
@@ -28,16 +31,21 @@ class GuardedRoute {
 }
 
 /**
- * What the real guard tells a request the account may do. The session and the
- * cookie are stand-ins: the account they name is the stored one, and the role
- * is read through this database's adapter.
+ * The real guard resolves permissions using the stored account and role.
+ * Only the session validator is replaced; cookies use the real resolver.
  */
 async function guardPermissions(
   harness: AccountsContractHarness,
   userId: string,
 ): Promise<string[] | undefined> {
   const stored = await storedAccount(harness, userId);
+  const config = new ConfigService({ session: { cookieName: 'sid' } });
+  const cookie = new SessionCookieService(
+    config,
+    browserApplicationsForTest(config),
+  );
   const session = {
+    clientId: WEB_CLIENT_ID,
     user: {
       id: userId,
       email: stored.email,
@@ -58,13 +66,16 @@ async function guardPermissions(
       },
       {
         provide: SessionCookieService,
-        useValue: { read: () => 'a-session-token', clear: () => undefined },
+        useValue: cookie,
       },
       { provide: NativeAccessService, useValue: {} },
       { provide: RolePermissions, useValue: harness.rolePermissions },
     ],
   }).compile();
-  const request: Partial<RequestWithUser> = { headers: {} };
+  const request: Partial<RequestWithUser> = {
+    headers: {},
+    cookies: { sid: 'a-session-token' },
+  };
   const context = createExecutionContextMock({
     switchToHttp: () => ({
       getRequest: () => request,

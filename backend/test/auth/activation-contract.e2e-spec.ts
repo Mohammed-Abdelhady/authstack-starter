@@ -1,3 +1,4 @@
+import { activationApplicationCases } from '../utils/auth/activation-application-cases';
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'supertest';
 import * as bcrypt from 'bcrypt';
@@ -264,3 +265,5 @@ describe('Activation contract (e2e)', () => {
     expect(await bcrypt.compare(PASSWORD, stored?.password ?? '')).toBe(true);
   });
 });
+
+activationApplicationCases();
