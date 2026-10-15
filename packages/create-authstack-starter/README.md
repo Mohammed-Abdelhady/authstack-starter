@@ -133,7 +133,9 @@ step and exits 1. A failed update stops with exit 1 and keeps the bundled lockfi
     selection (clients, database, features, options, locales, the mobile app identity with a
     native client) and `template.commit`. That commit is recorded only when the files the build
     copied and the inputs it read equal its tree byte for byte, mode included. Otherwise it is
-    `null`. The file holds no secrets, paths or machine names. Keep it committed.
+    `null`. The template build expects a stable tree, since a file edited during the build can
+    differ from the bytes the commit check certified. The file holds no secrets, paths or machine
+    names. Keep it committed.
 13. Runs `git init` and one commit with the updated lockfile, or without one if
     pnpm was unavailable.
 14. When installation is requested, runs `pnpm install --frozen-lockfile` after
