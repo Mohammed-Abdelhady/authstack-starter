@@ -79,13 +79,14 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 
 ## Sign-in with a provider (`/api/auth/oauth`)
 
-| Method | Path                                 | Who may call it | Closed by | What it does                                                      |
-| ------ | ------------------------------------ | --------------- | --------- | ----------------------------------------------------------------- |
-| GET    | `/api/auth/oauth/providers`          | Public          |           | Lists the providers that have credentials configured              |
-| GET    | `/api/auth/oauth/:provider/start`    | Public          |           | Redirects the browser to the provider                             |
-| GET    | `/api/auth/oauth/:provider/callback` | Public          |           | Receives the provider's answer, signs in, redirects to the client |
-| POST   | `/api/auth/oauth/:provider/callback` | Public          |           | The same callback for providers that post a form, such as Apple   |
-| POST   | `/api/auth/oauth/callback`           | Public          |           | Removed. Always answers `410`                                     |
+| Method | Path                                 | Who may call it | Closed by | What it does                                                        |
+| ------ | ------------------------------------ | --------------- | --------- | ------------------------------------------------------------------- |
+| GET    | `/api/auth/oauth/providers`          | Public          |           | Lists the providers that have credentials configured                |
+| GET    | `/api/auth/oauth/:provider/start`    | Public          |           | Legacy web navigation start                                         |
+| POST   | `/api/auth/oauth/:provider/start`    | Public          |           | Starts the Origin-selected application and returns the provider URL |
+| GET    | `/api/auth/oauth/:provider/callback` | Public          |           | Receives the provider's answer, signs in, redirects to the client   |
+| POST   | `/api/auth/oauth/:provider/callback` | Public          |           | The same callback for providers that post a form, such as Apple     |
+| POST   | `/api/auth/oauth/callback`           | Public          |           | Removed. Always answers `410`                                       |
 
 <!-- feature:oauth-core:end -->
 
@@ -114,7 +115,9 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 | POST   | `/api/user/sync-profile`              | Signed in       |           | Syncs the profile from the primary provider now        |
 | POST   | `/api/user/link-provider`             | Signed in       |           | Removed. Always answers `410`                          |
 
-To link a provider, send the signed-in browser to `GET /api/auth/oauth/:provider/start`.
+To link a provider, fetch `POST /api/auth/oauth/:provider/start` with browser
+credentials and proof, then navigate to the returned provider URL. The retained
+GET navigation start always selects web.
 
 <!-- feature:oauth-core:end -->
 
