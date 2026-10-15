@@ -4,7 +4,7 @@ import type {
 } from '../../types/mail-catalogue.types';
 
 export const SIGN_IN_CODE_EN = {
-  subject: 'Your sign-in code: {code}',
+  subject: 'Your sign-in code',
   title: 'Your sign-in code',
   heading: 'Your sign-in code',
   instruction: 'Enter this code in the app to sign in:',
