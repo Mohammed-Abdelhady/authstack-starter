@@ -11,8 +11,10 @@ describe('createApiClient account email', () => {
 
     await email.get();
     await email.request('new@example.com');
+    await email.request('new@example.com', { password: 'Signs-in-1' });
     await email.confirm('123456');
     await email.cancel();
+    await email.cancel({ password: 'Signs-in-1' });
     await email.confirmFromApp({
       clientId: 'com.example.app',
       email: 'new@example.com',
@@ -22,8 +24,14 @@ describe('createApiClient account email', () => {
     expect(transport.sent).toStrictEqual([
       { method: 'GET', path: '/api/user/email' },
       { method: 'POST', path: '/api/user/email', body: { email: 'new@example.com' } },
+      {
+        method: 'POST',
+        path: '/api/user/email',
+        body: { email: 'new@example.com', password: 'Signs-in-1' },
+      },
       { method: 'POST', path: '/api/user/email/confirm', body: { code: '123456' } },
       { method: 'DELETE', path: '/api/user/email' },
+      { method: 'DELETE', path: '/api/user/email', body: { password: 'Signs-in-1' } },
       {
         method: 'POST',
         path: '/api/auth/native/email-change/confirm',
