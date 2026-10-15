@@ -1,84 +1,53 @@
-import { lstatSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 
-const COMMIT_PATTERN = /^[0-9a-f]{40}$/;
+const COMMIT_PATTERNS = { sha1: /^[0-9a-f]{40}$/, sha256: /^[0-9a-f]{64}$/ };
 const SYMLINK_MODE = '120000';
 const EXECUTABLE_MODE = '100755';
 
-function paths(output) {
-  return output.split('\0').filter(Boolean);
-}
-
-// Each template source HEAD holds as a file: its mode and blob. Symbolic links never ship.
+// Each template source HEAD holds as a file: its executable bit and blob. Links never ship.
 function headEntries(git, root, isTemplateSource) {
   const entries = new Map();
-  for (const line of paths(git(root, ['ls-tree', '-r', '-z', '--full-tree', 'HEAD']))) {
+  const output = git(root, ['ls-tree', '-r', '-z', '--full-tree', 'HEAD']);
+  for (const line of output.split('\0').filter(Boolean)) {
     const tab = line.indexOf('\t');
     const [mode, type, blob] = line.slice(0, tab).split(' ');
     const path = line.slice(tab + 1);
     if (type === 'blob' && mode !== SYMLINK_MODE && isTemplateSource(path)) {
-      entries.set(path, { mode, blob });
+      entries.set(path, { executable: mode === EXECUTABLE_MODE, blob });
     }
   }
   return entries;
 }
 
-// Template sources the working tree lists: tracked, or untracked and not ignored.
-function listedSources(git, root, isTemplateSource) {
-  const listed = [
-    ...paths(git(root, ['ls-files', '-z'])),
-    ...paths(git(root, ['ls-files', '--others', '--exclude-standard', '-z'])),
-  ];
-  return [...new Set(listed)].filter(isTemplateSource);
+function blobId(format, bytes) {
+  return createHash(format).update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
 }
 
-function statOrNull(path) {
-  try {
-    return lstatSync(path);
-  } catch {
-    return null;
-  }
-}
-
-// The files to hash, or null when a source is missing on either side or its mode differs.
-function filesToHash(root, head, listed) {
-  const files = [];
-  for (const path of new Set([...head.keys(), ...listed])) {
-    const stats = statOrNull(join(root, path));
+// The copied set equals HEAD's template sources: same paths, executable bits and bytes.
+function matchesHead(head, copied, format) {
+  const paths = new Set(copied.map((entry) => entry.path));
+  if (paths.size !== copied.length || paths.size !== head.size) return false;
+  return copied.every(({ path, mode, bytes }) => {
     const entry = head.get(path);
-    if (stats === null || !stats.isFile()) {
-      if (entry !== undefined) return null;
-      continue;
-    }
-    if (entry === undefined || path.includes('\n')) return null;
-    if ((entry.mode === EXECUTABLE_MODE) !== ((stats.mode & 0o111) !== 0)) return null;
-    files.push(path);
-  }
-  return files;
+    if (entry === undefined) return false;
+    if (entry.executable !== ((mode & 0o111) !== 0)) return false;
+    return entry.blob === blobId(format, bytes);
+  });
 }
 
-// Hashes the bytes on disk, so assume-unchanged and skip-worktree cannot hide an edit.
-function matchesHead(git, root, isTemplateSource) {
-  const head = headEntries(git, root, isTemplateSource);
-  const files = filesToHash(root, head, listedSources(git, root, isTemplateSource));
-  if (files === null) return false;
-  if (files.length === 0) return true;
-  const input = `${files.join('\n')}\n`;
-  const hashes = git(root, ['hash-object', '--no-filters', '--stdin-paths'], input)
-    .trim()
-    .split('\n');
-  return files.every((path, index) => hashes[index] === head.get(path)?.blob);
-}
-
-// The HEAD commit when every template source on disk matches it byte for byte,
-// else null. A sparse checkout, a dirty tree or any git error never fails the build.
-export function templateCommit(git, root, isTemplateSource) {
+// The HEAD commit when the files the build copied and read equal its tree, else
+// null. A sparse checkout, any difference or any git error never fails the build.
+export function templateCommit(git, root, build) {
   try {
+    const format = git(root, ['rev-parse', '--show-object-format']).trim();
+    if (!Object.hasOwn(COMMIT_PATTERNS, format)) return null;
+    const pattern = COMMIT_PATTERNS[format];
     const head = git(root, ['rev-parse', '--verify', 'HEAD']).trim();
-    if (!COMMIT_PATTERN.test(head)) return null;
+    if (!pattern.test(head)) return null;
     const sparse = git(root, ['config', '--bool', '--default', 'false', 'core.sparseCheckout']);
     if (sparse.trim() === 'true') return null;
-    return matchesHead(git, root, isTemplateSource) ? head : null;
+    const entries = headEntries(git, root, build.isTemplateSource);
+    return matchesHead(entries, build.copied, format) ? head : null;
   } catch {
     return null;
   }
