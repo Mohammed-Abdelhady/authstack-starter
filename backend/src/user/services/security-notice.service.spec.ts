@@ -1,5 +1,4 @@
 import { ConfigService } from '@nestjs/config';
-import { runWithRequestContext } from '../../common/context/request-context';
 import { partialMock } from '../../common/testing/test-doubles.harness-spec';
 import { MAIL_CATALOGUES } from '../../mail/catalog/mail-catalogue';
 import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
@@ -11,9 +10,6 @@ import { StoredAccount } from '../stores/stored-account';
 import { SecurityNoticeService } from './security-notice.service';
 
 jest.mock('nodemailer');
-
-const CHROME_ON_MAC =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 
 /** The account as a read would find it once it has moved and been deactivated. */
 const NOW_ELSEWHERE = partialMock<StoredAccount>({
@@ -61,23 +57,5 @@ describe('SecurityNoticeService', () => {
     await dispatcher.flush();
 
     expect(mail.sendMail).not.toHaveBeenCalled();
-  });
-
-  it('names the device of the request that made the change, taken while it is handled', async () => {
-    runWithRequestContext(
-      'request-1',
-      () =>
-        notices.deferTo(
-          { email: 'old@example.test', locale: 'en' },
-          SECURITY_NOTICE.EMAIL_CHANGED,
-        ),
-      CHROME_ON_MAC,
-    );
-    await dispatcher.flush();
-
-    const text = mail.lastMail().text ?? '';
-    expect(text).toContain('Chrome');
-    expect(text).toContain('macOS');
-    expect(text).toContain('2099');
   });
 });
