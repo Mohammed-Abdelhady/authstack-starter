@@ -26,6 +26,13 @@ const NOTICE_SUBJECTS: Readonly<Record<SecurityNotice, string>> = {
   [SECURITY_NOTICE.TWO_FACTOR_DISABLED]: 'أُوقف التحقق بخطوتين',
   [SECURITY_NOTICE.PASSKEY_ADDED]: 'أُضيف مفتاح مرور',
   [SECURITY_NOTICE.PROVIDER_ADDED]: 'أُضيف مزوّد لتسجيل الدخول',
+  [SECURITY_NOTICE.PASSKEY_REMOVED]: 'أُزيل مفتاح مرور',
+  [SECURITY_NOTICE.EMAIL_CHANGE_REQUESTED]: 'طُلب عنوان بريد إلكتروني جديد',
+  [SECURITY_NOTICE.EMAIL_CHANGED]: 'تغيّر عنوان بريدك الإلكتروني',
+  [SECURITY_NOTICE.NEW_DEVICE]: 'تسجيل دخول جديد إلى حسابك',
+  [SECURITY_NOTICE.ACCOUNT_DEACTIVATED]: 'أُوقف حسابك',
+  [SECURITY_NOTICE.ACCOUNT_RESTORED]: 'استُعيد حسابك',
+  [SECURITY_NOTICE.PASSKEYS_RESET]: 'أُعيد تعيين مفاتيح المرور',
 };
 
 describe('Arabic mail', () => {
