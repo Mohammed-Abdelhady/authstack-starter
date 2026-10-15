@@ -665,8 +665,7 @@
         "mobile/ui/src/constants/passkeys.ts",
         "mobile/ui/src/i18n/passkeys.en.ts",
         "mobile/ui/src/i18n/passkeys.ar.ts",
-        "mobile/ui/test/hooks/passkeys.test.ts",
-        "mobile/ui/test/screens/passkeys-section.test.ts"
+        "mobile/ui/test/hooks/passkeys.test.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
