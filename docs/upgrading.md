@@ -78,6 +78,8 @@ development dependencies. In a source checkout, `audience:apply:dev` runs the sa
 command from TypeScript. The command's E2E cases run that TypeScript entry too, so
 they need no build; the backend build checks that the compiled entry exists.
 
+<!-- feature:production:start -->
+
 For the shipped image, keep the database running and use a one-off backend
 container while the API is stopped:
 
@@ -90,6 +92,8 @@ docker compose -f docker-compose.prod.yml run --rm --no-deps backend node dist/c
 Add the required `--role` mappings to both container commands.
 Use `docker-compose.postgres.prod.yml` instead for PostgreSQL. <!-- feature:database-choice -->
 The image already contains the compiled command and production dependencies.
+
+<!-- feature:production:end -->
 
 Core `admin` becomes `staff` and core `user` becomes `customer`. Host role mappings
 come from `HOST_ROLES`; custom role names and permissions are never interpreted
@@ -165,18 +169,23 @@ stays at most 5 minutes even with configured limits. Native issue, exchange,
 refresh and retry integration is not yet complete. Retain the
 existing native limits until those paths are verified.
 
-## Deploy the native link host at both boundaries
+## Deploy the native link host
 
-An absent `AUTH_NATIVE_LINK_HOST` adds no backend responses or nginx virtual host.
-When setting it, use a hostname distinct from the API, web and admin hostnames.
-Production first-party redirects must use HTTPS on that host. Association output
-includes only applications with the identifiers required by that platform.
+An absent `AUTH_NATIVE_LINK_HOST` adds no backend responses. When setting it, use
+a hostname distinct from the API, web and admin hostnames. Production first-party
+redirects must use HTTPS on that host. Association output includes only
+applications with the identifiers required by that platform. A proxy in front of
+the backend must pass only the paths `node dist/cli/native-link-host.js --proxy-manifest`
+lists. See [application setup](setup/setup-applications.md#native-link-host).
 
+<!-- feature:production:start -->
+
+The shipped proxy adds no virtual host while the setting is absent.
 Regenerate the nginx include from the backend's effective configuration whenever
 native redirects, localized/custom mail templates or the host setting change.
 Mount the generated directory into the shipped proxy and supply a certificate
 covering the hostname. Removing the setting also requires regenerating and
-reloading the include. See [application setup](setup/setup-applications.md#native-link-host).
+reloading the include.
 
 The link host proxies only exact association and effective mail/redirect paths.
 It serves no API, documentation, health or frontend assets. `Host` is the boundary;
@@ -189,3 +198,5 @@ with all current SANs plus the link hostname, using the documented
 and validate/reload nginx; the renewal loop alone does not update that copied
 mount. Run the documented
 [real nginx gate](operations/native-link-proxy-gate.md) before deployment.
+
+<!-- feature:production:end -->
