@@ -1,4 +1,6 @@
+import { SessionExpiry } from '../../../../src/session/authority/session-expiry';
 import { ConfigService } from '@nestjs/config';
+import type { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import { UnitOfWorkRunner } from '../../../../src/common/persistence/unit-of-work';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
 import { ApplicationAccess } from '../../../../src/session/applications/application-access';
@@ -44,6 +46,7 @@ export interface NativeServiceParts {
   stores: NativeStores;
   issuanceStore: BrowserIssuanceStore;
   issuanceApplications: IssuanceApplications;
+  enrolments: EnrolmentStore;
   revocationStore: SessionRevocationStore;
   authorityStore: SessionAuthorityStore;
   authorityApplications: AuthorityApplications;
@@ -114,6 +117,7 @@ export function buildNativeServices(
     clock,
     authEpoch,
     stores.events,
+    parts.enrolments,
   );
   return {
     authorize: new NativeAuthorizeService(
@@ -155,6 +159,13 @@ export function buildNativeServices(
         parts.authorityApplications,
         clock,
         authEpoch,
+        new SessionExpiry(
+          runner,
+          parts.authorityStore,
+          parts.issuanceApplications,
+          parts.revocationStore,
+          clock,
+        ),
       ),
       clock,
       authEpoch,

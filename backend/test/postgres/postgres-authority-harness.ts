@@ -1,3 +1,4 @@
+import { SessionExpiry } from '../../src/session/authority/session-expiry';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { AuthEpochService } from '../../src/common/services/auth-epoch.service';
@@ -71,6 +72,13 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
         authorityApplications,
         clock,
         authEpoch,
+        new SessionExpiry(
+          new PostgresUnitOfWorkRunner(database),
+          authorityStore,
+          issuance.applications,
+          revocationStore,
+          clock,
+        ),
       ),
     revoker: (pause) =>
       new SessionRevoker(
@@ -108,6 +116,8 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
       await database
         .updateTable('sessions')
         .set({
+          revoked_at: patch.revokedAt,
+          proof_key_thumbprint: patch.proofKeyThumbprint,
           credential_purpose: patch.credentialPurpose,
           user_verified: patch.userVerified,
           policy_version: patch.policyVersion,

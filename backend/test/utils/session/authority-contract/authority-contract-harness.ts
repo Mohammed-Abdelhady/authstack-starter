@@ -32,6 +32,8 @@ export interface SessionState {
 }
 
 export interface SessionPatch {
+  revokedAt?: Date | null;
+  proofKeyThumbprint?: string | null;
   userVerified?: boolean;
   policyVersion?: number;
   credentialPurpose?: string;

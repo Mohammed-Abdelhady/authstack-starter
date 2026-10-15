@@ -1,4 +1,5 @@
 import type { Kysely } from 'kysely';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import type { PostgresTables } from '../../src/common/persistence/postgres/postgres-database';
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
 import type { Clock } from '../../src/common/services/clock';
@@ -35,5 +36,6 @@ export function postgresAccountsIssuance({
     clock,
     creation.authEpoch,
     new SecurityEventRecorder(events, clock),
+    new PostgresEnrolmentStore(),
   );
 }

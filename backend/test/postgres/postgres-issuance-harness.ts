@@ -1,4 +1,5 @@
 import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Kysely } from 'kysely';
@@ -92,6 +93,7 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
           new PostgresSecurityEventStore(database),
           clock,
         ),
+        new PostgresEnrolmentStore(),
       ),
 
     seedAccount: async (options) => {
@@ -113,10 +115,15 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         enabled: application.enabled,
         session_version: application.sessionVersion,
         policy_version: application.policyVersion ?? 0,
+        require_passkey: application.requirePasskey ?? false,
+        session_cap: application.sessionCap ?? null,
         account_audience: application.accountAudience ?? null,
         allowed_scopes: ['api'],
         absolute_lifetime_ms: application.absoluteLifetimeMs,
         idle_lifetime_ms: application.idleLifetimeMs,
+        unbound_absolute_lifetime_ms:
+          application.unboundAbsoluteLifetimeMs ?? null,
+        unbound_idle_lifetime_ms: application.unboundIdleLifetimeMs ?? null,
       };
       await database
         .insertInto('applications')
@@ -140,6 +147,13 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
           session_version: 1,
           issuance_fence: 0,
         })
+        .execute();
+    },
+    setSessionProofKey: async (sessionId, thumbprint) => {
+      await database
+        .updateTable('sessions')
+        .set({ proof_key_thumbprint: thumbprint })
+        .where('id', '=', sessionId)
         .execute();
     },
     revokeOneSession: async (userId) => {

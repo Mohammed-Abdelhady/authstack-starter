@@ -1,4 +1,5 @@
 import { EventRecorder } from '../../../../src/auth/contracts/event-recorder';
+import { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
@@ -73,6 +74,7 @@ export async function bootMongoIssuance(
         clock,
         authEpoch,
         app.get(EventRecorder),
+        app.get(EnrolmentStore),
       ),
 
     seedAccount: async (options) => {
@@ -99,11 +101,15 @@ export async function bootMongoIssuance(
             enabled: application.enabled,
             sessionVersion: application.sessionVersion,
             policyVersion: application.policyVersion ?? 0,
+            requirePasskey: application.requirePasskey ?? false,
+            sessionCap: application.sessionCap ?? null,
             accountAudience: application.accountAudience ?? null,
             allowedScopes: ['api'],
             policy: {
               absoluteLifetimeMs: application.absoluteLifetimeMs,
               idleLifetimeMs: application.idleLifetimeMs,
+              unboundAbsoluteLifetimeMs: application.unboundAbsoluteLifetimeMs,
+              unboundIdleLifetimeMs: application.unboundIdleLifetimeMs,
             },
           },
         },
@@ -118,6 +124,12 @@ export async function bootMongoIssuance(
         sessionVersion: 1,
         issuanceFence: 0,
       });
+    },
+    setSessionProofKey: async (sessionId, thumbprint) => {
+      await sessions.updateOne(
+        { _id: new Types.ObjectId(sessionId) },
+        { $set: { proofKeyThumbprint: thumbprint } },
+      );
     },
     revokeOneSession: async (userId) => {
       await sessions.updateOne(
