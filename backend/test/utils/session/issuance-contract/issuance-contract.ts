@@ -1,3 +1,5 @@
+import { issuanceSessionLimitCases } from './issuance-contract-session-limits';
+import { issuancePasskeyCases } from './issuance-contract-passkeys';
 import { issuanceAudienceCases } from './issuance-contract-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { issuanceAccountReadCases } from './issuance-contract-account-read';
@@ -46,6 +48,8 @@ export function describeBrowserIssuanceContract(
     }, budgets.resetMs);
 
     issuanceAudienceCases(current);
+    issuancePasskeyCases(current);
+    issuanceSessionLimitCases(current);
     issuanceRuleCases(current);
     issuanceSeamCases(current);
     issuanceAtomicityCases(current);
