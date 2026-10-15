@@ -63,6 +63,16 @@ export class Sessions {
     return issued;
   }
 
+  /** Limited browser authority is accepted only by enrolment-aware callers. */
+  async validateBrowserSession(
+    token: string,
+    extendIdle = false,
+  ): Promise<AuthenticatedSession | null> {
+    return this.authenticated.of(
+      await this.validator.validateByToken(token, extendIdle, true),
+    );
+  }
+
   async validateSession(token: string): Promise<AuthenticatedSession | null> {
     return this.authenticated.of(
       await this.validator.validateByToken(token, true),
