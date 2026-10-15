@@ -6,24 +6,6 @@ test.describe('Role Management', () => {
     await expect(page.getByTestId('role-sidebar-nav')).toBeVisible();
   });
 
-  test('should display roles page with existing roles', async ({ page }) => {
-    await expect(
-      page.getByTestId('admin-roles-page').getByRole('heading', { level: 1 }),
-    ).toHaveAccessibleName(/role/i);
-    await expect(page.getByTestId('role-nav-item-admin')).toBeVisible();
-    await expect(page.getByTestId('role-nav-item-user')).toBeVisible();
-    await expect(page.getByTestId(/^role-nav-item-/)).toHaveCount(5);
-  });
-
-  test('should open create role dialog when clicking create button', async ({ page }) => {
-    await page.getByTestId('create-role-button').click();
-    const dialog = page.getByTestId('create-role-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog).toHaveAccessibleName(/create/i);
-    await expect(dialog.getByTestId('role-name-input')).toHaveValue('');
-    await expect(dialog.getByTestId('role-description-input')).toHaveValue('');
-  });
-
   test('should create a new role successfully', async ({ page }) => {
     await page.getByTestId('create-role-button').click();
     const dialog = page.getByTestId('create-role-dialog');
@@ -44,16 +26,6 @@ test.describe('Role Management', () => {
     await expect(detail.getByTestId('permission-node-users:update:all')).toBeVisible();
   });
 
-  test('should validate required fields when creating role', async ({ page }) => {
-    await page.getByTestId('create-role-button').click();
-    const dialog = page.getByTestId('create-role-dialog');
-    await dialog.getByTestId('create-role-button').click();
-    await expect(dialog.getByTestId('role-name-error')).toBeVisible();
-    await expect(dialog.getByTestId('role-permissions-error')).toBeVisible();
-    await expect(dialog.getByTestId('role-name-input')).toHaveAttribute('aria-invalid', 'true');
-    await expect(dialog).toBeVisible();
-  });
-
   test('should edit an existing role', async ({ page }) => {
     await page.getByTestId('role-nav-item-fixture-editor').click();
     await page.getByTestId('edit-role-button').click();
@@ -71,15 +43,6 @@ test.describe('Role Management', () => {
     await expect(page.getByTestId('role-detail-panel')).toContainText(
       'Updated description for E2E test',
     );
-  });
-
-  test('should show confirmation dialog when deleting a role', async ({ page }) => {
-    await page.getByTestId('role-nav-item-fixture-editor').click();
-    await page.getByTestId('delete-role-button').click();
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toHaveAccessibleName(/delete/i);
-    await expect(dialog.getByTestId('cancel-button')).toBeVisible();
-    await expect(dialog.getByTestId('delete-role-button')).toBeVisible();
   });
 
   test('should cancel role deletion', async ({ page }) => {

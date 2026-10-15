@@ -26,6 +26,17 @@ async function alwaysRemoved(): Promise<string[]> {
 const COMPUTED_LOAD = /\b(?:requireActual|requireMock|require|import)\(\s*[^'"`\s)]/;
 
 it('ships no backend file that loads a module by a computed path', async () => {
+  expect(
+    [
+      'require(modulePath)',
+      'jest.requireActual(modulePath)',
+      'jest.requireMock(modulePath)',
+      'import(modulePath)',
+      "require('./module.js')",
+      "import('./module.js')",
+    ].map((source) => COMPUTED_LOAD.test(source)),
+  ).toEqual([true, true, true, true, false, false]);
+
   const removed = await alwaysRemoved();
   const sources = (await listFiles(join(REPOSITORY, 'backend')))
     .map((file) => `backend/${file}`)
@@ -36,10 +47,7 @@ it('ships no backend file that loads a module by a computed path', async () => {
     if (COMPUTED_LOAD.test(await readFile(join(REPOSITORY, file), 'utf8'))) computed.push(file);
   }
 
-  expect({
-    found: computed.length > 0,
-    shipped: computed.filter((file) => !matchesAnyGlob(file, removed)),
-  }).toEqual({ found: true, shipped: [] });
+  expect(computed.filter((file) => !matchesAnyGlob(file, removed))).toEqual([]);
 });
 
 const NEUTRAL_FILES = [
