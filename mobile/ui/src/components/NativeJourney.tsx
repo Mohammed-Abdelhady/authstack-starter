@@ -1,17 +1,27 @@
-import { NATIVE_AUTH_STAGE } from '@app/core';
+import { NATIVE_AUTH_FIRST_FACTOR, NATIVE_AUTH_STAGE } from '@app/core';
+import type { NativeFirstFactor } from '@app/sdk';
 import { useCallback } from 'react';
 import { Button } from './Button';
 import { NativeFormLayout } from './NativeFormLayout';
 import { Description, Heading } from './Typography';
 import { NativeCodeScreen } from '../screens/NativeCodeScreen';
+import { NativeEmailCodeScreen } from '../screens/NativeCodeScreen'; // feature:email-code
 import { NativeCredentialScreen } from '../screens/NativeCredentialScreen';
 import { NativeConsentScreen } from '../screens/NativeConsentScreen';
 import { NativeSecondFactorScreen } from '../screens/NativeSecondFactorScreen';
 import { NATIVE_METHOD, NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
 import { useUi } from '../context/ui-context';
 import type { useNativeSignIn } from '../hooks/use-native-sign-in';
+import type { NativeUiMethod } from '../types/native-sign-in';
 import { Notice, NOTICE_TONE } from './Notice';
 import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
+
+/** The attempt factor a sign-in method needs. Sign-up and recovery start flows of their own. */
+const METHOD_FACTOR: Partial<Record<NativeUiMethod, NativeFirstFactor>> = {
+  [NATIVE_METHOD.PASSWORD]: NATIVE_AUTH_FIRST_FACTOR.PASSWORD,
+  [NATIVE_METHOD.EMAIL_LINK]: NATIVE_AUTH_FIRST_FACTOR.EMAIL_LINK,
+  [NATIVE_METHOD.EMAIL_CODE]: NATIVE_AUTH_FIRST_FACTOR.EMAIL_CODE, // feature:email-code
+};
 
 function EmailLinkSent({
   email,
@@ -57,14 +67,17 @@ export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignI
   }, [choose, submit, view]);
   const openBrowser = useCallback(() => web(), [web]);
   const actions = { pending, submit, web, cancel };
+  const factor = method && METHOD_FACTOR[method];
   const allowed =
     view?.stage === NATIVE_AUTH_STAGE.FIRST_FACTOR_REQUIRED &&
     method &&
-    (method === NATIVE_METHOD.PASSWORD
-      ? view.factors.includes('password')
-      : method === NATIVE_METHOD.EMAIL_LINK
-        ? view.factors.includes('emailLink')
-        : true);
+    (factor === undefined || view.factors.includes(factor));
+  // feature:email-code:start
+  const codeSent =
+    view?.stage === NATIVE_AUTH_STAGE.EMAIL_LINK_SENT &&
+    flow.methods?.capabilities.emailCode === true;
+  const codeLink = flow.methods?.capabilities.emailLink === true;
+  // feature:email-code:end
   return (
     <NativeFormLayout>
       {flow.message ? (
@@ -91,6 +104,8 @@ export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignI
           {...actions}
           resend={resend}
         />
+      ) : codeSent ? ( // feature:email-code
+        <NativeEmailCodeScreen key={view.attemptId} view={view} withLink={codeLink} {...actions} /> // feature:email-code
       ) : view?.stage === NATIVE_AUTH_STAGE.EMAIL_LINK_SENT ? (
         <EmailLinkSent email={view.email} pending={pending} resend={resend} />
       ) : allowed && method ? (
