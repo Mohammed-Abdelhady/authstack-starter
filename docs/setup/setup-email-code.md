@@ -88,11 +88,15 @@ explains what an attacker can still do with these limits.
 ## The mail
 
 The mail is in the account's language, or the request's for an unknown
-address, English or Arabic. It holds the code as text in Western digits, the
-code again in the subject, how many minutes are left, and a line telling the
-person to ignore it if they did not ask. The button, when there is one, opens
-the app's registered callback with its values after `#`. A browser that opens it
-without the app sends none of them to a web server, and nothing is spent.
+address. It holds the code as text in Western digits, the code again in the
+subject, how many minutes are left, and a line telling the person to ignore it
+if they did not ask.
+
+The button, when there is one, opens the app's registered callback with its
+values after `#`. A browser that opens it without the app sends none of them to
+a web server, and nothing is spent.
+
+Arabic mail keeps the code in Western digits, the same as English. <!-- feature:locale-ar -->
 
 ## Magic link switched off
 
