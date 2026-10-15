@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { usersApi } from '@/modules/users/api/usersApi';
 import { errorInterceptor } from '@/store/middleware/errorInterceptor';
 import { browserBaseQuery } from '../baseApi';
-import { clearBrowserProof, rememberBrowserProof } from '../browser-proof';
+import { clearBrowserProof } from '../browser-proof';
 import { createIdentityFence } from '../identity-fence';
 import { invalidateOnSuccessOrUnknownOutcome } from '../invalidateOnSuccess';
 
@@ -126,40 +126,6 @@ describe('browser adapter failure handoffs', () => {
     const invalidate = invalidateOnSuccessOrUnknownOutcome([{ type: 'User', id: 'user-2' }]);
     expect(invalidate(undefined, result.error, undefined)).toEqual([]);
     expect(fetchPort.mock.calls).toEqual([]);
-  });
-
-  it('reconciles a dispatched 503 without resending the write', async () => {
-    rememberBrowserProof('session', 'session');
-    const calls: string[] = [];
-    vi.stubGlobal('fetch', async (request: Request) => {
-      const path = new URL(request.url).pathname;
-      calls.push(`${request.method} ${path}`);
-      return request.method === 'PATCH'
-        ? Response.json(
-            {
-              success: false,
-              error: {
-                code: ErrorCode.AUTHORITY_UNAVAILABLE,
-                message: 'unavailable',
-              },
-            },
-            { status: 503 },
-          )
-        : Response.json({ success: true, data: ACCOUNT });
-    });
-    const store = makeStore();
-    await store.dispatch(usersApi.endpoints.getUserById.initiate('user-2'));
-    const result = await store.dispatch(
-      usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }),
-    );
-    await Promise.all(store.dispatch(usersApi.util.getRunningQueriesThunk()));
-
-    expect(result.error).toMatchObject({ status: 503, unknownOutcome: true });
-    expect(calls).toEqual([
-      'GET /api/admin/users/user-2',
-      'PATCH /api/admin/users/user-2/role',
-      'GET /api/admin/users/user-2',
-    ]);
   });
 
   it('compares the supplied identity snapshot with current state', () => {

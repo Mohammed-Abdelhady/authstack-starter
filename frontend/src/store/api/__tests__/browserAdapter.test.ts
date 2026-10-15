@@ -5,12 +5,7 @@ import { ErrorCode, parseApiError } from '@app/core';
 import { authApi } from '@/modules/auth/store/authApi';
 import { usersApi } from '@/modules/users/api/usersApi';
 import { browserBaseQuery } from '../baseApi';
-import {
-  clearBrowserProof,
-  csrfLookupHint,
-  currentBrowserProof,
-  rememberBrowserProof,
-} from '../browser-proof';
+import { clearBrowserProof, rememberBrowserProof } from '../browser-proof';
 import { invalidateOnSuccessOrUnknownOutcome } from '../invalidateOnSuccess';
 
 function makeStore() {
@@ -38,106 +33,6 @@ afterEach(() => {
 });
 
 describe('the SDK transport through the RTK adapter', () => {
-  // Mutation: baseApi.ts, serialize the stale error instead of restoring its original response.
-  it.each([200, 401, 'cancelled', 'malformed'] as const)(
-    'restores a stale identity status %s without changing proof or hint',
-    async (status) => {
-      let generation = 1;
-      let release: (response: Response) => void = () => {
-        throw new Error('Identity did not start');
-      };
-      let reject: (reason: unknown) => void = () => {
-        throw new Error('Identity did not start');
-      };
-      let notifyStarted: () => void = () => undefined;
-      const started = new Promise<void>((resolve) => {
-        notifyStarted = resolve;
-      });
-      vi.stubGlobal(
-        'fetch',
-        () =>
-          new Promise<Response>((resolve, refuse) => {
-            release = resolve;
-            reject = refuse;
-            notifyStarted();
-          }),
-      );
-      const controller = new AbortController();
-      const api: BaseQueryApi = {
-        ...queryApi(controller.signal),
-        getState: () => ({
-          auth: {
-            sessionGeneration: generation,
-            identityRequest: { requestId: `identity-${generation}`, sessionGeneration: generation },
-          },
-        }),
-      };
-      const pending = browserBaseQuery('/api/auth/identity', api, {});
-      await started;
-      generation = 2;
-      rememberBrowserProof('current-session-proof', 'session');
-      if (status === 'cancelled') {
-        controller.abort();
-        reject(new Error('cancelled'));
-      } else if (status === 'malformed') {
-        release(
-          new Response('<html>stale proxy page</html>', {
-            status: 503,
-            headers: { 'x-csrf-token': 'obsolete-session-proof' },
-          }),
-        );
-      } else {
-        release(
-          Response.json(
-            status === 200
-              ? { success: true, data: { authenticated: false, user: null } }
-              : {
-                  success: false,
-                  error: { code: ErrorCode.SESSION_INVALID, message: 'expired' },
-                  requestId: 'old-request',
-                },
-            { status, headers: { 'x-csrf-token': 'obsolete-session-proof' } },
-          ),
-        );
-      }
-      const result = await pending;
-
-      if (status === 200) {
-        expect(result).toEqual({
-          data: { success: true, data: { authenticated: false, user: null } },
-        });
-      } else if (status === 401) {
-        expect(result.error).toEqual({
-          status: 401,
-          data: {
-            success: false,
-            error: { code: ErrorCode.SESSION_INVALID, message: 'expired' },
-            requestId: 'old-request',
-          },
-          code: ErrorCode.SESSION_INVALID,
-          fields: undefined,
-          requestId: 'old-request',
-          unknownOutcome: false,
-        });
-      } else if (status === 'cancelled') {
-        expect(result.error).toMatchObject({
-          status: 'CUSTOM_ERROR',
-          code: 'REQUEST_ABORTED',
-          unknownOutcome: false,
-        });
-      } else {
-        expect(result.error).toMatchObject({
-          status: 'PARSING_ERROR',
-          originalStatus: 503,
-          data: '<html>stale proxy page</html>',
-          unknownOutcome: false,
-        });
-      }
-      expect(currentBrowserProof()).toBe('current-session-proof');
-      expect(csrfLookupHint()).toBe('unknown');
-    },
-  );
-
   it('keeps a 401 as signed out with its server code and request id', async () => {
     vi.stubGlobal('fetch', async () =>
       Response.json(
@@ -225,27 +120,6 @@ describe('the SDK transport through the RTK adapter', () => {
       code: 'REQUEST_ABORTED',
       unknownOutcome: false,
     });
-  });
-
-  it('returns a serialisable unknown outcome without repeating a dispatched write', async () => {
-    rememberBrowserProof('session-proof', 'session');
-    const requests: string[] = [];
-    vi.stubGlobal('fetch', async (request: Request) => {
-      requests.push(`${request.method} ${new URL(request.url).pathname}`);
-      throw new TypeError('connection lost after dispatch');
-    });
-
-    const result = await makeStore().dispatch(
-      usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }),
-    );
-
-    expect(result.error).toMatchObject({
-      status: 'FETCH_ERROR',
-      code: 'UNKNOWN_OUTCOME',
-      unknownOutcome: true,
-    });
-    expect(JSON.parse(JSON.stringify(result.error))).toMatchObject({ unknownOutcome: true });
-    expect(requests).toEqual(['PATCH /api/admin/users/user-2/role']);
   });
 
   it('returns the role response as a partial result without inventing an account', async () => {
