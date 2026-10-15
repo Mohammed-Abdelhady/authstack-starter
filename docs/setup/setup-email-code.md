@@ -23,7 +23,9 @@ a way in, as
 | `EMAIL_CODE_REVIEW_UNTIL`      | ISO timestamp that ends review access, at most 30 days after the start-up. |
 
 The four review settings go together. The server refuses to start with one to
-three of them set, or with an end more than 30 days ahead.
+three of them set, and a blank value counts as not set. It also refuses a code
+hash that is not a bcrypt hash, such as the code itself, and an end more than
+30 days ahead.
 
 A code never outlives the sign-in attempt it belongs to. An attempt lasts
 fifteen minutes, so a lifetime longer than that has no effect.
