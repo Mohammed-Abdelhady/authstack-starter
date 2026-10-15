@@ -219,9 +219,10 @@ mv "$pending" nginx/native-link-host/link-host.conf
 trap - EXIT
 ```
 
-Use `docker-compose.postgres.prod.yml` for PostgreSQL. With no configured link
-host, the renderer emits an empty include. Regenerate it when the host, native
-redirects or mail templates change, including when removing the setting.
+Use `docker-compose.postgres.prod.yml` for PostgreSQL. <!-- feature:database-choice -->
+With no configured link host, the renderer emits an empty include. Regenerate it
+when the host, native redirects or mail templates change, including when removing
+the setting.
 
 Add this mount in a local Compose override, `compose.link-host.yml`:
 
