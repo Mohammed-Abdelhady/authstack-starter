@@ -1,15 +1,13 @@
-import type { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Express, Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { SessionCookieService } from '../../auth/services/sessions/session-cookie.service';
-import { ADMIN_CLIENT_ID } from '../../session/constants/client-ids';
 import { API_GLOBAL_PREFIX, HEALTH_ROUTE } from '../constants/http-routes';
 import { createValidationPipe } from '../pipes/validation-pipe.factory';
 import { DEVELOPMENT_CONTENT_SECURITY_POLICY } from './content-security-policy';
-import { browserCors } from './browser-cors';
+import { browserCorsDelegate } from './browser-cors';
 import { nativeLinkHostMiddleware } from './native-link-host.middleware';
 
 export function configureHttpApplication(app: INestApplication): void {
@@ -36,25 +34,6 @@ export function configureHttpApplication(app: INestApplication): void {
       (error: unknown) => next(error),
     );
   });
-  const applications = cookies.applications;
-  const cors: CorsOptionsDelegate<Request> = (_request, callback) => {
-    void applications.allowedOrigins().then(
-      (origins) =>
-        callback(
-          null,
-          browserCors(
-            !applications.isConfigured(ADMIN_CLIENT_ID) && origins.length === 1
-              ? origins[0]
-              : origins,
-          ),
-        ),
-      (error: unknown) =>
-        callback(
-          error instanceof Error ? error : new Error('Application read failed'),
-          {},
-        ),
-    );
-  };
-  app.enableCors(cors);
+  app.enableCors(browserCorsDelegate(cookies.applications));
   app.useGlobalPipes(createValidationPipe());
 }
