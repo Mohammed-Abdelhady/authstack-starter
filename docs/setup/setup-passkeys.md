@@ -62,6 +62,28 @@ If the client and the API sit on different hosts, the RP ID follows the **client
 
 Behind a reverse proxy, set `WEBAUTHN_ORIGIN` explicitly to the public URL. The origin the browser reports is the public one, not whatever the app binds to internally.
 
+<!-- feature:native-core:start -->
+
+### A relying party for the mobile app
+
+A native application can use its own relying party. It is set on the registered application as `signIn.rpId`, with the origins its ceremonies may come from in `signIn.origins`. The [mobile sign-in guide](setup-mobile-sign-in.md#passkeys) shows where these go and what the app needs on each platform.
+
+The app's relying party can be the same domain as `WEBAUTHN_RP_ID` or a different one. When it differs, every passkey belongs to one of the two:
+
+- A passkey made in the browser belongs to the web relying party. A passkey made in the app belongs to the app's.
+- Sign-in offers and accepts only the passkeys of the relying party it runs for. The web sign-in never accepts an app passkey, and the app never sees the web ones.
+- Counts, the exclusion list a registration sends, and the removal rule are all worked out per relying party.
+
+The app's relying party id is as permanent as the web one. Changing `signIn.rpId` orphans every passkey made for the old value.
+
+<!-- feature:native-core:end -->
+
+### Passkeys stored without a relying party
+
+Each passkey now stores the relying party it was made for. Passkeys created before that have none on record and belong to the web relying party: `WEBAUTHN_RP_ID`, or the hostname of `CLIENT_URL` when that is unset.
+
+Do not change `WEBAUTHN_RP_ID` after passkeys exist. Those older passkeys would then read as belonging to the new value, and none of them would work there.
+
 ---
 
 ## Environment Variables Reference
@@ -83,7 +105,7 @@ Setting `PASSKEYS_ENABLED=false` closes the routes with `404 FEATURE_DISABLED` a
 
 ### Register a passkey
 
-Needs a session. The account is already signed in; this adds a way back in.
+Needs a browser session. The account is already signed in; this adds a way back in. A mobile access token on these two routes gets `403 FORBIDDEN`; the app registers through the native routes below.
 
 ```http
 POST /api/auth/passkeys/register/options
@@ -117,6 +139,33 @@ Content-Type: application/json
 
 `backedUp` says the credential is synced to a provider keychain, so it survives losing the device. `deviceType` is `multiDevice` for a synced credential and `singleDevice` for one that lives on one authenticator only.
 
+The browser route asks the authenticator to verify the user but does not require it, as before. A security key used without a PIN can still register. Requiring user verification on this route for an application that sets `requirePasskey` arrives with the application sign-in policy. Until then the route never requires it.
+
+### Register a passkey from the mobile app
+
+Needs a mobile access token. A browser session cookie on these routes gets `403 FORBIDDEN`. Nothing is kept in a cookie.
+
+```http
+POST /api/auth/native/passkeys/register/options
+```
+
+Returns the options for the system passkey prompt, for the relying party of the application the token belongs to. The account's passkeys for that relying party are in `excludeCredentials`; passkeys of the other relying party are not sent.
+
+The person must have signed in within the last five minutes. A sign-in exactly five minutes old is accepted. An older one answers `401 REAUTH_REQUIRED` with `details.required` set to `recent_sign_in`; the app sends the person through sign-in and then tries again. An application without `signIn.rpId` and `signIn.origins` answers `404 FEATURE_DISABLED`.
+
+```http
+POST /api/auth/native/passkeys/register/verify
+Content-Type: application/json
+
+{ "response": { ... }, "name": "iPhone" }
+```
+
+The reply is the same stored summary as the browser route. The checks:
+
+- The challenge is spent once, only by the session it was issued to, and only within five minutes. A replay, a challenge from another session of the same account, or a late one answers `401 PASSKEY_CHALLENGE_INVALID`.
+- The attestation must come from one of the application's `signIn.origins`, matched exactly, and carry user verification. The app route always requires user verification.
+- A credential that is already stored, an attestation that does not check out, or an account deactivated since the options were handed out answers `401 PASSKEY_VERIFICATION_FAILED`. Nothing is stored.
+
 ### Sign in
 
 Both routes are open, and both are rate limited.
@@ -146,7 +195,7 @@ Same reply as every other sign-in route:
 
 ### Manage
 
-All three need a session, and all three are scoped to the signed-in account: an id belonging to someone else reads as `404 PASSKEY_NOT_FOUND` rather than as forbidden.
+All three need a session, a browser cookie or a mobile access token, and all three are scoped to the signed-in account: an id belonging to someone else reads as `404 PASSKEY_NOT_FOUND` rather than as forbidden. A rename to an empty name, a name of only spaces, or one over 64 characters answers `400 VALIDATION_ERROR`.
 
 ```http
 GET    /api/auth/passkeys
@@ -154,7 +203,7 @@ PATCH  /api/auth/passkeys/:id     { "name": "iPhone" }
 DELETE /api/auth/passkeys/:id
 ```
 
-Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the account's only passkey **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes.
+Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the last passkey of its relying party **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes. A passkey of the other relying party does not count as a way in: with one web passkey and one app passkey and nothing else, neither can be removed.
 
 The list answer carries the same decision ahead of time, so a page can say why before anyone tries:
 
@@ -162,7 +211,7 @@ The list answer carries the same decision ahead of time, so a page can say why b
 { "passkeys": [{ "id": "…", "name": "Laptop" }], "canRemove": false }
 ```
 
-`canRemove` is `false` when a delete would be refused with `PASSKEY_LAST_SIGN_IN_METHOD` right now. It comes from the rule the delete asks, and it is advice: the delete still decides, so a page handles the `409` as well. The field is optional. A client that does not know it can ignore it.
+`canRemove` is advice for the whole account. It is `false` when removing one passkey would leave the account with no way in, counting every passkey and every other sign-in method. It does not look at relying parties, so it can be `true` while a delete is still refused. With one web passkey and one app passkey and no other sign-in method, the list says `true`, and deleting either one answers `409 PASSKEY_LAST_SIGN_IN_METHOD`. The delete decides, so a page handles the `409` whatever the field says. The field is optional. A client that does not know it can ignore it.
 
 ---
 
@@ -189,7 +238,7 @@ The credential has to belong to the account the challenge was issued for; one re
 
 ## What is stored
 
-One document per credential: the public key, the credential id, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the collection leaking gives an attacker nothing they can sign with.
+One document per credential: the public key, the credential id, the relying party it was made for, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the collection leaking gives an attacker nothing they can sign with.
 
 The counter is checked on every sign-in. An authenticator that counts and reports a number that fails to move forward has been cloned, and the assertion is refused with `401 PASSKEY_VERIFICATION_FAILED`. Authenticators that do not count report zero forever and are left alone.
 
@@ -206,3 +255,7 @@ The counter is checked on every sign-in. An authenticator that counts and report
 **Existing passkeys stopped working after a deploy.** The RP ID changed. Credentials cannot be migrated between RP IDs; the users have to register again with another sign-in method first.
 
 **`503 PASSKEY_NOT_CONFIGURED`.** `OAUTH_STATE_SECRET` is not set.
+
+**`403 FORBIDDEN` on `/api/auth/passkeys/register/options` from the app.** A mobile access token no longer registers through the browser routes. Use `/api/auth/native/passkeys/register/options` and `/register/verify`.
+
+**`401 REAUTH_REQUIRED` from the app's registration options.** The sign-in is more than five minutes old. Sign in again, then ask for options again.
