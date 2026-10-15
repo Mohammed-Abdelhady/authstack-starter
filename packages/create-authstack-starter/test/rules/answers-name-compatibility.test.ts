@@ -8,11 +8,11 @@ import type { AnswersRecord } from '../../src/types.js';
 const CURRENT_FILE = '.create-authstack-starter.json';
 const LEGACY_FILE = '.create-nest-next-auth.json';
 const RECORD: AnswersRecord = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   packageManager: 'pnpm@12.6.0',
   rules: { policy: 'strict' },
   installer: { name: 'create-authstack-starter', version: '0.1.0' },
-  template: { sha256: 'a'.repeat(64) },
+  template: { sha256: 'a'.repeat(64), commit: null },
   answers: { targets: ['web'], database: 'mongodb', features: [], options: [], locales: ['en'] },
 };
 const roots: string[] = [];
