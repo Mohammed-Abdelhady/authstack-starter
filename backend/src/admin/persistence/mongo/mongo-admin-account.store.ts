@@ -1,3 +1,4 @@
+import { assertMongoAccountAudience } from '../../../user/persistence/mongo/mongo-account-audience';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model } from 'mongoose';
@@ -200,6 +201,12 @@ export class MongoAdminAccountStore extends AdminAccountStore {
     unitOfWork: UnitOfWork,
     account: NewAdminAccount,
   ): Promise<StoredAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      account.role,
+      account.audience,
+    );
     const user = new this.userModel({
       email: account.email,
       name: account.name,
@@ -210,6 +217,7 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
       locale: account.locale,
+      audience: account.audience,
     });
     try {
       await user.save({ session: mongoSessionOf(unitOfWork) });
@@ -251,7 +259,17 @@ export class MongoAdminAccountStore extends AdminAccountStore {
 }
 
 function toAssignableRole(
-  role: { _id: { toString(): string }; slug: string } | null,
+  role: {
+    _id: { toString(): string };
+    slug: string;
+    audience?: AssignableRole['audience'] | null;
+  } | null,
 ): AssignableRole | null {
-  return role ? { id: role._id.toString(), slug: role.slug } : null;
+  return role
+    ? {
+        id: role._id.toString(),
+        slug: role.slug,
+        audience: role.audience ?? undefined,
+      }
+    : null;
 }

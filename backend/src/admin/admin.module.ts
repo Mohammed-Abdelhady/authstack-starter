@@ -1,3 +1,5 @@
+import { AdminUserReadController } from './admin-user-read.controller';
+import { AdminAudienceScopes } from './services/users/admin-audience-scopes';
 import { Module, forwardRef } from '@nestjs/common';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminPermissionsController } from './admin-permissions.controller';
@@ -33,12 +35,17 @@ import {
     RoleModule,
     forwardRef(() => UserModule),
   ],
-  controllers: [AdminUsersController, AdminPermissionsController],
+  controllers: [
+    AdminUsersController,
+    AdminUserReadController,
+    AdminPermissionsController,
+  ],
   providers: [
     AdminUsersService,
     AdminUserCreateService,
     AdminUserQueriesService,
     AdminUserAccessService,
+    AdminAudienceScopes,
     AdminEmailChangeService,
     AdminPermissionsService,
     ...ADMIN_PERSISTENCE_PROVIDERS,

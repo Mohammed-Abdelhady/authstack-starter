@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AdminAudienceScopes } from './admin-audience-scopes';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CODE_ROTATION } from '../../../auth/pending-codes/pending-registration.store';
@@ -49,6 +51,7 @@ export class AdminEmailChangeService {
     private readonly ledger: AddressLedger,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly scopes: AdminAudienceScopes,
   ) {
     this.retryMinutes = Math.ceil(
       mailedCodeWindowMs(
@@ -88,6 +91,7 @@ export class AdminEmailChangeService {
   async sendConfirmation(
     user: ConfirmationTarget,
     actorRole: string,
+    actorId?: string,
   ): Promise<void> {
     this.assertAdmin(actorRole);
     const pending = this.pendingAddress(user.pendingEmail);
@@ -119,6 +123,12 @@ export class AdminEmailChangeService {
       ) {
         throw this.addressTaken();
       }
+      await this.scopes.assertInWork(
+        uow,
+        actorId,
+        current.audience,
+        USER_SCOPE_ACTION.UPDATE,
+      );
       const claimed = await this.ledger.claim(uow, {
         address: pending,
         owner: current.id,
@@ -187,8 +197,12 @@ export class AdminEmailChangeService {
    * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_SEND_LIMIT_REACHED or
    * EMAIL_SEND_FAILED
    */
-  async resend(user: ConfirmationTarget, actorRole: string): Promise<void> {
-    await this.sendConfirmation(user, actorRole);
+  async resend(
+    user: ConfirmationTarget,
+    actorRole: string,
+    actorId?: string,
+  ): Promise<void> {
+    await this.sendConfirmation(user, actorRole, actorId);
   }
 
   private pendingAddress(address: string | undefined): string {

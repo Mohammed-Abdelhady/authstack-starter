@@ -1,3 +1,4 @@
+import { StaffGuard } from '../auth/guards/staff.guard';
 import {
   Controller,
   Get,
@@ -33,7 +34,7 @@ import { RouteIdPipe } from '../common/pipes/route-id.pipe';
 @ApiTags('admin')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('admin/users')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class AdminPermissionsController {
   constructor(
     private readonly adminPermissionsService: AdminPermissionsService,
@@ -60,10 +61,15 @@ export class AdminPermissionsController {
   async getUserPermissions(
     @Param('id', RouteIdPipe) userId: string,
     @CurrentUser('role') actorRole: string,
+    @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<
     ApiResponse<{ userId: string; permissions: string[]; role: string }>
   > {
-    return this.adminPermissionsService.getUserPermissions(userId, actorRole);
+    return this.adminPermissionsService.getUserPermissions(
+      userId,
+      actorRole,
+      actorPermissions,
+    );
   }
 
   /**
@@ -93,12 +99,14 @@ export class AdminPermissionsController {
     @Body() dto: AddPermissionDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.addPermission(
       userId,
       dto.permission,
       actorId,
       actorRole,
+      actorPermissions,
     );
   }
 
@@ -131,12 +139,14 @@ export class AdminPermissionsController {
     @Param('permission') permission: string,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.removePermission(
       userId,
       permission,
       actorId,
       actorRole,
+      actorPermissions,
     );
   }
 }

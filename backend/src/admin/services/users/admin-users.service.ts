@@ -1,3 +1,7 @@
+import { resendAdminEmailChange } from './admin-user-resend';
+import { deleteAdminUser } from './admin-user-delete';
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { RoleChangeStore } from '../../../role/stores/role-change.store';
@@ -24,7 +28,6 @@ import { ADMIN_ROLE_CHANGED } from '../../constants/admin-user.constants';
 import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { AdminEmailChangeService } from './admin-email-change.service';
-import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
 /** Admin mutations require the actor's level to exceed the target's. */
@@ -40,6 +43,7 @@ export class AdminUsersService {
     private readonly roleSweeps: RoleSweepStore,
     private readonly accessService: AdminUserAccessService,
     private readonly emailChangeService: AdminEmailChangeService,
+    private readonly audiences: AudiencePolicy,
   ) {}
 
   /** Update the name, or ask for an address the new mailbox must confirm. */
@@ -48,9 +52,15 @@ export class AdminUsersService {
     dto: UpdateUserDto,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<AdminUserDto>> {
     const { name, email } = dto;
     const targetUser = await this.accessService.loadActiveUser(id);
+    this.accessService.assertTargetScope(
+      USER_SCOPE_ACTION.UPDATE,
+      targetUser.audience,
+      actorPermissions,
+    );
 
     this.accessService.assertNotSelf(
       id,
@@ -91,7 +101,11 @@ export class AdminUsersService {
           email: previousEmail,
           locale: saved.locale,
         });
-        await this.emailChangeService.sendConfirmation(saved, actorRole);
+        await this.emailChangeService.sendConfirmation(
+          saved,
+          actorRole,
+          actorId,
+        );
       }
 
       this.logger.log(`User ${id} updated by ${actorId}`);
@@ -104,28 +118,20 @@ export class AdminUsersService {
     }
   }
 
-  /**
-   * Re-send the confirmation code for the account's current unverified
-   * address, without changing the address or its generation.
-   */
-  async resendEmailChange(
+  resendEmailChange(
     id: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ message: string }>> {
-    const targetUser = await this.accessService.loadActiveUser(id);
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot modify your own account through admin panel',
+    return resendAdminEmailChange(
+      {
+        access: this.accessService,
+        emailChange: this.emailChangeService,
+        logger: this.logger,
+      },
+      { id, actorId, actorRole, actorPermissions },
     );
-    await this.accessService.assertCanModify(actorRole, targetUser.role);
-
-    await this.emailChangeService.resend(targetUser, actorRole);
-
-    this.logger.log(`Email change confirmation resent for ${id} by ${actorId}`);
-    return ApiResponse.success({ message: 'Confirmation email sent' });
   }
 
   /** Activate or deactivate an account. */
@@ -133,6 +139,7 @@ export class AdminUsersService {
     id: string,
     dto: UpdateUserStatusDto,
     actorId: string,
+    actorPermissions?: readonly string[],
   ): Promise<
     ApiResponse<{ id: string; isDeleted: boolean; deletedAt?: Date }>
   > {
@@ -160,6 +167,11 @@ export class AdminUsersService {
           { includeDeleted: isActive },
         );
 
+        this.accessService.assertTargetScope(
+          USER_SCOPE_ACTION.UPDATE,
+          target.audience,
+          actorPermissions,
+        );
         const current = await this.accounts.saveActivation(
           unitOfWork,
           target,
@@ -197,6 +209,7 @@ export class AdminUsersService {
     dto: UpdateUserRoleDto,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ id: string; role: string }>> {
     const { role: newRole } = dto;
     await this.accessService.loadActiveUser(id);
@@ -220,6 +233,11 @@ export class AdminUsersService {
             actorId,
           );
 
+          this.accessService.assertTargetScope(
+            USER_SCOPE_ACTION.UPDATE,
+            current.audience,
+            actorPermissions,
+          );
           const assignedRole = await this.accounts.readRoleBySlug(
             unitOfWork,
             newRole,
@@ -241,12 +259,19 @@ export class AdminUsersService {
             this.roleChanges,
             unitOfWork,
             actorId,
-            USER_PERMISSIONS.UPDATE_ALL,
+            this.accessService.scopePermission(
+              USER_SCOPE_ACTION.UPDATE,
+              current.audience,
+            ),
             assignedRole.slug,
           );
           const previousRole = await this.accounts.readRoleBySlug(
             unitOfWork,
             current.role,
+          );
+          this.audiences.assertRoleAssignment(
+            current.audience,
+            assignedRole.audience,
           );
           await this.accounts.saveRole(unitOfWork, current, newRole);
 
@@ -294,49 +319,23 @@ export class AdminUsersService {
     }
   }
 
-  /**
-   * Soft delete a user.
-   */
-  async deleteUser(id: string, actorId: string): Promise<void> {
-    const existing = await this.accounts.findAccount(id);
-
-    if (!existing || existing.isDeleted) {
-      throw new AppException(
-        ErrorCode.USER_ALREADY_DELETED,
-        'User not found or already deleted',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    this.accessService.assertNotSelf(
+  deleteUser(
+    id: string,
+    actorId: string,
+    actorPermissions?: readonly string[],
+  ): Promise<void> {
+    return deleteAdminUser(
+      {
+        accounts: this.accounts,
+        sessions: this.sessions,
+        runner: this.runner,
+        access: this.accessService,
+        logger: this.logger,
+      },
       id,
       actorId,
-      'Cannot delete your own account',
+      actorPermissions,
     );
-
-    try {
-      const revoked = await this.runner.run(async (unitOfWork) => {
-        const current = await loadAuthorizedUser(
-          this.accounts,
-          this.accessService,
-          unitOfWork,
-          id,
-          actorId,
-          'Cannot delete user with higher or equal role',
-        );
-
-        await this.accounts.saveActivation(unitOfWork, current, new Date());
-        return this.sessions.revokeAll(unitOfWork, id, {
-          actorId,
-          reasonCode: REVOKED_REASON.ADMIN_FORCED,
-        });
-      });
-
-      logSessionRevocation(this.logger, id, revoked);
-      this.logger.log(`User ${id} deleted by ${actorId}`);
-    } catch (error) {
-      rethrowOrUnavailable(error);
-    }
   }
 
   private roleStores(): RoleSweepStores {
@@ -344,6 +343,7 @@ export class AdminUsersService {
       runner: this.runner,
       changes: this.roleChanges,
       sweeps: this.roleSweeps,
+      audiencePolicy: this.audiences,
     };
   }
 }
