@@ -68,44 +68,63 @@ describe('reserved host settings validation', () => {
   });
 
   // feature:email-code:start
-  const REVIEW = {
-    EMAIL_CODE_REVIEW_ACCOUNT_ID: 'account',
-    EMAIL_CODE_REVIEW_CLIENT_ID: 'mobile',
-    EMAIL_CODE_REVIEW_CODE_HASH: 'digest',
-    EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.000Z',
-  };
+  describe('review access settings', () => {
+    /** Start-up happens at this time. Thirty days later is the furthest end. */
+    const STARTED = new Date('2030-01-01T00:00:00Z');
+    const REVIEW = {
+      EMAIL_CODE_REVIEW_ACCOUNT_ID: 'account',
+      EMAIL_CODE_REVIEW_CLIENT_ID: 'mobile',
+      EMAIL_CODE_REVIEW_CODE_HASH: 'digest',
+      EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.000Z',
+    };
 
-  it('accepts absent or complete review settings', () => {
-    expect(
-      validateEnvironment(BASE_ENV).EMAIL_CODE_REVIEW_UNTIL,
-    ).toBeUndefined();
-    expect(
-      validateEnvironment({ ...BASE_ENV, ...REVIEW }).EMAIL_CODE_REVIEW_UNTIL,
-    ).toBe('2030-01-31T00:00:00.000Z');
-  });
+    beforeEach(() => {
+      jest.useFakeTimers().setSystemTime(STARTED);
+    });
 
-  it('accepts a review field without the other review settings', () => {
-    expect(
-      validateEnvironment({
-        ...BASE_ENV,
-        EMAIL_CODE_REVIEW_ACCOUNT_ID: 'account',
-      }).EMAIL_CODE_REVIEW_ACCOUNT_ID,
-    ).toBe('account');
-  });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
 
-  it('accepts a review deadline beyond 30 days at startup', () => {
-    jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00Z'));
-    try {
+    it('accepts all four review settings, ending 30 days ahead, or none', () => {
       expect(
+        validateEnvironment(BASE_ENV).EMAIL_CODE_REVIEW_UNTIL,
+      ).toBeUndefined();
+      expect(
+        validateEnvironment({ ...BASE_ENV, ...REVIEW }).EMAIL_CODE_REVIEW_UNTIL,
+      ).toBe('2030-01-31T00:00:00.000Z');
+    });
+
+    it.each([
+      ['the account alone', ['EMAIL_CODE_REVIEW_ACCOUNT_ID']],
+      [
+        'all but the code',
+        [
+          'EMAIL_CODE_REVIEW_ACCOUNT_ID',
+          'EMAIL_CODE_REVIEW_CLIENT_ID',
+          'EMAIL_CODE_REVIEW_UNTIL',
+        ],
+      ],
+      ['the end alone', ['EMAIL_CODE_REVIEW_UNTIL']],
+    ])('refuses %s at start-up', (_case, settings) => {
+      const partial = Object.fromEntries(
+        Object.entries(REVIEW).filter(([name]) => settings.includes(name)),
+      );
+
+      expect(() => validateEnvironment({ ...BASE_ENV, ...partial })).toThrow(
+        new RegExp(`- ${settings[0]}: .*set all four or none`),
+      );
+    });
+
+    it('refuses an end more than 30 days ahead at start-up', () => {
+      expect(() =>
         validateEnvironment({
           ...BASE_ENV,
           ...REVIEW,
           EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.001Z',
-        }).EMAIL_CODE_REVIEW_UNTIL,
-      ).toBe('2030-01-31T00:00:00.001Z');
-    } finally {
-      jest.useRealTimers();
-    }
+        }),
+      ).toThrow(/- EMAIL_CODE_REVIEW_UNTIL: .*at most 30 days ahead/);
+    });
   });
   // feature:email-code:end
 
