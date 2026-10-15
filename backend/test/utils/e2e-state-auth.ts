@@ -75,6 +75,8 @@ export interface E2eNewPasskey {
   backedUp: boolean;
   name: string;
   lastUsedAt: Date | null;
+  /** Absent stores a pre-0026 passkey, which belongs to the web relying party. */
+  rpId?: string;
 }
 // feature:passkeys:end
 
