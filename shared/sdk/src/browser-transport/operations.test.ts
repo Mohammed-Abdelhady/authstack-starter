@@ -19,16 +19,26 @@ const BODY = {
 };
 
 describe('local logical create operations', () => {
-  // Mutation: operations.ts secureOperationKey, bypass the guarded crypto UUID port.
-  it('uses the structural secure UUID port and refuses unavailable entropy', () => {
-    const randomUUID = vi.fn(() => 'opaque-uuid');
-    vi.stubGlobal('crypto', { randomUUID });
+  // Mutation: operations.ts secureOperationKey, drop the getRandomValues fallback.
+  // Mutation: areas/admin.ts accounts.create, drop async so a refused key throws.
+  it('keys a create from randomUUID or getRandomValues and rejects one with neither', async () => {
     try {
+      vi.stubGlobal('crypto', { randomUUID: () => 'opaque-uuid' });
       expect(createOperationHandle()).toEqual({ operationKey: 'opaque-uuid' });
-      expect(randomUUID).toHaveBeenCalledTimes(1);
-      for (const crypto of [undefined, { randomUUID: 42 }]) {
-        vi.stubGlobal('crypto', crypto);
-        expect(() => createOperationHandle()).toThrow(SdkError);
+      vi.stubGlobal('crypto', {
+        getRandomValues: (bytes: Uint8Array) => bytes.set(bytes.map((_, index) => index)),
+      });
+      expect(createOperationHandle()).toEqual({
+        operationKey: '00010203-0405-4607-8809-0a0b0c0d0e0f',
+      });
+      for (const cryptoPort of [undefined, { randomUUID: 42 }]) {
+        vi.stubGlobal('crypto', cryptoPort);
+        const io = network();
+        const create = createApiClient(
+          createBrowserTransport({ fetch: io.fetch }),
+        ).admin.accounts.create(BODY);
+        await expect(create).rejects.toBeInstanceOf(SdkError);
+        expect(io.sent).toEqual([]);
       }
     } finally {
       vi.unstubAllGlobals();
