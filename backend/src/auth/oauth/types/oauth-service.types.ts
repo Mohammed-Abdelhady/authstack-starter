@@ -1,3 +1,4 @@
+import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
 import { Response } from 'express';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import {
@@ -6,6 +7,7 @@ import {
 } from '../oauth-provider.interface';
 
 export interface OAuthLoginParams {
+  clientId?: BrowserApplicationId;
   strategy: OAuthProviderStrategy;
   code: string;
   redirectUri: string;

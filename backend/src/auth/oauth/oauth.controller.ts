@@ -17,30 +17,21 @@ import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { OAuthRegistryService } from './oauth-registry.service';
-import { OAuthStateService } from './oauth-state.service';
-import { OAuthService } from './oauth.service';
-import {
-  OAuthCallbackParams,
-  OAuthProviderSummary,
-} from './oauth-provider.interface';
-import { sanitizeRedirectPath } from '../../common/utils/redirect.util';
-import { requestLocaleOf } from '../../common/decorators/request-locale.decorator';
+import { OAuthProviderSummary } from './oauth-provider.interface';
 import { toCallbackParams } from './utils/callback-params.util';
-import { OAuthRedirectService } from './oauth-redirect.service';
+import { BrowserOAuthFlow } from './browser-oauth-flow';
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 
 /**
- * Browser facing OAuth routes. Both `start` and `callback` answer with a 302:
- * the user is mid navigation, so failures land on the client error page rather
- * than on a JSON body.
+ * Fetch starts return the provider address; navigation starts and callbacks
+ * redirect through the provider and back to the selected client.
  */
 @ApiTags('oauth')
 @Controller('auth/oauth')
 export class OAuthController {
   constructor(
     private readonly registry: OAuthRegistryService,
-    private readonly stateService: OAuthStateService,
-    private readonly oauthService: OAuthService,
-    private readonly redirectService: OAuthRedirectService,
+    private readonly flow: BrowserOAuthFlow,
   ) {}
 
   @Public()
@@ -84,40 +75,41 @@ export class OAuthController {
     @Res() response: Response,
   ): Promise<void> {
     try {
-      const strategy = this.registry.getEnabled(providerId);
-      const linking = intent === 'link';
-      const payloadIntent = linking ? 'link' : 'login';
-      // The start is a same-site request, so the session cookie is here. The
-      // callback is not, so the session is bound into the signed state now.
-      const linkingSession = linking
-        ? await this.oauthService.requireSession(request)
-        : undefined;
-      const { payload, codeChallenge } = this.stateService.create({
-        redirect: sanitizeRedirectPath(redirect),
-        supportsPkce: strategy.supportsPkce,
-        usesOidc: strategy.usesOidc,
-        intent: payloadIntent,
-        linkUserId: linkingSession?.userId,
-        linkSessionId: linkingSession?.sessionId,
-      });
-
-      const authorizationUrl = strategy.getAuthorizationUrl({
-        state: payload.state,
-        redirectUri: this.registry.getCallbackUrl(strategy.id),
-        codeChallenge,
-        nonce: payload.nonce,
-      });
-
-      this.stateService.write(
+      const url = await this.flow.start({
+        providerId,
+        redirect,
+        intent,
+        request,
         response,
-        strategy.id,
-        payload,
-        strategy.callbackMethod === 'POST',
-      );
-      response.redirect(HttpStatus.FOUND, authorizationUrl);
+        clientId: WEB_CLIENT_ID,
+      });
+      response.redirect(HttpStatus.FOUND, url);
     } catch (error) {
-      this.redirectService.toClientError(response, error, providerId);
+      this.flow.startError(response, error, providerId);
     }
+  }
+
+  @Public()
+  @Post(':provider/start')
+  @ApiOperation({
+    summary: 'Start OAuth for the requesting browser application',
+  })
+  async startFetch(
+    @Param('provider') providerId: string,
+    @Query('redirect') redirect: string | undefined,
+    @Query('intent') intent: string | undefined,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiResponse<{ url: string }>> {
+    return ApiResponse.success({
+      url: await this.flow.start({
+        providerId,
+        redirect,
+        intent,
+        request,
+        response,
+      }),
+    });
   }
 
   @Public()
@@ -138,7 +130,7 @@ export class OAuthController {
     @Req() request: Request,
     @Res() response: Response,
   ): Promise<void> {
-    await this.handleCallback(
+    await this.flow.callback(
       providerId,
       toCallbackParams(query),
       request,
@@ -166,90 +158,12 @@ export class OAuthController {
     @Req() request: Request,
     @Res() response: Response,
   ): Promise<void> {
-    await this.handleCallback(
+    await this.flow.callback(
       providerId,
       toCallbackParams(body),
       request,
       response,
     );
-  }
-
-  private async handleCallback(
-    providerId: string,
-    params: OAuthCallbackParams,
-    request: Request,
-    response: Response,
-  ): Promise<void> {
-    let redirect: string | undefined;
-
-    try {
-      const strategy = this.registry.getEnabled(providerId);
-      const payload = this.stateService.read(request, strategy.id);
-      redirect = payload.redirect;
-      this.stateService.assertStateMatches(payload, params.state, strategy.id);
-
-      if (params.error) {
-        throw new AppException(
-          ErrorCode.OAUTH_AUTHENTICATION_FAILED,
-          `Provider reported '${params.error}'`,
-          HttpStatus.UNAUTHORIZED,
-          { provider: strategy.id },
-        );
-      }
-
-      if (!params.code) {
-        throw new AppException(
-          ErrorCode.OAUTH_CODE_INVALID,
-          'Authorization code is missing',
-          HttpStatus.BAD_REQUEST,
-          { provider: strategy.id },
-        );
-      }
-
-      const shared = {
-        strategy,
-        code: params.code,
-        redirectUri: this.registry.getCallbackUrl(strategy.id),
-        codeVerifier: payload.codeVerifier,
-        nonce: payload.nonce,
-        callbackParams: params,
-        response,
-        locale: requestLocaleOf(request),
-      };
-
-      if (payload.intent === 'link') {
-        if (!payload.linkUserId || !payload.linkSessionId) {
-          throw new AppException(
-            ErrorCode.OAUTH_STATE_INVALID,
-            'OAuth link intent is missing the signed-in user',
-            HttpStatus.UNAUTHORIZED,
-            { provider: strategy.id },
-          );
-        }
-        await this.oauthService.link({
-          ...shared,
-          linkUserId: payload.linkUserId,
-          linkSessionId: payload.linkSessionId,
-        });
-        this.stateService.clear(response, strategy.id);
-        this.redirectService.toClientSuccess(response, payload.redirect);
-        return;
-      }
-
-      const outcome = await this.oauthService.login(shared);
-
-      this.stateService.clear(response, strategy.id);
-
-      if (outcome.requiresTwoFactor) {
-        this.redirectService.toTwoFactorChallenge(response, payload.redirect);
-        return;
-      }
-
-      this.redirectService.toClientSuccess(response, payload.redirect);
-    } catch (error) {
-      this.stateService.clear(response, providerId);
-      this.redirectService.toClientError(response, error, providerId, redirect);
-    }
   }
 
   /**

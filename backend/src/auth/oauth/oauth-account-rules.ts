@@ -56,7 +56,11 @@ export function assertActive(
   }
 
   logger.warn(`OAuth login rejected for a deleted account (${provider})`);
-  throw new AppException(
+  throw providerAuthenticationFailed(provider);
+}
+
+export function providerAuthenticationFailed(provider: string): AppException {
+  return new AppException(
     ErrorCode.OAUTH_AUTHENTICATION_FAILED,
     'OAuth authentication failed',
     HttpStatus.UNAUTHORIZED,
