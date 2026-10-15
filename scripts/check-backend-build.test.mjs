@@ -15,7 +15,10 @@ function buildOutput(t, files = { 'main.js': 'exports.start = () => {};\n' }) {
   const dist = join(root, 'dist');
   mkdirSync(dist);
   const output = { ...files };
-  if ('main.js' in files) output['cli/audience-apply.js'] = 'exports.main = () => {};\n';
+  if ('main.js' in files) {
+    output['cli/audience-apply.js'] = 'exports.main = () => {};\n';
+    output['cli/native-link-host.js'] = 'exports.main = () => {};\n';
+  }
   for (const [name, content] of Object.entries(output)) {
     const target = join(dist, name);
     mkdirSync(dirname(target), { recursive: true });
@@ -47,6 +50,13 @@ test('accepts production JavaScript', (t) => {
 test('rejects a missing compiled audience command', (t) => {
   const dist = buildOutput(t);
   rmSync(join(dist, 'cli/audience-apply.js'));
+  rejects(dist);
+});
+
+// Failure: the production image cannot generate its effective proxy allowlist.
+test('rejects a missing compiled native link host command', (t) => {
+  const dist = buildOutput(t);
+  rmSync(join(dist, 'cli/native-link-host.js'));
   rejects(dist);
 });
 
