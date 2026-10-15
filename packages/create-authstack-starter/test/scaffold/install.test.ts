@@ -117,6 +117,7 @@ describe('pnpm installation boundary', () => {
     expect(await prepareLockfile(root)).toEqual({
       ok: false,
       reason: 'registry refused the request',
+      kind: 'update-failed',
     });
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
       '--version\ninstall --lockfile-only --prefer-offline\n',
