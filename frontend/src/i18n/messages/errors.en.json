@@ -88,7 +88,10 @@
       "FEATURE_DISABLED": "This sign-in method is turned off here",
       "UNKNOWN_ERROR": "An unexpected error occurred. Please try again",
       "TWO_FACTOR_LOCKED": "Too many incorrect verification attempts. Wait before trying again.",
-      "OAUTH_ACCOUNT_EXISTS": "An account with this email already exists. Sign in and link this provider in settings."
+      "OAUTH_ACCOUNT_EXISTS": "An account with this email already exists. Sign in and link this provider in settings.",
+      "EMAIL_CODE_INVALID": "This verification code is no longer valid. Request a new one.",
+      "INVITATION_INVALID": "This invitation is no longer valid. Ask for a new invitation.",
+      "ACCOUNT_ERASURE_PENDING": "This account is awaiting erasure."
     }
   }
 }
