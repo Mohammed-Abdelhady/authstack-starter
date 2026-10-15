@@ -1,3 +1,7 @@
+import { EnrolmentPromotion } from '../auth/contracts/enrolment-promotion';
+import { NoopEnrolmentPromotion } from '../auth/contracts/defaults/noop-enrolment-promotion';
+import { EnrolmentStore } from './enrolment/enrolment.store';
+import { SessionEnrolmentPromotion } from './enrolment/session-enrolment-promotion'; // feature:passkeys
 import { AudienceMappingAudit } from '../user/services/audience-mapping-audit';
 import {
   AUDIENCE_MAPPING_IMPORTS,
@@ -23,6 +27,7 @@ import { ApplicationRegistryStore } from './applications/application-registry.st
 import { AuthorityApplications } from './authority/authority-applications';
 import { AuthenticatedSessions } from './authority/authenticated-session';
 import { SessionAuthorityStore } from './authority/session-authority.store';
+import { SessionExpiry } from './authority/session-expiry';
 import { SessionValidator } from './authority/session-validator';
 import { SecurityEventRecorder } from './events/security-event-recorder';
 import { SecurityEventStore } from './events/security-event.store';
@@ -53,6 +58,10 @@ import {
   ],
   providers: [
     {
+      ...{ provide: EnrolmentPromotion, useClass: NoopEnrolmentPromotion },
+      useClass: SessionEnrolmentPromotion, // feature:passkeys
+    },
+    {
       provide: ApplicationPolicyReader,
       useClass: StoredApplicationPolicyReader,
     },
@@ -80,6 +89,7 @@ import {
     NativeSessionRevocationService,
     SecurityEventRecorder,
     SessionIssuanceService,
+    SessionExpiry,
     SessionValidator,
     AuthenticatedSessions,
     SessionRevoker,
@@ -87,6 +97,8 @@ import {
     NativeAccessService,
   ],
   exports: [
+    EnrolmentPromotion,
+    EnrolmentStore,
     ApplicationPolicyReader,
     EventRecorder,
     ...SESSION_PERSISTENCE_EXPORTS,
@@ -110,6 +122,7 @@ import {
     SessionIssuanceService,
     SessionAuthorityStore,
     AuthorityApplications,
+    SessionExpiry,
     SessionValidator,
     AuthenticatedSessions,
     SessionRevocationStore,
