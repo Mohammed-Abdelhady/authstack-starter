@@ -11,6 +11,11 @@ import {
   PasskeyStore,
   StoredPasskey,
 } from '../stores/passkey.store';
+import {
+  USER_VERIFICATION,
+  UserVerificationRequirement,
+} from '../constants/passkeys.constants';
+import { belongsTo } from '../utils/relying-party.util';
 
 export interface PasskeyAssertionResult {
   passkey: StoredPasskey;
@@ -58,14 +63,18 @@ export class PasskeyAssertionService {
    * challenge cookie is cleared either way, so a failed attempt cannot be
    * retried against the same challenge.
    *
+   * @param userVerification - `required` refuses an assertion signed without
+   * verifying the user. Absent accepts one, as sign-in always has.
    * @throws AppException PASSKEY_CHALLENGE_INVALID when there is no usable challenge
    * @throws AppException PASSKEY_VERIFICATION_FAILED when the credential is
-   * unknown, the signature is wrong, or the counter did not move forward
+   * unknown or made for another relying party, the signature is wrong, or the
+   * counter did not move forward
    */
   async verify(
     credential: PasskeyCredentialDto,
     request: Request,
     response: Response,
+    userVerification: UserVerificationRequirement = USER_VERIFICATION.PREFERRED,
   ): Promise<PasskeyAssertionResult> {
     const challenge = this.challenges.read(request, 'login');
     try {
@@ -80,6 +89,11 @@ export class PasskeyAssertionService {
       throw this.failed('credential is not registered');
     }
 
+    // A passkey made for an app's own relying party never opens the web one.
+    if (!belongsTo(passkey, this.config.rpId, this.config.rpId)) {
+      throw this.failed('credential belongs to another relying party');
+    }
+
     const verified = await this.adapter.verifyAssertion(
       credential,
       {
@@ -89,6 +103,7 @@ export class PasskeyAssertionService {
         transports: passkey.transports,
       },
       this.config.expectations(challenge.challenge),
+      userVerification,
     );
 
     if (!verified) {
