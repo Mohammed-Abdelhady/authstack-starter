@@ -29,6 +29,7 @@ import {
 } from '../utils/hook-timeouts';
 
 const STAFF_ROUTE = '/api/admin/users';
+const ACTIVITY_ROUTE = '/api/admin/activity';
 const PROFILE_ROUTE = '/api/user/profile';
 
 describe('staff routes require a full admin browser credential', () => {
@@ -68,6 +69,35 @@ describe('staff routes require a full admin browser credential', () => {
     ).expect(403);
     const admin = await issueAudienceBrowser(e2e, fixture.actorId);
     await audienceRequest(e2e, admin, STAFF_ROUTE).expect(200);
+  });
+
+  // Failure: the session and activity staff routes accept a web session or a mobile token.
+  it('refuses web and native credentials on the session and activity routes', async () => {
+    const fixture = await arrangeAudiences(e2e, ['*']);
+    const routes = [
+      ['get', ACTIVITY_ROUTE],
+      ['get', `${STAFF_ROUTE}/${fixture.customerId}/sessions`],
+      ['post', `${STAFF_ROUTE}/${fixture.customerId}/sessions/revoke-all`],
+    ] as const;
+    const web = await issueAudienceBrowser(e2e, fixture.actorId, WEB_CLIENT_ID);
+    await createNativeApplication(e2e);
+    const actor = await e2e.state.accounts.accountWithId(fixture.actorId);
+    if (!actor) throw new Error('staff actor is missing');
+    const native = await issueNativeGrantFor(e2e, actor.email);
+    for (const [method, path] of routes) {
+      await audienceRequest(e2e, web, path, method, WEB_CLIENT_ID).expect(403);
+      await request(e2e.httpServer)
+        [method](path)
+        .set('Authorization', `Bearer ${native.accessToken}`)
+        .expect(403);
+    }
+    const admin = await issueAudienceBrowser(e2e, fixture.actorId);
+    await audienceRequest(e2e, admin, ACTIVITY_ROUTE).expect(200);
+    await audienceRequest(
+      e2e,
+      admin,
+      `${STAFF_ROUTE}/${fixture.customerId}/sessions`,
+    ).expect(200);
   });
 
   // Failure: admitting staff to native bypasses the browser-only staff guard.
