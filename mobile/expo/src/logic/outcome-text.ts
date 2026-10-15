@@ -136,6 +136,7 @@ export function describeRefresh(outcome: RefreshOutcome): Described {
 
 export function describeSignOut(outcome: SignOutOutcome): Described {
   if (outcome.kind === 'disposed') return { key: OUTCOME_KEY.signOut.disposed };
+  if (outcome.kind === 'signOutNotSaved') return { key: OUTCOME_KEY.signOut.signOutNotSaved };
   const value: Described = { key: REVOCATION_KEY[outcome.revocation] };
   return outcome.error === undefined
     ? { key: OUTCOME_KEY.signOut.signedOut, value }

@@ -5,6 +5,8 @@ import {
   SIGN_OUT_REVOKE_TIMEOUT_MS,
 } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
+import { queuedWorkDone } from '../support/queued-work';
+import { revokedTokens } from '../support/tracking';
 import {
   REFRESH_TOKEN,
   CONFIG,
@@ -18,7 +20,7 @@ import {
 } from '../support/support';
 
 describe('late session record writes after sign out', () => {
-  it('does not restore a stable token record when a timed-out marker write lands after sign out', async () => {
+  it('writes the sign-out after a timed-out marker write lands, so no session survives', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
@@ -27,10 +29,7 @@ describe('late session record writes after sign out', () => {
 
     const markerStarted = new Deferred<void>();
     const finishMarker = new Deferred<void>();
-    const retryDeleteDeadline = new Deferred<void>();
-    const deleteDeadlineScheduled = new Deferred<void>();
-    const revokeStarted = new Deferred<void>();
-    let deleteDeadlines = 0;
+    const markerLanded = new Deferred<void>();
     let blockMarker = true;
     ports.credentials.beforeReplace = (value) => {
       if (blockMarker && value.includes('"refreshInFlight":true')) {
@@ -40,18 +39,8 @@ describe('late session record writes after sign out', () => {
       }
       return Promise.resolve();
     };
-    ports.credentials.beforeDelete = () => {
-      return Promise.reject(new Error('secure storage unavailable'));
-    };
-    ports.timer.onSchedule = (milliseconds) => {
-      if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS) {
-        deleteDeadlines += 1;
-        if (deleteDeadlines === 1) deleteDeadlineScheduled.resolve();
-        if (deleteDeadlines === 2) retryDeleteDeadline.resolve();
-      }
-    };
-    transport.onRequest = ({ path }) => {
-      if (path === '/api/oauth/revoke') revokeStarted.resolve();
+    ports.credentials.afterReplace = (value) => {
+      if (value.includes('"refreshInFlight":true')) markerLanded.resolve();
     };
     transport.enqueue({ status: 200, body: {} });
 
@@ -64,49 +53,88 @@ describe('late session record writes after sign out', () => {
     await expect(request).rejects.toMatchObject({ operation: 'credentials.replace' });
 
     const signOut = engine.signOut();
-    await Promise.all([deleteDeadlineScheduled.promise, revokeStarted.promise]);
-    ports.timer.fireDelay(CREDENTIAL_DELETE_TIMEOUT_MS);
-    await expect(signOut).resolves.toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
     finishMarker.resolve();
-    const restore = engine.restore();
-    await retryDeleteDeadline.promise;
-    ports.timer.fireDelay(CREDENTIAL_DELETE_TIMEOUT_MS);
-    await expect(restore).resolves.toMatchObject({ kind: 'storageBlocked' });
+    await markerLanded.promise;
+    await expect(signOut).resolves.toEqual({ kind: 'signedOut', revocation: 'revoked' });
+    await expect(engine.restore()).resolves.toEqual({ kind: 'restored', status: 'signedOut' });
 
-    expect(ports.credentials.value).toContain('"refreshInFlight":true');
-    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_TOKEN}"`);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+    expect(ports.credentials.value).toBeUndefined();
   });
 
-  it('deletes a late token write after a later epoch', async () => {
+  it('writes the sign-out after a late token write, keeping only the revocation', async () => {
     const scenario = await beginBlockedTokenWrite();
     const { engine, ports, transport, signIn, finishWrite, lateWriteLanded, revokeStarted } =
       scenario;
-    const deletesFinished = gateDeletes(ports);
+    // The interrupted sign-in revokes its late token and the saved sign-out tries the same
+    // one: both wait on the one request in flight for that token.
+    const intentSaved = new Deferred<void>();
+    const afterTokenWrite = ports.credentials.afterReplace;
+    ports.credentials.afterReplace = (value) => {
+      afterTokenWrite?.(value);
+      if (value.includes('"pendingRevocations"')) intentSaved.resolve();
+    };
     const signOut = engine.signOut();
-    await revokeStarted.promise;
-    ports.timer.fireDelay(CREDENTIAL_DELETE_TIMEOUT_MS);
+    finishWrite.resolve();
+    await lateWriteLanded.promise;
+    await Promise.all([revokeStarted.promise, intentSaved.promise]);
+    // The sign-out's attempt starts from the continuations its saved write queued.
+    await queuedWorkDone();
     ports.timer.fireDelay(SIGN_OUT_REVOKE_TIMEOUT_MS);
     await expect(signIn).resolves.toEqual({ kind: 'signedOut' });
     await expect(signOut).resolves.toMatchObject({ kind: 'signedOut', revocation: 'timedOut' });
+
+    await expect(engine.restore()).resolves.toMatchObject({ status: 'signedOut' });
+
+    expect(JSON.parse(ports.credentials.value ?? '{}')).toEqual({
+      version: 1,
+      pendingRevocations: [expect.objectContaining({ refreshToken: REFRESH_TOKEN, attempts: 1 })],
+    });
+    expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'none' });
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+  });
+
+  it('leaves nothing that can restore or refresh when a stale token write lands after a later epoch', async () => {
+    const scenario = await beginBlockedTokenWrite();
+    const { engine, ports, transport, signIn, finishWrite, lateWriteLanded, revokeStarted } =
+      scenario;
+    const signOut = engine.signOut();
+    // The sign-out write waits behind the token write and times out with it. A sign-in
+    // was writing tokens, so the session ends here instead of coming back.
+    await queuedWorkDone();
+    expect(ports.timer.pendingDelays).toEqual([
+      CREDENTIAL_WRITE_TIMEOUT_MS,
+      CREDENTIAL_WRITE_TIMEOUT_MS,
+    ]);
+    ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
+    await revokeStarted.promise;
+    ports.timer.fireDelay(SIGN_OUT_REVOKE_TIMEOUT_MS);
+    await expect(signIn).resolves.toEqual({ kind: 'signedOut' });
+    await expect(signOut).resolves.toMatchObject({ kind: 'signedOut', revocation: 'timedOut' });
+    expect(engine.snapshot).toMatchObject({ status: 'signedOut', warning: 'storageBlocked' });
     ports.crypto.randomBytes = () => Promise.reject(new Error('entropy unavailable'));
     await expect(engine.signIn()).resolves.toMatchObject({ kind: 'cryptoFailure' });
 
     const restore = engine.restore();
     finishWrite.resolve();
     await lateWriteLanded.promise;
-    await deletesFinished.started.promise;
-    deletesFinished.release.resolve();
-    await deletesFinished.finished.promise;
     await expect(restore).resolves.toMatchObject({ status: 'signedOut' });
 
     expect(ports.credentials.value).toBeUndefined();
-    expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'none' });
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(1);
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+    const restartedTransport = new ScriptedTransport();
+    const restartedPorts = testPorts(restartedTransport);
+    restartedPorts.credentials.value = ports.credentials.value;
+    restartedPorts.install = ports.install;
+    const restarted = createAuthEngine(CONFIG, restartedPorts);
+    await expect(restarted.restore()).resolves.toEqual({ kind: 'restored', status: 'signedOut' });
+    await expect(restarted.refresh()).resolves.toEqual({ kind: 'notSignedIn' });
+    expect(restartedTransport.sent).toEqual([]);
   });
 
   it('keeps a late token write deleted when disposal times out sign out', async () => {
     const scenario = await beginBlockedTokenWrite();
-    const { engine, ports, finishWrite, lateWriteLanded, revokeStarted } = scenario;
+    const { engine, ports, transport, finishWrite, lateWriteLanded, revokeStarted } = scenario;
     const deletesFinished = gateDeletes(ports, 1);
     const correctionDeleteScheduled = new Deferred<void>();
     const correctionDeleteCancelled = new Deferred<void>();
@@ -114,18 +142,22 @@ describe('late session record writes after sign out', () => {
     ports.timer.onSchedule = (milliseconds) => {
       if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS) {
         deleteDeadlines += 1;
-        if (deleteDeadlines === 2) correctionDeleteScheduled.resolve();
+        if (deleteDeadlines === 1) correctionDeleteScheduled.resolve();
       }
     };
     ports.timer.onCancel = (milliseconds) => {
-      if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS && deleteDeadlines >= 2)
+      if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS && deleteDeadlines >= 1)
         correctionDeleteCancelled.resolve();
     };
+    // The sign-out write waits behind the token write, so disposal comes before any revoke.
     const signOut = engine.signOut();
-    await revokeStarted.promise;
     engine.dispose();
+    expect(revokedTokens(transport)).toEqual([]);
     await expect(signOut).resolves.toMatchObject({ kind: 'disposed' });
-    ports.timer.fireDelay(CREDENTIAL_DELETE_TIMEOUT_MS);
+    ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
+    // The abandoned sign-out still asks the server once, since no one heard it failed.
+    await revokeStarted.promise;
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     ports.timer.fireDelay(SIGN_OUT_REVOKE_TIMEOUT_MS);
 
     finishWrite.resolve();

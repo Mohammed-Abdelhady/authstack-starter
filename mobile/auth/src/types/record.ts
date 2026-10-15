@@ -69,3 +69,31 @@ export interface RuntimeTokens extends StoredTokens {
   lineageId: string;
   proofKeyThumbprint?: string;
 }
+
+/**
+ * A refresh token the person signed out of, kept only until the server
+ * revokes it. Restore and refresh never read it: it cannot sign in.
+ */
+export interface PendingRevocation {
+  serverBaseAddress: string;
+  environment: string;
+  clientId: string;
+  installDigest: string;
+  /** Absent for a token saved before sessions carried a lineage. */
+  lineageId?: string;
+  refreshToken: string;
+  /** The device key binding the token was issued under. */
+  proofKeyThumbprint?: string;
+  attempts: number;
+  /** Wall time, in milliseconds, before which no attempt is made. */
+  nextAttemptAt: number;
+  /** The server sends no refresh lifetime, so it is never known here. */
+  refreshExpiresAt: null;
+}
+
+/** What one secure-storage value holds. */
+export interface CredentialEnvelope {
+  version: number;
+  session: StoredAuthRecord | null;
+  pendingRevocations: PendingRevocation[];
+}
