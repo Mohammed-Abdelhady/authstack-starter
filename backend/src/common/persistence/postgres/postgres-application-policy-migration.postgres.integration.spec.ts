@@ -143,6 +143,15 @@ describe('application policy and evidence upgrade', () => {
       ).rejects.toMatchObject({
         constraint: 'application_sign_in_methods_object',
       });
+      // Added NOT VALID to skip the upgrade scan, the checks still refuse new values.
+      await expect(
+        pool.query("UPDATE users SET audience = 'robot'"),
+      ).rejects.toMatchObject({ constraint: 'user_audience_valid' });
+      await expect(
+        pool.query('UPDATE sessions SET policy_version = -1'),
+      ).rejects.toMatchObject({
+        constraint: 'session_policy_version_not_negative',
+      });
     },
     MIGRATE_CASE_TIMEOUT_MS,
   );
