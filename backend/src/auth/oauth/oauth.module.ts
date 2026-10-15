@@ -9,6 +9,7 @@ import { OAuthController } from './oauth.controller';
 import { OAuthRegistryService } from './oauth-registry.service';
 import { OAuthRedirectService } from './oauth-redirect.service';
 import { OAuthStateService } from './oauth-state.service';
+import { BrowserOAuthFlow } from './browser-oauth-flow';
 import { OAuthService } from './oauth.service';
 import {
   OAUTH_PERSISTENCE_IMPORTS,
@@ -52,6 +53,7 @@ export class OAuthModule {
         OAuthStateService,
         OAuthRedirectService,
         OAuthService,
+        BrowserOAuthFlow,
         ...OAUTH_PERSISTENCE_PROVIDERS,
         IsRegisteredProviderConstraint,
       ],

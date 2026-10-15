@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import { StoredAccount } from '../../../user/stores/stored-account';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
@@ -8,6 +9,7 @@ export interface ProviderIdentity {
 }
 
 export interface NewProviderAccount extends ProviderIdentity {
+  audience: RoleAudience | undefined;
   email: string;
   name: string;
   avatarUrl?: string;
