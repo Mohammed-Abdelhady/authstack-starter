@@ -1,5 +1,6 @@
 import type { PostgresDatabase } from '../../src/common/persistence/postgres/postgres-connection';
 import type { E2eRecordsState } from '../utils/e2e-state-records';
+import { makeActivityUnreadable } from '../admin-activity/activity-access.postgres.harness-spec';
 
 /**
  * The records state on PostgreSQL, through the adapter's own table map. An
@@ -9,6 +10,7 @@ export function postgresRecordsState(
   database: PostgresDatabase,
 ): E2eRecordsState {
   return {
+    makeActivityUnreadable: () => makeActivityUnreadable(database),
     changeAccountRole: async (id, role) => {
       await database
         .updateTable('users')

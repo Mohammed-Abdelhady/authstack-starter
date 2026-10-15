@@ -101,6 +101,7 @@ describe('the PostgreSQL tables of an optional feature', () => {
       '0022_application_policy.sql',
       '0023_account_audience.sql',
       '0024_session_evidence.sql',
+      '0027_activity_log.sql',
     ]);
     for (const file of withoutOptional) {
       const sql = readFileSync(join(REPOSITORY, MIGRATIONS, file), 'utf8')

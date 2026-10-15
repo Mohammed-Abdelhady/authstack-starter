@@ -14,6 +14,9 @@ describe('AddPermissionDto (S-18)', () => {
     'users:read:all',
     'profile:update:own',
     'reports:read:all',
+    'activity:read:all',
+    'sessions:read:staff',
+    'sessions:delete:staff',
     'posts:create',
   ])('should accept %s', async (permission) => {
     expect(await failedConstraints(permission)).toHaveLength(0);
@@ -25,12 +28,12 @@ describe('AddPermissionDto (S-18)', () => {
 
   it('should reject a reserved permission', async () => {
     const dto = plainToInstance(AddPermissionDto, {
-      permission: 'sessions:read:staff',
+      permission: 'users:suspend:staff',
     });
     expect(await validate(dto)).toMatchObject([
       {
         constraints: {
-          isNotIn: 'sessions:read:staff is reserved and cannot be granted yet',
+          isNotIn: 'users:suspend:staff is reserved and cannot be granted yet',
         },
       },
     ]);

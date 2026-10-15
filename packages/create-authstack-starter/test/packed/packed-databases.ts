@@ -48,6 +48,7 @@ const CORE_MIGRATIONS = [
   '0022_application_policy.sql',
   '0023_account_audience.sql',
   '0024_session_evidence.sql',
+  '0027_activity_log.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -241,6 +242,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0022_application_policy.sql',
       '0023_account_audience.sql',
       '0024_session_evidence.sql',
+      '0027_activity_log.sql',
     ]);
   });
 

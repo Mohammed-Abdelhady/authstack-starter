@@ -1,0 +1,24 @@
+{
+  "adminSessions": {
+    "title": "Account sessions",
+    "description": "Active sessions for account ⁨{user}⁩ across all applications.",
+    "refresh": "Refresh sessions",
+    "loading": "Loading account sessions...",
+    "loadError": "Account sessions could not be loaded.",
+    "empty": "This account has no active sessions.",
+    "application": "Application",
+    "ip": "IP address",
+    "lastActive": "Last active",
+    "endOne": "End session",
+    "endAll": "End all sessions",
+    "confirmOneTitle": "End this session?",
+    "confirmOneDescription": "End the session on ⁨{device}⁩ in application ⁨{application}⁩ for account ⁨{user}⁩. The device will need to sign in again.",
+    "confirmAllTitle": "End all account sessions?",
+    "confirmAllDescription": "End all browser and mobile sessions for account ⁨{user}⁩ in every application. Each device will need to sign in again.",
+    "unavailable": "The session list or your access has changed. Close this dialog and refresh sessions before continuing.",
+    "unknownOutcome": "The server did not confirm the result. Sessions may have ended. Close this dialog and refresh sessions before deciding what to do next.",
+    "reviewBeforeRetry": "The last request has an unknown result. Refresh sessions and review the list before starting another action.",
+    "ended": "The server confirmed that the sessions were ended.",
+    "selfRefused": "Use your personal session settings to manage your own sessions."
+  }
+}

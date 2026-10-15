@@ -3,6 +3,7 @@ import { ApplicationsTable } from '../../../session/persistence/postgres/postgre
 import { RolesTable } from '../../../role/persistence/postgres/postgres-roles.table';
 import { UsersTable } from '../../../user/persistence/postgres/postgres-users.table';
 import { NativeAttemptsTable } from '../../../auth/native/persistence/postgres/postgres-native-attempt.table';
+import { SecurityEventsTable } from '../../../session/persistence/postgres/types/security-events.table';
 import { ColumnType, Generated, Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { commitCheckedPool } from './postgres-commit-tag';
@@ -105,28 +106,6 @@ export interface UserApplicationGrantsTable {
   allowed_scopes: Generated<string[]>;
   session_version: Generated<number>;
   issuance_fence: Generated<number>;
-}
-
-export interface SecurityEventsTable {
-  id: Generated<string>;
-  event_id: string;
-  target_user_id: string | null;
-  client_id: string | null;
-  session_id: string | null;
-  action: string;
-  outcome: string;
-  occurred_at: Timestamp;
-  actor_id: string | null;
-  reason_code: string | null;
-  assigned_role_id: string | null;
-  previous_role_id: string | null;
-  assignment_session_version: number | null;
-  deleted_role_id: string | null;
-  deleted_role_slug: string | null;
-  deletion_sweep_id: string | null;
-  deletion_pending: boolean | null;
-  request_id: string | null;
-  purge_after: ColumnType<Date, Date | undefined, never>;
 }
 
 export interface BrowserProofsTable {

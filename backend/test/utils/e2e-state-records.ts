@@ -3,6 +3,8 @@
  * server's back.
  */
 export interface E2eRecordsState {
+  /** Makes activity reads fail at the database until restored. */
+  makeActivityUnreadable(): Promise<() => Promise<void>>;
   /** Changes the role behind the server's back. */
   changeAccountRole(id: string, role: string): Promise<void>;
   /** Marks the account deleted behind the server's back. Ends no session. */
