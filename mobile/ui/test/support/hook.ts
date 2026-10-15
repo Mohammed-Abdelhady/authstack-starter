@@ -1,7 +1,6 @@
 import type { AuthSnapshot } from '@app/native-auth';
 import { createElement, type ReactElement } from 'react';
 import { Provider } from 'react-redux';
-import { PaintContext } from '../../src/context/paint-context';
 import { UiContext, type Ui } from '../../src/context/ui-context';
 import { createTranslate, DIRECTION, type Locale } from '../../src/i18n';
 import { themeOf } from '../../src/logic/theme';
@@ -44,17 +43,12 @@ export interface UiHookSubject<Result> extends HookSubject<Result> {
   confirm: RecordedConfirm;
 }
 
-export interface UiHarness {
-  runtime: UiRuntime;
-  server: FakeServer;
-  fake: FakeEngine;
-  confirm: RecordedConfirm;
-  /** Puts an element inside the store and the context the root component provides. */
-  wrap(child: ReactElement): ReactElement;
-}
-
-/** What the root component would hand a screen, over the real runtime and a held server. */
-export function createUiHarness(initial: AuthSnapshot, locale: Locale = 'en'): UiHarness {
+/** Runs a screen hook over the real runtime, with what the root component would hand it. */
+export async function renderUiHook<Result>(
+  useHook: () => Result,
+  initial: AuthSnapshot,
+  locale: Locale = 'en',
+): Promise<UiHookSubject<Result>> {
   const server = createFakeServer();
   const fake = createFakeEngine(server.transport, initial);
   const runtime = createUiRuntime(fake.engine);
@@ -72,27 +66,13 @@ export function createUiHarness(initial: AuthSnapshot, locale: Locale = 'en'): U
     confirm: confirm.confirm,
     appName: APP_NAME,
   };
-  const wrap = (child: ReactElement) =>
+  const subject = renderHook(useHook, (child) =>
     createElement(
       Provider,
       { store: runtime.store, children: null },
-      createElement(
-        UiContext.Provider,
-        { value: ui },
-        createElement(PaintContext.Provider, { value: ui }, child),
-      ),
-    );
-  return { runtime, server, fake, confirm, wrap };
-}
-
-/** Runs a screen hook over the real runtime, with what the root component would hand it. */
-export async function renderUiHook<Result>(
-  useHook: () => Result,
-  initial: AuthSnapshot,
-  locale: Locale = 'en',
-): Promise<UiHookSubject<Result>> {
-  const { wrap, ...harness } = createUiHarness(initial, locale);
-  const subject = renderHook(useHook, wrap);
+      createElement(UiContext.Provider, { value: ui }, child),
+    ),
+  );
   await flush();
-  return { ...subject, ...harness };
+  return { ...subject, runtime, server, fake, confirm };
 }
