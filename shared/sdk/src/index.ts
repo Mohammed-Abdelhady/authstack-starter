@@ -13,3 +13,5 @@ export * from './native-auth/paths';
 export * from './paths';
 export * from './types';
 export * from './client';
+export * from './browser-transport';
+export * from './areas/admin';
