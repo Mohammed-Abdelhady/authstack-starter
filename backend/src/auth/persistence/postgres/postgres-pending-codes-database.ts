@@ -4,12 +4,7 @@ import {
 } from '../../../common/persistence/persistence-errors';
 import { mapPostgresError } from '../../../common/persistence/postgres/postgres-persistence-errors';
 
-/**
- * How an address is stored and looked up: trimmed and in lower case.
- */
-export function storedAddress(email: string): string {
-  return email.trim().toLowerCase();
-}
+export { storedAddress } from '../../../common/persistence/stored-address';
 
 /**
  * Runs one statement that commits by itself and maps its failure to the shared
