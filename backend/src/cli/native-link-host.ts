@@ -20,9 +20,9 @@ class NativeLinkHostConfigurationModule {}
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  if (args.length !== 1 || args[0] !== '--nginx-manifest') {
+  if (args.length !== 1 || args[0] !== '--proxy-manifest') {
     throw new Error(
-      'Usage: node dist/cli/native-link-host.js --nginx-manifest',
+      'Usage: node dist/cli/native-link-host.js --proxy-manifest',
     );
   }
   const context = await NestFactory.createApplicationContext(
