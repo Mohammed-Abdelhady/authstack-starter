@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import { SessionFreshProofCheck } from '../../../auth/contracts/defaults/session-fresh-proof-check';
+import { AuthFeature } from '../../../auth/enums/auth-feature.enum';
 import { VerificationCodeService } from '../../../auth/services/codes/verification-code.service';
+import { AuthFeaturesService } from '../../../auth/services/features/auth-features.service';
 import { MailCounterService } from '../../../auth/services/mail/mail-counter.service';
 import { EmailChangeConfirmationService } from '../../../auth/services/registration/email-change-confirmation.service';
 import type { SupportedLocale } from '../../../common/constants/locales';
@@ -15,10 +17,16 @@ import {
   TEN_MINUTES_MS,
 } from '../../../mail/mail-service.harness-spec';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
+import {
+  CREDENTIAL_PURPOSE,
+  CredentialPurpose,
+} from '../../../session/constants/credential-purpose';
 import { SecurityNoticeService } from '../../services/security-notice.service';
 import { AccountProfileStore } from '../../stores/account-profile.store';
 import { OwnEmailConfirmationService } from '../services/own-email-confirmation.service';
 import { OwnEmailMailService } from '../services/own-email-mail.service';
+import { OwnEmailProofService } from '../services/own-email-proof.service';
+import { OwnEmailReauth } from '../services/own-email-reauth.service';
 import { OwnEmailRequestService } from '../services/own-email-request.service';
 import type { OwnEmailCaller } from '../types/own-email';
 import { MemoryCodes, MemoryMailCounter } from './own-email-codes.harness-spec';
@@ -51,8 +59,13 @@ export interface OwnEmailWorld {
   staffConfirmation: EmailChangeConfirmationService;
   /** Every mail handed over so far, once the deferred sends have run. */
   sent(): Promise<SentMail[]>;
-  /** A caller on the kept session, signed in `minutesAgo` minutes ago. */
-  caller(minutesAgo?: number): OwnEmailCaller;
+  /**
+   * A caller on the kept session, issued `minutesAgo` minutes ago: a browser
+   * session unless another credential is named.
+   */
+  caller(minutesAgo?: number, purpose?: CredentialPurpose): OwnEmailCaller;
+  /** Gives the account a password it can sign in with. */
+  givePassword(password: string): Promise<void>;
   /**
    * What staff starting a change stores for the account: the address held, a
    * staff code for the next generation, and the pending address. Answers the
@@ -97,18 +110,39 @@ export function ownEmailWorld(
   });
   const mail = mailHarness();
   const dispatcher = new MailDispatcherService(config, mail.service);
+  const hashes = new HashService(config);
   const verification = new VerificationCodeService(
     codes,
-    new HashService(config),
+    hashes,
     config,
     clock,
     new MailCounterService(counter, config, clock),
   );
+  const passwords = new Map<string, string>();
+  const profiles = partialMock<AccountProfileStore>({
+    findPassword: (userId) =>
+      Promise.resolve({
+        id: userId,
+        isDeleted: false,
+        passwordHash: passwords.get(userId),
+      }),
+  });
   const notices = new SecurityNoticeService(
-    partialMock<AccountProfileStore>(),
+    profiles,
     mail.service,
     dispatcher,
     clock,
+  );
+  const proofs = new OwnEmailProofService(
+    new SessionFreshProofCheck(clock),
+    runner,
+    profiles,
+    new OwnEmailReauth(
+      hashes,
+      partialMock<AuthFeaturesService>({
+        isEnabled: (feature) => feature === AuthFeature.PASSWORD,
+      }),
+    ),
   );
   const world: OwnEmailWorld = {
     clock,
@@ -123,7 +157,7 @@ export function ownEmailWorld(
       accounts,
       verification,
       ledger,
-      new SessionFreshProofCheck(clock),
+      proofs,
       runner,
       clock,
       new OwnEmailMailService(mail.service, dispatcher, config),
@@ -153,12 +187,16 @@ export function ownEmailWorld(
         sentMailOf(call[0]),
       );
     },
-    caller: (minutesAgo = 1) => ({
+    caller: (minutesAgo = 1, purpose = CREDENTIAL_PURPOSE.BROWSER_SESSION) => ({
       userId: ACCOUNT_ID,
       sessionId: KEPT_SESSION,
       clientId: 'web',
       signedInAt: new Date(clock.now().getTime() - minutesAgo * MINUTE_MS),
+      credentialPurpose: purpose,
     }),
+    givePassword: async (password) => {
+      passwords.set(ACCOUNT_ID, await hashes.hash(password));
+    },
     startStaffChange: async (address) => {
       const prepared = await verification.prepareEmailChange(address, {
         userId: ACCOUNT_ID,

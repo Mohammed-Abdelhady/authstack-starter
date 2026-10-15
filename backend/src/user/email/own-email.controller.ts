@@ -54,10 +54,11 @@ export class OwnEmailController {
   @ApiOperation({
     summary: 'Ask to move the account to another address',
     description:
-      'Needs a sign-in in the last five minutes, or a passkey proof made on ' +
-      'this session. A code goes to the new address and a notice to the ' +
-      'current one. The answer is the same for an address that is free and ' +
-      'for one that is taken; a taken one never gets a code.',
+      'Needs a browser sign-in in the last five minutes, or the account ' +
+      'password for an account that has one. A mobile app session always ' +
+      'sends the password. A code goes to the new address and a notice to ' +
+      'the current one. The answer is the same for an address that is free ' +
+      'and for one that is taken; a taken one never gets a code.',
   })
   @ApiBody({ type: RequestOwnEmailChangeDto })
   async request(
@@ -65,7 +66,11 @@ export class OwnEmailController {
     @Body() dto: RequestOwnEmailChangeDto,
   ): Promise<ApiResponse<OwnEmailDto>> {
     return ApiResponse.success(
-      await this.requests.request(ownEmailCaller(request), dto.email),
+      await this.requests.request(
+        ownEmailCaller(request),
+        dto.email,
+        dto.password,
+      ),
       OWN_EMAIL_MESSAGE.REQUESTED,
     );
   }

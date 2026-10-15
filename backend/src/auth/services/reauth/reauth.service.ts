@@ -106,7 +106,7 @@ export class ReauthService {
   }
 
   /** The stored password, only while the deployment signs people in with one. */
-  private usablePasswordOf(user: PasswordHolder): string | undefined {
+  protected usablePasswordOf(user: PasswordHolder): string | undefined {
     return this.features.isEnabled(AuthFeature.PASSWORD)
       ? user.passwordHash
       : undefined;
