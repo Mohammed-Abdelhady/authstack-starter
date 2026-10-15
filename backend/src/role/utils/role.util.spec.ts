@@ -20,6 +20,9 @@ describe('assertValidPermissions', () => {
   it.each([
     [['users:read:all']],
     [['users:read']],
+    [['activity:read:all']],
+    [['sessions:read:staff']],
+    [['sessions:delete:staff']],
     [['*']],
     [['users:read:all', '*', 'roles:update:all']],
     [[]],
@@ -29,7 +32,7 @@ describe('assertValidPermissions', () => {
 
   it.each([
     [['users']],
-    [['sessions:read:staff']],
+    [['users:suspend:staff']],
     [['not a permission']],
     [['users:read:all', 'Users:Read']],
     [['']],
