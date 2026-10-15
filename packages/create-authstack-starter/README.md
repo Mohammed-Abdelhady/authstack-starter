@@ -97,9 +97,9 @@ Each project gets an `AGENTS.md` with its code rules, commit types and scopes, c
 
 Generated projects use pnpm 12.6.0 with an isolated dependency layout. On Node 22,
 run `corepack enable` and `corepack prepare pnpm@12.6.0 --activate`. When pnpm is
-available, the installer updates the lockfile before the first commit. Without the
-pinned pnpm version, it removes the bundled lockfile, prints `pnpm install` as
-the next step and exits 1.
+available, the installer updates the lockfile offline before the first commit. Without the
+pinned pnpm version, it removes the bundled lockfile, prints `pnpm install` as the next
+step and exits 1. A failed update stops with exit 1 and keeps the bundled lockfile.
 
 ## What the CLI does
 
@@ -125,16 +125,17 @@ the next step and exits 1.
 10. Greps the result for imports and scripts that point at deleted files. Any
     hit is printed with `file:line` and the CLI exits 1, leaving the tree in
     place.
-11. Runs `pnpm install --lockfile-only` before the first commit. If pnpm is
-    unavailable or the update fails, it removes `pnpm-lock.yaml`, reports that
-    in the summary and prints `pnpm install` as the next step.
+11. Runs `pnpm install --lockfile-only --prefer-offline` before the first commit. Without
+    pnpm it removes `pnpm-lock.yaml` and prints `pnpm install` as the next step. A
+    failed update stops with exit 1, leaving the tree and `pnpm-lock.yaml`.
 12. Writes `.create-authstack-starter.json` into the project root. It records the
-    installer name and version, the pinned package manager, a SHA-256 of the template content the project
-    was generated from, and the resolved selection: clients, database,
-    features, options and locales. It holds no secrets, no paths and no
-    machine names, so keep it committed with the project.
+    installer name and version, the pinned package manager, a SHA-256 of the
+    template content the project was generated from, the commit that template
+    was built from (or `null`), and the resolved selection: clients, database,
+    features, options, locales and, with a native client, the mobile app
+    identity. It holds no secrets, paths or machine names. Keep it committed.
 13. Runs `git init` and one commit with the updated lockfile, or without one if
-    pnpm could not update it.
+    pnpm was unavailable.
 14. When installation is requested, runs `pnpm install --frozen-lockfile` after
     the commit. A failed install exits 1 and leaves the scaffold for inspection.
 
