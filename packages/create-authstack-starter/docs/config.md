@@ -26,6 +26,19 @@ A flag overrides the config file, the config file overrides the preset, and the
 preset overrides the manifest defaults. A UTF-8 byte order mark is accepted and
 stripped.
 
+## Generating again from a project's answers file
+
+`--config` also takes a generated project's `.create-authstack-starter.json`.
+A file with a `schemaVersion` key is read as an answers file, never as a config
+file, and gives the same clients, database, features, options, locales, rules
+and mobile app identity. Only schema version 4 is accepted. An older answers
+file stops the run with exit code 2.
+
+The answers file records the SHA-256 of the template the project came from.
+When it differs from the template this installer carries, the run stops with
+exit code 2, names both hashes and writes nothing. Run the installer version the
+file records to generate from that template.
+
 ## Mobile app
 
 `--targets web,native-expo`, or `"targets": ["web", "native-expo"]` in the config
