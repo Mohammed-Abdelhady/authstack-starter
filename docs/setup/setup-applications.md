@@ -44,7 +44,9 @@ application and its repair.
 
 Audience admission and target scopes activate when any application names an
 audience. The staff browser guard activates only when an application names
-`staff`. Closed sign-up refuses new self-created accounts. Staff account creation
+`staff`. Closed sign-up refuses new self-created accounts. A required passkey
+refuses them too, the same way: password, link and provider sign-up cannot give
+a new account its first passkey. Staff account creation
 and seed bootstrap remain allowed. The issuer enforces required-passkey policy;
 the startup refusal prevents enabling it before the passkey route can supply
 verified evidence.
