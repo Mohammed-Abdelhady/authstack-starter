@@ -123,4 +123,16 @@ lost and nothing sends it later. The reply still looked like success, so the
 person sees no error and asks again, which costs one of the five mails in the
 window.
 
+### Access for store reviewers
+
+With the four `EMAIL_CODE_REVIEW_*` settings, one customer account takes a
+fixed code on one application and is mailed nothing. A fixed code can be
+guessed from any number of attempts, so its wrong guesses also count on the
+account for the UTC day. The fifth one of the day switches review access off
+until the next day and records `email_code_review_locked`. After that even the
+right fixed code is refused, and the address is mailed codes like any other.
+Each attempt still ends after five wrong guesses of its own, and each review
+request still takes one of the address's five mails an hour, so a request past
+that limit stores the fixed code already spent.
+
 <!-- feature:email-code:end -->
