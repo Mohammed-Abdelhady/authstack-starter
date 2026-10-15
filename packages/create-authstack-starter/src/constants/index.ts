@@ -236,3 +236,9 @@ export const FROZEN_INSTALL_COMMAND = 'pnpm install --frozen-lockfile';
 export const INSTALL_COMMAND = 'pnpm install';
 export const INSTALL_DIAGNOSTIC_LINES = 5;
 export const MISSING_PNPM_MESSAGE = `pnpm@${PACKAGE_MANAGER_VERSION} is required to update the lockfile. Enable pnpm with Corepack and run ${INSTALL_COMMAND} to regenerate it.`;
+
+/** Why the lockfile step failed: no pinned pnpm goes on, a failed update stops. */
+export const LOCKFILE_FAILURE = {
+  MISSING_PNPM: 'missing-pnpm',
+  UPDATE_FAILED: 'update-failed',
+} as const;

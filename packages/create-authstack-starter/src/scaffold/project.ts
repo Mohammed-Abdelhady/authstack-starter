@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { log, outro, spinner } from '@clack/prompts';
-import { MISSING_PNPM_MESSAGE } from '../constants/index.js';
+import { LOCKFILE_FAILURE } from '../constants/index.js';
 import { RULES_HOOK_PATHS, RULES_WORKFLOW_PATH } from '../constants/rules.js';
 import { resolveOwnership } from '../manifest/ownership.js';
 import type { Plan } from '../manifest/plan.js';
@@ -45,7 +45,7 @@ async function updateLockfile(
   }
   updating.stop(lockfile.ok ? 'pnpm lockfile updated' : 'pnpm lockfile update failed');
   if (lockfile.ok) return lockfile;
-  if (lockfile.reason !== MISSING_PNPM_MESSAGE) {
+  if (lockfile.kind !== LOCKFILE_FAILURE.MISSING_PNPM) {
     log.error(`Could not update the pnpm lockfile: ${lockfile.reason ?? 'pnpm gave no reason.'}`);
     outro(`Left the tree at ${target} so you can inspect it.`);
     return undefined;
