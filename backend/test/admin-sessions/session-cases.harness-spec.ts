@@ -22,6 +22,7 @@ export function staffSessionCases(current: () => StaffSessionHarness): void {
     const web = await signIn(harness.authority, targetId, 'web/1');
     const admin = await signIn(harness.authority, targetId, 'admin/1', 'admin');
     const listed = await harness.service().list(targetId, actorId);
+    expect(listed.data.targetClass).toBe('customer');
     expect(
       listed.data?.sessions.map(({ clientId }) => clientId).sort(),
     ).toEqual(['admin', 'web']);
@@ -60,6 +61,7 @@ export function staffSessionCases(current: () => StaffSessionHarness): void {
     expect((await harness.service().list(targetId, actorId)).data).toEqual({
       sessions: [],
       total: 0,
+      targetClass: 'customer',
     });
     expect(
       (await harness.service().revokeOne(targetId, session.sessionId, actorId))
@@ -184,6 +186,7 @@ export function staffSessionCases(current: () => StaffSessionHarness): void {
     expect((await harness.service().list(targetId, actorId)).data).toEqual({
       sessions: [],
       total: 0,
+      targetClass: 'customer',
     });
     expect((await harness.service().revokeAll(targetId, actorId)).data).toEqual(
       { revokedCount: 0 },
