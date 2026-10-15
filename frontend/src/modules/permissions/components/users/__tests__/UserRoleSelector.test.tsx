@@ -36,18 +36,8 @@ const ROLES = {
   page: 1,
 };
 
-const UPDATED_USER = {
-  id: 'user-2',
-  email: 'omar@example.com',
-  name: 'Omar Nasser',
-  role: 'editor',
-  isVerified: true,
-  isDeleted: false,
-  authProvider: 'email',
-  linkedProviders: ['email'],
-  createdAt: '2026-10-01T12:00:00.000Z',
-  updatedAt: '2026-10-01T12:00:00.000Z',
-};
+/** PATCH /api/admin/users/:id/role answers with the id and the new role only. */
+const UPDATED_USER = { id: 'user-2', role: 'editor' };
 
 /** The selector wired to the real role-change action, as the user card wires it. */
 function UserRoleControl() {
