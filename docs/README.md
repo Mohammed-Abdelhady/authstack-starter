@@ -33,7 +33,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 - [Mail languages and link addresses](setup/setup-mail-links.md): The language each mail is written in, and where its links point.
 - [Magic link setup](setup/setup-magic-link.md): Passwordless email sign-in links.
 - [Two-factor setup](setup/setup-two-factor.md): Time-based one-time password (TOTP) and recovery codes.
-- [Email code](setup/setup-email-code.md): Used from plan 2. Reserved sign-in settings. <!-- feature:email-code -->
+- [Email code](setup/setup-email-code.md): Sign-in from a native app with a six-digit code mailed to the address. <!-- feature:email-code -->
 - [Applications](setup/setup-applications.md): Used from plan 1. Reserved application policies.
 - [Invitations](setup/setup-invitations.md): Used from plan 4. Reserved invitation settings. <!-- feature:invitations -->
 - [Staff console](setup/setup-staff-console.md): Used from plan 4. Reserved activity and strict mutation settings.

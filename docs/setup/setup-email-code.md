@@ -6,8 +6,9 @@ application also has the email link, the same mail carries a button that
 finishes the same sign-in on the phone that asked. An unknown address becomes an
 account when the application lets people sign up.
 
-This guide covers the server side. The review settings below give app store
-reviewers a way in, as
+This guide covers the server, and the app screens under
+[In the app](#in-the-app). The review settings below give app store reviewers
+a way in, as
 [Access for app store reviewers](#access-for-app-store-reviewers) explains.
 
 ## Settings
@@ -58,6 +59,28 @@ updated SDK, because older builds refuse a methods reply with the extra key.
 
 With `signIn.emailLink` on as well, and `MAGIC_LINK_ENABLED` on, the mail also
 carries the button. Leave either off and the mail carries the code alone.
+
+## In the app
+
+The sign-in screen offers "Email me a sign-in code" while the methods reply has
+`capabilities.emailCode`. It is then the app's only email choice: the separate
+link choice goes, because the code mail carries the button whenever the
+application has the email link too.
+
+- The app sends its language with the address and the code, so the mail and any
+  account the code creates use that language.
+- The code screen takes the six digits. Digits a keyboard types in another
+  script are read as Western digits before anything is sent.
+- A wrong, expired or already used code leaves the screen open and says so.
+  Asking for another mail keeps the same attempt: the new mail replaces the code
+  and the link, and wrong guesses keep counting.
+- When the server ends the attempt after five wrong codes, the app says so and
+  offers to start again.
+- The button in the mail, opened on the phone that asked, finishes the same
+  attempt, also while the code screen is open. The app reads its values after
+  `#`.
+- Closing and reopening the app keeps the attempt. The code screen comes back
+  once the methods reply arrives, and the code still works.
 
 ## Routes
 
