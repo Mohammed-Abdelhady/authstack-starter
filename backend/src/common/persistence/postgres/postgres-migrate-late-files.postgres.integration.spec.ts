@@ -11,7 +11,7 @@ import {
 /** What is left to apply once the first four files are in. */
 const AFTER_THE_FOURTH = EVERY_MIGRATION.slice(4);
 
-/** The core file the previous build did not carry, though it carried 0020. */
+/** A core file missing from a build that carried newer migrations. */
 const ACCOUNT_LOCALE = '0019_account_locale.sql';
 
 // feature:totp,passkeys,magic-link:start
@@ -87,7 +87,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
   );
 
   it(
-    'applies 0019 to a database the previous build left at 0020, and its accounts read en',
+    'applies 0019 after newer core migrations, and its accounts read en',
     async () => {
       const pool = await emptyDatabase();
       const previousBuild = EVERY_MIGRATION.filter(
@@ -109,14 +109,18 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
       );
 
       expect({
-        previousBuild: previousBuild.slice(-2),
+        previousBuild: previousBuild.slice(-3),
         refused,
         up,
         recorded: await recorded(pool),
         locales: locale.rows,
         after: await startUp(pool),
       }).toEqual({
-        previousBuild: ['0018_native_attempts.sql', '0020_host_migrations.sql'],
+        previousBuild: [
+          '0018_native_attempts.sql',
+          '0020_host_migrations.sql',
+          '0021_address_claims.sql',
+        ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
         recorded: EVERY_MIGRATION,
