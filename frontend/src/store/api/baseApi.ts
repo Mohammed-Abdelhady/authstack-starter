@@ -52,7 +52,8 @@ export const browserBaseQuery: BaseQueryFn<string | FetchArgs, unknown, BrowserQ
   };
   try {
     const response = requireHttpSuccess(await browserTransport.request(transportRequest));
-    return { data: response.body };
+    // RTK flags undefined data as malformed, so an empty 204 is null, as fetchBaseQuery made it.
+    return { data: response.body ?? null };
   } catch (error) {
     if (error instanceof StaleResponseError) return restoreStaleResponse(error);
     return { error: serializeSdkError(error) };
