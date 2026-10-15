@@ -75,6 +75,7 @@ it('removes every PostgreSQL file from a MongoDB project and keeps the shared co
     'backend/src/common/persistence/postgres/migrations/0018_native_attempts.sql',
     'backend/src/common/persistence/postgres/migrations/0020_host_migrations.sql',
     'backend/src/common/persistence/postgres/migrations/0021_address_claims.sql',
+    'backend/src/common/persistence/postgres/migrations/0025_email_codes.sql',
     'backend/src/common/persistence/postgres/owned-schedule.spec.ts',
     'backend/src/common/persistence/postgres/owned-schedule.ts',
     'backend/src/common/persistence/postgres/postgres-adopt-host.ts',
