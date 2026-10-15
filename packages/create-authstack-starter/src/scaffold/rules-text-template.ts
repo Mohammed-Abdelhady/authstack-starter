@@ -83,6 +83,16 @@ Use the format \`type(scope): subject\` or \`type: subject\`.
 - Scopes: {{commitScopes}}
 - Subject limit: {{subjectLimit}} characters.{{commitHook}}
 
+## Testing policy
+
+Keep tests that protect account access, authorization, session validity, credential replay prevention, persisted data, or generation and startup of a working project. State the concrete material failure before adding a test.
+
+Use the cheapest layer that proves the behavior. Keep E2E for essential journeys that need a running application. Retain tests at multiple layers only when they catch different material failures. Preserve unique security, data-loss, race, and outage regressions.
+
+Routine rendering, copy, styling, getters, framework behavior, and implementation wiring do not need tests. Reuse existing behavioral coverage. Avoid exhaustive browser, viewport, locale, and option combinations without a distinct material risk. There is no coverage percentage or test-count target.
+
+Remove redundant tests after checking retained coverage. Never skip failing critical tests, add retries, loosen assertions, or bypass checks to get green. Run affected tests during development and the retained suite before a pull request. Run API and browser journeys when their flows change.
+
 ## Checks
 
 Run these checks before opening a pull request. Commands come from \`scripts/ci/gates.json\`.
