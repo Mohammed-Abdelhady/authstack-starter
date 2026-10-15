@@ -6,9 +6,9 @@ import { makeRefreshRecord } from '../../src/refresh/refresh-helpers';
 import { AuthRuntime } from '../../src/runtime/runtime';
 import { CONFIG, Deferred, ScriptedTransport, testPorts } from '../support/support';
 import { watchTimerDrain } from '../support/timer-drain';
+import { STORED_ACCESS_TOKEN, STORED_REFRESH_TOKEN } from '../support/token-values';
 
 const INSTALL_DIGEST = 'sign-out-read-install';
-const REFRESH_TOKEN = 'stored-refresh-token';
 const LINEAGE_ID = 'sign-out-read-lineage';
 
 describe('sign-out storage discovered during the operation', () => {
@@ -22,8 +22,8 @@ describe('sign-out storage discovered during the operation', () => {
     const runtime = new AuthRuntime(CONFIG, ports);
     runtime.installDigest = INSTALL_DIGEST;
     const record = makeRefreshRecord(runtime, INSTALL_DIGEST, {
-      accessToken: 'stored-access-token',
-      refreshToken: REFRESH_TOKEN,
+      accessToken: STORED_ACCESS_TOKEN,
+      refreshToken: STORED_REFRESH_TOKEN,
       lineageId: LINEAGE_ID,
     });
     ports.credentials.value = JSON.stringify(record);
@@ -61,7 +61,7 @@ describe('sign-out storage discovered during the operation', () => {
     expect(transport.sent.map(({ path, body }) => ({ path, body }))).toEqual([
       {
         path: '/api/oauth/revoke',
-        body: { token: REFRESH_TOKEN, client_id: 'native-client' },
+        body: { token: STORED_REFRESH_TOKEN, client_id: 'native-client' },
       },
     ]);
     expect(ports.timer.pending).toBe(0);

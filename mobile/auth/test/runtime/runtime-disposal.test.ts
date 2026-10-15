@@ -1,4 +1,9 @@
-import { ACCESS_SECRET_TOKEN, REFRESH_SECRET_TOKEN } from '../support/token-values';
+import {
+  ACCESS_SECRET_TOKEN,
+  REFRESH_SECRET_TOKEN,
+  VERIFIER_SECRET,
+  STATE_SECRET,
+} from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { AuthRuntime } from '../../src/runtime/runtime';
 import { CREDENTIAL_DELETE_TIMEOUT_MS } from '../../src/constants';
@@ -38,8 +43,8 @@ describe('runtime disposal', () => {
       clientId: CONFIG.clientId,
       installDigest: 'install-digest',
       transaction: {
-        verifier: 'verifier-secret',
-        state: 'state-secret',
+        verifier: VERIFIER_SECRET,
+        state: STATE_SECRET,
         returnAddress: CONFIG.redirectUri,
         createdAt: 1_800_000_000_000,
         expiresAt: 1_800_000_360_000,

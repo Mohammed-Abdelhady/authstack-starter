@@ -85,11 +85,17 @@ function publicSettings(settings) {
   };
 }
 
-/** Plugin options are plain JSON, so key order is ignored. @param {unknown} left @param {unknown} right @returns {boolean} */
-function sameValue(left, right) {
-  if (Object.is(left, right)) return true;
-  if (typeof left !== 'object' || typeof right !== 'object' || !left || !right) return false;
-  if (Array.isArray(left) !== Array.isArray(right)) return false;
+/** @param {unknown[]} left @param {unknown[]} right @returns {boolean} */
+function sameArray(left, right) {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (!sameValue(left[index], right[index])) return false;
+  }
+  return true;
+}
+
+/** @param {object} left @param {object} right @returns {boolean} */
+function sameObject(left, right) {
   const leftEntries = Object.entries(left);
   const rightValues = new Map(Object.entries(right));
   return (
@@ -98,6 +104,15 @@ function sameValue(left, right) {
       ([key, value]) => rightValues.has(key) && sameValue(value, rightValues.get(key)),
     )
   );
+}
+
+/** @param {unknown} left @param {unknown} right @returns {boolean} */
+function sameValue(left, right) {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== 'object' || typeof right !== 'object' || !left || !right) return false;
+  if (Array.isArray(left)) return Array.isArray(right) && sameArray(left, right);
+  if (Array.isArray(right)) return false;
+  return sameObject(left, right);
 }
 
 /** @param {Plugin} plugin */
