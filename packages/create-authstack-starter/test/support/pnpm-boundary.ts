@@ -21,10 +21,10 @@ if (args === '--version') {
   process.stdout.write(${JSON.stringify(version)} + '\\n');
   process.exit(0);
 }
-if (${JSON.stringify(touchLockfile)} && args === 'install --lockfile-only') {
+if (${JSON.stringify(touchLockfile)} && args === 'install --lockfile-only --prefer-offline') {
   fs.appendFileSync(require('node:path').join(process.cwd(), 'pnpm-lock.yaml'), '\\n# refreshed before commit\\n');
 }
-if (args === 'install --lockfile-only' && ${JSON.stringify(removedImporters)}.length > 0) {
+if (args === 'install --lockfile-only --prefer-offline' && ${JSON.stringify(removedImporters)}.length > 0) {
   const path = require('node:path').join(process.cwd(), 'pnpm-lock.yaml');
   const lines = fs.readFileSync(path, 'utf8').split('\\n');
   for (const importer of ${JSON.stringify(removedImporters)}) {

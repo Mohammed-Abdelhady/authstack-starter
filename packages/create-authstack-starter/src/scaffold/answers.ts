@@ -5,7 +5,9 @@ import {
   ANSWERS_SCHEMA_VERSION,
   BROKEN_PACKAGE,
   DEFAULT_RULES_POLICY,
-  PREVIOUS_ANSWERS_SCHEMA_VERSION,
+  GIT_COMMIT_HEX_PATTERN,
+  READABLE_ANSWERS_SCHEMA_VERSIONS,
+  RULELESS_ANSWERS_SCHEMA_VERSION,
   RULES_POLICIES,
   LOCALE_OPTION_LOCALES,
   LEGACY_ANSWERS_FILE_NAME,
@@ -26,6 +28,7 @@ import type {
   ResolvedAnswers,
   TemplateIdentity,
 } from '../types.js';
+import type { MobileIdentity } from '../types/mobile.js';
 import { isErrnoException } from '../utils/fs.js';
 
 function brokenPackage(detail: string): BrokenPackageError {
@@ -64,11 +67,22 @@ export async function readInstallerIdentity(root: string): Promise<InstallerIden
   return { name, version };
 }
 
+/** An identity file from before the commit was recorded reads as null. */
+function identityCommit(parsed: Record<string, unknown>, path: string): string | null {
+  const { commit } = parsed;
+  if (commit === undefined || commit === null) return null;
+  if (typeof commit !== 'string' || !GIT_COMMIT_HEX_PATTERN.test(commit)) {
+    throw brokenPackage(`${path} carries a commit that is not a 40- or 64-character hash.`);
+  }
+  return commit;
+}
+
 /**
  * The SHA-256 sync-template.mjs computed over the template's file list and
- * contents at build time. Read from the manifest root, where the build writes
- * it beside the copied manifest: in the published package that root is the
- * package directory, next to the `template/` the digest describes.
+ * contents at build time, and the commit it was built from when the tree
+ * matched it. Read from the manifest root, where the build writes it beside
+ * the copied manifest: in the published package that root is the package
+ * directory, next to the `template/` the digest describes.
  */
 export async function readTemplateIdentity(root: string): Promise<TemplateIdentity> {
   const path = join(root, TEMPLATE_IDENTITY_FILE);
@@ -81,11 +95,12 @@ export async function readTemplateIdentity(root: string): Promise<TemplateIdenti
     const reason = error instanceof Error ? error.message : String(error);
     throw brokenPackage(`${path} is not valid JSON (${reason}).`);
   }
-  const sha256 = isRecord(parsed) ? parsed.sha256 : undefined;
+  const identity = isRecord(parsed) ? parsed : {};
+  const { sha256 } = identity;
   if (typeof sha256 !== 'string' || !SHA256_HEX_PATTERN.test(sha256)) {
     throw brokenPackage(`${path} does not carry a 64-character sha256.`);
   }
-  return { sha256 };
+  return { sha256, commit: identityCommit(identity, path) };
 }
 
 /**
@@ -100,6 +115,11 @@ function resolvedLocales(options: readonly string[]): string[] {
   return locales.sort();
 }
 
+/** Fixed key order, so the same identity always gives the same bytes. */
+function orderedMobile(mobile: MobileIdentity): MobileIdentity {
+  return { name: mobile.name, slug: mobile.slug, appId: mobile.appId, scheme: mobile.scheme };
+}
+
 /** The resolved plan, every array sorted so identical choices give identical bytes. */
 function resolvedAnswers(plan: Plan): ResolvedAnswers {
   return {
@@ -108,6 +128,7 @@ function resolvedAnswers(plan: Plan): ResolvedAnswers {
     features: [...plan.features].sort(),
     options: [...plan.options].sort(),
     locales: resolvedLocales(plan.options),
+    ...(plan.mobile === undefined ? {} : { mobile: orderedMobile(plan.mobile) }),
   };
 }
 
@@ -122,7 +143,7 @@ export function answersRecord(
     packageManager: PACKAGE_MANAGER_SPEC,
     rules: { policy: plan.rules },
     installer,
-    template,
+    template: { sha256: template.sha256, commit: template.commit },
     answers: resolvedAnswers(plan),
   };
 }
@@ -138,27 +159,72 @@ export async function recordAnswers(target: string, record: AnswersRecord): Prom
   await formatChangedFiles(target, [ANSWERS_FILE_NAME]);
 }
 
-/** Reads both supported versions into the current normalized contract. */
-export function parseAnswersRecord(value: unknown): AnswersRecord {
-  if (!isRecord(value)) throw new Error('Answers record must be an object.');
-  if (
-    value.schemaVersion !== ANSWERS_SCHEMA_VERSION &&
-    value.schemaVersion !== PREVIOUS_ANSWERS_SCHEMA_VERSION
-  ) {
-    throw new Error('Unsupported answers schema version.');
-  }
-  const problems: string[] = [];
-  const rules = isRecord(value.rules) ? value.rules.policy : undefined;
-  const policy =
-    value.schemaVersion === PREVIOUS_ANSWERS_SCHEMA_VERSION && value.rules === undefined
-      ? DEFAULT_RULES_POLICY
-      : rules;
-  if (!isMember(RULES_POLICIES, policy)) throw new Error('Invalid rules policy.');
-  const installer = isRecord(value.installer) ? value.installer : {};
-  const template = isRecord(value.template) ? value.template : {};
-  const answers = isRecord(value.answers) ? value.answers : {};
+/** Versions 2 and 3 never carried a commit. A version 4 record must. */
+function readRecordedTemplate(
+  value: unknown,
+  current: boolean,
+  problems: string[],
+): TemplateIdentity {
+  const template = isRecord(value) ? value : {};
   const sha256 = readString(template.sha256, 'template.sha256', problems);
   if (!SHA256_HEX_PATTERN.test(sha256)) problems.push('Invalid template sha256');
+  const { commit } = template;
+  if (!current || commit === null) return { sha256, commit: null };
+  if (typeof commit === 'string' && GIT_COMMIT_HEX_PATTERN.test(commit)) return { sha256, commit };
+  problems.push('template.commit must be a 40- or 64-character hash or null');
+  return { sha256, commit: null };
+}
+
+function readRecordedMobile(value: unknown, problems: string[]): MobileIdentity {
+  const mobile = isRecord(value) ? value : {};
+  return {
+    name: readString(mobile.name, 'answers.mobile.name', problems),
+    slug: readString(mobile.slug, 'answers.mobile.slug', problems),
+    appId: readString(mobile.appId, 'answers.mobile.appId', problems),
+    scheme: readString(mobile.scheme, 'answers.mobile.scheme', problems),
+  };
+}
+
+/** Versions 2 and 3 never carried the mobile identity, so none is read from them. */
+function readResolvedAnswers(
+  value: unknown,
+  current: boolean,
+  problems: string[],
+): ResolvedAnswers {
+  const answers = isRecord(value) ? value : {};
+  const resolved: ResolvedAnswers = {
+    targets: readStringArray(answers.targets, 'answers.targets', problems),
+    database: readString(answers.database, 'answers.database', problems),
+    features: readStringArray(answers.features, 'answers.features', problems),
+    options: readStringArray(answers.options, 'answers.options', problems),
+    locales: readStringArray(answers.locales, 'answers.locales', problems),
+  };
+  if (current && answers.mobile !== undefined) {
+    resolved.mobile = readRecordedMobile(answers.mobile, problems);
+  }
+  return resolved;
+}
+
+/** A version 2 record written before `rules` existed reads as the default policy. */
+function recordedPolicy(value: Record<string, unknown>): unknown {
+  if (value.schemaVersion === RULELESS_ANSWERS_SCHEMA_VERSION && value.rules === undefined) {
+    return DEFAULT_RULES_POLICY;
+  }
+  return isRecord(value.rules) ? value.rules.policy : undefined;
+}
+
+/** Reads every readable version into the current normalized contract. */
+export function parseAnswersRecord(value: unknown): AnswersRecord {
+  if (!isRecord(value)) throw new Error('Answers record must be an object.');
+  const version = value.schemaVersion;
+  if (!READABLE_ANSWERS_SCHEMA_VERSIONS.some((readable) => readable === version)) {
+    throw new Error('Unsupported answers schema version.');
+  }
+  const current = version === ANSWERS_SCHEMA_VERSION;
+  const policy = recordedPolicy(value);
+  if (!isMember(RULES_POLICIES, policy)) throw new Error('Invalid rules policy.');
+  const problems: string[] = [];
+  const installer = isRecord(value.installer) ? value.installer : {};
   const record: AnswersRecord = {
     schemaVersion: ANSWERS_SCHEMA_VERSION,
     packageManager: readString(value.packageManager, 'packageManager', problems),
@@ -167,14 +233,8 @@ export function parseAnswersRecord(value: unknown): AnswersRecord {
       name: readString(installer.name, 'installer.name', problems),
       version: readString(installer.version, 'installer.version', problems),
     },
-    template: { sha256 },
-    answers: {
-      targets: readStringArray(answers.targets, 'answers.targets', problems),
-      database: readString(answers.database, 'answers.database', problems),
-      features: readStringArray(answers.features, 'answers.features', problems),
-      options: readStringArray(answers.options, 'answers.options', problems),
-      locales: readStringArray(answers.locales, 'answers.locales', problems),
-    },
+    template: readRecordedTemplate(value.template, current, problems),
+    answers: readResolvedAnswers(value.answers, current, problems),
   };
   if (problems.length > 0) throw new Error(`Invalid answers record: ${problems.join(', ')}`);
   return record;

@@ -2,9 +2,31 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ConfigFileError, parseConfigFile, readConfigFile } from '../../src/flags/config-file.js';
+import {
+  ConfigFileError,
+  parseAnswersConfig,
+  parseConfigFile,
+  readConfigFile,
+} from '../../src/flags/config-file.js';
+import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
 const roots: string[] = [];
+const SOURCE = { manifest: PLAN_MANIFEST, template: { sha256: 'a'.repeat(64), commit: null } };
+const ANSWERS = {
+  schemaVersion: 4,
+  packageManager: 'pnpm@12.6.0',
+  rules: { policy: 'strict' },
+  installer: { name: 'create-authstack-starter', version: '0.1.0' },
+  template: { sha256: 'a'.repeat(64), commit: null },
+  answers: {
+    targets: ['native-expo', 'web'],
+    database: 'mongodb',
+    features: ['email-password'],
+    options: ['docker', 'production'],
+    locales: ['en'],
+    mobile: { name: 'Notes', slug: 'notes', appId: 'org.sample.notes', scheme: 'notes' },
+  },
+};
 
 async function tempFile(content: string, name = 'config.json'): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'cna-config-'));
@@ -75,10 +97,38 @@ describe('parseConfigFile', () => {
   });
 });
 
+// Catches a replay that quietly drops what it does not understand, or runs under another pnpm.
+describe('parseAnswersConfig refuses what a replay cannot honour', () => {
+  it.each([
+    [
+      'an unknown nested key',
+      {
+        ...ANSWERS,
+        answers: { ...ANSWERS.answers, mobile: { ...ANSWERS.answers.mobile, icon: 'x' } },
+      },
+      /unknown key "answers\.mobile\.icon"/,
+    ],
+    [
+      'an unknown option',
+      { ...ANSWERS, answers: { ...ANSWERS.answers, options: ['docker', 'turbo'] } },
+      /got "turbo"/,
+    ],
+    [
+      'another package manager',
+      { ...ANSWERS, packageManager: 'pnpm@11.0.0' },
+      /packageManager must be pnpm@12\.6\.0, got "pnpm@11\.0\.0"/,
+    ],
+  ])('stops on %s and names it', (_label, record, named) => {
+    expect(() => parseAnswersConfig(ANSWERS, SOURCE)).not.toThrow();
+    expect(() => parseAnswersConfig(record, SOURCE)).toThrow(ConfigFileError);
+    expect(() => parseAnswersConfig(record, SOURCE)).toThrow(named);
+  });
+});
+
 describe('readConfigFile', () => {
   it('reads a valid file', async () => {
     const path = await tempFile(JSON.stringify({ targets: ['web'], database: 'mongodb' }));
-    await expect(readConfigFile(path)).resolves.toEqual({
+    await expect(readConfigFile(path, SOURCE)).resolves.toEqual({
       targets: ['web'],
       databases: ['mongodb'],
     });
@@ -86,12 +136,12 @@ describe('readConfigFile', () => {
 
   it('reports a missing file', async () => {
     const missing = join(tmpdir(), 'cna-config-missing', 'config.json');
-    await expect(readConfigFile(missing)).rejects.toThrow(/config file not found/);
+    await expect(readConfigFile(missing, SOURCE)).rejects.toThrow(/config file not found/);
   });
 
   it('reports invalid JSON', async () => {
     const path = await tempFile('{ not json');
-    await expect(readConfigFile(path)).rejects.toThrow(/not valid JSON/);
+    await expect(readConfigFile(path, SOURCE)).rejects.toThrow(/not valid JSON/);
   });
 
   it('parses the same content with and without a byte order mark', async () => {
@@ -99,13 +149,13 @@ describe('readConfigFile', () => {
     const plain = await tempFile(content, 'plain.json');
     const bom = await tempFile(`\uFEFF${content}`, 'bom.json');
 
-    await expect(readConfigFile(plain)).resolves.toEqual({ targets: ['web'] });
-    await expect(readConfigFile(bom)).resolves.toEqual({ targets: ['web'] });
+    await expect(readConfigFile(plain, SOURCE)).resolves.toEqual({ targets: ['web'] });
+    await expect(readConfigFile(bom, SOURCE)).resolves.toEqual({ targets: ['web'] });
   });
 
   it('reports a directory instead of a raw EISDIR', async () => {
     const root = await mkdtemp(join(tmpdir(), 'cna-config-dir-'));
     roots.push(root);
-    await expect(readConfigFile(root)).rejects.toThrow(/directory, not a file/);
+    await expect(readConfigFile(root, SOURCE)).rejects.toThrow(/directory, not a file/);
   });
 });

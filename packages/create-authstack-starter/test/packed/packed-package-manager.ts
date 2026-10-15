@@ -3,6 +3,7 @@ import { existsSync, globSync, mkdtempSync, readFileSync, rmSync } from 'node:fs
 import { delimiter, join, posix } from 'node:path';
 import { expect, it } from 'vitest';
 import { parse, parseAllDocuments } from 'yaml';
+import { ANSWERS_FILE_NAME } from '../../src/constants/index.js';
 import { isRecord } from '../../src/manifest/read.js';
 import { commandEnvironment } from '../../src/utils/exec.js';
 import { toPosix } from '../../src/utils/fs.js';
@@ -65,7 +66,7 @@ export function packageManagerCases(getPacked: () => Packed): void {
       expect(result.stdout).toContain('Updating pnpm lockfile');
       expect(result.stdout).toContain('pnpm lockfile updated');
       expect(readFileSync(join(binaryDirectory, 'calls'), 'utf8')).toBe(
-        '--version\ninstall --lockfile-only\ninstall --frozen-lockfile\n',
+        '--version\ninstall --lockfile-only --prefer-offline\ninstall --frozen-lockfile\n',
       );
       expectLockfileImportersMatchWorkspace(project);
       const committedFiles = execFileSync('git', ['ls-tree', '--name-only', 'HEAD'], {
@@ -109,14 +110,14 @@ export function packageManagerCases(getPacked: () => Packed): void {
       assertWorkspaceEdgesResolve(project);
       expect(readFileSync(join(project, 'pnpm-workspace.yaml'), 'utf8')).not.toContain('mobile/*');
       expect(readFileSync(join(binaryDirectory, 'calls'), 'utf8')).toBe(
-        '--version\ninstall --lockfile-only\n',
+        '--version\ninstall --lockfile-only --prefer-offline\n',
       );
     } finally {
       rmSync(binaryDirectory, { recursive: true, force: true });
     }
   });
 
-  it('removes the lockfile and reports a failed update', async () => {
+  it('stops on a failed update and keeps the lockfile', async () => {
     const packed = getPacked();
     const binaryDirectory = mkdtempSync(join(packed.workspace, 'pnpm-boundary-'));
     const project = join(packed.workspace, 'failed-update');
@@ -133,13 +134,12 @@ export function packageManagerCases(getPacked: () => Packed): void {
         },
       );
       expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
-      expect(existsSync(join(project, 'pnpm-lock.yaml'))).toBe(false);
-      expect(`${result.stdout}${result.stderr}`).toContain('pnpm-lock.yaml removed');
+      expect(existsSync(join(project, 'pnpm-lock.yaml'))).toBe(true);
+      expect(existsSync(join(project, ANSWERS_FILE_NAME))).toBe(false);
       expect(`${result.stdout}${result.stderr}`).toContain('pnpm lockfile update failed');
-      expect(`${result.stdout}${result.stderr}`).toContain('pnpm install');
       assertWorkspaceEdgesResolve(project);
       expect(readFileSync(join(binaryDirectory, 'calls'), 'utf8')).toBe(
-        '--version\ninstall --lockfile-only\n',
+        '--version\ninstall --lockfile-only --prefer-offline\n',
       );
     } finally {
       rmSync(binaryDirectory, { recursive: true, force: true });
@@ -211,7 +211,7 @@ export function packageManagerCases(getPacked: () => Packed): void {
     assertWorkspaceEdgesResolve(project);
   });
 
-  it('skips a requested installation when the lockfile update fails', async () => {
+  it('stops before a requested installation when the lockfile update fails', async () => {
     const packed = getPacked();
     const binaryDirectory = mkdtempSync(join(packed.workspace, 'pnpm-boundary-'));
     const project = join(packed.workspace, 'failed-update-install-requested');
@@ -224,13 +224,11 @@ export function packageManagerCases(getPacked: () => Packed): void {
         timeout: BUILD_TIMEOUT,
       });
       expect(result.status, `${result.stdout}${result.stderr}`).toBe(1);
-      expect(existsSync(join(project, 'pnpm-lock.yaml'))).toBe(false);
+      expect(existsSync(join(project, 'pnpm-lock.yaml'))).toBe(true);
       expect(`${result.stdout}${result.stderr}`).toContain('pnpm lockfile update failed');
-      expect(`${result.stdout}${result.stderr}`).toContain('dependency installation was skipped');
-      expect(`${result.stdout}${result.stderr}`).toContain('pnpm install');
       expect(`${result.stdout}${result.stderr}`).not.toContain('pnpm install failed');
       expect(readFileSync(join(binaryDirectory, 'calls'), 'utf8')).toBe(
-        '--version\ninstall --lockfile-only\n',
+        '--version\ninstall --lockfile-only --prefer-offline\n',
       );
     } finally {
       rmSync(binaryDirectory, { recursive: true, force: true });
