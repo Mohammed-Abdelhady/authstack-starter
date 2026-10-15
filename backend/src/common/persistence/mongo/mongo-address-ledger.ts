@@ -1,0 +1,106 @@
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import {
+  User,
+  UserDocument,
+} from '../../../user/persistence/mongo/schemas/user.schema';
+import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
+import { ADDRESS_CLAIM_RESULT, AddressLedger } from '../address-ledger';
+import { storedAddress } from '../stored-address';
+import {
+  AddressClaimInput,
+  AddressClaimResult,
+  AddressAvailability,
+  AddressRelease,
+} from '../types/address-ledger';
+import { UnitOfWork } from '../unit-of-work';
+import { isMongoDuplicateKeyError } from './mongo-error.util';
+import {
+  AddressClaim,
+  AddressClaimDocument,
+} from './schemas/address-claim.schema';
+
+@Injectable()
+export class MongoAddressLedger extends AddressLedger {
+  constructor(
+    @InjectModel(AddressClaim.name)
+    private readonly claims: Model<AddressClaimDocument>,
+    @InjectModel(User.name) private readonly users: Model<UserDocument>,
+  ) {
+    super();
+  }
+
+  async claim(
+    uow: UnitOfWork,
+    input: AddressClaimInput,
+  ): Promise<AddressClaimResult> {
+    const session = mongoSessionOf(uow);
+    const address = storedAddress(input.address);
+    try {
+      await this.claims
+        .findOneAndUpdate(
+          {
+            _id: address,
+            $or: [{ lapsesAt: { $lte: input.now } }, { owner: input.owner }],
+          },
+          {
+            $set: {
+              kind: input.kind,
+              owner: input.owner,
+              lapsesAt: input.lapsesAt,
+            },
+          },
+          { upsert: true, session, returnDocument: 'after' },
+        )
+        .exec();
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) return ADDRESS_CLAIM_RESULT.TAKEN;
+      // Transient write conflicts must reach the runner for a fresh snapshot.
+      throw error;
+    }
+    const account = await this.users
+      .findOne({ email: address })
+      .select('_id')
+      .session(session)
+      .lean()
+      .exec();
+    return account && account._id.toString() !== input.owner
+      ? ADDRESS_CLAIM_RESULT.TAKEN
+      : ADDRESS_CLAIM_RESULT.CLAIMED;
+  }
+
+  async release(uow: UnitOfWork, input: AddressRelease): Promise<void> {
+    await this.claims
+      .deleteOne(
+        {
+          _id: storedAddress(input.address),
+          owner: input.owner,
+        },
+        { session: mongoSessionOf(uow) },
+      )
+      .exec();
+  }
+
+  async isFree(uow: UnitOfWork, input: AddressAvailability): Promise<boolean> {
+    const session = mongoSessionOf(uow);
+    const address = storedAddress(input.address);
+    const account = await this.users
+      .findOne({ email: address })
+      .select('_id')
+      .session(session)
+      .lean()
+      .exec();
+    if (account) return false;
+    const claim = await this.claims
+      .findOne({
+        _id: address,
+        lapsesAt: { $gt: input.now },
+        ...(input.owner === undefined ? {} : { owner: { $ne: input.owner } }),
+      })
+      .session(session)
+      .lean()
+      .exec();
+    return claim === null;
+  }
+}
