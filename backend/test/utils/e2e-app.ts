@@ -33,9 +33,12 @@ export type TestAgent = ReturnType<typeof request.agent>;
 export const E2E_CLIENT_URL = 'http://127.0.0.1:3107';
 const BROWSER_POLICY_ENV_KEYS = [
   'ADMIN_URL',
+  'AUTH_NATIVE_LINK_HOST',
   'AUTH_WEB_ENABLED',
   'AUTH_WEB_SIGN_IN',
   'AUTH_ADMIN_SIGN_IN',
+  'AUTH_WEB_SESSION',
+  'AUTH_ADMIN_SESSION',
 ];
 
 export interface E2eApp {
@@ -69,6 +72,8 @@ export interface BootE2eAppOptions {
   throttleTtl?: number;
   /** Called with the application once it is built and before it starts. */
   beforeStart?: (app: INestApplication) => void;
+  /** Mount routes after the real HTTP boundary and before application startup. */
+  afterHttpSetup?: (app: INestApplication) => void;
 }
 
 /** Owns its database and starts configuration outside the developer's env directory. */
@@ -209,6 +214,7 @@ export async function bootE2eApp(
     options.beforeStart?.(nestApp);
     useContainer(nestApp.select(AppModule), { fallbackOnErrors: true });
     configureHttpApplication(nestApp);
+    options.afterHttpSetup?.(nestApp);
     await nestApp.init();
     await reconcileStartupApplications(nestApp);
     await nestApp.listen(port, '127.0.0.1');
