@@ -141,6 +141,7 @@ describe('PostgreSQL adapter', () => {
         '0018_native_attempts.sql',
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
+        '0021_address_claims.sql',
       ],
       again: [],
       recorded: [
@@ -164,6 +165,7 @@ describe('PostgreSQL adapter', () => {
         '0018_native_attempts.sql',
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
+        '0021_address_claims.sql',
       ],
     });
   });
