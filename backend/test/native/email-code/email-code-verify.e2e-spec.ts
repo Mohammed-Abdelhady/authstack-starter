@@ -27,6 +27,7 @@ import {
   CODE_LIFETIME_MS,
   errorCodeOf,
   lastSignInMail,
+  nextCodeIs,
   otherCode,
   requestCode,
   setEmailCode,
@@ -155,9 +156,10 @@ describe('native email code verify (e2e)', () => {
 
   it('voids the earlier code and link of this attempt on a resend', async () => {
     const first = await mailedAttempt();
+    nextCodeIs(otherCode(first.code));
     await requestCode(e2e, first.attempt, MINE).expect(200);
     const second = await lastSignInMail(e2e);
-    expect(second.code).not.toBe(first.code);
+    expect(second.code).toBe(otherCode(first.code));
 
     await expectInvalid(first.attempt, first.code);
     const staleLink = await verifyLink(first.attempt, first.link).expect(400);
@@ -200,8 +202,9 @@ describe('native email code verify (e2e)', () => {
     const browser = await browserAgent(e2e.httpServer);
     await browser.post('/api/auth/register').send({ email: MINE }).expect(200);
     const signUpCode = await e2e.mailedCode();
+    nextCodeIs(otherCode(signUpCode));
     const { attempt, code } = await mailedAttempt();
-    expect(code).not.toBe(signUpCode);
+    expect(code).toBe(otherCode(signUpCode));
 
     await expectInvalid(attempt, signUpCode);
     // A browser proof is spent by one request, so activation takes a fresh one.

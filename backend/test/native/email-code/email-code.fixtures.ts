@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { getStorageToken, ThrottlerStorageService } from '@nestjs/throttler';
 import type request from 'supertest';
 import { HashService } from '../../../src/common/services/hash.service';
+import * as verificationCodes from '../../../src/auth/utils/verification-code.util';
 import { MAIL_CATALOGUES } from '../../../src/mail/catalog/mail-catalogue';
 import type { SupportedLocale } from '../../../src/common/constants/locales';
 import type { NativeApplicationConfiguration } from '../../../src/config/types/native-application.type';
@@ -115,6 +116,16 @@ export async function lastSignInMail(
 /** A six-digit code that is not `code`. */
 export function otherCode(code: string): string {
   return String((Number.parseInt(code, 10) + 1) % 1_000_000).padStart(6, '0');
+}
+
+/**
+ * The next code the server makes is `code`. Two random codes can match, so a
+ * case that needs two different codes builds the second from the first.
+ */
+export function nextCodeIs(code: string): void {
+  jest
+    .spyOn(verificationCodes, 'generateVerificationCode')
+    .mockReturnValueOnce(code);
 }
 
 export function storedCode(
