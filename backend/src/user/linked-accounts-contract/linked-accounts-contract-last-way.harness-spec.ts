@@ -158,6 +158,12 @@ export function lastWayInCases(
         unlinked: true,
       },
       // feature:email-password:end
+      // feature:email-code:start
+      'email codes': {
+        switches: { password: false, magicLink: false, emailCode: true },
+        unlinked: true,
+      },
+      // feature:email-code:end
     };
 
     const unlinked: Record<string, boolean> = {};
@@ -195,6 +201,7 @@ export function lastWayInCases(
       'password reset by email': true, // feature:email-password
       'magic links': true, // feature:magic-link
       'a password': true, // feature:email-password
+      'email codes': true, // feature:email-code
     });
   });
 }
