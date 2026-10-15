@@ -180,6 +180,7 @@ export class NativeEmailLinkService {
       unitOfWork,
       email,
       locale,
+      claimed.clientId,
     );
     const account = await this.accounts.readAccount(unitOfWork, linkAccount.id);
     if (!account || account.isDeleted || account.email !== email) {

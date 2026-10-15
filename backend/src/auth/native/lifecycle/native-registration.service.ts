@@ -16,6 +16,7 @@ import { ActivationAccounts } from '../../pending-codes/activation-accounts';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { createActivatedAccount } from '../../utils/activation.util';
+import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import {
   hashPendingCodeGeneration,
   matchesPendingCodeGeneration,
@@ -56,6 +57,7 @@ export class NativeRegistrationService {
     private readonly hashService: HashService,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly policy: AccountCreationPolicy,
   ) {}
 
   async request(
@@ -79,6 +81,7 @@ export class NativeRegistrationService {
       const generationHash = await this.registration.registerForNative(
         email,
         locale,
+        claimed.clientId,
       );
       const next = await this.attempts.transition(
         claimed,
@@ -194,6 +197,8 @@ export class NativeRegistrationService {
       unitOfWork,
       reserved,
       { id: accountId, passwordHash, name: input.name, locale: input.locale },
+      this.policy,
+      claimed.clientId,
     );
     const storedAccount = await this.accounts.readAccount(
       unitOfWork,

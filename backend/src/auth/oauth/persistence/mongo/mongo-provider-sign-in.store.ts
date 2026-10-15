@@ -10,6 +10,8 @@ import {
   UserDocument,
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { StoredAccount } from '../../../../user/stores/stored-account';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import {
   NewProviderAccount,
   ProviderIdentity,
@@ -72,27 +74,35 @@ export class MongoProviderSignInStore extends ProviderSignInStore {
     return this.read.remember(user, account.id);
   }
 
-  async createFromProvider(
+  async createFromProviderIn(
+    unitOfWork: UnitOfWork,
     account: NewProviderAccount,
   ): Promise<StoredAccount> {
     try {
-      const user = await this.userModel.create({
-        email: account.email,
-        name: account.name,
-        avatarUrl: account.avatarUrl,
-        isVerified: true,
-        authProvider: account.provider,
-        primaryProvider: account.provider,
-        linkedAccounts: [
+      const users = await this.userModel.create(
+        [
           {
-            provider: account.provider,
-            providerId: account.providerId,
-            linkedAt: new Date(),
+            email: account.email,
+            name: account.name,
+            avatarUrl: account.avatarUrl,
+            isVerified: true,
+            authProvider: account.provider,
+            primaryProvider: account.provider,
+            linkedAccounts: [
+              {
+                provider: account.provider,
+                providerId: account.providerId,
+                linkedAt: new Date(),
+              },
+            ],
+            role: account.role,
+            locale: account.locale,
           },
         ],
-        role: account.role,
-        locale: account.locale,
-      });
+        { session: mongoSessionOf(unitOfWork) },
+      );
+      const user = users[0];
+      if (!user) throw new Error('Provider account insert returned no account');
       return this.read.remember(user);
     } catch (error) {
       throw accountConflictOr(error);

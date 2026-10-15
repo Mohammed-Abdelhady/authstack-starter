@@ -41,11 +41,17 @@ export function magicLinkSeamCases(harness: MagicLinkHarnessSource): void {
     const link = { email: EMAIL, tokenHash: 'same', expiresAt: LINK_EXPIRY };
     const account = { email: EMAIL, name: 'link', locale: 'en' as const };
     await harness().links.insertLink(link);
-    await harness().accounts.createPasswordless(account);
+    await harness().runner.run((work) =>
+      harness().accounts.createPasswordlessIn(work, account),
+    );
 
     expect({
       link: await conflictOf(harness().links.insertLink(link)),
-      account: await conflictOf(harness().accounts.createPasswordless(account)),
+      account: await conflictOf(
+        harness().runner.run((work) =>
+          harness().accounts.createPasswordlessIn(work, account),
+        ),
+      ),
       links: await harness().linkCount(),
       accounts: await harness().accountCount(),
     }).toEqual({

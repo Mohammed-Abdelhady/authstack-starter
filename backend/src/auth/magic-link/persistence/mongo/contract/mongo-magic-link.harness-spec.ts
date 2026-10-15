@@ -1,3 +1,4 @@
+import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { getModelToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import { createConnection } from 'mongoose';
@@ -56,6 +57,7 @@ export async function bootMongoMagicLinkHarness(
     clock: new FrozenClock(TEST_NOW),
     links: module.get(MagicLinkStore),
     accounts: module.get(MagicLinkAccounts),
+    runner: new MongoUnitOfWorkRunner(connection),
 
     seedLink: async (link) => {
       await links.create({ ...link, consumedAt: link.consumedAt ?? null });

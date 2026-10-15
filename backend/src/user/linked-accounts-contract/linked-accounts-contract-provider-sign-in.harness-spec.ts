@@ -1,3 +1,7 @@
+import { AccountCreationPolicy } from '../../auth/services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../auth/constants/account-creation';
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
+import { rerunAtOnce } from '../../../test/utils/session/issuance-contract/issuance-contract-support';
 import { ConfigService } from '@nestjs/config';
 import { holdBefore, RaceGate } from '../../../test/utils/race-gate';
 import {
@@ -37,6 +41,7 @@ const FACEBOOK = { id: 'facebook', autoLinksByEmail: false };
  */
 function providerSignInOn(
   harness: LinkedAccountsContractHarness,
+  policy: AccountCreationPolicy = new AccountCreationPolicy(),
 ): OAuthService {
   const { sync, linking } = linkedServicesOn(harness);
   return new OAuthService(
@@ -46,6 +51,8 @@ function providerSignInOn(
     linking,
     partialMock<Sessions>({}),
     new SessionCookieService(new ConfigService({})),
+    policy,
+    harness.runner(rerunAtOnce),
   );
 }
 
@@ -56,7 +63,13 @@ export function providerSignInServiceCases(
 ): void {
   it('signs a provider profile in as its linked account before its address', async () => {
     const { ownerId, otherId } = fixture();
-    const service = providerSignInOn(harness());
+    const policy = new AccountCreationPolicy();
+    const assertMayCreate = jest.spyOn(policy, 'assertMayCreate');
+    const creating = jest.spyOn(
+      harness().providerSignIn,
+      'createFromProviderIn',
+    );
+    const service = providerSignInOn(harness(), policy);
     const first = await service.findOrCreateUser(
       GOOGLE,
       profileOf('google-owner'),
@@ -67,11 +80,22 @@ export function providerSignInServiceCases(
       GOOGLE,
       profileOf('google-owner', { email: 'other@example.test' }),
     );
+    expect(assertMayCreate).not.toHaveBeenCalled();
     const newcomer = await service.findOrCreateUser(
       GOOGLE,
       profileOf('google-new', { email: NEW_ADDRESS, name: 'New Comer' }),
     );
 
+    expect(assertMayCreate.mock.calls).toEqual([
+      [
+        {
+          application: WEB_CLIENT_ID,
+          method: ACCOUNT_CREATION_METHOD.PROVIDER,
+        },
+        creating.mock.calls[0]?.[0],
+      ],
+    ]);
+    creating.mockRestore();
     expect({
       first: first.id,
       again: again.id,
@@ -178,7 +202,7 @@ export function providerSignInServiceCases(
     const atCreate = new RaceGate();
     const restore = holdBefore(
       harness().providerSignIn,
-      'createFromProvider',
+      'createFromProviderIn',
       () => atCreate,
     );
     const profile = profileOf('google-twice', {
@@ -210,6 +234,35 @@ export function providerSignInServiceCases(
         JSON.stringify(LINKED_ELSEWHERE),
       ].sort(),
       links: [{ provider: 'google', providerId: 'google-twice' }],
+    });
+  });
+
+  it('checks the policy once in each retried creating transaction', async () => {
+    const policy = new AccountCreationPolicy();
+    const check = jest.spyOn(policy, 'assertMayCreate').mockRejectedValueOnce(
+      Object.assign(new Error('retryable transaction abort'), {
+        errorLabels: ['TransientTransactionError'],
+        code: '40001',
+      }),
+    );
+    const service = providerSignInOn(harness(), policy);
+
+    const created = await service.findOrCreateUser(
+      GOOGLE,
+      profileOf('google-retried', { email: NEW_ADDRESS }),
+    );
+
+    expect(check.mock.calls.map(([request]) => request)).toEqual([
+      { application: WEB_CLIENT_ID, method: ACCOUNT_CREATION_METHOD.PROVIDER },
+      { application: WEB_CLIENT_ID, method: ACCOUNT_CREATION_METHOD.PROVIDER },
+    ]);
+    expect(check.mock.calls[0]?.[1]).not.toBe(check.mock.calls[1]?.[1]);
+    expect({
+      storedId: await harness().accountIdByEmail(NEW_ADDRESS),
+      links: await harness().storedLinks(created.id),
+    }).toEqual({
+      storedId: created.id,
+      links: [{ provider: 'google', providerId: 'google-retried' }],
     });
   });
 }

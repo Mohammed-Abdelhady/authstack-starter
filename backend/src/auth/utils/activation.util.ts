@@ -12,6 +12,8 @@ import {
 } from '../pending-codes/activation-accounts';
 import { activationCodeInvalid } from './activation-error.util';
 import type { SupportedLocale } from '../../common/constants/locales';
+import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
 
 const logger = new Logger('Activation');
 
@@ -40,11 +42,17 @@ export async function createActivatedAccount(
     name: string;
     locale: SupportedLocale;
   },
+  policy: AccountCreationPolicy,
+  application: string,
 ): Promise<ActivatedAccount> {
   if (await accounts.hasActiveAccount(unitOfWork, reserved.email)) {
     throw activationCodeInvalid();
   }
 
+  await policy.assertMayCreate(
+    { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
+    unitOfWork,
+  );
   try {
     return await accounts.insertActivated(unitOfWork, {
       id: account.id,

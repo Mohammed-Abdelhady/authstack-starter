@@ -35,6 +35,9 @@ import { REGISTRATION_CONTRACT_OUTDATED_MESSAGE } from '../../constants/auth-mes
 import { logUnknownCommit } from '../../utils/unknown-commit.util';
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
 import type { SupportedLocale } from '../../../common/constants/locales';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
+import { AccountCreationPolicy } from './account-creation-policy';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 
 /**
  * The sign-up code flows: start a registration, activate with the mailed code,
@@ -53,6 +56,7 @@ export class RegistrationService {
     private readonly verificationCodeService: VerificationCodeService,
     private readonly mailCounterService: MailCounterService,
     private readonly signIn: ActivationSignIn,
+    private readonly policy: AccountCreationPolicy,
   ) {}
 
   /**
@@ -83,15 +87,18 @@ export class RegistrationService {
   async registerForNative(
     email: string,
     locale: SupportedLocale,
+    clientId: string,
   ): Promise<string | null> {
-    return this.requestRegistrationCode(email, true, locale);
+    return this.requestRegistrationCode(email, true, locale, clientId);
   }
 
   private async requestRegistrationCode(
     email: string,
     includeGeneration: boolean,
     locale: SupportedLocale,
+    application = WEB_CLIENT_ID,
   ): Promise<string | null> {
+    await this.assertMayIssueRegistrationCode(application);
     const existingUser = await this.accounts.findAddressOwner(email);
 
     if (existingUser) {
@@ -171,12 +178,14 @@ export class RegistrationService {
         if (!consumed) {
           throw activationCodeInvalid();
         }
-        return createActivatedAccount(this.accounts, unitOfWork, reserved, {
-          id: accountId,
-          passwordHash,
-          name: dto.name,
-          locale,
-        });
+        return createActivatedAccount(
+          this.accounts,
+          unitOfWork,
+          reserved,
+          { id: accountId, passwordHash, name: dto.name, locale },
+          this.policy,
+          WEB_CLIENT_ID,
+        );
       });
     } catch (error) {
       if (isUnknownTransactionOutcome(error)) {
@@ -198,6 +207,7 @@ export class RegistrationService {
     dto: ResendActivationDto,
     locale: SupportedLocale,
   ): Promise<ApiResponse<ResendActivationResponseDto>> {
+    await this.assertMayIssueRegistrationCode(WEB_CLIENT_ID);
     const existingUser = await this.accounts.findAddressOwner(dto.email);
 
     if (existingUser) {
@@ -218,6 +228,16 @@ export class RegistrationService {
     }
 
     return ResendActivationResponseDto.success(dto.email);
+  }
+
+  /** Pending writes remain independent; refusal precedes any code or mail. */
+  private assertMayIssueRegistrationCode(application: string): Promise<void> {
+    return this.runner.run((unitOfWork) =>
+      this.policy.assertMayCreate(
+        { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
+        unitOfWork,
+      ),
+    );
   }
 
   /**

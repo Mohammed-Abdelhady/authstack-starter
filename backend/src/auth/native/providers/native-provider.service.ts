@@ -86,6 +86,7 @@ export class NativeProviderService {
         strategy,
         profile,
         locale,
+        claimed.clientId,
       );
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
         this.attempts.completeFactorIn(work, claimed, {

@@ -12,6 +12,9 @@ import {
 } from '../../../../user/persistence/postgres/postgres-account-rows';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { storedAddress } from '../../../persistence/postgres/postgres-pending-codes-database';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
+import { accountFailure } from '../../../../user/persistence/postgres/postgres-account-rows';
 
 /**
  * Links are rows of their own, so each write here is one transaction over the
@@ -83,38 +86,46 @@ export class PostgresProviderSignInStore extends ProviderSignInStore {
     });
   }
 
-  createFromProvider(account: NewProviderAccount): Promise<StoredAccount> {
-    return this.stored(() =>
-      this.database.transaction().execute(async (work) => {
-        const now = this.clock.now();
-        const created = await work
-          .insertInto('users')
-          .values({
-            email: storedAddress(account.email),
-            name: account.name.trim(),
-            avatar_url: account.avatarUrl ?? null,
-            is_verified: true,
-            auth_provider: account.provider,
-            primary_provider: account.provider,
-            role: account.role,
-            locale: account.locale,
-            created_at: now,
-            updated_at: now,
-          })
-          .returning('id')
-          .executeTakeFirstOrThrow();
-        await work
-          .insertInto('user_linked_accounts')
-          .values({
-            user_id: created.id,
-            provider: account.provider,
-            provider_id: account.providerId,
-            linked_at: now,
-          })
-          .execute();
-        return created.id;
-      }),
-    );
+  async createFromProviderIn(
+    unitOfWork: UnitOfWork,
+    account: NewProviderAccount,
+  ): Promise<StoredAccount> {
+    const work = postgresTransactionOf(unitOfWork);
+    try {
+      const now = this.clock.now();
+      const created = await work
+        .insertInto('users')
+        .values({
+          email: storedAddress(account.email),
+          name: account.name.trim(),
+          avatar_url: account.avatarUrl ?? null,
+          is_verified: true,
+          auth_provider: account.provider,
+          primary_provider: account.provider,
+          role: account.role,
+          locale: account.locale,
+          created_at: now,
+          updated_at: now,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      await work
+        .insertInto('user_linked_accounts')
+        .values({
+          user_id: created.id,
+          provider: account.provider,
+          provider_id: account.providerId,
+          linked_at: now,
+        })
+        .execute();
+      const saved = await readAccount(work, created.id);
+      if (!saved) {
+        throw new Error('Provider account insert could not be read back');
+      }
+      return saved;
+    } catch (error) {
+      throw accountFailure(error);
+    }
   }
 
   /** Runs the write, then answers with the account as it is stored. */

@@ -12,10 +12,7 @@ import {
   User,
   UserDocument,
 } from '../../../../user/persistence/mongo/schemas/user.schema';
-import {
-  insertOrConflict,
-  singleStatement,
-} from '../../../../common/persistence/mongo/mongo-unique-conflict';
+import { singleStatement } from '../../../../common/persistence/mongo/mongo-unique-conflict';
 import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
@@ -27,10 +24,6 @@ import {
   MagicLinkSignInOutcome,
   NewPasswordlessAccount,
 } from '../../stores/magic-link-accounts';
-
-const USER_INDEX_CONSTRAINTS = {
-  email_1: MAGIC_LINK_ACCOUNT_CONSTRAINT.ADDRESS,
-} as const;
 
 class MongoMagicLinkAccount extends MagicLinkAccount {
   constructor(readonly document: UserDocument) {
@@ -113,22 +106,6 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
       { session: mongoSessionOf(unitOfWork) },
     );
     return updated.matchedCount > 0;
-  }
-
-  async createPasswordless(
-    account: NewPasswordlessAccount,
-  ): Promise<MagicLinkAccount> {
-    const user = await insertOrConflict(USER_INDEX_CONSTRAINTS, () =>
-      this.userModel.create({
-        email: account.email,
-        name: account.name,
-        isVerified: true,
-        authProvider: AuthProvider.EMAIL,
-        primaryProvider: AuthProvider.EMAIL,
-        locale: account.locale,
-      }),
-    );
-    return new MongoMagicLinkAccount(user);
   }
 
   async createPasswordlessIn(

@@ -1,3 +1,6 @@
+import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
+import { AccountCreationPolicy } from '../../../services/registration/account-creation-policy';
+import { UnitOfWorkRunner } from '../../../../common/persistence/unit-of-work';
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
@@ -96,6 +99,11 @@ describe('OAuthService linking', () => {
     module = await Test.createTestingModule({
       providers: [
         OAuthService,
+        AccountCreationPolicy,
+        {
+          provide: UnitOfWorkRunner,
+          useValue: partialMock<UnitOfWorkRunner>({}),
+        },
         { provide: getModelToken(User.name), useValue: userModel },
         { provide: getModelToken(Role.name), useValue: roleModel },
         { provide: getModelToken(Passkey.name), useValue: {} }, // feature:passkeys

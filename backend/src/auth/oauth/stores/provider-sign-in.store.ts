@@ -1,5 +1,6 @@
 import { StoredAccount } from '../../../user/stores/stored-account';
 import type { SupportedLocale } from '../../../common/constants/locales';
+import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 
 export interface ProviderIdentity {
   provider: string;
@@ -18,8 +19,8 @@ export interface NewProviderAccount extends ProviderIdentity {
 /**
  * What signing in through a provider needs of accounts: the account behind a
  * provider identity, or behind its address, and the two writes a first
- * sign-in makes. Every method is one statement that commits by itself. The
- * reads answer with deactivated accounts too: the service refuses those.
+ * sign-in makes. Creation joins the caller's transaction; linking an existing
+ * account commits by itself. Reads include deactivated accounts for refusal.
  *
  * One provider identity belongs to one account, and one address to one
  * account. A write that would break either rule is refused with a
@@ -42,7 +43,8 @@ export abstract class ProviderSignInStore {
   ): Promise<StoredAccount>;
 
   /** Stores a verified account that signs in through the provider. */
-  abstract createFromProvider(
+  abstract createFromProviderIn(
+    unitOfWork: UnitOfWork,
     account: NewProviderAccount,
   ): Promise<StoredAccount>;
 }

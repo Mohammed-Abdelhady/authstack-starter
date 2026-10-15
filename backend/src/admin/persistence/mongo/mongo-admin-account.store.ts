@@ -180,7 +180,7 @@ export class MongoAdminAccountStore extends AdminAccountStore {
     return this.save(user, mongoSessionOf(unitOfWork), account.id);
   }
 
-  insertAccount(
+  async insertAccount(
     unitOfWork: UnitOfWork,
     account: NewAdminAccount,
   ): Promise<StoredAccount> {
@@ -195,7 +195,12 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       primaryProvider: AuthProvider.EMAIL,
       locale: account.locale,
     });
-    return this.save(user, mongoSessionOf(unitOfWork));
+    try {
+      await user.save({ session: mongoSessionOf(unitOfWork) });
+    } catch (error) {
+      throw accountConflictOr(error);
+    }
+    return this.read.remember(user);
   }
 
   async removeCreatedAccount(
