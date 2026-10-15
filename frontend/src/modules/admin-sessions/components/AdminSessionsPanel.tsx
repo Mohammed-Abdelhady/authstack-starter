@@ -17,6 +17,7 @@ import type {
 } from '../types/admin-session.types';
 import { AdminSessionRow } from './AdminSessionRow';
 import { EndAdminSessionsDialog } from './EndAdminSessionsDialog';
+import { canEndSessions } from '../utils/canEndSessions';
 
 interface Props {
   userId: string;
@@ -24,7 +25,7 @@ interface Props {
 
 function SessionsContent({ scope }: { scope: AdminSessionScope }) {
   const t = useTranslations('adminSessions');
-  const { can } = usePermission();
+  const { permissions } = usePermission();
   const [target, setTarget] = useState<SessionEndTarget | null>(null);
   const [needsReview, setNeedsReview] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -32,7 +33,7 @@ function SessionsContent({ scope }: { scope: AdminSessionScope }) {
   const { currentData, isFetching, error, refetch } = useGetAdminSessionsQuery(scope);
   const sessions = currentData?.sessions ?? [];
   const ready = currentData !== undefined && !isFetching && !error;
-  const canEnd = can(SESSION_PERMISSIONS.DELETE_ALL) && ready && !needsReview;
+  const canEnd = canEndSessions(permissions, currentData?.targetClass) && ready && !needsReview;
   const selectedId = target && 'session' in target ? target.session.id : null;
   const canConfirm =
     canEnd &&
@@ -76,7 +77,7 @@ function SessionsContent({ scope }: { scope: AdminSessionScope }) {
           >
             {t('refresh')}
           </Button>
-          {can(SESSION_PERMISSIONS.DELETE_ALL) && canEnd && sessions.length > 0 && (
+          {canEnd && sessions.length > 0 && (
             <Button variant="destructive" onClick={endAll} data-testid="admin-sessions-end-all">
               {t('endAll')}
             </Button>
@@ -111,6 +112,7 @@ function SessionsContent({ scope }: { scope: AdminSessionScope }) {
         <EndAdminSessionsDialog
           scope={scope}
           target={target}
+          targetClass={currentData?.targetClass}
           canConfirm={canConfirm}
           onClose={close}
           onSuccess={succeeded}

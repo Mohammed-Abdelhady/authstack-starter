@@ -1,3 +1,4 @@
+import type { RoleAudience } from '@app/core';
 import type { Session } from '@app/sdk';
 
 export interface AdminSession extends Session {
@@ -5,6 +6,7 @@ export interface AdminSession extends Session {
 }
 
 export interface AdminSessionList {
+  targetClass: RoleAudience;
   sessions: AdminSession[];
   total: number;
 }

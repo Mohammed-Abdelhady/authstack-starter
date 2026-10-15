@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import type { RoleAudience } from '@app/core';
+import { usePermission } from '@/modules/permissions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,10 +20,12 @@ import { useRemovalFocus, type RemovalLanding } from '@/hooks/useRemovalFocus';
 import { sessionDeviceText } from '@/modules/sessions/utils/sessionDevice';
 import type { AdminSessionScope, SessionEndTarget } from '../types/admin-session.types';
 import { useEndAdminSessions } from '../hooks/useEndAdminSessions';
+import { canEndSessions } from '../utils/canEndSessions';
 
 interface Props {
   scope: AdminSessionScope;
   target: SessionEndTarget;
+  targetClass: RoleAudience | undefined;
   canConfirm: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -32,6 +36,7 @@ interface Props {
 export function EndAdminSessionsDialog({
   scope,
   target,
+  targetClass,
   canConfirm,
   onClose,
   onSuccess,
@@ -39,6 +44,7 @@ export function EndAdminSessionsDialog({
   landing,
 }: Props) {
   const t = useTranslations('adminSessions');
+  const { permissions } = usePermission();
   const tSessions = useTranslations('sessions');
   const tCommon = useTranslations('common');
   const { noteRemoved, focusLanding } = useRemovalFocus(landing);
@@ -48,11 +54,13 @@ export function EndAdminSessionsDialog({
   }, [noteRemoved, onSuccess]);
   const { end, busy, refusal, unknown } = useEndAdminSessions({
     scope,
+    targetClass,
     onSuccess: succeed,
     onUnknown,
   });
   const closeButton = useRef<HTMLButtonElement>(null);
-  const canSubmit = canConfirm && !unknown;
+  const allowed = canConfirm && canEndSessions(permissions, targetClass);
+  const canSubmit = allowed && !unknown;
   useEffect(() => {
     if (!canSubmit && !busy) closeButton.current?.focus();
   }, [canSubmit, busy]);
@@ -91,14 +99,14 @@ export function EndAdminSessionsDialog({
           error={unknown ? t('unknownOutcome') : refusal}
           testId="admin-session-end-error"
         />
-        {!canConfirm && !unknown && (
+        {!allowed && !unknown && (
           <p role="status" className="text-sm">
             {t('unavailable')}
           </p>
         )}
         <AlertDialogFooter>
           <AlertDialogCancel ref={closeButton} data-testid="admin-session-confirm-cancel">
-            {unknown || !canConfirm ? tCommon('close') : tCommon('cancel')}
+            {unknown || !allowed ? tCommon('close') : tCommon('cancel')}
           </AlertDialogCancel>
           {canSubmit && (
             <AlertDialogAction

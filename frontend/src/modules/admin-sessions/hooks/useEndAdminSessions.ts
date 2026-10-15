@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStore } from 'react-redux';
-import { SESSION_PERMISSIONS } from '@app/core';
+import { SESSION_PERMISSIONS, type RoleAudience } from '@app/core';
 import { useRefusalText } from '@/hooks/useRefusalText';
 import { showsOwnRefusal } from '@/lib/refusal';
 import type { RootState } from '@/store/store';
@@ -11,14 +11,16 @@ import {
 import type { AdminSessionScope, SessionEndTarget } from '../types/admin-session.types';
 import { hasUnknownOutcome } from '../utils/unknownOutcome';
 import { sessionScopeIsCurrent } from '../utils/sessionScopeIsCurrent';
+import { canEndSessions } from '../utils/canEndSessions';
 
 interface Options {
   scope: AdminSessionScope;
+  targetClass: RoleAudience | undefined;
   onSuccess: () => void;
   onUnknown: () => void;
 }
 
-export function useEndAdminSessions({ scope, onSuccess, onUnknown }: Options) {
+export function useEndAdminSessions({ scope, targetClass, onSuccess, onUnknown }: Options) {
   const store = useStore<RootState>();
   const refusalText = useRefusalText();
   const [endOne] = useEndAdminSessionMutation();
@@ -30,10 +32,20 @@ export function useEndAdminSessions({ scope, onSuccess, onUnknown }: Options) {
   const activeRequest = useRef<{ abort: () => void } | null>(null);
   const { actorId, sessionGeneration, userId } = scope;
 
+  const canEndCurrentScope = useCallback(() => {
+    const state = store.getState();
+    return (
+      sessionScopeIsCurrent(
+        state,
+        { actorId, sessionGeneration, userId },
+        SESSION_PERMISSIONS.DELETE_ALL,
+      ) && canEndSessions(state.auth.user?.permissions ?? [], targetClass)
+    );
+  }, [store, actorId, sessionGeneration, userId, targetClass]);
+
   useEffect(() => {
-    const currentScope = { actorId, sessionGeneration, userId };
     const unsubscribe = store.subscribe(() => {
-      if (!sessionScopeIsCurrent(store.getState(), currentScope, SESSION_PERMISSIONS.DELETE_ALL)) {
+      if (!canEndCurrentScope()) {
         activeRequest.current?.abort();
       }
     });
@@ -41,14 +53,10 @@ export function useEndAdminSessions({ scope, onSuccess, onUnknown }: Options) {
       unsubscribe();
       activeRequest.current?.abort();
     };
-  }, [store, actorId, sessionGeneration, userId]);
+  }, [store, canEndCurrentScope]);
 
   const end = async (target: SessionEndTarget) => {
-    if (
-      sending.current ||
-      unknown ||
-      !sessionScopeIsCurrent(store.getState(), scope, SESSION_PERMISSIONS.DELETE_ALL)
-    ) {
+    if (sending.current || unknown || !canEndCurrentScope()) {
       return;
     }
     sending.current = true;
@@ -58,21 +66,18 @@ export function useEndAdminSessions({ scope, onSuccess, onUnknown }: Options) {
       const request =
         'all' in target ? endAll(scope) : endOne({ ...scope, sessionId: target.session.id });
       activeRequest.current = request;
-      if (!sessionScopeIsCurrent(store.getState(), scope, SESSION_PERMISSIONS.DELETE_ALL)) {
+      if (!canEndCurrentScope()) {
         request.abort();
       }
       await showsOwnRefusal(request).unwrap();
-      if (sessionScopeIsCurrent(store.getState(), scope, SESSION_PERMISSIONS.DELETE_ALL)) {
+      if (canEndCurrentScope()) {
         onSuccess();
       } else {
         setUnknown(true);
         onUnknown();
       }
     } catch (error) {
-      if (
-        !sessionScopeIsCurrent(store.getState(), scope, SESSION_PERMISSIONS.DELETE_ALL) ||
-        hasUnknownOutcome(error)
-      ) {
+      if (!canEndCurrentScope() || hasUnknownOutcome(error)) {
         setUnknown(true);
         onUnknown();
       } else {
