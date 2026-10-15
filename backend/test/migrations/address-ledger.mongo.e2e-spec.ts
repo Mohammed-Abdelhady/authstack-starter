@@ -2,6 +2,10 @@ import { createRequire } from 'node:module';
 import { Db, MongoClient, ObjectId } from 'mongodb';
 import { startMemoryReplSet, MemoryReplSet } from '../utils/memory-replset';
 import {
+  confirmMigratedEmailChange,
+  withMigrationDate,
+} from '../utils/mongo/address-ledger-migration';
+import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
@@ -34,10 +38,13 @@ const USER_IDS = [
 const MIGRATION_NOW = new Date('2099-01-01T12:00:00.000Z');
 const LIVE_EXPIRY = new Date('2099-01-01T13:00:00.000Z');
 const EARLIER_EXPIRY = new Date('2099-01-01T12:30:00.000Z');
+const SELECTED_CODE_ID = '66f000000000000000000003';
 const ZERO_COUNTS =
   'Address ledger backfill: kept=0 cleared_taken=0 cleared_ambiguous=0 cleared_codeless=0 codes_killed=0';
 const BACKFILL_COUNTS =
-  'Address ledger backfill: kept=2 cleared_taken=1 cleared_ambiguous=5 cleared_codeless=4 codes_killed=6';
+  'Address ledger backfill: kept=2 cleared_taken=1 cleared_ambiguous=5 cleared_codeless=4 codes_killed=9';
+const HANDOFF_COUNTS =
+  'Address ledger backfill: kept=1 cleared_taken=0 cleared_ambiguous=1 cleared_codeless=0 codes_killed=1';
 
 interface LegacyUser {
   _id: ObjectId;
@@ -48,6 +55,7 @@ interface LegacyUser {
 }
 
 interface LegacyCode {
+  _id?: ObjectId;
   email: string;
   purpose: string;
   userId?: ObjectId;
@@ -92,10 +100,11 @@ async function seedBackfill(db: Db) {
       isDeleted: index === 0,
     })),
   );
-  const codes: [string, number, number, Date][] = [
+  const codes: [string, number, number, Date, string?][] = [
     [' taken@EXAMPLE.test ', 1, 1, LIVE_EXPIRY],
-    [' SHARED@example.test ', 2, 7, LIVE_EXPIRY],
-    [' Shared@EXAMPLE.test ', 2, 7, EARLIER_EXPIRY],
+    [' SHARED@example.test ', 2, 7, LIVE_EXPIRY, '66f000000000000000000002'],
+    [' Shared@EXAMPLE.test ', 2, 7, EARLIER_EXPIRY, '66f000000000000000000004'],
+    [' SHARED@EXAMPLE.TEST ', 2, 7, LIVE_EXPIRY, SELECTED_CODE_ID],
     ['shared@example.test', 3, 0, LIVE_EXPIRY],
     ['stale@example.test', 6, 3, LIVE_EXPIRY],
     ['expired@example.test', 7, 1, MIGRATION_NOW],
@@ -106,7 +115,8 @@ async function seedBackfill(db: Db) {
     ['unrelated@example.test', 2, 7, LIVE_EXPIRY],
   ];
   await db.collection<LegacyCode>('pendingregistrations').insertMany([
-    ...codes.map(([email, owner, addressGeneration, expiresAt]) => ({
+    ...codes.map(([email, owner, addressGeneration, expiresAt, id]) => ({
+      ...(id === undefined ? {} : { _id: new ObjectId(id) }),
       email,
       purpose: 'email-change',
       userId: new ObjectId(USER_IDS[owner]),
@@ -159,7 +169,7 @@ async function expectBackfilled(db: Db) {
       _id: 'shared@example.test',
       kind: 'EMAIL_CHANGE',
       owner: THIRD_ID,
-      lapsesAt: EARLIER_EXPIRY,
+      lapsesAt: LIVE_EXPIRY,
     },
     {
       _id: 'solo@example.test',
@@ -174,13 +184,14 @@ async function expectBackfilled(db: Db) {
     .sort({ email: 1, purpose: 1 })
     .toArray();
   expect(codes.map(({ email, purpose }) => ({ email, purpose }))).toEqual([
-    { email: ' SHARED@example.test ', purpose: 'email-change' },
-    { email: ' SOLO@example.test ', purpose: 'email-change' },
-    { email: ' Shared@EXAMPLE.test ', purpose: 'email-change' },
     { email: ' taken@EXAMPLE.test ', purpose: 'signup' },
     { email: 'shared@example.test', purpose: 'email-change' },
+    { email: 'solo@example.test', purpose: 'email-change' },
     { email: 'unrelated@example.test', purpose: 'email-change' },
   ]);
+  expect(
+    codes.find((code) => code.email === 'shared@example.test')?._id?.toString(),
+  ).toBe(SELECTED_CODE_ID);
 }
 
 describe('address ledger MongoDB migration', () => {
@@ -227,29 +238,18 @@ describe('address ledger MongoDB migration', () => {
 
   it('backfills only live bindings, clears unsafe pending data and replays once', async () => {
     await seedBackfill(client.db());
-    jest.useFakeTimers({
-      now: MIGRATION_NOW,
-      doNotFake: [
-        'hrtime',
-        'nextTick',
-        'performance',
-        'queueMicrotask',
-        'setImmediate',
-        'clearImmediate',
-        'setInterval',
-        'clearInterval',
-        'setTimeout',
-        'clearTimeout',
-      ],
-    });
-    try {
+    await withMigrationDate(MIGRATION_NOW, async () => {
       await migrate(client.db(), client, BACKFILL_COUNTS);
       await expectBackfilled(client.db());
       await migrate(client.db(), client, ZERO_COUNTS);
       await expectBackfilled(client.db());
-    } finally {
-      jest.useRealTimers();
-    }
+    });
+  });
+
+  it('confirms the canonical code retained by the migration', async () => {
+    await confirmMigratedEmailChange((db, migrationClient) =>
+      migrate(db, migrationClient, HANDOFF_COUNTS),
+    );
   });
 
   it('reports both colliding ids before changing even unrelated emails', async () => {
