@@ -127,4 +127,17 @@ export class MongoMagicLinkStore extends MagicLinkStore {
       ...(link.redirect ? { redirect: link.redirect } : {}),
     };
   }
+
+  async restoreUnspentLink(
+    tokenHash: string,
+    claimedAt: Date,
+  ): Promise<boolean> {
+    const restored = await singleStatement(() =>
+      this.pendingMagicLinkModel.updateOne(
+        { tokenHash: { $eq: tokenHash }, consumedAt: claimedAt },
+        { $set: { consumedAt: null } },
+      ),
+    );
+    return restored.matchedCount === 1;
+  }
 }
