@@ -139,9 +139,10 @@ the settings are set.
 ## The mail
 
 The mail is in the account's language, or the request's for an unknown
-address. It holds the code as text in Western digits, the code again in the
-subject, how many minutes are left, and a line telling the person to ignore it
-if they did not ask.
+address. It holds the code as text in Western digits, how many minutes are
+left, and a line telling the person to ignore it if they did not ask. The
+subject never carries the code, because the server logs the subject of every
+mail it sends.
 
 The button, when there is one, opens the app's registered callback with its
 values after `#`. A browser that opens it without the app sends none of them to
