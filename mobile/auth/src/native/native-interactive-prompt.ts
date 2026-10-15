@@ -8,7 +8,7 @@ import type {
   NativeInteractivePrompt,
   NativeInteractivePromptRequest,
   NativePromptResult,
-} from '../types/native-sign-in';
+} from '../types/passkey-port';
 
 export function createNativeInteractivePrompt(runtime: AuthRuntime): NativeInteractivePrompt {
   let active = false;

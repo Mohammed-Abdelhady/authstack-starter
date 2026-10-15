@@ -36,10 +36,8 @@ export type { AuthRecord, AuthTransaction, RuntimeTokens, StoredTokens } from '.
 export type {
   BrowserSignInOptions,
   NativeMethods,
-  NativePromptResult,
   NativeSafeAttemptView,
   NativeSignInAction,
   NativeSignInOutcome,
-  PasskeyPort,
-  ProviderSignInPort,
-} from './native-sign-in';
+} from './native-sign-in-actions';
+export type { NativePromptResult, PasskeyPort, ProviderSignInPort } from './passkey-port';

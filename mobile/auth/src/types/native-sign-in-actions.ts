@@ -3,14 +3,10 @@ import type {
   NativeAttemptView,
   NativeFlow,
   NativeMethods,
-  NativePasskeyAssertion,
-  NativePasskeyOptions,
-  NativeProviderCredential,
-  NativeProviderMethod,
   NativeRecoveryConfirmationInput,
   NativeSecondFactorInput,
 } from '@app/sdk';
-import type { AbortSignalPort, AuthProfile } from './auth';
+import type { AuthProfile } from './auth';
 import type { NATIVE_SIGN_IN_LOCALE } from '../constants/native-sign-in-locale';
 
 type NativeSignInLocale = (typeof NATIVE_SIGN_IN_LOCALE)[keyof typeof NATIVE_SIGN_IN_LOCALE];
@@ -63,38 +59,6 @@ export type NativeSignInOutcome =
   | { kind: 'disabled' }
   | { kind: 'disposed' }
   | { kind: 'signedOut' };
-
-export type NativePromptResult<T> =
-  | { kind: 'success'; value: T }
-  | { kind: 'cancelled' }
-  | { kind: 'unavailable' }
-  | { kind: 'failed'; reason: 'sdk' | 'invalidResponse' };
-
-export interface NativeInteractivePromptRequest<T> {
-  controller: { signal: AbortSignalPort; abort(): void };
-  expiresAt: number;
-  start: () => Promise<NativePromptResult<T>>;
-}
-
-export type NativeInteractivePrompt = <T>(
-  request: NativeInteractivePromptRequest<T>,
-) => Promise<NativePromptResult<T> | { kind: 'expired' }>;
-
-export interface ProviderSignInPort {
-  available(method: NativeProviderMethod): Promise<boolean>;
-  authenticate(
-    request: { method: NativeProviderMethod; nonceDigest: string; state: string },
-    signal: AbortSignalPort,
-  ): Promise<NativePromptResult<NativeProviderCredential>>;
-}
-
-export interface PasskeyPort {
-  available(): Promise<boolean>;
-  authenticate(
-    options: NativePasskeyOptions,
-    signal: AbortSignalPort,
-  ): Promise<NativePromptResult<NativePasskeyAssertion>>;
-}
 
 export interface NativeController {
   needsCancellation(): boolean;
