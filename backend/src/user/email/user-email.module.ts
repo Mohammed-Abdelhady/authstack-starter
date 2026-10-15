@@ -11,6 +11,8 @@ import { OwnEmailController } from './own-email.controller';
 import { NativeEmailChangeService } from './services/native-email-change.service';
 import { OwnEmailConfirmationService } from './services/own-email-confirmation.service';
 import { OwnEmailMailService } from './services/own-email-mail.service';
+import { OwnEmailProofService } from './services/own-email-proof.service';
+import { OwnEmailReauth } from './services/own-email-reauth.service';
 import { OwnEmailRequestService } from './services/own-email-request.service';
 
 /**
@@ -32,6 +34,8 @@ import { OwnEmailRequestService } from './services/own-email-request.service';
     OwnEmailRequestService,
     OwnEmailConfirmationService,
     OwnEmailMailService,
+    OwnEmailProofService,
+    OwnEmailReauth,
     NativeEmailChangeService,
     EmailChangeConfirmationService,
   ],

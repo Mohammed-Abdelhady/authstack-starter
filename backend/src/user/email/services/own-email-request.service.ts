@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { FreshProofCheck } from '../../../auth/contracts/fresh-proof';
 import { PENDING_PURPOSE } from '../../../auth/constants/registration';
 import { CODE_ROTATION } from '../../../auth/pending-codes/pending-registration.store';
 import { ActivationAccounts } from '../../../auth/pending-codes/activation-accounts';
@@ -19,7 +18,11 @@ import { Clock } from '../../../common/services/clock';
 import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { SECURITY_NOTICE } from '../../constants/security-notice.constants';
 import { SecurityNoticeService } from '../../services/security-notice.service';
-import type { OwnEmailCaller, OwnEmailState } from '../types/own-email';
+import type {
+  OwnEmailCaller,
+  OwnEmailProof,
+  OwnEmailState,
+} from '../types/own-email';
 import {
   AddressClaimLostError,
   asOwnEmailFailure,
@@ -28,12 +31,13 @@ import {
   sameAddress,
   sessionEnded,
 } from '../utils/own-email-errors';
-import { assertFreshProof } from '../utils/own-email-proof';
 import { OwnEmailMailService } from './own-email-mail.service';
+import { OwnEmailProofService } from './own-email-proof.service';
 
 /** One request as it is about to be stored. */
 interface PendingRequest {
   caller: OwnEmailCaller;
+  proof: OwnEmailProof;
   address: string;
   prepared: PreparedEmailChange;
   /** The generation read before the code was prepared for the next one. */
@@ -61,7 +65,7 @@ export class OwnEmailRequestService {
     private readonly accounts: ActivationAccounts,
     private readonly codes: VerificationCodeService,
     private readonly ledger: AddressLedger,
-    private readonly freshProof: FreshProofCheck,
+    private readonly proofs: OwnEmailProofService,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly mail: OwnEmailMailService,
@@ -77,13 +81,20 @@ export class OwnEmailRequestService {
   }
 
   /**
+   * @param password - The account's password, when the session alone cannot
+   *   prove who is asking
    * @throws ValidationFailedException when the address is the account's own
    * @throws AppException REAUTH_REQUIRED without a fresh proof,
-   *   EMAIL_SEND_LIMIT_REACHED when the address had its codes, CONFLICT when
-   *   the address changed while the request was prepared
+   *   INVALID_CURRENT_PASSWORD for a wrong password, EMAIL_SEND_LIMIT_REACHED
+   *   when the address had its codes, CONFLICT when the address changed while
+   *   the request was prepared
    */
-  request(caller: OwnEmailCaller, email: string): Promise<OwnEmailState> {
-    return this.requestChange(caller, storedAddress(email)).catch(
+  request(
+    caller: OwnEmailCaller,
+    email: string,
+    password?: string,
+  ): Promise<OwnEmailState> {
+    return this.requestChange(caller, storedAddress(email), password).catch(
       asOwnEmailFailure,
     );
   }
@@ -98,11 +109,10 @@ export class OwnEmailRequestService {
   private async requestChange(
     caller: OwnEmailCaller,
     address: string,
+    password: string | undefined,
   ): Promise<OwnEmailState> {
     // Refused before a code is hashed or a mail slot is spent.
-    await this.runner.run((unitOfWork) =>
-      assertFreshProof(this.freshProof, unitOfWork, caller),
-    );
+    const proof = await this.proofs.prove(caller, password);
     const current = await this.accounts.findAddressConfirmation(caller.userId);
     if (!current) throw sessionEnded();
     if (storedAddress(current.email) === address) throw sameAddress();
@@ -120,6 +130,7 @@ export class OwnEmailRequestService {
 
     const stored = await this.store({
       caller,
+      proof,
       address,
       prepared,
       readGeneration: current.addressGeneration,
@@ -178,7 +189,7 @@ export class OwnEmailRequestService {
     mayClaim: boolean,
   ): Promise<StoredRequest> {
     const { caller, address, prepared } = request;
-    await assertFreshProof(this.freshProof, unitOfWork, caller);
+    await this.proofs.assertStillProvedIn(unitOfWork, caller, request.proof);
     const account = await this.accounts.readMovedAccount(
       unitOfWork,
       caller.userId,
