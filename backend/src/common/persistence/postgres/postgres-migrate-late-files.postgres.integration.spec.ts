@@ -113,17 +113,20 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
       );
 
       expect({
-        previousBuild: previousBuild.slice(-3),
+        // Every migration newer than 0019 was applied before 0019 was.
+        newerThanLocale: previousBuild.filter((name) => name > ACCOUNT_LOCALE),
         refused,
         up,
         recorded: await recorded(pool),
         locales: locale.rows,
         after: await startUp(pool),
       }).toEqual({
-        previousBuild: [
-          '0018_native_attempts.sql',
+        newerThanLocale: [
           '0020_host_migrations.sql',
           '0021_address_claims.sql',
+          '0022_application_policy.sql',
+          '0023_account_audience.sql',
+          '0024_session_evidence.sql',
         ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
