@@ -35,7 +35,8 @@ export function buildSignInCodeMail(mail: SignInCodeMail): MailContent {
     : [];
   const buttonText = mail.link ? [copy.buttonText, mail.link] : [];
   return {
-    subject: formatMessage(copy.subject, { code: mail.code }),
+    // Never the code: the mail service logs every subject it sends.
+    subject: copy.subject,
     html: htmlDocument(mail.locale, copy.title, [
       heading(copy.heading),
       paragraph(copy.instruction),
