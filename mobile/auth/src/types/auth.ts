@@ -13,6 +13,7 @@ import type {
   NativeSignInOutcome,
 } from './native-sign-in-actions';
 import type { PasskeyPort, ProviderSignInPort } from './passkey-port';
+import type { PasskeyActions } from './passkey-actions';
 import type { NativeMethods } from '@app/sdk';
 
 export type SessionStatus =
@@ -211,6 +212,8 @@ export interface AuthEngine {
   signOut(): Promise<SignOutOutcome>;
   /** Refreshes now, sharing any refresh already running. */
   refresh(): Promise<RefreshOutcome>;
+  /** The signed-in account's passkeys, and making one on this device. */
+  readonly passkeys: PasskeyActions;
   dispose(): void;
 }
 
