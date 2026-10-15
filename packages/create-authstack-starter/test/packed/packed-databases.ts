@@ -44,6 +44,7 @@ const CORE_MIGRATIONS = [
   '0018_native_attempts.sql',
   '0019_account_locale.sql',
   '0020_host_migrations.sql',
+  '0021_address_claims.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -233,6 +234,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0018_native_attempts.sql',
       '0019_account_locale.sql',
       '0020_host_migrations.sql',
+      '0021_address_claims.sql',
     ]);
   });
 
