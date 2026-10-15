@@ -1,4 +1,6 @@
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import { ExecutionContext } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from './auth.guard';
@@ -9,6 +11,7 @@ import { MongoRolePermissions } from '../../role/persistence/mongo/mongo-role-pe
 import { RolePermissions } from '../../role/stores/role-permissions';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { NativeAccessService } from '../../session/native/access/native-access.service';
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import {
   createExecutionContextMock,
   createModelMock,
@@ -26,10 +29,9 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   let sessionService: {
     validateSession: jest.Mock;
   };
-  let sessionCookieService: {
-    read: jest.Mock;
-    clear: jest.Mock;
-  };
+  let sessionCookieService: SessionCookieService;
+  let readCookie: jest.SpiedFunction<SessionCookieService['read']>;
+  let clearCookie: jest.SpiedFunction<SessionCookieService['clear']>;
   let nativeAccess: {
     validate: jest.Mock;
   };
@@ -69,12 +71,16 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
       validateSession: jest.fn(),
     };
 
-    sessionCookieService = {
-      read: jest.fn(
-        (req: { cookies?: Record<string, string> }) => req.cookies?.sid,
-      ),
-      clear: jest.fn(),
-    };
+    const config = new ConfigService({ session: { cookieName: 'sid' } });
+    const browserApplications = browserApplicationsForTest(config);
+    sessionCookieService = new SessionCookieService(
+      config,
+      browserApplications,
+    );
+    readCookie = jest.spyOn(sessionCookieService, 'read');
+    clearCookie = jest
+      .spyOn(sessionCookieService, 'clear')
+      .mockImplementation(() => undefined);
 
     nativeAccess = {
       validate: jest.fn(),
@@ -117,7 +123,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
-    expect(sessionCookieService.read).not.toHaveBeenCalled();
+    expect(readCookie).not.toHaveBeenCalled();
     expect(sessionService.validateSession).not.toHaveBeenCalled();
   });
 
@@ -129,7 +135,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
       status: 401,
     });
 
-    expect(sessionCookieService.read).toHaveBeenCalledWith(request);
+    expect(readCookie).toHaveBeenCalledWith(request);
   });
 
   it('should clear the stale cookie when validateSession returns null', async () => {
@@ -143,16 +149,17 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
       status: 401,
     });
 
-    expect(sessionCookieService.read).toHaveBeenCalledWith(request);
+    expect(readCookie).toHaveBeenCalledWith(request);
     expect(sessionService.validateSession).toHaveBeenCalledWith(
       'invalid-token',
     );
-    expect(sessionCookieService.clear).toHaveBeenCalledWith(response);
+    expect(clearCookie).toHaveBeenCalledWith(response);
   });
 
   it('should throw SESSION_INVALID when populated user is missing', async () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     sessionService.validateSession.mockResolvedValue({
+      clientId: WEB_CLIENT_ID,
       user: null,
     });
 
@@ -167,6 +174,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   it('deliberately refuses an unpopulated session user with SESSION_INVALID', async () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     sessionService.validateSession.mockResolvedValue({
+      clientId: WEB_CLIENT_ID,
       user: '507f1f77bcf86cd799439013',
     });
 
@@ -179,6 +187,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
   it('should throw SESSION_INVALID when user isDeleted', async () => {
     const { context } = createMockContext({ sid: 'valid-token' });
     sessionService.validateSession.mockResolvedValue({
+      clientId: WEB_CLIENT_ID,
       user: {
         id: '507f1f77bcf86cd799439014',
         email: 'deleted@example.com',
@@ -203,7 +212,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
       isVerified: true,
       isDeleted: false,
     };
-    const sessionDoc = { user: userDoc };
+    const sessionDoc = { clientId: WEB_CLIENT_ID, user: userDoc };
 
     sessionService.validateSession.mockResolvedValue(sessionDoc);
 
@@ -273,6 +282,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
     request.headers = { authorization: 'Bearer invalid-token' };
     nativeAccess.validate.mockResolvedValue(null);
     sessionService.validateSession.mockResolvedValue({
+      clientId: WEB_CLIENT_ID,
       user: {
         id: '507f1f77bcf86cd799439011',
         email: 'cookie@example.com',
@@ -289,7 +299,7 @@ describe('AuthGuard (X-13, D-29, S-01, S-21)', () => {
       status: 401,
     });
     expect(sessionService.validateSession).not.toHaveBeenCalled();
-    expect(sessionCookieService.clear).not.toHaveBeenCalled();
+    expect(clearCookie).not.toHaveBeenCalled();
     expect(request.user).toBeUndefined();
   });
 });

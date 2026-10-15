@@ -1,10 +1,16 @@
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
+import { SESSION_COOKIE_DEFAULT_NAME } from '../../config/utils/production-environment.util';
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { CSRF_HEADER } from '../../session/constants/browser-proof';
 import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
-import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../session/constants/client-ids';
 import { ApplicationRegistry } from '../../session/applications/application-registry';
 import { BrowserProofService } from '../../session/services/browser-proof.service';
 import { Sessions } from '../services/sessions/sessions';
@@ -13,6 +19,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { BrowserProofGuard } from './browser-proof.guard';
 
 const ORIGIN = 'http://localhost:3000';
+const ADMIN_ORIGIN = 'http://admin.example.test';
 const PRE_SESSION_TOKEN = 'pre-session-token';
 const SESSION_TOKEN = 'session-bound-token';
 
@@ -30,19 +37,28 @@ interface GuardRequest {
 
 describe('BrowserProofGuard', () => {
   let guard: BrowserProofGuard;
-  let sessionCookie: { read: jest.Mock };
+  let sessionCookie: SessionCookieService;
   let sessions: { validateSessionWithoutExtendingIdle: jest.Mock };
   let proofs: { consume: jest.Mock };
   let applications: { findByClientId: jest.Mock };
 
   beforeEach(async () => {
-    sessionCookie = {
-      read: jest.fn((request: GuardRequest) => request.cookies.sid),
-    };
+    const config = new ConfigService({
+      session: { cookieName: SESSION_COOKIE_DEFAULT_NAME },
+      cors: { clientUrl: ORIGIN, adminUrl: ADMIN_ORIGIN },
+    });
+    const browserApplications = browserApplicationsForTest(config);
+    sessionCookie = new SessionCookieService(config, browserApplications);
     sessions = { validateSessionWithoutExtendingIdle: jest.fn() };
     proofs = { consume: jest.fn().mockResolvedValue(undefined) };
     applications = {
-      findByClientId: jest.fn().mockResolvedValue({ allowedOrigins: [ORIGIN] }),
+      findByClientId: jest.fn((clientId: string) =>
+        Promise.resolve({
+          allowedOrigins: [
+            clientId === ADMIN_CLIENT_ID ? ADMIN_ORIGIN : ORIGIN,
+          ],
+        }),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -87,8 +103,12 @@ describe('BrowserProofGuard', () => {
   });
 
   it('accepts the session token on a public route with a valid cookie', async () => {
-    const session = { clientId: 'admin-app', csrfToken: SESSION_TOKEN };
-    const request = createRequest({ sid: 'valid' }, SESSION_TOKEN);
+    const session = { clientId: ADMIN_CLIENT_ID, csrfToken: SESSION_TOKEN };
+    const request = createRequest(
+      { [`${SESSION_COOKIE_DEFAULT_NAME}-${ADMIN_CLIENT_ID}`]: 'valid' },
+      SESSION_TOKEN,
+    );
+    request.headers.origin = ADMIN_ORIGIN;
     sessions.validateSessionWithoutExtendingIdle.mockResolvedValue(session);
 
     await expect(guard.canActivate(createContext(request, true))).resolves.toBe(
@@ -96,7 +116,7 @@ describe('BrowserProofGuard', () => {
     );
 
     expect(proofs.consume).not.toHaveBeenCalled();
-    expect(applications.findByClientId).toHaveBeenCalledWith('admin-app');
+    expect(applications.findByClientId).toHaveBeenCalledWith(ADMIN_CLIENT_ID);
   });
 
   it('consumes a pre-session proof on a public route with a valid cookie', async () => {

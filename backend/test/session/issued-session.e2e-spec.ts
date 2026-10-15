@@ -1,4 +1,6 @@
 import request from 'supertest';
+import { browserApplicationCases } from '../utils/browser-applications.cases'; // feature:email-password
+import { browserApplicationPolicyCases } from '../utils/browser-applications-policy.cases'; // feature:email-password
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import {
@@ -128,3 +130,6 @@ describe('a session issued for a stored account (e2e)', () => {
   });
   // feature:email-password:end
 });
+
+browserApplicationCases(); // feature:email-password
+browserApplicationPolicyCases(); // feature:email-password
