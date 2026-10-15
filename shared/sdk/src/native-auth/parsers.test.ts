@@ -82,6 +82,34 @@ describe('native auth response parsers', () => {
     });
   });
 
+  // feature:email-code:start
+  it('reads the email code capability and refuses one that is not a boolean', async () => {
+    const reply = (emailCode: unknown) =>
+      answering(200, {
+        success: true,
+        data: {
+          nativeEnabled: true,
+          methods: { password: false, oauth: [] },
+          capabilities: {
+            password: false,
+            emailLink: false,
+            passkeys: false,
+            registration: false,
+            recovery: false,
+            emailCode,
+          },
+          providers: [],
+        },
+      });
+
+    const catalogue = await createApiClient(reply(true)).nativeAuth.methods('mobile-app');
+    expect(catalogue.capabilities.emailCode).toBe(true);
+    await expect(
+      createApiClient(reply('yes')).nativeAuth.methods('mobile-app'),
+    ).rejects.toMatchObject({ name: 'ApiError', status: 200 });
+  });
+  // feature:email-code:end
+
   it('rejects native provider configurations that do not match the enabled provider set', async () => {
     const transport = answering(200, {
       success: true,
