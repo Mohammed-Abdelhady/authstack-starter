@@ -1,6 +1,6 @@
 import type { User } from '@app/sdk';
 import type { AuthProfile, AuthSnapshot } from '../types/auth';
-import type { NativeSafeAttemptView } from '../types/native-sign-in';
+import type { NativeSafeAttemptView } from '../types/native-sign-in-actions';
 
 export function freezeSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
   const profile = snapshot.profile ? freezeUser(snapshot.profile) : undefined;
