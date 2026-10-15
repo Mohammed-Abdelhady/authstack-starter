@@ -1,6 +1,10 @@
 import { openTestConnection } from '../../../test/postgres/postgres-connection';
 import { FrozenClock, TEST_NOW } from '../../../test/utils/frozen-clock';
 import { PostgresUnitOfWorkRunner } from '../../common/persistence/postgres/postgres-unit-of-work';
+import {
+  removeExpiredRows,
+  RETENTION_RULES,
+} from '../../common/persistence/postgres/postgres-retention';
 import { PostgresEmailCodeStore } from '../persistence/postgres/postgres-email-code.store';
 import { describeEmailCodeContract } from './email-code.harness-spec';
 
@@ -21,8 +25,17 @@ describeEmailCodeContract('PostgreSQL', async () => {
       expect(indexes.rows.map((row) => row.indexname)).toEqual(
         expect.arrayContaining([
           'email_code_owner_purpose_unique',
-          'email_code_expires_at',
+          'email_code_purge_after',
         ]),
+      );
+    },
+    // The retention job's own rule for the table, at the frozen time.
+    cleanUp: async () => {
+      await removeExpiredRows(
+        connection.database,
+        clock.now(),
+        undefined,
+        RETENTION_RULES.filter(({ table }) => table === 'email_codes'),
       );
     },
   };

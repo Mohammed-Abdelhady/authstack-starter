@@ -41,10 +41,25 @@ export async function bootMongoEmailCodeHarness(): Promise<EmailCodeHarness> {
       expect(
         indexes.some(
           (index) =>
-            index.name === 'email_code_expiry' &&
+            index.name === 'email_code_purge_after' &&
             index.expireAfterSeconds === 0,
         ),
       ).toBe(true);
+    },
+    // The TTL monitor runs on the server's clock about once a minute, so the
+    // case removes what it would, read from the collection's own TTL index.
+    cleanUp: async () => {
+      const codes = db.collection(EMAIL_CODE_COLLECTION);
+      const ttl = (await codes.indexes()).find(
+        (index) => index.expireAfterSeconds !== undefined,
+      );
+      const seconds = ttl?.expireAfterSeconds;
+      const field = ttl ? Object.keys(ttl.key)[0] : undefined;
+      if (seconds === undefined || field === undefined) {
+        throw new Error('The email codes have no TTL index');
+      }
+      const cutoff = new Date(clock.now().getTime() - seconds * 1000);
+      await codes.deleteMany({ [field]: { $lte: cutoff } });
     },
   };
 }
