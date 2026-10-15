@@ -48,6 +48,15 @@ function emailCodeInvalid(): AppException {
   );
 }
 
+/** Only the right code reaches this, so it tells the mailbox owner nothing new. */
+function accountDeactivated(): AppException {
+  return new AppException(
+    ErrorCode.FORBIDDEN,
+    'Account is deactivated',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
 @Injectable()
 export class NativeEmailCodeService {
   private readonly logger = new Logger(NativeEmailCodeService.name);
@@ -148,6 +157,7 @@ export class NativeEmailCodeService {
           }
         },
         refuse: emailCodeInvalid,
+        refuseDeactivated: accountDeactivated,
         creationMethod: ACCOUNT_CREATION_METHOD.EMAIL_CODE,
       },
     );

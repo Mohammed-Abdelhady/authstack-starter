@@ -103,18 +103,18 @@ export class NativeEmailLinkMailService {
     clientId: string,
     refuse: () => AppException = () => this.invalidNativeLink(),
     method: AccountCreationMethod = ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    refuseDeactivated: () => AppException = refuse,
   ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmailIn(unitOfWork, email);
-    if (existing?.isDeleted) throw refuse();
+    if (existing?.isDeleted) throw refuseDeactivated();
     if (existing) {
       if (existing.isVerified) return existing;
       if (!(await this.accounts.markVerifiedIn(unitOfWork, existing))) {
         throw refuse();
       }
       const verified = await this.accounts.findByEmailIn(unitOfWork, email);
-      if (!verified || verified.isDeleted || !verified.isVerified) {
-        throw refuse();
-      }
+      if (verified?.isDeleted) throw refuseDeactivated();
+      if (!verified || !verified.isVerified) throw refuse();
       return verified;
     }
     await this.policy.assertMayCreate(
