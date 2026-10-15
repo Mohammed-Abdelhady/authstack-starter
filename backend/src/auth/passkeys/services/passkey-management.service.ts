@@ -105,7 +105,7 @@ export class PasskeyManagementService {
     });
 
     this.logger.log(`Passkey removed for user ${userId}`);
-    this.notices?.deferFor(userId, SECURITY_NOTICE.PASSKEY_REMOVED);
+    this.notices?.defer(userId, SECURITY_NOTICE.PASSKEY_REMOVED);
     return ApiResponse.success({ message: 'Passkey removed' });
   }
 
