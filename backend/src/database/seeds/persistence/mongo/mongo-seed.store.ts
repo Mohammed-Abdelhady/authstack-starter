@@ -1,4 +1,6 @@
+import { assertMongoAccountAudience } from '../../../../user/persistence/mongo/mongo-account-audience';
 import { Injectable, Provider } from '@nestjs/common';
+import type { RoleAudience } from '../../../../host/types/host-role.type';
 import { InjectModel } from '@nestjs/mongoose';
 import * as fs from 'fs';
 import { Model, Types } from 'mongoose';
@@ -74,6 +76,7 @@ export class MongoSeedStore extends SeedStore {
         isProtected: role.isProtected,
         level: role.level,
         permissions: role.permissions,
+        audience: role.audience,
       });
       return ROLE_SEED.CREATED;
     }
@@ -105,10 +108,29 @@ export class MongoSeedStore extends SeedStore {
     return existing ? existing._id.toString() : null;
   }
 
+  async roleAudience(
+    uow: UnitOfWork,
+    slug: string,
+  ): Promise<RoleAudience | undefined> {
+    const role = await this.roleModel
+      .findOne({ slug })
+      .select('audience')
+      .session(mongoSessionOf(uow))
+      .lean()
+      .exec();
+    return role?.audience;
+  }
+
   async createAccount(
     uow: UnitOfWork,
     account: NewSeedAccount,
   ): Promise<string> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      uow,
+      account.role,
+      account.audience,
+    );
     const [created] = await this.userModel.create(
       [
         {
@@ -116,6 +138,7 @@ export class MongoSeedStore extends SeedStore {
           email: account.email,
           name: account.name,
           role: account.role,
+          audience: account.audience,
           password: account.passwordHash,
           isVerified: true,
           authProvider: AuthProvider.EMAIL,
