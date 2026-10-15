@@ -62,9 +62,11 @@ export class NativeEmailCodeMailService {
   /**
    * Stores a code, and a link token when asked, for this attempt alone. Every
    * branch hashes and stores a code, so the reply never tells a known address
-   * from an unknown, closed, capped or deactivated one. A code that will not
-   * be mailed is stored already spent. The review account on its application
-   * gets the fixed code stored instead, and no mail.
+   * from an unknown, closed, capped or deactivated one. A deactivated account
+   * is mailed like any other, and only its right code learns of the
+   * deactivation. A code that will not be mailed is stored already spent. The
+   * review account on its application gets the fixed code stored instead, and
+   * no mail.
    */
   async issue(
     requested: MailRecipient,
@@ -83,8 +85,7 @@ export class NativeEmailCodeMailService {
       limit: this.config.get<number>('magicLink.maxPerHour', 5),
     });
     const reviewHash = await this.review.codeHashFor(attempt, email);
-    const mailed =
-      reviewHash === null && owner?.isDeleted !== true && mayCreate && underCap;
+    const mailed = reviewHash === null && mayCreate && underCap;
     const code = generateVerificationCode();
     const token = withLink ? createMagicLinkToken() : null;
     const lifetimeMs = this.config.get<number>(
@@ -108,7 +109,7 @@ export class NativeEmailCodeMailService {
     });
     if (!mailed) {
       this.logger.warn(
-        this.unsentReason(owner, mayCreate, reviewHash !== null && underCap),
+        this.unsentReason(mayCreate, reviewHash !== null && underCap),
       );
     }
     const recipient = { email, locale: owner?.locale ?? requested.locale };
@@ -146,17 +147,10 @@ export class NativeEmailCodeMailService {
     }
   }
 
-  private unsentReason(
-    owner: { isDeleted: boolean } | null,
-    mayCreate: boolean,
-    review: boolean,
-  ): string {
+  private unsentReason(mayCreate: boolean, review: boolean): string {
     const requestId = currentRequestId() ?? 'unknown';
     if (review) {
       return `Sign-in code not mailed: review access requestId=${requestId}`;
-    }
-    if (owner?.isDeleted) {
-      return `Sign-in code not mailed: deactivated account requestId=${requestId}`;
     }
     if (!mayCreate) {
       return `Sign-in code not mailed: sign-up closed requestId=${requestId}`;
