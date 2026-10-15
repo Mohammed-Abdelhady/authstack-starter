@@ -9,6 +9,7 @@ import {
 import { isMember, isRecord, readBoolean, readString, readStringArray } from '../manifest/read.js';
 import { MOBILE_IDENTITY_FIELDS } from '../constants/mobile.js';
 import { parseAnswersRecord } from '../scaffold/answers.js';
+import { strictAnswersProblems } from './strict-answers.js';
 import type {
   AnswersRecord,
   Feature,
@@ -218,6 +219,10 @@ export function parseAnswersConfig(
     throw new ConfigFileError(
       `answers file schema version ${String(version)} predates the round trip. Only version ${String(ANSWERS_SCHEMA_VERSION)} answers files can be used with --config.`,
     );
+  }
+  const problems = strictAnswersProblems(value);
+  if (problems.length > 0) {
+    throw new ConfigFileError(`answers file is invalid:\n  ${problems.join('\n  ')}`);
   }
   let record: AnswersRecord;
   try {
