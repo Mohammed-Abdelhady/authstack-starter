@@ -24,7 +24,6 @@ export interface StoredSession extends SessionAuthorityFields {
   device?: SessionDeviceLabel | null;
   deviceName?: string | null;
   lastUsedAt?: Date | null;
-  proofKeyThumbprint?: string | null;
   /** The secret a browser sends back with its requests. Not a credential. */
   csrfToken?: string | null;
   authenticationMethods: string[];
