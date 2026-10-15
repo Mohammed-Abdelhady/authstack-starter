@@ -57,7 +57,7 @@ describe('SecurityNoticeService', () => {
   });
 
   it('still skips a deactivated account for a notice that reads the address when it is sent', async () => {
-    notices.deferFor('account-1', SECURITY_NOTICE.PASSKEY_REMOVED);
+    notices.defer('account-1', SECURITY_NOTICE.PASSKEY_REMOVED);
     await dispatcher.flush();
 
     expect(mail.sendMail).not.toHaveBeenCalled();
