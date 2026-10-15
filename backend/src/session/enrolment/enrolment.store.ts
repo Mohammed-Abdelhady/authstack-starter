@@ -16,13 +16,13 @@ export abstract class EnrolmentStore {
     return Promise.resolve(false);
   }
 
-  /** Retires earlier enrolments for this account and application only. */
+  /** Retires earlier enrolments for this account and application only, and returns their ids. */
   abstract replaceIn(
     work: UnitOfWork,
     userId: string,
     clientId: string,
     now: Date,
-  ): Promise<void>;
+  ): Promise<string[]>;
 
   /** Fences the session against another registration or revocation. */
   abstract retireIn(
