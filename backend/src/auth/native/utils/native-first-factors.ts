@@ -13,5 +13,9 @@ export function nativeFirstFactors(
     factors.push(NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY);
   if (methods.providers.some(({ mode }) => mode !== 'system'))
     factors.push(NATIVE_ATTEMPT_FIRST_FACTOR.PROVIDER);
+  // feature:email-code:start
+  if (methods.capabilities.emailCode === true)
+    factors.push(NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE);
+  // feature:email-code:end
   return factors;
 }
