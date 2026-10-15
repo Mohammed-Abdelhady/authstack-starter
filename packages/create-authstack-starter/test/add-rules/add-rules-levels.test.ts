@@ -180,7 +180,7 @@ it('add-rules writes Node 22 and no matrix', async () => {
       if (!isRecord(job)) throw new Error('Job must be a mapping');
       expect(job.strategy).toBeUndefined();
       expect(stepsOf(job).filter((step) => step.uses === SETUP_NODE_ACTION)).toEqual([
-        { uses: SETUP_NODE_ACTION, with: { 'node-version': '22' } },
+        { uses: SETUP_NODE_ACTION, with: { 'node-version': '22', 'check-latest': true } },
       ]);
     }
   }
