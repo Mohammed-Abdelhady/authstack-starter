@@ -89,10 +89,9 @@ naming an audience, audience admission and the staff guard stay inactive.
 Before naming an audience on an existing installation, stop the API and run
 `pnpm --filter backend run build`, then
 `pnpm --filter backend run audience:apply --dry-run`. The command runs compiled
-JavaScript and is also available in the production image. In a source checkout,
-`audience:apply:dev` runs it directly from TypeScript. See the container commands
-in [upgrade notes](../upgrading.md). Core `user` maps to
-`customer`; core `admin` maps to `staff`, including customer-only deployments.
+JavaScript. In a source checkout, `audience:apply:dev` runs it directly from TypeScript.
+The production image carries it too; see the container commands in [upgrade notes](../upgrading.md). <!-- feature:production -->
+Core `user` maps to `customer`; core `admin` maps to `staff`, including customer-only deployments.
 Host roles use their audience in `HOST_ROLES`. Supply each unmapped custom role
 explicitly, for example `--role editors=customer --role operators=staff`, then
 run again without `--dry-run`. The command fills missing audiences, ends sessions
@@ -195,6 +194,13 @@ supported languages. API routes, documentation, health and frontend assets are
 unavailable on the link host. Passkey origins remain exact, with no domain
 wildcard.
 
+A proxy in front of the backend needs the same boundary.
+`node dist/cli/native-link-host.js --proxy-manifest` prints, as JSON from the
+validated configuration, the link host, the exact paths to pass to the backend and
+the namespaces to refuse.
+
+<!-- feature:production:start -->
+
 ### Configure the shipped proxy
 
 The nginx files use static `server_name` directives. `setup-production` rewrites
@@ -212,7 +218,7 @@ chmod 755 nginx/native-link-host
 pending="$(mktemp nginx/native-link-host/link-host.XXXXXX)"
 trap 'rm -f "$pending"' EXIT
 docker compose -f docker-compose.prod.yml run --rm --no-deps backend \
-  node dist/cli/native-link-host.js --nginx-manifest \
+  node dist/cli/native-link-host.js --proxy-manifest \
   | node nginx/render-native-link-host.mjs > "$pending"
 chmod 644 "$pending"
 mv "$pending" nginx/native-link-host/link-host.conf
@@ -276,3 +282,5 @@ escapes. Repair the redirect or mail template and regenerate the include.
 
 Run the separate [real nginx gate](../operations/native-link-proxy-gate.md)
 before deploying this boundary. API tests alone do not verify the shipped proxy.
+
+<!-- feature:production:end -->
