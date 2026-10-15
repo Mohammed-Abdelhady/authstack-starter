@@ -2,6 +2,8 @@ import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -49,6 +51,7 @@ export class PasskeyManagementService {
     private readonly passkeys: PasskeyStore,
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   async list(userId: string): Promise<ApiResponse<PasskeyListResponseDto>> {
@@ -102,6 +105,7 @@ export class PasskeyManagementService {
     });
 
     this.logger.log(`Passkey removed for user ${userId}`);
+    this.notices?.deferFor(userId, SECURITY_NOTICE.PASSKEY_REMOVED);
     return ApiResponse.success({ message: 'Passkey removed' });
   }
 
