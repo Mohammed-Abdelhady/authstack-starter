@@ -76,7 +76,11 @@ describe('application admission policy validation', () => {
           ...BROWSER_POLICY_ENV,
           [setting]: JSON.stringify({ requirePasskey: true, passkeys: false }),
         }),
-      ).toThrow(new RegExp(`${setting}.*requirePasskey`));
+      ).toThrow(
+        new RegExp(
+          `${setting}.*requires (?:the passkeys feature|application passkeys)`,
+        ),
+      );
     },
   );
 
@@ -91,12 +95,29 @@ describe('application admission policy validation', () => {
   });
 
   // feature:passkeys:start
-  it('allows required browser passkeys without native RP fields', () => {
-    const raw = JSON.stringify({ requirePasskey: true });
-    expect(
-      validateEnvironment({ ...BASE_ENV, AUTH_WEB_SIGN_IN: raw })
-        .AUTH_WEB_SIGN_IN,
-    ).toBe(raw);
+  it.each(['AUTH_WEB_SIGN_IN', 'AUTH_ADMIN_SIGN_IN'] as const)(
+    'temporarily refuses an otherwise available required passkey in %s',
+    (setting) => {
+      expect(() =>
+        validateEnvironment({
+          ...BROWSER_POLICY_ENV,
+          [setting]: JSON.stringify({ requirePasskey: true }),
+        }),
+      ).toThrow(new RegExp(`${setting}.*plan 3.*passkey sign-in evidence`));
+    },
+  );
+
+  it('keeps D10 errors ahead of the temporary refusal in another application', () => {
+    expect(() =>
+      validateEnvironment({
+        ...BROWSER_POLICY_ENV,
+        AUTH_WEB_SIGN_IN: JSON.stringify({ requirePasskey: true }),
+        AUTH_ADMIN_SIGN_IN: JSON.stringify({
+          requirePasskey: true,
+          passkeys: false,
+        }),
+      }),
+    ).toThrow(/AUTH_ADMIN_SIGN_IN.*requires application passkeys/);
   });
   // feature:passkeys:end
 
@@ -152,7 +173,7 @@ describe('application admission policy validation', () => {
   });
 
   // feature:passkeys:start
-  it('allows closed native staff with an available required passkey', () => {
+  it('temporarily refuses closed native staff with an available required passkey', () => {
     const raw = JSON.stringify([
       {
         ...NATIVE_APPLICATION,
@@ -166,12 +187,12 @@ describe('application admission policy validation', () => {
         },
       },
     ]);
-    expect(
+    expect(() =>
       validateEnvironment({
         ...NATIVE_POLICY_ENV,
         AUTH_NATIVE_APPLICATIONS: raw,
-      }).AUTH_NATIVE_APPLICATIONS,
-    ).toBe(raw);
+      }),
+    ).toThrow(/mobile.*plan 3.*passkey sign-in evidence/);
   });
   // feature:passkeys:end
 
