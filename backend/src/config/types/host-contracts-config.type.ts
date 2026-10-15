@@ -6,6 +6,7 @@ import type {
 export interface HostAuthConfiguration {
   web: {
     enabled: boolean;
+    enabledExplicit?: boolean;
     signIn?: BrowserSignInConfiguration;
     session?: BrowserSessionConfiguration;
   };
