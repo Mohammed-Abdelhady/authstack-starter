@@ -10,6 +10,7 @@ import { NativeCredentialScreen } from '../screens/NativeCredentialScreen';
 import { NativeConsentScreen } from '../screens/NativeConsentScreen';
 import { NativeSecondFactorScreen } from '../screens/NativeSecondFactorScreen';
 import { NATIVE_METHOD, NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
+import { NATIVE_DISCOVERY } from '../constants/native-sign-in'; // feature:email-code
 import { useUi } from '../context/ui-context';
 import type { useNativeSignIn } from '../hooks/use-native-sign-in';
 import type { NativeUiMethod } from '../types/native-sign-in';
@@ -51,6 +52,30 @@ function EmailLinkSent({
   );
 }
 
+// feature:email-code:start
+/** Shown until the methods reply says whether the attempt waits for a code or a link. */
+function EmailMethodsPending({ failed, retry }: { failed: boolean; retry(): void }) {
+  const { t } = useUi();
+  if (!failed) return <Description>{t('native.loading')}</Description>;
+  return (
+    <>
+      <Notice
+        title={t('native.methodsFailed')}
+        description={t('native.methodsFailedHint')}
+        tone={NOTICE_TONE.PROBLEM}
+        testID={NATIVE_UI_TEST_ID.METHODS_NOTICE}
+      />
+      <Button
+        label={t('common.tryAgain')}
+        onPress={retry}
+        testID={NATIVE_UI_TEST_ID.METHODS_RETRY}
+        stretch
+      />
+    </>
+  );
+}
+// feature:email-code:end
+
 export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignIn> }) {
   const { t } = useUi();
   const { view, method, pending, submit, choose, web, cancel } = flow;
@@ -77,6 +102,10 @@ export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignI
     view?.stage === NATIVE_AUTH_STAGE.EMAIL_LINK_SENT &&
     flow.methods?.capabilities.emailCode === true;
   const codeLink = flow.methods?.capabilities.emailLink === true;
+  // The link screen's resend would mail a link alone and void a code already mailed.
+  const methodsPending =
+    view?.stage === NATIVE_AUTH_STAGE.EMAIL_LINK_SENT && flow.discovery !== NATIVE_DISCOVERY.READY;
+  const methodsFailed = flow.discovery === NATIVE_DISCOVERY.FAILED;
   // feature:email-code:end
   return (
     <NativeFormLayout>
@@ -104,6 +133,8 @@ export function NativeJourney({ flow }: { flow: ReturnType<typeof useNativeSignI
           {...actions}
           resend={resend}
         />
+      ) : methodsPending ? ( // feature:email-code
+        <EmailMethodsPending failed={methodsFailed} retry={flow.load} /> // feature:email-code
       ) : codeSent ? ( // feature:email-code
         <NativeEmailCodeScreen key={view.attemptId} view={view} withLink={codeLink} {...actions} /> // feature:email-code
       ) : view?.stage === NATIVE_AUTH_STAGE.EMAIL_LINK_SENT ? (
