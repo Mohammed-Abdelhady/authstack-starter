@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
   MIGRATE_CASE_TIMEOUT_MS,
 } from './postgres-migrate.harness-spec';
@@ -14,6 +15,28 @@ import {
 describe('applying host migrations', () => {
   const { emptyDatabase, sources, command, recorded, hostRecords, startup } =
     useHostMigrations();
+
+  it(
+    'forwards a host migration notice through the command output',
+    async () => {
+      const pool = await emptyDatabase();
+      const source = sources({
+        [HOST_FILE]: `${HOST_SQL};
+          DO $$ BEGIN RAISE NOTICE 'Host migration completed'; END $$;`,
+      });
+
+      expect(await command('up', pool, source)).toEqual({
+        exit: 0,
+        said: [
+          ADDRESS_BACKFILL_ZERO_COUNTS,
+          'Host migration completed',
+          `Applied: ${EVERY_MIGRATION.join(', ')}, 0042_orders.sql`,
+        ],
+      });
+      expect(await hostRecords(pool)).toEqual(['0042_orders.sql']);
+    },
+    MIGRATE_CASE_TIMEOUT_MS,
+  );
 
   it(
     'case 4: two concurrent up runs take turns and the second applies nothing',
@@ -44,6 +67,7 @@ describe('applying host migrations', () => {
         {
           exit: 0,
           said: [
+            ADDRESS_BACKFILL_ZERO_COUNTS,
             `Applied: ${EVERY_MIGRATION.join(', ')}, 0042_orders.sql, 0043_order_items.sql`,
           ],
         },
@@ -76,6 +100,7 @@ describe('applying host migrations', () => {
       const failed = await command('up', pool, source);
       expect(failed.exit).toBe(1);
       expect(failed.said).toEqual([
+        ADDRESS_BACKFILL_ZERO_COUNTS,
         'The host source migration 0043_bad.sql failed: relation "host_missing_relation" does not exist. This file was rolled back; earlier files and core migrations remain applied.',
       ]);
       expect(await recorded(pool)).toEqual(EVERY_MIGRATION);

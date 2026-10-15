@@ -1,6 +1,7 @@
 import { rmSync } from 'node:fs';
 import { applyPostgresMigrations } from './postgres-migrations';
 import {
+  ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
   MIGRATE_CASE_TIMEOUT_MS,
 } from './postgres-migrate.harness-spec';
@@ -28,7 +29,10 @@ describe('host migration sources', () => {
       const source = sources({ [HOST_FILE]: HOST_SQL });
       expect(await command('up', pool, source)).toEqual({
         exit: 0,
-        said: [`Applied: ${EVERY_MIGRATION.join(', ')}, 0042_orders.sql`],
+        said: [
+          ADDRESS_BACKFILL_ZERO_COUNTS,
+          `Applied: ${EVERY_MIGRATION.join(', ')}, 0042_orders.sql`,
+        ],
       });
       expect(await recorded(pool)).toEqual(EVERY_MIGRATION);
       expect(await hostRecords(pool)).toEqual(['0042_orders.sql']);

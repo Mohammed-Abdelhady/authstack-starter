@@ -17,6 +17,9 @@ import { PostgresStorageStartup } from './postgres-storage-startup';
  */
 export const MIGRATE_CASE_TIMEOUT_MS = 60_000;
 
+export const ADDRESS_BACKFILL_ZERO_COUNTS =
+  'Address ledger backfill: kept=0 cleared_taken=0 cleared_ambiguous=0 cleared_codeless=0 codes_killed=0';
+
 export const EVERY_MIGRATION = [
   '0001_browser_issuance.sql',
   '0002_roles.sql',
