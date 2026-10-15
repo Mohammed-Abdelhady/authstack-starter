@@ -1,3 +1,4 @@
+import { readMongoRequiredPasskeyApplication } from './mongo-required-passkey-application';
 import { storeMongoBrowserRegistration } from './mongo-browser-registration';
 import type { BrowserRegistration } from '../../applications/types/browser-registration';
 import { Injectable } from '@nestjs/common';
@@ -51,6 +52,9 @@ export class MongoApplicationRegistryStore extends ApplicationRegistryStore {
   ) {
     super();
   }
+
+  findRequiredPasskeyApplication = (environment: string) =>
+    readMongoRequiredPasskeyApplication(this.applicationModel, environment);
 
   async hasAccountAudience(
     unitOfWork: UnitOfWork,
@@ -305,9 +309,7 @@ function nativeRegistrationUpdate(registration: NativeRegistration) {
         audiences: { $literal: registration.audiences },
         allowedScopes: { $literal: registration.allowedScopes },
         createdAt: { $ifNull: ['$createdAt', '$$NOW'] },
-        policy: {
-          $mergeObjects: ['$policy', { $literal: registration.policy }],
-        },
+        policy: { $literal: registration.policy },
         sessionVersion: {
           $add: [
             { $ifNull: ['$sessionVersion', 0] },
