@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
 import type { SupportedLocale } from '../../common/constants/locales';
 
@@ -25,6 +26,7 @@ export interface StoredAccount {
   readonly name: string;
   readonly avatarUrl?: string;
   readonly role: string;
+  readonly audience?: RoleAudience;
   readonly permissions: string[];
   readonly authProvider: string;
   readonly linkedAccounts: LinkedAccountRecord[];

@@ -1,5 +1,9 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
+import {
+  ROLE_AUDIENCE,
+  type RoleAudience,
+} from '../../../../host/types/host-role.type';
 
 @Schema({ _id: false })
 export class PendingRoleSweep {
@@ -49,6 +53,13 @@ export class Role {
 
   @Prop({ type: [String], default: [] })
   permissions!: string[];
+
+  @Prop({
+    type: String,
+    enum: Object.values(ROLE_AUDIENCE),
+    immutable: true,
+  })
+  audience?: RoleAudience;
 
   /** A grant writes this so a concurrent role edit conflicts. */
   @Prop({ type: Number, select: false })

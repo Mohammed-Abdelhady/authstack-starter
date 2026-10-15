@@ -2,6 +2,10 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import { EMAIL_PROVIDER } from '../../../../common/constants/oauth-providers';
 import { DEFAULT_LOCALE } from '../../../../common/constants/locales';
+import {
+  ROLE_AUDIENCE,
+  type RoleAudience,
+} from '../../../../host/types/host-role.type';
 import { TwoFactor, TwoFactorSchema } from './two-factor.schema'; // feature:totp
 
 /**
@@ -43,6 +47,9 @@ export class User {
 
   @Prop({ type: [String], default: [] })
   permissions!: string[];
+
+  @Prop({ type: String, enum: Object.values(ROLE_AUDIENCE) })
+  audience?: RoleAudience;
 
   /** Provider the account was created with: 'email' or an OAuth provider id. */
   @Prop({ type: String, default: EMAIL_PROVIDER })
