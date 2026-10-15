@@ -1,3 +1,8 @@
+import type {
+  ApplicationPolicyConfiguration,
+  NativeSessionConfiguration,
+} from './host-policy.type';
+
 export interface NativeProviderSignInConfiguration {
   id: string;
   mode:
@@ -10,6 +15,7 @@ export interface NativeProviderSignInConfiguration {
 export interface NativeSignInConfiguration {
   password?: boolean;
   emailLink?: boolean;
+  emailCode?: boolean; // feature:email-code
   passkeys?: boolean;
   registration?: boolean;
   recovery?: boolean;
@@ -19,10 +25,15 @@ export interface NativeSignInConfiguration {
   rpId?: string;
 }
 
-export interface NativeApplicationConfiguration {
+export interface NativeApplicationConfiguration extends ApplicationPolicyConfiguration {
   clientId: string;
   displayName: string;
   redirectUris: string[];
   allowedScopes: string[];
   signIn?: NativeSignInConfiguration;
+  session?: NativeSessionConfiguration;
+  firstParty?: boolean;
+  appleAppId?: string;
+  androidPackage?: string;
+  androidCertificates?: string[];
 }

@@ -23,3 +23,16 @@ export function transformOptionalString({
 }): unknown {
   return value === '' ? undefined : value;
 }
+
+export function parseOptionalInteger(value: unknown): number | undefined {
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '')
+  ) {
+    return undefined;
+  }
+  return typeof value === 'string' || typeof value === 'number'
+    ? Number(value)
+    : Number.NaN;
+}

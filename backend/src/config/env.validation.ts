@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
 import { EnvironmentVariables } from './env.schema';
+import { validateHostContractSettings } from './env.host-contracts.validation';
 import { PASSKEY_CHALLENGE_TTL_MS } from '../auth/passkeys/constants/passkeys.constants'; // feature:passkeys
 
 function formatValidationErrors(errors: ValidationError[]): string[] {
@@ -87,5 +88,6 @@ export function validateEnvironment(
   }
 
   // feature:passkeys:end
+  validateHostContractSettings(validatedConfig);
   return validatedConfig;
 }
