@@ -39,6 +39,8 @@ export abstract class MovedAccount {
   abstract readonly email: string;
   abstract readonly pendingEmail: string | undefined;
   abstract readonly addressGeneration: number;
+  /** The language the account's mail is written in. */
+  abstract readonly locale: SupportedLocale;
 }
 
 /** What a commit with no answer is resolved against. */
@@ -47,11 +49,21 @@ export interface AddressConfirmation {
   pendingEmail?: string;
   isVerified: boolean;
   addressGeneration: number;
+  locale: SupportedLocale;
 }
 
 /**
- * The account side of the two code flows that write an account: activating a
- * sign-up and confirming an address an admin asked for. The methods that take a
+ * The address an account asked to move to, or none, at the generation that
+ * kills every code issued before it.
+ */
+export interface OwnPendingAddress {
+  email: string | null;
+  addressGeneration: number;
+}
+
+/**
+ * The account side of the code flows that write an account: activating a
+ * sign-up, and asking for and confirming a new address. The methods that take a
  * unit of work commit or roll back with the code they spend.
  */
 export abstract class ActivationAccounts {
@@ -91,6 +103,15 @@ export abstract class ActivationAccounts {
     unitOfWork: UnitOfWork,
     account: MovedAccount,
     email: string,
+  ): Promise<void>;
+  /**
+   * The account's own change, beside the staff one: stores or clears the
+   * pending address of an account read with `readMovedAccount`.
+   */
+  abstract savePendingAddress(
+    unitOfWork: UnitOfWork,
+    account: MovedAccount,
+    pending: OwnPendingAddress,
   ): Promise<void>;
 }
 
