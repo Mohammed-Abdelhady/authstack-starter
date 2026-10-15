@@ -116,6 +116,21 @@ codes. Password, passkey and provider sign-in are not affected, and the owner
 can sign in again by code once the hour rolls over. The plan accepts this
 residual denial of service.
 
+Those guesses add up across windows, and nothing caps the wrong guesses at one
+address or account. Someone who keeps the hourly limit full gets 25 guesses an
+hour, 600 a day, for as long as they keep going. One caller is enough, because
+the per-caller throttles allow five requests and ten verifies in fifteen
+minutes, and starting an attempt falls under the default limit of 60 requests a
+minute. Against 900,000 codes that is
+about a 0.067% chance a day of signing in as the account, about 2% over 30 days
+and about 22% over a year. The owner's own code and link mails stay blocked the
+whole time, and the owner receives every code the attacker asks for, five an
+hour, which is the only sign of the attack. NIST SP 800-63B, section 5.2.2,
+caps consecutive failed attempts on one account at 100, and these limits do not
+meet that. This is a known residual risk. A ceiling on wrong guesses per
+address, for example 100 in a UTC day, after which new codes for the address
+are stored already spent, would close it. That is for the plan owner to decide.
+
 Delivery has no durable queue. The server answers first and sends the mail in
 the same process afterwards, trying up to three times in a row. If every try
 fails, or the server stops or restarts before the send finishes, the mail is
