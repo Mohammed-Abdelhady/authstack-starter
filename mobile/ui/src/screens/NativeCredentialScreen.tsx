@@ -14,12 +14,14 @@ import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
 const METHOD_TEXT = {
   password: 'native.passwordChoice',
   emailLink: 'native.emailLinkChoice',
+  emailCode: 'native.emailCodeChoice', // feature:email-code
   registration: 'native.registrationChoice',
   recovery: 'native.recoveryChoice',
 } as const;
 const SUBMIT_TEXT = {
   password: 'native.signIn',
   emailLink: 'native.sendLink',
+  emailCode: 'native.sendSignInCode', // feature:email-code
   registration: 'native.sendCode',
   recovery: 'native.sendCode',
 } as const;
@@ -30,7 +32,10 @@ export function NativeCredentialScreen({
   submit,
   web,
 }: NativeFormActions & { method: NativeUiMethod }) {
-  const { t } = useUi();
+  const {
+    t,
+    locale, // feature:email-code
+  } = useUi();
   const title = useScreenTitleFocus();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,6 +52,12 @@ export function NativeCredentialScreen({
       return;
     }
     setInvalid(false);
+    // feature:email-code:start
+    if (method === NATIVE_METHOD.EMAIL_CODE) {
+      submit({ kind: 'requestEmailCode', email: address, locale });
+      return;
+    }
+    // feature:email-code:end
     if (passwordMethod) {
       submit({ kind: 'password', email: address, password });
       setPassword('');
@@ -54,7 +65,15 @@ export function NativeCredentialScreen({
       submit({ kind: 'requestEmailLink', email: address });
     else if (method === NATIVE_METHOD.REGISTRATION) submit({ kind: 'register', email: address });
     else submit({ kind: 'requestRecovery', email: address });
-  }, [email, method, password, passwordMethod, pending, submit]);
+  }, [
+    email,
+    locale, // feature:email-code
+    method,
+    password,
+    passwordMethod,
+    pending,
+    submit,
+  ]);
   const toggle = useCallback(() => setVisible((value) => !value), []);
   const openWeb = useCallback(
     () =>

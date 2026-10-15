@@ -15,6 +15,7 @@ import { Description, Heading } from '../components/Typography';
 import { NATIVE_UI_TEST_ID } from '../constants/native-sign-in';
 import { useUi } from '../context/ui-context';
 import { validNativeName, validNativePassword } from '../logic/native-form-validation';
+import { westernDigits } from '../logic/western-digits'; // feature:email-code
 import type { NativeFormActions } from '../types/native-sign-in';
 import { useScreenTitleFocus } from '../hooks/use-screen-title-focus';
 
@@ -168,3 +169,76 @@ export function NativeCodeScreen({
     </>
   );
 }
+
+// feature:email-code:start
+type EmailCodeView = Extract<NativeSafeAttemptView, { stage: 'emailLinkSent' }>;
+
+/** The sign-in stage. The button in the same mail, opened on this device, finishes it too. */
+export function NativeEmailCodeScreen({
+  view,
+  withLink,
+  pending,
+  submit,
+}: NativeFormActions & { view: EmailCodeView; withLink: boolean }) {
+  const { t, locale } = useUi();
+  const title = useScreenTitleFocus();
+  const [code, setCode] = useState('');
+  const [invalid, setInvalid] = useState(false);
+  const send = useCallback(() => {
+    if (pending) return;
+    const typed = westernDigits(code.trim());
+    if (!NATIVE_AUTH_PATTERN.ACTIVATION_CODE.test(typed)) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    submit({ kind: 'verifyEmailCode', code: typed, locale });
+    setCode('');
+  }, [code, locale, pending, submit]);
+  // The same attempt, so a new code keeps the wrong guesses counted so far.
+  const resend = useCallback(() => {
+    setCode('');
+    setInvalid(false);
+    submit({ kind: 'requestEmailCode', email: view.email, locale });
+  }, [locale, submit, view.email]);
+  return (
+    <>
+      <Heading level="screen" variant="display" nativeRef={title}>
+        {t('native.emailSent')}
+      </Heading>
+      <Description>
+        {t(withLink ? 'native.emailCodeLinkHint' : 'native.emailCodeHint', { email: view.email })}
+      </Description>
+      <TextField
+        label={t('native.emailCode')}
+        value={code}
+        onChangeText={setCode}
+        latin
+        disabled={pending}
+        autoComplete="one-time-code"
+        keyboardType="number-pad"
+        maxLength={NATIVE_AUTH_LIMITS.ACTIVATION_CODE_LENGTH}
+        returnKeyType="done"
+        onSubmitEditing={send}
+        testID={NATIVE_UI_TEST_ID.CODE}
+      />
+      {invalid ? <Notice title={t('native.invalidInput')} tone={NOTICE_TONE.PROBLEM} /> : null}
+      <Button
+        label={t('native.verify')}
+        onPress={send}
+        busy={pending}
+        variant={BUTTON_VARIANT.PRIMARY}
+        stretch
+        testID={NATIVE_UI_TEST_ID.SUBMIT}
+      />
+      <Button
+        label={t('native.resend')}
+        onPress={resend}
+        disabled={pending}
+        stretch
+        testID={NATIVE_UI_TEST_ID.RESEND}
+      />
+    </>
+  );
+}
+// feature:email-code:end

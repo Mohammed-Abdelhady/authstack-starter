@@ -60,4 +60,16 @@ export const NATIVE_EN = {
   'native.webRegistration': 'Create an account in browser',
   'native.webRecovery': 'Reset password in browser',
   'native.providerWeb': 'Continue with \u2068{provider}\u2069 in browser',
+  // feature:email-code:start
+  'native.emailCodeChoice': 'Email me a sign-in code',
+  'native.sendSignInCode': 'Send sign-in code',
+  'native.emailCode': 'Sign-in code',
+  'native.emailCodeHint':
+    'If this address can sign in, a sign-in code was sent to \u2066{email}\u2069. Enter it here.',
+  'native.emailCodeLinkHint':
+    'If this address can sign in, a sign-in code was sent to \u2066{email}\u2069. Enter it here, or use the button in that email on this device.',
+  'native.codeRefused': 'That code did not work. Check the newest email, or ask for a new code.',
+  'native.codeAttemptEnded':
+    'Too many wrong codes ended this sign-in. Start again to get a new code.',
+  // feature:email-code:end
 } satisfies Record<`native.${string}`, string>;
