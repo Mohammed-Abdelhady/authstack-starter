@@ -41,3 +41,5 @@ export type {
   NativeSignInOutcome,
 } from './native-sign-in-actions';
 export type { NativePromptResult, PasskeyPort, ProviderSignInPort } from './passkey-port';
+export type { NativeRegistrationResult } from './passkey-port';
+export type { PasskeyActions, PasskeyRegisterOutcome } from './passkey-actions';

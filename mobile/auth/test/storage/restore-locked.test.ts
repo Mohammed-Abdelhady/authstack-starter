@@ -44,36 +44,26 @@ describe('restore while the device is locked', () => {
     expect(outcome).toEqual({ kind: 'restored', status: 'signedIn' });
   });
 
-  it('reports an owed delete the locked store refused as locked, then finishes it', async () => {
+  it('reports a sign-out the locked store refused as not saved, then finishes it', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    transport.enqueue({ status: 200, body: {} });
     ports.credentials.writeResult = { kind: 'locked' };
 
-    const signOut = await engine.signOut();
+    const refused = await engine.signOut();
 
-    expect(signOut.kind).toBe('signedOut');
-    expect(signOut.revocation).toBe('revoked');
-    expect(signOut.error).toBeInstanceOf(CredentialStoreError);
-    expect(signOut.error).toMatchObject({ operation: 'credentials.delete', condition: 'locked' });
-    expect(engine.snapshot).toEqual({
-      status: 'signedOut',
-      operation: 'none',
-      warning: 'storageBlocked',
-      reason: 'storageFailure',
-    });
-
-    const blocked = await engine.restore();
-
-    expect(blocked).toEqual({ kind: 'storageBlocked', reason: 'locked' });
+    expect(refused.kind).toBe('signOutNotSaved');
+    expect(refused.error).toBeInstanceOf(CredentialStoreError);
+    expect(refused.error).toMatchObject({ operation: 'credentials.replace', condition: 'locked' });
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
     expect(ports.credentials.value).toContain(REFRESH_TOKEN);
+    expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(0);
 
     ports.credentials.writeResult = undefined;
-    const restored = await engine.restore();
+    transport.enqueue({ status: 200, body: {} });
 
-    expect(restored).toEqual({ kind: 'restored', status: 'signedOut' });
+    await expect(engine.signOut()).resolves.toEqual({ kind: 'signedOut', revocation: 'revoked' });
     expect(ports.credentials.value).toBeUndefined();
   });
 });

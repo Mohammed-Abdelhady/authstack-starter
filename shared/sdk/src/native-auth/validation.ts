@@ -34,6 +34,13 @@ export function boundedString(
   return value;
 }
 
+/** A stored label that may be blank, such as a name an older version let someone clear. */
+export function boundedLabel(value: unknown, field: string, limit: number, status: number): string {
+  if (typeof value !== 'string') fail(status, field, 'is not a string');
+  if (value.length > limit) fail(status, field, 'is too long');
+  return value;
+}
+
 export function booleanValue(value: unknown, field: string, status: number): boolean {
   if (typeof value !== 'boolean') fail(status, field, 'is not a boolean');
   return value;

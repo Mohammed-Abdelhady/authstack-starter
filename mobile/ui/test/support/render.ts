@@ -169,6 +169,14 @@ export function asAuthEngine(port: EnginePort): AuthEngine {
     nativeSignIn: (action) => port.nativeSignIn(action),
     cancelNativeSignIn: () => port.cancelNativeSignIn(),
     refresh: () => Promise.resolve({ kind: 'notSignedIn' }),
+    // The screens' fake makes no passkeys and holds none.
+    passkeys: {
+      available: () => Promise.resolve(false),
+      register: () => Promise.resolve({ kind: 'notSupported' }),
+      list: () => Promise.resolve({ passkeys: [] }),
+      rename: () => Promise.reject(new Error('The screens fake holds no passkeys.')),
+      remove: () => Promise.reject(new Error('The screens fake holds no passkeys.')),
+    },
     dispose: () => undefined,
   };
 }

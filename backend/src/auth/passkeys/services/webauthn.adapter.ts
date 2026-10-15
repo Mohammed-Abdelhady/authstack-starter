@@ -9,7 +9,11 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
-import { PASSKEY_CEREMONY_TIMEOUT_MS } from '../constants/passkeys.constants';
+import {
+  PASSKEY_CEREMONY_TIMEOUT_MS,
+  USER_VERIFICATION,
+  UserVerificationRequirement,
+} from '../constants/passkeys.constants';
 import { describeDriverError } from '../../../common/utils/describe-error.util';
 
 /**
@@ -47,11 +51,14 @@ export interface RegistrationOptionsInput {
   userName: string;
   userDisplayName: string;
   excludeCredentials: CredentialDescriptor[];
+  userVerification: UserVerificationRequirement;
 }
 
 export interface AuthenticationOptionsInput {
   rpId: string;
   allowCredentials: CredentialDescriptor[];
+  /** Absent asks for it without requiring it, as sign-in always has. */
+  userVerification?: UserVerificationRequirement;
 }
 
 export interface AttestationVerification {
@@ -61,6 +68,8 @@ export interface AttestationVerification {
   transports: string[];
   deviceType?: string;
   backedUp: boolean;
+  /** The authenticator verified its user before it made the credential. */
+  userVerified: boolean;
 }
 
 export interface AssertionVerification {
@@ -81,9 +90,22 @@ export interface CeremonyExpectations {
   rpId: string;
 }
 
+/** A challenge, or a check of the one the client data carries. */
+export type ExpectedChallenge = string | ((challenge: string) => boolean);
+
+/** What a registration must have been made for. */
+export interface AttestationExpectations {
+  challenge: ExpectedChallenge;
+  /** Every origin the relying party accepts, web or app, matched exactly. */
+  origins: readonly string[];
+  rpId: string;
+  /** `required` refuses a credential made without verifying its user. */
+  userVerification: UserVerificationRequirement;
+}
+
 interface NativeCeremonyExpectations {
   challenge: (challenge: string) => boolean;
-  origin: string[];
+  origin: readonly string[];
   rpId: string;
 }
 
@@ -141,7 +163,7 @@ export class WebAuthnAdapter {
       excludeCredentials: toLibraryDescriptors(input.excludeCredentials),
       authenticatorSelection: {
         residentKey: 'preferred',
-        userVerification: 'preferred',
+        userVerification: input.userVerification,
       },
     });
   }
@@ -152,7 +174,7 @@ export class WebAuthnAdapter {
     return generateAuthenticationOptions({
       rpID: input.rpId,
       timeout: PASSKEY_CEREMONY_TIMEOUT_MS,
-      userVerification: 'preferred',
+      userVerification: input.userVerification ?? USER_VERIFICATION.PREFERRED,
       allowCredentials: toLibraryDescriptors(input.allowCredentials),
     });
   }
@@ -160,19 +182,21 @@ export class WebAuthnAdapter {
   /**
    * @returns null when the attestation does not check out, whether the library
    * reported that or threw, which is what it does for a challenge, origin or
-   * RP id that does not match and for a payload it cannot parse
+   * RP id that does not match, a registration without user verification that
+   * required it, and a payload it cannot parse
    */
   async verifyAttestation(
     attestation: PasskeyCredentialJson,
-    expected: CeremonyExpectations,
+    expected: AttestationExpectations,
   ): Promise<AttestationVerification | null> {
     const result = await this.refused(() =>
       verifyRegistrationResponse({
         response: toAttestation(attestation),
         expectedChallenge: expected.challenge,
-        expectedOrigin: expected.origin,
+        expectedOrigin: [...expected.origins],
         expectedRPID: expected.rpId,
-        requireUserVerification: false,
+        requireUserVerification:
+          expected.userVerification === USER_VERIFICATION.REQUIRED,
       }),
     );
 
@@ -180,8 +204,12 @@ export class WebAuthnAdapter {
       return null;
     }
 
-    const { credential, credentialDeviceType, credentialBackedUp } =
-      result.registrationInfo;
+    const {
+      credential,
+      credentialDeviceType,
+      credentialBackedUp,
+      userVerified,
+    } = result.registrationInfo;
 
     return {
       credentialId: credential.id,
@@ -190,19 +218,26 @@ export class WebAuthnAdapter {
       transports: credential.transports ?? [],
       deviceType: credentialDeviceType,
       backedUp: credentialBackedUp,
+      userVerified,
     };
   }
 
-  /** @returns null when the signature does not check out, thrown or reported. */
+  /**
+   * @param userVerification - `required` refuses an assertion the
+   * authenticator signed without verifying its user
+   * @returns null when the signature does not check out, thrown or reported
+   */
   async verifyAssertion(
     assertion: PasskeyCredentialJson,
     credential: StoredCredential,
     expected: CeremonyExpectations,
+    userVerification: UserVerificationRequirement = USER_VERIFICATION.PREFERRED,
   ): Promise<AssertionVerification | null> {
     return this.verifyAssertionWithExpectations(
       assertion,
       credential,
       expected,
+      userVerification,
     );
   }
 
@@ -210,11 +245,13 @@ export class WebAuthnAdapter {
     assertion: PasskeyCredentialJson,
     credential: StoredCredential,
     expected: NativeCeremonyExpectations,
+    userVerification: UserVerificationRequirement = USER_VERIFICATION.PREFERRED,
   ): Promise<AssertionVerification | null> {
     return this.verifyAssertionWithExpectations(
       assertion,
       credential,
       expected,
+      userVerification,
     );
   }
 
@@ -222,14 +259,19 @@ export class WebAuthnAdapter {
     assertion: PasskeyCredentialJson,
     credential: StoredCredential,
     expected: CeremonyExpectations | NativeCeremonyExpectations,
+    userVerification: UserVerificationRequirement,
   ): Promise<AssertionVerification | null> {
     const result = await this.refused(() =>
       verifyAuthenticationResponse({
         response: toAssertion(assertion),
         expectedChallenge: expected.challenge,
-        expectedOrigin: expected.origin,
+        expectedOrigin:
+          typeof expected.origin === 'string'
+            ? expected.origin
+            : [...expected.origin],
         expectedRPID: expected.rpId,
-        requireUserVerification: false,
+        requireUserVerification:
+          userVerification === USER_VERIFICATION.REQUIRED,
         credential: {
           id: credential.id,
           publicKey: Uint8Array.from(credential.publicKey),

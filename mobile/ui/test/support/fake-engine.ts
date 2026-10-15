@@ -55,6 +55,8 @@ export interface FakeEngine {
   holdSignOut(): Deferred<SignOutOutcome>;
   /** The next sign-out rejects with this and leaves the session as it was. */
   failSignOut(error: unknown): void;
+  /** The next sign-out could not be saved: it resolves as such and the session stays. */
+  refuseSignOut(): void;
   restores: number;
 }
 
@@ -67,6 +69,7 @@ export function createFakeEngine(
   const listeners = new Set<(snapshot: AuthSnapshot) => void>();
   const heldSignOuts: Deferred<SignOutOutcome>[] = [];
   const signOutFailures: { error: unknown }[] = [];
+  let refusedSignOuts = 0;
   const fake: FakeEngine = {
     signIns: [],
     signOuts: 0,
@@ -77,6 +80,9 @@ export function createFakeEngine(
     },
     failSignOut(error) {
       signOutFailures.push({ error });
+    },
+    refuseSignOut() {
+      refusedSignOuts += 1;
     },
     restores: 0,
     publish(next) {
@@ -106,6 +112,10 @@ export function createFakeEngine(
         fake.signOuts += 1;
         const failure = signOutFailures.shift();
         if (failure !== undefined) return Promise.reject(failure.error);
+        if (refusedSignOuts > 0) {
+          refusedSignOuts -= 1;
+          return Promise.resolve({ kind: 'signOutNotSaved' });
+        }
         const held = heldSignOuts.shift();
         if (held !== undefined) {
           return held.promise.then((outcome) => {

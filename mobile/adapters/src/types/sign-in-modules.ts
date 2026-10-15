@@ -75,9 +75,33 @@ export interface NativePasskeyRequestOptions {
   userVerification?: 'required' | 'preferred' | 'discouraged';
 }
 
+/** Creation options as the native module takes them: no extension it does not know. */
+export interface NativePasskeyCreationRequest {
+  challenge: string;
+  rp: { id: string; name: string };
+  user: { id: string; name: string; displayName: string };
+  pubKeyCredParams: { type: 'public-key'; alg: number }[];
+  timeout?: number;
+  excludeCredentials?: {
+    type: 'public-key';
+    id: string;
+    transports?: NativePasskeyTransport[];
+  }[];
+  authenticatorSelection?: {
+    authenticatorAttachment?: 'platform' | 'cross-platform';
+    residentKey?: 'discouraged' | 'preferred' | 'required';
+    requireResidentKey?: boolean;
+    userVerification?: 'required' | 'preferred' | 'discouraged';
+  };
+  attestation?: 'none' | 'indirect' | 'direct' | 'enterprise';
+  extensions?: { credProps?: boolean };
+}
+
 export interface NativePasskeysApi {
   isSupported(): boolean | Promise<boolean>;
   get(options: NativePasskeyRequestOptions): Promise<unknown>;
+  /** Absent in a shell that only signs in with passkeys. */
+  create?(options: NativePasskeyCreationRequest): Promise<unknown>;
 }
 
 export interface NativeSignInModules {

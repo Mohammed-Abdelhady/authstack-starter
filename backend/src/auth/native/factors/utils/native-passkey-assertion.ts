@@ -3,19 +3,24 @@ import type { NativePasskeyAssertion } from '@app/sdk';
 import type { NativeAttempt } from '../../types/native-attempt';
 import { NATIVE_FACTOR_INPUT_LIMIT } from '../constants/native-factor-input';
 
+/** sha256 over the parts a stored challenge is bound to, hex encoded. */
+export function digestParts(parts: readonly string[]): string {
+  return createHash('sha256').update(parts.join(':')).digest('hex');
+}
+
 export function digest(
   attempt: NativeAttempt,
   purpose: string,
   userId: string,
   challenge: string,
 ): string {
-  return createHash('sha256')
-    .update(
-      [attempt.secretHash, attempt.attemptId, purpose, userId, challenge].join(
-        ':',
-      ),
-    )
-    .digest('hex');
+  return digestParts([
+    attempt.secretHash,
+    attempt.attemptId,
+    purpose,
+    userId,
+    challenge,
+  ]);
 }
 
 export function safeEqual(left: string, right: string): boolean {

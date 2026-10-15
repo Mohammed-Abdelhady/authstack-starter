@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { BROWSER_AUTHORIZATION_TIMEOUT_MS, SIGN_OUT_REVOKE_TIMEOUT_MS } from '../../src/constants';
+import {
+  BROWSER_AUTHORIZATION_TIMEOUT_MS,
+  CREDENTIAL_WRITE_TIMEOUT_MS,
+  SIGN_OUT_REVOKE_TIMEOUT_MS,
+} from '../../src/constants';
+import { expectOnlyPendingRevocation } from '../support/pending-revocation';
 import { createAuthEngine } from '../support/engine';
 import {
   CONFIG,
   Deferred,
+  REFRESH_TOKEN,
   ScriptedTransport,
   acceptCode,
   establishSession,
@@ -159,8 +165,14 @@ describe('synchronous port failures', () => {
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
     const schedule = ports.timer.after.bind(ports.timer);
+    // The write deadline has the same length and is armed first; only the revoke's timer fails.
+    expect(CREDENTIAL_WRITE_TIMEOUT_MS).toBe(SIGN_OUT_REVOKE_TIMEOUT_MS);
+    let armed = 0;
     ports.timer.after = (milliseconds, callback) => {
-      if (milliseconds === SIGN_OUT_REVOKE_TIMEOUT_MS) throw new Error('revoke timer failed');
+      if (milliseconds === SIGN_OUT_REVOKE_TIMEOUT_MS) {
+        armed += 1;
+        if (armed === 2) throw new Error('revoke timer failed');
+      }
       return schedule(milliseconds, callback);
     };
 
@@ -170,6 +182,35 @@ describe('synchronous port failures', () => {
     expect(result.error?.constructor).toBe(Error);
     expect(transport.sent.some(({ path }) => path === '/api/oauth/revoke')).toBe(false);
     expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'none' });
+    await expectOnlyPendingRevocation(ports, {
+      refreshToken: REFRESH_TOKEN,
+      attempts: 1,
+      bound: false,
+    });
+  });
+
+  it('reports a sign-out whose write deadline cannot be armed as not saved', async () => {
+    const transport = new ScriptedTransport();
+    const ports = testPorts(transport);
+    const engine = createAuthEngine(CONFIG, ports);
+    await establishSession(engine, ports, transport);
+    const saved = ports.credentials.value;
+    const eventsBefore = ports.credentials.events.length;
+    const schedule = ports.timer.after.bind(ports.timer);
+    ports.timer.after = (milliseconds, callback) => {
+      if (milliseconds === CREDENTIAL_WRITE_TIMEOUT_MS) throw new Error('write timer failed');
+      return schedule(milliseconds, callback);
+    };
+
+    const result = await engine.signOut();
+
+    // An unbounded write is never started, so nothing changed on the device.
+    expect(result).toMatchObject({ kind: 'signOutNotSaved' });
+    expect(result.error?.message).toBe('write timer failed');
+    expect(ports.credentials.value).toBe(saved);
+    expect(ports.credentials.events.slice(eventsBefore)).toEqual([]);
+    expect(transport.sent.some(({ path }) => path === '/api/oauth/revoke')).toBe(false);
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
   });
 
   it('settles sign-out when cancelling the browser timer throws', async () => {

@@ -1,4 +1,4 @@
-import { Kysely } from 'kysely';
+import { ExpressionBuilder, Kysely } from 'kysely';
 export {
   PostgresPasskeyAccounts,
   PostgresPasskeySignIn,
@@ -10,6 +10,7 @@ import {
   PASSKEY_CONSTRAINT,
   PasskeyDescriptor,
   PasskeyStore,
+  RelyingPartyScope,
   StoredPasskey,
 } from '../../stores/passkey.store';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
@@ -17,6 +18,11 @@ import { PostgresTables } from '../../../../common/persistence/postgres/postgres
 import { toUuid } from '../../../../session/persistence/postgres/postgres-issuance-mappers';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
+import {
+  PasskeyDatabase,
+  PasskeyTables,
+  withPasskeyColumns,
+} from './postgres-passkey.tables';
 
 /** Constraint names of the table to the rules' shared names. */
 const PASSKEY_CONSTRAINTS: Readonly<Record<string, string>> = {
@@ -26,6 +32,7 @@ const PASSKEY_CONSTRAINTS: Readonly<Record<string, string>> = {
 const PASSKEY_COLUMNS = [
   'id',
   'user_id',
+  'rp_id',
   'credential_id',
   'public_key',
   'counter',
@@ -40,6 +47,7 @@ const PASSKEY_COLUMNS = [
 interface PasskeyRow {
   id: string;
   user_id: string;
+  rp_id: string | null;
   credential_id: string;
   public_key: Buffer;
   counter: string;
@@ -55,6 +63,7 @@ function toStoredPasskey(row: PasskeyRow): StoredPasskey {
   return {
     id: row.id,
     userId: row.user_id,
+    ...(row.rp_id === null ? {} : { rpId: row.rp_id }),
     credentialId: row.credential_id,
     publicKey: row.public_key,
     counter: Number.parseInt(row.counter, 10),
@@ -67,24 +76,48 @@ function toStoredPasskey(row: PasskeyRow): StoredPasskey {
   };
 }
 
+/** Rows of the relying party, and unmarked rows when the scope takes them. */
+function inRelyingParty(relyingParty: RelyingPartyScope) {
+  return (where: ExpressionBuilder<PasskeyTables, 'passkeys'>) =>
+    relyingParty.includesUnmarked
+      ? where.or([
+          where('rp_id', '=', relyingParty.rpId),
+          where('rp_id', 'is', null),
+        ])
+      : where('rp_id', '=', relyingParty.rpId);
+}
+
 /**
  * One row per passkey, under a unique rule on the credential id. The counter
  * moves in one guarded statement: it counts as moved only while the stored
  * counter is the one the passkey was read with.
  */
 export class PostgresPasskeyStore extends PasskeyStore {
+  private readonly database: PasskeyDatabase;
+
   constructor(
-    private readonly database: Kysely<PostgresTables>,
+    database: Kysely<PostgresTables>,
     private readonly clock: { now(): Date },
   ) {
     super();
+    this.database = withPasskeyColumns(database);
+  }
+
+  /** On the work's own connection when there is one, else one statement. */
+  private on<Result>(
+    unitOfWork: UnitOfWork | undefined,
+    statement: (database: PasskeyDatabase) => Promise<Result>,
+  ): Promise<Result> {
+    return unitOfWork
+      ? statement(withPasskeyColumns(postgresTransactionOf(unitOfWork)))
+      : autocommit(PASSKEY_CONSTRAINTS, () => statement(this.database));
   }
 
   listDescriptors(
     userId: string,
     unitOfWork?: UnitOfWork,
   ): Promise<PasskeyDescriptor[]> {
-    const read = async (database: Kysely<PostgresTables>) => {
+    return this.on(unitOfWork, async (database) => {
       const rows = await database
         .selectFrom('passkeys')
         .select(['credential_id', 'transports'])
@@ -94,10 +127,42 @@ export class PostgresPasskeyStore extends PasskeyStore {
         credentialId: row.credential_id,
         transports: row.transports,
       }));
-    };
-    return unitOfWork
-      ? read(postgresTransactionOf(unitOfWork))
-      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
+    });
+  }
+
+  listDescriptorsFor(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]> {
+    return this.on(unitOfWork, async (database) => {
+      const rows = await database
+        .selectFrom('passkeys')
+        .select(['credential_id', 'transports'])
+        .where('user_id', '=', toUuid(userId))
+        .where(inRelyingParty(relyingParty))
+        .execute();
+      return rows.map((row) => ({
+        credentialId: row.credential_id,
+        transports: row.transports,
+      }));
+    });
+  }
+
+  countForRelyingParty(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<number> {
+    return this.on(unitOfWork, async (database) => {
+      const row = await database
+        .selectFrom('passkeys')
+        .select((select) => select.fn.countAll<string>().as('rows'))
+        .where('user_id', '=', toUuid(userId))
+        .where(inRelyingParty(relyingParty))
+        .executeTakeFirstOrThrow();
+      return Number.parseInt(row.rows, 10);
+    });
   }
 
   isCredentialRegistered(credentialId: string): Promise<boolean> {
@@ -111,13 +176,14 @@ export class PostgresPasskeyStore extends PasskeyStore {
     });
   }
 
-  insert(passkey: NewPasskey): Promise<StoredPasskey> {
-    return autocommit(PASSKEY_CONSTRAINTS, async () => {
+  insert(passkey: NewPasskey, unitOfWork?: UnitOfWork): Promise<StoredPasskey> {
+    return this.on(unitOfWork, async (database) => {
       const at = this.clock.now();
-      const row = await this.database
+      const row = await database
         .insertInto('passkeys')
         .values({
           user_id: toUuid(passkey.userId),
+          rp_id: passkey.rpId,
           credential_id: passkey.credentialId,
           public_key: passkey.publicKey,
           counter: passkey.counter,
@@ -140,17 +206,14 @@ export class PostgresPasskeyStore extends PasskeyStore {
     credentialId: string,
     unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null> {
-    const read = async (database: Kysely<PostgresTables>) => {
+    return this.on(unitOfWork, async (database) => {
       const row = await database
         .selectFrom('passkeys')
         .select(PASSKEY_COLUMNS)
         .where('credential_id', '=', credentialId)
         .executeTakeFirst();
       return row ? toStoredPasskey(row) : null;
-    };
-    return unitOfWork
-      ? read(postgresTransactionOf(unitOfWork))
-      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
+    });
   }
 
   advanceCounter(
@@ -158,7 +221,7 @@ export class PostgresPasskeyStore extends PasskeyStore {
     use: { counter: number; usedAt: Date },
     unitOfWork?: UnitOfWork,
   ): Promise<CounterOutcome> {
-    const advance = async (database: Kysely<PostgresTables>) => {
+    return this.on(unitOfWork, async (database) => {
       const moved = await database
         .updateTable('passkeys')
         .set({
@@ -172,10 +235,7 @@ export class PostgresPasskeyStore extends PasskeyStore {
       return moved.numUpdatedRows === 1n
         ? COUNTER_OUTCOME.ADVANCED
         : COUNTER_OUTCOME.ALREADY_ADVANCED;
-    };
-    return unitOfWork
-      ? advance(postgresTransactionOf(unitOfWork))
-      : autocommit(PASSKEY_CONSTRAINTS, () => advance(this.database));
+    });
   }
 
   markUsed(
@@ -183,16 +243,13 @@ export class PostgresPasskeyStore extends PasskeyStore {
     usedAt: Date,
     unitOfWork?: UnitOfWork,
   ): Promise<void> {
-    const mark = async (database: Kysely<PostgresTables>) => {
+    return this.on(unitOfWork, async (database) => {
       await database
         .updateTable('passkeys')
         .set({ last_used_at: usedAt, updated_at: this.clock.now() })
         .where('id', '=', toUuid(passkey.id))
         .execute();
-    };
-    return unitOfWork
-      ? mark(postgresTransactionOf(unitOfWork))
-      : autocommit(PASSKEY_CONSTRAINTS, () => mark(this.database));
+    });
   }
 
   listForAccount(userId: string): Promise<StoredPasskey[]> {
@@ -212,9 +269,9 @@ export class PostgresPasskeyStore extends PasskeyStore {
     passkeyId: string,
     unitOfWork?: UnitOfWork,
   ): Promise<StoredPasskey | null> {
-    const read = async (
-      reader: Kysely<PostgresTables>,
-    ): Promise<StoredPasskey | null> => {
+    // The unit of work holds a connection. A read on the pool would wait for
+    // a second one, and never get it from a pool the transactions filled.
+    return this.on(unitOfWork, async (reader) => {
       const row = await reader
         .selectFrom('passkeys')
         .select(PASSKEY_COLUMNS)
@@ -222,12 +279,7 @@ export class PostgresPasskeyStore extends PasskeyStore {
         .where('user_id', '=', toUuid(userId))
         .executeTakeFirst();
       return row ? toStoredPasskey(row) : null;
-    };
-    // The unit of work holds a connection. A read on the pool would wait for
-    // a second one, and never get it from a pool the transactions filled.
-    return unitOfWork
-      ? read(postgresTransactionOf(unitOfWork))
-      : autocommit(PASSKEY_CONSTRAINTS, () => read(this.database));
+    });
   }
 
   rename(passkey: StoredPasskey, name: string): Promise<StoredPasskey> {
@@ -246,7 +298,7 @@ export class PostgresPasskeyStore extends PasskeyStore {
   }
 
   async remove(unitOfWork: UnitOfWork, passkey: StoredPasskey): Promise<void> {
-    await postgresTransactionOf(unitOfWork)
+    await withPasskeyColumns(postgresTransactionOf(unitOfWork))
       .deleteFrom('passkeys')
       .where('id', '=', toUuid(passkey.id))
       .execute();

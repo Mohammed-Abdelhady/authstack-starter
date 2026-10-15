@@ -14,6 +14,7 @@ import {
   autocommit,
   removedRows,
 } from '../../../persistence/postgres/postgres-pending-codes-database';
+import { PasskeyDatabase, withPasskeyColumns } from './postgres-passkey.tables';
 
 /** Constraint names of the table to the rules' shared names. */
 const CHALLENGE_CONSTRAINTS: Readonly<Record<string, string>> = {
@@ -36,8 +37,11 @@ function ownId(id: string | undefined): string | null {
  * expiry comparison in `consume` is the only thing that refuses a lapsed one.
  */
 export class PostgresPasskeyChallengeStore extends PasskeyChallengeStore {
-  constructor(private readonly database: Kysely<PostgresTables>) {
+  private readonly database: PasskeyDatabase;
+
+  constructor(database: Kysely<PostgresTables>) {
     super();
+    this.database = withPasskeyColumns(database);
   }
 
   open(challenge: NewPasskeyChallenge): Promise<void> {
@@ -48,6 +52,7 @@ export class PostgresPasskeyChallengeStore extends PasskeyChallengeStore {
           challenge_hash: challenge.challengeHash,
           purpose: challenge.purpose,
           user_id: ownId(challenge.userId),
+          session_id: challenge.sessionId ?? null,
           expires_at: challenge.expiresAt,
         })
         .execute();
@@ -56,12 +61,15 @@ export class PostgresPasskeyChallengeStore extends PasskeyChallengeStore {
 
   consume(key: PasskeyChallengeKey, now: Date): Promise<ChallengeUse> {
     return autocommit(CHALLENGE_CONSTRAINTS, async () => {
-      const spent = await this.database
+      let spending = this.database
         .deleteFrom('passkey_challenges')
         .where('challenge_hash', '=', key.challengeHash)
         .where('purpose', '=', key.purpose)
-        .where('expires_at', '>', now)
-        .executeTakeFirst();
+        .where('expires_at', '>', now);
+      if (key.sessionId !== undefined) {
+        spending = spending.where('session_id', '=', key.sessionId);
+      }
+      const spent = await spending.executeTakeFirst();
       return removedRows(spent) === 1
         ? CHALLENGE_USE.CONSUMED
         : CHALLENGE_USE.REFUSED;
