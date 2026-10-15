@@ -26,11 +26,13 @@ export class RevokerAccountSessions extends AccountSessions {
     unitOfWork: UnitOfWork,
     userId: string,
     keptSessionId: string,
+    reasonCode?: string,
   ): Promise<number> {
     return this.revoker.revokeAllOthersExceptSessionIn(
       unitOfWork,
       userId,
       keptSessionId,
+      reasonCode,
     );
   }
 }
