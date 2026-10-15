@@ -159,11 +159,15 @@ export class SessionRevoker {
     );
   }
 
-  /** The same, inside a unit of work the caller owns and commits. */
+  /**
+   * The same, inside a unit of work the caller owns and commits. A change that
+   * ends the other sessions for a reason of its own names it on the event.
+   */
   async revokeAllOthersExceptSessionIn(
     unitOfWork: UnitOfWork,
     userId: string,
     keptSessionId: string,
+    reasonCode: string = REVOKED_REASON.ALL_OTHER,
   ): Promise<number> {
     const account = await this.store.readAccountForRevocation(
       unitOfWork,
@@ -216,7 +220,7 @@ export class SessionRevoker {
       targetUserId: account.id,
       sessionId: survivor.id,
       action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_OTHERS,
-      reasonCode: REVOKED_REASON.ALL_OTHER,
+      reasonCode,
     });
     return Math.max(0, count - 1);
   }
