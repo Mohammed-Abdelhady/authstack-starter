@@ -54,10 +54,17 @@ The application offers `emailCode` as a first factor only while both
 `EMAIL_CODE_ENABLED` and `signIn.emailCode` are on. The methods reply then has
 `capabilities.emailCode` set to `true`, and a new sign-in attempt lists
 `emailCode` among its factors. An application whose only key is `emailCode` can
-start an attempt. While email code is off the reply leaves the key out.
+start an attempt. While email code is off the reply leaves the key out, and no
+attempt lists the factor.
 
-Turn email code on for an application only once its app is built with the
-updated SDK, because older builds refuse a methods reply with the extra key.
+Turning the key on changes the methods reply and the replies that start and
+resume a sign-in attempt. A copy of the app built with an SDK from before email
+code refuses all of them. It can no longer load its sign-in methods or start or
+resume an attempt, so password, passkey, provider and link sign-in all stop
+working in it, and only the browser button is left. Building the app with the
+updated SDK does not protect the people who have not updated yet. Turn the key
+on only once no supported installed build predates this SDK, for example after
+a forced minimum app version has reached everyone.
 
 With `signIn.emailLink` on as well, and `MAGIC_LINK_ENABLED` on, the mail also
 carries the button. Leave either off and the mail carries the code alone.
