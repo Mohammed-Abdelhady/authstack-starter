@@ -1,4 +1,6 @@
 import { Kysely, sql } from 'kysely';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import {
   assertResetAllowed,
   NewSeedAccount,
@@ -83,9 +85,12 @@ export class PostgresSeedStore extends SeedStore {
     return row ? row.id : null;
   }
 
-  async createAccount(account: NewSeedAccount): Promise<string> {
+  async createAccount(
+    uow: UnitOfWork,
+    account: NewSeedAccount,
+  ): Promise<string> {
     const now = this.clock.now();
-    const row = await this.database
+    const row = await postgresTransactionOf(uow)
       .insertInto('users')
       .values({
         email: storedAddress(account.email),
