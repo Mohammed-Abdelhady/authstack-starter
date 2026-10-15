@@ -16,6 +16,7 @@ import { NativeRecoveryService } from './native-recovery.service'; // feature:em
 import { NativeEmailCodeController } from './native-email-code.controller'; // feature:email-code
 import { NativeEmailCodeService } from './native-email-code.service'; // feature:email-code
 import { NativeEmailCodeMailService } from './native-email-code-mail.service'; // feature:email-code
+import { NativeEmailCodeReviewService } from './native-email-code-review.service'; // feature:email-code
 import { EMAIL_CODE_PERSISTENCE_PROVIDERS } from '../../persistence/email-code-persistence'; // feature:email-code
 
 @Module({
@@ -41,6 +42,7 @@ import { EMAIL_CODE_PERSISTENCE_PROVIDERS } from '../../persistence/email-code-p
     NativeRecoveryService, // feature:email-password
     NativeEmailCodeService, // feature:email-code
     NativeEmailCodeMailService, // feature:email-code
+    NativeEmailCodeReviewService, // feature:email-code
     ...EMAIL_CODE_PERSISTENCE_PROVIDERS, // feature:email-code
   ],
 })

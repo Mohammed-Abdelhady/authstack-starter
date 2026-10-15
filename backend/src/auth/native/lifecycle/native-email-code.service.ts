@@ -13,10 +13,7 @@ import {
   EmailCodeStore,
   StoredEmailCode,
 } from '../../pending-codes/email-code.store';
-import {
-  hashPendingCodeGeneration,
-  matchesPendingCodeGeneration,
-} from '../../utils/pending-code-generation.util';
+import { matchesPendingCodeGeneration } from '../../utils/pending-code-generation.util';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
   NATIVE_ATTEMPT_FLOW,
@@ -30,6 +27,7 @@ import type {
 } from '../types/native-attempt';
 import { featureDisabled, wrongStage } from '../utils/native-attempt-errors';
 import { NativeEmailCodeMailService } from './native-email-code-mail.service';
+import { NativeEmailCodeReviewService } from './native-email-code-review.service';
 import { NativeEmailLinkService } from './native-email-link.service';
 
 const REQUEST_PHASES: NativeAttemptPhase[] = [
@@ -63,6 +61,7 @@ export class NativeEmailCodeService {
     private readonly hashService: HashService,
     private readonly config: ConfigService,
     private readonly clock: Clock,
+    private readonly review: NativeEmailCodeReviewService,
   ) {}
 
   async request(
@@ -124,10 +123,8 @@ export class NativeEmailCodeService {
     };
     const stored = await this.codes.find(key);
     if (!stored || !this.committed(attempt, stored)) throw emailCodeInvalid();
-    if (!(await this.hashService.compare(code, stored.codeHash))) {
-      await this.countWrongGuess(key, attemptId, secret);
-      throw emailCodeInvalid();
-    }
+    const review = this.review.isReviewCode(stored);
+    await this.assertRightGuess({ attempt, key, stored, code, review }, secret);
     if (!this.live(stored)) throw emailCodeInvalid();
     const completed = await this.emailLink.completeWithProof(
       attempt,
@@ -146,12 +143,39 @@ export class NativeEmailCodeService {
           ) {
             throw emailCodeInvalid();
           }
+          if (review) {
+            await this.review.admitIn(unitOfWork, claimed, emailCodeInvalid);
+          }
         },
         refuse: emailCodeInvalid,
         creationMethod: ACCOUNT_CREATION_METHOD.EMAIL_CODE,
       },
     );
     return this.attempts.view(completed);
+  }
+
+  /**
+   * Refuses a wrong code and counts it on the attempt, and a wrong fixed review
+   * code on the review account's day as well. While review access is off for
+   * the account, the fixed code is wrong whatever was typed.
+   */
+  private async assertRightGuess(
+    guess: {
+      attempt: NativeAttempt;
+      key: EmailCodeKey;
+      stored: StoredEmailCode;
+      code: string;
+      review: boolean;
+    },
+    secret: string,
+  ): Promise<void> {
+    const { attempt, key, stored, code, review } = guess;
+    const open = !review || (await this.review.usableFor(attempt));
+    const right = await this.hashService.compare(code, stored.codeHash);
+    if (open && right) return;
+    await this.countWrongGuess(key, attempt.attemptId, secret);
+    if (open && review) await this.review.countWrongGuess(attempt);
+    throw emailCodeInvalid();
   }
 
   /** The global switch first, like a route-level feature check, then the application's. */
@@ -179,7 +203,7 @@ export class NativeEmailCodeService {
   private committed(attempt: NativeAttempt, stored: StoredEmailCode): boolean {
     return matchesPendingCodeGeneration(
       attempt.details.emailCodeGenerationHash,
-      hashPendingCodeGeneration(stored.codeHash),
+      this.review.generationOf(stored),
     );
   }
 

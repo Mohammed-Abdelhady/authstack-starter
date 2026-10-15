@@ -3,6 +3,8 @@ import { UnitOfWork } from '../../common/persistence/unit-of-work';
 /** Fixed when a code is made. A code is accepted only where its purpose is asked for. */
 export const EMAIL_CODE_PURPOSE = {
   SIGN_IN: 'sign-in',
+  /** Wrong guesses at the fixed review code, owned by the review account's day. Holds no code. */
+  REVIEW_GUESSES: 'review-guesses',
 } as const;
 
 export type EmailCodePurpose =
@@ -20,7 +22,10 @@ export function storedEmailCodePurpose(value: string): EmailCodePurpose {
 /** The wrong guess that reaches this count spends the owner's code. */
 export const EMAIL_CODE_GUESS_LIMIT = 5;
 
-/** One code per owner and purpose. The owner is an attempt, never an address. */
+/**
+ * One code per owner and purpose. The owner is an attempt, or for the review
+ * guesses an account's day, never an address.
+ */
 export interface EmailCodeKey {
   ownerId: string;
   purpose: EmailCodePurpose;
