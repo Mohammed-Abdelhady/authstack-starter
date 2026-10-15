@@ -96,7 +96,8 @@
         "roles": "الأدوار",
         "permissions": "الصلاحيات",
         "sessions": "الجلسات",
-        "reports": "التقارير"
+        "reports": "التقارير",
+        "activity": "نشاط الموظفين"
       },
       "allTab": "الكل",
       "selectAll": "تحديد الكل",

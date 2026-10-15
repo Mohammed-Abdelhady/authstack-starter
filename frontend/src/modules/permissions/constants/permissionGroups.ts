@@ -9,6 +9,7 @@ export const CORE_PERMISSION_GROUP_IDS = [
   'permissions',
   'sessions',
   'reports',
+  'activity',
 ] as const;
 
 const NAMED_GROUP_IDS: readonly string[] = CORE_PERMISSION_GROUP_IDS;
