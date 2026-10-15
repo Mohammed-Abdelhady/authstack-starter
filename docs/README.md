@@ -4,6 +4,7 @@ Index of architecture documents, system guides, and provider setup tutorials.
 
 ## Core guides
 
+- [Upgrade notes](upgrading.md): Permission changes and steps to take before upgrading.
 - [Session device names](../backend/docs/session-device-names.md): Session response parts, localized names, and legacy fallback.
 - [Architecture](reference/ARCHITECTURE.md): Request pipeline, session storage, OAuth provider registry, and security model.
 - [Database schema](reference/DATABASE_SCHEMA.md): MongoDB collections, document models, indexes, and migrations.
