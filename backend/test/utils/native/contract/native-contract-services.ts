@@ -113,6 +113,7 @@ export function buildNativeServices(
     parts.issuanceApplications,
     clock,
     authEpoch,
+    stores.events,
   );
   return {
     authorize: new NativeAuthorizeService(

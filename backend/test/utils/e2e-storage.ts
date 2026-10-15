@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../src/host/types/host-role.type';
 import type { INestApplication } from '@nestjs/common';
 import type { TestingModuleBuilder } from '@nestjs/testing';
 import {
@@ -25,6 +26,7 @@ export interface E2eAccountFixture {
 
 /** An application as a case registers it. */
 export interface E2eApplication {
+  accountAudience?: RoleAudience;
   clientId: string;
   displayName: string;
   platform: string;
