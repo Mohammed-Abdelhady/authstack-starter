@@ -7,7 +7,7 @@ export const ACME_TOKEN_BODY = 'synthetic-http01-token';
 // Handwritten protocol fixtures stay independent of the backend producer.
 export const DEFAULT_PROXY_MANIFEST = {
   host: 'links.proxy.test',
-  paths: ['/custom/ar/activate', '/native/return', '/مخصص/تفعيل', '/literal$token'],
+  paths: ['/custom/en/activate', '/native/return', '/réglages/été', '/literal$token'],
   apiPrefix: 'api',
   acmeChallengePrefix: '/.well-known/acme-challenge/',
   reservedPathPrefixes: [

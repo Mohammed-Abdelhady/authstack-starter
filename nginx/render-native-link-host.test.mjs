@@ -59,7 +59,7 @@ test('refuses unsafe paths and hosts without rejecting safe literal paths', () =
   assert.doesNotThrow(() =>
     renderNativeLinkHost({
       ...ALTERNATE_PROXY_MANIFEST,
-      paths: ['/api/return', '/docs/return', '/literal$token', '/مخصص/تفعيل'],
+      paths: ['/api/return', '/docs/return', '/literal$token', '/réglages/été'],
     }),
   );
 });
