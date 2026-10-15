@@ -22,18 +22,25 @@ disabled erasure-lock binding before starting an erasure worker.
 Live from plan 5 part a. No setting turns it on or off.
 
 1. The signed-in person sends the new address to `POST /api/user/email`. The route needs a
-   sign-in in the last five minutes, or a passkey proof made on the same session.
+   browser sign-in in the last five minutes, or the account's password. A mobile app session
+   always sends the password, because a session the app gets by approving a browser sign-in
+   starts at the approval and its age proves nothing. Until the app's session carries the time
+   of the sign-in behind it, an account without a password changes its address from a browser.
 2. A six-digit code goes to the new address and a notice to the current one. An address that
    another account, a pending change or an invitation holds gets the same answer and never a
-   code, so nobody can learn which addresses are taken.
+   code, so the answer does not tell which addresses are taken.
 3. `POST /api/user/email/confirm` with the code moves the account. The device that confirms
-   stays signed in, every other session ends, and the old address is told.
-4. `DELETE /api/user/email` cancels a pending change and frees the address.
+   stays signed in, every other session ends, and the old address is told. Only a session of
+   the account that asked confirms it. The public and app confirmation routes refuse the code.
+4. `DELETE /api/user/email` cancels a pending change and frees the address. It needs the same
+   proof as step 1.
 
-A change that staff started can be confirmed from the mobile app by someone who is signed out,
-through `POST /api/auth/native/email-change/confirm`. Point the customer link template for
-`emailChangeCode` in `MAIL_LINKS_CUSTOMER` at the app's link host so the mail's button opens the
-app. The app sends its registered `clientId`, the new address and the code.
+A change that staff started is confirmed by someone who may be signed out, on the web page the
+mail links to, or from a mobile app through `POST /api/auth/native/email-change/confirm` with
+the app's registered `clientId`, the new address and the code. The starter's mobile UI has no
+screen for that route yet. Keep `emailChangeCode` in `MAIL_LINKS_CUSTOMER` on the web
+confirmation page until the host app adds a signed-out screen that opens from the mail's link
+and calls `account.email.confirmFromApp`, then point the template at the app's link host.
 
 ## Account notices
 

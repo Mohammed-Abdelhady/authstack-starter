@@ -105,9 +105,11 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 | POST   | `/api/user/email/confirm`          | Signed in       |                         | Moves the account with the mailed code             |
 | DELETE | `/api/user/email`                  | Signed in       |                         | Cancels the pending change                         |
 
-`POST /api/user/email` needs a sign-in in the last five minutes, or a passkey proof made on the same session, and answers `401` with `REAUTH_REQUIRED` otherwise. The new address is held in the address ledger until the change is confirmed, cancelled or its code lapses. An address that an account, another pending change or an invitation holds gets the same answer and the same pending state as a free one. It never receives a code, so the code step is where the change fails. The current address gets a notice either way. A second request replaces the first and kills its code.
+`POST /api/user/email` needs a browser sign-in in the last five minutes, or the account's password sent as `password` when the account has one. It answers `401` with `REAUTH_REQUIRED` otherwise, and `400` with `INVALID_CURRENT_PASSWORD` for a wrong password. A mobile app session's age does not count, because a session the app gets by approving a browser sign-in starts at the approval. The app always sends the password, and an account without one changes its address from a browser until the app's session carries the time of the sign-in behind it. The new address is held in the address ledger until the change is confirmed, cancelled or its code lapses. An address that an account, another pending change or an invitation holds gets the same answer, the same pending state and the same database work as a free one. It never receives a code, so the code step is where the change fails. The current address gets a notice either way. A second request replaces the first and kills its code.
 
-`POST /api/user/email/confirm` keeps the session that sends it and ends every other session with the reason `email_changed`. The address the account left gets a notice. A change confirmed through `POST /api/auth/confirm-email-change` still ends every session.
+`POST /api/user/email/confirm` confirms only a change the person asked for. It keeps the session that sends it and ends every other session with the reason `email_changed`. The address the account left gets a notice. `DELETE /api/user/email` needs the proof a request needs, with `password` in an optional JSON body, whoever started the change.
+
+`POST /api/auth/confirm-email-change` and the app route below confirm only a change staff started. They answer the shared invalid-code error for a code the person asked for, and end every session with the reason `email_changed`.
 
 <!-- feature:oauth-core:start -->
 
@@ -190,7 +192,7 @@ The application settings and SDK requirements are in [mobile setup](../../docs/s
 | POST   | `/api/auth/native/attempts/:attemptId/cancel`  | Public          |           | Cancels the attempt and invalidates its unfinished proofs                                 |
 | POST   | `/api/auth/native/email-change/confirm`        | Public          |           | Confirms an address change from the app with `clientId`, `email` and `code`               |
 
-The email change route takes no attempt. It confirms a change staff started, or one the person started, for someone who may be signed out, exactly as `POST /api/auth/confirm-email-change` does: the account moves and every session ends. The `clientId` must name an enabled public native application, or the answer is `403` before any code is checked. It is throttled like the public route.
+The email change route takes no attempt. It confirms a change staff started, for someone who may be signed out, exactly as `POST /api/auth/confirm-email-change` does. The account moves and every session ends with the reason `email_changed`. A code for a change the person asked for is refused with the shared invalid-code error. The `clientId` must have the shape the registry takes and name an enabled public native application, or the answer is `400` or `403` before any code is checked. It is throttled like the public route.
 
 <!-- feature:email-password:start -->
 
