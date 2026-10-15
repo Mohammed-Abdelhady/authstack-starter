@@ -1,4 +1,3 @@
-import { NATIVE_AUTH_LIMITS } from '@app/core';
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../errors';
 import { respond } from '../test-support';
@@ -32,17 +31,20 @@ describe('the passkey list', () => {
     },
   );
 
-  it('keeps a name at the length limit', () => {
-    const name = 'x'.repeat(NATIVE_AUTH_LIMITS.NAME);
+  it.each([
+    { stored: '64 emoji', name: '\u{1F600}'.repeat(64) },
+    { stored: '64 emoji with a variation selector', name: '\u{1F600}\u{FE0F}'.repeat(64) },
+  ])('keeps a name of $stored, which the server counts as 64 characters', ({ name }) => {
     expect(readList([{ id: 'long', name, ...STORED }]).passkeys[0]?.name).toBe(name);
   });
 
-  it.each([null, 17, undefined, 'x'.repeat(NATIVE_AUTH_LIMITS.NAME + 1)])(
-    'refuses the name %j',
-    (name) => {
-      expect(() => readList([{ id: 'odd', name, ...STORED }])).toThrow(ApiError);
-    },
-  );
+  it.each([null, 17, undefined])('refuses the name %j', (name) => {
+    expect(() => readList([{ id: 'odd', name, ...STORED }])).toThrow(ApiError);
+  });
+
+  it('refuses a name longer than any the server can have stored', () => {
+    expect(() => readList([{ id: 'odd', name: 'x'.repeat(193), ...STORED }])).toThrow(ApiError);
+  });
 
   it.each(['', '   '])('still refuses the blank id %j', (id) => {
     expect(() => readList([{ id, name: 'Phone', ...STORED }])).toThrow(ApiError);

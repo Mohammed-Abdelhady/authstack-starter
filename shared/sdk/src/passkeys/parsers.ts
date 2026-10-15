@@ -42,6 +42,13 @@ const ATTESTATIONS: readonly NonNullable<PasskeyCreationOptions['attestation']>[
   'enterprise',
 ];
 
+/** Characters a passkey name may hold, as the server's MaxLength counts them. */
+const PASSKEY_NAME_MAX_CHARACTERS = 64;
+/** MaxLength counts a surrogate pair and the variation selector after it as one character. */
+const UNITS_PER_COUNTED_CHARACTER = 3;
+/** The longest name the server can have stored, in UTF-16 units. */
+const PASSKEY_NAME_MAX_UNITS = PASSKEY_NAME_MAX_CHARACTERS * UNITS_PER_COUNTED_CHARACTER;
+
 /** `value` when it is one of `allowed`, refused otherwise; absent stays absent. */
 function oneOf<T extends string>(
   value: unknown,
@@ -63,7 +70,7 @@ function readSummary(value: unknown, field: string, status: number): PasskeySumm
       : boundedString(summary.deviceType, `${field}.deviceType`, NATIVE_AUTH_LIMITS.NAME, status);
   return {
     id: boundedString(summary.id, `${field}.id`, NATIVE_AUTH_LIMITS.ATTEMPT_ID, status),
-    name: boundedLabel(summary.name, `${field}.name`, NATIVE_AUTH_LIMITS.NAME, status),
+    name: boundedLabel(summary.name, `${field}.name`, PASSKEY_NAME_MAX_UNITS, status),
     ...(deviceType === undefined ? {} : { deviceType }),
     backedUp: booleanValue(summary.backedUp, `${field}.backedUp`, status),
     createdAt: isoDate(summary.createdAt, `${field}.createdAt`, status),
