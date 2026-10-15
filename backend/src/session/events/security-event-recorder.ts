@@ -1,4 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ActivityDetails } from './types/activity-event';
+import { ACTIVITY_RETENTION_DAYS_DEFAULT } from '../../config/constants/host-contracts';
+import { eventActivityFields } from './utils/activity-details';
+import {
+  ACTIVITY_DAY_MS,
+  SIGN_IN_RETENTION_DAYS,
+} from './constants/activity-details';
 import { randomUUID } from 'crypto';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { Clock } from '../../common/services/clock';
@@ -12,6 +20,7 @@ import { RoleDeletionSweep } from '../types/role-deletion-sweep';
 import { NewSecurityEvent, SecurityEventStore } from './security-event.store';
 
 export interface RecordSecurityEventInput {
+  details?: ActivityDetails;
   actorId?: string;
   targetUserId?: string;
   clientId?: string;
@@ -27,8 +36,20 @@ export interface RecordSecurityEventInput {
 export function newSecurityEvent(
   input: RecordSecurityEventInput,
   occurredAt: Date,
+  staffRetentionDays?: number,
 ): NewSecurityEvent {
+  const activity = eventActivityFields(input);
+  const days =
+    activity.kind === 'staff'
+      ? (staffRetentionDays ?? ACTIVITY_RETENTION_DAYS_DEFAULT)
+      : SIGN_IN_RETENTION_DAYS;
   return {
+    ...activity,
+    ...(staffRetentionDays === undefined
+      ? {}
+      : {
+          purgeAfter: new Date(occurredAt.getTime() + days * ACTIVITY_DAY_MS),
+        }),
     eventId: randomUUID(),
     actorId: input.actorId,
     targetUserId: input.targetUserId,
@@ -54,7 +75,13 @@ export function roleDeletionEvent(
       occurredAt,
     ),
     eventId: `${ROLE_DELETION_EVENT_PREFIX}${ref.roleId}`,
-    roleDeletionSweep: { ...ref, pending: true },
+    roleDeletionSweep: {
+      roleId: ref.roleId,
+      previousSlug: ref.previousSlug,
+      actorId: ref.actorId,
+      ...(ref.sweepId === undefined ? {} : { sweepId: ref.sweepId }),
+      pending: true,
+    },
   };
 }
 
@@ -68,7 +95,15 @@ export class SecurityEventRecorder {
   constructor(
     private readonly store: SecurityEventStore,
     private readonly clock: Clock,
+    @Optional() private readonly config?: ConfigService,
   ) {}
+
+  private retentionDays(): number {
+    return (
+      this.config?.get<number>('activity.retentionDays') ??
+      ACTIVITY_RETENTION_DAYS_DEFAULT
+    );
+  }
 
   async record(
     unitOfWork: UnitOfWork,
@@ -76,7 +111,7 @@ export class SecurityEventRecorder {
   ): Promise<void> {
     await this.store.append(
       unitOfWork,
-      newSecurityEvent(input, this.clock.now()),
+      newSecurityEvent(input, this.clock.now(), this.retentionDays()),
     );
   }
 
@@ -90,7 +125,9 @@ export class SecurityEventRecorder {
     const occurredAt = this.clock.now();
     await this.store.appendMany(
       unitOfWork,
-      inputs.map((input) => newSecurityEvent(input, occurredAt)),
+      inputs.map((input) =>
+        newSecurityEvent(input, occurredAt, this.retentionDays()),
+      ),
     );
   }
 
@@ -98,10 +135,13 @@ export class SecurityEventRecorder {
     unitOfWork: UnitOfWork,
     ref: Omit<RoleDeletionSweep, 'pending'>,
   ): Promise<void> {
-    await this.store.append(
-      unitOfWork,
-      roleDeletionEvent(ref, this.clock.now()),
-    );
+    const occurredAt = this.clock.now();
+    await this.store.append(unitOfWork, {
+      ...roleDeletionEvent(ref, occurredAt),
+      purgeAfter: new Date(
+        occurredAt.getTime() + this.retentionDays() * ACTIVITY_DAY_MS,
+      ),
+    });
   }
 
   /** For an event recorded outside any atomic workflow, such as a refusal. */
@@ -109,7 +149,7 @@ export class SecurityEventRecorder {
     input: RecordSecurityEventInput,
   ): Promise<void> {
     await this.store.appendOutsideUnitOfWork(
-      newSecurityEvent(input, this.clock.now()),
+      newSecurityEvent(input, this.clock.now(), this.retentionDays()),
     );
   }
 }
