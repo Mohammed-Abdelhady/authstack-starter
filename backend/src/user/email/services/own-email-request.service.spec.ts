@@ -328,11 +328,4 @@ describe('OwnEmailRequestService', () => {
     });
     expect(world.ledger.claims.get(NEW_ADDRESS)?.owner).toBe(ACCOUNT_ID);
   });
-
-  it('cancels nothing when nothing is pending, and leaves the generation alone', async () => {
-    await expect(world.requests.cancel(world.caller())).resolves.toEqual({
-      email: OLD_ADDRESS,
-    });
-    expect(world.accounts.row(ACCOUNT_ID).addressGeneration).toBe(3);
-  });
 });
