@@ -11,7 +11,8 @@ Used from plan 5. Today account deletion remains reversible soft deletion. No er
 | `PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS` | Used from plan 5. Optional previous secret key during rotation.                          |
 
 Keep optional, secret and erasure settings unset until plan 5 is implemented.
-Provider-token keys require at least 32 characters. A previous key requires a
-current key and must differ from it.
+Provider-token keys require at least 32 characters and are parsed independently.
+Plan 5 must require a current key when a previous key is set, and require the keys
+to differ.
 A grace period of `0` must remain distinct from absence. Plan 5 must replace the
 disabled erasure-lock binding before starting an erasure worker.

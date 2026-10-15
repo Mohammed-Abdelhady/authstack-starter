@@ -1,18 +1,21 @@
 # Applications Setup Guide
 
-Used from plan 1. Today the existing application registry and session constants remain in use. Reserved policy values are validated but no route or guard reads them.
+Used from plan 1. Today the existing application registry and session constants remain in use. Reserved policy values receive type, shape and format checks only. No route or guard reads them.
 
 ## Reserved settings
 
 | Setting                 | Reservation                                                                        |
 | ----------------------- | ---------------------------------------------------------------------------------- |
-| `ADMIN_URL`             | Used from plan 1. Optional admin origin, distinct from CLIENT_URL.                 |
+| `ADMIN_URL`             | Used from plan 1. Optional admin URL.                                              |
 | `AUTH_WEB_ENABLED`      | Used from plan 1. Reserved web application switch. Default `true`.                 |
 | `AUTH_WEB_SIGN_IN`      | Used from plan 1. Optional method flags and signUp, requirePasskey, audience JSON. |
 | `AUTH_ADMIN_SIGN_IN`    | Used from plan 1. Optional method flags and signUp, requirePasskey, audience JSON. |
 | `AUTH_WEB_SESSION`      | Used from plan 1. Optional absoluteHours, idleMinutes, cap JSON.                   |
 | `AUTH_ADMIN_SESSION`    | Used from plan 1. Optional absoluteHours, idleMinutes, cap JSON.                   |
 | `AUTH_NATIVE_LINK_HOST` | Used from plan 1. Optional bare hostname for native association links.             |
+
+Plan 1 must require distinct origins for `ADMIN_URL` and `CLIENT_URL`, and a public
+HTTPS `ADMIN_URL` when `NODE_ENV` is `production`. These checks do not run today.
 
 `AUTH_WEB_SIGN_IN` and `AUTH_ADMIN_SIGN_IN` accept boolean `password`, `emailLink`,
 `emailCode` and `passkeys` flags, plus `signUp: "open" | "closed"`, `requirePasskey: boolean` and
