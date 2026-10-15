@@ -33,12 +33,13 @@ export class MagicLinkAccountCreation {
   async createUser(
     email: string,
     locale: SupportedLocale,
+    application = WEB_CLIENT_ID,
   ): Promise<MagicLinkAccount> {
     try {
       const user = await this.runner.run(async (unitOfWork) => {
-        await this.policy.assertMayCreate(
+        const audience = await this.policy.assertMayCreate(
           {
-            application: WEB_CLIENT_ID,
+            application,
             method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
           },
           unitOfWork,
@@ -54,6 +55,7 @@ export class MagicLinkAccountCreation {
           email,
           name: deriveNameFromEmail(email),
           locale,
+          audience,
         });
         await this.ledger.finishAccountReservation(
           unitOfWork,

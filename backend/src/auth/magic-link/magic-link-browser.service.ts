@@ -1,3 +1,4 @@
+import { applicationCookieName } from '../../session/utils/request/application-cookie-name';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
@@ -40,8 +41,8 @@ export class MagicLinkBrowserService {
    */
   bind(request: Request, response: Response): string {
     const nonce = this.readNonce(request) ?? createMagicLinkToken();
-    response.cookie(this.cookieName, nonce, {
-      ...this.cookieOptions(),
+    response.cookie(this.cookieNameFor(request), nonce, {
+      ...this.cookieOptions(request),
       maxAge: this.configService.get<number>('magicLink.expiresIn', 900000),
     });
     return hashMagicLinkToken(nonce);
@@ -54,7 +55,10 @@ export class MagicLinkBrowserService {
   }
 
   release(response: Response): void {
-    response.clearCookie(this.cookieName, this.cookieOptions());
+    response.clearCookie(
+      this.cookieNameFor(response.req),
+      this.cookieOptions(response.req),
+    );
   }
 
   /** The account already signed in on this browser, when one is. */
@@ -65,19 +69,34 @@ export class MagicLinkBrowserService {
     }
     const session =
       await this.sessions.validateSessionWithoutExtendingIdle(token);
-    return session?.user?.id ?? null;
+    const application = this.sessionCookies.applications.current(request);
+    return session?.clientId === application.clientId
+      ? (session.user?.id ?? null)
+      : null;
   }
 
   private readNonce(request: Request): string | null {
     const cookies = request.cookies as Record<string, unknown> | undefined;
-    const nonce = cookies?.[this.cookieName];
+    const nonce = cookies?.[this.cookieNameFor(request)];
     return typeof nonce === 'string' && MAGIC_LINK_NONCE_PATTERN.test(nonce)
       ? nonce
       : null;
   }
 
-  private cookieOptions(): CookieOptions {
-    const { httpOnly, secure, sameSite, path } = this.sessionCookies.options;
+  private cookieNameFor(request: Request): string {
+    const application = this.sessionCookies.applications.current(request);
+    const { secure } = this.sessionCookies.optionsFor(application.clientId);
+    const name = secure
+      ? MAGIC_LINK_NONCE_HOST_COOKIE
+      : MAGIC_LINK_NONCE_COOKIE;
+    return applicationCookieName(name, application.clientId);
+  }
+
+  private cookieOptions(request: Request): CookieOptions {
+    const application = this.sessionCookies.applications.current(request);
+    const { httpOnly, secure, sameSite, path } = this.sessionCookies.optionsFor(
+      application.clientId,
+    );
     return { httpOnly, secure, sameSite, path };
   }
 }

@@ -1,12 +1,20 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { MagicLinkAccountCreation } from './magic-link-account-creation';
 import { AddressLedger } from '../../common/persistence/address-ledger';
-import { MagicLinkStore, UnspentMagicLink } from './stores/magic-link.store';
+import { MagicLinkStore } from './stores/magic-link.store';
+import { MagicLinkVerification } from './magic-link-verification';
+import type { MagicLinkLoginResponseData } from './types/magic-link-login-response';
 import { MagicLinkBrowserService } from './magic-link-browser.service';
+import { MagicLinkCeremonies } from './magic-link-ceremonies';
+import { BrowserApplications } from '../../session/applications/browser-applications';
+import type { BrowserApplicationId } from '../../session/applications/types/browser-application';
 import {
-  MagicLinkAccount,
+  browserMagicLinkUrl,
+  createBrowserMagicLinkToken,
+} from './utils/magic-link-browser-context';
+import {
   MagicLinkAccounts,
   MagicLinkSignIn,
 } from './stores/magic-link-accounts';
@@ -14,21 +22,12 @@ import { RequestMagicLinkDto } from './dto/request-magic-link.dto';
 import { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
 import { MagicLinkRequestResponseDto } from './dto/magic-link-request-response.dto';
 import {
-  MAGIC_LINK_CONFIRM_MESSAGE,
   MAGIC_LINK_INVALID_MESSAGE,
   MAGIC_LINK_RATE_WINDOW_MS,
 } from './constants/magic-link.constants';
-import {
-  createMagicLinkToken,
-  hashMagicLinkToken,
-  sameHash,
-} from './utils/magic-link-token.util';
-import type { SupportedLocale } from '../../common/constants/locales';
+import { hashMagicLinkToken } from './utils/magic-link-token.util';
 import { requestLocaleOf } from '../../common/decorators/request-locale.decorator';
-import { MAIL_NAME } from '../../mail/constants/mail-names';
-import { mailLink } from '../../mail/links/mail-links';
 import type { MailRecipient } from '../../mail/types/mail-recipient.types';
-import { LoginResponseDto } from '../dto/login-response.dto';
 import { AuthMailService } from '../services/mail/auth-mail.service';
 import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../constants/auth-messages';
 import { MailDispatcherService } from '../../mail/mail-dispatcher.service';
@@ -37,30 +36,24 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { Clock } from '../../common/services/clock';
 import { currentRequestId } from '../../common/context/request-context';
-import { maskEmail } from './utils/mask-email.util';
 import { getAllowedNativeAuthorizeContinuation } from './utils/magic-link-continuation.util';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
 
 const MILLISECONDS_PER_MINUTE = 60000;
-type MagicLinkLoginResponseData = LoginResponseDto & {
-  redirect?: string;
-  /** True when the link was not spent and a person has to confirm it. */
-  requiresConfirmation?: true;
-  /** The address the link belongs to, masked, for the confirmation screen. */
-  email?: string;
-};
 
 /**
  * Passwordless sign-in. A request mails a one-time link; verifying it creates
  * the session, and creates the account when the address has none.
  */
 @Injectable()
-export class MagicLinkService {
+export class MagicLinkService implements OnModuleInit {
   private readonly logger = new Logger(MagicLinkService.name);
   private readonly expiresIn: number;
   private readonly maxPerHour: number;
   private readonly accountCreation: MagicLinkAccountCreation;
+  private readonly ceremonies: MagicLinkCeremonies;
+  private readonly verification: MagicLinkVerification;
 
   constructor(
     private readonly links: MagicLinkStore,
@@ -68,13 +61,15 @@ export class MagicLinkService {
     private readonly configService: ConfigService,
     private readonly authMailService: AuthMailService,
     private readonly mailDispatcher: MailDispatcherService,
-    private readonly signIn: MagicLinkSignIn,
+    signIn: MagicLinkSignIn,
     private readonly browser: MagicLinkBrowserService,
     private readonly clock: Clock,
     policy: AccountCreationPolicy,
     ledger: AddressLedger,
     runner: UnitOfWorkRunner,
+    private readonly applications: BrowserApplications,
   ) {
+    this.ceremonies = new MagicLinkCeremonies(links, this.applications, clock);
     this.expiresIn = this.configService.get<number>(
       'magicLink.expiresIn',
       900000,
@@ -88,6 +83,22 @@ export class MagicLinkService {
       clock,
       () => this.invalidLink('address is taken'),
     );
+    this.verification = new MagicLinkVerification({
+      links,
+      accounts,
+      signIn,
+      browser,
+      ceremonies: this.ceremonies,
+      applications,
+      clock,
+      createAccount: (email, locale, clientId) =>
+        this.accountCreation.createUser(email, locale, clientId),
+      invalidLink: (reason) => this.invalidLink(reason),
+    });
+  }
+
+  onModuleInit(): void {
+    this.ceremonies.register();
   }
 
   /**
@@ -108,6 +119,8 @@ export class MagicLinkService {
     request: Request,
     response: Response,
   ): Promise<ApiResponse<MagicLinkRequestResponseDto>> {
+    const application = await this.applications.resolve(request);
+    this.applications.assertEnabled(application);
     const now = this.clock.now();
     const requestNonceHash = this.browser.bind(request, response);
     const owner = await this.accounts.findLinkRecipient(dto.email);
@@ -119,7 +132,7 @@ export class MagicLinkService {
     });
     const mailed = !deleted && underCap;
 
-    const token = createMagicLinkToken();
+    const token = createBrowserMagicLinkToken(application.clientId);
     const redirect = getAllowedNativeAuthorizeContinuation(dto.redirect);
     await this.links.insertLink({
       email: dto.email,
@@ -135,7 +148,12 @@ export class MagicLinkService {
     const requestId = currentRequestId() ?? 'unknown';
     if (mailed) {
       const locale = owner?.locale ?? requestLocaleOf(request);
-      this.deferLink({ email: dto.email, locale }, token, requestId);
+      this.deferLink(
+        { email: dto.email, locale },
+        token,
+        requestId,
+        application.clientId,
+      );
     } else if (deleted) {
       this.logger.warn('Magic link request for a deleted account');
     } else {
@@ -162,108 +180,7 @@ export class MagicLinkService {
     request: Request,
     response: Response,
   ): Promise<ApiResponse<MagicLinkLoginResponseData>> {
-    const now = this.clock.now();
-    const tokenHash = hashMagicLinkToken(dto.token);
-
-    if (dto.confirm !== true) {
-      const pending = await this.links.findUnspentLink(tokenHash);
-      if (!pending) {
-        throw this.invalidLink('token is unknown or already used');
-      }
-      if (pending.expiresAt.getTime() <= now.getTime()) {
-        throw this.invalidLink('token has expired');
-      }
-      if (await this.needsConfirmation(pending, request)) {
-        this.logger.log('Magic link awaits confirmation');
-        return ApiResponse.success(
-          {
-            requiresTwoFactor: false,
-            user: null,
-            requiresConfirmation: true,
-            email: maskEmail(pending.email),
-          },
-          MAGIC_LINK_CONFIRM_MESSAGE,
-        );
-      }
-    }
-
-    const link = await this.links.claimLink(tokenHash, now);
-
-    if (!link) {
-      throw this.invalidLink('token is unknown or already used');
-    }
-
-    if (link.expiresAt.getTime() <= this.clock.now().getTime()) {
-      throw this.invalidLink('token has expired');
-    }
-
-    const user = await this.resolveUser(link.email, requestLocaleOf(request));
-    const outcome = await this.signIn.complete(user, response);
-    this.browser.release(response);
-
-    let loginResponse: ApiResponse<LoginResponseDto>;
-    if (outcome.requiresTwoFactor) {
-      this.logger.log(`Link spent, second factor owed: userId=${user.id}`);
-      loginResponse = LoginResponseDto.twoFactorRequired();
-    } else {
-      this.logger.log(`User signed in with a magic link: userId=${user.id}`);
-      loginResponse = LoginResponseDto.success(outcome.user);
-    }
-
-    const data: MagicLinkLoginResponseData = {
-      ...loginResponse.data,
-      ...(link.redirect ? { redirect: link.redirect } : {}),
-    };
-    return ApiResponse.success(data, loginResponse.message);
-  }
-
-  /**
-   * True when the token did not come back to the browser that asked for it,
-   * or that browser is signed in to an account the link does not belong to.
-   */
-  private async needsConfirmation(
-    pending: UnspentMagicLink,
-    request: Request,
-  ): Promise<boolean> {
-    const presented = this.browser.presentedNonceHash(request);
-    if (
-      !presented ||
-      !pending.requestNonceHash ||
-      !sameHash(presented, pending.requestNonceHash)
-    ) {
-      return true;
-    }
-
-    const sessionAccountId = await this.browser.sessionAccountId(request);
-    if (sessionAccountId === null) {
-      return false;
-    }
-    const owner = await this.accounts.findByEmail(pending.email);
-    return owner?.id !== sessionAccountId;
-  }
-
-  /**
-   * The account behind a spent link. Following the link proves control of the
-   * address, so it both creates the account and verifies an existing one.
-   */
-  private async resolveUser(
-    email: string,
-    locale: SupportedLocale,
-  ): Promise<MagicLinkAccount> {
-    const existing = await this.accounts.findByEmail(email);
-
-    if (existing?.isDeleted) {
-      throw this.invalidLink('account is deleted');
-    }
-
-    if (existing) {
-      if (!existing.isVerified) {
-        await this.accounts.markVerified(existing);
-      }
-      return existing;
-    }
-
-    return this.accountCreation.createUser(email, locale);
+    return this.verification.verify(dto, request, response);
   }
 
   /** Start the mail and return at once. A dropped send is logged, not thrown. */
@@ -271,13 +188,17 @@ export class MagicLinkService {
     recipient: MailRecipient,
     token: string,
     requestId: string,
+    clientId: BrowserApplicationId,
   ): void {
     this.mailDispatcher.dispatch(async () => {
       const sent = await this.authMailService.sendMagicLink(
         recipient,
-        mailLink(this.configService, MAIL_NAME.MAGIC_LINK, recipient, {
+        browserMagicLinkUrl(
+          this.configService,
+          this.applications.configuration(clientId),
+          recipient,
           token,
-        }),
+        ),
         Math.round(this.expiresIn / MILLISECONDS_PER_MINUTE),
       );
       if (sent) {

@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import { Response } from 'express';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { SignInOutcome } from '../../interfaces/authenticated-user.interface';
@@ -19,6 +20,7 @@ export abstract class MagicLinkAccount {
 }
 
 export interface NewPasswordlessAccount {
+  audience: RoleAudience | undefined;
   email: string;
   name: string;
   /** The language of the request that spends the link. */
@@ -70,6 +72,11 @@ export type MagicLinkSignInOutcome = SignInOutcome;
 
 /** The sign-in every other route runs, for an account a link proved. */
 export abstract class MagicLinkSignIn {
+  abstract assertAdmission(
+    account: MagicLinkAccount,
+    response: Response,
+  ): Promise<void>;
+  abstract recordCreationRefusal(clientId: string): Promise<void>;
   abstract complete(
     account: MagicLinkAccount,
     response: Response,

@@ -114,7 +114,7 @@ export class NativeEmailLinkMailService {
       }
       return verified;
     }
-    await this.policy.assertMayCreate(
+    const audience = await this.policy.assertMayCreate(
       { application: clientId, method: ACCOUNT_CREATION_METHOD.MAGIC_LINK },
       unitOfWork,
     );
@@ -129,6 +129,7 @@ export class NativeEmailLinkMailService {
       email,
       name: deriveNameFromEmail(email),
       locale,
+      audience,
     });
     await this.ledger.finishAccountReservation(
       unitOfWork,
