@@ -568,7 +568,10 @@
         "backend/src/mail/builders/sign-in-code.spec.ts",
         "backend/src/mail/catalog/en/sign-in-code.ts",
         "backend/src/mail/catalog/ar/sign-in-code.ts",
-        "backend/test/native/email-code/**"
+        "backend/test/native/email-code/**",
+        "mobile/auth/test/native/native-email-code.test.ts",
+        "mobile/ui/src/logic/western-digits.ts",
+        "mobile/ui/test/screens/native-email-code.test.ts"
       ],
       "envVars": [
         "EMAIL_CODE_ENABLED",
