@@ -524,12 +524,39 @@
       ]
     },
     "email-code": {
-      "status": "planned",
+      "status": "available",
       "label": "Email code",
-      "description": "Reserved for plan 2. Email code sign-in is not implemented yet.",
+      "description": "Sign in from a native app with a six-digit code mailed to the address. Needs magic link.",
       "kind": "passwordless",
       "default": false,
-      "files": [],
+      "files": [
+        "backend/src/auth/native/lifecycle/native-email-code.controller.ts",
+        "backend/src/auth/native/lifecycle/native-email-code.service.ts",
+        "backend/src/auth/native/lifecycle/native-email-code-mail.service.ts",
+        "backend/src/auth/native/services/native-methods.email-code.spec.ts",
+        "backend/src/auth/native/lifecycle/email-code-minutes.ts",
+        "backend/src/auth/native/lifecycle/email-code-minutes.spec.ts",
+        "backend/src/auth/native/lifecycle/dto/native-email-code-verify.dto.ts",
+        "backend/src/auth/native/lifecycle/dto/native-email-code-verify.dto.spec.ts",
+        "backend/src/auth/pending-codes/email-code.store.ts",
+        "backend/src/auth/pending-codes/email-code.store.spec.ts",
+        "backend/src/auth/pending-codes/email-code.harness-spec.ts",
+        "backend/src/auth/pending-codes/email-code.contract.postgres.integration.spec.ts",
+        "backend/src/auth/pending-codes/email-code.contract.mongo.integration.spec.ts",
+        "backend/src/auth/persistence/email-code-persistence.ts",
+        "backend/src/auth/persistence/postgres/postgres-email-code.store.ts",
+        "backend/src/auth/persistence/postgres/postgres-email-code.table.ts",
+        "backend/src/auth/persistence/postgres/postgres-email-code-persistence.ts",
+        "backend/src/auth/persistence/mongo/mongo-email-code.store.ts",
+        "backend/src/auth/persistence/mongo/mongo-email-code-persistence.ts",
+        "backend/src/auth/persistence/mongo/mongo-email-code.harness-spec.ts",
+        "backend/src/common/persistence/postgres/migrations/0025_email_codes.sql",
+        "backend/src/mail/builders/sign-in-code.ts",
+        "backend/src/mail/builders/sign-in-code.spec.ts",
+        "backend/src/mail/catalog/en/sign-in-code.ts",
+        "backend/src/mail/catalog/ar/sign-in-code.ts",
+        "backend/test/native/email-code/**"
+      ],
       "envVars": [
         "EMAIL_CODE_ENABLED",
         "EMAIL_CODE_EXPIRES_IN",
@@ -538,7 +565,7 @@
         "EMAIL_CODE_REVIEW_CODE_HASH",
         "EMAIL_CODE_REVIEW_UNTIL"
       ],
-      "requires": [],
+      "requires": ["magic-link"],
       "docs": ["docs/setup/setup-email-code.md"]
     },
     "invitations": {

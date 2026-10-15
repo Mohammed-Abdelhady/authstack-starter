@@ -304,7 +304,7 @@ describe('config file usage errors exit 2', () => {
   });
 
   // Catches replay generating a project with an unimplemented feature silently omitted.
-  it.each(['email-code', 'invitations'])(
+  it.each(['invitations'])(
     'refuses planned %s in a v4 answers file and writes nothing',
     async (feature) => {
       const path = await answersConfig(['email-password', feature]);
@@ -316,11 +316,11 @@ describe('config file usage errors exit 2', () => {
     },
   );
 
-  it('refuses email-code from --config while it is planned', async () => {
-    const path = await config(JSON.stringify({ features: ['email-code'] }));
+  it('refuses invitations from --config while it is planned', async () => {
+    const path = await config(JSON.stringify({ features: ['invitations'] }));
     const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
     expect(code).toBe(2);
-    expect(output).toContain(sentenceFor({ id: 'email-code', reason: 'planned' }));
+    expect(output).toContain(sentenceFor({ id: 'invitations', reason: 'planned' }));
   });
 
   it('turns options off from a config file', async () => {
