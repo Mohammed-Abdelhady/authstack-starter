@@ -1,4 +1,5 @@
-LOCK TABLE users, pending_registrations IN ACCESS EXCLUSIVE MODE;
+-- Confirmation locks its code before the account, so take tables in that order.
+LOCK TABLE pending_registrations, users IN ACCESS EXCLUSIVE MODE;
 
 DO $$
 DECLARE
