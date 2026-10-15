@@ -215,10 +215,10 @@ Recovery updates the password and invalidates all sessions without signing in.
 
 Both routes take the attempt secret in `X-Native-Attempt` and answer as a disabled feature unless `EMAIL_CODE_ENABLED` is on and the application's `signIn.emailCode` is true.
 
-| Method | Path                                                      | Who may call it | Closed by | What it does                                                                                                                                                                            |
-| ------ | --------------------------------------------------------- | --------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/auth/native/attempts/:attemptId/email-code/request` | Public          |           | Mails a code for this attempt, and a link when the application has `emailLink`. Answers as a disabled feature while `EMAIL_CODE_ENABLED` or the application's `signIn.emailCode` is off |
-| POST   | `/api/auth/native/attempts/:attemptId/email-code/verify`  | Public          |           | Spends the matching code and advances to MFA or consent. Answers as a disabled feature while `EMAIL_CODE_ENABLED` or the application's `signIn.emailCode` is off                        |
+| Method | Path                                                      | Who may call it | Closed by | What it does                                                                                                                                                                                                             |
+| ------ | --------------------------------------------------------- | --------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| POST   | `/api/auth/native/attempts/:attemptId/email-code/request` | Public          |           | Mails a code for this attempt, and a link when the application has `emailLink`. Answers as a disabled feature while `EMAIL_CODE_ENABLED` or the application's `signIn.emailCode` is off                                  |
+| POST   | `/api/auth/native/attempts/:attemptId/email-code/verify`  | Public          |           | Spends the matching code and advances to MFA or consent. Answers `FORBIDDEN` for a deactivated account's right code, and as a disabled feature while `EMAIL_CODE_ENABLED` or the application's `signIn.emailCode` is off |
 
 <!-- feature:email-code:end -->
 <!-- feature:totp:start -->

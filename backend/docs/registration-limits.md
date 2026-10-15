@@ -104,9 +104,11 @@ leaves the attempt's wrong guesses in place for the next code.
 | Per-caller requests and verifies | see `common/constants/throttle.ts` | `@Throttle`                                  |
 
 One mail carries both the code and the link, so they share one counter. A
-request over the limit, for a deactivated account, or for an unknown address
-while sign-up is closed mails nothing and stores its code already spent, so no
-guess can match it. The reply is the same in every case.
+request over the limit, or for an unknown address while sign-up is closed,
+mails nothing and stores its code already spent, so no guess can match it. A
+deactivated account is mailed like any other, and only its right code is
+answered with `FORBIDDEN` instead of a sign-in. The reply to the request is the
+same in every case.
 
 What an attacker can still do: knowing only an address, someone can request
 codes for it until the hourly limit is reached. For the rest of that hour the
