@@ -28,6 +28,7 @@ import {
   EMAIL_CODE_APPLICATION,
   errorCodeOf,
   lastSignInMail,
+  otherCode,
   requestCode,
   setEmailCode,
   storedCode,
@@ -105,7 +106,7 @@ describe('native email code request (e2e)', () => {
     expect((await storedCode(e2e, attempt))?.codeHash).not.toContain(mail.code);
   });
 
-  it('gives every refusal the reply a known address gets, and mails only the open sign-up', async () => {
+  it('gives a closed sign-up the reply a known address gets, and mails only the open one', async () => {
     const known = (await replyFor(KNOWN)).reply;
     const open = (await replyFor(UNKNOWN)).reply;
     expect((await e2e.captureMail()).map((mail) => mail.to)).toEqual([
@@ -118,47 +119,50 @@ describe('native email code request (e2e)', () => {
     policy.refused = true;
     const closed = await replyFor('closed-person@example.test');
     const closedCode = typed();
-    const deactivated = 'deactivated@example.test';
-    await e2e.state.accounts.createAccount({
-      email: deactivated,
-      name: 'Gone',
-      isVerified: true,
-      isDeleted: true,
-    });
-    const gone = await replyFor(deactivated);
-    const goneCode = typed();
 
-    expect([open, closed.reply, gone.reply]).toEqual([
+    expect([open, closed.reply]).toEqual([
       { ...known, email: UNKNOWN },
       { ...known, email: 'closed-person@example.test' },
-      { ...known, email: deactivated },
     ]);
     expect(await e2e.captureMail()).toHaveLength(2);
-    for (const [attempt, code] of [
-      [closed.attempt, closedCode],
-      [gone.attempt, goneCode],
-    ] as const) {
-      expect((await storedCode(e2e, attempt))?.spentAt).toEqual(TEST_NOW);
-      const refused = await verifyCode(e2e, attempt, code).expect(400);
-      expect(errorCodeOf(refused)).toBe(ErrorCode.EMAIL_CODE_INVALID);
-    }
+    expect((await storedCode(e2e, closed.attempt))?.spentAt).toEqual(TEST_NOW);
+    const refused = await verifyCode(e2e, closed.attempt, closedCode).expect(
+      400,
+    );
+    expect(errorCodeOf(refused)).toBe(ErrorCode.EMAIL_CODE_INVALID);
     expect(
       await e2e.state.accounts.accountIdFor('closed-person@example.test'),
     ).toBeNull();
   });
 
-  it('refuses a code mailed before the account was deactivated, with the same code as a wrong one', async () => {
-    const { attempt } = await replyFor(KNOWN);
-    const { code } = await lastSignInMail(e2e);
+  it('mails a deactivated account like a known one, and names the deactivation only after the right code', async () => {
+    const before = await replyFor(KNOWN);
+    const { code: earlier } = await lastSignInMail(e2e);
     const id = await e2e.state.accounts.accountIdFor(KNOWN);
     if (!id) throw new Error('known account missing');
     await e2e.app.get(UserProfileService).deactivateAccount(id);
+    const after = await replyFor(KNOWN);
+    const { code } = await lastSignInMail(e2e);
 
-    const refused = await verifyCode(e2e, attempt, code).expect(400);
-    expect(errorCodeOf(refused)).toBe(ErrorCode.EMAIL_CODE_INVALID);
-    const after = await storedAttempt(e2e, attempt);
-    expect(after.phase).toBe('emailLinkSent');
-    expect(after.details.verifiedAccount).toBeNull();
+    expect(after.reply).toEqual(before.reply);
+    expect((await e2e.captureMail()).map((mail) => mail.to)).toEqual([
+      KNOWN,
+      KNOWN,
+    ]);
+    const wrong = await verifyCode(e2e, after.attempt, otherCode(code)).expect(
+      400,
+    );
+    expect(errorCodeOf(wrong)).toBe(ErrorCode.EMAIL_CODE_INVALID);
+    for (const [attempt, right] of [
+      [before.attempt, earlier],
+      [after.attempt, code],
+    ] as const) {
+      const refused = await verifyCode(e2e, attempt, right).expect(403);
+      expect(errorCodeOf(refused)).toBe(ErrorCode.FORBIDDEN);
+      const stored = await storedAttempt(e2e, attempt);
+      expect(stored.phase).toBe('emailLinkSent');
+      expect(stored.details.verifiedAccount).toBeNull();
+    }
   });
 
   it('sends nothing past five mails in a window, answers the same, and stores the sixth code spent', async () => {
