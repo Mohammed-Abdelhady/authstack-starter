@@ -1,7 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createApiClient } from '../client';
 import { SdkError } from '../errors';
-import { createBrowserTransport, createOperationHandle } from '../browser-transport';
-import { refusal, reply } from './test-support';
+import {
+  createBrowserTransport,
+  createOperationHandle,
+  UnknownOutcomeError,
+  type OperationHandle,
+} from '../browser-transport';
+import type { BrowserRequest } from './types';
+import { network, refusal, reply } from './test-support';
+
+const BODY = {
+  email: 'mona@example.com',
+  name: 'Mona',
+  password: 'test-password',
+  role: 'support',
+};
 
 describe('local logical create operations', () => {
   // Mutation: operations.ts secureOperationKey, bypass the guarded crypto UUID port.
@@ -39,5 +53,77 @@ describe('local logical create operations', () => {
     browser.rememberBrowserProof('old', 'session');
     await browser.request({ method: 'POST', path: '/write', body });
     expect(sentBodies).toEqual(['{"name":"original"}', '{"name":"original"}']);
+  });
+
+  // Mutation: browser-transport.ts send, allocate another key/body for the CSRF retry.
+  it('h16 allocates once per create and keeps key and body through the CSRF retry', async () => {
+    const createOperationKey = vi
+      .fn<() => string>()
+      .mockReturnValueOnce('first-operation')
+      .mockReturnValueOnce('second-operation');
+    const io = network(
+      refusal('CSRF_REQUIRED'),
+      reply({ success: true, data: { token: 'fresh' } }),
+      new Error('retried answer lost'),
+      reply({ success: true, data: { id: 'created-2' } }),
+    );
+    const browser = createBrowserTransport({ fetch: io.fetch });
+    browser.rememberBrowserProof('old', 'session');
+    const requests: BrowserRequest[] = [];
+    const client = createApiClient({
+      request: (request) => {
+        requests.push(request);
+        return browser.request(request);
+      },
+    });
+    const failure: unknown = await client.admin.accounts
+      .create(BODY, { createOperationKey })
+      .catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(UnknownOutcomeError);
+    if (!(failure instanceof UnknownOutcomeError)) throw failure;
+    await client.admin.accounts.create(BODY, { createOperationKey });
+    const first = requests[0];
+    const second = requests[1];
+    expect(typeof first?.operationKey).toBe('string');
+    expect(typeof second?.operationKey).toBe('string');
+    expect(failure.operationKey).toBe(first?.operationKey);
+    expect(second?.operationKey).not.toBe(first?.operationKey);
+    expect(createOperationKey).toHaveBeenCalledTimes(2);
+    expect(io.sent.map(({ init }) => init.body)).toEqual([
+      '{"email":"mona@example.com","name":"Mona","password":"test-password","role":"support"}',
+      undefined,
+      '{"email":"mona@example.com","name":"Mona","password":"test-password","role":"support"}',
+      '{"email":"mona@example.com","name":"Mona","password":"test-password","role":"support"}',
+    ]);
+    for (const { init } of io.sent) {
+      expect(Object.keys(init.headers).sort()).toEqual(
+        init.method === 'GET'
+          ? ['Accept', 'Content-Type']
+          : ['Accept', 'Content-Type', 'x-csrf-token'],
+      );
+      expect(init.credentials).toBe('include');
+      expect(init.headers['Content-Type']).toBe('application/json');
+    }
+  });
+
+  // Mutation: areas/admin.ts createCall, ignore the supplied operation handle.
+  it('h17 returns an unknown operation key and accepts its handle on explicit resumption', async () => {
+    const io = network(new Error('answer lost'), new Error('answer lost'));
+    const browser = createBrowserTransport({ fetch: io.fetch });
+    browser.rememberBrowserProof('session', 'session');
+    const client = createApiClient(browser);
+    const operation: OperationHandle = { operationKey: 'resume-account-1' };
+    await expect(client.admin.accounts.create(BODY, { operation })).rejects.toMatchObject({
+      unknownOutcome: true,
+      operationKey: 'resume-account-1',
+      retryable: false,
+    });
+    expect(io.sent).toHaveLength(1);
+    await expect(client.admin.accounts.create(BODY, { operation })).rejects.toMatchObject({
+      unknownOutcome: true,
+      operationKey: 'resume-account-1',
+      retryable: false,
+    });
+    expect(io.sent).toHaveLength(2);
   });
 });
