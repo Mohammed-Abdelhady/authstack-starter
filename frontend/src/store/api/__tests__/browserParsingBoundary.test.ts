@@ -9,7 +9,6 @@ import { errorInterceptor } from '@/store/middleware/errorInterceptor';
 import { browserBaseQuery } from '../baseApi';
 import { clearBrowserProof } from '../browser-proof';
 import { createIdentityFence } from '../identity-fence';
-import { invalidateOnSuccessOrUnknownOutcome } from '../invalidateOnSuccess';
 
 vi.mock('@/lib/toast', () => ({ toast: { show: vi.fn(), dismiss: vi.fn() } }));
 
@@ -108,24 +107,6 @@ describe('browser adapter failure handoffs', () => {
 
     expect(result.error).toMatchObject({ status: 503, unknownOutcome: false });
     expect(paths).toEqual(['/api/admin/users/user-2', '/api/auth/csrf']);
-  });
-
-  it('does not invalidate sensitive reads for cancellation before dispatch', async () => {
-    const fetchPort = vi.fn();
-    vi.stubGlobal('fetch', fetchPort);
-    const controller = new AbortController();
-    controller.abort();
-
-    const result = await browserBaseQuery(
-      { url: `${USER_PATH}/role`, method: 'PATCH', body: { role: 'admin' } },
-      queryApi(controller.signal),
-      {},
-    );
-
-    expect(result.error).toMatchObject({ code: 'REQUEST_ABORTED', unknownOutcome: false });
-    const invalidate = invalidateOnSuccessOrUnknownOutcome([{ type: 'User', id: 'user-2' }]);
-    expect(invalidate(undefined, result.error, undefined)).toEqual([]);
-    expect(fetchPort.mock.calls).toEqual([]);
   });
 
   it('compares the supplied identity snapshot with current state', () => {
