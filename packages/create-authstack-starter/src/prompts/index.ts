@@ -47,7 +47,7 @@ export async function askFeatures(
   defaults: string[],
 ): Promise<string[] | typeof CANCELLED> {
   const answer = await groupMultiselect({
-    message: 'Which sign-in methods do you want?',
+    message: 'Which features do you want?',
     options: groupOptions(manifest),
     initialValues: defaults,
     required: true,
