@@ -1,7 +1,10 @@
 import { Kysely, sql } from 'kysely';
 import { BoundEmailChangeGeneration } from '../../types/prepared-email-change';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
-import { PENDING_PURPOSE } from '../../constants/registration';
+import {
+  EMAIL_CHANGE_PURPOSES,
+  EmailChangePurpose,
+} from '../../constants/registration';
 import {
   AttemptRule,
   CODE_CLAIM,
@@ -59,13 +62,14 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
     uow: UnitOfWork,
     email: string,
     generation: BoundEmailChangeGeneration,
+    purpose: EmailChangePurpose,
   ): Promise<CodeRotation> {
     const owner = toUuid(generation.userId);
     const row = await postgresTransactionOf(uow)
       .insertInto('pending_registrations')
       .values({
         email: storedAddress(email),
-        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+        purpose,
         ...generationColumns(generation),
       })
       .onConflict((conflict) =>
@@ -112,7 +116,7 @@ export class PostgresPendingRegistrationStore extends PendingRegistrationStore {
         .where('purpose', '=', key.purpose)
         .where('expires_at', expiry, now);
       if (
-        key.purpose === PENDING_PURPOSE.EMAIL_CHANGE &&
+        EMAIL_CHANGE_PURPOSES.has(key.purpose) &&
         generation.userId !== undefined &&
         generation.addressGeneration !== undefined
       ) {

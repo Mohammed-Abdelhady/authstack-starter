@@ -4,7 +4,10 @@ import { Model, Types } from 'mongoose';
 import { BoundEmailChangeGeneration } from '../../types/prepared-email-change';
 import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
-import { PENDING_PURPOSE } from '../../constants/registration';
+import {
+  EMAIL_CHANGE_PURPOSES,
+  EmailChangePurpose,
+} from '../../constants/registration';
 import { toObjectId } from '../../../session/persistence/mongo/mongo-issuance-mappers';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import {
@@ -58,7 +61,7 @@ function generationFence(
   generation: PendingCodeGeneration,
 ): Record<string, unknown> {
   if (
-    purpose !== PENDING_PURPOSE.EMAIL_CHANGE ||
+    !EMAIL_CHANGE_PURPOSES.has(purpose) ||
     generation.userId === undefined ||
     generation.addressGeneration === undefined
   ) {
@@ -89,6 +92,7 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
     uow: UnitOfWork,
     email: string,
     generation: BoundEmailChangeGeneration,
+    purpose: EmailChangePurpose,
   ): Promise<CodeRotation> {
     const session = mongoSessionOf(uow);
     await this.pendingRegistrationModel
@@ -106,8 +110,8 @@ export class MongoPendingRegistrationStore extends PendingRegistrationStore {
         .findOneAndUpdate(
           {
             email,
-            purpose: PENDING_PURPOSE.EMAIL_CHANGE,
-            ...generationFence(PENDING_PURPOSE.EMAIL_CHANGE, generation),
+            purpose,
+            ...generationFence(purpose, generation),
           },
           {
             $set: {

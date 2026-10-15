@@ -1,3 +1,4 @@
+import type { EmailChangePurpose } from '../../../auth/constants/registration';
 import { storedAddress } from '../../../common/persistence/stored-address';
 import type { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
@@ -63,8 +64,9 @@ export class MemoryCodes extends PendingRegistrationStore implements RollsBack {
     _unitOfWork: UnitOfWork,
     email: string,
     generation: BoundEmailChangeGeneration,
+    purpose: EmailChangePurpose,
   ): Promise<CodeRotation> {
-    const key = keyOf(email, 'email-change');
+    const key = keyOf(email, purpose);
     const stored = this.records.get(key);
     if (
       stored &&
