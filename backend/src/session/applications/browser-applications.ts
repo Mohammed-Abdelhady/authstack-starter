@@ -26,6 +26,10 @@ export class BrowserApplications {
     Promise<BrowserApplication>
   >();
   private readonly evidence = new WeakMap<Request, BrowserEvidence>();
+  private readonly enabledReads = new WeakMap<
+    Request,
+    Map<BrowserApplicationId, Promise<boolean>>
+  >();
   private readonly ceremonies = new Map<string, BrowserCeremonyReader>();
 
   constructor(
@@ -67,13 +71,16 @@ export class BrowserApplications {
     );
   }
 
+  /** With a request, every check of that request shares one stored read per application. */
   async application(
     clientId: BrowserApplicationId,
+    request?: Request,
   ): Promise<BrowserApplication> {
     return {
       ...this.configuration(clientId),
       enabled:
-        this.isConfigured(clientId) && (await this.readEnabled(clientId)),
+        this.isConfigured(clientId) &&
+        (await this.storedEnabled(clientId, request)),
     };
   }
 
@@ -103,7 +110,7 @@ export class BrowserApplications {
     request: Request,
     clientId: BrowserApplicationId,
   ): Promise<BrowserApplication> {
-    const application = await this.application(clientId);
+    const application = await this.application(clientId, request);
     this.resolved.set(request, application);
     return application;
   }
@@ -116,14 +123,22 @@ export class BrowserApplications {
     return this.evidence.get(request);
   }
 
-  async allowedOrigins(): Promise<string[]> {
+  async allowedOrigins(request?: Request): Promise<string[]> {
     const applications = await Promise.all([
-      this.application(WEB_CLIENT_ID),
-      this.application(ADMIN_CLIENT_ID),
+      this.application(WEB_CLIENT_ID, request),
+      this.application(ADMIN_CLIENT_ID, request),
     ]);
     return applications
       .filter(({ enabled }) => enabled)
       .map(({ origin }) => origin);
+  }
+
+  /** The configured origins, read from no store. */
+  configuredOrigins(): string[] {
+    const clientIds: BrowserApplicationId[] = [WEB_CLIENT_ID, ADMIN_CLIENT_ID];
+    return clientIds
+      .filter((clientId) => this.isConfigured(clientId))
+      .map((clientId) => this.configuration(clientId).origin);
   }
 
   assertEnabled(application: BrowserApplication): void {
@@ -176,8 +191,27 @@ export class BrowserApplications {
     }
     const application = await this.application(
       this.fromOrigin(request).clientId,
+      request,
     );
     this.resolved.set(request, application);
     return application;
+  }
+
+  private storedEnabled(
+    clientId: BrowserApplicationId,
+    request?: Request,
+  ): Promise<boolean> {
+    if (!request) return this.readEnabled(clientId);
+    let reads = this.enabledReads.get(request);
+    if (!reads) {
+      reads = new Map();
+      this.enabledReads.set(request, reads);
+    }
+    let read = reads.get(clientId);
+    if (!read) {
+      read = this.readEnabled(clientId);
+      reads.set(clientId, read);
+    }
+    return read;
   }
 }

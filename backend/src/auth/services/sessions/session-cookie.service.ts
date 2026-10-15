@@ -119,7 +119,7 @@ export class SessionCookieService {
     if (
       origin &&
       hasCookie &&
-      !(await this.applications.allowedOrigins()).includes(origin)
+      !(await this.applications.allowedOrigins(req)).includes(origin)
     ) {
       throw new AppException(
         ErrorCode.ORIGIN_REJECTED,
