@@ -14,6 +14,7 @@ import type { IdentityData } from './types/identity-response.type';
 import { Public } from './decorators/public.decorator';
 import { SessionCookieService } from './services/sessions/session-cookie.service';
 import { Sessions } from './services/sessions/sessions';
+import { CREDENTIAL_PURPOSE } from '../session/constants/credential-purpose';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -64,7 +65,7 @@ export class IdentityController {
     }
     const session = bearer
       ? await this.nativeAccess.validate(bearer)
-      : await this.sessions.validateSession(cookie ?? '');
+      : await this.sessions.validateBrowserSession(cookie ?? '', true);
     if (
       !session ||
       !session.user ||
@@ -86,7 +87,13 @@ export class IdentityController {
 
     try {
       const profile = await this.profiles.getProfile(session.user.id);
-      return ApiResponse.success({ authenticated: true, user: profile.data });
+      return ApiResponse.success({
+        authenticated: true,
+        user: profile.data,
+        ...(session.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT
+          ? { enrolment: true as const }
+          : {}),
+      });
     } catch (error) {
       if (
         !(error instanceof AppException) ||

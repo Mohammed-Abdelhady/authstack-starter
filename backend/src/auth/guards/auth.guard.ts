@@ -1,3 +1,6 @@
+import { ENROLMENT_TOKEN_PREFIX } from '../../session/constants/enrolment';
+import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
+import { enrolmentRouteAllowed } from '../../session/utils/request/enrolment-route';
 import type { RoleAudience } from '../../host/types/host-role.type';
 import {
   Injectable,
@@ -80,12 +83,35 @@ export class AuthGuard implements CanActivate {
       this.sessionCookieService.applications.assertEnabled(application);
     }
 
-    if (isPublic) {
-      return true;
-    }
-
     const response = context.switchToHttp().getResponse<Response>();
     const sessionToken = this.sessionCookieService.read(request);
+    let cookieSession: AuthenticatedSession | null | undefined;
+    if (
+      sessionToken &&
+      (isPublic
+        ? sessionToken.startsWith(ENROLMENT_TOKEN_PREFIX)
+        : readBearerToken(request) === null)
+    ) {
+      cookieSession = await this.sessionService.validateBrowserSession(
+        sessionToken,
+        !isPublic,
+      );
+      if (cookieSession?.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT) {
+        if (
+          cookieSession.clientId !==
+            this.sessionCookieService.applications.current(request).clientId ||
+          !enrolmentRouteAllowed(request)
+        ) {
+          throw new AppException(
+            ErrorCode.FORBIDDEN,
+            'Complete passkey enrolment before using this route',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        request.session = cookieSession;
+      }
+    }
+    if (isPublic) return true;
     const bearer = readBearerToken(request);
     const credential = selectRequestCredential(
       bearer !== null,
@@ -99,7 +125,7 @@ export class AuthGuard implements CanActivate {
     if (credential === REQUEST_CREDENTIAL.BEARER && bearer) {
       session = await this.nativeAccess.validate(bearer);
     } else if (cookieSelected && sessionToken) {
-      session = await this.sessionService.validateSession(sessionToken);
+      session = cookieSession ?? null;
     } else {
       throw new AppException(
         ErrorCode.SESSION_REQUIRED,
