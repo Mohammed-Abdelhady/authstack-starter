@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import {
+  ANSWERS_SCHEMA_VERSION,
   DOCKER_OPTION_ID,
   LOCALE_IDS,
   PRODUCTION_OPTION_ID,
@@ -7,7 +8,15 @@ import {
 } from '../constants/index.js';
 import { isMember, isRecord, readBoolean, readString, readStringArray } from '../manifest/read.js';
 import { MOBILE_IDENTITY_FIELDS } from '../constants/mobile.js';
-import type { RulesPolicy } from '../types.js';
+import { parseAnswersRecord } from '../scaffold/answers.js';
+import type {
+  AnswersRecord,
+  Feature,
+  Manifest,
+  ResolvedAnswers,
+  RulesPolicy,
+  TemplateIdentity,
+} from '../types.js';
 import type { MobileIdentityRequest } from '../types/mobile.js';
 import { isErrnoException } from '../utils/fs.js';
 
@@ -168,8 +177,71 @@ export function parseConfigFile(value: unknown): ConfigSelection {
   return selection;
 }
 
-/** Reads and validates a config file. Throws ConfigFileError with a clear message. */
-export async function readConfigFile(path: string): Promise<ConfigSelection> {
+/** What a recorded answers file is checked against and mapped through. */
+export interface AnswersSource {
+  manifest: Manifest;
+  template: TemplateIdentity;
+}
+
+/** The recorded selection as the same switches a config file sets. */
+function answersSelection(
+  answers: ResolvedAnswers,
+  rules: RulesPolicy,
+  manifest: Manifest,
+): ConfigSelection {
+  const selection: ConfigSelection = {
+    targets: [...answers.targets],
+    databases: [answers.database],
+    // Hidden features arrive through requires, and the plan refuses them by name.
+    features: answers.features.filter((id) => {
+      const feature: Feature | undefined = manifest.features[id];
+      return feature?.kind !== 'hidden';
+    }),
+    options: {
+      [DOCKER_OPTION_ID]: answers.options.includes(DOCKER_OPTION_ID),
+      [PRODUCTION_OPTION_ID]: answers.options.includes(PRODUCTION_OPTION_ID),
+    },
+    locales: [...answers.locales],
+    rules,
+  };
+  if (answers.mobile !== undefined) selection.mobile = { ...answers.mobile };
+  return selection;
+}
+
+/** A recorded answers file, replayed only against the template it was made from. */
+export function parseAnswersConfig(
+  value: Record<string, unknown>,
+  source: AnswersSource,
+): ConfigSelection {
+  const version = value.schemaVersion;
+  if (typeof version === 'number' && version < ANSWERS_SCHEMA_VERSION) {
+    throw new ConfigFileError(
+      `answers file schema version ${String(version)} predates the round trip. Only version ${String(ANSWERS_SCHEMA_VERSION)} answers files can be used with --config.`,
+    );
+  }
+  let record: AnswersRecord;
+  try {
+    record = parseAnswersRecord(value);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new ConfigFileError(`answers file is invalid: ${reason}`);
+  }
+  if (record.template.sha256 !== source.template.sha256) {
+    throw new ConfigFileError(
+      `answers file was made from template ${record.template.sha256}, but this installer carries template ${source.template.sha256}. Run ${record.installer.name}@${record.installer.version} to generate from that template.`,
+    );
+  }
+  return answersSelection(record.answers, record.rules.policy, source.manifest);
+}
+
+/**
+ * Reads and validates a config file. A recorded answers file is told apart by
+ * its `schemaVersion` key. Throws ConfigFileError with a clear message.
+ */
+export async function readConfigFile(
+  path: string,
+  source: AnswersSource,
+): Promise<ConfigSelection> {
   let raw: string;
   try {
     raw = await readFile(path, 'utf8');
@@ -194,5 +266,8 @@ export async function readConfigFile(path: string): Promise<ConfigSelection> {
     throw new ConfigFileError(`config file is not valid JSON: ${reason}`);
   }
 
+  if (isRecord(parsed) && Object.hasOwn(parsed, 'schemaVersion')) {
+    return parseAnswersConfig(parsed, source);
+  }
   return parseConfigFile(parsed);
 }
