@@ -1,4 +1,3 @@
-// feature:oauth-core:start
 import { ConfigService } from '@nestjs/config';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, type E2eApp } from '../utils/e2e-app';
@@ -89,4 +88,3 @@ describe('closed admin provider entry', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(1);
   });
 });
-// feature:oauth-core:end

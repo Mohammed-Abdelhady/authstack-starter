@@ -1,7 +1,5 @@
-// feature:passkeys:start
-// feature:email-password,magic-link,oauth-core:start
 import { ConfigService } from '@nestjs/config';
-import request from 'supertest'; // feature:email-password,magic-link
+import request from 'supertest';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, type E2eApp } from '../utils/e2e-app';
@@ -12,26 +10,19 @@ import {
 } from '../utils/hook-timeouts';
 import {
   expectNoAuthority,
-  reply, // feature:email-password,magic-link
+  reply,
 } from '../utils/auth/audience-refusal.fixtures';
 import {
+  oweSecondFactor,
   requireWebPasskey,
   storeExistingPasskey,
-  webPost, // feature:email-password,magic-link
-  webProviderCallback, // feature:oauth-core
+  webPost,
+  webProviderCallback,
 } from '../utils/auth/required-passkey.fixture';
-import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids'; // feature:email-password
-import { storeBrowserPolicy } from '../utils/session/store-browser-policy'; // feature:email-password
-// feature:totp:start
-// feature:email-password:start
-import { oweSecondFactor } from '../utils/auth/required-passkey.fixture';
-// feature:email-password:end
-// feature:totp:end
-// feature:magic-link:start
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { storeBrowserPolicy } from '../utils/session/store-browser-policy';
 import { MagicLinkStore } from '../../src/auth/magic-link/stores/magic-link.store';
 import { hashMagicLinkToken } from '../../src/auth/magic-link/utils/magic-link-token.util';
-// feature:magic-link:end
-// feature:oauth-core:start
 import { UserProfileService } from '../../src/user/services/user-profile.service';
 import { LinkedAccountStore } from '../../src/user/stores/linked-account.store';
 import {
@@ -39,29 +30,24 @@ import {
   BAD_PROVIDER_CODE,
   providerReply,
 } from '../utils/auth/audience-provider.fixture';
-// feature:oauth-core:end
 
-const LOGIN = '/api/auth/login'; // feature:email-password
-const ACTIVATE = '/api/auth/activate'; // feature:email-password
-const NEW_EMAIL = 'required-passkey-activation@example.test'; // feature:email-password
-// feature:magic-link:start
+const LOGIN = '/api/auth/login';
+const ACTIVATE = '/api/auth/activate';
+const NEW_EMAIL = 'required-passkey-activation@example.test';
 const LINK_REQUEST = '/api/auth/magic-link/request';
 const LINK_VERIFY = '/api/auth/magic-link/verify';
 const BAD_LINK_TOKEN = 'invalid-link-token';
-// feature:magic-link:end
 
 // Failure: another credential issues a session where a verified passkey is required.
 describe('required web passkey credential refusals', () => {
   let e2e: E2eApp;
-  // feature:totp:start
   let restoreSecondFactor: (() => void) | undefined;
-  // feature:totp:end
-  const provider = new AudienceProvider(); // feature:oauth-core
+  const provider = new AudienceProvider();
 
   beforeAll(async () => {
     e2e = await bootE2eApp(0, {
-      browserStrategy: provider, // feature:oauth-core
-      magicLinkEnabled: true, // feature:magic-link
+      browserStrategy: provider,
+      magicLinkEnabled: true,
       beforeStart: (app) => {
         const config = app.get(ConfigService);
         config.set('passkeys.enabled', true);
@@ -70,7 +56,6 @@ describe('required web passkey credential refusals', () => {
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
-    // feature:totp:start
     const config = e2e.app.get(ConfigService);
     const enabled = config.get<boolean>('twoFactor.enabled');
     const encryptionKey = config.get<string>('twoFactor.encryptionKey');
@@ -78,30 +63,26 @@ describe('required web passkey credential refusals', () => {
       config.set('twoFactor.enabled', enabled);
       config.set('twoFactor.encryptionKey', encryptionKey);
     };
-    // feature:totp:end
     e2e.clock.set(TEST_NOW);
     await e2e.reset();
     await requireWebPasskey(e2e);
   });
 
-  // feature:totp:start
   afterEach(() => {
     restoreSecondFactor?.();
     restoreSecondFactor = undefined;
   });
-  // feature:totp:end
 
   afterAll(async () => {
     await e2e?.close();
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
-  // feature:email-password:start
   // Failure: a correct password opens a session or second-factor challenge.
   it.each([false, true])(
     'refuses password before second factor, stored passkey %s',
     async (hasPasskey) => {
       if (hasPasskey) await storeExistingPasskey(e2e);
-      await oweSecondFactor(e2e); // feature:totp
+      await oweSecondFactor(e2e);
       const wrong = await webPost(e2e, LOGIN, {
         ...SEED_USER,
         password: 'WrongPassword1!',
@@ -115,9 +96,7 @@ describe('required web passkey credential refusals', () => {
       expectNoAuthority(e2e, refused);
       expect(await e2e.state.sessions.countSessions()).toBe(0);
       expect(await e2e.captureMail()).toEqual([]);
-      // feature:totp:start
       expect(await e2e.state.auth.countSecondFactorChallenges()).toBe(0);
-      // feature:totp:end
     },
   );
 
@@ -164,9 +143,7 @@ describe('required web passkey credential refusals', () => {
       before,
     );
   });
-  // feature:email-password:end
 
-  // feature:magic-link:start
   // Failure: a valid link signs in or is spent before passkey policy refuses it.
   it.each([false, true])(
     'preserves a refused magic link, stored passkey %s',
@@ -211,9 +188,7 @@ describe('required web passkey credential refusals', () => {
       expect((await e2e.captureMail()).length).toBe(mail.length);
     },
   );
-  // feature:magic-link:end
 
-  // feature:oauth-core:start
   // Failure: a provider links or synchronizes an account before passkey refusal.
   it.each([
     [false, false],
@@ -256,7 +231,4 @@ describe('required web passkey credential refusals', () => {
       expect(await e2e.captureMail()).toEqual([]);
     },
   );
-  // feature:oauth-core:end
 });
-// feature:email-password,magic-link,oauth-core:end
-// feature:passkeys:end

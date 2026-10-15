@@ -1,4 +1,3 @@
-// feature:oauth-core:start
 import { ConfigService } from '@nestjs/config';
 import { UnitOfWorkRunner } from '../../src/common/persistence/unit-of-work';
 import { OAuthService } from '../../src/auth/oauth/oauth.service';
@@ -151,4 +150,3 @@ describe('provider admission precedes account side effects', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(0);
   });
 });
-// feature:oauth-core:end

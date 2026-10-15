@@ -1,5 +1,3 @@
-// feature:passkeys:start
-// feature:email-password,magic-link,oauth-core:start
 import request, { type Response } from 'supertest';
 import { createSoftwareAuthenticator } from '../../../src/auth/passkeys/services/software-authenticator.harness-spec';
 import { WEB_CLIENT_ID } from '../../../src/session/constants/client-ids';
@@ -7,15 +5,11 @@ import { storeBrowserPolicy } from '../session/store-browser-policy';
 import { SEED_USER } from '../../constants/seed-users';
 import { E2E_CLIENT_URL, type E2eApp, type TestAgent } from '../e2e-app';
 import { anonymousPost } from './audience-refusal.fixtures';
-// feature:totp:start
 import { ConfigService } from '@nestjs/config';
 import { SecondFactorStore } from '../../../src/auth/two-factor/stores/second-factor.store';
 import { TotpSecretCryptoService } from '../../../src/auth/two-factor/services/totp-secret-crypto.service';
-// feature:totp:end
-// feature:oauth-core:start
 import { OAuthStateService } from '../../../src/auth/oauth/oauth-state.service';
 import { AudienceProvider } from './audience-provider.fixture';
-// feature:oauth-core:end
 
 export function webPost(
   e2e: E2eApp,
@@ -44,7 +38,6 @@ export async function storeExistingPasskey(e2e: E2eApp): Promise<void> {
   });
 }
 
-// feature:totp:start
 export async function oweSecondFactor(e2e: E2eApp): Promise<void> {
   const config = e2e.app.get(ConfigService);
   config.set('twoFactor.enabled', true);
@@ -66,9 +59,7 @@ export async function oweSecondFactor(e2e: E2eApp): Promise<void> {
   });
   expect((await factors.findAccount(userId))?.twoFactor.enabled).toBe(true);
 }
-// feature:totp:end
 
-// feature:oauth-core:start
 export async function webProviderCallback(
   e2e: E2eApp,
   provider: AudienceProvider,
@@ -97,6 +88,3 @@ export async function webProviderCallback(
     .query({ state: provider.state, code })
     .redirects(0);
 }
-// feature:oauth-core:end
-// feature:email-password,magic-link,oauth-core:end
-// feature:passkeys:end

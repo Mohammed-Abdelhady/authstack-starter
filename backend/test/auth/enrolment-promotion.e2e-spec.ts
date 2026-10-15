@@ -1,4 +1,3 @@
-// feature:passkeys:start
 import { EnrolmentPromotion } from '../../src/auth/contracts/enrolment-promotion';
 import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { UnitOfWorkRunner } from '../../src/common/persistence/unit-of-work';
@@ -224,4 +223,3 @@ describe('enrolment promotion on the real database', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(2);
   });
 });
-// feature:passkeys:end

@@ -1,4 +1,3 @@
-// feature:passkeys:start
 import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { ROLE_AUDIENCE } from '../../src/host/types/host-role.type';
 import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
@@ -107,4 +106,3 @@ describe('enrolment issuance refusals', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(21);
   });
 });
-// feature:passkeys:end
