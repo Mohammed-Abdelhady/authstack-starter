@@ -106,22 +106,23 @@ describe('pnpm installation boundary', () => {
     await writeFile(join(root, 'pnpm-lock.yaml'), 'template lock\n', 'utf8');
     expect(await prepareLockfile(root)).toEqual({ ok: true });
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
-      '--version\ninstall --lockfile-only\n',
+      '--version\ninstall --lockfile-only --prefer-offline\n',
     );
     expect(await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe('template lock\n');
   });
 
-  it('removes the lockfile when the lockfile-only update fails', async () => {
+  it('keeps the lockfile when the lockfile-only update fails', async () => {
     const root = await fakePnpm('--lockfile-only');
     await writeFile(join(root, 'pnpm-lock.yaml'), 'stale lock\n', 'utf8');
     expect(await prepareLockfile(root)).toEqual({
       ok: false,
       reason: 'registry refused the request',
+      kind: 'update-failed',
     });
     expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
-      '--version\ninstall --lockfile-only\n',
+      '--version\ninstall --lockfile-only --prefer-offline\n',
     );
-    expect(existsSync(join(root, 'pnpm-lock.yaml'))).toBe(false);
+    expect(await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe('stale lock\n');
   });
 
   it('runs only the frozen install after the pre-commit update', async () => {

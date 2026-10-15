@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { REINSTALL_HINT, TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
+import { readTemplateIdentity } from '../../src/scaffold/answers.js';
 import { fixtureRoot, manifestRootWith, run } from '../support/answers-helpers.js';
 
 const roots: string[] = [];
@@ -82,6 +83,15 @@ describe('a damaged package', () => {
     expect(code).toBe(3);
     expect(existsSync(target)).toBe(false);
     expect(output).toContain(join(installerRoot, 'package.json'));
+  });
+
+  // Catches a SHA-256 repository build that refuses its own template identity.
+  it('reads back a 64-character commit from a SHA-256 repository', async () => {
+    const sha256 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const commit = '7c2f0e5b9a41d83c6e17f29b05a4c8d3e61b7f0a92c54d18e3b06f7a29c4d51e';
+    const root = manifestRootWith(roots, `${JSON.stringify({ sha256, commit }, null, 2)}\n`);
+
+    await expect(readTemplateIdentity(root)).resolves.toEqual({ sha256, commit });
   });
 
   it('fails a dry run the same way', async () => {

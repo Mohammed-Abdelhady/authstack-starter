@@ -97,31 +97,6 @@ const CASES: {
     },
   },
   {
-    name: 'lock failure without git',
-    facts: {
-      ownRepository: false,
-      hooksActive: false,
-      lockfile: { status: 'removed', reason: 'registry error' },
-      install: { status: 'blocked', reason: 'registry error' },
-    },
-    expected: {
-      exitCode: 1,
-      hooks: { included: true, active: false, activationCommand: 'git init && pnpm install' },
-    },
-  },
-  {
-    name: 'lock failure no install',
-    facts: {
-      hooksActive: false,
-      lockfile: { status: 'removed', reason: 'registry error' },
-      install: { status: 'not-requested' },
-    },
-    expected: {
-      exitCode: 1,
-      hooks: { included: true, active: false, activationCommand: 'pnpm install' },
-    },
-  },
-  {
     name: 'install failed',
     facts: { hooksActive: false, install: { status: 'failed', reason: 'install error' } },
     expected: {
