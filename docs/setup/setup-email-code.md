@@ -85,6 +85,8 @@ application has the email link too.
   and the link, and wrong guesses keep counting.
 - When the server ends the attempt after five wrong codes, the app says so and
   offers to start again.
+- The right code for a deactivated account shows the app's general refusal. The
+  app has no message of its own for a deactivated account yet.
 - The button in the mail, opened on the phone that asked, finishes the same
   attempt, also while the code screen is open. The app reads its values after
   `#`.
@@ -108,8 +110,11 @@ application.
 The request answers the same for a known address, an unknown one, sign-up
 closed, the mail limit reached, a failed send and a deactivated account.
 Anything particular to the account is said only after a correct code. A
-resend on the same attempt replaces its code and its link. Spending the code
-voids the link, and spending the link voids the code.
+deactivated account is mailed like any other address with an account. A wrong
+code gets the usual refusal, and the right one gets `FORBIDDEN` with status
+403 instead of a sign-in. A resend on the same attempt replaces its code and
+its link. Spending the code voids the link, and spending the link voids the
+code.
 
 ## Limits
 
