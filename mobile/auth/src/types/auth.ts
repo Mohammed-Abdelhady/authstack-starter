@@ -11,9 +11,8 @@ import type {
   NativeSafeAttemptView,
   NativeSignInAction,
   NativeSignInOutcome,
-  PasskeyPort,
-  ProviderSignInPort,
-} from './native-sign-in';
+} from './native-sign-in-actions';
+import type { PasskeyPort, ProviderSignInPort } from './passkey-port';
 import type { NativeMethods } from '@app/sdk';
 
 export type SessionStatus =

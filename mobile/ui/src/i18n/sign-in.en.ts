@@ -1,0 +1,32 @@
+export const SIGN_IN_EN = {
+  'signIn.title': 'Sign in to \u2068{appName}\u2069',
+  'signIn.description': 'Your browser opens to sign you in, then brings you back here.',
+  'signIn.action': 'Continue in browser',
+  'signIn.actionHint': 'Opens your browser to sign in',
+  'signIn.restoring': 'Checking for a saved sign-in',
+  'signIn.waiting': 'Waiting for the browser',
+  'signIn.inProgress.title': 'Finish signing in in your browser',
+  'signIn.inProgress.description': 'This screen updates when you come back.',
+  'signIn.browserClosed.title': 'You closed the browser before signing in',
+  'signIn.browserClosed.description': 'Nothing changed. Continue when you are ready.',
+  'signIn.offline.title': 'No connection to the server',
+  'signIn.storageLocked.title': 'This device is locked',
+  'signIn.storageLocked.description':
+    'Unlock the device so the app can read its saved sign-in, then try again.',
+  'signIn.failed.title': 'Sign-in did not finish',
+  'signIn.failed.expired': 'The sign-in took too long. Start again.',
+  'signIn.failed.denied': 'The sign-in was refused.',
+  'signIn.failed.disabled': 'Sign-in from this app is turned off on the server.',
+  'signIn.failed.throttled': 'Too many attempts. Wait a moment, then try again.',
+  'signIn.failed.sessionLimit':
+    'Your account has reached its limit of signed-in devices. Sign out on another device, then try again.',
+  'signIn.failed.deviceKey': 'This device could not confirm its identity. Try again.',
+  'signIn.failed.browser': 'The browser could not open.',
+  'signIn.failed.storage': 'The app could not read or save the sign-in on this device.',
+  'signIn.failed.generic': 'Something went wrong. Try again.',
+  'signIn.reauth.title': 'Your session ended',
+  'signIn.reauth.description': 'Sign in again to continue.',
+  'signIn.switchedOff.title': 'Sign-in from this app is switched off',
+  'signIn.switchedOff.description':
+    'The service has switched off sign-in from mobile apps for now. Try again later.',
+};

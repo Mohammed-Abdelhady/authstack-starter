@@ -4,7 +4,7 @@ import { createCallbackProcessor } from '../callbacks/callback-processing';
 import { parseCallback, parseUri } from '../sign-in/redirect';
 import { constantTimeEqual, transactionExpired } from '../storage/persistence';
 import type { AuthRuntime } from '../runtime/runtime';
-import type { NativeSignInOutcome } from '../types/native-sign-in';
+import type { NativeSignInOutcome } from '../types/native-sign-in-actions';
 
 type CallbackProcessor = ReturnType<typeof createCallbackProcessor>;
 

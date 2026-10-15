@@ -17,7 +17,7 @@ import {
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AuthTransaction } from '../types/record';
 import type { AbortSignalPort, SessionStatus, SignInOutcome } from '../types/auth';
-import type { BrowserSignInOptions } from '../types/native-sign-in';
+import type { BrowserSignInOptions } from '../types/native-sign-in-actions';
 
 export interface SignInController {
   signIn(options?: BrowserSignInOptions): Promise<SignInOutcome>;

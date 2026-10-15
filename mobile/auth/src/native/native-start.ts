@@ -7,7 +7,7 @@ import { revokeQuietly } from '../sign-out/revocation';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AbortSignalPort, SessionStatus } from '../types/auth';
 import type { PendingAuthRecord } from '../types/record';
-import type { NativeSignInOutcome } from '../types/native-sign-in';
+import type { NativeSignInOutcome } from '../types/native-sign-in-actions';
 
 export async function beginNativeAttempt(
   runtime: AuthRuntime,
