@@ -56,6 +56,8 @@ A rollback to a build lacking an applied file is refused by `up` and by server s
 
 Run `0021_address_claims.sql` with writes paused, or rerun the upgrade if PostgreSQL aborts it as a deadlock victim, since the whole migration rolls back and is safe to rerun.
 
+`0023_account_audience.sql` and `0024_session_evidence.sql` add their checks as `NOT VALID`. The new columns hold only empty values or their defaults, which pass, so neither file scans `users`, `roles` or `sessions` while it holds the table lock. New and changed rows are checked as usual. To have PostgreSQL record the checks as validated, run `ALTER TABLE ... VALIDATE CONSTRAINT ...` later; it does not block reads or writes.
+
 Each optional sign-in method that has tables of its own brings a migration file of its own. A project made without that method does not carry the file, so the numbers in the folder can have gaps. The order is the order of the names.
 
 ### Adopting existing host records
