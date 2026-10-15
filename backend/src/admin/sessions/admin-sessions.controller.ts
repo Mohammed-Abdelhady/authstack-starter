@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { StaffGuard } from '../../auth/guards/staff.guard';
 import { SESSION_PERMISSIONS } from '../../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -21,7 +22,7 @@ import { AdminSessionListResponseDto } from './dto/admin-session-response.dto';
 @ApiTags('admin')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('admin/users/:id/sessions')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class AdminSessionsController {
   constructor(private readonly sessions: AdminSessionsService) {}
 
