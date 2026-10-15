@@ -1,3 +1,4 @@
+import { ledgerCreationCases } from './address-ledger-creation-cases';
 import { TEST_NOW } from '../frozen-clock';
 import { AddressLedgerHarness } from './address-ledger-harness';
 import { ledgerCases } from './address-ledger-cases';
@@ -26,5 +27,6 @@ export function describeAddressLedgerContract(
     }, budgets.resetMs);
     ledgerCases(current);
     ledgerRaceCases(current);
+    ledgerCreationCases(current);
   });
 }

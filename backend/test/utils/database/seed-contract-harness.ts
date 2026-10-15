@@ -1,3 +1,5 @@
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
 import { SeedStore } from '../../../src/database/seeds/seed.store';
 import { ApplicationRegistry } from '../../../src/session/applications/application-registry';
 import { FrozenClock } from '../frozen-clock';
@@ -37,6 +39,8 @@ export interface StoredSeedApplication {
  */
 export interface SeedContractHarness {
   readonly clock: FrozenClock;
+  readonly ledger: AddressLedger;
+  readonly runner: UnitOfWorkRunner;
   readonly seeds: SeedStore;
   readonly registry: ApplicationRegistry;
   /** Every stored application, by client id. */

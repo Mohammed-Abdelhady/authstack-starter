@@ -1,6 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import {
+  AddressClaim,
+  AddressClaimDocument,
+} from '../../src/common/persistence/mongo/schemas/address-claim.schema';
+import { storedAddress } from '../../src/common/persistence/stored-address';
 import type { PendingMagicLinkDocument } from '../../src/auth/magic-link/persistence/mongo/schemas/pending-magic-link.schema'; // feature:magic-link
 import type { MailCounter } from '../../src/auth/persistence/mongo/schemas/mail-counter.schema';
 import type { PendingPasswordReset } from '../../src/auth/persistence/mongo/schemas/pending-password-reset.schema';
@@ -37,6 +42,11 @@ export function mongoPendingCodeState(
   );
 
   return {
+    countAddressClaims: (address) =>
+      app
+        .get<Model<AddressClaimDocument>>(getModelToken(AddressClaim.name))
+        .countDocuments({ _id: storedAddress(address) })
+        .exec(),
     storePendingRegistration: async ({ userId, ...record }) => {
       await registrations.create(
         userId === undefined

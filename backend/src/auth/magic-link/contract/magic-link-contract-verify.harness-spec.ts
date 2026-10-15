@@ -1,3 +1,4 @@
+import { holdAddress } from '../../../../test/utils/address-claim';
 import { SwitchableAccountCreationPolicy } from '../../../../test/utils/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
@@ -228,14 +229,21 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
     }).toEqual({ refusal: INVALID, signIns: 0, account: [true, false] });
   });
 
+  it('L1 refuses a new magic-link account at a claimed address', async () => {
+    const h = harness();
+    await seedLink({ tokenHash: hashMagicLinkToken('held-token') });
+    await holdAddress(h.ledger, h.runner, h.clock, EMAIL);
+    expect(await refusalOf(verify('held-token'))).toEqual(INVALID);
+    expect(await h.accountCount()).toBe(0);
+    expect(services.signedIn).toEqual([]);
+  });
+
   it('signs both in to one account when two links for a new address are spent at once', async () => {
     await seedLink({ tokenHash: hashMagicLinkToken('first-token') });
     await seedLink({ tokenHash: hashMagicLinkToken('second-token') });
     const gate = new RaceGate();
-    const restore = holdBefore(
-      harness().accounts,
-      'createPasswordlessIn',
-      () => gate,
+    const restore = holdBefore(harness().ledger, 'reserveForAccount', (call) =>
+      call < 2 ? gate : undefined,
     );
     try {
       const both = [verify('first-token'), verify('second-token')];
@@ -243,6 +251,7 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
       gate.release();
       await Promise.all(both);
     } finally {
+      gate.release();
       restore();
     }
     const account = await harness().account(EMAIL);
@@ -263,12 +272,14 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
       accounts: await harness().accountCount(),
       signedIn: services.signedIn,
       claimedAt: (await harness().link(hashMagicLinkToken(TOKEN)))?.consumedAt,
+      claims: await harness().claimCount(),
     }).toEqual({
       refusal: 'ACCOUNT_CREATION_REFUSED',
       account: null,
       accounts: 0,
       signedIn: [],
       claimedAt: TEST_NOW,
+      claims: 0,
     });
   });
 }

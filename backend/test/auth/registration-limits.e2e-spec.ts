@@ -1,4 +1,8 @@
 import type { Response } from 'supertest';
+import { AddressLedger } from '../../src/common/persistence/address-ledger';
+import { UnitOfWorkRunner } from '../../src/common/persistence/unit-of-work';
+import { RegistrationService } from '../../src/auth/services/registration/registration.service';
+import { holdAddress } from '../utils/address-claim';
 import {
   MAIL_COUNTER_PURPOSE,
   PENDING_PURPOSE,
@@ -35,25 +39,52 @@ describe('Registration limits (e2e)', () => {
     return agent.post(path).send(body);
   }
 
-  it('answers a soft-deleted address like a taken one and mails nothing', async () => {
-    const email = 'deleted@example.test';
-    await e2e.state.accounts.createAccount({
-      email,
-      name: 'Deleted',
-      isVerified: true,
-      isDeleted: true,
-    });
+  it.each(['deleted-account', 'live-claim'])(
+    'L12 answers %s generically without code or mail',
+    async (mode) => {
+      const email = 'deleted@example.test';
+      if (mode === 'deleted-account') {
+        await e2e.state.accounts.createAccount({
+          email,
+          name: 'Deleted',
+          isVerified: true,
+          isDeleted: true,
+        });
+      } else {
+        await holdAddress(
+          e2e.app.get(AddressLedger),
+          e2e.app.get(UnitOfWorkRunner),
+          e2e.clock,
+          email,
+        );
+      }
 
-    const before = (await e2e.captureMail()).length;
-    const registered = await post('/api/auth/register', { email });
-    const resent = await post('/api/auth/resend-activation', { email });
-    await e2e.captureMail();
+      const normal = await post('/api/auth/register', {
+        email: 'normal@example.test',
+      });
+      const before = (await e2e.captureMail()).length;
+      const registered = await post('/api/auth/register', { email });
+      const resent = await post('/api/auth/resend-activation', { email });
+      const nativeGeneration = await e2e.app
+        .get(RegistrationService)
+        .registerForNative(email, 'en', 'native-test-client');
+      expect(nativeGeneration).toBeNull();
+      await e2e.captureMail();
 
-    expect(registered.status).toBe(200);
-    expect(resent.status).toBe(200);
-    expect((await e2e.captureMail()).length - before).toBe(0);
-    expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(0);
-  });
+      expect(registered.status).toBe(200);
+      expect(resent.status).toBe(200);
+      expect(registered.body).toEqual({
+        ...normal.body,
+        data: { ...normal.body.data, email },
+      });
+      expect(resent.body).toEqual({
+        ...normal.body,
+        data: { ...normal.body.data, email },
+      });
+      expect((await e2e.captureMail()).length - before).toBe(0);
+      expect(await e2e.state.auth.countPendingRegistrations(email)).toBe(0);
+    },
+  );
 
   it('answers an unverified existing account like a taken one on register and resend', async () => {
     const email = 'unverified@example.test';

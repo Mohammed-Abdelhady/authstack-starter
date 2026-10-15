@@ -75,6 +75,9 @@ export function servicesOn(harness: SeedContractHarness): {
       new ConfigService({ bcrypt: { rounds: 4 } }),
       roles,
       harness.registry,
+      harness.runner,
+      harness.ledger,
+      harness.clock,
     ),
   };
 }

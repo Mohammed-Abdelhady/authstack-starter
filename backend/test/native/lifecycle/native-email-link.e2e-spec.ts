@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
+import { holdAddress } from '../../utils/address-claim';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { hashMagicLinkToken } from '../../../src/auth/magic-link/utils/magic-link-token.util';
 import { NATIVE_ATTEMPT_PHASE } from '../../../src/auth/native/constants/native-attempt';
@@ -99,29 +102,47 @@ describe('native email-link lifecycle contract', () => {
     expect(policy.calls[0].unitOfWork).toBeInstanceOf(UnitOfWork);
   });
 
-  it('rolls back account creation and the attempt transition when the policy refuses', async () => {
-    const attempt = await startLifecycleAttempt(e2e, 'signIn');
-    const email = 'native-link-policy-refused@example.test';
-    await requestLink(attempt, email).expect(200);
-    await e2e.captureMail();
-    const mailed = nativeTokenFromMail();
-    const before = await storedAttempt(e2e, attempt);
-    policy.refused = true;
+  it.each(['policy', 'live-claim'])(
+    'rolls back native creation when %s refuses',
+    async (mode) => {
+      const attempt = await startLifecycleAttempt(e2e, 'signIn');
+      const email = 'native-link-policy-refused@example.test';
+      await requestLink(attempt, email).expect(200);
+      await e2e.captureMail();
+      const mailed = nativeTokenFromMail();
+      const before = await storedAttempt(e2e, attempt);
+      policy.refused = mode === 'policy';
+      if (mode === 'live-claim') {
+        await holdAddress(
+          e2e.app.get(AddressLedger),
+          e2e.app.get(UnitOfWorkRunner),
+          e2e.clock,
+          email,
+        );
+      }
 
-    const refused = await postLifecycle(e2e, attempt, 'email-link/verify', {
-      token: mailed.token,
-      state: mailed.state,
-    }).expect(403);
+      const refused = await postLifecycle(e2e, attempt, 'email-link/verify', {
+        token: mailed.token,
+        state: mailed.state,
+      }).expect(mode === 'policy' ? 403 : 400);
 
-    expect(refused.body.error.code).toBe(ErrorCode.ACCOUNT_CREATION_REFUSED);
-    expect(policy.calls).toHaveLength(1);
-    expect(await e2e.state.accounts.accountIdFor(email)).toBeNull();
-    expect(await e2e.state.sessions.countSessions()).toBe(0);
-    const after = await storedAttempt(e2e, attempt);
-    expect(after.phase).toBe(before.phase);
-    expect(after.details).toEqual(before.details);
-    expect(after.activeOperationId).toBeNull();
-  });
+      expect(refused.body.error.code).toBe(
+        mode === 'policy'
+          ? ErrorCode.ACCOUNT_CREATION_REFUSED
+          : ErrorCode.MAGIC_LINK_INVALID,
+      );
+      expect(policy.calls).toHaveLength(1);
+      expect(await e2e.state.accounts.accountIdFor(email)).toBeNull();
+      expect(await e2e.state.auth.countAddressClaims(email)).toBe(
+        mode === 'policy' ? 0 : 1,
+      );
+      expect(await e2e.state.sessions.countSessions()).toBe(0);
+      const after = await storedAttempt(e2e, attempt);
+      expect(after.phase).toBe(before.phase);
+      expect(after.details).toEqual(before.details);
+      expect(after.activeOperationId).toBeNull();
+    },
+  );
 
   it('signs an existing account in while account creation is refused without asking the policy', async () => {
     const email = 'native-link-existing@example.test';
