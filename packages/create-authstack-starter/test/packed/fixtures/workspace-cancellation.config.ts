@@ -2,7 +2,10 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['test/packed/fixtures/workspace-cancellation.case.ts'],
+    include: [
+      'test/packed/fixtures/workspace-cancellation.case.ts',
+      'test/packed/fixtures/workspace-early-failure.case.ts',
+    ],
     pool: 'forks',
     maxWorkers: 1,
     reporters: [

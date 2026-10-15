@@ -1,9 +1,13 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { commandEnvironment } from '../../src/utils/exec.js';
 import { stopProcessTree } from './process-tree.js';
+import { descendantGroups, parseProcessRows } from './signal-process-groups.js';
 
 export const BUILD_TIMEOUT = 10 * 60 * 1000;
 const MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
+const SIGNAL_PROCESS_TABLE_TIMEOUT_MS = 200;
+const SIGNAL_PROCESS_TABLE_MAX_BYTES = 1024 * 1024;
+const TOOL_KILL_SIGNAL = 'SIGKILL';
 
 export interface CommandResult {
   ok: boolean;
@@ -25,19 +29,37 @@ process.once('exit', () => {
   for (const pid of running.keys()) stopProcessTree(pid);
 });
 
+function signalGroups(leaders: number[]): Set<number> {
+  if (leaders.length === 0) return new Set();
+  let table = '';
+  try {
+    table = execFileSync('ps', ['-Ao', 'pid=,ppid=,pgid='], {
+      encoding: 'utf8',
+      timeout: SIGNAL_PROCESS_TABLE_TIMEOUT_MS,
+      killSignal: TOOL_KILL_SIGNAL,
+      maxBuffer: SIGNAL_PROCESS_TABLE_MAX_BYTES,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return descendantGroups([], leaders, process.pid);
+  }
+  return descendantGroups(parseProcessRows(table), leaders, process.pid);
+}
+
 export function killToolGroups(signal: AbortSignal): void {
+  const leaders = [...running].filter(([, owner]) => owner === signal).map(([pid]) => pid);
+  let failed = false;
   let failure: unknown;
-  for (const [pid, owner] of running) {
-    if (owner !== signal) continue;
+  for (const group of signalGroups(leaders)) {
     try {
-      process.kill(-pid, 'SIGKILL');
+      process.kill(-group, TOOL_KILL_SIGNAL);
     } catch (error) {
-      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') {
-        failure ??= error;
-      }
+      if (failed || (error instanceof Error && 'code' in error && error.code === 'ESRCH')) continue;
+      failure = error;
+      failed = true;
     }
   }
-  if (failure !== undefined) throw failure;
+  if (failed) throw failure;
 }
 
 /**
