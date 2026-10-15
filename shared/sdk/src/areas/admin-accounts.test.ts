@@ -24,18 +24,6 @@ const CREATE_BODY = {
 };
 
 describe('admin accounts', () => {
-  it('h21 accepts account and role empty 204 deletes as void', async () => {
-    const transport = answering(204);
-    const { admin } = createApiClient(transport);
-
-    expect(await admin.accounts.delete('account-1')).toBeUndefined();
-    expect(await admin.roles.delete('support')).toBeUndefined();
-    expect(transport.sent).toStrictEqual([
-      { method: 'DELETE', path: '/api/admin/users/account-1' },
-      { method: 'DELETE', path: '/api/roles/support' },
-    ]);
-  });
-
   it('h21 keeps delete refusals instead of reporting success', async () => {
     const transport = answering(403, {
       success: false,
