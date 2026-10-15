@@ -1,3 +1,4 @@
+import { BoundEmailChangeGeneration } from '../types/prepared-email-change';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { PendingPurpose } from '../constants/registration';
 import { CodeGuessRule } from './code-guesses';
@@ -72,7 +73,8 @@ export interface RegistrationCodeClaim {
  * row that is still stored as live, so a database that never removes expired
  * rows answers the same as one that does.
  *
- * Every method but `claimCode` is one statement that commits by itself.
+ * Issuing an email-change code and `claimCode` join the caller's UOW.
+ * Other methods commit their statements independently.
  * `claimCode` is part of the workflow that also writes the account, so it
  * requires that workflow's unit of work.
  *
@@ -80,6 +82,13 @@ export interface RegistrationCodeClaim {
  * with `MalformedIdError` before anything is read.
  */
 export abstract class PendingRegistrationStore {
+  /** Called after the address claim and current account generation are locked. */
+  abstract putEmailChangeCodeIn(
+    uow: UnitOfWork,
+    email: string,
+    generation: BoundEmailChangeGeneration,
+  ): Promise<CodeRotation>;
+
   /** Gives a record that has not expired a new code and zero attempts. */
   abstract rotateLiveCode(
     key: PendingRegistrationKey,
