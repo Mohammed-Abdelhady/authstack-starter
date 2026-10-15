@@ -75,6 +75,7 @@ describe('session authority active-session filtering', () => {
         user._id,
         'session fixture',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     const original = await harness.sessions.findOne({
@@ -107,6 +108,7 @@ describe('session authority active-session filtering', () => {
         userId,
         'replacement',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     const replacement = await harness.sessions.findOne({
@@ -184,6 +186,7 @@ describe('session authority active-session filtering', () => {
         user._id,
         'session fixture',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     await harness.sessions.updateOne(
@@ -203,6 +206,7 @@ describe('session authority active-session filtering', () => {
         user._id,
         'session fixture',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     await harness.sessions.updateOne(
@@ -220,6 +224,7 @@ describe('session authority active-session filtering', () => {
         user._id,
         'session fixture',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     const before = await harness.sessions.findOne({
@@ -249,6 +254,7 @@ describe('session authority active-session filtering', () => {
         user._id,
         'session fixture',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       )
     ).sessionToken;
     await harness.sessions.updateOne(

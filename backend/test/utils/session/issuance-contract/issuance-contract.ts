@@ -1,3 +1,4 @@
+import { issuanceAudienceCases } from './issuance-contract-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { issuanceAccountReadCases } from './issuance-contract-account-read';
 import { issuanceAtomicityCases } from './issuance-contract-atomicity';
@@ -44,6 +45,7 @@ export function describeBrowserIssuanceContract(
       await current().seedApplication(ADMIN_APPLICATION);
     }, budgets.resetMs);
 
+    issuanceAudienceCases(current);
     issuanceRuleCases(current);
     issuanceSeamCases(current);
     issuanceAtomicityCases(current);

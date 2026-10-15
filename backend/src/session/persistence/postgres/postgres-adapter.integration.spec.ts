@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { Pool } from 'pg';
 import { sql } from 'kysely';
 import { PersistenceUnavailableError } from '../../../common/persistence/persistence-errors';
@@ -74,12 +75,14 @@ describe('PostgreSQL adapter', () => {
       userId,
       'first/1',
       SIGN_IN_ADDRESS,
+      WEB_CLIENT_ID,
     );
     await firstRead.reached(1);
     const second = service.createBrowserSession(
       userId,
       'second/1',
       SIGN_IN_ADDRESS,
+      WEB_CLIENT_ID,
     );
     const secondWas = await Promise.race([
       reruns.refused.reached(1).then(() => REFUSED_AT_THE_READ),
@@ -142,6 +145,9 @@ describe('PostgreSQL adapter', () => {
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
+        '0022_application_policy.sql',
+        '0023_account_audience.sql',
+        '0024_session_evidence.sql',
       ],
       again: [],
       recorded: [
@@ -166,6 +172,9 @@ describe('PostgreSQL adapter', () => {
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
+        '0022_application_policy.sql',
+        '0023_account_audience.sql',
+        '0024_session_evidence.sql',
       ],
     });
   });

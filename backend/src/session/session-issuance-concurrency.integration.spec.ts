@@ -66,6 +66,7 @@ describe('session issuance concurrency', () => {
           user._id,
           'parallel login',
           '127.0.0.1',
+          WEB_CLIENT_ID,
         ),
       ),
     );
@@ -89,6 +90,7 @@ describe('session issuance concurrency', () => {
       user._id,
       'disable race',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     await gate.reached;
 

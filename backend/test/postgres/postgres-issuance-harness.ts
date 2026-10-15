@@ -1,3 +1,4 @@
+import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Kysely } from 'kysely';
@@ -87,12 +88,19 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         applications,
         clock,
         authEpoch,
+        new SecurityEventRecorder(
+          new PostgresSecurityEventStore(database),
+          clock,
+        ),
       ),
 
     seedAccount: async (options) => {
       const row = await database
         .insertInto('users')
-        .values({ is_deleted: options?.deleted ?? false })
+        .values({
+          is_deleted: options?.deleted ?? false,
+          audience: options?.audience,
+        })
         .returning('id')
         .executeTakeFirstOrThrow();
       return row.id;
@@ -104,6 +112,8 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         platform: application.platform,
         enabled: application.enabled,
         session_version: application.sessionVersion,
+        policy_version: application.policyVersion ?? 0,
+        account_audience: application.accountAudience ?? null,
         allowed_scopes: ['api'],
         absolute_lifetime_ms: application.absoluteLifetimeMs,
         idle_lifetime_ms: application.idleLifetimeMs,
@@ -187,6 +197,9 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         userVersion: row.user_version,
         clientVersion: row.client_version,
         grantVersion: row.grant_version,
+        authenticationMethods: row.authentication_methods,
+        userVerified: row.user_verified,
+        policyVersion: row.policy_version,
         deviceName: row.device_name,
         device: row.device,
         authenticatedAt: row.authenticated_at,
@@ -217,6 +230,7 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         .execute();
       return rows.map((row) => ({
         action: row.action,
+        outcome: row.outcome,
         targetUserId: row.target_user_id,
         clientId: row.client_id,
         sessionId: row.session_id,

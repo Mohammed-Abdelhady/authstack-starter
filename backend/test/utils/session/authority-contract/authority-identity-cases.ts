@@ -23,16 +23,18 @@ const ADA = {
 export function authorityIdentityCases(harness: AuthorityHarnessSource): void {
   it('names the account of a committed read by its stored identity', async () => {
     const userId = await harness().issuance.seedAccount();
-    await harness().setAccountIdentity(userId, ADA);
+    await harness().setAccountIdentity(userId, { ...ADA, audience: 'staff' });
     const store = harness().authorityStore;
     const account = await store.readCommittedAccount(userId);
     if (!account) throw new Error('the account was not read');
 
+    expect(account.accountAudience).toBe('staff');
     expect(await store.describeAccount(account)).toEqual({
       id: userId,
       email: 'ada@example.test',
       name: 'Ada Lovelace',
       role: 'manager',
+      audience: 'staff',
       permissions: ['posts:read:all', 'users:read:all'],
       isVerified: false,
       isDeleted: false,

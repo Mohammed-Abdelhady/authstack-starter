@@ -60,6 +60,9 @@ export function issuanceRuleCases(harness: HarnessSource): void {
         userVersion: 0,
         clientVersion: 0,
         grantVersion: 0,
+        authenticationMethods: [],
+        userVerified: false,
+        policyVersion: 0,
         deviceName: 'Chrome 120 on Windows 10/11',
         device: {
           type: 'desktop',
@@ -76,6 +79,7 @@ export function issuanceRuleCases(harness: HarnessSource): void {
       events: [
         {
           action: 'session_issued',
+          outcome: 'succeeded',
           targetUserId: userId,
           clientId: 'web',
           sessionId: session.id,
@@ -104,6 +108,7 @@ export function issuanceRuleCases(harness: HarnessSource): void {
     await harness().seedApplication({
       ...WEB_APPLICATION,
       sessionVersion: 3,
+      policyVersion: 9,
     });
     await harness().bumpAccountVersion(userId);
 
@@ -114,7 +119,36 @@ export function issuanceRuleCases(harness: HarnessSource): void {
       userVersion: session.userVersion,
       clientVersion: session.clientVersion,
       grantVersion: session.grantVersion,
-    }).toEqual({ userVersion: 1, clientVersion: 3, grantVersion: 0 });
+      userVerified: session.userVerified,
+      policyVersion: session.policyVersion,
+    }).toEqual({
+      userVersion: 1,
+      clientVersion: 3,
+      grantVersion: 0,
+      userVerified: false,
+      policyVersion: 9,
+    });
+  });
+
+  // Failure: trusted method/UV evidence or the current policy snapshot is lost on write.
+  it('persists verified evidence through the issuer into storage', async () => {
+    const userId = await harness().seedAccount();
+    await harness().seedApplication({ ...WEB_APPLICATION, policyVersion: 7 });
+    await harness()
+      .service(rerunAtOnce)
+      .createBrowserSession(
+        userId,
+        CHROME_ON_WINDOWS,
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT,
+        { authenticationMethods: ['passkey'], userVerified: true },
+      );
+    const [session] = await harness().sessions(userId);
+    expect({
+      methods: session.authenticationMethods,
+      verified: session.userVerified,
+      policy: session.policyVersion,
+    }).toEqual({ methods: ['passkey'], verified: true, policy: 7 });
   });
 
   it.each([
@@ -246,6 +280,7 @@ export function issuanceRuleCases(harness: HarnessSource): void {
     ['that was revoked', 'revoked'],
     ['issued before the account version moved', 'outdated'],
     ['issued before its client version moved', 'client-moved'],
+    ['issued before its policy version moved', 'policy-moved'],
     ['that outlived a shortened idle policy', 'policy-shortened'],
   ] as const)('does not count a session %s toward the cap', async (_, kind) => {
     const userId = await harness().seedAccount();
@@ -264,6 +299,9 @@ export function issuanceRuleCases(harness: HarnessSource): void {
         ...WEB_APPLICATION,
         sessionVersion: 1,
       });
+    }
+    if (kind === 'policy-moved') {
+      await harness().seedApplication({ ...WEB_APPLICATION, policyVersion: 1 });
     }
     if (kind === 'policy-shortened') {
       await harness().seedApplication({

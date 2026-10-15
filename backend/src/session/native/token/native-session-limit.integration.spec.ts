@@ -102,6 +102,7 @@ describe('native session limit', () => {
           user._id.toString(),
           'Browser/1',
           '127.0.0.1',
+          WEB_CLIENT_ID,
         ),
       () => exchange(ctx, approved.code, approved.verifier),
     );
@@ -191,6 +192,7 @@ describe('native session limit', () => {
         user._id.toString(),
         'Browser/1',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       ),
     ).rejects.toMatchObject({ code: ErrorCode.SESSION_LIMIT_REACHED });
     expect(
@@ -229,6 +231,7 @@ async function seedBrowserSessions(
     userId.toString(),
     'Browser/1',
     '127.0.0.1',
+    WEB_CLIENT_ID,
   );
   const remaining = count - 1;
   if (remaining <= 0) {

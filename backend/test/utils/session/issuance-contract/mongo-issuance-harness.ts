@@ -1,3 +1,4 @@
+import { EventRecorder } from '../../../../src/auth/contracts/event-recorder';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
@@ -71,6 +72,7 @@ export async function bootMongoIssuance(
         issuanceApplications,
         clock,
         authEpoch,
+        app.get(EventRecorder),
       ),
 
     seedAccount: async (options) => {
@@ -82,6 +84,7 @@ export async function bootMongoIssuance(
         isVerified: true,
         sessionVersion: 0,
         isDeleted: options?.deleted ?? false,
+        audience: options?.audience,
       });
       return user._id.toString();
     },
@@ -95,6 +98,8 @@ export async function bootMongoIssuance(
             clientType: CLIENT_TYPES[application.clientId] ?? 'public',
             enabled: application.enabled,
             sessionVersion: application.sessionVersion,
+            policyVersion: application.policyVersion ?? 0,
+            accountAudience: application.accountAudience ?? null,
             allowedScopes: ['api'],
             policy: {
               absoluteLifetimeMs: application.absoluteLifetimeMs,
@@ -151,6 +156,9 @@ export async function bootMongoIssuance(
         userVersion: session.userVersion,
         clientVersion: session.clientVersion,
         grantVersion: session.grantVersion,
+        authenticationMethods: session.authenticationMethods,
+        userVerified: session.userVerified,
+        policyVersion: session.policyVersion,
         deviceName: session.deviceName ?? null,
         device: session.device ?? null,
         authenticatedAt: session.authenticatedAt,
@@ -176,6 +184,7 @@ export async function bootMongoIssuance(
         .exec();
       return stored.map((event) => ({
         action: event.action,
+        outcome: event.outcome,
         targetUserId: event.targetUserId ?? null,
         clientId: event.clientId ?? null,
         sessionId: event.sessionId ?? null,

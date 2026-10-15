@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
@@ -72,7 +73,7 @@ export function raceTools(harness: AuthorityHarnessSource) {
     startSignIn: (userId: string, pause: RerunPause, agent = 'new/1') => {
       return harness()
         .issuance.service(pause)
-        .createBrowserSession(userId, agent, SIGN_IN_ADDRESS);
+        .createBrowserSession(userId, agent, SIGN_IN_ADDRESS, WEB_CLIENT_ID);
     },
     /** An account with two sessions, named for the part each plays. */
     account: async (agents: string[] = ['kept/1', 'other/1']) => {
