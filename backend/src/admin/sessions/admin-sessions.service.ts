@@ -13,6 +13,7 @@ import { rethrowOrUnavailable } from '../utils/admin-transaction.util';
 import { AdminSessionAccessService } from './admin-session-access.service';
 import { AdminSessionListData } from './dto/admin-session-response.dto';
 import { toAdminSessionDto } from './mappers/admin-session.mapper';
+import { sessionTargetClass } from './utils/admin-session-scope';
 
 @Injectable()
 export class AdminSessionsService {
@@ -40,7 +41,11 @@ export class AdminSessionsService {
       const sessions = (await this.validator.listActive(target.id)).map(
         toAdminSessionDto,
       );
-      return ApiResponse.success({ sessions, total: sessions.length });
+      return ApiResponse.success({
+        sessions,
+        total: sessions.length,
+        targetClass: sessionTargetClass(target),
+      });
     } catch (error) {
       rethrowOrUnavailable(error);
     }
