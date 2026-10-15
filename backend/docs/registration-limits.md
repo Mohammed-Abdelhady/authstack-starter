@@ -83,3 +83,42 @@ The generic reply ("If an account exists, a code has been sent") on every
 address request, and no mail while the cap or the lock is in force. The owner
 cannot tell the cap apart from a missing account, by design. Once the window
 rolls over, register or resend mails a fresh code again.
+
+<!-- feature:email-code:start -->
+
+## Sign-in codes for native apps
+
+A sign-in code belongs to one native attempt, never to an address. Its wrong
+guesses are counted on that attempt's row. The fifth wrong guess spends the
+code and ends the attempt. It never locks the address and never touches
+another attempt, so a new attempt for the same address works at once. A resend
+on the same attempt keeps the count it has.
+
+| Limit                            | Value                              | Where                                        |
+| -------------------------------- | ---------------------------------- | -------------------------------------------- |
+| Sign-in mails per address        | 5 per hour                         | `magicLink.maxPerHour`, shared with the link |
+| Wrong guesses per attempt        | 5, then the attempt ends           | `EMAIL_CODE_GUESS_LIMIT`                     |
+| Code lifetime                    | 10 minutes, never past the attempt | `EMAIL_CODE_EXPIRES_IN`                      |
+| Per-caller requests and verifies | see `common/constants/throttle.ts` | `@Throttle`                                  |
+
+One mail carries both the code and the link, so they share one counter. A
+request over the limit, for a deactivated account, or for an unknown address
+while sign-up is closed mails nothing and stores its code already spent, so no
+guess can match it. The reply is the same in every case.
+
+What an attacker can still do: knowing only an address, someone can request
+codes for it until the hourly limit is reached. For the rest of that hour the
+owner's own requests mail nothing, by code or by link. Each mailed code allows
+at most five guesses, so a window holds at most 25 guesses against 900,000
+codes. Password, passkey and provider sign-in are not affected, and the owner
+can sign in again by code once the hour rolls over. The plan accepts this
+residual denial of service.
+
+Delivery has no durable queue. The server answers first and sends the mail in
+the same process afterwards, trying up to three times in a row. If every try
+fails, or the server stops or restarts before the send finishes, the mail is
+lost and nothing sends it later. The reply still looked like success, so the
+person sees no error and asks again, which costs one of the five mails in the
+window.
+
+<!-- feature:email-code:end -->

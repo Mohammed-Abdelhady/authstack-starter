@@ -202,6 +202,18 @@ Recovery updates the password and invalidates all sessions without signing in.
 | POST   | `/api/auth/native/attempts/:attemptId/email-link/verify`  | Public          | `MAGIC_LINK_ENABLED` | Spends the matching link and advances to MFA or consent |
 
 <!-- feature:magic-link:end -->
+<!-- feature:email-code:start -->
+
+### Native email codes
+
+Both routes take the attempt secret in `X-Native-Attempt` and answer as a disabled feature unless `EMAIL_CODE_ENABLED` is on and the application's `signIn.emailCode` is true.
+
+| Method | Path                                                      | Who may call it | Closed by            | What it does                                                                   |
+| ------ | --------------------------------------------------------- | --------------- | -------------------- | ------------------------------------------------------------------------------ |
+| POST   | `/api/auth/native/attempts/:attemptId/email-code/request` | Public          | `EMAIL_CODE_ENABLED` | Mails a code for this attempt, and a link when the application has `emailLink` |
+| POST   | `/api/auth/native/attempts/:attemptId/email-code/verify`  | Public          | `EMAIL_CODE_ENABLED` | Spends the matching code and advances to MFA or consent                        |
+
+<!-- feature:email-code:end -->
 <!-- feature:totp:start -->
 
 ### Native second factor
