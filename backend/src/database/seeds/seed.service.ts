@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
+import {
+  ACCOUNT_RESERVATION_RESULT,
+  AddressLedger,
+} from '../../common/persistence/address-ledger';
+import { AddressReservationTakenError } from '../../common/persistence/address-reservation-taken.error';
+import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
+import { Clock } from '../../common/services/clock';
 import { getSeedUsers, printSeedCredentials } from './user.seed';
 import { RoleSeedService } from './role.seed';
 import { ApplicationRegistry } from '../../session/applications/application-registry';
@@ -17,6 +24,9 @@ export class SeedService {
     private readonly configService: ConfigService,
     private readonly roleSeedService: RoleSeedService,
     private readonly applications: ApplicationRegistry,
+    private readonly runner: UnitOfWorkRunner,
+    private readonly ledger: AddressLedger,
+    private readonly clock: Clock,
   ) {}
 
   async seedAll(): Promise<{
@@ -71,12 +81,25 @@ export class SeedService {
           this.configService.get<number>('bcrypt.rounds', 10),
         );
 
-        const createdId = await this.store.createAccount({
-          email: userData.email,
-          name: userData.name,
-          role: userData.role,
-          permissions: userData.permissions || [],
-          passwordHash: hashedPassword,
+        const createdId = await this.runner.run(async (unitOfWork) => {
+          const reservation = await this.ledger.reserveForAccount(unitOfWork, {
+            address: userData.email,
+            now: this.clock.now(),
+          });
+          if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN)
+            throw new AddressReservationTakenError();
+          const id = await this.store.createAccount(unitOfWork, {
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            permissions: userData.permissions || [],
+            passwordHash: hashedPassword,
+          });
+          await this.ledger.finishAccountReservation(
+            unitOfWork,
+            reservation.reservation,
+          );
+          return id;
         });
 
         this.logger.log(
