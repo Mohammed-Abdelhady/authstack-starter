@@ -1,3 +1,4 @@
+import type { AudiencePolicy } from '../../session/applications/audience-policy';
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
@@ -20,6 +21,7 @@ import { dedupePermissions } from './role.util';
 interface RoleCreation {
   runner: UnitOfWorkRunner;
   store: RoleChangeStore;
+  audiencePolicy?: AudiencePolicy;
 }
 
 /**
@@ -27,7 +29,7 @@ interface RoleCreation {
  * permission it lost after the request was admitted cannot be handed out.
  */
 export function createRoleWithinCeiling(
-  { runner, store }: RoleCreation,
+  { runner, store, audiencePolicy }: RoleCreation,
   dto: CreateRoleDto,
   slug: string,
   actorId: string,
@@ -39,6 +41,16 @@ export function createRoleWithinCeiling(
       actorId,
       ROLE_PERMISSIONS.CREATE_ALL,
     );
+    if (audiencePolicy?.enabled()) {
+      if (dto.audience === undefined) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'A role audience is required while audience policy is enabled',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      audiencePolicy.assertDirectPermissions(dto.audience, dto.permissions);
+    }
     assertCanGrant(actor, dto.permissions);
     const level = dto.level ?? CUSTOM_ROLE_LEVEL;
     assertLevelBelowActor(actor, level);
@@ -46,6 +58,7 @@ export function createRoleWithinCeiling(
       name: dto.name,
       slug,
       description: dto.description,
+      audience: dto.audience,
       level,
       permissions: dedupePermissions(dto.permissions),
     });

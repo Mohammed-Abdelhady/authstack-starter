@@ -1,5 +1,6 @@
 import {
   IsString,
+  IsEnum,
   IsArray,
   IsOptional,
   MinLength,
@@ -9,6 +10,10 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RoleLevelProperty } from './role-level.decorator';
+import {
+  ROLE_AUDIENCE,
+  type RoleAudience,
+} from '../../host/types/host-role.type';
 
 export class CreateRoleDto {
   @ApiProperty({
@@ -49,6 +54,11 @@ export class CreateRoleDto {
       'Permission must be in format resource:action[:scope] or wildcard *',
   })
   permissions!: string[];
+
+  @ApiPropertyOptional({ enum: Object.values(ROLE_AUDIENCE) })
+  @IsOptional()
+  @IsEnum(ROLE_AUDIENCE)
+  audience?: RoleAudience;
 
   @RoleLevelProperty()
   level?: number;

@@ -1,3 +1,4 @@
+import type { AudiencePolicy } from '../../session/applications/audience-policy';
 import { HttpStatus, Logger } from '@nestjs/common';
 import {
   UnitOfWork,
@@ -13,13 +14,19 @@ import { REVOKED_REASON } from '../../session/constants/revoked-reason';
 import { SECURITY_EVENT_ACTION } from '../../session/constants/security-event-action';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { RoleChangeStore } from '../stores/role-change.store';
-import { HolderMove, StoredRole } from '../stores/role-records';
+import {
+  HolderMove,
+  HolderSessionBump,
+  MovedHolders,
+  StoredRole,
+} from '../stores/role-records';
 import { RoleSweepStore } from '../stores/role-sweep.store';
 
 export interface RoleSweepStores {
   runner: UnitOfWorkRunner;
   changes: RoleChangeStore;
   sweeps: RoleSweepStore;
+  audiencePolicy?: AudiencePolicy;
 }
 
 /**
@@ -33,17 +40,40 @@ export async function moveRoleHolders(
 ): Promise<number> {
   const { actorId, ...holders } = move;
   const moved = await changes.moveHolders(unitOfWork, holders);
-  if (moved.holderIds.length === 0) return 0;
+  return recordHolderRevocations(changes, unitOfWork, moved, actorId);
+}
+
+/** Revoke selected holders while retaining their current role. */
+export async function bumpRoleHolderSessions(
+  changes: Pick<
+    RoleChangeStore,
+    'bumpHolderSessions' | 'appendHolderRevocations'
+  >,
+  unitOfWork: UnitOfWork,
+  bump: HolderSessionBump & { actorId: string },
+): Promise<number> {
+  const { actorId, ...holders } = bump;
+  const moved = await changes.bumpHolderSessions(unitOfWork, holders);
+  return recordHolderRevocations(changes, unitOfWork, moved, actorId);
+}
+
+async function recordHolderRevocations(
+  changes: Pick<RoleChangeStore, 'appendHolderRevocations'>,
+  unitOfWork: UnitOfWork,
+  changed: MovedHolders,
+  actorId: string,
+): Promise<number> {
+  if (changed.holderIds.length === 0) return 0;
   await changes.appendHolderRevocations(
     unitOfWork,
-    moved.holderIds.map((targetUserId) => ({
+    changed.holderIds.map((targetUserId) => ({
       targetUserId,
       actorId,
       action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_ALL,
       reasonCode: REVOKED_REASON.ADMIN_FORCED,
     })),
   );
-  return moved.moved;
+  return changed.moved;
 }
 
 export interface RoleHolderSweep {
@@ -61,12 +91,13 @@ interface SweepPass {
   count: number;
   destinations: string[];
   reused: boolean;
+  blocked?: AppException;
 }
 
 const NOTHING_MOVED: SweepPass = { count: 0, destinations: [], reused: false };
 
 async function sweepPass(
-  { changes, sweeps }: RoleSweepStores,
+  { changes, sweeps, audiencePolicy }: RoleSweepStores,
   unitOfWork: UnitOfWork,
   input: RoleHolderSweep,
   sources: Set<string>,
@@ -99,6 +130,7 @@ async function sweepPass(
       )
     : new Map<string, string>();
   const restoredRoles = new Map<string, StoredRole | null>();
+  let blocked: AppException | undefined;
   for (const holder of stale) {
     const restoreId =
       previous.get(holder.id) ??
@@ -119,6 +151,21 @@ async function sweepPass(
         'Default role does not exist',
         HttpStatus.NOT_FOUND,
       );
+    try {
+      audiencePolicy?.assertRoleAssignment(
+        holder.audience,
+        destination.audience,
+      );
+    } catch (error) {
+      if (
+        !(error instanceof AppException) ||
+        error.code !== ErrorCode.INVALID_ROLE_ASSIGNMENT
+      ) {
+        throw error;
+      }
+      blocked ??= error;
+      continue;
+    }
     const group = groups.get(destination.slug) ?? {
       role: destination,
       ids: [],
@@ -128,19 +175,20 @@ async function sweepPass(
   }
   let count = 0;
   for (const group of groups.values()) {
-    // Only the role-edit sweep fences its destination. Assignment repair
-    // never writes a role, so concurrent callers share one bulk move.
-    if (input.fenceDestination) {
+    // Audience mapping can change a destination outside the role API. Hold it
+    // through the move while audience policy is active.
+    if (input.fenceDestination || audiencePolicy?.enabled()) {
       await sweeps.fenceDestination(unitOfWork, group.role.id);
     }
     count += await moveRoleHolders(changes, unitOfWork, {
       fromSlugs: stale.map((holder) => holder.role),
       holderIds: group.ids,
       toSlug: group.role.slug,
+      ...(audiencePolicy?.enabled() ? { audience: group.role.audience } : {}),
       actorId: restoreActor,
     });
   }
-  return { count, destinations: [...groups.keys()], reused: false };
+  return { count, destinations: [...groups.keys()], reused: false, blocked };
 }
 
 /**
@@ -173,7 +221,11 @@ export async function sweepRoleHolders(
         actorId,
       });
     }
-    if (outcome.count === 0) return moved;
+    if (outcome.count === 0) {
+      // Compatible moves already committed. A blocked repair must remain owed.
+      if (outcome.blocked) throw outcome.blocked;
+      return moved;
+    }
   }
   const remaining = await stores.sweeps.listStrandedHoldersCommitted([
     ...sources,

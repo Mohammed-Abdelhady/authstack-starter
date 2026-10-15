@@ -1,3 +1,4 @@
+import { StaffGuard } from '../auth/guards/staff.guard';
 import {
   Controller,
   Get,
@@ -42,7 +43,7 @@ import { ApiResponse as ApiResponseDto } from '../common/dto/api-response.dto';
 @ApiTags('roles')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('roles')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 

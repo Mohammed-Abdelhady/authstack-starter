@@ -6,6 +6,7 @@ import { UserDocument } from '../../../user/persistence/mongo/schemas/user.schem
 import {
   HolderMove,
   HolderRevocation,
+  HolderSessionBump,
   MovedHolders,
 } from '../../stores/role-records';
 import { toObjectIds } from './mongo-role-mappers';
@@ -21,14 +22,34 @@ export class MongoRoleHolders {
     private readonly events: SecurityEventService,
   ) {}
 
-  async moveHolders(
+  moveHolders(unitOfWork: UnitOfWork, move: HolderMove): Promise<MovedHolders> {
+    return this.changeHolders(unitOfWork, move);
+  }
+
+  bumpHolderSessions(
     unitOfWork: UnitOfWork,
-    move: HolderMove,
+    bump: HolderSessionBump,
+  ): Promise<MovedHolders> {
+    return this.changeHolders(unitOfWork, bump);
+  }
+
+  private async changeHolders(
+    unitOfWork: UnitOfWork,
+    change: HolderMove | HolderSessionBump,
   ): Promise<MovedHolders> {
     const session = mongoSessionOf(unitOfWork);
     const filter = {
-      role: { $in: move.fromSlugs },
-      ...(move.holderIds ? { _id: { $in: toObjectIds(move.holderIds) } } : {}),
+      role: { $in: change.fromSlugs },
+      ...('audience' in change && change.audience !== undefined
+        ? { audience: change.audience }
+        : {}),
+      ...('excludingAudience' in change &&
+      change.excludingAudience !== undefined
+        ? { audience: { $ne: change.excludingAudience } }
+        : {}),
+      ...('holderIds' in change && change.holderIds
+        ? { _id: { $in: toObjectIds(change.holderIds) } }
+        : {}),
     };
     const holders = await this.userModel
       .find(filter)
@@ -40,7 +61,10 @@ export class MongoRoleHolders {
     const affected = await this.userModel
       .updateMany(
         filter,
-        { $set: { role: move.toSlug }, $inc: { sessionVersion: 1 } },
+        {
+          ...('toSlug' in change ? { $set: { role: change.toSlug } } : {}),
+          $inc: { sessionVersion: 1 },
+        },
         { session },
       )
       .exec();

@@ -28,7 +28,7 @@ function strandedHolders(
   if (sources.length === 0) return Promise.resolve([]);
   return reader
     .selectFrom('users')
-    .select(['id', 'role'])
+    .select(['id', 'role', 'audience'])
     .where('role', 'in', sources)
     .where((user) =>
       user.not(
@@ -41,7 +41,13 @@ function strandedHolders(
       ),
     )
     .orderBy('id')
-    .execute();
+    .execute()
+    .then((holders) =>
+      holders.map((holder) => ({
+        ...holder,
+        audience: holder.audience ?? undefined,
+      })),
+    );
 }
 
 function deletionEventId(roleId: string): string {
