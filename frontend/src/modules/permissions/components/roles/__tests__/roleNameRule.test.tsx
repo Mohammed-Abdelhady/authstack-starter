@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
+import { ROLE_AUDIENCE } from '@app/core';
+import { stubListLayout } from '../../users/__tests__/roleSelectorHarness';
 import {
   descriptions,
   registerFormTestLifecycle,
@@ -101,12 +103,45 @@ async function openForm(locale: AppLocale, formName: FormName) {
 registerFormTestLifecycle();
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', InertResizeObserver);
+  stubListLayout();
 });
 
 describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the rule for a role name in the role forms in %s', (locale) => {
+  it.each([
+    [ROLE_AUDIENCE.STAFF, 'audienceStaff'],
+    [ROLE_AUDIENCE.CUSTOMER, 'audienceCustomer'],
+    [undefined, 'audienceUnset'],
+  ] as const)('sends only the chosen create audience %s', async (audience, optionKey) => {
+    const { name, send, requests, bodies, message } = await openForm(locale, 'create');
+    fireEvent.change(name, { target: { value: 'Support Team' } });
+    const select = screen.getByRole('combobox', {
+      name: message('roles.form.audienceLabel'),
+    });
+    select.focus();
+    fireEvent.keyDown(select, { key: 'ArrowDown' });
+    const option = await screen.findByRole('option', {
+      name: message(`roles.form.${optionKey}`),
+    });
+    option.focus();
+    fireEvent.keyDown(option, { key: 'Enter' });
+
+    send();
+
+    await waitFor(() =>
+      expect(bodies).toEqual([
+        {
+          name: 'Support Team',
+          permissions: ['users:read:all'],
+          ...(audience === undefined ? {} : { audience }),
+        },
+      ]),
+    );
+    expect(requests.filter((request) => !request.startsWith('GET'))).toEqual(['POST /api/roles']);
+  });
+
   describe.each(['create', 'edit'] as const)('%s', (formName) => {
     it('says what a name may be, tied to the field before anything is typed', async () => {
       const { name, format, form } = await openForm(locale, formName);
