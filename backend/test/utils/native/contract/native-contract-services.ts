@@ -161,7 +161,7 @@ export function buildNativeServices(
         authEpoch,
         new SessionExpiry(
           runner,
-          parts.authorityStore,
+          parts.enrolments,
           parts.issuanceApplications,
           parts.revocationStore,
           clock,

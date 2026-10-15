@@ -18,6 +18,7 @@ import { PostgresApplicationRegistryStore } from '../../src/session/persistence/
 import { PostgresAuthorityApplications } from '../../src/session/persistence/postgres/postgres-authority-applications';
 import { PostgresIdFormat } from '../../src/common/persistence/postgres/postgres-id-format';
 import { PostgresSecurityEventStore } from '../../src/session/persistence/postgres/postgres-security-event.store';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import { PostgresSessionAuthorityStore } from '../../src/session/persistence/postgres/postgres-session-authority.store';
 import { PostgresSessionRevocationStore } from '../../src/session/persistence/postgres/postgres-session-revocation.store';
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
@@ -74,7 +75,7 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
         authEpoch,
         new SessionExpiry(
           new PostgresUnitOfWorkRunner(database),
-          authorityStore,
+          new PostgresEnrolmentStore(),
           issuance.applications,
           revocationStore,
           clock,
