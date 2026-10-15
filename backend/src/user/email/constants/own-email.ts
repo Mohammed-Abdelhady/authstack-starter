@@ -28,6 +28,3 @@ export const OWN_EMAIL_PROOF = {
 
 /** The longest password the proof reads, as the other password checks take. */
 export const OWN_EMAIL_PASSWORD_MAX_LENGTH = 128;
-
-/** The longest client id the native routes read, as the methods route does. */
-export const NATIVE_CLIENT_ID_MAX_LENGTH = 128;
