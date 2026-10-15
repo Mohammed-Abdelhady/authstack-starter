@@ -1,7 +1,15 @@
-import { IsNotEmpty, IsString, Matches, NotEquals } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  Matches,
+  NotEquals,
+  IsNotIn,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   PERMISSION_REGEX,
+  RESERVED_PERMISSIONS,
+  RESERVED_PERMISSION_MESSAGE,
   WILDCARD_PERMISSION,
 } from '../../common/constants/permissions';
 
@@ -18,6 +26,9 @@ export class AddPermissionDto {
   @IsNotEmpty()
   @Matches(PERMISSION_REGEX, {
     message: 'Permission must be in the format resource:action[:scope]',
+  })
+  @IsNotIn([...RESERVED_PERMISSIONS], {
+    message: RESERVED_PERMISSION_MESSAGE,
   })
   @NotEquals(WILDCARD_PERMISSION, {
     message: 'The wildcard permission cannot be granted to a single user',

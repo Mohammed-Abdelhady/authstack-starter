@@ -29,6 +29,7 @@ import {
 } from '../../utils/role-create.util';
 import { CreateRoleDto } from '../../dto/create-role.dto';
 import {
+  assertValidPermissions,
   dedupePermissions,
   generateSlug,
   samePermissions,
@@ -148,6 +149,10 @@ export class RoleEditService {
       );
     }
     assertOutranksRole(actor, current);
+    if (dto.permissions) {
+      // A stale edit must not restore a reserved grant removed meanwhile.
+      assertValidPermissions(dto.permissions, current.permissions);
+    }
     const addedPermissions = (dto.permissions ?? []).filter(
       (permission) => !current.permissions.includes(permission),
     );
