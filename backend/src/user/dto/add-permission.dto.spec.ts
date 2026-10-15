@@ -23,6 +23,19 @@ describe('AddPermissionDto (S-18)', () => {
     expect(await failedConstraints('*')).toContain('notEquals');
   });
 
+  it('should reject a reserved permission', async () => {
+    const dto = plainToInstance(AddPermissionDto, {
+      permission: 'sessions:read:staff',
+    });
+    expect(await validate(dto)).toMatchObject([
+      {
+        constraints: {
+          isNotIn: 'sessions:read:staff is reserved and cannot be granted yet',
+        },
+      },
+    ]);
+  });
+
   it.each([
     'Users:Read:All',
     'users read all',
