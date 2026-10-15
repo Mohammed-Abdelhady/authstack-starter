@@ -93,7 +93,10 @@ export async function main(
 
     const manifest = await loadManifest(manifestRoot);
     const template = await readTemplateIdentity(manifestRoot);
-    const config = options.config === undefined ? undefined : await readConfigFile(options.config);
+    const config =
+      options.config === undefined
+        ? undefined
+        : await readConfigFile(options.config, { manifest, template });
     const request = toPlanRequest(options, config);
 
     // Flags and the config file are authoritative. Report their errors before

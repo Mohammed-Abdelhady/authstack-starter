@@ -127,8 +127,15 @@ export const ANSWERS_FILE_NAME = '.create-authstack-starter.json';
 export const LEGACY_ANSWERS_FILE_NAME = '.create-nest-next-auth.json';
 
 /** Version of that file's shape. Bumped only when the contract changes. */
-export const ANSWERS_SCHEMA_VERSION = 3;
-export const PREVIOUS_ANSWERS_SCHEMA_VERSION = 2;
+export const ANSWERS_SCHEMA_VERSION = 4;
+/** Written before `rules` existed. A file of this version without `rules` reads as strict. */
+export const RULELESS_ANSWERS_SCHEMA_VERSION = 2;
+/** Every version a reader accepts. Only the current one is usable with `--config`. */
+export const READABLE_ANSWERS_SCHEMA_VERSIONS: readonly number[] = [
+  RULELESS_ANSWERS_SCHEMA_VERSION,
+  3,
+  ANSWERS_SCHEMA_VERSION,
+];
 export const RULES_POLICY = { STRICT: 'strict', STANDARD: 'standard' } as const;
 export const RULES_POLICIES = [RULES_POLICY.STRICT, RULES_POLICY.STANDARD] as const;
 export const DEFAULT_RULES_POLICY: RulesPolicy = RULES_POLICY.STRICT;
@@ -138,6 +145,9 @@ export const TEMPLATE_IDENTITY_FILE = 'template.identity.json';
 
 /** Shape of a hex SHA-256 digest, wherever one is read. */
 export const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
+
+/** Shape of the Git commit the template was built from: SHA-1 (40) or SHA-256 (64) hex. */
+export const GIT_COMMIT_HEX_PATTERN = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 /** Names npm strips from a tarball. sync-template.mjs writes the left side. */
 export const RESTORED_FILENAMES: Record<string, string> = {
@@ -226,3 +236,9 @@ export const FROZEN_INSTALL_COMMAND = 'pnpm install --frozen-lockfile';
 export const INSTALL_COMMAND = 'pnpm install';
 export const INSTALL_DIAGNOSTIC_LINES = 5;
 export const MISSING_PNPM_MESSAGE = `pnpm@${PACKAGE_MANAGER_VERSION} is required to update the lockfile. Enable pnpm with Corepack and run ${INSTALL_COMMAND} to regenerate it.`;
+
+/** Why the lockfile step failed: no pinned pnpm goes on, a failed update stops. */
+export const LOCKFILE_FAILURE = {
+  MISSING_PNPM: 'missing-pnpm',
+  UPDATE_FAILED: 'update-failed',
+} as const;

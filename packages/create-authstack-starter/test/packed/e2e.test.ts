@@ -29,6 +29,7 @@ import {
 import { mobileTargetCases } from './packed-mobile-targets.js';
 import { databaseCases } from './packed-databases.js';
 import { databaseRuleCases } from './packed-database-rules.js';
+import { answersRoundTripCases } from './packed-answers-round-trip.js';
 import { assertWorkspaceEdgesResolve } from '../support/workspace-assertions.js';
 
 let packed: Packed;
@@ -48,6 +49,7 @@ describe('the packed CLI', () => {
   packageManagerCases(() => packed);
   databaseCases(() => packed);
   databaseRuleCases(() => packed);
+  answersRoundTripCases(() => packed);
   rulesLevelCases(() => packed);
   it('writes rules from project data and omits pruned feature references', async () => {
     await checkGeneratedRules(packed);

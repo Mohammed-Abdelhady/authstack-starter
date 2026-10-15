@@ -46,11 +46,11 @@ describe('.create-authstack-starter.json', () => {
 
     const { raw, record } = readAnswers(project, ANSWERS_FILE_NAME);
     expect(record).toEqual({
-      schemaVersion: 3,
+      schemaVersion: 4,
       rules: { policy: 'strict' },
       packageManager: 'pnpm@12.6.0',
       installer: { name: 'create-authstack-starter', version },
-      template: { sha256: TEMPLATE_SHA },
+      template: { sha256: TEMPLATE_SHA, commit: null },
       answers: {
         targets: ['web'],
         database: 'mongodb',
@@ -61,7 +61,7 @@ describe('.create-authstack-starter.json', () => {
     });
     expect(raw).toBe(
       `{
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "packageManager": "pnpm@12.6.0",
   "rules": {
     "policy": "strict"
@@ -71,7 +71,8 @@ describe('.create-authstack-starter.json', () => {
     "version": "${version}"
   },
   "template": {
-    "sha256": "${TEMPLATE_SHA}"
+    "sha256": "${TEMPLATE_SHA}",
+    "commit": null
   },
   "answers": {
     "targets": ["web"],
@@ -262,7 +263,7 @@ describe('.create-authstack-starter.json', () => {
       'answers',
     ]);
     expect(Object.keys(record.installer)).toEqual(['name', 'version']);
-    expect(Object.keys(record.template)).toEqual(['sha256']);
+    expect(Object.keys(record.template)).toEqual(['sha256', 'commit']);
     expect(Object.keys(record.answers)).toEqual([
       'targets',
       'database',
@@ -270,7 +271,7 @@ describe('.create-authstack-starter.json', () => {
       'options',
       'locales',
     ]);
-    expect(record.schemaVersion).toBe(3);
+    expect(record.schemaVersion).toBe(4);
     expect(raw).not.toContain(project);
     expect(raw).not.toContain('createdAt');
   });

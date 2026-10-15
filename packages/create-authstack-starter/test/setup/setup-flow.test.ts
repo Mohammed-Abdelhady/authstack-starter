@@ -76,12 +76,7 @@ it.each(['strict', 'standard'])(
         docs: ['README.md', 'docs/README.md', 'docs/setup/setup-smtp.md'],
         lockfile: entry.lock.ok
           ? { status: 'updated' }
-          : {
-              status: 'removed',
-              reason: entry.name.includes('missing pnpm')
-                ? EXPECTED_MISSING_PNPM_REASON
-                : 'registry error',
-            },
+          : { status: 'removed', reason: EXPECTED_MISSING_PNPM_REASON },
         nextSteps: [
           `cd ${target}`,
           ...(entry.expected.install.status === 'installed' ? [] : ['pnpm install']),
