@@ -1,5 +1,10 @@
 import { DynamicModule, Provider, Type } from '@nestjs/common';
-import { MONGO_COMMON_PROVIDERS } from './mongo/mongo-common-persistence'; // feature:mongodb
+// feature:mongodb:start
+import {
+  MONGO_COMMON_MODELS,
+  MONGO_COMMON_PROVIDERS,
+} from './mongo/mongo-common-persistence';
+// feature:mongodb:end
 import { MONGO_CONNECTION } from './mongo/mongo-connection'; // feature:mongodb
 // feature:postgres:start
 import {
@@ -28,4 +33,9 @@ export const STORAGE_CONNECTION_IMPORTS: Array<DynamicModule | Type> =
 export const COMMON_PERSISTENCE_PROVIDERS: Provider[] = forStorage({
   mongodb: () => MONGO_COMMON_PROVIDERS, // feature:mongodb
   postgres: () => POSTGRES_COMMON_PROVIDERS, // feature:postgres
+});
+
+export const COMMON_PERSISTENCE_IMPORTS: DynamicModule[] = forStorage({
+  mongodb: () => [MONGO_COMMON_MODELS], // feature:mongodb
+  postgres: () => [], // feature:postgres
 });
