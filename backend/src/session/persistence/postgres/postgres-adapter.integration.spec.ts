@@ -142,6 +142,7 @@ describe('PostgreSQL adapter', () => {
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
+        '0025_email_codes.sql', // feature:email-code
       ],
       again: [],
       recorded: [
@@ -166,6 +167,7 @@ describe('PostgreSQL adapter', () => {
         '0019_account_locale.sql',
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
+        '0025_email_codes.sql', // feature:email-code
       ],
     });
   });
