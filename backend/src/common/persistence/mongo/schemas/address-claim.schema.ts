@@ -20,6 +20,9 @@ export class AddressClaim {
 
   @Prop({ type: Date, required: true })
   lapsesAt!: Date;
+
+  @Prop({ type: Number, default: 0 })
+  lockVersion!: number;
 }
 
 export type AddressClaimDocument = HydratedDocument<AddressClaim>;

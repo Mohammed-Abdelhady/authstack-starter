@@ -5,6 +5,7 @@ import {
   AddressClaimResult,
   AddressAvailability,
   AddressRelease,
+  OwnedAddressLookup,
 } from '../types/address-ledger';
 import { UnitOfWork } from '../unit-of-work';
 import { postgresTransactionOf } from './postgres-unit-of-work';
@@ -52,6 +53,21 @@ export class PostgresAddressLedger extends AddressLedger {
     return account && account.id !== input.owner
       ? ADDRESS_CLAIM_RESULT.TAKEN
       : ADDRESS_CLAIM_RESULT.CLAIMED;
+  }
+
+  async holdsLiveClaim(
+    uow: UnitOfWork,
+    input: OwnedAddressLookup,
+  ): Promise<boolean> {
+    const claim = await postgresTransactionOf(uow)
+      .selectFrom('address_claims')
+      .select('owner')
+      .where('address', '=', storedAddress(input.address))
+      .where('owner', '=', input.owner)
+      .where('lapses_at', '>', input.now)
+      .forUpdate()
+      .executeTakeFirst();
+    return claim !== undefined;
   }
 
   async release(uow: UnitOfWork, input: AddressRelease): Promise<void> {

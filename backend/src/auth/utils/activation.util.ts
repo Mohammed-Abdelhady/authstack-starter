@@ -2,8 +2,6 @@ import { Logger } from '@nestjs/common';
 import { Response } from 'express';
 import {
   ACCOUNT_RESERVATION_RESULT,
-  ADDRESS_CLAIM_KIND,
-  ADDRESS_CLAIM_RESULT,
   AddressLedger,
 } from '../../common/persistence/address-ledger';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
@@ -110,7 +108,6 @@ export async function confirmEmailChange(
   reserved: ReservedCode,
   ledger: AddressLedger,
   now: Date,
-  lapsesAt: Date,
 ): Promise<string | null> {
   if (!reserved.userId) {
     throw activationCodeInvalid();
@@ -129,14 +126,12 @@ export async function confirmEmailChange(
     throw activationCodeInvalid();
   }
 
-  const claimed = await ledger.claim(unitOfWork, {
+  const held = await ledger.holdsLiveClaim(unitOfWork, {
     address: reserved.email,
     owner: reserved.userId.toString(),
-    kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
     now,
-    lapsesAt,
   });
-  if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw activationCodeInvalid();
+  if (!held) throw activationCodeInvalid();
   const previous = user.email;
   try {
     await accounts.confirmAddress(unitOfWork, user, reserved.email);
