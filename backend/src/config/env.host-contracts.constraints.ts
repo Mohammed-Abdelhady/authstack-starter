@@ -17,13 +17,18 @@ const EMAIL_CODE_REVIEW_SETTINGS = [
   'EMAIL_CODE_REVIEW_UNTIL',
 ] as const;
 
-/** Review access names an account, an application, a code and an end: all four or none. */
+/**
+ * Review access names an account, an application, a code and an end: all
+ * four or none. A blank value counts as left out, because review access reads
+ * each setting trimmed.
+ */
 @ValidatorConstraint({ name: 'emailCodeReviewGroup' })
 export class EmailCodeReviewGroupConstraint implements ValidatorConstraintInterface {
   validate(_value: unknown, validation: ValidationArguments): boolean {
-    return EMAIL_CODE_REVIEW_SETTINGS.every(
-      (setting) => Reflect.get(validation.object, setting) !== undefined,
-    );
+    return EMAIL_CODE_REVIEW_SETTINGS.every((setting) => {
+      const value: unknown = Reflect.get(validation.object, setting);
+      return typeof value === 'string' && value.trim() !== '';
+    });
   }
 
   defaultMessage(validation: ValidationArguments): string {
