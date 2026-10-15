@@ -10,6 +10,7 @@ import { accountPermissionRaceCases } from './accounts-contract-permission-races
 import { accountPendingEmailCases } from './accounts-contract-pending-email';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import { accountLeavingCases } from './accounts-contract-leaving';
+import { accountOwnEmailCases } from './accounts-contract-own-email';
 import { accountPasswordCases } from './accounts-contract-password';
 import { accountPermissionAgreementCases } from './accounts-contract-permission-agreement';
 import { accountProfileCases } from './accounts-contract-profile';
@@ -70,6 +71,7 @@ export function describeAccountStoresContract(
     accountGrantCases(current, seeded);
     accountPermissionRaceCases(current, seeded);
     accountPendingEmailCases(current, seeded);
+    accountOwnEmailCases(current, seeded);
     accountFreshnessCases(current, seeded);
     accountRaceCases(current, seeded);
     accountActivationCases(current, seeded);
