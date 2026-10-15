@@ -1,3 +1,4 @@
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { randomUUID } from 'crypto';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -16,7 +17,7 @@ import {
   levelEdit,
 } from '../../utils/role-actor.util';
 import { isStoreOutage } from '../../utils/role-failure.util';
-import { moveRoleHolders } from '../../sweeps/role-holder-sweep';
+import { revokeEditedRoleHolders } from './role-edit-holders';
 import { repairPendingRoleSweeps } from '../../sweeps/role-pending-repair';
 import { UserRole } from '../../../user/enums/user-role.enum';
 import { RoleChangeStore } from '../../stores/role-change.store';
@@ -64,6 +65,7 @@ export class RoleEditService {
     private readonly runner: UnitOfWorkRunner,
     private readonly changes: RoleChangeStore,
     private readonly sweeps: RoleSweepStore,
+    private readonly audiences: AudiencePolicy,
   ) {}
 
   /**
@@ -76,7 +78,11 @@ export class RoleEditService {
   ): Promise<StoredRole> {
     try {
       return await createRoleWithinCeiling(
-        { runner: this.runner, store: this.changes },
+        {
+          runner: this.runner,
+          store: this.changes,
+          audiencePolicy: this.audiences,
+        },
         dto,
         slug,
         actorId,
@@ -148,10 +154,18 @@ export class RoleEditService {
         HttpStatus.NOT_FOUND,
       );
     }
+    if (this.audiences.enabled() && current.audience === undefined) {
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'Map the role audience before editing it',
+        HttpStatus.FORBIDDEN,
+      );
+    }
     assertOutranksRole(actor, current);
     if (dto.permissions) {
       // A stale edit must not restore a reserved grant removed meanwhile.
       assertValidPermissions(dto.permissions, current.permissions);
+      this.audiences.assertDirectPermissions(current.audience, dto.permissions);
     }
     const addedPermissions = (dto.permissions ?? []).filter(
       (permission) => !current.permissions.includes(permission),
@@ -202,10 +216,13 @@ export class RoleEditService {
       return { role, usersMoved: 0, previousSlug, nextSlug, renamed };
     }
 
-    const usersMoved = await moveRoleHolders(this.changes, unitOfWork, {
-      fromSlugs: [previousSlug],
-      toSlug: nextSlug,
+    const usersMoved = await revokeEditedRoleHolders(this.changes, unitOfWork, {
+      previousSlug,
+      nextSlug,
       actorId,
+      renamed,
+      audience: current.audience,
+      audiencePolicyEnabled: this.audiences.enabled(),
     });
     return {
       role,
@@ -303,7 +320,12 @@ export class RoleEditService {
     recorded = true,
   ): Promise<number> {
     return repairPendingRoleSweeps(
-      { runner: this.runner, changes: this.changes, sweeps: this.sweeps },
+      {
+        runner: this.runner,
+        changes: this.changes,
+        sweeps: this.sweeps,
+        audiencePolicy: this.audiences,
+      },
       { ownerId, refs, recorded, logger: this.logger },
     );
   }

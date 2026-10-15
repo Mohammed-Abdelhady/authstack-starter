@@ -1,3 +1,4 @@
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import {
   Injectable,
   Logger,
@@ -36,8 +37,9 @@ export class RoleSweepBootstrapService
     changes: RoleChangeStore,
     private readonly sweeps: RoleSweepStore,
     private readonly clock: Clock,
+    audiencePolicy: AudiencePolicy,
   ) {
-    this.stores = { runner, changes, sweeps };
+    this.stores = { runner, changes, sweeps, audiencePolicy };
   }
 
   onApplicationBootstrap(): void {
