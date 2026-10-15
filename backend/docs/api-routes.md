@@ -146,6 +146,13 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | POST   | `/api/admin/users/:id/permissions`             | `permissions:grant:all`  |           | Adds a direct permission                                 |
 | DELETE | `/api/admin/users/:id/permissions/:permission` | `permissions:revoke:all` |           | Removes a direct permission                              |
 
+| Method | Path                                       | Who may call it       | Closed by | What it does                                       |
+| ------ | ------------------------------------------ | --------------------- | --------- | -------------------------------------------------- |
+| GET    | `/api/admin/users/:id/sessions`            | `sessions:read:all`   |           | Lists the target account's active sessions         |
+| DELETE | `/api/admin/users/:id/sessions/:sessionId` | `sessions:delete:all` |           | Ends one target session                            |
+| POST   | `/api/admin/users/:id/sessions/revoke-all` | `sessions:delete:all` |           | Ends every target session                          |
+| GET    | `/api/admin/activity`                      | `activity:read:all`   |           | Lists retained staff activity, paged, with filters |
+
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
 
 `PATCH /api/admin/users/:id` with an email does not change the address. Only an `admin` may send one. The account keeps its address, and everything that address can do, until `POST /api/auth/confirm-email-change` is called with the code mailed to the new address. That call moves the address and ends the account's sessions. An account carries `pendingEmail` in the list, in `GET /api/admin/users/:id` and in the answer to the `PATCH` while an address waits.
