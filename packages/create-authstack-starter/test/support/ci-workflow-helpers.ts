@@ -135,7 +135,7 @@ export function expectNodeVersions(job: unknown, versions?: readonly number[]): 
       with:
         versions === undefined
           ? { 'node-version-file': '.nvmrc' }
-          : { 'node-version': '${{ matrix.node-version }}' },
+          : { 'node-version': '${{ matrix.node-version }}', 'check-latest': true },
     },
   ]);
 }
