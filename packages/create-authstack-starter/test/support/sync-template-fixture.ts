@@ -18,11 +18,12 @@ export function copySyncTemplateInputs(fixture: string): void {
 }
 
 /** Git for a fixture: no inherited repository, no developer configuration. */
-export function fixtureGit(fixture: string, args: string[]): string {
+export function fixtureGit(fixture: string, args: string[], input?: string): string {
   return execFileSync('git', args, {
     cwd: fixture,
     encoding: 'utf8',
     stdio: 'pipe',
+    input,
     env: {
       ...commandEnvironment(),
       GIT_CONFIG_GLOBAL: join(fixture, 'absent-global'),
