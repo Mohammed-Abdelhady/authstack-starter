@@ -7,6 +7,7 @@ import { cp, lstat, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promise
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { manifestPathProblems } from './manifest-paths.mjs';
+import { templateCommit } from './template-commit.mjs';
 import TEMPLATE_SYNC_INPUTS from './template-sync-inputs.json' with { type: 'json' };
 const PACKAGE_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
 const PACKAGE_MANAGER_CONFIG = JSON.parse(
@@ -229,6 +230,15 @@ function isExcludedPath(segments) {
   );
 }
 
+// Whether a path Git reports decides the template's bytes: a shipped file or a build input.
+function isTemplateSource(path) {
+  const inputs = Object.values(TEMPLATE_SYNC_INPUTS).map((input) =>
+    relative(REPO_ROOT, join(PACKAGE_DIR, input)).split(sep).join('/'),
+  );
+  if ([MANIFEST_NAME, REWRITES_NAME, ...inputs].includes(path)) return true;
+  return !isExcludedPath(path.split('/'));
+}
+
 async function fileStats(source) {
   try {
     const stats = await lstat(source);
@@ -320,9 +330,10 @@ async function main() {
   const identity = createHash('sha256')
     .update(`${hashes.join('\n')}\n`)
     .digest('hex');
+  const commit = templateCommit(git, REPO_ROOT, isTemplateSource);
   await writeFile(
     join(PACKAGE_DIR, TEMPLATE_IDENTITY_FILE),
-    `${JSON.stringify({ sha256: identity }, null, 2)}\n`,
+    `${JSON.stringify({ sha256: identity, commit }, null, 2)}\n`,
     'utf8',
   );
 
