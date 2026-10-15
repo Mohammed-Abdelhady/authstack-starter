@@ -87,9 +87,9 @@ docker compose -f docker-compose.prod.yml run --rm --no-deps backend node dist/c
 docker compose -f docker-compose.prod.yml run --rm --no-deps backend node dist/cli/audience-apply.js
 ```
 
-Add the required `--role` mappings to both container commands. Use
-`docker-compose.postgres.prod.yml` instead for PostgreSQL. The image already
-contains the compiled command and production dependencies.
+Add the required `--role` mappings to both container commands.
+Use `docker-compose.postgres.prod.yml` instead for PostgreSQL. <!-- feature:database-choice -->
+The image already contains the compiled command and production dependencies.
 
 Core `admin` becomes `staff` and core `user` becomes `customer`. Host role mappings
 come from `HOST_ROLES`; custom role names and permissions are never interpreted
