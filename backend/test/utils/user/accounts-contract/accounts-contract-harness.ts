@@ -1,3 +1,5 @@
+import { AddressLedger } from '../../../../src/common/persistence/address-ledger';
+import { StoredAddressClaim } from '../../../../src/common/persistence/types/address-ledger';
 import { AdminAccountStore } from '../../../../src/admin/stores/admin-account.store';
 import {
   ActivationAccounts,
@@ -75,6 +77,11 @@ export interface StoredAccountEvent {
  */
 export interface AccountsContractHarness {
   readonly clock: FrozenClock;
+  readonly ledger: AddressLedger;
+  claims(): Promise<StoredAddressClaim[]>;
+  emailChangeCode(
+    email: string,
+  ): Promise<{ hash: string; expiresAt: Date } | null>;
   readonly profiles: AccountProfileStore;
   readonly permissions: AccountPermissionStore;
   readonly sessions: AccountSessions;

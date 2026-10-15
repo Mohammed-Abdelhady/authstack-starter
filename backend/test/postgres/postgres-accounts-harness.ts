@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Kysely } from 'kysely';
+import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
+import { PostgresAddressLedger } from '../../src/common/persistence/postgres/postgres-address-ledger';
+import { ADDRESS_CLAIM_KIND } from '../../src/common/persistence/address-ledger';
 import {
   ActivatedAccount,
   ActivationSignIn,
@@ -75,6 +78,35 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
   return {
     database,
     clock,
+    ledger: new PostgresAddressLedger(),
+    claims: async () =>
+      (
+        await database
+          .selectFrom('address_claims')
+          .selectAll()
+          .orderBy('address')
+          .execute()
+      ).map((row) => {
+        const kind = Object.values(ADDRESS_CLAIM_KIND).find(
+          (value) => value === row.kind,
+        );
+        if (!kind) throw new Error('unexpected stored claim kind');
+        return {
+          address: row.address,
+          kind,
+          owner: row.owner,
+          lapsesAt: row.lapses_at,
+        };
+      }),
+    emailChangeCode: async (email) => {
+      const row = await database
+        .selectFrom('pending_registrations')
+        .select(['hashed_code', 'expires_at'])
+        .where('email', '=', email)
+        .where('purpose', '=', PENDING_PURPOSE.EMAIL_CHANGE)
+        .executeTakeFirst();
+      return row ? { hash: row.hashed_code, expiresAt: row.expires_at } : null;
+    },
     profiles: new PostgresAccountProfileStore(database, clock),
     permissions: new PostgresAccountPermissionStore(database, clock),
     sessions: new RevokerAccountSessions(

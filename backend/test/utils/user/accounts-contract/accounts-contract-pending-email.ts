@@ -1,7 +1,9 @@
+import { accountClaimRefreshCases } from './accounts-contract-claim-refresh';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RaceGate, holdBefore } from '../../race-gate';
 import {
   ADMIN_SLUG,
+  lastMailedCode,
   AccountsHarnessSource,
   AccountsFixture,
   answerOf,
@@ -12,13 +14,6 @@ import {
 
 const FIRST_ADDRESS = 'first-pending@example.test';
 const SECOND_ADDRESS = 'second-pending@example.test';
-
-function lastMailedCode(services: ReturnType<typeof servicesOn>): string {
-  const last = services.mail[services.mail.length - 1];
-  const code = /\b(\d{6})\b/.exec(`${last?.text ?? ''} ${last?.html ?? ''}`);
-  if (!code) throw new Error('the last mail carried no code');
-  return code[1];
-}
 
 export function accountPendingEmailCases(
   harness: AccountsHarnessSource,
@@ -171,10 +166,7 @@ export function accountPendingEmailCases(
   it('does not confirm an older address when an admin request commits first', async () => {
     const { userId, adminId } = fixture();
     const services = servicesOn(harness());
-    const issueCode = jest.spyOn(
-      services.verification,
-      'createOrUpdatePendingRegistration',
-    );
+    const issueCode = jest.spyOn(services.verification, 'prepareEmailChange');
     await services.adminUsers.updateUser(
       userId,
       { email: FIRST_ADDRESS },
@@ -234,4 +226,5 @@ export function accountPendingEmailCases(
       confirmationGate.release();
     }
   });
+  accountClaimRefreshCases(harness, fixture);
 }

@@ -1,7 +1,31 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Connection, Model, createConnection } from 'mongoose';
+import {
+  FrozenClock,
+  TEST_NOW,
+} from '../../../../../../test/utils/frozen-clock';
+import { partialMock } from '../../../../../common/testing/test-doubles.harness-spec';
+import { MongoAddressLedger } from '../../../../../common/persistence/mongo/mongo-address-ledger';
+import {
+  AddressClaim,
+  AddressClaimDocument,
+  AddressClaimSchema,
+} from '../../../../../common/persistence/mongo/schemas/address-claim.schema';
+import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
+import {
+  PendingRegistration,
+  PendingRegistrationDocument,
+  PendingRegistrationSchema,
+} from '../../../../../auth/persistence/mongo/schemas/pending-registration.schema';
+import {
+  MailCounter,
+  MailCounterDocument,
+  MailCounterSchema,
+} from '../../../../../auth/persistence/mongo/schemas/mail-counter.schema';
+import { MongoPendingRegistrationStore } from '../../../../../auth/persistence/mongo/mongo-pending-registration.store';
+import { MongoMailCounterStore } from '../../../../../auth/persistence/mongo/mongo-mail-counter.store';
+import { MailCounterService } from '../../../../../auth/services/mail/mail-counter.service';
+import { HashService } from '../../../../../common/services/hash.service';
 import {
   startMemoryReplSet,
   type MemoryReplSet,
@@ -17,9 +41,13 @@ import {
 import { ErrorCode } from '../../../../../common/enums/error-code.enum';
 import { UserRole } from '../../../../../user/enums/user-role.enum';
 import { PENDING_PURPOSE } from '../../../../../auth/constants/registration';
-import { Role } from '../../../../../role/persistence/mongo/schemas/role.schema';
+import {
+  Role,
+  RoleDocument,
+  RoleSchema,
+} from '../../../../../role/persistence/mongo/schemas/role.schema';
 import { toStoredAccount } from '../../../../../user/persistence/mongo/mongo-account-records';
-import { MONGO_ADMIN_ACCOUNT_STORE } from '../../mongo-admin-stores';
+import { MongoAdminAccountStore } from '../../mongo-admin-account.store';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -28,46 +56,67 @@ import {
 describe('AdminEmailChangeService', () => {
   let mongo: MemoryReplSet;
   let connection: Connection;
-  let users: Model<User>;
+  let users: Model<UserDocument>;
   let service: AdminEmailChangeService;
-
-  const mockVerificationCodeService = {
-    createOrUpdatePendingRegistration: jest
-      .fn()
-      .mockResolvedValue({ code: '123456' }),
-  };
 
   const mockAuthMailService = {
     sendEmailChangeCode: jest.fn().mockResolvedValue(true),
   };
 
-  const config = {
-    get: (key: string, fallback?: number) =>
-      key === 'activation.codeExpiresIn' ? 900000 : fallback,
-  };
+  const config = new ConfigService({
+    activation: { codeExpiresIn: 900000, maxAttempts: 5 },
+    bcrypt: { rounds: 4 },
+  });
+  const clock = new FrozenClock(TEST_NOW);
+  let codes: Model<PendingRegistrationDocument>;
+  let counters: Model<MailCounterDocument>;
+  let claims: Model<AddressClaimDocument>;
+  let mailCounter: MailCounterService;
 
   beforeAll(async () => {
     mongo = await startMemoryReplSet();
     connection = await createConnection(mongo.getUri()).asPromise();
-    users = connection.model<User>(User.name, UserSchema);
-    await users.init();
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        AdminEmailChangeService,
-        MONGO_ADMIN_ACCOUNT_STORE,
-        { provide: getModelToken(Role.name), useValue: {} },
-        { provide: getModelToken(User.name), useValue: users },
-        {
-          provide: VerificationCodeService,
-          useValue: mockVerificationCodeService,
-        },
-        { provide: AuthMailService, useValue: mockAuthMailService },
-        { provide: ConfigService, useValue: config },
-      ],
-    }).compile();
-
-    service = module.get<AdminEmailChangeService>(AdminEmailChangeService);
+    connection.model(User.name, UserSchema);
+    connection.model(Role.name, RoleSchema);
+    connection.model(PendingRegistration.name, PendingRegistrationSchema);
+    connection.model(MailCounter.name, MailCounterSchema);
+    connection.model(AddressClaim.name, AddressClaimSchema);
+    users = connection.model<UserDocument>(User.name);
+    codes = connection.model<PendingRegistrationDocument>(
+      PendingRegistration.name,
+    );
+    counters = connection.model<MailCounterDocument>(MailCounter.name);
+    claims = connection.model<AddressClaimDocument>(AddressClaim.name);
+    await Promise.all([
+      users.init(),
+      codes.init(),
+      counters.init(),
+      claims.init(),
+    ]);
+    mailCounter = new MailCounterService(
+      new MongoMailCounterStore(counters),
+      config,
+      clock,
+    );
+    const verification = new VerificationCodeService(
+      new MongoPendingRegistrationStore(codes, counters),
+      new HashService(config),
+      config,
+      clock,
+      mailCounter,
+    );
+    service = new AdminEmailChangeService(
+      new MongoAdminAccountStore(
+        users,
+        connection.model<RoleDocument>(Role.name),
+      ),
+      verification,
+      partialMock<AuthMailService>(mockAuthMailService),
+      config,
+      new MongoAddressLedger(claims, users),
+      new MongoUnitOfWorkRunner(connection),
+      clock,
+    );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -77,10 +126,13 @@ describe('AdminEmailChangeService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    await users.deleteMany({});
-    mockVerificationCodeService.createOrUpdatePendingRegistration.mockResolvedValue(
-      { code: '123456' },
-    );
+    clock.set(TEST_NOW);
+    await Promise.all([
+      users.deleteMany({}),
+      codes.deleteMany({}),
+      counters.deleteMany({}),
+      claims.deleteMany({}),
+    ]);
     mockAuthMailService.sendEmailChangeCode.mockResolvedValue(true);
   });
 
@@ -128,15 +180,20 @@ describe('AdminEmailChangeService', () => {
 
     await service.sendConfirmation(toStoredAccount(target), UserRole.ADMIN);
 
-    expect(
-      mockVerificationCodeService.createOrUpdatePendingRegistration,
-    ).toHaveBeenCalledWith('new@example.com', PENDING_PURPOSE.EMAIL_CHANGE, {
-      userId: target._id.toString(),
-      addressGeneration: 1,
-    });
+    const storedCode = await codes
+      .findOne({
+        email: 'new@example.com',
+        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+      })
+      .lean()
+      .exec();
+    expect({
+      owner: storedCode?.userId?.toString(),
+      generation: storedCode?.addressGeneration,
+    }).toEqual({ owner: target._id.toString(), generation: 1 });
     expect(mockAuthMailService.sendEmailChangeCode).toHaveBeenCalledWith(
       { email: 'new@example.com', locale: 'en' },
-      '123456',
+      expect.stringMatching(/^\d{6}$/),
     );
     expect((await storedTarget(target)).email).toBe('old@example.com');
   });
@@ -157,9 +214,12 @@ describe('AdminEmailChangeService', () => {
   });
 
   it('should answer the mail cap with a distinct retryable error', async () => {
-    mockVerificationCodeService.createOrUpdatePendingRegistration.mockResolvedValueOnce(
-      null,
-    );
+    for (let used = 0; used < 5; used += 1) {
+      await mailCounter.tryRecord(
+        'new@example.com',
+        PENDING_PURPOSE.EMAIL_CHANGE,
+      );
+    }
     const target = await createTarget('new@example.com', 1);
 
     await expect(
@@ -179,12 +239,17 @@ describe('AdminEmailChangeService', () => {
       pendingEmail: 'moved@example.com',
       addressGeneration: 3,
     });
-    expect(
-      mockVerificationCodeService.createOrUpdatePendingRegistration,
-    ).toHaveBeenCalledWith('moved@example.com', PENDING_PURPOSE.EMAIL_CHANGE, {
-      userId: target._id.toString(),
-      addressGeneration: 3,
-    });
+    const storedCode = await codes
+      .findOne({
+        email: 'moved@example.com',
+        purpose: PENDING_PURPOSE.EMAIL_CHANGE,
+      })
+      .lean()
+      .exec();
+    expect({
+      owner: storedCode?.userId?.toString(),
+      generation: storedCode?.addressGeneration,
+    }).toEqual({ owner: target._id.toString(), generation: 3 });
   });
 
   it('should refuse to resend when no address waits', async () => {
@@ -193,9 +258,7 @@ describe('AdminEmailChangeService', () => {
     await expect(
       service.resend(toStoredAccount(target), UserRole.ADMIN),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_SEND_FAILED });
-    expect(
-      mockVerificationCodeService.createOrUpdatePendingRegistration,
-    ).not.toHaveBeenCalled();
+    expect(await codes.countDocuments({})).toBe(0);
   });
 
   it('should refuse to resend for an actor below admin level', async () => {
@@ -204,8 +267,6 @@ describe('AdminEmailChangeService', () => {
     await expect(
       service.resend(toStoredAccount(target), UserRole.MANAGER),
     ).rejects.toMatchObject({ code: ErrorCode.EMAIL_CHANGE_NOT_ALLOWED });
-    expect(
-      mockVerificationCodeService.createOrUpdatePendingRegistration,
-    ).not.toHaveBeenCalled();
+    expect(await codes.countDocuments({})).toBe(0);
   });
 });
