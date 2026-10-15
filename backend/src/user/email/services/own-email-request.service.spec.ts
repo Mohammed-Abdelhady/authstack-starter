@@ -7,6 +7,7 @@ import {
   ACCOUNT_ID,
   addAccount,
   OLD_ADDRESS,
+  OTHER_SESSION,
   ownEmailWorld,
   OwnEmailWorld,
 } from '../testing/own-email-world.harness-spec';
@@ -210,6 +211,26 @@ describe('OwnEmailRequestService', () => {
     expect(world.ledger.claims.size).toBe(0);
     expect(world.codes.records.size).toBe(0);
     expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+  });
+
+  it('refuses a request whose session ended while it was prepared, and stores nothing', async () => {
+    // A confirm on another device ends this session; the generation stays.
+    const read = world.accounts.readMovedAccount.bind(world.accounts);
+    jest
+      .spyOn(world.accounts, 'readMovedAccount')
+      .mockImplementationOnce((unitOfWork, userId) => {
+        world.sessions.live.set(userId, { ids: [OTHER_SESSION] });
+        return read(unitOfWork, userId);
+      });
+
+    await expect(
+      world.requests.request(world.caller(), NEW_ADDRESS),
+    ).rejects.toMatchObject({ code: ErrorCode.SESSION_INVALID });
+
+    expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
+    expect(world.ledger.claims.size).toBe(0);
+    expect(world.codes.records.size).toBe(0);
+    expect(await world.sent()).toEqual([]);
   });
 
   it('replaces an earlier request: the next generation, and the first address freed', async () => {
