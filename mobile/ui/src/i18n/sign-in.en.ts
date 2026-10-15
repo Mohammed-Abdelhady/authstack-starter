@@ -29,4 +29,4 @@ export const SIGN_IN_EN = {
   'signIn.switchedOff.title': 'Sign-in from this app is switched off',
   'signIn.switchedOff.description':
     'The service has switched off sign-in from mobile apps for now. Try again later.',
-};
+} satisfies Record<`signIn.${string}`, string>;

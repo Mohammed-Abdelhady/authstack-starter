@@ -30,4 +30,4 @@ export const SESSIONS_EN = {
   'sessions.revokeOthersFailed.title': 'The other devices are still signed in',
   'sessions.revokeOthersFailed.description':
     'The server refused the request, so they are back in the list.',
-};
+} satisfies Record<`sessions.${string}`, string>;
