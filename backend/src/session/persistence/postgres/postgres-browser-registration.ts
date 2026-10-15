@@ -13,6 +13,7 @@ export async function storePostgresBrowserRegistration(
   const fields = {
     ...postgresApplicationPolicyFields(policy),
     account_audience: accountAudience,
+    session_cap: registration.sessionCap ?? null,
     display_name: registration.displayName,
     allowed_origins: registration.allowedOrigins,
     absolute_lifetime_ms: registration.policy.absoluteLifetimeMs,

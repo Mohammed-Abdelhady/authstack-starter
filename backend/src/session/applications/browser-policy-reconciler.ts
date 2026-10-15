@@ -1,5 +1,7 @@
+import { refuseRequiredPasskeyUntilPlan3 } from '../../config/utils/refuse-required-passkey-until-plan3';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { readBrowserSessionLimits } from '../../config/utils/session-limit-config';
 import { EventRecorder } from '../../auth/contracts/event-recorder';
 import { runLeavingFailuresAsRaised } from '../../common/persistence/store-failure';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
@@ -97,6 +99,18 @@ export class BrowserPolicyReconciler {
     if (this.applications.isConfigured(ADMIN_CLIENT_ID)) {
       configured.push(this.applications.configuration(ADMIN_CLIENT_ID));
     }
+    for (const application of configured) {
+      refuseRequiredPasskeyUntilPlan3(
+        application.signIn?.requirePasskey,
+        application.clientId,
+      );
+    }
+    const limitsByClient = new Map(
+      configured.map(
+        ({ clientId }) =>
+          [clientId, readBrowserSessionLimits(this.config, clientId)] as const,
+      ),
+    );
     await runLeavingFailuresAsRaised(this.runner, async (work) => {
       const stored = new Map(
         (
@@ -134,6 +148,7 @@ export class BrowserPolicyReconciler {
             : this.config.get<boolean>('auth.web.enabledExplicit', false)
               ? this.config.get<boolean>('auth.web.enabled', true)
               : undefined;
+        const limits = limitsByClient.get(application.clientId);
         const registration: BrowserRegistration = {
           clientId: application.clientId,
           environment,
@@ -144,7 +159,8 @@ export class BrowserPolicyReconciler {
           allowedOrigins: [application.origin],
           initialAudiences: [DEFAULT_API_AUDIENCE],
           initialScopes: [DEFAULT_API_AUDIENCE],
-          policy: found?.policy ?? initialPolicy(application.clientId),
+          policy: limits?.policy ?? initialPolicy(application.clientId),
+          sessionCap: limits?.sessionCap,
           expectedPolicyVersion: found ? version : null,
           policyVersion: version + Number(changed),
           signUp: application.signIn?.signUp ?? SIGN_UP_POLICY.OPEN,

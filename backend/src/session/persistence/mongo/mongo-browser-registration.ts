@@ -21,6 +21,7 @@ export async function storeMongoBrowserRegistration(
   const fields = {
     ...mongoApplicationPolicyFields(policy),
     accountAudience,
+    sessionCap: registration.sessionCap ?? null,
     displayName: registration.displayName,
     allowedOrigins: registration.allowedOrigins,
     'policy.absoluteLifetimeMs': registration.policy.absoluteLifetimeMs,
@@ -49,6 +50,7 @@ export async function storeMongoBrowserRegistration(
             requirePasskey: registration.requirePasskey,
             signInMethods: registration.signInMethods,
             accountAudience,
+            sessionCap: registration.sessionCap,
             policy: registration.policy,
             displayName: registration.displayName,
             allowedOrigins: registration.allowedOrigins,
