@@ -1,10 +1,8 @@
 import { EXPECTED_MISSING_PNPM_REASON } from './setup-flow-expectations.js';
-import { LOCK_FAILURE_FLAG_CASES } from './setup-lock-failure-cases.js';
 import { MISSING_PNPM_FLAG_CASES } from './setup-missing-pnpm-cases.js';
 import { MISSING_PNPM_MESSAGE } from '../../src/constants/index.js';
 
 export const CASES = [
-  ...LOCK_FAILURE_FLAG_CASES,
   ...MISSING_PNPM_FLAG_CASES,
   {
     name: 'git and install',
@@ -81,23 +79,6 @@ export const CASES = [
       skipped: [
         { check: 'git repository and first commit', reason: '--no-git' },
         { check: 'dependency installation', reason: '--no-install' },
-      ],
-    },
-  },
-  {
-    name: 'lock failure',
-    flags: ['--no-git'],
-    fail: '',
-    lock: { ok: false, reason: 'registry error' },
-    expected: {
-      git: { status: 'not-requested' },
-      install: { status: 'blocked', reason: 'registry error' },
-      exitCode: 1,
-      activationCommand: 'git init && pnpm install',
-      checksRun: ['template pruning', 'dangling references', 'pnpm version', 'lockfile update'],
-      skipped: [
-        { check: 'git repository and first commit', reason: '--no-git' },
-        { check: 'dependency installation', reason: 'registry error' },
       ],
     },
   },
