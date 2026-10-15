@@ -8,7 +8,6 @@ import { MailService } from '../../mail/mail.service';
 import { buildSecurityNoticeMail } from '../../mail/builders/security-notice';
 import type { MailRecipient } from '../../mail/types/mail-recipient.types';
 import { AccountProfileStore } from '../stores/account-profile.store';
-
 import type {
   SecurityNotice,
   SecurityNoticeFacts,
@@ -35,26 +34,12 @@ export class SecurityNoticeService {
   ) {}
 
   /**
-   * Reads the current verified address when the mail is sent, and skips a
-   * deactivated account.
+   * For a change that keeps the account and its address. Reads the current
+   * verified address when the mail is sent, and skips a deactivated account.
+   * The time and the device are taken now, while the request that made the
+   * change is still being handled.
    */
   defer(userId: string, notice: SecurityNotice): void {
-    this.dispatcher.dispatch(async () => {
-      const account = await this.accounts.findProfile(userId);
-      if (!account || account.isDeleted || !account.isVerified) return;
-      await this.mail.sendSecurityNotice(
-        { email: account.email, locale: account.locale },
-        notice,
-      );
-    }, `Security notice failed: ${notice}`);
-  }
-
-  /**
-   * Like `defer`, for a change that keeps the account and its address, and
-   * says when and from which device: the facts are taken now, while the
-   * request that made the change is still being handled.
-   */
-  deferFor(userId: string, notice: SecurityNotice): void {
     const facts = this.factsNow();
     this.dispatcher.dispatch(async () => {
       const account = await this.accounts.findProfile(userId);
