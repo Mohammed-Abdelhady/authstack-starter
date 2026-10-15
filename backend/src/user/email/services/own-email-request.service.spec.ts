@@ -239,6 +239,20 @@ describe('OwnEmailRequestService', () => {
     expect(world.ledger.claims.size).toBe(0);
   });
 
+  it('refuses to cancel without a fresh proof, so an idle session cannot undo a change staff started', async () => {
+    await world.startStaffChange(NEW_ADDRESS);
+
+    await expect(world.requests.cancel(world.caller(6))).rejects.toMatchObject({
+      code: ErrorCode.REAUTH_REQUIRED,
+    });
+
+    expect(world.accounts.row(ACCOUNT_ID)).toMatchObject({
+      pendingEmail: NEW_ADDRESS,
+      addressGeneration: 4,
+    });
+    expect(world.ledger.claims.get(NEW_ADDRESS)?.owner).toBe(ACCOUNT_ID);
+  });
+
   it('cancels nothing when nothing is pending, and leaves the generation alone', async () => {
     await expect(world.requests.cancel(world.caller())).resolves.toEqual({
       email: OLD_ADDRESS,
