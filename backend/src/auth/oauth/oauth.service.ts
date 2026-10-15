@@ -1,5 +1,16 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request } from 'express';
+import {
+  assertActive,
+  assertEmailVerified,
+  assertMayLinkByEmail,
+} from './oauth-account-rules';
+import { AddressReservationTakenError } from '../../common/persistence/address-reservation-taken.error';
+import { Clock } from '../../common/services/clock';
+import {
+  ACCOUNT_RESERVATION_RESULT,
+  AddressLedger,
+} from '../../common/persistence/address-ledger';
 import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
 import {
   SignInCompletion,
@@ -55,6 +66,8 @@ export class OAuthService {
     private readonly sessionService: Sessions,
     private readonly sessionCookieService: SessionCookieService,
     private readonly policy: AccountCreationPolicy,
+    private readonly ledger: AddressLedger,
+    private readonly clock: Clock,
     private readonly runner: UnitOfWorkRunner,
     private readonly notices?: SecurityNoticeService,
   ) {}
@@ -185,7 +198,7 @@ export class OAuthService {
       tokens,
       params.callbackParams,
     );
-    this.assertEmailVerified(params.strategy, profile);
+    assertEmailVerified(params.strategy, profile);
     return profile;
   }
 
@@ -195,7 +208,7 @@ export class OAuthService {
     locale: SupportedLocale,
     application = WEB_CLIENT_ID,
   ): Promise<StoredAccount> {
-    this.assertEmailVerified(strategy, profile);
+    assertEmailVerified(strategy, profile);
     return this.findOrCreateUser(strategy, profile, locale, application);
   }
 
@@ -217,14 +230,14 @@ export class OAuthService {
     const linked = await this.accounts.findByIdentity(identity);
 
     if (linked) {
-      this.assertActive(linked, provider);
+      assertActive(linked, provider, this.logger);
       return linked;
     }
 
     const byEmail = await this.accounts.findByAddress(profile.email);
     if (byEmail) {
-      this.assertActive(byEmail, provider);
-      this.assertMayLinkByEmail(strategy, byEmail);
+      assertActive(byEmail, provider, this.logger);
+      assertMayLinkByEmail(strategy, byEmail, this.logger);
       return this.linkToExistingUser(byEmail, identity);
     }
 
@@ -268,7 +281,14 @@ export class OAuthService {
           { application, method: ACCOUNT_CREATION_METHOD.PROVIDER },
           unitOfWork,
         );
-        return this.accounts.createFromProviderIn(unitOfWork, {
+        const reservation = await this.ledger.reserveForAccount(unitOfWork, {
+          address: profile.email,
+          now: this.clock.now(),
+        });
+        if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN) {
+          throw new AddressReservationTakenError();
+        }
+        const created = await this.accounts.createFromProviderIn(unitOfWork, {
           ...identity,
           email: profile.email,
           name: profile.name,
@@ -276,6 +296,11 @@ export class OAuthService {
           role: DEFAULT_ROLE,
           locale,
         });
+        await this.ledger.finishAccountReservation(
+          unitOfWork,
+          reservation.reservation,
+        );
+        return created;
       });
 
       this.logger.log(`Created a new user through ${identity.provider}`);
@@ -283,62 +308,5 @@ export class OAuthService {
     } catch (error) {
       throw toProviderLinkError(error, identity.provider);
     }
-  }
-
-  private assertEmailVerified(
-    strategy: OAuthProviderStrategy,
-    profile: OAuthProfile,
-  ): void {
-    if (profile.emailVerified || strategy.emailAlwaysVerified) {
-      return;
-    }
-
-    throw new AppException(
-      ErrorCode.OAUTH_EMAIL_UNVERIFIED,
-      `The email address on this ${strategy.displayName} account is not verified`,
-      HttpStatus.FORBIDDEN,
-      { provider: strategy.id },
-    );
-  }
-
-  /**
-   * Attaching by address alone hands the account to whoever the provider says
-   * owns the address. That is refused when the provider states nothing about
-   * the address, and when the account's own address was never verified here,
-   * because such an account may not belong to the address's owner.
-   */
-  private assertMayLinkByEmail(
-    strategy: LinkingProvider,
-    account: StoredAccount,
-  ): void {
-    if (strategy.autoLinksByEmail && account.isVerified) {
-      return;
-    }
-
-    this.logger.warn(
-      `First ${strategy.id} sign-in not attached to an existing account`,
-    );
-    throw new AppException(
-      ErrorCode.OAUTH_ACCOUNT_EXISTS,
-      'An account with this address already exists. Sign in another way, then link this provider in the settings',
-      HttpStatus.CONFLICT,
-      { provider: strategy.id },
-    );
-  }
-
-  private assertActive(user: StoredAccount, provider: string): void {
-    if (!user.isDeleted) {
-      return;
-    }
-
-    this.logger.warn(
-      `OAuth login rejected for a deleted account (${provider})`,
-    );
-    throw new AppException(
-      ErrorCode.OAUTH_AUTHENTICATION_FAILED,
-      'OAuth authentication failed',
-      HttpStatus.UNAUTHORIZED,
-      { provider },
-    );
   }
 }
