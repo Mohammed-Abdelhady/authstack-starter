@@ -53,8 +53,7 @@ it('ships the lockfile without the installer workspace importer', () => {
 
 it('ships the project ignore list without only the instruction-file entries', () => {
   const fixture = newFixture(roots);
-  const source = readFileSync(join(REPOSITORY_ROOT, '.gitignore'), 'utf8');
-  const removed = source.split('\n').filter((line) => line === 'AGENTS.md' || line === 'CLAUDE.md');
+  const source = 'node_modules/\nAGENTS.md\nCLAUDE.md\noutput/\n';
   writeFileSync(join(fixture, '.gitignore'), source, 'utf8');
   trackAll(fixture);
   runScript(fixture);
@@ -63,13 +62,7 @@ it('ships the project ignore list without only the instruction-file entries', ()
     join(fixture, 'packages/create-authstack-starter/template/_gitignore'),
     'utf8',
   );
-  const expected = source
-    .split('\n')
-    .filter((line) => line !== 'AGENTS.md' && line !== 'CLAUDE.md')
-    .join('\n');
-
-  expect(removed).toEqual(['AGENTS.md', 'CLAUDE.md']);
-  expect(shipped).toBe(expected);
+  expect(shipped).toBe('node_modules/\noutput/\n');
 });
 
 it('ships the mobile commit scope with the marker that lets a project drop it', () => {

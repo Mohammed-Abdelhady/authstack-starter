@@ -1,4 +1,3 @@
-import { auditAccessibility } from './utils/accessibility';
 import { test, expect, API } from './fixtures/authenticated';
 import { message } from './utils/messages';
 
@@ -49,29 +48,6 @@ test.describe('User administration through real API state', () => {
       page.getByRole('region', { name: message('en', 'common.toastRegion') }),
     ).toContainText(message('en', 'users.actions.deactivateSuccess', { name: 'Edited User' }));
   });
-
-  test('session confirmation and role dialog have no automated WCAG A/AA violations', async ({
-    page,
-  }, info) => {
-    await page.goto('/en/sessions');
-    await info.attach('session-page', {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: 'image/png',
-    });
-    await page.getByTestId('logout-all-sessions-button').click();
-    await expect(page.getByRole('alertdialog')).toBeVisible();
-    await page.getByRole('alertdialog').evaluate(async (element) => {
-      await Promise.all(element.getAnimations().map((animation) => animation.finished));
-    });
-    await auditAccessibility(page, info, 'session-dialog');
-    await page.getByTestId('cancel-logout-all').click();
-    await page.goto('/en/admin/roles');
-    await page.getByTestId('create-role-button').click();
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await auditAccessibility(page, info, 'role-dialog');
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog')).toBeHidden();
-  });
 });
 
 test.describe('User administration denied to ordinary users', () => {
@@ -87,29 +63,5 @@ test.describe('User administration denied to ordinary users', () => {
     await page.goto('/en/admin/users');
     await expect(page.getByTestId('create-user-button')).toBeHidden();
     await expect(page.getByTestId('error-page-main')).toBeVisible();
-  });
-});
-
-test.describe('Arabic session accessibility', () => {
-  test.use({ appLocale: 'ar' });
-  test('current session metadata and confirmation retain readable contrast', async ({
-    page,
-  }, info) => {
-    await page.goto('/ar/sessions');
-    await expect(page.getByTestId('sessions-page')).toBeVisible();
-    await expect(page.getByTestId('sessions-list')).toBeVisible();
-    await expect(page.getByTestId('logout-session-button').first()).toBeVisible();
-    await auditAccessibility(page, info, 'ar-session');
-    await info.attach('ar-sessions', {
-      body: await page.screenshot({ fullPage: true }),
-      contentType: 'image/png',
-    });
-    await page.getByTestId('logout-all-sessions-button').click();
-    await expect(page.getByRole('alertdialog')).toBeVisible();
-    await page.getByRole('alertdialog').evaluate(async (element) => {
-      await Promise.all(element.getAnimations().map((animation) => animation.finished));
-    });
-    await auditAccessibility(page, info, 'ar-session-dialog');
-    await page.getByTestId('cancel-logout-all').click();
   });
 });

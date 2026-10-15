@@ -5,7 +5,7 @@
 | Anonymous frontend behavior | `playwright.frontend.config.ts` | Method discovery and the public signed-out identity envelope are stubbed. Every other API request fails the test. |
 | Application integration     | `playwright.config.ts`          | One owned Mongo/backend worker, deterministic users, real sessions, captured mail and a local consent adapter.    |
 
-The frontend-only suite checks English/Arabic desktop/mobile navigation, empty and malformed input, accessible validation descriptions, keyboard controls, loading/empty method discovery, language/direction and horizontal overflow. It captures page screenshots and browser audit attachments. It does not test account creation, sign-in, reset delivery or backend authorization.
+The frontend-only suite checks reset links with missing addresses, reset-address prefill and invalid recovery input, and method discovery while loading or unavailable. It does not test account creation, sign-in, reset delivery or backend authorization.
 
 Build the frontend first, then run:
 
@@ -19,7 +19,9 @@ The default runtime is Playwright's bundled Chromium. When the exact bundled run
 
 Use synthetic process variables for build configuration and the fixture's ephemeral backend state.
 
-Application integration includes sidebar, sessions, roles, reload persistence, registration/activation/signout, password reset, profile editing, user creation/editing/soft deletion, local OAuth and magic links, connection failure recovery and representative automated WCAG A/AA checks. Core lifecycle journeys cover English and Arabic at desktop and mobile sizes. Local OAuth tests exercise the application redirect/callback/session chain; they do not establish external provider protocol conformance. Real provider accounts, delivered mail and hardware remain external limits.
+Application integration covers session revocation, persisted role changes, protected-role restrictions, reload persistence, registration/activation/signout, password reset, profile editing, user creation/editing/soft deletion, local OAuth and magic links, and connection failure recovery. Core lifecycle journeys cover English and Arabic at desktop and mobile sizes. Local OAuth tests exercise the application redirect/callback/session chain; they do not establish external provider protocol conformance. Real provider accounts, delivered mail and hardware remain external limits.
+
+Keep E2E cases for material failures in account access, authorization, sessions, and persisted writes. Existing journeys open dialogs and navigate as part of those checks. Standalone appearance checks and duplicate dialog-opening cases do not need separate browser tests. The project testing policy is in [AGENTS.md](../../AGENTS.md).
 
 For application integration, build with `NEXT_PUBLIC_API_URL=http://127.0.0.1:5107`, then run `pnpm --filter frontend run test:e2e`. The backend fixture owns port 5107, local consent owns 5108, and Mongo uses an ephemeral port. One worker resets users, roles, sessions, mail and local throttle state between cases. Parent-only IPC controls mail capture, explicit link expiry and temporary API unavailability. No fixture control endpoint is exposed over HTTP.
 
