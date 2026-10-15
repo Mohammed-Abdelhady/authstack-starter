@@ -150,7 +150,7 @@ export async function expectBuiltHostMigrations(
     host: ['0042_orders.sql'],
     orders: [{ id: 7 }],
     lines: [
-      'Applied: 21',
+      'Applied: 24',
       'Pending: none',
       'Not carried by this build: none',
       'Host applied: 1',
