@@ -149,7 +149,7 @@ export function mobileTargetCases(getPacked: () => Packed): void {
         'mobile/ui/package.json',
       ]) {
         const manifest = JSON.parse(read(project, file)) as { engines: Record<string, string> };
-        expect(manifest.engines, file).toEqual({ node: '^22.12.0 || ^24.0.0', pnpm: '12.6.0' });
+        expect(manifest.engines, file).toEqual({ node: '^22.12.0 || ^24.22.0', pnpm: '12.6.0' });
       }
       expectEngineSuitesStayInRepository(project);
       expect(sourceFilesWithMarkers(project)).toEqual([]);

@@ -62,7 +62,7 @@ test('repository manifests pin the package manager and supported Node major with
   assert.equal(readManifest('package.json').packageManager, 'pnpm@12.6.0');
   for (const file of MANIFESTS) {
     const manifest = readManifest(file);
-    assert.deepEqual(manifest.engines, { node: '^22.12.0 || ^24.0.0', pnpm: '12.6.0' }, file);
+    assert.deepEqual(manifest.engines, { node: '^22.12.0 || ^24.22.0', pnpm: '12.6.0' }, file);
     assert.equal(manifest.overrides, undefined, file);
   }
   assert.deepEqual([
