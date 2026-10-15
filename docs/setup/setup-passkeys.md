@@ -105,7 +105,8 @@ Setting `PASSKEYS_ENABLED=false` closes the routes with `404 FEATURE_DISABLED` a
 
 ### Register a passkey
 
-Needs a browser session. The account is already signed in; this adds a way back in. A mobile access token on these two routes gets `403 FORBIDDEN`; the app registers through the native routes below.
+Needs a browser session. The account is already signed in; this adds a way back in.
+A mobile access token on these two routes gets `403 FORBIDDEN`; the app registers through the native routes below. <!-- feature:native-core -->
 
 ```http
 POST /api/auth/passkeys/register/options
@@ -141,6 +142,8 @@ Content-Type: application/json
 
 The browser route asks the authenticator to verify the user but does not require it, as before. A security key used without a PIN can still register. Requiring user verification on this route for an application that sets `requirePasskey` arrives with the application sign-in policy. Until then the route never requires it.
 
+<!-- feature:native-core:start -->
+
 ### Register a passkey from the mobile app
 
 Needs a mobile access token. A browser session cookie on these routes gets `403 FORBIDDEN`. Nothing is kept in a cookie.
@@ -165,6 +168,8 @@ The reply is the same stored summary as the browser route. The checks:
 - The challenge is spent once, only by the session it was issued to, and only within five minutes. A replay, a challenge from another session of the same account, or a late one answers `401 PASSKEY_CHALLENGE_INVALID`.
 - The attestation must come from one of the application's `signIn.origins`, matched exactly, and carry user verification. The app route always requires user verification.
 - A credential that is already stored, an attestation that does not check out, or an account deactivated since the options were handed out answers `401 PASSKEY_VERIFICATION_FAILED`. Nothing is stored.
+
+<!-- feature:native-core:end -->
 
 ### Sign in
 
@@ -195,7 +200,9 @@ Same reply as every other sign-in route:
 
 ### Manage
 
-All three need a session, a browser cookie or a mobile access token, and all three are scoped to the signed-in account: an id belonging to someone else reads as `404 PASSKEY_NOT_FOUND` rather than as forbidden. A rename to an empty name, a name of only spaces, or one over 64 characters answers `400 VALIDATION_ERROR`.
+All three need a session.
+It can be a browser cookie or a mobile access token. <!-- feature:native-core -->
+All three are scoped to the signed-in account: an id belonging to someone else reads as `404 PASSKEY_NOT_FOUND` rather than as forbidden. A rename to an empty name, a name of only spaces, or one over 64 characters answers `400 VALIDATION_ERROR`.
 
 ```http
 GET    /api/auth/passkeys
@@ -256,6 +263,10 @@ The counter is checked on every sign-in. An authenticator that counts and report
 
 **`503 PASSKEY_NOT_CONFIGURED`.** `OAUTH_STATE_SECRET` is not set.
 
+<!-- feature:native-core:start -->
+
 **`403 FORBIDDEN` on `/api/auth/passkeys/register/options` from the app.** A mobile access token no longer registers through the browser routes. Use `/api/auth/native/passkeys/register/options` and `/register/verify`.
 
 **`401 REAUTH_REQUIRED` from the app's registration options.** The sign-in is more than five minutes old. Sign in again, then ask for options again.
+
+<!-- feature:native-core:end -->
