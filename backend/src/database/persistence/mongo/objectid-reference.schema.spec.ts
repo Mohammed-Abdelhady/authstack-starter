@@ -165,6 +165,8 @@ const migration = jest.requireActual<MigrationModule>(
 );
 
 const ALLOWED_MIXED_PATHS: Record<string, string> = {
+  'SecurityEventSchema.details':
+    'Per-action activity details; activity-details.ts allows only listed fields per action.',
   'SessionSchema.device':
     'DeviceInfo lacks @Schema; preserve its existing Mixed shape.',
 };

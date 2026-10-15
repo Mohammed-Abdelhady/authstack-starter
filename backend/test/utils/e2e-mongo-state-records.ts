@@ -6,11 +6,13 @@ import {
   type UserDocument,
 } from '../../src/user/persistence/mongo/schemas/user.schema';
 import type { E2eRecordsState } from './e2e-state-records';
+import { makeActivityUnreadable } from '../admin-activity/activity-access.mongo.harness-spec';
 
 /** The records state on MongoDB: the calls the cases made on the user model. */
 export function mongoRecordsState(app: INestApplication): E2eRecordsState {
   const users = app.get<Model<UserDocument>>(getModelToken(User.name));
   return {
+    makeActivityUnreadable: () => makeActivityUnreadable(app),
     changeAccountRole: async (id, role) => {
       await users.updateOne({ _id: id }, { $set: { role } });
     },

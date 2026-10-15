@@ -1,3 +1,5 @@
+import { ACTIVITY_RETENTION_DAYS_DEFAULT } from '../../../config/constants/host-contracts';
+import { ConfigService } from '@nestjs/config';
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model, Types } from 'mongoose';
@@ -36,10 +38,15 @@ export class SecurityEventService {
     private readonly eventModel: Model<SecurityEventDocument>,
     private readonly clock: Clock,
     @Optional() recorder?: SecurityEventRecorder,
+    @Optional() private readonly config?: ConfigService,
   ) {
     this.recorder =
       recorder ??
-      new SecurityEventRecorder(new MongoSecurityEventStore(eventModel), clock);
+      new SecurityEventRecorder(
+        new MongoSecurityEventStore(eventModel, config),
+        clock,
+        config,
+      );
   }
 
   async record(
@@ -73,7 +80,14 @@ export class SecurityEventService {
     // inserts all or nothing. Nothing in the server calls it this way.
     const occurredAt = this.clock.now();
     await this.eventModel.insertMany(
-      inputs.map((input) => newSecurityEvent(input, occurredAt)),
+      inputs.map((input) =>
+        newSecurityEvent(
+          input,
+          occurredAt,
+          this.config?.get<number>('activity.retentionDays') ??
+            ACTIVITY_RETENTION_DAYS_DEFAULT,
+        ),
+      ),
     );
   }
 

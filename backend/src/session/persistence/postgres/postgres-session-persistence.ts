@@ -1,4 +1,5 @@
 import { Provider } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 import {
   POSTGRES_DATABASE,
@@ -59,10 +60,12 @@ export const POSTGRES_SESSION_PROVIDERS: Provider[] = [
     BrowserProofStore,
     (database) => new PostgresBrowserProofStore(database),
   ),
-  onDatabase(
-    SecurityEventStore,
-    (database) => new PostgresSecurityEventStore(database),
-  ),
+  {
+    provide: SecurityEventStore,
+    useFactory: (database: PostgresDatabase, config: ConfigService) =>
+      new PostgresSecurityEventStore(database, config),
+    inject: [POSTGRES_DATABASE, ConfigService],
+  },
   onDatabase(
     UnitOfWorkRunner,
     (database) => new PostgresUnitOfWorkRunner(database),

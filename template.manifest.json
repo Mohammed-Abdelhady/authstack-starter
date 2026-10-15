@@ -78,6 +78,9 @@
         "backend/test/utils/role/role-edit-harness.ts",
         "backend/test/utils/session-authority-harness.ts",
         "backend/test/utils/transaction-failure.ts",
+        "backend/test/admin-sessions/mongo-session-harness.harness-spec.ts",
+        "backend/test/admin-activity/*.mongo.integration.spec.ts",
+        "backend/test/admin-activity/activity-access.mongo.harness-spec.ts",
         "backend/test/utils/logging-services.ts",
         "backend/src/admin/services/roles/admin-concurrent-assignments.integration.spec.ts",
         "backend/src/auth/auth.service.logging.spec.ts",
@@ -196,7 +199,12 @@
         "backend/test/jest-e2e-postgres.json",
         "docker-compose.postgres.yml",
         "docker-compose.postgres.prod.yml",
-        "backend/src/config/env.postgres.validation.spec.ts"
+        "backend/src/config/env.postgres.validation.spec.ts",
+        "backend/test/admin-sessions/postgres-session-harness.harness-spec.ts",
+        "backend/test/admin-activity/*.postgres.integration.spec.ts",
+        "backend/test/admin-activity/activity-access.postgres.harness-spec.ts",
+        "backend/test/admin-activity/activity-upgrade-fixtures.ts",
+        "backend/test/admin-activity/activity-upgrade.e2e-spec.ts"
       ],
       "envVars": ["POSTGRES_URL", "POSTGRES_POOL_MAX"],
       "packages": ["pg", "kysely", "embedded-postgres", "@types/pg"],
@@ -318,7 +326,9 @@
         "mobile/expo/src/i18n/ar.ts",
         "frontend/src/app/arabic-font.css",
         "backend/src/mail/catalog/ar/**",
-        "backend/test/mail/mail-locale-ar.e2e-spec.ts"
+        "backend/test/mail/mail-locale-ar.e2e-spec.ts",
+        "frontend/src/modules/activity/messages/ar.json",
+        "frontend/src/modules/admin-sessions/messages/ar.json"
       ],
       "docs": [],
       "catalogueKeys": [

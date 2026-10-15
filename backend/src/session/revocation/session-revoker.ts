@@ -57,17 +57,27 @@ export class SessionRevoker {
     );
   }
 
-  revokeById(sessionId: string, userId: string): Promise<boolean> {
-    return this.run(async (unitOfWork) =>
-      this.revokeFound(
-        unitOfWork,
-        await this.store.findLiveSessionOfAccount(
-          unitOfWork,
-          sessionId,
-          userId,
-        ),
-        REVOKED_REASON.SELECTED,
-      ),
+  revokeById(
+    sessionId: string,
+    userId: string,
+    context?: RevocationContext,
+  ): Promise<boolean> {
+    return this.run((unitOfWork) =>
+      this.revokeByIdIn(unitOfWork, sessionId, userId, context),
+    );
+  }
+
+  async revokeByIdIn(
+    unitOfWork: UnitOfWork,
+    sessionId: string,
+    userId: string,
+    context?: RevocationContext,
+  ): Promise<boolean> {
+    return this.revokeFound(
+      unitOfWork,
+      await this.store.findLiveSessionOfAccount(unitOfWork, sessionId, userId),
+      context?.reasonCode ?? REVOKED_REASON.SELECTED,
+      context?.actorId,
     );
   }
 
@@ -235,6 +245,7 @@ export class SessionRevoker {
     unitOfWork: UnitOfWork,
     found: RevocableSession | null,
     reason: string,
+    actorId?: string,
   ): Promise<boolean> {
     if (!found) {
       return false;
@@ -247,6 +258,7 @@ export class SessionRevoker {
       return false;
     }
     await this.store.appendSecurityEvent(unitOfWork, {
+      ...(actorId === undefined ? {} : { actorId }),
       targetUserId: found.userId,
       clientId: found.clientId,
       sessionId: found.id,
