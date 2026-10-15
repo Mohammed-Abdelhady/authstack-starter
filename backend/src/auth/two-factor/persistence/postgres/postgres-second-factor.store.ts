@@ -257,6 +257,7 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
           'users.email',
           'users.name',
           'users.role',
+          'users.audience',
           'users.permissions',
           'users.auth_provider',
           'users.is_verified',

@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import type { Request } from 'express';
+import { Controller, Get, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
 import { AuthFeature } from './enums/auth-feature.enum';
@@ -32,13 +33,31 @@ export class AuthMethodsController {
       'together with the OAuth providers that have credentials, so a client ' +
       'renders only what works.',
   })
-  getMethods(): ApiResponse<AuthMethodsResponseDto> {
+  getMethods(@Req() request?: Request): ApiResponse<AuthMethodsResponseDto> {
     return ApiResponse.success({
       methods: {
-        password: this.authFeaturesService.isEnabled(AuthFeature.PASSWORD),
-        magicLink: this.authFeaturesService.isEnabled(AuthFeature.MAGIC_LINK), // feature:magic-link
-        twoFactor: this.authFeaturesService.isEnabled(AuthFeature.TWO_FACTOR), // feature:totp
-        passkeys: this.authFeaturesService.isEnabled(AuthFeature.PASSKEYS), // feature:passkeys
+        password: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.PASSWORD,
+          request,
+        ),
+        // feature:magic-link:start
+        magicLink: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.MAGIC_LINK,
+          request,
+        ),
+        // feature:magic-link:end
+        // feature:totp:start
+        twoFactor: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.TWO_FACTOR,
+          request,
+        ),
+        // feature:totp:end
+        // feature:passkeys:start
+        passkeys: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.PASSKEYS,
+          request,
+        ),
+        // feature:passkeys:end
         oauth: this.oauthRegistry.listEnabled(), // feature:oauth-core
       },
     });

@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import {
   Injectable,
   CanActivate,
@@ -40,6 +41,7 @@ export interface RequestWithUser extends Request {
     role: string;
     permissions: string[];
     isVerified: boolean;
+    audience?: RoleAudience;
   };
   session?: AuthenticatedSession;
 }
@@ -62,16 +64,26 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    await this.sessionCookieService.assertOrigin(request);
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
+    if (
+      this.sessionCookieService.applications.isBrowserRequest(request) &&
+      (isPublic || readBearerToken(request) === null)
+    ) {
+      const application =
+        await this.sessionCookieService.applications.resolve(request);
+      this.sessionCookieService.applications.assertEnabled(application);
+    }
+
     if (isPublic) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const response = context.switchToHttp().getResponse<Response>();
     const sessionToken = this.sessionCookieService.read(request);
     const bearer = readBearerToken(request);
@@ -96,7 +108,12 @@ export class AuthGuard implements CanActivate {
       );
     }
 
-    if (!session) {
+    if (
+      !session ||
+      (cookieSelected &&
+        session.clientId !==
+          this.sessionCookieService.applications.current(request).clientId)
+    ) {
       if (cookieSelected) {
         this.sessionCookieService.clear(response);
       }
@@ -134,6 +151,7 @@ export class AuthGuard implements CanActivate {
       role: user.role,
       permissions,
       isVerified: user.isVerified,
+      audience: user.audience,
     };
     request.session = session;
 

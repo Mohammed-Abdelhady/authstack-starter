@@ -1,3 +1,6 @@
+import type { Request } from 'express';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
+import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthFeature } from '../../enums/auth-feature.enum';
@@ -27,9 +30,48 @@ const FEATURE_FALLBACKS: Record<AuthFeature, boolean> = {
  */
 @Injectable()
 export class AuthFeaturesService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly applications: BrowserApplications,
+  ) {}
 
-  isEnabled(feature: AuthFeature): boolean {
+  async assertForRequest(
+    feature: AuthFeature,
+    request?: Request,
+  ): Promise<void> {
+    if (!request) {
+      this.assertEnabled(feature);
+      return;
+    }
+    if (!this.applications.isBrowserRequest(request)) {
+      this.assertEnabled(feature);
+      return;
+    }
+    const application = await this.applications.resolve(request);
+    this.applications.assertEnabled(application);
+    this.assertEnabled(feature, application.clientId);
+  }
+
+  isEnabledForRequest(feature: AuthFeature, request?: Request): boolean {
+    return this.isEnabled(
+      feature,
+      request ? this.applications.current(request).clientId : undefined,
+    );
+  }
+
+  isEnabled(feature: AuthFeature, clientId?: BrowserApplicationId): boolean {
+    if (clientId) {
+      const policy = this.applications.configuration(clientId).signIn;
+      if (feature === AuthFeature.PASSWORD && policy?.password === false) {
+        return false;
+      }
+      if (feature === AuthFeature.MAGIC_LINK && policy?.emailLink === false) {
+        return false;
+      }
+      if (feature === AuthFeature.PASSKEYS && policy?.passkeys === false) {
+        return false;
+      }
+    }
     if (!AVAILABLE_AUTH_FEATURES.has(feature)) return false;
 
     return this.configService.get<boolean>(
@@ -42,8 +84,8 @@ export class AuthFeaturesService {
    * @throws AppException FEATURE_DISABLED with a 404, so a deployment that
    * turned the method off looks like one that never had the route
    */
-  assertEnabled(feature: AuthFeature): void {
-    if (this.isEnabled(feature)) {
+  assertEnabled(feature: AuthFeature, clientId?: BrowserApplicationId): void {
+    if (this.isEnabled(feature, clientId)) {
       return;
     }
 

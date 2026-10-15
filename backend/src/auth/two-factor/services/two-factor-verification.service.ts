@@ -260,7 +260,7 @@ export class TwoFactorVerificationService {
     );
   }
 
-  private invalidCode(reason: string): AppException {
+  invalidCode(reason: string): AppException {
     this.logger.warn(`Two-factor check failed: ${reason}`);
     return new AppException(
       ErrorCode.TWO_FACTOR_CODE_INVALID,

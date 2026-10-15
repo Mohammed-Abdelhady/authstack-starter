@@ -25,7 +25,7 @@ export async function verifyPasswordCredentials(
   return candidate.account;
 }
 
-function invalidCredentials(): AppException {
+export function invalidCredentials(): AppException {
   return new AppException(
     ErrorCode.INVALID_CREDENTIALS,
     'Invalid email or password',

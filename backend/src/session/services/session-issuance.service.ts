@@ -1,4 +1,9 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import type { AccountCreationMethod } from '../../auth/types/account-creation';
+import { withAudienceRefusal } from '../issuance/audience-refusal';
+import { EventRecorder } from '../../auth/contracts/event-recorder';
+import { assertAudienceAdmission } from '../utils/authority/audience-admission';
+import type { BrowserEvidence } from '../types/browser-evidence';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import {
@@ -12,10 +17,12 @@ import {
   ADMIN_CLIENT_ID,
   APPLICATION_PLATFORM,
   DEFAULT_API_AUDIENCE,
-  WEB_CLIENT_ID,
 } from '../constants/client-ids';
 import { CREDENTIAL_PURPOSE } from '../constants/credential-purpose';
-import { SECURITY_EVENT_ACTION } from '../constants/security-event-action';
+import {
+  SECURITY_EVENT_ACTION,
+  SECURITY_EVENT_OUTCOME,
+} from '../constants/security-event-action';
 import {
   AUTH_SCHEMA_VERSION,
   DEVICE_NAME_MAX_LENGTH,
@@ -51,18 +58,55 @@ export class SessionIssuanceService {
     private readonly applications: IssuanceApplications,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    @Inject(EventRecorder)
+    private readonly events: Pick<EventRecorder, 'recordOutsideUnitOfWork'>,
   ) {}
 
   async createBrowserSession(
     userId: string,
     userAgent: string,
     ip: string,
-    clientId = WEB_CLIENT_ID,
+    clientId: string,
+    evidence: BrowserEvidence = {
+      authenticationMethods: [],
+      userVerified: false,
+    },
   ): Promise<IssuedBrowserSession> {
+    return withAudienceRefusal(this.events, userId, clientId, () =>
+      this.unitOfWork.run((unitOfWork) =>
+        this.issue(unitOfWork, userId, userAgent, ip, clientId, evidence),
+      ),
+    );
+  }
+
+  assertAdmission(userId: string, clientId: string): Promise<void> {
+    return withAudienceRefusal(this.events, userId, clientId, () =>
+      this.unitOfWork.run(async (unitOfWork) => {
+        const account = await this.store.findAccount(unitOfWork, userId);
+        if (!account || account.isDeleted) throw accountNotFound();
+        const application = await this.applications.requireEnabled(
+          unitOfWork,
+          clientId,
+        );
+        assertAudienceAdmission(
+          account.accountAudience,
+          application.accountAudience,
+        );
+      }),
+    );
+  }
+
+  async recordCreationRefusal(
+    clientId: string,
+    method: AccountCreationMethod,
+  ): Promise<void> {
     try {
-      return await this.unitOfWork.run((unitOfWork) =>
-        this.issue(unitOfWork, userId, userAgent, ip, clientId),
-      );
+      await this.events.recordOutsideUnitOfWork({
+        action: SECURITY_EVENT_ACTION.SIGN_UP_REFUSED,
+        outcome: SECURITY_EVENT_OUTCOME.FAILED,
+        clientId,
+        reasonCode: method,
+      });
     } catch (error) {
       asAuthorityUnavailable(error);
     }
@@ -74,6 +118,7 @@ export class SessionIssuanceService {
     userAgent: string,
     ip: string,
     clientId: string,
+    evidence: BrowserEvidence,
   ): Promise<IssuedBrowserSession> {
     const account = await this.store.readAccountForIssuance(unitOfWork, userId);
     if (!account || account.isDeleted) {
@@ -85,6 +130,10 @@ export class SessionIssuanceService {
       clientId,
     );
     this.assertNativeAllowed(application);
+    assertAudienceAdmission(
+      account.accountAudience,
+      application.accountAudience,
+    );
 
     const marked = await this.store.markAccountIssuance(unitOfWork, account.id);
     if (marked !== ACCOUNT_ISSUANCE_MARK.MARKED) {
@@ -135,7 +184,9 @@ export class SessionIssuanceService {
       grantVersion: grant.sessionVersion,
       scopes: [DEFAULT_API_AUDIENCE],
       audience: DEFAULT_API_AUDIENCE,
-      authenticationMethods: [],
+      authenticationMethods: [...evidence.authenticationMethods],
+      userVerified: evidence.userVerified,
+      policyVersion: application.policyVersion ?? 0,
       authenticatedAt: now,
       idleExpiresAt,
       lastActivityAt: now,
@@ -211,6 +262,8 @@ export class SessionIssuanceService {
     });
     const activeSessions = candidates.filter(
       (candidate) =>
+        candidate.session.policyVersion ===
+          (candidate.application?.policyVersion ?? 0) &&
         currentSessionDeadlines(
           candidate.session,
           account,

@@ -14,6 +14,8 @@ export interface SessionAuthorityFields {
   authEpoch: number;
   schemaVersion: number;
   clientId: string;
+  userVerified?: boolean;
+  policyVersion?: number;
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
@@ -31,7 +33,12 @@ export interface AccountAuthorityFields {
 export interface ApplicationAuthorityFields {
   enabled: boolean;
   sessionVersion: number;
-  policy: { absoluteLifetimeMs: number; idleLifetimeMs: number };
+  policy: {
+    absoluteLifetimeMs: number;
+    idleLifetimeMs: number;
+    unboundAbsoluteLifetimeMs?: number;
+    unboundIdleLifetimeMs?: number;
+  };
 }
 
 export interface GrantAuthorityFields {

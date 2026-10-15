@@ -18,7 +18,6 @@ import {
   CSRF_TOKEN_MAX_LENGTH,
   UNSAFE_METHODS,
 } from '../../session/constants/browser-proof';
-import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { AuthenticatedSession } from '../../session/authority/authenticated-session';
 import { ApplicationRegistry } from '../../session/applications/application-registry';
 import { BrowserProofService } from '../../session/services/browser-proof.service';
@@ -48,6 +47,12 @@ export class BrowserProofGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<RequestWithUser>();
+    await this.sessionCookie.assertOrigin(request);
+    if (this.sessionCookie.applications.isBrowserRequest(request)) {
+      const application =
+        await this.sessionCookie.applications.resolve(request);
+      this.sessionCookie.applications.assertEnabled(application);
+    }
     const skip = this.reflector.getAllAndOverride<boolean>(SKIP_BROWSER_PROOF, [
       context.getHandler(),
       context.getClass(),
@@ -145,17 +150,19 @@ export class BrowserProofGuard implements CanActivate {
     if (!token) {
       return undefined;
     }
-    return (
-      (await this.sessions.validateSessionWithoutExtendingIdle(token)) ??
-      undefined
-    );
+    const session =
+      await this.sessions.validateSessionWithoutExtendingIdle(token);
+    const clientId = this.sessionCookie.applications.current(request).clientId;
+    return session?.clientId === clientId ? session : undefined;
   }
 
   private async rejectUntrustedOrigin(
     request: RequestWithUser,
     session: AuthenticatedSession | undefined,
   ): Promise<void> {
-    const clientId = session?.clientId || WEB_CLIENT_ID;
+    const clientId =
+      session?.clientId ||
+      this.sessionCookie.applications.current(request).clientId;
     const application = await this.applications.findByClientId(clientId);
     const decision = decideOrigin({
       originHeader: request.header('origin') ?? '',

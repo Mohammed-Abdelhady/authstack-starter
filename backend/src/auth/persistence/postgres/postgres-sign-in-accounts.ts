@@ -1,4 +1,5 @@
 import { EMAIL_PROVIDER } from '../../../common/constants/oauth-providers';
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import { SignInAccount } from '../../utils/authenticated-user.util';
 
 /** What the last step of a sign-in needs of an account row. */
@@ -7,6 +8,7 @@ export const SIGN_IN_COLUMNS = [
   'email',
   'name',
   'role',
+  'audience',
   'permissions',
   'auth_provider',
   'is_verified',
@@ -17,6 +19,7 @@ export interface SignInRow {
   email: string | null;
   name: string | null;
   role: string;
+  audience: RoleAudience | null;
   permissions: string[];
   auth_provider: string | null;
   is_verified: boolean;
@@ -32,6 +35,7 @@ export function toSignInAccount(
     email: row.email ?? '',
     name: row.name ?? '',
     role: row.role,
+    audience: row.audience ?? undefined,
     permissions: [...row.permissions],
     authProvider: row.auth_provider ?? EMAIL_PROVIDER,
     isVerified: row.is_verified,

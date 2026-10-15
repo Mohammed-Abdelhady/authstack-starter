@@ -119,8 +119,9 @@ export class AuthController {
   async register(
     @Body() dto: RegisterDto,
     @RequestLocale() locale: SupportedLocale,
+    @Req() request: RequestWithUser,
   ) {
-    return this.registrationService.register(dto, locale);
+    return this.registrationService.register(dto, locale, request);
   }
 
   /**
@@ -192,8 +193,9 @@ export class AuthController {
   async resendActivation(
     @Body() dto: ResendActivationDto,
     @RequestLocale() locale: SupportedLocale,
+    @Req() request: RequestWithUser,
   ) {
-    return this.registrationService.resendActivation(dto, locale);
+    return this.registrationService.resendActivation(dto, locale, request);
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { AuthenticatedUserSummary } from '../interfaces/authenticated-user.interface';
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { effectivePermissions } from './permissions.util';
 
 export type { AuthenticatedUserSummary };
@@ -9,6 +10,7 @@ export interface SignInAccount {
   email: string;
   name: string;
   role: string;
+  audience?: RoleAudience;
   permissions: string[];
   authProvider: string;
   isVerified: boolean;
