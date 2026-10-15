@@ -1,7 +1,8 @@
+import * as bcrypt from 'bcrypt';
+import { holdAddress } from '../../address-claim';
 import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../../../src/auth/constants/account-creation';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
-import * as bcrypt from 'bcrypt';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
   AccountsFixture,
@@ -105,6 +106,16 @@ export function accountGrantCases(
     const TAKEN = { code: 'EMAIL_ALREADY_EXISTS', status: 409 };
 
     expect(await refusalOf(create('PERSON@example.test'))).toEqual(TAKEN);
+    await holdAddress(
+      harness().ledger,
+      harness().runner(() => Promise.resolve()),
+      harness().clock,
+      'held-create@example.test',
+    );
+    expect(await refusalOf(create('held-create@example.test'))).toEqual(TAKEN);
+    expect(
+      await harness().accountIdByEmail('held-create@example.test'),
+    ).toBeNull();
 
     // The address is taken after the service looked and before it inserts.
     const beforeInsert = new RaceGate();

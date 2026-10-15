@@ -1,8 +1,9 @@
+import { ConfigService } from '@nestjs/config';
+import { CLAIM_OWNER, holdAddress } from '../../../test/utils/address-claim';
 import { AccountCreationPolicy } from '../../auth/services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../auth/constants/account-creation';
 import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { rerunAtOnce } from '../../../test/utils/session/issuance-contract/issuance-contract-support';
-import { ConfigService } from '@nestjs/config';
 import { holdBefore, RaceGate } from '../../../test/utils/race-gate';
 import {
   answerOf,
@@ -21,10 +22,6 @@ import {
   profileOf,
 } from './linked-accounts-contract.harness-spec';
 
-const LINKED_ELSEWHERE = {
-  code: 'OAUTH_ACCOUNT_LINKED_ELSEWHERE',
-  status: 409,
-};
 const REFUSED = { code: 'OAUTH_AUTHENTICATION_FAILED', status: 401 };
 const ACCOUNT_EXISTS = { code: 'OAUTH_ACCOUNT_EXISTS', status: 409 };
 const UNVERIFIED_PROVIDER = { code: 'OAUTH_EMAIL_UNVERIFIED', status: 403 };
@@ -52,6 +49,8 @@ function providerSignInOn(
     partialMock<Sessions>({}),
     new SessionCookieService(new ConfigService({})),
     policy,
+    harness.ledger,
+    harness.clock,
     harness.runner(rerunAtOnce),
   );
 }
@@ -197,13 +196,26 @@ export function providerSignInServiceCases(
     }).toEqual({ answer: ACCOUNT_EXISTS, links: [], verified: false });
   });
 
+  it("L1 refuses a provider account on another owner's live address claim", async () => {
+    const h = harness();
+    await holdAddress(h.ledger, h.runner(rerunAtOnce), h.clock, NEW_ADDRESS);
+    expect(
+      await refusalOf(
+        providerSignInOn(h).findOrCreateUser(
+          GOOGLE,
+          profileOf('held-provider', { email: NEW_ADDRESS }),
+        ),
+      ),
+    ).toEqual(ACCOUNT_EXISTS);
+    expect(await h.accountIdByEmail(NEW_ADDRESS)).toBeNull();
+    expect((await h.claims()).map((row) => row.owner)).toEqual([CLAIM_OWNER]);
+  });
+
   it('stores one account when two first sign-ins of one identity meet', async () => {
     const service = providerSignInOn(harness());
     const atCreate = new RaceGate();
-    const restore = holdBefore(
-      harness().providerSignIn,
-      'createFromProviderIn',
-      () => atCreate,
+    const restore = holdBefore(harness().ledger, 'reserveForAccount', (call) =>
+      call < 2 ? atCreate : undefined,
     );
     const profile = profileOf('google-twice', {
       email: NEW_ADDRESS,
@@ -231,7 +243,7 @@ export function providerSignInServiceCases(
     }).toEqual({
       outcomes: [
         JSON.stringify('signed in'),
-        JSON.stringify(LINKED_ELSEWHERE),
+        JSON.stringify(ACCOUNT_EXISTS),
       ].sort(),
       links: [{ provider: 'google', providerId: 'google-twice' }],
     });

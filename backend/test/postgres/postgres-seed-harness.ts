@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { PostgresAddressLedger } from '../../src/common/persistence/postgres/postgres-address-ledger';
 import { AuthEpochService } from '../../src/common/services/auth-epoch.service';
 import { ApplicationRegistry } from '../../src/session/applications/application-registry';
 import { SeedContractHarness } from '../utils/database/seed-contract-harness';
@@ -15,6 +16,8 @@ export async function bootPostgresSeedHarness(): Promise<SeedContractHarness> {
 
   return {
     clock,
+    ledger: new PostgresAddressLedger(),
+    runner: new PostgresUnitOfWorkRunner(database),
     seeds: new PostgresSeedStore(database, clock),
     registry: new ApplicationRegistry(
       new PostgresUnitOfWorkRunner(database),

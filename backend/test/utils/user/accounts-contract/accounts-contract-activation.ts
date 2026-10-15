@@ -1,8 +1,9 @@
+import { Response } from 'express';
+import * as bcrypt from 'bcrypt';
+import { CLAIM_OWNER, holdAddress } from '../../address-claim';
 import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../../../src/auth/constants/account-creation';
 import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
-import { Response } from 'express';
-import * as bcrypt from 'bcrypt';
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
 import { createResponseMock } from '../../../../src/common/testing/test-doubles.harness-spec';
 import { holdBefore, RaceGate } from '../../race-gate';
@@ -97,6 +98,36 @@ export function accountActivationCases(
         ),
       ),
     ).toEqual(CODE_INVALID);
+  });
+
+  it('L1 refuses activation on a live claim without spending its code', async () => {
+    const h = harness();
+    const services = servicesOn(h);
+    const email = 'held-activation@example.test';
+    const code = await signUpCode(services, email);
+    await holdAddress(
+      h.ledger,
+      h.runner(() => Promise.resolve()),
+      h.clock,
+      email,
+    );
+    expect(
+      await refusalOf(
+        services.registration.activate(
+          {
+            email,
+            code,
+            password: PASSWORD,
+            name: 'Refused',
+          },
+          RESPONSE,
+          'en',
+        ),
+      ),
+    ).toEqual(CODE_INVALID);
+    expect(await h.accountIdByEmail(email)).toBeNull();
+    expect(await h.pendingRegistrations(email)).toBe(1);
+    expect((await h.claims()).map((row) => row.owner)).toEqual([CLAIM_OWNER]);
   });
 
   it('keeps the code when the address got an account first', async () => {
