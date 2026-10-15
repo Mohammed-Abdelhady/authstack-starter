@@ -135,3 +135,50 @@ when updated. New role grants and direct account grants are refused.
 If your host application uses one of these strings for its own meaning, rename it
 before upgrading. Update its stored grants and permission checks to use the new
 name.
+
+## Live session limits
+
+Browser `AUTH_WEB_SESSION` and `AUTH_ADMIN_SESSION` settings now apply to existing
+sessions on validation. An admin setting above 8 absolute hours, 15 idle minutes
+or a cap of 5 refuses startup and names the setting. A configured cap is per
+application; absent settings retain the global cap of 20 and admin cap of 5.
+Lifetime changes do not advance the admission-policy version. Removing a browser
+setting restores its default lifetimes and cap fallback at startup: web uses
+168 hours and 30 minutes, admin uses 8 hours and 15 minutes.
+
+Validation attempts to persist observed expiry with reason `expired`, including
+for default limits. If that write fails, the expired cookie keeps its usual
+signed-out response and its next use retries persistence. Once the ending is
+stored, increasing a limit cannot revive the session. Existing stored absolute
+deadlines remain upper bounds after increasing settings.
+
+Native bound/unbound settings are available to the shared limit selector. Each
+unbound limit must be no longer than its bound limit. The initial idle window
+stays at most 5 minutes even with configured limits. Native issue, exchange,
+refresh and retry integration is not yet complete. Retain the
+existing native limits until those paths are verified.
+
+## Deploy the native link host at both boundaries
+
+An absent `AUTH_NATIVE_LINK_HOST` adds no backend responses or nginx virtual host.
+When setting it, use a hostname distinct from the API, web and admin hostnames.
+Production first-party redirects must use HTTPS on that host. Association output
+includes only applications with the identifiers required by that platform.
+
+Regenerate the nginx include from the backend's effective configuration whenever
+native redirects, localized/custom mail templates or the host setting change.
+Mount the generated directory into the shipped proxy and supply a certificate
+covering the hostname. Removing the setting also requires regenerating and
+reloading the include. See [application setup](setup/setup-applications.md#native-link-host).
+
+The link host proxies only exact association and effective mail/redirect paths.
+It serves no API, documentation, health or frontend assets. `Host` is the boundary;
+forged forwarded-host headers cannot select it. Do not replace its exact
+locations with a prefix proxy or frontend fallback. The sole HTTP-only disk
+exception is ACME HTTP-01 under `/.well-known/acme-challenge/`; it never proxies
+to the application and is unavailable on HTTPS. Expand the existing certificate
+with all current SANs plus the link hostname, using the documented
+`--entrypoint certbot` issuance command. Deploy renewed files into `nginx/ssl`
+and validate/reload nginx; the renewal loop alone does not update that copied
+mount. Run the documented
+[real nginx gate](operations/native-link-proxy-gate.md) before deployment.
