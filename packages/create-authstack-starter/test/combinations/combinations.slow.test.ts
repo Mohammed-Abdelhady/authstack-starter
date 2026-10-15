@@ -58,6 +58,8 @@ const COMBINATIONS: Combination[] = [
   { name: 'email and password with TOTP', features: ['email-password', 'totp'] },
   { name: 'passkeys on their own', features: ['passkeys'] },
   { name: 'passkeys with Google and no TOTP', features: ['passkeys', 'google'] },
+  // Email code needs magic link, so both are named for the availability check.
+  { name: 'email code without TOTP', features: ['email-code', 'magic-link'] },
   {
     name: 'both second factors and every provider',
     features: ['email-password', 'totp', 'passkeys', ...ALL_OAUTH],
