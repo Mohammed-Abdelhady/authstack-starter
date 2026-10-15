@@ -17,6 +17,7 @@ import { enrolmentCredentialFixture } from '../utils/session/enrolment-credentia
 import {
   bootEnrolmentApp,
   issueEnrolment,
+  sessionRevocations,
 } from '../utils/session/enrolment-fixtures';
 
 describe('enrolment replacement', () => {
@@ -84,6 +85,9 @@ describe('enrolment replacement', () => {
         await enrolmentCredentialFixture(e2e.app)
       ).revocationReason(first.session.id),
     ).toBe('enrolment_replaced');
+    expect(await sessionRevocations(e2e, first.userId)).toEqual([
+      { sessionId: first.session.id, reasonCode: 'enrolment_replaced' },
+    ]);
   });
 
   // Failure: a failed replacement retires the old token without issuing a new one.
@@ -113,6 +117,7 @@ describe('enrolment replacement', () => {
         await enrolmentCredentialFixture(e2e.app)
       ).revocationReason(first.session.id),
     ).toBeNull();
+    expect(await sessionRevocations(e2e, first.userId)).toEqual([]);
   });
 });
 // feature:passkeys:end

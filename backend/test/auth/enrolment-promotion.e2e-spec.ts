@@ -24,6 +24,7 @@ import {
   ENROLMENT_RP_ID,
   issueEnrolment,
   promoteEnrolment,
+  sessionRevocations,
 } from '../utils/session/enrolment-fixtures';
 
 const MINUTE_MS = 60_000;
@@ -93,6 +94,9 @@ describe('enrolment promotion on the real database', () => {
           await enrolmentCredentialFixture(e2e.app)
         ).revocationReason(issued.session.id),
       ).toBe('enrolment_promoted');
+      expect(await sessionRevocations(e2e, issued.userId)).toEqual([
+        { sessionId: issued.session.id, reasonCode: 'enrolment_promoted' },
+      ]);
       expect(
         await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
       ).toBe(1);

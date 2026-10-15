@@ -7,6 +7,8 @@ import { SessionCookieService } from '../../../src/auth/services/sessions/sessio
 import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
 import { SessionAuthorityStore } from '../../../src/session/authority/session-authority.store';
 import { WEB_CLIENT_ID } from '../../../src/session/constants/client-ids';
+import { SECURITY_EVENT_ACTION } from '../../../src/session/constants/security-event-action';
+import { SecurityEventStore } from '../../../src/session/events/security-event.store';
 import { SessionIssuanceService } from '../../../src/session/services/session-issuance.service';
 import { hashToken } from '../../../src/session/utils/hashing/token-hash';
 import { SEED_USER } from '../../constants/seed-users';
@@ -119,5 +121,15 @@ export async function promoteEnrolment(
       return receipt;
     }),
   );
+}
+
+/** The session revocations recorded for the account, with their reasons. */
+export async function sessionRevocations(e2e: E2eApp, userId: string) {
+  const events = await e2e.app
+    .get(SecurityEventStore)
+    .listRecentForUser(userId, 50);
+  return events
+    .filter(({ action }) => action === SECURITY_EVENT_ACTION.SESSION_REVOKED)
+    .map(({ sessionId, reasonCode }) => ({ sessionId, reasonCode }));
 }
 // feature:passkeys:end
