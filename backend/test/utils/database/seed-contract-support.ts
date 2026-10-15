@@ -24,6 +24,7 @@ export const SEEDED_ROLES: StoredSeedRole[] = [
   {
     name: 'Manager',
     slug: 'manager',
+    audience: 'staff',
     description: 'Management staff',
     isSystemRole: true,
     isProtected: true,
@@ -39,6 +40,7 @@ export const SEEDED_ROLES: StoredSeedRole[] = [
   {
     name: 'Support',
     slug: 'support',
+    audience: 'staff',
     description: 'Customer support staff',
     isSystemRole: true,
     isProtected: true,
@@ -63,16 +65,19 @@ export const SEEDED_ACCOUNTS = [
   { email: 'user@seed.local', name: 'Seed User', role: 'user' },
 ];
 
-export function servicesOn(harness: SeedContractHarness): {
+export function servicesOn(
+  harness: SeedContractHarness,
+  config = new ConfigService({ bcrypt: { rounds: 4 } }),
+): {
   seeds: SeedService;
   roles: RoleSeedService;
 } {
-  const roles = new RoleSeedService(harness.seeds);
+  const roles = new RoleSeedService(harness.seeds, config);
   return {
     roles,
     seeds: new SeedService(
       harness.seeds,
-      new ConfigService({ bcrypt: { rounds: 4 } }),
+      config,
       roles,
       harness.registry,
       harness.runner,

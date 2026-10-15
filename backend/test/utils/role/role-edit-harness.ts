@@ -1,3 +1,4 @@
+import { AudiencePolicy } from '../../../src/session/applications/audience-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
@@ -44,6 +45,7 @@ export async function bootRoleEdit(mongoUri: string): Promise<RoleEditHarness> {
     providers: [
       RoleService,
       RoleEditService,
+      { provide: AudiencePolicy, useValue: harness.app.get(AudiencePolicy) },
       { provide: RoleCatalogStore, useClass: MongoRoleCatalogStore },
       { provide: RoleChangeStore, useClass: MongoRoleChangeStore },
       { provide: RoleSweepStore, useClass: MongoRoleSweepStore },

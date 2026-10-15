@@ -1,4 +1,5 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
+import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { rejectionOf } from '../../session/issuance-contract/issuance-contract-support';
 import {
   ADMIN_SLUG,
@@ -22,6 +23,29 @@ export function roleRuleCases(
   fixture: () => RoleFixture,
 ): void {
   const roles = () => servicesOn(harness()).roles;
+
+  it('stores a role audience at creation and retains it through edits', async () => {
+    const created = await roles().create(
+      { name: 'Staff Reader', permissions: [READ_POSTS], audience: 'staff' },
+      fixture().managerId,
+    );
+    expect((await harness().catalog.findRole(created.id))?.audience).toBe(
+      'staff',
+    );
+
+    await harness()
+      .runner(rerunAtOnce)
+      .run(async (unitOfWork) => {
+        await harness().changes.takeRoleForChange(unitOfWork, created.id);
+        await harness().changes.saveRoleEdit(unitOfWork, created.id, {
+          description: 'Updated description',
+        });
+      });
+    expect(await harness().catalog.findRole(created.id)).toMatchObject({
+      audience: 'staff',
+      description: 'Updated description',
+    });
+  });
 
   it('stores a custom role holding permissions the actor holds', async () => {
     const created = await roles().create(

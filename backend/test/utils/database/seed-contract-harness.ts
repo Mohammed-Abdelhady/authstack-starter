@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../src/host/types/host-role.type';
 import { AddressLedger } from '../../../src/common/persistence/address-ledger';
 import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
 import { SeedStore } from '../../../src/database/seeds/seed.store';
@@ -5,6 +6,7 @@ import { ApplicationRegistry } from '../../../src/session/applications/applicati
 import { FrozenClock } from '../frozen-clock';
 
 export interface StoredSeedRole {
+  audience?: RoleAudience;
   name: string;
   slug: string;
   description: string | null;
@@ -15,6 +17,7 @@ export interface StoredSeedRole {
 }
 
 export interface StoredSeedAccount {
+  audience?: RoleAudience;
   id: string;
   email: string;
   name: string;
@@ -51,6 +54,7 @@ export interface SeedContractHarness {
   storedAccounts(): Promise<StoredSeedAccount[]>;
   plantRole(role: StoredSeedRole): Promise<void>;
   plantAccount(account: {
+    audience?: RoleAudience;
     email: string;
     name: string;
     role: string;
