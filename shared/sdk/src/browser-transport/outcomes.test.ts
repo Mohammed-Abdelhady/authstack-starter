@@ -8,6 +8,20 @@ import { deferred, network, refusal, reply } from './test-support';
 const WRITE = { method: 'POST', path: '/api/admin/users', body: { name: 'Mona' } };
 
 describe('browser dispatch outcomes', () => {
+  // Mutation: io.ts parseBody, attempt JSON parsing for a successful 204 delete.
+  it('h21 carries empty 204 deletes through the browser transport and admin reader', async () => {
+    const io = network(reply(undefined, 204), reply(undefined, 204));
+    const transport = createBrowserTransport({ fetch: io.fetch });
+    transport.rememberBrowserProof('session', 'session');
+    const { admin } = createApiClient(transport);
+    await expect(admin.accounts.delete('account-1')).resolves.toBeUndefined();
+    await expect(admin.roles.delete('role-1')).resolves.toBeUndefined();
+    expect(io.sent.map(({ url }) => url)).toEqual([
+      '/api/admin/users/account-1',
+      '/api/roles/role-1',
+    ]);
+  });
+
   // Mutation: io.ts failureAfterDispatch, classify a dispatched write as TransportError.
   it('h2 reports a committed write timeout as unknown without resending', async () => {
     const committed: unknown[] = [];
