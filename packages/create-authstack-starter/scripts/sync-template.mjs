@@ -184,7 +184,7 @@ function entryLine(path, mode, bytes) {
 // the working directory. A hook exports them, so they are dropped here.
 const GIT_OUTPUT_LIMIT = 64 * 1024 * 1024;
 
-function git(root, args) {
+function git(root, args, input) {
   const env = { ...process.env };
   for (const variable of Object.keys(env)) {
     if (
@@ -196,6 +196,7 @@ function git(root, args) {
   const result = spawnSync('git', args, {
     cwd: root,
     env,
+    input,
     encoding: 'utf8',
     maxBuffer: GIT_OUTPUT_LIMIT,
   });
