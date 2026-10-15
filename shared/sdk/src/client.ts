@@ -7,6 +7,7 @@ import { createNativeAuthClient } from './native-auth/client';
 import { createAuthArea, type ApiClientAuth } from './areas/auth';
 import { createOAuthArea, type ApiClientOAuth } from './areas/oauth';
 import { createUserArea, type ApiClientUser } from './areas/user';
+import { createAdminArea, type ApiClientAdmin } from './areas/admin';
 import {
   TransportError,
   isTransportError,
@@ -76,5 +77,10 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
     ...createUserArea<TSignal>(senders),
     ...createAuthArea<TSignal>(senders),
     ...createOAuthArea<TSignal>(senders),
+    ...createAdminArea<TSignal>(senders),
   };
+}
+
+export interface ApiClient<TSignal extends TransportSignal = TransportSignal> {
+  admin: ApiClientAdmin<TSignal>['admin'];
 }
