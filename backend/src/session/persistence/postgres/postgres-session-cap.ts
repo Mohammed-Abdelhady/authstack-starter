@@ -10,6 +10,7 @@ import { SessionCapCandidate } from '../../issuance/browser-issuance.store';
 /** One session joined to its application and grant. A missing side is all null. */
 export interface SessionCapRow {
   is_valid: boolean;
+  proof_key_thumbprint: string | null;
   user_verified: boolean;
   session_policy_version: number;
   sign_up: (typeof SIGN_UP_POLICY)[keyof typeof SIGN_UP_POLICY] | null;
@@ -111,6 +112,7 @@ export function toSessionCapCandidate(row: SessionCapRow): SessionCapCandidate {
   return {
     session: {
       isValid: row.is_valid,
+      proofKeyThumbprint: row.proof_key_thumbprint,
       userVerified: row.user_verified,
       policyVersion: row.session_policy_version,
       revokedAt: row.revoked_at,

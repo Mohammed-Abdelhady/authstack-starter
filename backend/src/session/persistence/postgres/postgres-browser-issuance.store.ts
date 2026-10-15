@@ -178,6 +178,7 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
       )
       .select([
         's.is_valid',
+        's.proof_key_thumbprint',
         's.user_verified',
         's.policy_version as session_policy_version',
         's.revoked_at',
