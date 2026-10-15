@@ -1,3 +1,10 @@
+import { validateNativeLinkHost } from './native-link-host-validation';
+import { validateSessionLimitConfiguration } from './session-limit-config';
+import { refuseRequiredPasskeyUntilPlan3 } from './refuse-required-passkey-until-plan3';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../session/constants/client-ids';
 import { AVAILABLE_AUTH_FEATURES } from '../../auth/constants/available-auth-features';
 import { AuthFeature } from '../../auth/enums/auth-feature.enum';
 import { ROLE_AUDIENCE } from '../../host/types/host-role.type';
@@ -16,6 +23,7 @@ import {
 export function validateHostApplications(
   config: EnvironmentVariables & { readonly PASSKEYS_ENABLED?: boolean },
 ): void {
+  validateNativeLinkHost(config);
   if (config.AUTH_ADMIN_SIGN_IN && !config.ADMIN_URL) {
     throw new Error(
       'AUTH_ADMIN_SIGN_IN requires ADMIN_URL; set ADMIN_URL to the admin browser origin or remove AUTH_ADMIN_SIGN_IN',
@@ -36,6 +44,7 @@ export function validateHostApplications(
     }
   }
 
+  const requiredApplications: string[] = [];
   const passkeysAvailable =
     AVAILABLE_AUTH_FEATURES.has(AuthFeature.PASSKEYS) &&
     config.PASSKEYS_ENABLED !== false;
@@ -48,16 +57,18 @@ export function validateHostApplications(
       policy?.passkeys !== false,
       'set passkeys to true',
     );
+    if (policy?.requirePasskey) {
+      const clientId =
+        setting === 'AUTH_WEB_SIGN_IN' ? WEB_CLIENT_ID : ADMIN_CLIENT_ID;
+      requiredApplications.push(`${clientId} (${setting})`);
+    }
   }
-  if (!config.AUTH_NATIVE_ENABLED) return;
-
-  const applications = parseNativeApplications(
-    config.AUTH_NATIVE_APPLICATIONS,
-    {
-      nodeEnv: config.NODE_ENV,
-      allowCustomScheme: config.AUTH_NATIVE_ALLOW_CUSTOM_SCHEME,
-    },
-  );
+  const applications = config.AUTH_NATIVE_ENABLED
+    ? parseNativeApplications(config.AUTH_NATIVE_APPLICATIONS, {
+        nodeEnv: config.NODE_ENV,
+        allowCustomScheme: config.AUTH_NATIVE_ALLOW_CUSTOM_SCHEME,
+      })
+    : [];
   for (const application of applications) {
     validateApplicationPolicy(
       application,
@@ -66,6 +77,13 @@ export function validateHostApplications(
       nativePasskeysAvailable(application.signIn),
       'set signIn.passkeys to true and supply signIn.rpId and exact signIn.origins',
     );
+    if (application.requirePasskey) {
+      requiredApplications.push(application.clientId);
+    }
+  }
+  validateSessionLimitConfiguration(config);
+  for (const application of requiredApplications) {
+    refuseRequiredPasskeyUntilPlan3(true, application);
   }
 }
 
