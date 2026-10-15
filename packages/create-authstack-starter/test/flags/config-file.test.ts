@@ -3,8 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigFileError, parseConfigFile, readConfigFile } from '../../src/flags/config-file.js';
+import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
 const roots: string[] = [];
+const SOURCE = { manifest: PLAN_MANIFEST, template: { sha256: 'a'.repeat(64), commit: null } };
 
 async function tempFile(content: string, name = 'config.json'): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'cna-config-'));
@@ -78,7 +80,7 @@ describe('parseConfigFile', () => {
 describe('readConfigFile', () => {
   it('reads a valid file', async () => {
     const path = await tempFile(JSON.stringify({ targets: ['web'], database: 'mongodb' }));
-    await expect(readConfigFile(path)).resolves.toEqual({
+    await expect(readConfigFile(path, SOURCE)).resolves.toEqual({
       targets: ['web'],
       databases: ['mongodb'],
     });
@@ -86,12 +88,12 @@ describe('readConfigFile', () => {
 
   it('reports a missing file', async () => {
     const missing = join(tmpdir(), 'cna-config-missing', 'config.json');
-    await expect(readConfigFile(missing)).rejects.toThrow(/config file not found/);
+    await expect(readConfigFile(missing, SOURCE)).rejects.toThrow(/config file not found/);
   });
 
   it('reports invalid JSON', async () => {
     const path = await tempFile('{ not json');
-    await expect(readConfigFile(path)).rejects.toThrow(/not valid JSON/);
+    await expect(readConfigFile(path, SOURCE)).rejects.toThrow(/not valid JSON/);
   });
 
   it('parses the same content with and without a byte order mark', async () => {
@@ -99,13 +101,13 @@ describe('readConfigFile', () => {
     const plain = await tempFile(content, 'plain.json');
     const bom = await tempFile(`\uFEFF${content}`, 'bom.json');
 
-    await expect(readConfigFile(plain)).resolves.toEqual({ targets: ['web'] });
-    await expect(readConfigFile(bom)).resolves.toEqual({ targets: ['web'] });
+    await expect(readConfigFile(plain, SOURCE)).resolves.toEqual({ targets: ['web'] });
+    await expect(readConfigFile(bom, SOURCE)).resolves.toEqual({ targets: ['web'] });
   });
 
   it('reports a directory instead of a raw EISDIR', async () => {
     const root = await mkdtemp(join(tmpdir(), 'cna-config-dir-'));
     roots.push(root);
-    await expect(readConfigFile(root)).rejects.toThrow(/directory, not a file/);
+    await expect(readConfigFile(root, SOURCE)).rejects.toThrow(/directory, not a file/);
   });
 });
