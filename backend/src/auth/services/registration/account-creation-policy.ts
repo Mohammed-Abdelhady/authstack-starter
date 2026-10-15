@@ -29,7 +29,12 @@ export class AccountCreationPolicy {
       unitOfWork,
       request.application,
     );
-    if (application.signUp === SIGN_UP_POLICY.CLOSED) {
+    // No self sign-up method gives the new account a passkey, so an
+    // application that requires one could never let that account in.
+    if (
+      application.signUp === SIGN_UP_POLICY.CLOSED ||
+      application.requirePasskey === true
+    ) {
       throw new SelfSignUpRefusedError();
     }
     if (application.accountAudience !== undefined) {
