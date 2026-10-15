@@ -17,8 +17,8 @@ import { NativeEmailChangeConfirmDto } from './dto/native-email-change-confirm.d
 import { NativeEmailChangeService } from './services/native-email-change.service';
 
 /**
- * A mobile app confirms an address change for someone who may be signed out:
- * the mail's button opens the app, which sends the address and the code.
+ * A mobile app confirms an address change staff started, for someone who may
+ * be signed out. The app sends the address and the code from the mail.
  */
 @ApiTags('auth')
 @Public()
@@ -33,9 +33,11 @@ export class NativeEmailChangeController {
   @ApiOperation({
     summary: 'Confirm an email change from a mobile app',
     description:
-      'Takes a registered native client id, the new address and the code. ' +
-      'It needs no browser proof and refuses a browser context. It moves the ' +
-      'address and ends the account sessions, as the public route does.',
+      'Confirms a change staff started. Takes a registered native client id, ' +
+      'the new address and the code. It needs no browser proof and refuses a ' +
+      'browser context. It moves the address and ends the account sessions, ' +
+      'as the public route does. A code for a change the person asked for ' +
+      'is refused like a wrong one.',
   })
   @ApiBody({ type: NativeEmailChangeConfirmDto })
   async confirm(
