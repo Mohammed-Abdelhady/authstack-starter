@@ -1,5 +1,12 @@
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
+import { AddressLedger } from '../../../../src/common/persistence/address-ledger';
+import {
+  AddressClaim,
+  AddressClaimDocument,
+  AddressClaimSchema,
+} from '../../../../src/common/persistence/mongo/schemas/address-claim.schema';
 import { MongoAdminAccountStore } from '../../../../src/admin/persistence/mongo/mongo-admin-account.store';
 // feature:passkeys:start
 import {
@@ -102,6 +109,9 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
   connection.model(PendingRegistration.name, PendingRegistrationSchema);
   connection.model(MailCounter.name, MailCounterSchema);
   connection.model(Passkey.name, PasskeySchema); // feature:passkeys
+  connection.model(AddressClaim.name, AddressClaimSchema);
+  const claims = connection.model<AddressClaimDocument>(AddressClaim.name);
+  await claims.init();
   const roles = connection.model<RoleDocument>(Role.name);
   const registrations = connection.model<PendingRegistrationDocument>(
     PendingRegistration.name,
@@ -125,6 +135,22 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     booted,
     mongo,
     clock,
+    ledger: app.get(AddressLedger),
+    claims: async () =>
+      (await claims.find({}).sort({ _id: 1 }).lean().exec()).map((row) => ({
+        address: row._id,
+        kind: row.kind,
+        owner: row.owner,
+        lapsesAt: row.lapsesAt,
+      })),
+    emailChangeCode: async (email) => {
+      const row = await registrations
+        .findOne({ email, purpose: PENDING_PURPOSE.EMAIL_CHANGE })
+        .select('+hashedCode')
+        .lean()
+        .exec();
+      return row ? { hash: row.hashedCode, expiresAt: row.expiresAt } : null;
+    },
     profiles: new MongoAccountProfileStore(
       users,
       roles,
@@ -274,6 +300,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
 
     reset: async () => {
       await Promise.all([
+        claims.deleteMany({}),
         users.deleteMany({}),
         roles.deleteMany({}),
         events.deleteMany({}),

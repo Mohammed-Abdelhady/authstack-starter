@@ -1,7 +1,7 @@
-import { SecurityEventService } from '../../../../../session/persistence/mongo/security-event.service';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
+import { SecurityEventService } from '../../../../../session/persistence/mongo/security-event.service';
 import { AdminUsersService } from '../../../../services/users/admin-users.service';
 import { AdminUserAccessService } from '../../../../services/users/admin-user-access.service';
 import { AdminEmailChangeService } from '../../../../services/users/admin-email-change.service';
@@ -298,33 +298,6 @@ describe('AdminUsersService', () => {
   });
 
   describe('updateUser email change', () => {
-    it('should hand an email change to the email change service', async () => {
-      expectTarget(UserRole.USER);
-
-      await service.updateUser(
-        targetId.toString(),
-        { email: 'new@example.com' },
-        actorId,
-        UserRole.ADMIN,
-      );
-
-      expect(
-        mockEmailChangeService.assertAddressAvailable,
-      ).toHaveBeenCalledWith('new@example.com', UserRole.ADMIN);
-      expect(mockEmailChangeService.notifyPreviousAddress).toHaveBeenCalledWith(
-        { email: 'target@example.com', locale: 'en' },
-      );
-      expect(mockEmailChangeService.sendConfirmation).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: targetId.toString(),
-          email: 'target@example.com',
-          pendingEmail: 'new@example.com',
-          addressGeneration: 1,
-        }),
-        UserRole.ADMIN,
-      );
-    });
-
     it('should not touch the email service when only the name changes', async () => {
       const target = expectTarget(UserRole.USER);
 
