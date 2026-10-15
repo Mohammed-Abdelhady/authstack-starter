@@ -6,6 +6,7 @@ import type {
   NativeProviderMethod,
 } from '@app/sdk';
 import { TransportError, TRANSPORT_FAILURE } from '@app/sdk';
+import { isEmailCodeRefusal } from '@app/sdk'; // feature:email-code
 import { PortAbortController } from '../runtime/abort-controller';
 import { withPortDeadline } from '../runtime/deadlines';
 import type { AuthRuntime } from '../runtime/runtime';
@@ -67,6 +68,18 @@ export async function performNativeAction(
           options,
         ),
       );
+    // feature:email-code:start
+    case 'requestEmailCode':
+      return server(
+        await client.nativeAuth.requestEmailCode(
+          attempt,
+          { email: action.email, ...localeOf(action) },
+          options,
+        ),
+      );
+    case 'verifyEmailCode':
+      return verifyEmailCode(context, action, attempt, controller);
+    // feature:email-code:end
     case 'register':
       return server(await client.nativeAuth.register(attempt, action.email, options));
     case 'activate':
@@ -173,6 +186,38 @@ async function performPasskey(
     ),
   );
 }
+
+// feature:email-code:start
+async function verifyEmailCode(
+  context: NativeActionContext,
+  action: Extract<NativeSignInAction, { kind: 'verifyEmailCode' }>,
+  attempt: NativeAttempt,
+  controller: PortAbortController,
+): Promise<NativeActionResult> {
+  const options = { signal: controller.signal };
+  try {
+    return server(
+      await context.client.nativeAuth.verifyEmailCode(
+        attempt,
+        { code: action.code, ...localeOf(action) },
+        options,
+      ),
+    );
+  } catch (error) {
+    if (!isEmailCodeRefusal(error)) throw error;
+  }
+  // The refusal does not say whether that was the attempt's last allowed guess. Its state does.
+  const current = await context.client.nativeAuth.resume(attempt, options);
+  if (current.stage === 'emailLinkSent') return outcome({ kind: 'codeRefused' });
+  if (current.stage !== 'denied') return server(current);
+  const cancelled = await context.cancel();
+  return outcome(cancelled.kind === 'cancelled' ? { kind: 'codeAttemptEnded' } : cancelled);
+}
+
+function localeOf(action: Pick<BrowserSignInOptions, 'locale'>): { locale?: string } {
+  return action.locale === undefined ? {} : { locale: action.locale };
+}
+// feature:email-code:end
 
 function credentialMatches(
   method: NativeProviderMethod,
