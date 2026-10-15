@@ -278,7 +278,15 @@ export interface PendingMagicLinksTable {
 }
 // feature:magic-link:end
 
+export interface AddressClaimsTable {
+  address: string;
+  kind: string;
+  owner: string;
+  lapses_at: Timestamp;
+}
+
 export interface PostgresTables {
+  address_claims: AddressClaimsTable;
   users: UsersTable;
   applications: ApplicationsTable;
   user_application_grants: UserApplicationGrantsTable;
