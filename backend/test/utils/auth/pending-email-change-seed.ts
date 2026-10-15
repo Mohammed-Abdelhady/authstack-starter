@@ -1,5 +1,8 @@
 import * as bcrypt from 'bcrypt';
 import { PENDING_PURPOSE } from '../../../src/auth/constants/registration';
+import { AddressLedger } from '../../../src/common/persistence/address-ledger';
+import { UnitOfWorkRunner } from '../../../src/common/persistence/unit-of-work';
+import { holdAddress } from '../address-claim';
 import type { E2eApp } from '../e2e-app';
 
 export interface PendingEmailChangeSeed {
@@ -31,5 +34,12 @@ export async function seedPendingEmailChange(
     userId: target._id,
     addressGeneration,
   });
+  await holdAddress(
+    e2e.app.get(AddressLedger),
+    e2e.app.get(UnitOfWorkRunner),
+    e2e.clock,
+    email,
+    target._id,
+  );
   return { ...target, previousEmail };
 }

@@ -1,5 +1,4 @@
 import { ClientSession, Connection, Model, Types } from 'mongoose';
-import { ACTIVATION_CODE_EXPIRES_IN_DEFAULT } from '../../../src/auth/constants/registration';
 import { AddressLedger } from '../../../src/common/persistence/address-ledger';
 import { MongoAddressLedger } from '../../../src/common/persistence/mongo/mongo-address-ledger';
 import {
@@ -121,9 +120,5 @@ export function confirmEmailChange(
     reserved,
     ledgerOn(userModel),
     new FrozenClock(TEST_NOW).now(),
-    new Date(
-      new FrozenClock(TEST_NOW).now().getTime() +
-        ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
-    ),
   );
 }
