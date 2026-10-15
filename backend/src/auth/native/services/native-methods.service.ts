@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config'; // feature:email-code
 import { ModuleRef } from '@nestjs/core'; // feature:oauth-core
 import { createHash } from 'node:crypto';
 import type { NativeMethods, NativeProviderMethod } from '@app/sdk';
@@ -21,6 +22,7 @@ export class NativeMethodsService {
     private readonly features: AuthFeaturesService,
     private readonly modules: ModuleRef, // feature:oauth-core
     private readonly applications: ApplicationRegistry,
+    private readonly config: ConfigService, // feature:email-code
   ) {}
 
   async forClient(clientId: string): Promise<NativeMethods> {
@@ -75,6 +77,13 @@ export class NativeMethodsService {
         registration:
           enabled && signIn?.registration === true && passwordFeature,
         recovery: enabled && signIn?.recovery === true && passwordFeature,
+        // feature:email-code:start
+        ...emailCodeCapability(
+          enabled &&
+            signIn?.emailCode === true &&
+            this.config.get<boolean>('emailCode.enabled', false) === true,
+        ),
+        // feature:email-code:end
       },
       providers,
     };
@@ -146,3 +155,10 @@ export class NativeMethodsService {
     }
   }
 }
+
+// feature:email-code:start
+/** Present only when on: apps on an older SDK refuse any capability key they do not know. */
+export function emailCodeCapability(on: boolean): { emailCode?: true } {
+  return on ? { emailCode: true } : {};
+}
+// feature:email-code:end
