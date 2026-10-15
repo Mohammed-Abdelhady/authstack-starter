@@ -13,12 +13,41 @@ const IDENTITY = {
   scheme: 'org.sample.round-trip',
 };
 
-function recorded(project: string): { sha256: unknown; mobile: unknown } {
+// Every value differs from its default, so a mapping the replay drops cannot compare equal.
+const NON_DEFAULT_FLAGS = [
+  '--targets',
+  'web,native-expo',
+  '--database',
+  'postgres',
+  '--rules',
+  'standard',
+  '--no-docker',
+  '--no-production',
+  '--locales',
+  'en',
+  '--mobile-name',
+  IDENTITY.name,
+  '--mobile-slug',
+  IDENTITY.slug,
+  '--mobile-app-id',
+  IDENTITY.appId,
+  '--mobile-scheme',
+  IDENTITY.scheme,
+];
+
+function recorded(project: string): Record<string, unknown> {
   const parsed: unknown = JSON.parse(readFileSync(join(project, ANSWERS_FILE_NAME), 'utf8'));
   if (!isRecord(parsed) || !isRecord(parsed.template) || !isRecord(parsed.answers)) {
     throw new Error(`${ANSWERS_FILE_NAME} is not an answers record`);
   }
-  return { sha256: parsed.template.sha256, mobile: parsed.answers.mobile };
+  return {
+    sha256: parsed.template.sha256,
+    rules: parsed.rules,
+    database: parsed.answers.database,
+    options: parsed.answers.options,
+    locales: parsed.answers.locales,
+    mobile: parsed.answers.mobile,
+  };
 }
 
 export function answersRoundTripCases(getPacked: () => Packed): void {
@@ -28,18 +57,7 @@ export function answersRoundTripCases(getPacked: () => Packed): void {
     const first = generate(
       packed,
       'round-trip-first/app',
-      [
-        '--targets',
-        'web,native-expo',
-        '--mobile-name',
-        IDENTITY.name,
-        '--mobile-slug',
-        IDENTITY.slug,
-        '--mobile-app-id',
-        IDENTITY.appId,
-        '--mobile-scheme',
-        IDENTITY.scheme,
-      ],
+      NON_DEFAULT_FLAGS,
       'email-password,google',
     );
     const second = generate(packed, 'round-trip-second/app', [
@@ -56,7 +74,14 @@ export function answersRoundTripCases(getPacked: () => Packed): void {
     }).toEqual({
       files: Object.keys(original).sort(),
       differing: [],
-      answers: { sha256: recorded(first).sha256, mobile: IDENTITY },
+      answers: {
+        sha256: recorded(first).sha256,
+        rules: { policy: 'standard' },
+        database: 'postgres',
+        options: [],
+        locales: ['en'],
+        mobile: IDENTITY,
+      },
     });
   });
 }
