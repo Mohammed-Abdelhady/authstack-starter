@@ -121,6 +121,9 @@ export class SessionValidator {
 
       return candidates.filter(
         (candidate) =>
+          candidate.policyVersion ===
+            (applicationByClientId.get(candidate.clientId)?.policyVersion ??
+              0) &&
           currentSessionDeadlines(
             candidate,
             account,
@@ -186,6 +189,9 @@ export class SessionValidator {
       session.clientId,
     );
     if (!application || !application.enabled) {
+      return null;
+    }
+    if (session.policyVersion !== (application.policyVersion ?? 0)) {
       return null;
     }
     if (session.clientVersion !== application.sessionVersion) {

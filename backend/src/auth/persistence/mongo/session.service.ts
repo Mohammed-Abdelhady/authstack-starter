@@ -1,3 +1,4 @@
+import type { BrowserEvidence } from '../../../session/types/browser-evidence';
 import { Injectable, Logger } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { LeanSession } from '../../../session/persistence/mongo/schemas/session.schema';
@@ -27,11 +28,15 @@ export class SessionService {
     userId: Types.ObjectId,
     userAgent: string,
     ip: string,
+    clientId: string,
+    evidence?: BrowserEvidence,
   ): Promise<IssuedBrowserSession> {
     const issued = await this.issuance.createBrowserSession(
       userId.toString(),
       userAgent,
       ip,
+      clientId,
+      evidence,
     );
     this.logger.log(`Session created for user ${userId.toString()}`);
     return issued;

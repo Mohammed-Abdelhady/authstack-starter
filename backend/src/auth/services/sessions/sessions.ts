@@ -1,3 +1,5 @@
+import type { AccountCreationMethod } from '../../types/account-creation';
+import type { BrowserEvidence } from '../../../session/types/browser-evidence';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   AuthenticatedSession,
@@ -32,15 +34,30 @@ export class Sessions {
     private readonly nativeRevocation: NativeSessionRevocationService,
   ) {}
 
+  assertAdmission(userId: string, clientId: string): Promise<void> {
+    return this.issuance.assertAdmission(userId, clientId);
+  }
+
+  recordCreationRefusal(
+    clientId: string,
+    method: AccountCreationMethod,
+  ): Promise<void> {
+    return this.issuance.recordCreationRefusal(clientId, method);
+  }
+
   async createSession(
     userId: string,
     userAgent: string,
     ip: string,
+    clientId: string,
+    evidence?: BrowserEvidence,
   ): Promise<IssuedBrowserSession> {
     const issued = await this.issuance.createBrowserSession(
       userId,
       userAgent,
       ip,
+      clientId,
+      evidence,
     );
     this.logger.log(`Session created for user ${userId}`);
     return issued;

@@ -15,7 +15,7 @@ import { Sessions } from './services/sessions/sessions';
 import { PasswordResetCodeService } from './services/codes/password-reset-code.service';
 import type { IssuedCodeWithGeneration } from './interfaces/pending-code.interface';
 import { MailCounterService } from './services/mail/mail-counter.service';
-import { FIRST_FACTOR } from './services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from './services/sessions/first-factor';
 import { SignInCompletion } from './services/sessions/sign-in-completion';
 import { IdFormat } from '../common/persistence/id-format';
 import { assertValidId } from '../user/utils/user-lookup.util';
@@ -24,7 +24,11 @@ import { generateVerificationCode } from './utils/verification-code.util';
 import { MAIL_COUNTER_PURPOSE } from './constants/registration';
 import { SecurityNoticeService } from '../user/services/security-notice.service';
 import { SECURITY_NOTICE } from '../user/constants/security-notice.constants';
-import { verifyPasswordCredentials } from './services/password/password-credentials';
+import {
+  invalidCredentials,
+  verifyPasswordCredentials,
+} from './services/password/password-credentials';
+import { AudienceAdmissionRefused } from '../session/utils/authority/audience-admission';
 
 /**
  * Password sign-in and the password lifecycle. The sign-up code flows live in
@@ -56,11 +60,13 @@ export class AuthService {
       this.hashService,
       dto,
     );
-    const outcome = await this.signInService.completeSignIn(
-      user,
-      response,
-      FIRST_FACTOR.PASSWORD, // feature:totp
-    );
+    const outcome = await this.signInService
+      .completeSignIn(user, response, FIRST_FACTOR.PASSWORD)
+      .catch((error: unknown) => {
+        if (error instanceof AudienceAdmissionRefused)
+          throw invalidCredentials();
+        throw error;
+      });
 
     if (outcome.requiresTwoFactor) {
       this.logger.log(

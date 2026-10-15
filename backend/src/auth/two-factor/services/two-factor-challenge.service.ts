@@ -1,3 +1,10 @@
+import { applicationCookieName } from '../../../session/utils/request/application-cookie-name';
+import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../../session/constants/client-ids';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
@@ -20,6 +27,8 @@ import {
 } from '../constants/two-factor.constants';
 
 interface ChallengePayload {
+  /** Missing only in a legacy web challenge. */
+  clientId?: BrowserApplicationId;
   /** User the half-finished login belongs to. */
   sub: string;
   /** Random value matching the stored record. */
@@ -57,6 +66,7 @@ export class TwoFactorChallengeService {
     private readonly challenges: SecondFactorChallengeStore,
     private readonly configService: ConfigService,
     private readonly cryptoService: TotpSecretCryptoService,
+    private readonly applications: BrowserApplications,
   ) {}
 
   /** Opens a challenge for a user who passed the first factor named. */
@@ -65,6 +75,8 @@ export class TwoFactorChallengeService {
     response: Response,
     firstFactor: FirstFactor,
   ): Promise<void> {
+    const application = await this.applications.resolve(response.req);
+    this.applications.assertEnabled(application);
     const sub = userId.toString();
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const expiresAt = Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS;
@@ -75,8 +87,14 @@ export class TwoFactorChallengeService {
       expiresAt: new Date(expiresAt),
     });
 
-    const token = this.encode({ sub, nonce, expiresAt, firstFactor });
-    response.cookie(TWO_FACTOR_CHALLENGE_COOKIE, token, {
+    const token = this.encode({
+      sub,
+      nonce,
+      expiresAt,
+      firstFactor,
+      clientId: application.clientId,
+    });
+    response.cookie(this.cookieName(response.req), token, {
       ...this.cookieOptions(),
       maxAge: TWO_FACTOR_CHALLENGE_TTL_MS,
     });
@@ -89,6 +107,7 @@ export class TwoFactorChallengeService {
    * missing, tampered with, expired, already spent, or out of attempts
    */
   async read(request: Request): Promise<TwoFactorChallengeContext> {
+    await this.applications.resolve(request);
     const payload = this.decodeCookie(request);
     const challenge = await this.challenges.find({
       nonceHash: hashNonce(payload.nonce, payload.firstFactor),
@@ -120,6 +139,7 @@ export class TwoFactorChallengeService {
    * missing, spent, expired, already claimed, or out of attempts
    */
   async claim(request: Request): Promise<TwoFactorChallengeContext> {
+    await this.applications.resolve(request);
     const payload = this.decodeCookie(request);
     const challenge = await this.challenges.claim(
       {
@@ -157,12 +177,20 @@ export class TwoFactorChallengeService {
   }
 
   clear(response: Response): void {
-    response.clearCookie(TWO_FACTOR_CHALLENGE_COOKIE, this.cookieOptions());
+    response.clearCookie(this.cookieName(response.req), this.cookieOptions());
+  }
+
+  private cookieName(request: Request): string {
+    const application = this.applications.current(request);
+    return applicationCookieName(
+      TWO_FACTOR_CHALLENGE_COOKIE,
+      application.clientId,
+    );
   }
 
   private decodeCookie(request: Request): ChallengePayload {
     const cookies = request.cookies as Record<string, string> | undefined;
-    const raw = cookies?.[TWO_FACTOR_CHALLENGE_COOKIE];
+    const raw = cookies?.[this.cookieName(request)];
 
     if (typeof raw !== 'string' || raw.length === 0) {
       throw this.invalid('missing challenge cookie');
@@ -179,6 +207,12 @@ export class TwoFactorChallengeService {
     }
 
     const payload = this.decode(encoded);
+    if (
+      (payload.clientId ?? WEB_CLIENT_ID) !==
+      this.applications.current(request).clientId
+    ) {
+      throw this.invalid('challenge belongs to another application');
+    }
     if (payload.expiresAt <= Date.now()) {
       throw this.invalid('challenge cookie expired');
     }
@@ -200,6 +234,9 @@ export class TwoFactorChallengeService {
         typeof payload.nonce !== 'string' ||
         typeof payload.expiresAt !== 'number' ||
         !isFirstFactor(payload.firstFactor) ||
+        (payload.clientId !== undefined &&
+          payload.clientId !== WEB_CLIENT_ID &&
+          payload.clientId !== ADMIN_CLIENT_ID) ||
         !this.challenges.isAccountId(payload.sub)
       ) {
         throw new Error('missing fields');

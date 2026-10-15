@@ -34,6 +34,11 @@ export class IdentityController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<ApiResponse<IdentityData>> {
+    await this.cookies.assertOrigin(request);
+    if (this.cookies.applications.isBrowserRequest(request)) {
+      const application = await this.cookies.applications.resolve(request);
+      this.cookies.applications.assertEnabled(application);
+    }
     const cookie = this.cookies.read(request);
     const authorization = request.headers.authorization;
     const hasAuthorization = authorization !== undefined;
@@ -60,7 +65,14 @@ export class IdentityController {
     const session = bearer
       ? await this.nativeAccess.validate(bearer)
       : await this.sessions.validateSession(cookie ?? '');
-    if (!session || !session.user || session.user.isDeleted) {
+    if (
+      !session ||
+      !session.user ||
+      session.user.isDeleted ||
+      (!hasAuthorization &&
+        session.clientId !==
+          this.cookies.applications.current(request).clientId)
+    ) {
       if (!hasAuthorization) this.cookies.clear(response);
       if (hasAuthorization) {
         throw new AppException(
