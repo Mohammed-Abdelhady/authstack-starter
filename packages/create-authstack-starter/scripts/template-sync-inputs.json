@@ -5,5 +5,6 @@
   "policy": "src/constants/template-tests.json",
   "paths": "scripts/manifest-paths.mjs",
   "glob": "scripts/glob.mjs",
+  "commit": "scripts/template-commit.mjs",
   "gitEnvironment": "src/constants/git-environment.json"
 }

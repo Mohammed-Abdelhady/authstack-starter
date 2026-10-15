@@ -1,5 +1,5 @@
 import type { ANSWERS_SCHEMA_VERSION, RULES_POLICIES } from './constants/index.js';
-import type { MobileIdentityRequest } from './types/mobile.js';
+import type { MobileIdentity, MobileIdentityRequest } from './types/mobile.js';
 
 /** `hidden` features are never offered; another feature pulls them in. */
 export type FeatureKind = 'credential' | 'oauth' | 'second-factor' | 'passwordless' | 'hidden';
@@ -168,6 +168,8 @@ export interface InstallerIdentity {
 /** The template content the project was generated from, hashed at build time. */
 export interface TemplateIdentity {
   sha256: string;
+  /** The commit it was built from, or null when the tree differed from it. */
+  commit: string | null;
 }
 
 /** The resolved plan as recorded in the generated answers file. Sorted arrays. */
@@ -177,6 +179,8 @@ export interface ResolvedAnswers {
   features: string[];
   options: string[];
   locales: string[];
+  /** Present only when a native target is selected. */
+  mobile?: MobileIdentity;
 }
 
 /**
