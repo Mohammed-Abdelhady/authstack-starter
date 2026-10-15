@@ -3,15 +3,20 @@ import { join } from 'node:path';
 import { lastLines, run } from '../utils/exec.js';
 import {
   INSTALL_DIAGNOSTIC_LINES,
+  LOCKFILE_FAILURE,
   MISSING_PNPM_MESSAGE,
   PACKAGE_MANAGER,
   PACKAGE_MANAGER_VERSION,
   PNPM_LOCKFILE,
 } from '../constants/index.js';
 
+export type LockfileFailure = (typeof LOCKFILE_FAILURE)[keyof typeof LOCKFILE_FAILURE];
+
 export interface InstallResult {
   ok: boolean;
   reason?: string;
+  /** Set by a failed lockfile step only. */
+  kind?: LockfileFailure;
 }
 
 export async function pnpmAvailable(cwd: string): Promise<boolean> {
@@ -19,19 +24,26 @@ export async function pnpmAvailable(cwd: string): Promise<boolean> {
   return result.code === 0 && result.stdout.trim() === PACKAGE_MANAGER_VERSION;
 }
 
+/**
+ * Without the pinned pnpm the copied lockfile is deleted and generation goes on.
+ * A failed update keeps it, and the caller stops.
+ */
 export async function prepareLockfile(root: string): Promise<InstallResult> {
   if (!(await pnpmAvailable(root))) {
     await rm(join(root, PNPM_LOCKFILE), { force: true });
-    return { ok: false, reason: MISSING_PNPM_MESSAGE };
+    return { ok: false, reason: MISSING_PNPM_MESSAGE, kind: LOCKFILE_FAILURE.MISSING_PNPM };
   }
 
-  const result = await run(PACKAGE_MANAGER, ['install', '--lockfile-only'], root);
+  const result = await run(
+    PACKAGE_MANAGER,
+    ['install', '--lockfile-only', '--prefer-offline'],
+    root,
+  );
   if (result.code === 0) return { ok: true };
-
-  await rm(join(root, PNPM_LOCKFILE), { force: true });
   return {
     ok: false,
     reason: lastLines(result.stderr || result.stdout, INSTALL_DIAGNOSTIC_LINES),
+    kind: LOCKFILE_FAILURE.UPDATE_FAILED,
   };
 }
 

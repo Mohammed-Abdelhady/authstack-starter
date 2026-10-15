@@ -87,14 +87,14 @@ function markedFiles(project: string): string[] {
   });
 }
 
-function generate(packed: Packed, name: string, flags: string[], features?: string): string {
+export function generate(packed: Packed, name: string, flags: string[], features?: string): string {
   const result = scaffold(packed, name, features, { flags });
   expect(result.status, `${String(result.stdout)}\n${String(result.stderr)}`).toBe(0);
   return join(packed.workspace, name);
 }
 
 /** The bytes of every file of a project. */
-function contents(project: string): Record<string, string> {
+export function contents(project: string): Record<string, string> {
   return Object.fromEntries(
     everyFile(project).map((file) => [file, readFileSync(join(project, file)).toString('base64')]),
   );
