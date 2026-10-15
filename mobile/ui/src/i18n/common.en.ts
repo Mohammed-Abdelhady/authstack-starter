@@ -4,4 +4,4 @@ export const COMMON_EN = {
   'common.offline': 'Check your internet connection, then try again.',
   'common.starting': 'Starting',
   'common.serverError': 'The server did not answer as expected. Try again.',
-};
+} satisfies Record<`common.${string}`, string>;

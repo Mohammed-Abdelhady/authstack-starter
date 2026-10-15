@@ -1,8 +1,10 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
+import { loadManifest } from '../../src/manifest/load.js';
 import { stripEnvVars } from '../../src/prune/env.js';
 import { prune } from '../../src/prune/index.js';
 import { findDanglingReferences } from '../../src/prune/references.js';
@@ -289,6 +291,33 @@ describe('prune', () => {
 });
 
 describe('stripEnvVars', () => {
+  it('removes planned settings and their comments from the real backend example', async () => {
+    const example = await readFile(
+      new URL('../../../../backend/.env.example', import.meta.url),
+      'utf8',
+    );
+    const content = example.slice(
+      example.indexOf('# Used from plan 2.'),
+      example.indexOf('# Used from plan 5.'),
+    );
+    const manifest = await loadManifest(fileURLToPath(new URL('../../../..', import.meta.url)));
+    const removals = new Map<string, string[]>();
+    for (const id of ['email-code', 'invitations']) {
+      const feature = manifest.features[id];
+      for (const name of feature.envVars) removals.set(name, [feature.label, id]);
+    }
+
+    expect(stripEnvVars(content, removals).content).toBe(
+      [
+        '# Used from plan 4. Reserved staff activity retention. Existing events keep 90 days.',
+        'ACTIVITY_RETENTION_DAYS=730',
+        '# Used from plan 4. Reserved strict mutation switch.',
+        'ADMIN_STRICT_MUTATIONS=false',
+        '',
+      ].join('\n'),
+    );
+  });
+
   it('drops a commented assignment and the comment above it', () => {
     const content = ['# Beta OAuth (optional)', '# OAUTH_BETA_CLIENT_ID=id', ''].join('\n');
     const result = stripEnvVars(content, new Map([['OAUTH_BETA_CLIENT_ID', ['Beta', 'beta']]]));

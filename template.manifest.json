@@ -523,6 +523,35 @@
         "docs/setup/facebook-oauth-permissions.md"
       ]
     },
+    "email-code": {
+      "status": "planned",
+      "label": "Email code",
+      "description": "Reserved for plan 2. Email code sign-in is not implemented yet.",
+      "kind": "passwordless",
+      "default": false,
+      "files": [],
+      "envVars": [
+        "EMAIL_CODE_ENABLED",
+        "EMAIL_CODE_EXPIRES_IN",
+        "EMAIL_CODE_REVIEW_ACCOUNT_ID",
+        "EMAIL_CODE_REVIEW_CLIENT_ID",
+        "EMAIL_CODE_REVIEW_CODE_HASH",
+        "EMAIL_CODE_REVIEW_UNTIL"
+      ],
+      "requires": [],
+      "docs": ["docs/setup/setup-email-code.md"]
+    },
+    "invitations": {
+      "status": "planned",
+      "label": "Invitations",
+      "description": "Reserved for plan 4. Account invitations are not implemented yet.",
+      "kind": "administration",
+      "default": false,
+      "files": [],
+      "envVars": ["INVITATION_EXPIRES_IN"],
+      "requires": [],
+      "docs": ["docs/setup/setup-invitations.md"]
+    },
     "magic-link": {
       "status": "available",
       "label": "Magic link",

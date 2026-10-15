@@ -24,7 +24,7 @@ import {
   ProductionSwaggerConstraint,
   ProductionThrottleConstraint,
 } from './env.production.constraints';
-import { ProductionGuardEnvironmentVariables } from './env.production.schema';
+import { HostContractsEnvironmentVariables } from './env.host-contracts.schema';
 import {
   transformBoolean,
   transformOptionalString,
@@ -48,7 +48,7 @@ export { EnvironmentConfig } from './types/environment-config.type';
 /** 32 bytes in base64: 43 characters and one of padding. */
 const TOTP_KEY_PATTERN = /^[A-Za-z0-9+/]{43}=$/;
 
-export class EnvironmentVariables extends ProductionGuardEnvironmentVariables {
+export class EnvironmentVariables extends HostContractsEnvironmentVariables {
   @IsEnum(['development', 'production', 'test'])
   @IsOptional()
   NODE_ENV: 'development' | 'production' | 'test' = 'development';

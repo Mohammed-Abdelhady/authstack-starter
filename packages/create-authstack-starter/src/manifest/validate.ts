@@ -12,7 +12,14 @@ import {
 import { legacyDimensions, readDimensions } from './validate-dimensions.js';
 import { checkDimensions, checkRequires } from './validate-rules.js';
 
-const KINDS: FeatureKind[] = ['credential', 'oauth', 'second-factor', 'passwordless', 'hidden'];
+const KINDS: FeatureKind[] = [
+  'credential',
+  'oauth',
+  'second-factor',
+  'passwordless',
+  'administration',
+  'hidden',
+];
 
 export class ManifestError extends Error {
   constructor(public readonly problems: string[]) {

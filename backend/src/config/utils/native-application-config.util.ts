@@ -12,6 +12,7 @@ import { isAcceptableRedirectUri } from '../../session/utils/oauth/redirect-uri.
 import type { RedirectUriPolicy } from '../../session/utils/oauth/redirect-uri.util';
 import type { NativeApplicationConfiguration } from '../types/native-application.type';
 import { parseSignIn } from './native-sign-in-config.util';
+import { parseNativeApplicationPolicy } from './native-application-policy.util';
 
 const FIRST_PARTY_CLIENT_IDS = new Set([WEB_CLIENT_ID, ADMIN_CLIENT_ID]);
 const KNOWN_ENTRY_KEYS = new Set<string>(NATIVE_APPLICATION_KNOWN_KEYS);
@@ -115,6 +116,10 @@ export function parseNativeApplications(
       redirectUris,
       allowedScopes,
       ...(signIn ? { signIn } : {}),
+      ...parseNativeApplicationPolicy(
+        entry,
+        `${NATIVE_APPLICATIONS_CONFIG_VARIABLE} ${clientId}`,
+      ),
     };
   });
 }

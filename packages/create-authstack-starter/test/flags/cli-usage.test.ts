@@ -212,6 +212,25 @@ describe('config file usage errors exit 2', () => {
     return path;
   }
 
+  function answersConfig(features: string[], sha256 = TEMPLATE_SHA): Promise<string> {
+    return config(
+      JSON.stringify({
+        schemaVersion: 4,
+        packageManager: 'pnpm@12.6.0',
+        rules: { policy: 'strict' },
+        installer: { name: 'create-authstack-starter', version: '0.1.0' },
+        template: { sha256, commit: null },
+        answers: {
+          targets: ['web'],
+          database: 'mongodb',
+          features,
+          options: [],
+          locales: ['en'],
+        },
+      }),
+    );
+  }
+
   it('reports a missing file', async () => {
     const { code, output } = await run([
       ...(await target()).flags,
@@ -274,22 +293,7 @@ describe('config file usage errors exit 2', () => {
   // Catches a regeneration from a template other than the one the answers file records.
   it('refuses an answers file made from another template and writes nothing', async () => {
     const recorded = 'b'.repeat(64);
-    const path = await config(
-      JSON.stringify({
-        schemaVersion: 4,
-        packageManager: 'pnpm@12.6.0',
-        rules: { policy: 'strict' },
-        installer: { name: 'create-authstack-starter', version: '0.1.0' },
-        template: { sha256: recorded, commit: null },
-        answers: {
-          targets: ['web'],
-          database: 'mongodb',
-          features: ['email-password'],
-          options: [],
-          locales: ['en'],
-        },
-      }),
-    );
+    const path = await answersConfig(['email-password'], recorded);
     const { path: project, flags } = await target();
     const { code, output } = await run([...flags, '--config', path]);
     expect({
@@ -297,6 +301,26 @@ describe('config file usage errors exit 2', () => {
       namesBoth: output.includes(recorded) && output.includes(TEMPLATE_SHA),
       written: readdirSync(project),
     }).toEqual({ code: 2, namesBoth: true, written: [] });
+  });
+
+  // Catches replay generating a project with an unimplemented feature silently omitted.
+  it.each(['email-code', 'invitations'])(
+    'refuses planned %s in a v4 answers file and writes nothing',
+    async (feature) => {
+      const path = await answersConfig(['email-password', feature]);
+      const { path: project, flags } = await target();
+      const { code, output } = await run([...flags, '--config', path]);
+      expect(code).toBe(2);
+      expect(output).toContain(sentenceFor({ id: feature, reason: 'planned' }));
+      expect(readdirSync(project)).toEqual([]);
+    },
+  );
+
+  it('refuses email-code from --config while it is planned', async () => {
+    const path = await config(JSON.stringify({ features: ['email-code'] }));
+    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
+    expect(code).toBe(2);
+    expect(output).toContain(sentenceFor({ id: 'email-code', reason: 'planned' }));
   });
 
   it('turns options off from a config file', async () => {

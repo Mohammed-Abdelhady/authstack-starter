@@ -10,6 +10,14 @@ export const NATIVE_APPLICATION_KNOWN_KEYS = [
   'redirectUris',
   'allowedScopes',
   'signIn',
+  'signUp',
+  'audience',
+  'requirePasskey',
+  'session',
+  'firstParty',
+  'appleAppId',
+  'androidPackage',
+  'androidCertificates',
 ] as const;
 
 export const APPLICATION_PLATFORM = {

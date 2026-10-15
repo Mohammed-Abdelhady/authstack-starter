@@ -99,3 +99,20 @@ export const PERMISSION_ACTIONS = [
  * Scope segments that have a translated label under permissions.scopes.
  */
 export const PERMISSION_SCOPES = ['own', 'all'] as const;
+
+/**
+ * Outside the active catalogue and picker. The permission format accepts these,
+ * but grant validation refuses them until their plan.
+ */
+export const RESERVED_PERMISSIONS = [
+  'users:list:staff',
+  'users:read:staff',
+  'users:update:staff',
+  'users:delete:staff',
+  'users:create:staff',
+  'users:suspend:all',
+  'users:suspend:staff',
+  'activity:read:all',
+  'sessions:read:staff',
+  'sessions:delete:staff',
+] as const;

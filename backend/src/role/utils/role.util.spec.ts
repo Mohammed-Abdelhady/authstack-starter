@@ -11,6 +11,12 @@ function refusalOf(permissions: string[]): unknown {
 }
 
 describe('assertValidPermissions', () => {
+  it('still checks the format of a permission already stored on the role', () => {
+    expect(() =>
+      assertValidPermissions(['not a permission'], ['not a permission']),
+    ).toThrow(AppException);
+  });
+
   it.each([
     [['users:read:all']],
     [['users:read']],
@@ -23,6 +29,7 @@ describe('assertValidPermissions', () => {
 
   it.each([
     [['users']],
+    [['sessions:read:staff']],
     [['not a permission']],
     [['users:read:all', 'Users:Read']],
     [['']],

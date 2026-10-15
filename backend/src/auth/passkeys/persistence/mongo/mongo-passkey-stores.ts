@@ -10,8 +10,12 @@ import { MongoPasskeyChallengeStore } from './mongo-passkey-challenge.store';
 import { MongoPasskeyStore } from './mongo-passkey.store';
 
 /** The passkey stores on MongoDB, each over the model it needs. */
+export const MONGO_PASSKEY_STORE_PROVIDER: Provider = {
+  provide: PasskeyStore,
+  useClass: MongoPasskeyStore,
+};
+
 export const MONGO_PASSKEY_STORES: Provider[] = [
-  { provide: PasskeyStore, useClass: MongoPasskeyStore },
   { provide: PasskeyChallengeStore, useClass: MongoPasskeyChallengeStore },
   { provide: PasskeyAccounts, useClass: MongoPasskeyAccounts },
   { provide: PasskeySignIn, useClass: MongoPasskeySignIn },

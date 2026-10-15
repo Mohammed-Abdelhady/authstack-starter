@@ -19,6 +19,7 @@ export function parseSignIn(
   const keys = new Set([
     'password',
     'emailLink',
+    'emailCode', // feature:email-code
     'passkeys',
     'registration',
     'recovery',
@@ -33,6 +34,7 @@ export function parseSignIn(
   const flags = [
     'password',
     'emailLink',
+    'emailCode', // feature:email-code
     'passkeys',
     'registration',
     'recovery',
@@ -84,6 +86,11 @@ export function parseSignIn(
   return {
     password: value.password as boolean | undefined,
     emailLink: value.emailLink as boolean | undefined,
+    // feature:email-code:start
+    ...(value.emailCode === undefined
+      ? {}
+      : { emailCode: value.emailCode as boolean }),
+    // feature:email-code:end
     passkeys: value.passkeys as boolean | undefined,
     registration: value.registration as boolean | undefined,
     recovery: value.recovery as boolean | undefined,

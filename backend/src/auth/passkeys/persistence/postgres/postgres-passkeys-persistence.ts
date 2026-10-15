@@ -14,11 +14,12 @@ import {
   PostgresPasskeySignIn,
 } from './postgres-passkey-accounts';
 
+export const POSTGRES_PASSKEY_STORE_PROVIDER: Provider = onDatabaseWithClock(
+  PasskeyStore,
+  (database, clock) => new PostgresPasskeyStore(database, clock),
+);
+
 export const POSTGRES_PASSKEY_PROVIDERS: Provider[] = [
-  onDatabaseWithClock(
-    PasskeyStore,
-    (database, clock) => new PostgresPasskeyStore(database, clock),
-  ),
   onDatabase(
     PasskeyChallengeStore,
     (database) => new PostgresPasskeyChallengeStore(database),

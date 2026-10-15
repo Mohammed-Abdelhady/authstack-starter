@@ -1,7 +1,11 @@
 import { HttpStatus } from '@nestjs/common';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { AppException } from '../../common/exceptions/app.exception';
-import { PERMISSION_REGEX } from '../../common/constants/permissions';
+import {
+  PERMISSION_REGEX,
+  RESERVED_PERMISSIONS,
+  RESERVED_PERMISSION_MESSAGE,
+} from '../../common/constants/permissions';
 import {
   CUSTOM_ROLE_LEVEL,
   seededRoleLevel,
@@ -33,17 +37,31 @@ export function generateSlug(name: string): string {
 }
 
 /**
- * Reject permissions that do not match resource:action[:scope] or the wildcard.
+ * Reject reserved grants and malformed resource:action[:scope] permissions.
  *
  * @param permissions - Permission strings to check
- * @throws AppException INVALID_PERMISSION_FORMAT on the first malformed entry
+ * @param storedPermissions - Existing grants retained by an update
+ * @throws AppException INVALID_PERMISSION_FORMAT on the first invalid entry
  */
-export function assertValidPermissions(permissions: string[]): void {
+export function assertValidPermissions(
+  permissions: string[],
+  storedPermissions: string[] = [],
+): void {
   for (const permission of permissions) {
     if (!PERMISSION_REGEX.test(permission)) {
       throw new AppException(
         ErrorCode.INVALID_PERMISSION_FORMAT,
         `Invalid permission format: "${permission}". Must be resource:action[:scope] or wildcard "*"`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (
+      !storedPermissions.includes(permission) &&
+      RESERVED_PERMISSIONS.some((reserved) => reserved === permission)
+    ) {
+      throw new AppException(
+        ErrorCode.INVALID_PERMISSION_FORMAT,
+        RESERVED_PERMISSION_MESSAGE.replace('$value', permission),
         HttpStatus.BAD_REQUEST,
       );
     }

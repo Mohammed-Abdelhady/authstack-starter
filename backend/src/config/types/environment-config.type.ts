@@ -1,6 +1,27 @@
 import { OAuthEnvironmentConfig } from '../env.oauth.schema';
 
 export interface EnvironmentConfig extends OAuthEnvironmentConfig {
+  ADMIN_URL?: string;
+  AUTH_WEB_ENABLED?: boolean;
+  AUTH_WEB_SIGN_IN?: string;
+  AUTH_ADMIN_SIGN_IN?: string;
+  AUTH_WEB_SESSION?: string;
+  AUTH_ADMIN_SESSION?: string;
+  AUTH_NATIVE_LINK_HOST?: string;
+  // feature:email-code:start
+  EMAIL_CODE_ENABLED?: boolean;
+  EMAIL_CODE_EXPIRES_IN?: number;
+  EMAIL_CODE_REVIEW_ACCOUNT_ID?: string;
+  EMAIL_CODE_REVIEW_CLIENT_ID?: string;
+  EMAIL_CODE_REVIEW_CODE_HASH?: string;
+  EMAIL_CODE_REVIEW_UNTIL?: string;
+  // feature:email-code:end
+  ACTIVITY_RETENTION_DAYS?: number;
+  INVITATION_EXPIRES_IN?: number; // feature:invitations
+  ADMIN_STRICT_MUTATIONS?: boolean;
+  ACCOUNT_ERASE_GRACE_DAYS?: number;
+  PROVIDER_TOKEN_ENCRYPTION_KEY?: string;
+  PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS?: string;
   NODE_ENV: 'development' | 'production' | 'test';
   PORT: number;
   MONGO_URI: string; // feature:mongodb

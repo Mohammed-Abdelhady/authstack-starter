@@ -10,14 +10,13 @@ import { PasskeysController } from './passkeys.controller';
 import { PasskeyLoginController } from './passkey-login.controller';
 import { PasskeyAssertionService } from './services/passkey-assertion.service';
 import { PasskeyChallengeService } from './services/passkey-challenge.service';
-import { PasskeyConfigService } from './services/passkey-config.service';
 import { PasskeyLoginService } from './services/passkey-login.service';
 import { PasskeyManagementService } from './services/passkey-management.service';
 import { PasskeyRegistrationReauth } from './services/passkey-registration-reauth.service';
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { WebAuthnAdapter } from './services/webauthn.adapter';
-import { PasskeyStore } from './stores/passkey.store';
+import { LegacyPasskeyFactsModule } from './passkey-facts.module';
 import { UserModule } from '../../user/user.module';
 import { CommonModule } from '../../common/common.module';
 
@@ -32,6 +31,7 @@ import { CommonModule } from '../../common/common.module';
  */
 @Module({
   imports: [
+    LegacyPasskeyFactsModule,
     ConfigModule,
     // The password check a passkey is added behind.
     CommonModule,
@@ -45,7 +45,6 @@ import { CommonModule } from '../../common/common.module';
   controllers: [PasskeysController, PasskeyLoginController],
   providers: [
     WebAuthnAdapter,
-    PasskeyConfigService,
     PasskeyChallengeService,
     PasskeyRegistrationReauth,
     PasskeyRegistrationService,
@@ -57,7 +56,7 @@ import { CommonModule } from '../../common/common.module';
   ],
   exports: [
     WebAuthnAdapter,
-    PasskeyStore,
+    LegacyPasskeyFactsModule,
     PasskeyAssertionService,
     PasskeyManagementService,
     PasskeySecondFactorVerifier,
