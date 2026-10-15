@@ -7,6 +7,14 @@ const OPTIONAL_API_PREFIX = `(?:${API_GLOBAL_PREFIX}/)?`;
 const AUTH_ROUTE = `^/${OPTIONAL_API_PREFIX}auth/`;
 
 export const BROWSER_APPLICATION_ROUTES = {
+  ENROLMENT_READ: new RegExp(
+    `${AUTH_ROUTE}(?:csrf|browser-proof|identity)/?$`,
+    'u',
+  ),
+  ENROLMENT_WRITE: new RegExp(
+    `${AUTH_ROUTE}(?:logout|passkeys/register/(?:options|verify))/?$`,
+    'u',
+  ),
   MACHINE: new RegExp(
     `^/${OPTIONAL_API_PREFIX}(?:auth/native|oauth)(?:/|$)`,
     'u',

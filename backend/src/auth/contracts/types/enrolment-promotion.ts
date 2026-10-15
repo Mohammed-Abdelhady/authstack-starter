@@ -6,3 +6,9 @@ export interface EnrolmentPromotionInput {
   readonly clientId: string;
   readonly proof: VerifiedPasskeyProof;
 }
+
+export interface PromotedEnrolmentSession {
+  readonly clientId: string;
+  readonly sessionToken: string;
+  readonly csrfToken: string;
+}
