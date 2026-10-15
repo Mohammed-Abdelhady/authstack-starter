@@ -7,6 +7,7 @@ import type { EmailChangeCodeMessages } from './en/email-change-code';
 import type { EmailChangeNoticeMessages } from './en/email-change-notice';
 import type { MagicLinkMessages } from './en/magic-link';
 import type { PasswordResetCodeMessages } from './en/password-reset-code';
+import type { ProofCodeMessages } from './en/proof-code';
 import type { RegistrationNoticeMessages } from './en/registration-notice';
 import type { SecurityNoticeMessages } from './en/security-notice';
 import { EN_MAIL_CATALOGUE } from './en';
@@ -18,6 +19,7 @@ export type MailCatalogue = {
   readonly emailChangeCode: EmailChangeCodeMessages;
   readonly emailChangeNotice: EmailChangeNoticeMessages;
   readonly passwordResetCode: PasswordResetCodeMessages;
+  readonly proofCode: ProofCodeMessages;
   readonly magicLink: MagicLinkMessages;
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;

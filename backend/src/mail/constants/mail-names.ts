@@ -3,6 +3,7 @@ export const MAIL_NAME = {
   EMAIL_CHANGE_CODE: 'emailChangeCode',
   EMAIL_CHANGE_NOTICE: 'emailChangeNotice',
   PASSWORD_RESET_CODE: 'passwordResetCode',
+  PROOF_CODE: 'proofCode',
   MAGIC_LINK: 'magicLink',
   REGISTRATION_NOTICE: 'registrationNotice',
   SECURITY_NOTICE: 'securityNotice',
