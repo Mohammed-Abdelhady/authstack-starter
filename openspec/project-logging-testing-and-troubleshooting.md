@@ -41,102 +41,59 @@ Response: {
 }
 ```
 
-## Testing Strategy Details
+## Testing policy
 
-### Backend Testing Approach
+Keep only tests that catch a concrete failure with material impact on account
+access, security, persisted data, or generating and starting a working project.
+This policy overrides generic requirements to test every change. Coverage
+percentages and test counts are not acceptance criteria.
 
-#### Unit Tests (`*.spec.ts`)
+### What earns a test
 
--   Test individual services in isolation
--   Mock external dependencies (database, email service)
--   Test business logic thoroughly
--   Coverage target: >80% for services
+| Risk | Coverage to retain |
+| --- | --- |
+| Account access | Sign-in success and refusal, registration and verification, recovery, enabled sign-in methods |
+| Unauthorized access | Permission enforcement, privilege ceilings, cross-account isolation, protected routes |
+| Credential and session misuse | Expiry, revocation, replay rejection, account switching, stale in-flight responses |
+| Lost or unsafe writes | Destructive actions, persisted security settings, atomicity and meaningful race or outage failures |
+| Broken generated projects | Safe scaffolding, supported database and client startup, required runtime contracts |
 
-Example structure:
-```typescript
-describe('AuthService', () => {
-  let service: AuthService;
-  let userModel: Model<User>;
+Retain unique regressions in these areas even when the happy path already has
+coverage. A security-sensitive name alone does not justify a test. Its assertions
+must detect the material failure.
 
-  beforeEach(async () => {
-    // Setup test module with mocks
-  });
+### Choose the smallest useful layer
 
-  describe('register', () => {
-    it('should create user and send verification email', async () => {
-      // Arrange
-      // Act
-      // Assert
-    });
+- Unit tests cover important decisions, parsers, and state transitions.
+- Integration and contract tests prove real persistence, authorization, and
+  producer/consumer behavior. Assert the stored result or observable response.
+- E2E tests cover essential account and administration journeys that require the
+  running application. Keep success and meaningful refusal or recovery paths.
+  Add a browser, viewport, locale, or option combination only when it catches a
+  distinct material failure.
 
-    it('should throw error if email exists', async () => {
-      // Test error case
-    });
-  });
-});
-```
+Keep tests at multiple layers only when each catches a different failure. Extend
+an existing behavioral test before creating another file. During development,
+run the retained tests affected by the change. Before a PR, run lint, typecheck,
+the retained suite, and build. Run API and browser journeys when their flows
+change, and report unavailable checks accurately.
 
-#### E2E Tests (`test/*.e2e-spec.ts`)
+### What to remove or avoid
 
--   Test complete API flows
--   Use test database
--   Test authentication and authorization
--   Test error scenarios
--   Coverage: All critical user journeys
+- Copy, translation wording, styling, snapshots, DOM structure, and routine
+  rendering assertions.
+- Trivial getters, forwarding, component wiring, or framework behavior already
+  covered by the framework or an existing behavioral test.
+- Duplicate happy paths and exhaustive presentation or option matrices without
+  a distinct material risk.
+- Tests added only to raise a coverage percentage or satisfy a file-count rule.
 
-Example:
-```typescript
-describe('Auth (e2e)', () => {
-  it('POST /api/auth/register should create user', () => {
-    return request(app.getHttpServer())
-      .post('/api/auth/register')
-      .send({ email: 'test@example.com', password: 'Test123', name: 'Test' })
-      .expect(200)
-      .expect(res => {
-        expect(res.body.message).toContain('email sent');
-      });
-  });
-});
-```
-
-### Frontend Testing Approach
-
-#### Component Tests (React Testing Library)
-
--   Test user interactions
--   Test component rendering
--   Test form validation
--   Use `data-testid` for selectors (not text/classes)
-
-Example:
-```typescript
-describe('LoginForm', () => {
-  it('should submit form with valid credentials', async () => {
-    const onSubmit = jest.fn();
-    render(<LoginForm onSubmit={onSubmit} />);
-
-    const emailInput = screen.getByTestId('email-input');
-    const passwordInput = screen.getByTestId('password-input');
-    const submitBtn = screen.getByTestId('submit-button');
-
-    await userEvent.type(emailInput, 'test@example.com');
-    await userEvent.type(passwordInput, 'password123');
-    await userEvent.click(submitBtn);
-
-    expect(onSubmit).toHaveBeenCalledWith({
-      email: 'test@example.com',
-      password: 'password123'
-    });
-  });
-});
-```
-
-#### E2E Tests (Playwright)
-
--   Test complete user flows
--   Test across browsers
--   Test authentication flows end-to-end
--   Use `data-testid` selectors
+Routine documentation, presentation, and refactoring edits do not automatically
+need new tests. Remove redundant tests after reading their assertions and
+checking what retained coverage proves. Do not hide tests with exclusions or
+skips, retry failures into green, lower thresholds, or weaken critical assertions.
+Keep fixtures deterministic and isolated. Mock external services, and use real
+persistence for database behavior.
 
 ## Common Development Scenarios
 
@@ -145,7 +102,7 @@ describe('LoginForm', () => {
 1. **Backend**: Create endpoint behind the global session AuthGuard
 2. **Frontend**: Create page in `app/(protected)/` directory
 3. **Middleware**: Add route protection logic if needed
-4. **Tests**: Write E2E test for the flow
+4. **Tests**: Reuse permission and protected-route coverage. Add a focused case only for a new access-control risk.
 
 ### Adding a New Authentication Method
 
@@ -155,7 +112,7 @@ describe('LoginForm', () => {
 4. Update AuthService with new method
 5. Add DTO for validation
 6. Update frontend with new auth button
-7. Add tests for new flow
+7. Cover successful sign-in and material refusal or replay failures at the cheapest useful layer. Add browser coverage only for a new essential journey.
 
 ### Modifying User Schema
 

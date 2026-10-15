@@ -221,16 +221,16 @@ The project is currently being refactored from an older Express/React stack to a
 
 -   **Unit Tests**: Jest with ts-jest for TypeScript
 -   **E2E Tests**: Jest with Supertest for API testing
--   **Coverage**: Jest coverage reports required
+-   **Scope**: Critical behavior and unique regression tests only. Coverage reports are optional diagnostics, with no percentage target.
 -   **Test Location**: `*.spec.ts` files alongside source code
 -   **Test Environment**: Node.js environment
 
 #### Frontend Testing
 
--   **Testing Framework**: Jest and React Testing Library (to be configured)
--   **Component Tests**: Test component rendering and user interactions
--   **Integration Tests**: Test user flows and API integration
--   **Coverage**: Aim for >80% coverage on critical paths
+-   **Testing Framework**: Vitest and React Testing Library, with Playwright for browser journeys
+-   **Scope**: Critical authentication, authorization, session, and persisted mutation behavior
+-   **E2E**: Essential journeys that require a running application. Avoid duplicating lower-layer checks or multiplying presentation combinations.
+-   **Policy**: Follow the [critical-test policy](project-logging-testing-and-troubleshooting.md#testing-policy). New tests require a concrete material failure they would catch. Routine changes do not automatically need tests.
 
 ### Git Workflow
 
