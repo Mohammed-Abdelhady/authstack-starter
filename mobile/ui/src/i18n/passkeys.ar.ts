@@ -38,7 +38,7 @@ export const PASSKEYS_AR: Record<keyof typeof PASSKEYS_EN, string> = {
   'passkeys.failed.description': 'تعذَّر حفظه. أعد المحاولة.',
   'passkeys.renameFailed.title': 'لم تُغيَّر تسمية ⁨{name}⁩',
   'passkeys.renameFailed.description': 'تحقَّق من الاسم ثم أعد المحاولة.',
-  'passkeys.removeFailed.title': 'لم تُزَل ⁨{name}⁩',
+  'passkeys.removeFailed.title': 'لم يُزَل ⁨{name}⁩',
   'passkeys.removeFailed.lastWayIn':
     'هذه هي الطريقة الوحيدة لتسجيل الدخول إلى حسابك. أضف طريقة أخرى أولًا.',
 };
