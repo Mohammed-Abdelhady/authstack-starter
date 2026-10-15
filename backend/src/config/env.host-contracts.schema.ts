@@ -19,7 +19,13 @@ import {
   transformOptionalString,
 } from '../common/utils/environment-transform';
 import { ProductionGuardEnvironmentVariables } from './env.production.schema';
-import { HostPolicyJsonConstraint } from './env.host-contracts.constraints';
+import {
+  // feature:email-code:start
+  EmailCodeReviewGroupConstraint,
+  EmailCodeReviewUntilConstraint,
+  // feature:email-code:end
+  HostPolicyJsonConstraint,
+} from './env.host-contracts.constraints';
 import {
   ACTIVITY_RETENTION_DAYS_DEFAULT,
   EMAIL_CODE_EXPIRES_IN_DEFAULT, // feature:email-code
@@ -79,23 +85,28 @@ export class HostContractsEnvironmentVariables extends ProductionGuardEnvironmen
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_ACCOUNT_ID?: string;
 
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_CLIENT_ID?: string;
 
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_CODE_HASH?: string;
 
   @Transform(transformOptionalString)
   @IsISO8601({ strict: true })
+  @Validate(EmailCodeReviewGroupConstraint)
+  @Validate(EmailCodeReviewUntilConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_UNTIL?: string;
   // feature:email-code:end
