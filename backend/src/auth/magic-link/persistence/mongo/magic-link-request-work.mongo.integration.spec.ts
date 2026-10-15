@@ -22,6 +22,7 @@ async function bootMongoProbe(): Promise<RequestWorkProbe> {
     accounts: harness.accounts,
     runner: harness.runner,
     ledger: harness.ledger,
+    issuanceApplications: harness.issuanceApplications,
     takeStatements: () => {
       const sent = statements;
       statements = 0;

@@ -1,3 +1,8 @@
+import { ConfigService } from '@nestjs/config';
+import { AuthEpochService } from '../../../../common/services/auth-epoch.service';
+import { ApplicationRegistry } from '../../../../session/applications/application-registry';
+import { PostgresApplicationRegistryStore } from '../../../../session/persistence/postgres/postgres-application-registry.store';
+import { PostgresIssuanceApplications } from '../../../../session/persistence/postgres/postgres-issuance-applications';
 import { KyselyPlugin } from 'kysely';
 import { PostgresAddressLedger } from '../../../../common/persistence/postgres/postgres-address-ledger';
 import { PostgresUnitOfWorkRunner } from '../../../../common/persistence/postgres/postgres-unit-of-work';
@@ -38,11 +43,19 @@ async function bootPostgresProbe(): Promise<RequestWorkProbe> {
     transformResult: (answer) => Promise.resolve(answer.result),
   };
   const counted = connection.database.withPlugin(counting);
+  const runner = new PostgresUnitOfWorkRunner(counted);
+  const registry = new ApplicationRegistry(
+    runner,
+    new PostgresApplicationRegistryStore(counted),
+    new AuthEpochService(new ConfigService({})),
+  );
+  await registry.seedFirstPartyApplications();
 
   return {
     links: new PostgresMagicLinkStore(counted),
     accounts: new PostgresMagicLinkAccounts(counted),
-    runner: new PostgresUnitOfWorkRunner(counted),
+    runner,
+    issuanceApplications: new PostgresIssuanceApplications(registry),
     ledger: new PostgresAddressLedger(),
     takeStatements: () => {
       const sent = statements;

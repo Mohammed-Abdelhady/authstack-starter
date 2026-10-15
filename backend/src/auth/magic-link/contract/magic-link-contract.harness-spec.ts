@@ -1,3 +1,13 @@
+import type {
+  ApplicationPolicyConfiguration,
+  BrowserSignInConfiguration,
+} from '../../../config/types/host-policy.type';
+import { IssuanceApplications } from '../../../session/issuance/issuance-applications';
+import { RecordingSignIn } from './magic-link-sign-in.harness-spec';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
+import { SESSION_COOKIE_DEFAULT_NAME } from '../../../config/utils/production-environment.util';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
 import { AddressLedger } from '../../../common/persistence/address-ledger';
@@ -20,12 +30,7 @@ import { SessionCookieService } from '../../services/sessions/session-cookie.ser
 import { Sessions } from '../../services/sessions/sessions';
 import { MagicLinkBrowserService } from '../magic-link-browser.service';
 import { MagicLinkService } from '../magic-link.service';
-import {
-  MagicLinkAccount,
-  MagicLinkAccounts,
-  MagicLinkSignIn,
-  MagicLinkSignInOutcome,
-} from '../stores/magic-link-accounts';
+import { MagicLinkAccounts } from '../stores/magic-link-accounts';
 import { MagicLinkStore, NewMagicLink } from '../stores/magic-link.store';
 
 /** Written out, so a changed constant cannot agree with itself. */
@@ -54,6 +59,7 @@ export interface StoredLink {
 
 export interface StoredLinkAccount {
   id: string;
+  audience?: RoleAudience;
   name: string | null;
   isVerified: boolean;
   isDeleted: boolean;
@@ -70,7 +76,14 @@ export interface MagicLinkContractHarness {
   readonly accounts: MagicLinkAccounts;
   readonly runner: UnitOfWorkRunner;
   readonly ledger: AddressLedger;
+  readonly issuanceApplications: IssuanceApplications;
 
+  setApplicationPolicy(
+    clientId: string,
+    policy: ApplicationPolicyConfiguration,
+  ): Promise<void>;
+
+  seedDefaultRoleAudience(audience: RoleAudience | undefined): Promise<void>;
   seedLink(link: SeedLink): Promise<void>;
   link(tokenHash: string): Promise<StoredLink | null>;
   linkCount(): Promise<number>;
@@ -90,31 +103,6 @@ export interface MagicLinkContractHarness {
 }
 
 export type MagicLinkHarnessSource = () => MagicLinkContractHarness;
-
-const SUMMARY = {
-  email: 'signed-in@example.test',
-  name: 'Signed In',
-  role: 'user',
-  authProvider: 'email',
-  isVerified: true,
-  permissions: [],
-};
-
-/**
- * Stands where the shared sign-in stands. Sessions move behind the seam in a
- * later step, so the link cases only record which account was handed over.
- */
-class RecordingSignIn extends MagicLinkSignIn {
-  readonly accountIds: string[] = [];
-
-  complete(account: MagicLinkAccount): Promise<MagicLinkSignInOutcome> {
-    this.accountIds.push(account.id);
-    return Promise.resolve({
-      requiresTwoFactor: false,
-      user: { ...SUMMARY, id: account.id },
-    });
-  }
-}
 
 export interface LinkServices {
   service: MagicLinkService;
@@ -156,7 +144,13 @@ export function linkBrowser(): LinkBrowser {
   const cookies: Record<string, string> = {};
   const written: CookieWrite[] = [];
   const cleared: string[] = [];
+  const request = createRequestMock({
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'Contract/1' },
+    cookies,
+  });
   const response: Response = createResponseMock({
+    req: request,
     cookie: (name: string, value: string, options: CookieOptions) => {
       cookies[name] = value;
       written.push({ name, value, options });
@@ -172,11 +166,7 @@ export function linkBrowser(): LinkBrowser {
     cookies,
     written,
     cleared,
-    request: createRequestMock({
-      ip: '127.0.0.1',
-      headers: { 'user-agent': 'Contract/1' },
-      cookies,
-    }),
+    request,
     response,
   };
 }
@@ -190,21 +180,31 @@ export const LINK_REQUEST: Request = createRequestMock({
 export const LINK_RESPONSE: Response = linkBrowser().response;
 
 /** The name the session cookie has under the contract's configuration. */
-export const SESSION_COOKIE = 'sid';
+export const SESSION_COOKIE = SESSION_COOKIE_DEFAULT_NAME;
 
 /** The real service on one database's adapters, with mail kept in memory. */
 export function linkServices(
   harness: Pick<
     MagicLinkContractHarness,
-    'clock' | 'links' | 'accounts' | 'runner' | 'ledger'
+    | 'clock'
+    | 'links'
+    | 'accounts'
+    | 'runner'
+    | 'ledger'
+    | 'issuanceApplications'
   >,
-  policy: AccountCreationPolicy = new AccountCreationPolicy(),
+  policy: AccountCreationPolicy | undefined = undefined,
+  signInPolicy?: BrowserSignInConfiguration,
 ): LinkServices {
   const config = new ConfigService({
     magicLink: { expiresIn: LINK_LIFETIME_MS, maxPerHour: LINKS_PER_HOUR },
+    auth: { web: { signIn: signInPolicy } },
     cors: { clientUrl: 'http://localhost:3000' },
     smtp: { from: 'contract@example.test' },
   });
+  const creationPolicy =
+    policy ?? new AccountCreationPolicy(harness.issuanceApplications);
+  const browserApplications = browserApplicationsForTest(config);
   const mail: MailOptions[] = [];
   const mailService = new MailService(config);
   let finished = 0;
@@ -227,6 +227,7 @@ export function linkServices(
         id === undefined
           ? null
           : partialMock<AuthenticatedSession>({
+              clientId: WEB_CLIENT_ID,
               user: partialMock<AccountIdentity>({ id }),
             }),
       );
@@ -256,13 +257,14 @@ export function linkServices(
       signIn,
       new MagicLinkBrowserService(
         sessions,
-        new SessionCookieService(config),
+        new SessionCookieService(config, browserApplications),
         config,
       ),
       harness.clock,
-      policy,
+      creationPolicy,
       harness.ledger,
       harness.runner,
+      browserApplications,
     ),
     mail,
     signedIn: signIn.accountIds,
