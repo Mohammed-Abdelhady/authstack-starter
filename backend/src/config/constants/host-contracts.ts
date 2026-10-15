@@ -12,7 +12,6 @@ export const BROWSER_SIGN_IN_METHODS = [
 
 // feature:email-code:start
 export const EMAIL_CODE_EXPIRES_IN_DEFAULT = 600000;
-export const REVIEW_MAX_AHEAD_MS = 30 * 24 * 60 * 60 * 1000;
 // feature:email-code:end
 // feature:invitations:start
 export const INVITATION_EXPIRES_IN_DEFAULT = 604800000;
