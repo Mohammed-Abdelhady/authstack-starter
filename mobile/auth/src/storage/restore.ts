@@ -21,7 +21,7 @@ import type { AuthRuntime } from '../runtime/runtime';
 import { saveSessionAfterUnlock } from './session-save';
 import type { RestoreOutcome } from '../types/auth';
 import type { SignInController } from '../sign-in/sign-in';
-import type { NativeController } from '../types/native-sign-in';
+import type { NativeController } from '../types/native-sign-in-actions';
 
 export function createRestoreOperation(
   runtime: AuthRuntime,

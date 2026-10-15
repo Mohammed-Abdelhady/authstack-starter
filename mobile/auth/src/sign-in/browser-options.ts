@@ -1,7 +1,7 @@
 import { AUTHORIZE_PATH } from '../constants';
 import { NATIVE_SIGN_IN_LOCALE } from '../constants/native-sign-in-locale';
 import type { AuthConfiguration } from '../types/auth';
-import type { BrowserSignInOptions } from '../types/native-sign-in';
+import type { BrowserSignInOptions } from '../types/native-sign-in-actions';
 
 export function authorizationAddress(
   configuration: AuthConfiguration,

@@ -12,7 +12,7 @@ import type {
   NativeController,
   NativeSignInAction,
   NativeSignInOutcome,
-} from '../types/native-sign-in';
+} from '../types/native-sign-in-actions';
 import { beginNativeAttempt } from './native-start';
 import { applyNativeResult } from './native-result';
 import { parseNativeEmailCallback } from './native-email-callback';

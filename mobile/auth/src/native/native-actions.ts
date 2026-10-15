@@ -14,8 +14,8 @@ import type {
   BrowserSignInOptions,
   NativeSignInAction,
   NativeSignInOutcome,
-  NativeInteractivePrompt,
-} from '../types/native-sign-in';
+} from '../types/native-sign-in-actions';
+import type { NativeInteractivePrompt } from '../types/passkey-port';
 import { constantTimeEqual, transactionExpired } from '../storage/persistence';
 
 type NativeActionResult =
