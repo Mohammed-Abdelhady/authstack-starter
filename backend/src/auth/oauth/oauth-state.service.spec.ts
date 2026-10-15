@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -5,13 +6,20 @@ import { createHash } from 'crypto';
 import { OAuthStateService, OAuthStatePayload } from './oauth-state.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
-import { OAUTH_STATE_TTL_MS } from './oauth.constants';
+import {
+  OAUTH_STATE_COOKIE_PREFIX,
+  OAUTH_STATE_TTL_MS,
+} from './oauth.constants';
 import {
   createRequestMock,
   createResponseMock,
 } from '../../common/testing/test-doubles.harness-spec';
 
 const SECRET = 'unit-test-oauth-state-secret-value-32';
+const HOST_WEB_GOOGLE_COOKIE = `__Host-${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_google`;
+const HOST_WEB_APPLE_COOKIE = `__Host-${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_apple`;
+const WEB_GITHUB_COOKIE = `${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_github`;
+const WEB_APPLE_COOKIE = `${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_apple`;
 
 function service(nodeEnv = 'test'): OAuthStateService {
   const config: Record<string, unknown> = {
@@ -122,7 +130,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'github', payload);
 
       expect(cookie).toHaveBeenCalledWith(
-        'oauth_github',
+        WEB_GITHUB_COOKIE,
         expect.stringMatching(/^[\w-]+\.[\w-]+$/),
         {
           httpOnly: true,
@@ -146,7 +154,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'google', payload);
 
       expect(cookie).toHaveBeenCalledWith(
-        '__Host-oauth_google',
+        HOST_WEB_GOOGLE_COOKIE,
         expect.any(String),
         expect.objectContaining({ secure: true }),
       );
@@ -164,7 +172,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'apple', payload, true);
 
       expect(cookie).toHaveBeenCalledWith(
-        '__Host-oauth_apple',
+        HOST_WEB_APPLE_COOKIE,
         expect.any(String),
         expect.objectContaining({ sameSite: 'none', secure: true }),
       );
@@ -182,7 +190,7 @@ describe('OAuthStateService', () => {
       state.write(response, 'apple', payload, true);
 
       expect(cookie).toHaveBeenCalledWith(
-        'oauth_apple',
+        WEB_APPLE_COOKIE,
         expect.any(String),
         expect.objectContaining({ sameSite: 'lax', secure: false }),
       );
@@ -192,9 +200,15 @@ describe('OAuthStateService', () => {
       const state = service();
       const { response, clearCookie } = responseSpy();
 
-      state.clear(response, 'github');
+      const payload = state.create({
+        redirect: '/',
+        supportsPkce: false,
+        usesOidc: false,
+      }).payload;
+      state.write(response, 'github', payload);
+      state.clear(response, 'github', payload);
 
-      expect(clearCookie).toHaveBeenCalledWith('oauth_github', {
+      expect(clearCookie).toHaveBeenCalledWith(WEB_GITHUB_COOKIE, {
         httpOnly: true,
         secure: false,
         sameSite: 'lax',
@@ -203,7 +217,7 @@ describe('OAuthStateService', () => {
     });
   });
 
-  describe('read', () => {
+  describe('readForStart', () => {
     function issue(state: OAuthStateService): {
       value: string;
       payload: OAuthStatePayload;
@@ -218,11 +232,14 @@ describe('OAuthStateService', () => {
       return { value: cookie.mock.calls[0][1] as string, payload };
     }
 
-    it('returns the payload it signed', () => {
+    it('reads signed start context without an echoed callback state', () => {
       const state = service();
       const { value, payload } = issue(state);
 
-      const parsed = state.read(requestWith({ oauth_github: value }), 'github');
+      const parsed = state.readForStart(
+        requestWith({ [WEB_GITHUB_COOKIE]: value }),
+        'github',
+      );
 
       expect(parsed.state).toBe(payload.state);
       expect(parsed.codeVerifier).toBe(payload.codeVerifier);
@@ -233,7 +250,7 @@ describe('OAuthStateService', () => {
       const state = service();
 
       const exception = expectStateInvalid(() =>
-        state.read(requestWith({}), 'github'),
+        state.readForStart(requestWith({}), 'github'),
       );
       expect(exception.getDetails()).toEqual({ provider: 'github' });
     });
@@ -244,8 +261,8 @@ describe('OAuthStateService', () => {
       const [encoded] = value.split('.');
 
       expectStateInvalid(() =>
-        state.read(
-          requestWith({ oauth_github: `${encoded}.notarealsignature` }),
+        state.readForStart(
+          requestWith({ [WEB_GITHUB_COOKIE]: `${encoded}.notarealsignature` }),
           'github',
         ),
       );
@@ -264,8 +281,8 @@ describe('OAuthStateService', () => {
       ).toString('base64url');
 
       expectStateInvalid(() =>
-        state.read(
-          requestWith({ oauth_github: `${forged}.${signature}` }),
+        state.readForStart(
+          requestWith({ [WEB_GITHUB_COOKIE]: `${forged}.${signature}` }),
           'github',
         ),
       );
@@ -281,7 +298,10 @@ describe('OAuthStateService', () => {
 
       try {
         expectStateInvalid(() =>
-          state.read(requestWith({ oauth_github: value }), 'github'),
+          state.readForStart(
+            requestWith({ [WEB_GITHUB_COOKIE]: value }),
+            'github',
+          ),
         );
       } finally {
         jest.spyOn(Date, 'now').mockRestore();
@@ -292,6 +312,8 @@ describe('OAuthStateService', () => {
   describe('assertStateMatches', () => {
     const payload: OAuthStatePayload = {
       state: 'expected-state-value',
+      clientId: WEB_CLIENT_ID,
+      returnBase: 'http://localhost:3000',
       redirect: '/',
       expiresAt: Date.now() + 1000,
       intent: 'login',

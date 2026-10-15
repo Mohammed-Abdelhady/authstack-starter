@@ -1,3 +1,5 @@
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { OAUTH_STATE_COOKIE_PREFIX } from '../../src/auth/oauth/oauth.constants';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import type { OAuthProviderStrategy } from '../../src/auth/oauth/oauth-provider.interface';
 import { SEED_USER } from '../constants/seed-users';
@@ -13,6 +15,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { describeBrowserOAuthApplications } from './oauth-browser-applications.harness-spec';
 
 /** The state the last start handed to the provider. */
 let offeredState = '';
@@ -72,7 +75,11 @@ describe('provider link start with both credentials (e2e)', () => {
     const cookies: unknown = started.headers['set-cookie'];
     const stateCookie = (Array.isArray(cookies) ? cookies : [])
       .map(String)
-      .find((cookie) => cookie.startsWith('oauth_google='));
+      .find((cookie) =>
+        cookie.startsWith(
+          `${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_google=`,
+        ),
+      );
     if (!stateCookie) throw new Error('the start set no state cookie');
     return { state: offeredState, stateCookie: stateCookie.split(';')[0] };
   }
@@ -272,3 +279,5 @@ describe('provider link start with both credentials (e2e)', () => {
     );
   });
 });
+
+describeBrowserOAuthApplications(GOOGLE_STRATEGY, () => offeredState);

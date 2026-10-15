@@ -1,3 +1,6 @@
+import { IssuanceApplications } from '../../../../session/issuance/issuance-applications';
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from '../../oauth-provider.interface';
 import { OAuthLinkParams } from '../../types/oauth-service.types';
@@ -67,6 +70,7 @@ async function createOAuthLinkingFixture(
     userId,
     'oauth-linking-contract',
     '127.0.0.1',
+    WEB_CLIENT_ID,
   );
   const storedSession = await harness.booted.sessions
     .findOne({ tokenHash: hashToken(issued.sessionToken) })
@@ -74,8 +78,10 @@ async function createOAuthLinkingFixture(
     .lean()
     .exec();
   const config = new ConfigService({ session: { cookieName: 'link-session' } });
-  const cookies = new SessionCookieService(config);
+  const browserApplications = browserApplicationsForTest(config);
+  const cookies = new SessionCookieService(config, browserApplications);
   // feature:totp:start
+  const authFeatures = new AuthFeaturesService(config, browserApplications);
   const connection = harness.booted.connection;
   connection.model(TwoFactorChallenge.name, TwoFactorChallengeSchema);
   const challenges = connection.model<TwoFactorChallengeDocument>(
@@ -87,14 +93,16 @@ async function createOAuthLinkingFixture(
     new MongoSecondFactorChallengeStore(challenges),
     config,
     new TotpSecretCryptoService(config),
+    browserApplications,
   );
   // feature:totp:end
   const signIn = new SignInCompletion(
     harness.rolePermissions,
     sessions,
     cookies,
-    new AuthFeaturesService(config), // feature:totp
+    authFeatures, // feature:totp
     challengeService, // feature:totp
+    browserApplications,
   );
   const { linking, sync } = linkedServicesOn(harness);
   return {
@@ -116,7 +124,7 @@ async function createOAuthLinkingFixture(
       linking,
       sessions,
       cookies,
-      new AccountCreationPolicy(),
+      new AccountCreationPolicy(harness.booted.app.get(IssuanceApplications)),
       harness.ledger,
       harness.clock,
       harness.runner(rerunAtOnce),
