@@ -39,6 +39,8 @@ import {
   SignedInRequest,
 } from '../../services/passkey-registration.service';
 import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
+import { PasskeyRecorder } from '../../services/passkey-recorder.service';
+import { NoEnrolmentPromotion } from '../../services/enrolment-promotion';
 import {
   AttestationVerification,
   WebAuthnAdapter,
@@ -66,6 +68,7 @@ const ATTESTATION: AttestationVerification = {
   transports: ['internal'],
   deviceType: 'multiDevice',
   backedUp: true,
+  userVerified: false,
 };
 const LEGACY_PASSKEY_ID = new ObjectId('507f1f77bcf86cd799439201');
 const REGISTERED_USER_ID = '507f1f77bcf86cd799439211';
@@ -148,6 +151,12 @@ describe('passkey ObjectId round trip', () => {
           challengeService,
           // The proof asked before a passkey is added has its own cases.
           partialMock<PasskeyRegistrationReauth>({}),
+          new PasskeyRecorder(
+            new MongoPasskeyStore(passkeys),
+            new MongoPasskeyAccounts(users),
+            new MongoUnitOfWorkRunner(connection),
+            new NoEnrolmentPromotion(),
+          ),
         );
         const management = new PasskeyManagementService(
           new MongoPasskeyStore(passkeys),
@@ -156,6 +165,7 @@ describe('passkey ObjectId round trip', () => {
             new AuthFeaturesService(config),
           ),
           new MongoUnitOfWorkRunner(connection),
+          new PasskeyConfigService(config),
         );
 
         await users.create({
@@ -284,7 +294,11 @@ function createResponse(): {
 }
 
 /** The session the round-trip challenge is issued to and answered on. */
-const ROUND_TRIP_SESSION = { id: 'round-trip-session', createdAt: new Date(0) };
+const ROUND_TRIP_SESSION = {
+  id: 'round-trip-session',
+  createdAt: new Date(0),
+  clientId: 'web',
+};
 
 function createRequest(cookies: Record<string, string>): SignedInRequest {
   return new Proxy(expressRequest, {

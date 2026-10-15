@@ -8,7 +8,9 @@ import {
 import { MongoPasskeyAccounts } from '../persistence/mongo/mongo-passkey-accounts';
 import { MongoPasskeyStore } from '../persistence/mongo/mongo-passkey.store';
 import { PasskeyChallengeService } from './passkey-challenge.service';
+import { PasskeyRecorder } from './passkey-recorder.service';
 import { WebAuthnAdapter } from './webauthn.adapter';
+import { NewPasskey } from '../stores/passkey.store';
 import {
   createModelMock,
   partialMock,
@@ -41,9 +43,10 @@ const ATTESTATION = {
   transports: ['internal'],
   deviceType: 'multiDevice',
   backedUp: true,
+  userVerified: false,
 };
 
-const SESSION = { id: 'session-one', createdAt: new Date(0) };
+const SESSION = { id: 'session-one', createdAt: new Date(0), clientId: 'web' };
 
 /** A request on the session the challenge is issued to. */
 function signedIn(cookies: Record<string, string>): SignedInRequest {
@@ -96,14 +99,15 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
   };
 
   const challenges = createChallengeService();
+  const store = new MongoPasskeyStore(
+    createModelMock<ConstructorParameters<typeof MongoPasskeyStore>[0]>(
+      passkeyModel,
+    ),
+  );
 
   return {
     service: new PasskeyRegistrationService(
-      new MongoPasskeyStore(
-        createModelMock<ConstructorParameters<typeof MongoPasskeyStore>[0]>(
-          passkeyModel,
-        ),
-      ),
+      store,
       new MongoPasskeyAccounts(
         createModelMock<ConstructorParameters<typeof MongoPasskeyAccounts>[0]>(
           userModel,
@@ -115,6 +119,11 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
       // The proof asked before a passkey is added has its own cases.
       partialMock<PasskeyRegistrationReauth>({
         assertMayAddPasskey: () => Promise.resolve(),
+      }),
+      // The unit of work around the insert runs on a real database in the
+      // contract; here the insert is the model call it ends in.
+      partialMock<PasskeyRecorder>({
+        record: (passkey: NewPasskey) => store.insert(passkey),
       }),
     ),
     adapter,
@@ -199,9 +208,12 @@ describe('PasskeyRegistrationService', () => {
         .calls[0][1] as Record<string, unknown>;
       expect(expected).toEqual({
         challenge: 'challenge-value',
-        origin: ORIGIN,
+        origins: [ORIGIN],
         rpId: RP_ID,
+        // Today's rule until the application policy reader lands.
+        userVerification: 'preferred',
       });
+      expect(stored.rpId).toBe(RP_ID);
     });
 
     it('should refuse a challenge issued to another account', async () => {
