@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Document, MongoClient, ObjectId } from 'mongodb';
 import {
@@ -134,6 +135,7 @@ describe('passkey ObjectId round trip', () => {
         ]);
 
         const config = new ConfigService(TEST_CONFIGURATION);
+        const browserApplications = browserApplicationsForTest(config);
         const challengeService = new PasskeyChallengeService(
           new MongoPasskeyChallengeStore(challenges),
           config,
@@ -153,7 +155,7 @@ describe('passkey ObjectId round trip', () => {
           new MongoPasskeyStore(passkeys),
           new SignInMethodRule(
             new MongoSignInMethodStore(users, passkeys),
-            new AuthFeaturesService(config),
+            new AuthFeaturesService(config, browserApplications),
           ),
           new MongoUnitOfWorkRunner(connection),
         );

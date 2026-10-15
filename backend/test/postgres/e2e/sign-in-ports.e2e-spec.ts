@@ -76,6 +76,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
     const id = accounts.newAccountId();
     const activated = await port(UnitOfWorkRunner).run((unitOfWork) =>
       accounts.insertActivated(unitOfWork, {
+        audience: undefined,
         id,
         email: 'new@example.test',
         passwordHash: bcrypt.hashSync('Correct-Horse-9', 4),
@@ -158,6 +159,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
   it('signs in an account a magic link created', async () => {
     const created = await port(UnitOfWorkRunner).run((work) =>
       port(MagicLinkAccounts).createPasswordlessIn(work, {
+        audience: undefined,
         email: 'passwordless@example.test',
         name: 'Passwordless',
         locale: 'en',

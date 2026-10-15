@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -63,7 +64,8 @@ async function refusalOf(promise: Promise<unknown>): Promise<Refusal> {
  */
 class Switches extends AuthFeaturesService {
   constructor(private readonly twoFactorOn: boolean) {
-    super(new ConfigService());
+    const config = new ConfigService({});
+    super(config, browserApplicationsForTest(config));
   }
 
   override isEnabled(feature: AuthFeature): boolean {

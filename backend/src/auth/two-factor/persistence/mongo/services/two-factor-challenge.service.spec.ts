@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../../common/testing/browser-applications.harness-spec';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -47,6 +48,7 @@ function createHarness(): Harness {
     'twoFactor.encryptionKey': KEY,
     NODE_ENV: 'test',
   });
+  const browserApplications = browserApplicationsForTest(configService);
 
   return {
     service: new TwoFactorChallengeService(
@@ -57,6 +59,7 @@ function createHarness(): Harness {
       ),
       configService,
       new TotpSecretCryptoService(configService),
+      browserApplications,
     ),
     model,
   };

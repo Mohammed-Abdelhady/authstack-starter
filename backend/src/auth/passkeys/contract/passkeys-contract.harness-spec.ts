@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
@@ -120,13 +121,14 @@ export function passkeyServices(
     magicLink: { enabled: features.magicLink ?? false },
     NODE_ENV: 'test',
   });
+  const browserApplications = browserApplicationsForTest(config);
   const storeCalls: string[] = [];
   const passkeys = recorded(harness.passkeys, 'passkeys', storeCalls);
   const accounts = recorded(harness.accounts, 'accounts', storeCalls);
   const challenges = recorded(harness.challenges, 'challenges', storeCalls);
   const authenticator = new ScriptedAuthenticator();
   const passkeyConfig = new PasskeyConfigService(config);
-  const featureSwitches = new AuthFeaturesService(config);
+  const featureSwitches = new AuthFeaturesService(config, browserApplications);
   const challenge = new PasskeyChallengeService(challenges, config);
   const assertion = new PasskeyAssertionService(
     passkeys,

@@ -89,12 +89,17 @@ export function lockoutRouteCases(
       failedAttempts: 5,
       lockedUntil: after(FIRST_LOCK_MS),
     });
+    const browserApplications = services.browserApplications;
+    const config = new ConfigService({});
     const completion = new SignInCompletion(
       partialMock<RolePermissions>({}),
-      partialMock<Sessions>({}),
+      partialMock<Sessions>({
+        assertAdmission: () => Promise.resolve(),
+      }),
       partialMock<SessionCookieService>({}),
-      new AuthFeaturesService(new ConfigService({})),
+      new AuthFeaturesService(config, browserApplications),
       services.challenge,
+      browserApplications,
     );
     const holder = browser();
 

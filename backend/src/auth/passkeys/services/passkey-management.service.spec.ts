@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
@@ -88,12 +89,15 @@ function createHarness(state: AccountState = {}): Harness {
     'magicLink.enabled': state.magicLinkEnabled ?? false,
   };
 
+  const config = Object.assign(new ConfigService(), {
+    get: jest.fn((key: string, fallback?: boolean) =>
+      key in features ? features[key] : fallback,
+    ),
+  });
+  const browserApplications = browserApplicationsForTest(config);
   const authFeaturesService = new AuthFeaturesService(
-    Object.assign(new ConfigService(), {
-      get: jest.fn((key: string, fallback?: boolean) =>
-        key in features ? features[key] : fallback,
-      ),
-    }),
+    config,
+    browserApplications,
   );
 
   return {
