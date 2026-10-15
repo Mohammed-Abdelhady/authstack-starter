@@ -13,8 +13,12 @@ export async function storePostgresNativeRegistration(
   unitOfWork: UnitOfWork,
   registration: NativeRegistration,
 ): Promise<void> {
+  const { accountAudience, ...policy } = registration;
   const configured = {
-    ...postgresApplicationPolicyFields(registration),
+    ...postgresApplicationPolicyFields(policy),
+    ...(accountAudience === undefined
+      ? {}
+      : { account_audience: accountAudience }),
     display_name: registration.displayName,
     enabled: true,
     redirect_uris: registration.redirectUris,

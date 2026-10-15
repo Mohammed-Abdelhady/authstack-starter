@@ -10,6 +10,7 @@ import {
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
 import { AuthEpochService } from '../../common/services/auth-epoch.service';
+import { SIGN_UP_POLICY } from '../../config/constants/host-contracts';
 import type { NativeApplicationConfiguration } from '../../config/types/native-application.type';
 import {
   ADMIN_CLIENT_ID,
@@ -221,6 +222,8 @@ export class ApplicationRegistry {
         }
       }
       for (const { application, policy } of configuredPolicies) {
+        // Account creation and the audience audit read these from the row.
+        // The native policy version stays as it is until native sessions carry one.
         await this.store.storeNativeRegistration(unitOfWork, {
           clientId: application.clientId,
           environment,
@@ -229,6 +232,8 @@ export class ApplicationRegistry {
           allowedScopes: application.allowedScopes,
           audiences: [DEFAULT_API_AUDIENCE],
           policy,
+          signUp: application.signUp ?? SIGN_UP_POLICY.OPEN,
+          accountAudience: application.audience ?? null,
           endsSessions: endsSessions(
             stored.get(application.clientId),
             application,
