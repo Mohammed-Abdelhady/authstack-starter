@@ -3,6 +3,7 @@ import { ModuleRef } from '@nestjs/core'; // feature:oauth-core
 import { createHash } from 'node:crypto';
 import type { NativeMethods, NativeProviderMethod } from '@app/sdk';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
+import { nativePasskeysAvailable } from '../../../config/utils/native-passkeys-available';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import { OAuthRegistryService } from '../../oauth/oauth-registry.service'; // feature:oauth-core
@@ -55,10 +56,7 @@ export class NativeMethodsService {
     const password = enabled && signIn?.password === true && passwordFeature;
     const emailLink = enabled && signIn?.emailLink === true && emailLinkFeature;
     const passkeys =
-      enabled &&
-      signIn?.passkeys === true &&
-      Boolean(signIn.rpId && signIn.origins?.length) &&
-      passkeyFeature;
+      enabled && nativePasskeysAvailable(signIn) && passkeyFeature;
     return {
       nativeEnabled: enabled,
       methods: {
