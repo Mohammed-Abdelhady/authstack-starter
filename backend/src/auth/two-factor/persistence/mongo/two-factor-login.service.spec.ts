@@ -1,3 +1,5 @@
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor';
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 // The verification service reaches the otplib adapter; the delta is driven
 // from here instead.
 jest.mock('../../utils/totp.util', () => ({
@@ -70,29 +72,35 @@ interface Harness {
     consume: jest.Mock;
     clear: jest.Mock;
   };
-  signInService: { issueSession: jest.Mock };
+  signInService: { assertAdmission: jest.Mock; issueSession: jest.Mock };
   verifier: { supports: jest.Mock; verify: jest.Mock };
 }
 
 function createHarness(user: MockUser | null): Harness {
+  const browserApplications = browserApplicationsForTest();
   const userModel = {
     findById: jest.fn().mockResolvedValue(user),
     updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
   };
 
   const challengeService = {
-    read: jest
-      .fn()
-      .mockResolvedValue({ challengeId: CHALLENGE_ID, userId: USER_ID }),
-    claim: jest
-      .fn()
-      .mockResolvedValue({ challengeId: CHALLENGE_ID, userId: USER_ID }),
+    read: jest.fn().mockResolvedValue({
+      challengeId: CHALLENGE_ID,
+      userId: USER_ID,
+      firstFactor: FIRST_FACTOR.PASSWORD,
+    }),
+    claim: jest.fn().mockResolvedValue({
+      challengeId: CHALLENGE_ID,
+      userId: USER_ID,
+      firstFactor: FIRST_FACTOR.PASSWORD,
+    }),
     registerFailure: jest.fn().mockResolvedValue(undefined),
     consume: jest.fn().mockResolvedValue(undefined),
     clear: jest.fn(),
   };
 
   const signInService = {
+    assertAdmission: jest.fn().mockResolvedValue(undefined),
     issueSession: jest.fn().mockResolvedValue(USER_SUMMARY),
   };
 
@@ -129,6 +137,7 @@ function createHarness(user: MockUser | null): Harness {
       new TwoFactorVerificationService(accounts, createCrypto()),
       new MongoSecondFactorSignIn(partialMock<SignInService>(signInService)),
       [verifierOnDocuments],
+      browserApplications,
     ),
     challengeService,
     signInService,

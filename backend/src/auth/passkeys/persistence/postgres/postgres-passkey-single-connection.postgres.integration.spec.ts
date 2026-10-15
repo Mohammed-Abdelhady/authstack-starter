@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
@@ -96,16 +97,16 @@ describe('passkey removal on a PostgreSQL pool of one connection', () => {
       .executeTakeFirstOrThrow();
     const removedId = await seedPasskey(account.id, 'Y3JlZGVudGlhbC1vbmU');
     const keptId = await seedPasskey(account.id, 'Y3JlZGVudGlhbC10d28');
+    const config = new ConfigService({
+      auth: { passwordEnabled: false },
+      magicLink: { enabled: false },
+    });
+    const browserApplications = browserApplicationsForTest(config);
     const management = new PasskeyManagementService(
       new PostgresPasskeyStore(database, new FrozenClock(TEST_NOW)),
       new SignInMethodRule(
         new PostgresSignInMethodStore(database),
-        new AuthFeaturesService(
-          new ConfigService({
-            auth: { passwordEnabled: false },
-            magicLink: { enabled: false },
-          }),
-        ),
+        new AuthFeaturesService(config, browserApplications),
       ),
       new PostgresUnitOfWorkRunner(database),
     );
