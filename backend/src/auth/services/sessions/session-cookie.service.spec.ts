@@ -1,3 +1,4 @@
+import { BROWSER_APPLICATIONS_TEST_PROVIDER } from '../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { SessionCookieService } from './session-cookie.service';
@@ -24,6 +25,7 @@ describe('SessionCookieService (X-13, D-29)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SessionCookieService,
+        BROWSER_APPLICATIONS_TEST_PROVIDER,
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();
