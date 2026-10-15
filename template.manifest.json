@@ -546,7 +546,6 @@
         "backend/src/auth/native/lifecycle/native-email-code-review.service.ts",
         "backend/src/auth/native/lifecycle/email-code-review.ts",
         "backend/src/auth/native/lifecycle/email-code-review.spec.ts",
-        "backend/src/auth/native/services/native-methods.email-code.spec.ts",
         "backend/src/auth/native/lifecycle/email-code-minutes.ts",
         "backend/src/auth/native/lifecycle/email-code-minutes.spec.ts",
         "backend/src/auth/native/lifecycle/dto/native-email-code-verify.dto.ts",
