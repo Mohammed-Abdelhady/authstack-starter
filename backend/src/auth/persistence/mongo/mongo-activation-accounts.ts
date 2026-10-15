@@ -7,7 +7,10 @@ import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import { storedLocale } from '../../../common/constants/locales';
+import {
+  storedLocale,
+  type SupportedLocale,
+} from '../../../common/constants/locales';
 import {
   User,
   UserDocument,
@@ -22,6 +25,7 @@ import {
   AddressOwner,
   MovedAccount,
   NewActivatedAccount,
+  OwnPendingAddress,
 } from '../../pending-codes/activation-accounts';
 import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
 import { SignInService } from './sign-in.service';
@@ -50,6 +54,10 @@ class MongoMovedAccount extends MovedAccount {
 
   get addressGeneration(): number {
     return this.document.addressGeneration ?? 0;
+  }
+
+  get locale(): SupportedLocale {
+    return storedLocale(this.document.locale);
   }
 }
 
@@ -100,6 +108,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
       pendingEmail: user.pendingEmail,
       isVerified: user.isVerified === true,
       addressGeneration: user.addressGeneration ?? 0,
+      locale: storedLocale(user.locale),
     };
   }
 
@@ -167,6 +176,19 @@ export class MongoActivationAccounts extends ActivationAccounts {
       }
       throw error;
     }
+  }
+
+  async savePendingAddress(
+    unitOfWork: UnitOfWork,
+    account: MovedAccount,
+    pending: OwnPendingAddress,
+  ): Promise<void> {
+    if (!(account instanceof MongoMovedAccount)) {
+      throw new Error('This account was not read from MongoDB');
+    }
+    account.document.pendingEmail = pending.email ?? undefined;
+    account.document.addressGeneration = pending.addressGeneration;
+    await account.document.save({ session: mongoSessionOf(unitOfWork) });
   }
 }
 

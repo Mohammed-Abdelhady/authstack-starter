@@ -9,6 +9,7 @@ import {
   AddressOwner,
   MovedAccount,
   NewActivatedAccount,
+  OwnPendingAddress,
 } from '../../pending-codes/activation-accounts';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
@@ -25,7 +26,10 @@ import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-
 import { storedAddress } from './postgres-pending-codes-database';
 import { newPostgresId } from '../../../common/persistence/postgres/postgres-new-id';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
-import { storedLocale } from '../../../common/constants/locales';
+import {
+  storedLocale,
+  type SupportedLocale,
+} from '../../../common/constants/locales';
 
 class PostgresActivatedAccount extends ActivatedAccount {
   constructor(readonly signIn: SignInAccount) {
@@ -53,6 +57,7 @@ class PostgresMovedAccount extends MovedAccount {
     readonly email: string,
     readonly pendingEmail: string | undefined,
     readonly addressGeneration: number,
+    readonly locale: SupportedLocale,
   ) {
     super();
   }
@@ -102,7 +107,13 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('users')
-        .select(['email', 'pending_email', 'is_verified', 'address_generation'])
+        .select([
+          'email',
+          'pending_email',
+          'is_verified',
+          'address_generation',
+          'locale',
+        ])
         .where('id', '=', toUuid(userId))
         .executeTakeFirst();
       return row
@@ -111,6 +122,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
             pendingEmail: row.pending_email ?? undefined,
             isVerified: row.is_verified,
             addressGeneration: row.address_generation,
+            locale: storedLocale(row.locale),
           }
         : null;
     });
@@ -164,7 +176,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
   ): Promise<MovedAccount | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('users')
-      .select(['id', 'email', 'pending_email', 'address_generation'])
+      .select(['id', 'email', 'pending_email', 'address_generation', 'locale'])
       .where('id', '=', toUuid(userId))
       .where('is_deleted', '=', false)
       .forNoKeyUpdate()
@@ -176,6 +188,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
           row.email ?? '',
           row.pending_email ?? undefined,
           row.address_generation,
+          storedLocale(row.locale),
         )
       : null;
   }
@@ -202,6 +215,26 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     } catch (error) {
       throw accountFailure(error);
     }
+  }
+
+  async savePendingAddress(
+    unitOfWork: UnitOfWork,
+    account: MovedAccount,
+    pending: OwnPendingAddress,
+  ): Promise<void> {
+    if (!(account instanceof PostgresMovedAccount)) {
+      throw new Error('This account was not read from PostgreSQL');
+    }
+    await postgresTransactionOf(unitOfWork)
+      .updateTable('users')
+      .set({
+        pending_email:
+          pending.email === null ? null : storedAddress(pending.email),
+        address_generation: pending.addressGeneration,
+        updated_at: this.clock.now(),
+      })
+      .where('id', '=', account.id)
+      .execute();
   }
 }
 
