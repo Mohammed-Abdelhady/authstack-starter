@@ -26,6 +26,35 @@ async function sentTo(world: OwnEmailWorld): Promise<string[][]> {
   return (await world.sent()).map((mail) => [mail.to, mail.subject]);
 }
 
+/** The statements each store call runs on both databases. */
+const STATEMENTS = {
+  isFree: ['users read', 'claims read'],
+  claim: ['claims write', 'users read'],
+  release: ['claims write'],
+  hasActiveAccount: ['users read'],
+  putEmailChangeCodeIn: ['codes write'],
+  claimCode: ['codes write'],
+} as const;
+
+/** The statements a request for `address` ran around the availability read. */
+async function statementsOf(
+  world: OwnEmailWorld,
+  address: string,
+): Promise<string[]> {
+  const calls = [
+    ['isFree', jest.spyOn(world.ledger, 'isFree')],
+    ['claim', jest.spyOn(world.ledger, 'claim')],
+    ['release', jest.spyOn(world.ledger, 'release')],
+    ['hasActiveAccount', jest.spyOn(world.accounts, 'hasActiveAccount')],
+    ['putEmailChangeCodeIn', jest.spyOn(world.codes, 'putEmailChangeCodeIn')],
+    ['claimCode', jest.spyOn(world.codes, 'claimCode')],
+  ] as const;
+  await world.requests.request(world.caller(), address);
+  return calls
+    .flatMap(([name, spy]) => spy.mock.calls.flatMap(() => STATEMENTS[name]))
+    .sort();
+}
+
 describe('OwnEmailRequestService', () => {
   let world: OwnEmailWorld;
 
@@ -171,6 +200,30 @@ describe('OwnEmailRequestService', () => {
     }
     expect(world.accounts.row(ACCOUNT_ID).pendingEmail).toBeUndefined();
     expect(await world.sent()).toEqual([]);
+  });
+
+  it('runs the statements of a free address for a held one, so the time an answer takes tells nothing', async () => {
+    const held = ownEmailWorld();
+    addAccount(held, { id: OTHER_ID, email: HELD_ADDRESS });
+    const claimed = ownEmailWorld();
+    claimed.ledger.claims.set(HELD_ADDRESS, {
+      address: HELD_ADDRESS,
+      owner: OTHER_ID,
+      kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+      lapsesAt: new Date('2099-01-02T00:00:00.000Z'),
+    });
+
+    const free = await statementsOf(world, NEW_ADDRESS);
+
+    expect(free).toEqual([
+      'claims read',
+      'claims write',
+      'codes write',
+      'users read',
+      'users read',
+    ]);
+    expect(await statementsOf(held, HELD_ADDRESS)).toEqual(free);
+    expect(await statementsOf(claimed, HELD_ADDRESS)).toEqual(free);
   });
 
   it('rolls back a claim lost to another request and stores the request as held', async () => {
