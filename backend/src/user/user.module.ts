@@ -19,6 +19,7 @@ import {
 } from './persistence/user-persistence';
 import { AccountSessions } from './stores/account-sessions';
 import { AccountProfileStore } from './stores/account-profile.store';
+import { UserEmailModule } from './email/user-email.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AccountProfileStore } from './stores/account-profile.store';
     ...USER_PERSISTENCE_IMPORTS,
     forwardRef(() => AuthModule),
     SessionModule,
+    forwardRef(() => UserEmailModule),
   ],
   controllers: [
     UserProfileController,
