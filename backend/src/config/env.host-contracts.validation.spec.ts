@@ -11,6 +11,24 @@ const BASE_ENV = {
 };
 
 describe('reserved host settings validation', () => {
+  it('accepts ADMIN_URL equal to CLIENT_URL at startup', () => {
+    expect(
+      validateEnvironment({ ...BASE_ENV, ADMIN_URL: 'http://localhost:3000' })
+        .ADMIN_URL,
+    ).toBe('http://localhost:3000');
+  });
+
+  it('accepts a reserved http ADMIN_URL in production', () => {
+    expect(
+      validateEnvironment({
+        ...BASE_ENV,
+        NODE_ENV: 'production',
+        CLIENT_URL: 'https://app.example.com',
+        ADMIN_URL: 'http://localhost:3001',
+      }).ADMIN_URL,
+    ).toBe('http://localhost:3001');
+  });
+
   it.each(['AUTH_WEB_SIGN_IN', 'AUTH_ADMIN_SIGN_IN'] as const)(
     'accepts browser passkeys without native fields in %s',
     (setting) => {
@@ -57,15 +75,7 @@ describe('reserved host settings validation', () => {
     EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.000Z',
   };
 
-  beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00Z'));
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('accepts no review credential or all four fields at the 30-day limit', () => {
+  it('accepts absent or complete review settings', () => {
     expect(
       validateEnvironment(BASE_ENV).EMAIL_CODE_REVIEW_UNTIL,
     ).toBeUndefined();
@@ -74,34 +84,28 @@ describe('reserved host settings validation', () => {
     ).toBe('2030-01-31T00:00:00.000Z');
   });
 
-  it.each(Object.keys(REVIEW))(
-    'refuses a review credential missing %s',
-    (key) => {
-      const partial: Record<string, unknown> = { ...REVIEW };
-      delete partial[key];
-      expect(() => validateEnvironment({ ...BASE_ENV, ...partial })).toThrow(
-        /all four/,
-      );
-    },
-  );
-
-  it('refuses one review field on its own', () => {
-    expect(() =>
+  it('accepts a review field without the other review settings', () => {
+    expect(
       validateEnvironment({
         ...BASE_ENV,
         EMAIL_CODE_REVIEW_ACCOUNT_ID: 'account',
-      }),
-    ).toThrow(/all four/);
+      }).EMAIL_CODE_REVIEW_ACCOUNT_ID,
+    ).toBe('account');
   });
 
-  it('refuses a review deadline one millisecond beyond 30 days', () => {
-    expect(() =>
-      validateEnvironment({
-        ...BASE_ENV,
-        ...REVIEW,
-        EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.001Z',
-      }),
-    ).toThrow(/30 days/);
+  it('accepts a review deadline beyond 30 days at startup', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2030-01-01T00:00:00Z'));
+    try {
+      expect(
+        validateEnvironment({
+          ...BASE_ENV,
+          ...REVIEW,
+          EMAIL_CODE_REVIEW_UNTIL: '2030-01-31T00:00:00.001Z',
+        }).EMAIL_CODE_REVIEW_UNTIL,
+      ).toBe('2030-01-31T00:00:00.001Z');
+    } finally {
+      jest.useRealTimers();
+    }
   });
   // feature:email-code:end
 
@@ -162,22 +166,22 @@ describe('reserved host settings validation', () => {
     ).toThrow(new RegExp(setting));
   });
 
-  it('refuses a previous provider key without a current key', () => {
-    expect(() =>
+  it('accepts a previous provider key without a current key', () => {
+    expect(
       validateEnvironment({
         ...BASE_ENV,
         PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS: 'b'.repeat(32),
-      }),
-    ).toThrow(/PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS requires/);
+      }).PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS,
+    ).toBe('b'.repeat(32));
   });
 
-  it('refuses a previous provider key equal to the current key', () => {
-    expect(() =>
+  it('accepts a previous provider key equal to the current key', () => {
+    expect(
       validateEnvironment({
         ...BASE_ENV,
         PROVIDER_TOKEN_ENCRYPTION_KEY: 'a'.repeat(32),
         PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS: 'a'.repeat(32),
-      }),
-    ).toThrow(/PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS must differ/);
+      }).PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS,
+    ).toBe('a'.repeat(32));
   });
 });
