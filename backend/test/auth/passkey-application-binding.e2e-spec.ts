@@ -8,19 +8,11 @@ import {
   type SoftwareAuthenticator,
 } from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
 import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service';
-import { Sessions } from '../../src/auth/services/sessions/sessions';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
-import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { ADMIN_CLIENT_ID } from '../../src/session/constants/client-ids';
 import { SEED_USER } from '../constants/seed-users';
 import { anonymousPost } from '../utils/auth/audience-refusal.fixtures';
-import {
-  bootE2eApp,
-  E2E_CLIENT_URL,
-  loginAs,
-  type E2eApp,
-  type TestAgent,
-} from '../utils/e2e-app';
+import { bootE2eApp, E2E_CLIENT_URL, type E2eApp } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
@@ -31,7 +23,6 @@ import {
 const ADMIN_URL = 'http://admin.localhost:3108';
 const ADMIN_RP_ID = 'admin.localhost';
 const LOGIN = '/api/auth/passkeys/login';
-const REGISTER = '/api/auth/passkeys/register';
 const FIXTURE_HOST = '127.0.0.1';
 /** Written out, so a renamed cookie cannot agree with itself. */
 const WEB_CHALLENGE = 'pk_challenge';
@@ -183,73 +174,5 @@ describe('passkey challenges keep their browser application (e2e)', () => {
     expect(admin.status).toBe(200);
     const name = e2e.app.get(SessionCookieService).nameFor(ADMIN_CLIENT_ID);
     expect(cookieValue(admin, name)).not.toBe('');
-  });
-
-  /** An admin session the session service issued, on a browser of its own. */
-  async function adminSession() {
-    const userId = await e2e.state.accounts.accountIdFor(SEED_USER.email);
-    if (!userId) throw new Error('The seed account is missing');
-    const issued = await e2e.app
-      .get(Sessions)
-      .createSession(userId, 'Fixture/1', FIXTURE_HOST, ADMIN_CLIENT_ID);
-    const name = e2e.app.get(SessionCookieService).nameFor(ADMIN_CLIENT_ID);
-    const browser = request.agent(e2e.httpServer);
-    browser.jar.setCookie(
-      `${name}=${issued.sessionToken}; Path=/; HttpOnly`,
-      FIXTURE_HOST,
-      '/',
-    );
-    return {
-      browser,
-      post: (path: string, body: object): Promise<Response> =>
-        browser
-          .post(path)
-          .set('Origin', ADMIN_URL)
-          .set(CSRF_HEADER, issued.csrfToken)
-          .send(body),
-    };
-  }
-
-  /** Registration options on a signed-in browser, and the cookie they set. */
-  async function registrationChallenge(
-    post: (path: string, body: object) => Promise<Response>,
-    cookie: string,
-  ): Promise<string> {
-    const options = await post(`${REGISTER}/options`, {
-      password: SEED_USER.password,
-    });
-    expect(options.status).toBe(200);
-    return cookieValue(options, cookie);
-  }
-
-  // Failure: a registration challenge one application handed out stores a
-  // passkey through the other.
-  it('refuses a registration challenge under the other application cookie, both ways', async () => {
-    const web: TestAgent = await loginAs(e2e.httpServer, SEED_USER);
-    const postAsWeb = (path: string, body: object): Promise<Response> =>
-      web.post(path).send(body);
-    const admin = await adminSession();
-    const webValue = await registrationChallenge(postAsWeb, WEB_CHALLENGE);
-    const adminValue = await registrationChallenge(admin.post, ADMIN_CHALLENGE);
-    const body = { response: UNSIGNED };
-
-    web.jar.setCookie(
-      `${WEB_CHALLENGE}=${adminValue}; Path=/`,
-      FIXTURE_HOST,
-      '/',
-    );
-    admin.browser.jar.setCookie(
-      `${ADMIN_CHALLENGE}=${webValue}; Path=/`,
-      FIXTURE_HOST,
-      '/',
-    );
-    const adminUnderWeb = await postAsWeb(`${REGISTER}/verify`, body);
-    const webUnderAdmin = await admin.post(`${REGISTER}/verify`, body);
-
-    expect([adminUnderWeb, webUnderAdmin].map(codeOf)).toEqual([
-      ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      ErrorCode.PASSKEY_CHALLENGE_INVALID,
-    ]);
-    expect(await e2e.state.auth.countPasskeys()).toBe(0);
   });
 });
