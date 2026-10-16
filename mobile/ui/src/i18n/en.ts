@@ -5,6 +5,7 @@ import { ROLE_EN } from './role.en';
 import { SESSIONS_EN } from './sessions.en';
 import { SIGN_IN_EN } from './sign-in.en';
 import { PASSKEYS_EN } from './passkeys.en'; // feature:passkeys
+import { DELETION_EN } from './deletion.en';
 
 export const EN = {
   ...COMMON_EN,
@@ -14,6 +15,7 @@ export const EN = {
   ...SESSIONS_EN,
   ...NATIVE_EN,
   ...PASSKEYS_EN, // feature:passkeys
+  ...DELETION_EN,
 };
 
 export type MessageKey = keyof typeof EN;
