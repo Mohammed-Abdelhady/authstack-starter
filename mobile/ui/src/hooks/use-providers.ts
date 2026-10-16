@@ -1,4 +1,3 @@
-import { NATIVE_PROVIDER_SDK_MODE } from '@app/core';
 import type { ProviderSignInPort } from '@app/native-auth';
 import {
   createApiClient,
@@ -8,9 +7,11 @@ import {
   type NativeProviderMethod,
 } from '@app/sdk';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { PROVIDER_EMAIL_ID } from '../constants/providers';
 import { useUi } from '../context/ui-context';
 import type { MessageKey } from '../i18n';
+import { linksInApp } from '../logic/provider-link';
 import { providerFailure } from '../logic/provider-text';
 
 interface Notice {
@@ -63,7 +64,7 @@ export function useProviders(providerSignIn?: ProviderSignInPort) {
         }
         const supported = await Promise.all(
           discovered.providers.map(async (method) => {
-            if (method.mode === NATIVE_PROVIDER_SDK_MODE.SYSTEM) return undefined;
+            if (!linksInApp(method, Platform.OS)) return undefined;
             try {
               return (await providerSignIn.available(method)) ? method : undefined;
             } catch {
