@@ -28,7 +28,8 @@ import {
 } from '../services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from '../services/passkey-recorder.service';
-import { NoEnrolmentPromotion } from '../services/enrolment-promotion';
+import { NoopEnrolmentPromotion } from '../../contracts/defaults/noop-enrolment-promotion';
+import { SessionCookieService } from '../../services/sessions/session-cookie.service';
 import { webPasskeyPolicy } from '../services/browser-passkey-policy.harness-spec';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
@@ -159,7 +160,7 @@ export function passkeyServices(
     passkeys,
     accounts,
     harness.runner(pause),
-    new NoEnrolmentPromotion(),
+    new NoopEnrolmentPromotion(),
   );
 
   return {
@@ -184,6 +185,7 @@ export function passkeyServices(
       ),
       recorder,
       policy,
+      new SessionCookieService(config, browserApplications),
     ),
     assertion,
     login: new PasskeyLoginService(accounts, assertion, signIn),

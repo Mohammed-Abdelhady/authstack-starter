@@ -11,6 +11,7 @@ import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyRecorder } from './passkey-recorder.service';
 import { WebAuthnAdapter } from './webauthn.adapter';
 import { NewPasskey } from '../stores/passkey.store';
+import { SessionCookieService } from '../../services/sessions/session-cookie.service';
 import {
   createModelMock,
   partialMock,
@@ -124,9 +125,13 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
       // The unit of work around the insert runs on a real database in the
       // contract; here the insert is the model call it ends in.
       partialMock<PasskeyRecorder>({
-        record: (passkey: NewPasskey) => store.insert(passkey),
+        record: async (passkey: NewPasskey) => ({
+          passkey: await store.insert(passkey),
+        }),
       }),
       createPasskeyPolicy(),
+      // A registration on a full session promotes nothing, so sets no cookie.
+      partialMock<SessionCookieService>({}),
     ),
     adapter,
     passkeyModel,

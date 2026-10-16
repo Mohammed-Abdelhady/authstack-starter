@@ -41,7 +41,8 @@ import {
 } from '../../services/passkey-registration.service';
 import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
 import { PasskeyRecorder } from '../../services/passkey-recorder.service';
-import { NoEnrolmentPromotion } from '../../services/enrolment-promotion';
+import { NoopEnrolmentPromotion } from '../../../contracts/defaults/noop-enrolment-promotion';
+import { SessionCookieService } from '../../../services/sessions/session-cookie.service';
 import { webPasskeyPolicy } from '../../services/browser-passkey-policy.harness-spec';
 import {
   AttestationVerification,
@@ -159,12 +160,13 @@ describe('passkey ObjectId round trip', () => {
             new MongoPasskeyStore(passkeys),
             new MongoPasskeyAccounts(users),
             new MongoUnitOfWorkRunner(connection),
-            new NoEnrolmentPromotion(),
+            new NoopEnrolmentPromotion(),
           ),
           webPasskeyPolicy({
             rpId: TEST_CONFIGURATION.passkeys.rpId,
             origins: [TEST_CONFIGURATION.passkeys.origin],
           }),
+          new SessionCookieService(config, browserApplications),
         );
         const management = new PasskeyManagementService(
           new MongoPasskeyStore(passkeys),

@@ -17,10 +17,6 @@ import { PasskeyRegistrationService } from './services/passkey-registration.serv
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from './services/passkey-recorder.service';
 import { BrowserPasskeyPolicy } from './services/browser-passkey-policy.service';
-import {
-  EnrolmentPromotion,
-  NoEnrolmentPromotion,
-} from './services/enrolment-promotion';
 import { NativePasskeysController } from './native/native-passkeys.controller';
 import { NativePasskeyRegistrationService } from './native/native-passkey-registration.service';
 import { NativeRelyingParties } from './native/native-relying-parties';
@@ -46,7 +42,8 @@ import { CommonModule } from '../../common/common.module';
     CommonModule,
     ...PASSKEYS_PERSISTENCE_IMPORTS,
     AuthModule,
-    // The unit of work a passkey removal runs in.
+    // The unit of work a passkey removal runs in, each browser application's
+    // policy, and the enrolment promotion a registration joins.
     SessionModule,
     // The rule that keeps a way to sign in on the account.
     UserModule,
@@ -66,9 +63,6 @@ import { CommonModule } from '../../common/common.module';
     PasskeyManagementService,
     PasskeySecondFactorVerifier,
     PasskeyRecorder,
-    // Where an enrolment promotion joins a registration's transaction. Moves
-    // to AuthContractsModule with contracts/enrolment-promotion.ts.
-    { provide: EnrolmentPromotion, useClass: NoEnrolmentPromotion },
     BrowserPasskeyPolicy,
     NativeRelyingParties,
     NativePasskeyRegistrationService,
