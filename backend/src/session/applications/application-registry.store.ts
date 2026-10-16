@@ -116,6 +116,14 @@ export function issuanceApplicationOf(
  * not wait.
  */
 export abstract class ApplicationRegistryStore {
+  /**
+   * A native application of the environment, enabled or not, stored as
+   * requiring a passkey. A committed lookup; browser applications never count.
+   */
+  abstract findNativeRequiredPasskey(
+    environment: string,
+  ): Promise<string | null>;
+
   /** Include every stored application, enabled or not, in this environment. */
   abstract hasAccountAudience(
     unitOfWork: UnitOfWork,

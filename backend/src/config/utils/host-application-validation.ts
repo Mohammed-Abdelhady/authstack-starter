@@ -1,5 +1,6 @@
 import { validateNativeLinkHost } from './native-link-host-validation';
 import { validateSessionLimitConfiguration } from './session-limit-config';
+import { refuseNativeRequiredPasskey } from './refuse-native-required-passkey';
 import { AVAILABLE_AUTH_FEATURES } from '../../auth/constants/available-auth-features';
 import { AuthFeature } from '../../auth/enums/auth-feature.enum';
 import { ROLE_AUDIENCE } from '../../host/types/host-role.type';
@@ -61,13 +62,22 @@ export function validateHostApplications(
   for (const application of applications) {
     validateApplicationPolicy(
       application,
-      `AUTH_NATIVE_APPLICATIONS entry ${JSON.stringify(application.clientId)}`,
+      nativeEntry(application.clientId),
       passkeysAvailable,
       nativePasskeysAvailable(application.signIn),
       'set signIn.passkeys to true and supply signIn.rpId and exact signIn.origins',
     );
   }
   validateSessionLimitConfiguration(config);
+  // Last, so a configuration error that outlives this refusal is named first.
+  const required = applications.find(
+    ({ requirePasskey }) => requirePasskey === true,
+  );
+  if (required) refuseNativeRequiredPasskey(nativeEntry(required.clientId));
+}
+
+function nativeEntry(clientId: string): string {
+  return `AUTH_NATIVE_APPLICATIONS entry ${JSON.stringify(clientId)}`;
 }
 
 function validateApplicationPolicy(
