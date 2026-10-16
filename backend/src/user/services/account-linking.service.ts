@@ -41,6 +41,19 @@ import {
 /** What the rule answers each removal asked of one read of the account. */
 type RemovalAdvice = (waysLeft: WaysLeft) => WayInOutcome;
 
+/**
+ * Whose address a linked provider must report. `same`: the account's, the
+ * browser flow's rule. `any`: a reauthenticated link from an app, which lets
+ * an account made with Apple's relay address add Google.
+ */
+export const LINK_ADDRESS_RULE = {
+  SAME: 'same',
+  ANY: 'any',
+} as const;
+
+export type LinkAddressRule =
+  (typeof LINK_ADDRESS_RULE)[keyof typeof LINK_ADDRESS_RULE];
+
 /** What a page is told beside the list of an account's sign-in methods. */
 export interface SignInMethodHints {
   unlinkHints: Record<string, UnlinkHint>;
@@ -67,15 +80,17 @@ export class AccountLinkingService {
   ) {}
 
   /**
-   * Adds a provider account to a user.
+   * Adds a provider account to a user. It never moves an identity from one
+   * account to another.
    *
    * @throws AppException when the provider is linked already, belongs to
-   * another user, or reports a different email address
+   * another user, or, under the `same` rule, reports a different address
    */
   async linkProvider(
     userId: string,
     provider: string,
     profile: OAuthProfile,
+    addressRule: LinkAddressRule = LINK_ADDRESS_RULE.SAME,
   ): Promise<StoredAccount> {
     const user = await this.requireUser(userId);
 
@@ -88,7 +103,11 @@ export class AccountLinkingService {
       );
     }
 
-    if (profile.email && profile.email !== user.email) {
+    if (
+      addressRule === LINK_ADDRESS_RULE.SAME &&
+      profile.email &&
+      profile.email !== user.email
+    ) {
       this.logger.warn(`Email mismatch while linking ${provider}`);
       throw new AppException(
         ErrorCode.EMAIL_MISMATCH_ON_LINK,
