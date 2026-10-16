@@ -13,7 +13,7 @@ import { type Packed, scaffold } from './packed-cli.js';
 import { MONGO_SURVIVING_LINES, MONGO_WORDS } from './packed-database-survivors.js';
 
 const EVERY_FEATURE =
-  'email-password,magic-link,totp,passkeys,google,github,facebook,microsoft,apple,discord,linkedin,gitlab,x,slack,twitch,oidc';
+  'email-password,magic-link,email-code,totp,passkeys,google,github,facebook,microsoft,apple,discord,linkedin,gitlab,x,slack,twitch,oidc';
 
 /** Words a MongoDB project has no use for, whatever else was picked. */
 const POSTGRES_WORDS = [/postgres/i, /kysely/i, /\bpg\b/, /uuidv7/i, /DATABASE_TYPE/, /sqlstate/i];
@@ -242,6 +242,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0022_application_policy.sql',
       '0023_account_audience.sql',
       '0024_session_evidence.sql',
+      '0025_email_codes.sql',
       '0027_activity_log.sql',
     ]);
   });
