@@ -30,6 +30,14 @@ export interface SeedPasskey {
   createdAt: Date;
   counter?: number;
   name?: string;
+  /** Absent stores the passkey the way one made before 0026 is stored. */
+  rpId?: string;
+}
+
+/** The relying party a passkey is stored under, null when none is. */
+export interface StoredRelyingParty {
+  credentialId: string;
+  rpId: string | null;
 }
 
 export interface StoredPasskeyChallengeFacts {
@@ -76,6 +84,8 @@ export interface PasskeysContractHarness {
   seedPasskey(passkey: SeedPasskey): Promise<string>;
   /** Every stored passkey, by credential id. */
   storedPasskeys(): Promise<StoredPasskeyFacts[]>;
+  /** The relying party of every stored passkey, by credential id. */
+  storedRelyingParties(): Promise<StoredRelyingParty[]>;
 
   seedChallenge(challenge: SeedPasskeyChallenge): Promise<void>;
   /** Changes when a stored challenge lapses, committed, around the adapters. */

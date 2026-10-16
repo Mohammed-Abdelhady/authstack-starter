@@ -2,9 +2,9 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { HashService } from '../../../common/services/hash.service';
-import { SENSITIVE_ACTION_WINDOW_MS } from '../../../session/constants/session-policy';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../features/auth-features.service';
+import { signedInRecently } from './recent-sign-in';
 
 /** Enough of an account for the password check. */
 export interface PasswordHolder {
@@ -49,6 +49,27 @@ export function reauthRequired(
     HttpStatus.UNAUTHORIZED,
     { required },
   );
+}
+
+/**
+ * The proof a bearer session gives: a sign-in no older than five minutes. A
+ * mobile app has no password field to show mid-action, so an older session
+ * is sent through sign-in and comes back to the same action.
+ *
+ * @param signedInAt - When the session's sign-in happened
+ * @param now - The caller's clock, so the window follows the clock seam
+ * @throws AppException REAUTH_REQUIRED with `details.required` recent_sign_in
+ */
+export function assertRecentSignIn(
+  signedInAt: Date | undefined,
+  now: Date,
+  message: string = DEFAULT_MESSAGES.recentSignInRequired,
+): void {
+  if (signedInRecently(signedInAt, now)) {
+    return;
+  }
+
+  throw reauthRequired(message, REAUTH_REQUIREMENT.RECENT_SIGN_IN);
 }
 
 /**
@@ -137,15 +158,10 @@ export class ReauthService {
    * proof. Anything older sends them back through the sign-in they use.
    */
   private assertFreshSession(session: SessionAge | undefined): void {
-    const startedAt = session ? new Date(session.createdAt).getTime() : 0;
-
-    if (Date.now() - startedAt <= SENSITIVE_ACTION_WINDOW_MS) {
-      return;
-    }
-
-    throw reauthRequired(
+    assertRecentSignIn(
+      session?.createdAt,
+      new Date(Date.now()),
       this.messages.recentSignInRequired,
-      REAUTH_REQUIREMENT.RECENT_SIGN_IN,
     );
   }
 }
