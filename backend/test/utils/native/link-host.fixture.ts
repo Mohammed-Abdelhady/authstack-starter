@@ -7,6 +7,7 @@ import { buildOpenApiDocument } from '../../../src/common/swagger/build-openapi-
 import type { NativeApplicationConfiguration } from '../../../src/config/types/native-application.type';
 import type { MailLinkSettings } from '../../../src/mail/links/mail-links';
 import { MAIL_NAME } from '../../../src/mail/constants/mail-names';
+import { setConfigValue } from '../config-settings';
 
 export const LINK_HOST = 'links.example.test';
 export const API_HOST = 'api.example.test';
@@ -61,8 +62,12 @@ export const LINK_APPLICATIONS: NativeApplicationConfiguration[] = [
 
 export function configureLinkHost(app: INestApplication, enabled = true): void {
   const config = app.get(ConfigService);
-  config.set('auth.nativeLinkHost', enabled ? LINK_HOST : undefined);
-  config.set('cors.adminUrl', 'https://admin.example.test/console');
+  setConfigValue(
+    config,
+    'auth.nativeLinkHost',
+    enabled ? LINK_HOST : undefined,
+  );
+  setConfigValue(config, 'cors.adminUrl', 'https://admin.example.test/console');
   const links: MailLinkSettings = {
     customer: {
       [MAIL_NAME.EMAIL_CHANGE_CODE]: `https://${LINK_HOST}/{locale}/confirm`,
@@ -73,7 +78,7 @@ export function configureLinkHost(app: INestApplication, enabled = true): void {
       [MAIL_NAME.MAGIC_LINK]: `https://${LINK_HOST}/staff/sign-in`,
     },
   };
-  config.set('mail.links', links);
+  setConfigValue(config, 'mail.links', links);
 }
 
 export function mountLinkHostSwagger(app: INestApplication): void {
