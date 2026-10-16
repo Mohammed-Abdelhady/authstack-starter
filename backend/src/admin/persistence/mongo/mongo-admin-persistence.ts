@@ -8,11 +8,17 @@ import {
   User,
   UserSchema,
 } from '../../../user/persistence/mongo/schemas/user.schema';
-import { MONGO_ADMIN_ACCOUNT_STORE } from './mongo-admin-stores';
+import {
+  MONGO_ADMIN_ACCOUNT_STORE,
+  MONGO_ADMIN_ROSTER_STORE,
+} from './mongo-admin-stores';
 
 export const MONGO_ADMIN_MODELS: DynamicModule = MongooseModule.forFeature([
   { name: User.name, schema: UserSchema },
   { name: Role.name, schema: RoleSchema },
 ]);
 
-export const MONGO_ADMIN_PROVIDERS: Provider[] = [MONGO_ADMIN_ACCOUNT_STORE];
+export const MONGO_ADMIN_PROVIDERS: Provider[] = [
+  MONGO_ADMIN_ACCOUNT_STORE,
+  MONGO_ADMIN_ROSTER_STORE,
+];
