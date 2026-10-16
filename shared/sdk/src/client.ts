@@ -7,6 +7,7 @@ import { createNativeAuthClient } from './native-auth/client';
 import { createAuthArea, type ApiClientAuth } from './areas/auth';
 import { createOAuthArea, type ApiClientOAuth } from './areas/oauth';
 import { createUserArea, type ApiClientUser } from './areas/user';
+import { createPasskeysArea, type ApiClientPasskeys } from './areas/passkeys';
 import { createAdminArea, type ApiClientAdmin } from './areas/admin';
 import {
   TransportError,
@@ -32,7 +33,12 @@ export interface CallOptions<TSignal extends TransportSignal = TransportSignal> 
  * on a native transport.
  */
 export interface ApiClient<TSignal extends TransportSignal = TransportSignal>
-  extends ApiClientUser<TSignal>, ApiClientAuth<TSignal>, ApiClientOAuth<TSignal> {
+  extends
+    ApiClientUser<TSignal>,
+    ApiClientAuth<TSignal>,
+    ApiClientOAuth<TSignal>,
+    ApiClientPasskeys<TSignal>,
+    ApiClientAdmin<TSignal> {
   nativeAuth: NativeAuthClient<TSignal>;
 }
 
@@ -77,10 +83,7 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
     ...createUserArea<TSignal>(senders),
     ...createAuthArea<TSignal>(senders),
     ...createOAuthArea<TSignal>(senders),
+    ...createPasskeysArea<TSignal>(senders),
     ...createAdminArea<TSignal>(senders),
   };
-}
-
-export interface ApiClient<TSignal extends TransportSignal = TransportSignal> {
-  admin: ApiClientAdmin<TSignal>['admin'];
 }

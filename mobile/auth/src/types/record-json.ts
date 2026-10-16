@@ -34,3 +34,22 @@ export interface ParsedNativeAttempt {
 export interface ParsedStoredTokens {
   refreshToken?: unknown;
 }
+
+export interface ParsedPendingRevocation {
+  serverBaseAddress?: unknown;
+  environment?: unknown;
+  clientId?: unknown;
+  installDigest?: unknown;
+  lineageId?: unknown;
+  refreshToken?: unknown;
+  proofKeyThumbprint?: unknown;
+  attempts?: unknown;
+  nextAttemptAt?: unknown;
+  refreshExpiresAt?: unknown;
+}
+
+export interface ParsedEnvelope {
+  version?: unknown;
+  pendingRevocations?: unknown;
+  serverBaseAddress?: unknown;
+}

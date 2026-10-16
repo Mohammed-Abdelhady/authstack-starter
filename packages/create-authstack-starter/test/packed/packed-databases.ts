@@ -236,6 +236,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0019_account_locale.sql',
       '0020_host_migrations.sql',
       '0021_address_claims.sql',
+      '0026_passkey_relying_party.sql',
       '0027_activity_log.sql',
     ]);
   });

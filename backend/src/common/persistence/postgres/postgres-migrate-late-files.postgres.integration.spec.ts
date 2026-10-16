@@ -19,7 +19,7 @@ const ACCOUNT_LOCALE = '0019_account_locale.sql';
 /** The files a feature owns. A project that gains the feature gets its files late. */
 const FEATURE_FILES = [
   ['0008_two_factor.sql', '0017_two_factor_lockout.sql'], // feature:totp
-  ['0009_passkeys.sql'], // feature:passkeys
+  ['0009_passkeys.sql', '0026_passkey_relying_party.sql'], // feature:passkeys
   ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'], // feature:magic-link
 ];
 // feature:totp,passkeys,magic-link:end
@@ -113,17 +113,18 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
       );
 
       expect({
-        previousBuild: previousBuild.slice(-4),
+        // Every migration newer than 0019 was applied before 0019 was.
+        newerThanLocale: previousBuild.filter((name) => name > ACCOUNT_LOCALE),
         refused,
         up,
         recorded: await recorded(pool),
         locales: locale.rows,
         after: await startUp(pool),
       }).toEqual({
-        previousBuild: [
-          '0018_native_attempts.sql',
+        newerThanLocale: [
           '0020_host_migrations.sql',
           '0021_address_claims.sql',
+          '0026_passkey_relying_party.sql', // feature:passkeys
           '0027_activity_log.sql',
         ],
         refused: 'StorageNotReadyError',
@@ -172,7 +173,12 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0017_two_factor_lockout.sql',
         ),
         // feature:totp:end
-        '0009_passkeys.sql': gained('0009_passkeys.sql'), // feature:passkeys
+        // feature:passkeys:start
+        '0009_passkeys.sql': gained(
+          '0009_passkeys.sql',
+          '0026_passkey_relying_party.sql',
+        ),
+        // feature:passkeys:end
         // feature:magic-link:start
         '0013_magic_links.sql': gained(
           '0013_magic_links.sql',

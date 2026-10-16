@@ -26,7 +26,7 @@ const CHALLENGE_INVALID = { code: 'PASSKEY_CHALLENGE_INVALID', status: 401 };
 
 /** A session that started this long before the frozen time. */
 function startedAgo(ageMs: number, id = 'session-one'): BrowserSession {
-  return { id, createdAt: new Date(NOW.getTime() - ageMs) };
+  return { ...SESSION, id, createdAt: new Date(NOW.getTime() - ageMs) };
 }
 
 /** Awaits a promise that must be refused and hands back how, with what it asked for. */
@@ -153,7 +153,7 @@ export function reauthCases(
     };
 
     const anotherSession = await refusalOf(
-      answerFrom({ id: 'session-two', createdAt: NOW }),
+      answerFrom({ ...SESSION, id: 'session-two' }),
     );
     const noSession = await refusalOf(answerFrom(null));
     const storedAfterRefusals = await harness().storedPasskeys();

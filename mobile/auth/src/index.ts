@@ -8,6 +8,7 @@ import { AuthRuntime } from './runtime/runtime';
 import { createSignInController } from './sign-in/sign-in';
 import { createSignOutOperation } from './sign-out/sign-out';
 import { createNativeController } from './native/native-controller';
+import { createPasskeyActions } from './passkeys/passkey-actions';
 import { validateConfiguration } from './sign-in/redirect';
 import type { AuthConfiguration, AuthDependencies, AuthEngine, AuthSnapshot } from './types/auth';
 
@@ -71,6 +72,11 @@ export function createAuthEngine(
     cancelNativeSignIn: native.cancelNativeSignIn,
     signOut,
     refresh: createRefreshNow(runtime, refreshCoordinator),
+    passkeys: createPasskeyActions({
+      client,
+      port: dependencies.passkeys,
+      session: runtime,
+    }),
     dispose: () => {
       runtime.dispose();
     },
@@ -81,3 +87,4 @@ export function createAuthEngine(
 export { PortAbortController } from './runtime/abort-controller';
 export * from './errors/errors';
 export * from './types';
+export { PASSKEY_REGISTER_OUTCOME } from './constants/passkeys';

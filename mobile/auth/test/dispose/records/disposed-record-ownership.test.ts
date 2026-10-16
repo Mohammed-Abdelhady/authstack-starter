@@ -244,9 +244,10 @@ describe('disposed credential ownership', () => {
     const signOut = createSignOutOperation(runtime, createApiClient(runtime.rawTransport))();
     runtime.dispose();
     await expect(signOut).resolves.toEqual({ kind: 'disposed' });
+    // The sign-out write waits behind the marker; past its deadline it revokes without storing.
+    ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
     await revokeCompleted.promise;
     ports.timer.fireDelay(CREDENTIAL_DELETE_TIMEOUT_MS);
-    ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
     releaseMarkerWrite.resolve();
     await markerWrite;
     await runtime.writeTail;
