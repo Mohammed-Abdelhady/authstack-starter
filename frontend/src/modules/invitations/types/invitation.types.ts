@@ -1,3 +1,8 @@
+import type { RoleAudience } from '@app/core';
+import type { Role } from '@/modules/roles/types';
+
+export type InvitationRole = Role & { audience?: RoleAudience };
+
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 export type ProofMethod = 'passkey' | 'email-code';
 export type InvitationPurpose = 'account' | 'first_admin' | 'enrolment';

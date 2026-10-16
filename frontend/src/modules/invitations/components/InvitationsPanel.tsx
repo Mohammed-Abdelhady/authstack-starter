@@ -4,7 +4,6 @@
 import { useCallback, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { getTextDirection } from '@/i18n/direction';
-import { USER_PERMISSIONS } from '@app/core';
 import { Description, Heading } from '@/components/design-system';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -18,13 +17,14 @@ import {
 import { LoadingRegion } from '@/components/layout/LoadingRegion';
 import { PaginationControl } from '@/components/pagination';
 import { FormRootError } from '@/components/forms';
-import { PermissionGuard } from '@/modules/permissions';
+import { usePermission } from '@/modules/permissions/hooks/usePermission';
 import { showsOwnRefusal } from '@/lib/refusal';
 import { useAppSelector } from '@/store/hooks';
 import { useListInvitationsQuery, useResendInvitationMutation } from '../api/invitationsApi';
 import { INVITATION_PAGE_LIMIT, INVITATION_STATUSES } from '../constants/invitations';
 import { useInvitationOperation } from '../hooks/useInvitationOperation';
 import { invitationErrorKey } from '../utils/invitationErrors';
+import { invitationAccess } from '../utils/invitationAccess';
 import type { InvitationStatus } from '../types/invitation.types';
 import { FreshProofDialog } from './FreshProofDialog';
 import { InvitationRow } from './InvitationRow';
@@ -34,6 +34,8 @@ function InvitationsContent() {
   const t = useTranslations('invitations');
   const locale = useLocale();
   const auth = useAppSelector((state) => state.auth);
+  const { permissions } = usePermission();
+  const { canCreate } = invitationAccess(permissions);
   const [status, setStatus] = useState<InvitationStatus>('pending');
   const [page, setPage] = useState(1);
   const [resent, setResent] = useState(false);
@@ -78,9 +80,7 @@ function InvitationsContent() {
         <Heading level={2} variant="sectionTitle">
           {t('title')}
         </Heading>
-        <PermissionGuard permission={USER_PERMISSIONS.CREATE_ALL}>
-          <InviteDialog />
-        </PermissionGuard>
+        {canCreate && <InviteDialog />}
       </div>
       <div className="space-y-2">
         <Label htmlFor="invitation-status">{t('filter')}</Label>
