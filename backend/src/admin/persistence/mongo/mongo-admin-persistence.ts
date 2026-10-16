@@ -1,3 +1,6 @@
+// feature:invitations:start
+import { MONGO_PASSKEY_RESET_PROVIDER } from './mongo-passkey-reset.store'; // feature:passkeys
+// feature:invitations:end
 import { DynamicModule, Provider } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {
@@ -21,4 +24,7 @@ export const MONGO_ADMIN_MODELS: DynamicModule = MongooseModule.forFeature([
 export const MONGO_ADMIN_PROVIDERS: Provider[] = [
   MONGO_ADMIN_ACCOUNT_STORE,
   MONGO_ADMIN_ROSTER_STORE,
+  // feature:invitations:start
+  MONGO_PASSKEY_RESET_PROVIDER, // feature:passkeys
+  // feature:invitations:end
 ];
