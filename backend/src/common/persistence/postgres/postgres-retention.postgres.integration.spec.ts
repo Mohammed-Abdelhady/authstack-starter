@@ -232,6 +232,9 @@ describe('PostgreSQL retention', () => {
         native_dpop_proof_ids: 0,
         sessions: 0,
         security_events: 0,
+        session_proofs: 0,
+        staff_idempotency_keys: 0,
+        invitations: 0, // feature:invitations
       },
     );
   });

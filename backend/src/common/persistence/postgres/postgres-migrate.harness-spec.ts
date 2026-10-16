@@ -48,6 +48,7 @@ export const EVERY_MIGRATION = [
   '0025_email_codes.sql', // feature:email-code
   '0026_passkey_relying_party.sql', // feature:passkeys
   '0027_activity_log.sql',
+  '0028_staff_console.sql',
 ];
 
 export interface MigrateDatabases {
