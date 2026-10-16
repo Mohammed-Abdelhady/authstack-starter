@@ -227,6 +227,34 @@ describe('the erasure worker', () => {
     expect(world.jobOf(ACCOUNT)).toBeUndefined();
   });
 
+  it('tells an in-transaction hook only the addresses step 3 still holds', async () => {
+    const { hook, eraser, ledger, worker } = setUp({ inTransaction: true });
+    const holds = ledger.holdsLiveClaim.bind(ledger);
+    // Step 1 sees the live claim on the pending address; another account takes it before step 3.
+    jest
+      .spyOn(ledger, 'holdsLiveClaim')
+      .mockImplementationOnce(async (unitOfWork, input) => {
+        const live = await holds(unitOfWork, input);
+        ledger.claims.set(PENDING, {
+          owner: 'account-2',
+          lapsesAt: new Date(TEST_NOW.getTime() + DAY),
+        });
+        return live;
+      });
+
+    await worker.runOnce();
+
+    expect(hook.calls).toEqual([
+      {
+        subject: { accountId: ACCOUNT, addresses: ['ada@example.com'] },
+        inTransaction: true,
+      },
+    ]);
+    expect(eraser.removals.map((removal) => removal.addresses)).toEqual([
+      ['ada@example.com'],
+    ]);
+  });
+
   it('calls an in-transaction hook inside the removal, and a failure there erases nothing', async () => {
     const { world, hook, eraser, worker } = setUp({ inTransaction: true });
     hook.failure = new Error('host table locked');
