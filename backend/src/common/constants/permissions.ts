@@ -27,6 +27,8 @@ export const USER_PERMISSIONS = {
   DELETE_ALL: 'users:delete:all',
   DELETE_STAFF: 'users:delete:staff',
   UPDATE_OWN: 'users:update:own',
+  SUSPEND_ALL: 'users:suspend:all',
+  SUSPEND_STAFF: 'users:suspend:staff',
 } as const;
 
 // ========== Role Management Permissions ==========
@@ -95,6 +97,7 @@ export const PERMISSION_ACTIONS = {
   MANAGE: 'manage',
   GRANT: 'grant',
   REVOKE: 'revoke',
+  SUSPEND: 'suspend',
 } as const;
 
 // ========== Permission Scopes ==========
@@ -134,6 +137,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     PROFILE_PERMISSIONS.UPDATE_OWN,
     USER_PERMISSIONS.READ_ALL,
     USER_PERMISSIONS.UPDATE_ALL,
+    USER_PERMISSIONS.SUSPEND_ALL,
     SESSION_PERMISSIONS.READ_ALL,
     ROLE_PERMISSIONS.READ_ALL,
   ],
@@ -173,10 +177,7 @@ export type PermissionScope =
  * Outside the active catalogue and picker. The permission format accepts these,
  * but grant validation refuses them until their plan.
  */
-export const RESERVED_PERMISSIONS = [
-  'users:suspend:all',
-  'users:suspend:staff',
-] as const;
+export const RESERVED_PERMISSIONS: readonly string[] = [];
 
 export const RESERVED_PERMISSION_MESSAGE =
   '$value is reserved and cannot be granted yet';
