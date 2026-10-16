@@ -131,6 +131,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0025_email_codes.sql', // feature:email-code
           '0026_passkey_relying_party.sql', // feature:passkeys
           '0027_activity_log.sql',
+          '0030_native_code_evidence.sql',
         ],
         refused: 'StorageNotReadyError',
         up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
