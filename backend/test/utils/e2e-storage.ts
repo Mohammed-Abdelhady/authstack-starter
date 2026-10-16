@@ -6,6 +6,7 @@ import {
   watchMongoFixtureConnections,
 } from './e2e-mongo-storage';
 import type { E2eAuthState } from './e2e-state-auth';
+import type { E2eEnrolmentState } from './e2e-state-enrolment'; // feature:passkeys
 import type { E2eNativeState } from './e2e-state-native';
 import type { E2eRecordsState } from './e2e-state-records';
 import type {
@@ -57,6 +58,10 @@ export interface E2eState {
   readonly native: E2eNativeState;
   /** Admin and permission cases. */
   readonly records: E2eRecordsState;
+  // feature:passkeys:start
+  /** Passkey enrolment cases. */
+  readonly enrolment: E2eEnrolmentState;
+  // feature:passkeys:end
 }
 
 /** What a booted application's database gives the fixture between cases. */

@@ -2,12 +2,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
-import { mongoSessionOf } from '../../../src/session/persistence/mongo/mongo-unit-of-work';
-import type { EnrolmentCredentialFixture } from './enrolment-credential-fixture';
+import { mongoSessionOf } from '../../src/session/persistence/mongo/mongo-unit-of-work';
+import type { E2eEnrolmentState } from './e2e-state-enrolment';
 
-export function mongoEnrolmentCredentials(
-  app: INestApplication,
-): EnrolmentCredentialFixture {
+/** What the passkey enrolment cases arrange and read, on MongoDB. */
+export function mongoEnrolmentState(app: INestApplication): E2eEnrolmentState {
   const connection = app.get<Connection>(getConnectionToken());
   const passkeys = connection.collection('passkeys');
   return {

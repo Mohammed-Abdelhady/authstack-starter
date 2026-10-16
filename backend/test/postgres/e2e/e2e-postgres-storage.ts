@@ -15,6 +15,7 @@ import { POSTGRES_HEALTH_POOL } from '../../../src/health/persistence/postgres/p
 import { ApplicationRegistry } from '../../../src/session/applications/application-registry';
 import type { AttachedE2eStorage, E2eStorage } from '../../utils/e2e-storage';
 import { postgresAuthState } from '../e2e-postgres-state-auth';
+import { postgresEnrolmentState } from '../e2e-postgres-state-enrolment'; // feature:passkeys
 import { postgresRecordsState } from '../e2e-postgres-state-records';
 import {
   postgresAccountsState,
@@ -116,6 +117,7 @@ export async function startPostgresE2eStorage(): Promise<E2eStorage> {
           auth: postgresAuthState(app, stored, commitFaults),
           native: postgresNativeState(app, stored),
           records: postgresRecordsState(stored),
+          enrolment: postgresEnrolmentState(stored), // feature:passkeys
         },
         empty: () => emptyEveryTable(stored),
         seedApplications: async () => {

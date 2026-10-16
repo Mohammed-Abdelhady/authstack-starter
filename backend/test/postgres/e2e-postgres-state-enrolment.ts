@@ -1,16 +1,12 @@
 // feature:passkeys:start
-import type { INestApplication } from '@nestjs/common';
-import {
-  POSTGRES_DATABASE,
-  type PostgresDatabase,
-} from '../../src/common/persistence/postgres/postgres-connection';
+import type { PostgresDatabase } from '../../src/common/persistence/postgres/postgres-connection';
 import { postgresTransactionOf } from '../../src/common/persistence/postgres/postgres-unit-of-work';
-import type { EnrolmentCredentialFixture } from '../utils/session/enrolment-credential-fixture';
+import type { E2eEnrolmentState } from '../utils/e2e-state-enrolment';
 
-export function postgresEnrolmentCredentials(
-  app: INestApplication,
-): EnrolmentCredentialFixture {
-  const database = app.get<PostgresDatabase>(POSTGRES_DATABASE);
+/** What the passkey enrolment cases arrange and read, on PostgreSQL. */
+export function postgresEnrolmentState(
+  database: PostgresDatabase,
+): E2eEnrolmentState {
   return {
     insertIn: async (work, userId, credentialId, at) => {
       await postgresTransactionOf(work)
