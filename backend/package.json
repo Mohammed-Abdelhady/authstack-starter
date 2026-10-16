@@ -34,6 +34,8 @@
     "migration:postgres:status": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts status",
     "migration:postgres:adopt-host": "ts-node -r tsconfig-paths/register src/common/persistence/postgres/postgres-migrate.cli.ts adopt-host",
     "audience:apply": "node dist/cli/audience-apply.js",
+    "admin:invite": "node dist/cli/admin-invite.js",
+    "admin:recover": "node dist/cli/admin-recover.js",
     "audience:apply:dev": "ts-node -r tsconfig-paths/register src/cli/audience-apply.ts",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
     "seed:reset": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts --reset"

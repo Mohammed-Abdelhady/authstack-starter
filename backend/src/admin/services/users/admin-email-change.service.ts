@@ -148,6 +148,48 @@ export class AdminEmailChangeService {
     await this.sendCode({ email: pending, locale: user.locale }, issued.code);
   }
 
+  // feature:invitations:start
+  async sendServerCommandConfirmation(user: ConfirmationTarget): Promise<void> {
+    const pending = this.pendingAddress(user.pendingEmail);
+    const issued = await this.verificationCodeService.prepareEmailChange(
+      pending,
+      {
+        userId: user.id,
+        addressGeneration: user.addressGeneration,
+      },
+    );
+    if (!issued) throw this.limitReached();
+    await this.runner.run(async (work) => {
+      const current = await this.accounts.takeEmailChangeTarget(work, user.id);
+      if (
+        !current ||
+        current.isDeleted ||
+        !isAdminRole(current.role) ||
+        current.pendingEmail !== pending ||
+        current.addressGeneration !== user.addressGeneration
+      ) {
+        throw this.addressTaken();
+      }
+      const claimed = await this.ledger.claim(work, {
+        address: pending,
+        owner: current.id,
+        kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+        now: this.clock.now(),
+        lapsesAt: issued.generation.expiresAt,
+      });
+      if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw this.addressTaken();
+      if (
+        (await this.verificationCodeService.storeEmailChangeIn(
+          work,
+          issued,
+        )) !== CODE_ROTATION.ROTATED
+      )
+        throw this.limitReached();
+    });
+    await this.sendCode({ email: pending, locale: user.locale }, issued.code);
+  }
+  // feature:invitations:end
+
   async claimPendingIn(
     uow: UnitOfWork,
     current: StoredAccount,
