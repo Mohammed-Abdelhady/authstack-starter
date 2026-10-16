@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PermissionGuard } from '@/modules/permissions';
-import { USER_PERMISSIONS } from '@app/core';
+import { usePermission } from '@/modules/permissions/hooks/usePermission';
+import { invitationAccess } from '../utils/invitationAccess';
 import type { AdminInvitation } from '../types/invitation.types';
 import { RevokeInvitationDialog } from './RevokeInvitationDialog';
 
@@ -16,6 +16,8 @@ interface Props {
 export function InvitationRow({ invitation, busy, onResend }: Props) {
   const t = useTranslations('invitations');
   const format = useFormatter();
+  const { permissions } = usePermission();
+  const canManage = invitationAccess(permissions).canManage(invitation.audience);
   const resend = useCallback(() => onResend(invitation.id), [invitation.id, onResend]);
   const canRevoke = invitation.status === 'pending' || invitation.status === 'expired';
   return (
@@ -59,8 +61,8 @@ export function InvitationRow({ invitation, busy, onResend }: Props) {
         </div>
       </dl>
       <div className="flex flex-wrap gap-2">
-        {canRevoke && (
-          <PermissionGuard permission={USER_PERMISSIONS.CREATE_ALL}>
+        {canRevoke && canManage && (
+          <>
             <Button
               variant="outline"
               onClick={resend}
@@ -69,12 +71,8 @@ export function InvitationRow({ invitation, busy, onResend }: Props) {
             >
               {t('resend')}
             </Button>
-          </PermissionGuard>
-        )}
-        {canRevoke && (
-          <PermissionGuard permission={USER_PERMISSIONS.DELETE_ALL}>
             <RevokeInvitationDialog invitation={invitation} disabled={busy} />
-          </PermissionGuard>
+          </>
         )}
       </div>
     </li>

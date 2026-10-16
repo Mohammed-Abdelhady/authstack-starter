@@ -8,12 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FormRootError } from '@/components/forms';
 import { CreateUserRoleField } from '@/modules/permissions/components/users/CreateUserRoleField';
+import { usePermission } from '@/modules/permissions/hooks/usePermission';
+import { selectUser } from '@/modules/auth/store/authSlice';
+import { useAppSelector } from '@/store/hooks';
 import { DEFAULT_ROLE_SLUG } from '@/modules/roles/constants';
 import { useAllRoles } from '@/modules/roles/hooks/useAllRoles';
 import { showsOwnRefusal } from '@/lib/refusal';
 import { useCreateInvitationMutation } from '../api/invitationsApi';
 import { useInvitationOperation } from '../hooks/useInvitationOperation';
 import { invitationErrorFields, invitationErrorKey } from '../utils/invitationErrors';
+import { invitationRoles } from '../utils/invitationAccess';
 import { FreshProofDialog } from './FreshProofDialog';
 
 interface Props {
@@ -28,7 +32,10 @@ export function InviteForm({ onSuccess, onBusyChange }: Props) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState(DEFAULT_ROLE_SLUG);
-  const roles = useAllRoles();
+  const allRoles = useAllRoles();
+  const actorRole = useAppSelector(selectUser)?.role;
+  const { permissions } = usePermission();
+  const roles = invitationRoles(allRoles, actorRole, permissions);
   const [create] = useCreateInvitationMutation();
   const operation = useInvitationOperation();
   const logicalSubmit = useRef<{ signature: string; key: string } | null>(null);
