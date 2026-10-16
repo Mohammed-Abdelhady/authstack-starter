@@ -6,6 +6,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -22,7 +23,10 @@ import { PermissionGuard } from '../common/guards/permission.guard';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ApiResponse } from '../common/dto/api-response.dto';
-import { AddPermissionDto } from '../user/dto/add-permission.dto';
+import { GrantPermissionDto } from './dto/grant-permission.dto';
+import { StaffVersionQueryDto } from './dto/staff-version.decorator';
+import { ActingSessionOf } from '../auth/proof/decorators/acting-session.decorator';
+import type { ActingSession } from '../auth/proof/types/acting-session';
 import { PERMISSION_PERMISSIONS } from '../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
 import { RouteIdPipe } from '../common/pipes/route-id.pipe';
@@ -93,12 +97,13 @@ export class AdminPermissionsController {
     description: 'User ID',
     example: '507f1f77bcf86cd799439011',
   })
-  @ApiBody({ type: AddPermissionDto })
+  @ApiBody({ type: GrantPermissionDto })
   async addPermission(
     @Param('id', RouteIdPipe) userId: string,
-    @Body() dto: AddPermissionDto,
+    @Body() dto: GrantPermissionDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.addPermission(
@@ -107,6 +112,7 @@ export class AdminPermissionsController {
       actorId,
       actorRole,
       actorPermissions,
+      { session, version: dto.version },
     );
   }
 
@@ -137,8 +143,10 @@ export class AdminPermissionsController {
   async removePermission(
     @Param('id', RouteIdPipe) userId: string,
     @Param('permission') permission: string,
+    @Query() query: StaffVersionQueryDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<{ userId: string; permissions: string[] }>> {
     return this.adminPermissionsService.removePermission(
@@ -147,6 +155,7 @@ export class AdminPermissionsController {
       actorId,
       actorRole,
       actorPermissions,
+      { session, version: query.version },
     );
   }
 }
