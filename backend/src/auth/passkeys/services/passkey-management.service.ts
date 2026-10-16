@@ -59,6 +59,26 @@ function waysLeftAtRelyingParty(
   return party.passkeys - 1 + (party.required ? 0 : waysBesidesPasskeys);
 }
 
+function lastWayInRefusal(): AppException {
+  return new AppException(
+    ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
+    'This is the only way to sign in to the account. Add a password or ' +
+      'another passkey first.',
+    HttpStatus.CONFLICT,
+  );
+}
+
+/** No other way in stands in for a passkey an application requires. */
+function requiredPasskeyRefusal(): AppException {
+  return new AppException(
+    ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
+    'An application this account signs in to requires a passkey, and this ' +
+      'is the last one it accepts. Add another passkey for that application ' +
+      'first.',
+    HttpStatus.CONFLICT,
+  );
+}
+
 /**
  * The passkeys on an account, from the account settings. Every lookup is
  * scoped to the signed-in user, so an id belonging to someone else reads as
@@ -143,7 +163,7 @@ export class PasskeyManagementService {
       // A removal of the same passkey may have finished while this one waited
       // for the hold. It is gone then, and the count no longer includes it.
       await this.findOwned(userId, passkeyId, unitOfWork);
-      this.assertNotTheLastWayIn(wayIn);
+      // First, so a passkey an application requires is refused as that.
       if (besides.ways !== undefined) {
         await this.assertRelyingPartyKeepsAWayIn(
           unitOfWork,
@@ -151,6 +171,7 @@ export class PasskeyManagementService {
           besides.ways,
         );
       }
+      this.assertNotTheLastWayIn(wayIn);
       await this.passkeys.remove(unitOfWork, passkey);
     });
 
@@ -197,11 +218,8 @@ export class PasskeyManagementService {
       ),
       required: required.includes(rpId),
     };
-    this.assertNotTheLastWayIn(
-      waysLeftAtRelyingParty(party, waysBesidesPasskeys) > 0
-        ? WAY_IN_OUTCOME.ANOTHER_LEFT
-        : WAY_IN_OUTCOME.LAST,
-    );
+    if (waysLeftAtRelyingParty(party, waysBesidesPasskeys) > 0) return;
+    throw party.required ? requiredPasskeyRefusal() : lastWayInRefusal();
   }
 
   /** The same relying-party count, on the passkeys a list read. */
@@ -255,15 +273,8 @@ export class PasskeyManagementService {
    * of an account that is gone: nobody can be locked out of it.
    */
   private assertNotTheLastWayIn(wayIn: WayInOutcome): void {
-    if (!refusesRemoval(wayIn)) {
-      return;
+    if (refusesRemoval(wayIn)) {
+      throw lastWayInRefusal();
     }
-
-    throw new AppException(
-      ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
-      'This is the only way to sign in to the account. Add a password or ' +
-        'another passkey first.',
-      HttpStatus.CONFLICT,
-    );
   }
 }
