@@ -193,6 +193,7 @@ export async function bootMongoErasureHarness(): Promise<ErasureHarness> {
     deletion,
     eraser: new MongoAccountEraser(db),
     runner: new MongoUnitOfWorkRunner(connection),
+    runnerWith: (pause) => new MongoUnitOfWorkRunner(connection, pause),
     clock,
     seedAccount: async (email, deleted = false, eraseAfter) => {
       const id = new ObjectId();

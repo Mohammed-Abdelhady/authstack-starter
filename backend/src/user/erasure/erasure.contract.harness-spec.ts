@@ -1,6 +1,10 @@
 import { describeErasureDataContract } from './erasure.contract-data.harness-spec';
+import { describeErasureRaceContract } from './erasure.contract-races.harness-spec';
 import { FrozenClock, TEST_NOW } from '../../../test/utils/frozen-clock';
-import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
+import {
+  RerunPause,
+  UnitOfWorkRunner,
+} from '../../common/persistence/unit-of-work';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
 import { ERASURE_STEP, ERASURE_STANDING } from './constants/erasure.constants';
 import {
@@ -28,6 +32,8 @@ export interface ErasureHarness {
   deletion: AccountDeletionStore;
   eraser: AccountEraser;
   runner: UnitOfWorkRunner;
+  /** A runner of its own, pausing before a rerun the way the case says. */
+  runnerWith(pause: RerunPause): UnitOfWorkRunner;
   clock: FrozenClock;
   seedAccount(
     email: string,
@@ -229,6 +235,7 @@ export function describeErasureContract(
       expect(await h.jobs.listOpen(10)).toEqual([]);
     });
     describeErasureDataContract(() => h, ERASURE_PAST);
+    describeErasureRaceContract(() => h, ERASURE_PAST, LEASE_END);
     it('records receipts once, reads them in and after the transaction, and clears a null schedule', async () => {
       const mine = await account();
       const record = {
