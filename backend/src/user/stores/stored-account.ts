@@ -45,6 +45,8 @@ export interface StoredAccount {
   readonly twoFactorEnabled: boolean; // feature:totp
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  /** Raised by every write to a field staff read. Absent reads as 0. */
+  readonly version?: number;
 }
 
 /** The sign-in methods an account has, in the order they are reported. */

@@ -25,6 +25,8 @@ export interface StoredRole {
   pendingHolderSweeps: PendingSweep[];
   createdAt: Date;
   updatedAt: Date;
+  /** Raised by every write to a field staff read. Absent reads as 0. */
+  version?: number;
 }
 
 export interface NewCustomRole {
