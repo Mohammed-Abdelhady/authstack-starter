@@ -109,11 +109,13 @@ describe('native first-party authority (e2e)', () => {
   async function complete(
     attempt: { attemptId: string; attemptSecret: string },
     factor: FirstFactor = PASSWORD,
+    userId?: string,
   ) {
-    const id = await e2e.state.accounts.accountIdFor(SEED_USER.email);
-    if (!id) throw new Error('seed account missing');
+    const id =
+      userId ?? (await e2e.state.accounts.accountIdFor(SEED_USER.email));
+    if (!id) throw new Error('account missing');
     const account = await e2e.app.get(AccountProfileStore).findProfile(id);
-    if (!account) throw new Error('seed account missing');
+    if (!account) throw new Error('account missing');
     return e2e.app
       .get(NativeAttemptService)
       .completeFactor(attempt.attemptId, attempt.attemptSecret, {
@@ -148,9 +150,9 @@ describe('native first-party authority (e2e)', () => {
   }
 
   /** Signs in with one first factor and reads the session its code was exchanged for. */
-  async function issuedSession(factor: FirstFactor) {
+  async function issuedSession(factor: FirstFactor, userId?: string) {
     const { attempt, verifier } = await start();
-    const completed = await complete(attempt, factor);
+    const completed = await complete(attempt, factor, userId);
     if (completed.stage !== 'codeReady') throw new Error('code not ready');
     const code = new URL(completed.redirectUri).searchParams.get('code');
     if (!code) throw new Error('redirect has no code');
@@ -261,10 +263,10 @@ describe('native first-party authority (e2e)', () => {
     });
   });
 
-  // Failure: a valid password reveals an excluded audience or obtains native session authority.
-  it('answers excluded-audience passwords exactly like wrong passwords without issuing a session', async () => {
+  // Failure: an excluded audience is revealed or signed in, or the audience the app names is refused.
+  it('answers excluded-audience passwords exactly like wrong passwords and still signs in its own audience', async () => {
     // Accounts are mapped first: start-up refuses an audience while one has none.
-    await arrangeAudiences(e2e);
+    const { staffId } = await arrangeAudiences(e2e);
     e2e.app.get(ConfigService).set('auth.nativeApplications', [
       {
         ...APPLICATION,
@@ -297,5 +299,9 @@ describe('native first-party authority (e2e)', () => {
           .authenticate(attempt.attemptId, attempt.attemptSecret)
       ).activeOperationId,
     ).toBeNull();
+    expect(await issuedSession(PASSWORD, staffId)).toEqual({
+      authenticationMethods: ['password'],
+      userVerified: false,
+    });
   });
 });
