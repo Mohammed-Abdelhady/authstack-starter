@@ -17,6 +17,7 @@ import { PasskeyConfigService } from '../auth/passkeys/services/passkey-config.s
 import { StoredApplicationPolicyReader } from './applications/stored-application-policy-reader';
 import { ApplicationPolicyReader } from '../auth/contracts/application-policy';
 import { EventRecorder } from '../auth/contracts/event-recorder';
+import { FeatureApplications } from '../auth/contracts/feature-applications';
 import { StorageStartup } from '../common/persistence/storage-startup';
 import { UnitOfWorkRunner } from '../common/persistence/unit-of-work';
 import { ApplicationAccess } from './applications/application-access';
@@ -81,6 +82,7 @@ import {
             (await registry.findByClientId(clientId))?.enabled ?? false,
         ),
     },
+    { provide: FeatureApplications, useExisting: BrowserApplications },
     AudiencePolicy,
     BrowserPolicyReconciler,
     ApplicationRegistry,
@@ -105,6 +107,7 @@ import {
     CommonModule,
     ApplicationRegistryStore,
     BrowserApplications,
+    FeatureApplications,
     AudiencePolicy,
     BrowserPolicyReconciler,
     ApplicationRegistry,
