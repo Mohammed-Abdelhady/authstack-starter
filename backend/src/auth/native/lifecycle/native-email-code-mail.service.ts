@@ -13,7 +13,7 @@ import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { SIGN_IN_LINK_EMAIL_FAILED_MESSAGE } from '../../constants/auth-messages';
 import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
-import { AccountCreationRefusedError } from '../../services/registration/account-creation-refused.error';
+import { nativeSignUpOpen } from './native-sign-up-open';
 import { MagicLinkAccounts } from '../../magic-link/stores/magic-link-accounts';
 import { MagicLinkStore } from '../../magic-link/stores/magic-link.store';
 import { MAGIC_LINK_RATE_WINDOW_MS } from '../../magic-link/constants/magic-link.constants';
@@ -77,7 +77,12 @@ export class NativeEmailCodeMailService {
     const now = this.clock.now();
     const owner = await this.accounts.findLinkRecipient(email);
     // Asked for every address, so an unknown one costs no extra transaction.
-    const signUpOpen = await this.signUpOpen(attempt);
+    const signUpOpen = await nativeSignUpOpen(
+      this.runner,
+      this.policy,
+      attempt.clientId,
+      ACCOUNT_CREATION_METHOD.EMAIL_CODE,
+    );
     const mayCreate = owner !== null || signUpOpen;
     const underCap = await this.links.takeRequestSlot(email, {
       now,
@@ -127,24 +132,6 @@ export class NativeEmailCodeMailService {
       tokenHash: token ? hashMagicLinkToken(token) : null,
       deliver: mailed ? () => this.deliver(recipient, mail) : null,
     };
-  }
-
-  private async signUpOpen(attempt: NativeAttempt): Promise<boolean> {
-    try {
-      await this.runner.run((unitOfWork) =>
-        this.policy.assertMayCreate(
-          {
-            application: attempt.clientId,
-            method: ACCOUNT_CREATION_METHOD.EMAIL_CODE,
-          },
-          unitOfWork,
-        ),
-      );
-      return true;
-    } catch (error) {
-      if (error instanceof AccountCreationRefusedError) return false;
-      throw error;
-    }
   }
 
   private unsentReason(mayCreate: boolean, review: boolean): string {

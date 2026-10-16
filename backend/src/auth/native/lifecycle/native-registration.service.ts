@@ -17,7 +17,10 @@ import { ActivationAccounts } from '../../pending-codes/activation-accounts';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { createActivatedAccount } from '../../utils/activation.util';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 import { EventRecorder } from '../../contracts/event-recorder';
+import { SelfSignUpRefusedError } from '../../services/registration/self-sign-up-refused.error';
+import { SessionIssuanceService } from '../../../session/services/session-issuance.service';
 import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import {
@@ -63,6 +66,7 @@ export class NativeRegistrationService {
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
     private readonly events: EventRecorder,
+    private readonly issuance: SessionIssuanceService,
   ) {}
 
   async request(
@@ -176,6 +180,13 @@ export class NativeRegistrationService {
         accountId,
       );
       if (refusal) throw refusal;
+      if (cause instanceof SelfSignUpRefusedError) {
+        await this.issuance.recordCreationRefusal(
+          attempt.clientId,
+          ACCOUNT_CREATION_METHOD.PASSWORD,
+        );
+        throw activationCodeInvalid();
+      }
       throw cause;
     }
   }

@@ -5,7 +5,10 @@ import {
   ACCOUNT_RESERVATION_RESULT,
   AddressLedger,
 } from '../../../common/persistence/address-ledger';
-import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import {
+  UnitOfWorkRunner,
+  UnitOfWork,
+} from '../../../common/persistence/unit-of-work';
 import { Clock } from '../../../common/services/clock';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -31,6 +34,7 @@ import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 import type { AccountCreationMethod } from '../../types/account-creation';
+import { nativeSignUpOpen } from './native-sign-up-open';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 
@@ -48,6 +52,7 @@ export class NativeEmailLinkMailService {
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
+    private readonly runner: UnitOfWorkRunner,
   ) {
     this.maxPerHour = this.config.get<number>('magicLink.maxPerHour', 5);
   }
@@ -62,6 +67,7 @@ export class NativeEmailLinkMailService {
     attemptId: string,
     state: string,
     expiresAt: Date,
+    clientId: string,
     persistTokenHash: (tokenHash: string) => Promise<void>,
   ): Promise<void> {
     const { email } = requested;
@@ -73,7 +79,14 @@ export class NativeEmailLinkMailService {
       windowMs: MAGIC_LINK_RATE_WINDOW_MS,
       limit: this.maxPerHour,
     });
-    const mailed = !deleted && underCap;
+    const signUpOpen = await nativeSignUpOpen(
+      this.runner,
+      this.policy,
+      clientId,
+      ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    );
+    const mayCreate = owner !== null || signUpOpen;
+    const mailed = !deleted && mayCreate && underCap;
     const token = createMagicLinkToken();
     const callback = mailed
       ? this.nativeCallback(callbackUri, attemptId, token, state)
@@ -86,6 +99,10 @@ export class NativeEmailLinkMailService {
         callback,
         expiresAt,
         currentRequestId() ?? 'unknown',
+      );
+    } else if (!mayCreate) {
+      this.logger.warn(
+        `Magic link not mailed: sign-up closed requestId=${currentRequestId() ?? 'unknown'}`,
       );
     } else if (deleted) {
       this.logger.warn('Magic link request for a deleted account');
