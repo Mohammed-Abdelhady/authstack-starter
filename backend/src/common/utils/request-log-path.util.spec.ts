@@ -24,6 +24,10 @@ describe('getLoggableRequestPath', () => {
       expected: '/api/oauth/authorize/transactional/id',
     },
     { value: '/api/user/profile?token=secret', expected: '/api/user/profile' },
+    {
+      value: `/api/auth/account-deletion/r1.1760000000000.${'0f'.repeat(32)}`,
+      expected: '/api/auth/account-deletion/[redacted]',
+    },
   ])('maps $value to a safe log path', ({ value, expected }) => {
     expect(getLoggableRequestPath(value)).toBe(expected);
   });
