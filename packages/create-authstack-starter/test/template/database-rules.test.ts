@@ -28,7 +28,10 @@ const FEATURE_TABLES: Record<string, { tables: string[]; migrations: string[] }>
     tables: ['user_two_factor', 'user_recovery_codes', 'two_factor_challenges'],
     migrations: ['0008_two_factor.sql', '0017_two_factor_lockout.sql'],
   },
-  passkeys: { tables: ['passkeys', 'passkey_challenges'], migrations: ['0009_passkeys.sql'] },
+  passkeys: {
+    tables: ['passkeys', 'passkey_challenges'],
+    migrations: ['0009_passkeys.sql', '0026_passkey_relying_party.sql'],
+  },
   'magic-link': {
     tables: ['pending_magic_links'],
     migrations: ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'],

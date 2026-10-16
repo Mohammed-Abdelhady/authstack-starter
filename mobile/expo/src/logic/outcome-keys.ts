@@ -120,6 +120,7 @@ export const OUTCOME_KEY: {
   signOut: {
     disposed: 'engineDisposed',
     signedOut: 'signOutSignedOut',
+    signOutNotSaved: 'reasonStorageFailure',
   },
 };
 

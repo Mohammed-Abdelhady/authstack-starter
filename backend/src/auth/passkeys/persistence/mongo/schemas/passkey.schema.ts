@@ -16,6 +16,13 @@ export class Passkey {
   })
   user!: Types.ObjectId;
 
+  /**
+   * The relying party the credential was registered under. Absent on a
+   * passkey stored before it was recorded, which reads as WEBAUTHN_RP_ID.
+   */
+  @Prop({ type: String })
+  rpId?: string;
+
   /** Credential id as base64url, the value the authenticator signs under. */
   @Prop({ required: true, unique: true })
   credentialId!: string;
@@ -64,3 +71,5 @@ export const PasskeySchema: MongooseSchema<Passkey> =
 
 // Serves the per-user list and the count on the profile.
 PasskeySchema.index({ user: 1, createdAt: -1 });
+// Serves the count and the exclusion list for one relying party.
+PasskeySchema.index({ user: 1, rpId: 1 });

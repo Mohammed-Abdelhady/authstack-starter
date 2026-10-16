@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE, type TransportSignal } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import type { InstallIdentityResult } from '../../src';
+import { CREDENTIAL_WRITE_TIMEOUT_MS } from '../../src/constants';
 import { revokedTokens } from '../support/tracking';
 import {
+  ACCESS_TOKEN,
   REFRESH_TOKEN,
   CONFIG,
   Deferred,
@@ -72,22 +74,31 @@ describe('sign out', () => {
     );
   });
 
-  it('raises the sign-out epoch and clears memory before storage resolves', async () => {
+  // Case 35: signed out on the phone once the intent is saved, before the server answers.
+  it('keeps the session shown until sign-out is saved, then signs out before the revoke', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    const deletion = new Deferred<void>();
-    ports.credentials.beforeDelete = () => deletion.promise;
-    transport.enqueue({ status: 200, body: {} });
+    const write = new Deferred<void>();
+    ports.credentials.beforeReplace = () => write.promise;
+    const revokeStarted = new Deferred<void>();
+    const revokeAnswer = new Deferred<{ status: number; body: unknown }>();
+    transport.onRequest = ({ path }) => {
+      if (path === '/api/oauth/revoke') revokeStarted.resolve();
+    };
+    transport.enqueue(() => revokeAnswer.promise);
 
     const pending = engine.signOut();
 
-    expect(engine.snapshot.status).toBe('signedOut');
-    expect(engine.snapshot.operation).toBe('signingOut');
-    deletion.resolve();
-    await pending;
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'signingOut' });
+    write.resolve();
+    await revokeStarted.promise;
+    expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'signingOut' });
+    revokeAnswer.resolve({ status: 200, body: {} });
+    await expect(pending).resolves.toEqual({ kind: 'signedOut', revocation: 'revoked' });
     expect(engine.snapshot.operation).toBe('none');
+    expect(ports.credentials.value).toBeUndefined();
   });
 
   it('reads and revokes a saved session when sign-out interrupts restore', async () => {
@@ -150,7 +161,7 @@ describe('sign out', () => {
     await first;
   });
 
-  it('deletes local credentials and does not retry a failed revoke', async () => {
+  it('keeps a refused revoke stored with no session, and a second sign-out sends nothing', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
@@ -160,31 +171,34 @@ describe('sign out', () => {
     const result = await engine.signOut();
     await engine.signOut();
 
-    expect(result.kind).toBe('signedOut');
-    expect(ports.credentials.value).toBeUndefined();
+    expect(result).toMatchObject({ kind: 'signedOut', revocation: 'failed' });
+    expect(JSON.parse(ports.credentials.value ?? '{}')).toEqual({
+      version: 1,
+      pendingRevocations: [expect.objectContaining({ refreshToken: REFRESH_TOKEN, attempts: 1 })],
+    });
     expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
     expect(transport.sent.some(({ path }) => path === '/api/auth/logout')).toBe(false);
   });
 
-  it('keeps local sign out and attempts revocation when credential deletion fails', async () => {
+  // Case 42: the intent write is refused, so nothing is removed and nothing is sent.
+  it('reports a refused sign-out write and keeps the person signed in', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    ports.credentials.beforeDelete = () => Promise.reject(new Error('storage unavailable'));
-    transport.enqueue({ status: 200, body: {} });
+    const saved = ports.credentials.value;
+    ports.credentials.beforeReplace = () => Promise.reject(new Error('storage unavailable'));
 
     const result = await engine.signOut();
 
-    expect(result).toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(result.error?.constructor).toBe(Error);
-    expect(engine.snapshot).toMatchObject({
-      status: 'signedOut',
-      operation: 'none',
-      warning: 'storageBlocked',
-      reason: 'storageFailure',
-    });
-    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
+    expect(result).toMatchObject({ kind: 'signOutNotSaved' });
+    expect(result.error?.message).toBe('storage unavailable');
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
+    expect(ports.credentials.value).toBe(saved);
+    expect(revokedTokens(transport)).toEqual([]);
+    transport.enqueue(apiReply({ id: 'still-signed-in' }));
+    await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
+    expect(transport.sent.at(-1)?.headers?.['Authorization']).toBe(`Bearer ${ACCESS_TOKEN}`);
   });
 
   it('aborts revoke at the deadline and settles local sign out', async () => {
@@ -216,31 +230,25 @@ describe('sign out', () => {
     expect(ports.timer.pending).toBe(0);
   });
 
-  it('starts revoke while deletion is pending and times deletion out', async () => {
+  it('sends no revoke while the sign-out write is pending and reports its timeout', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    const deleteStarted = new Deferred<void>();
-    const revokeStarted = new Deferred<void>();
-    ports.credentials.beforeDelete = () => {
-      deleteStarted.resolve();
+    const writeStarted = new Deferred<void>();
+    ports.credentials.beforeReplace = () => {
+      writeStarted.resolve();
       return new Promise(() => undefined);
-    };
-    transport.enqueue({ status: 200, body: {} });
-    transport.onRequest = ({ path }) => {
-      if (path === '/api/oauth/revoke') revokeStarted.resolve();
     };
 
     const signOut = engine.signOut();
-    await deleteStarted.promise;
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(1);
-    expect(ports.timer.scheduled).toContain(4_000);
-    await revokeStarted.promise;
-    ports.timer.fireDelay(4_000);
+    await writeStarted.promise;
+    expect(revokedTokens(transport)).toEqual([]);
+    ports.timer.fireDelay(CREDENTIAL_WRITE_TIMEOUT_MS);
 
-    await expect(signOut).resolves.toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(engine.snapshot.operation).toBe('none');
+    await expect(signOut).resolves.toMatchObject({ kind: 'signOutNotSaved' });
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
+    expect(revokedTokens(transport)).toEqual([]);
     expect(ports.timer.pending).toBe(0);
   });
 

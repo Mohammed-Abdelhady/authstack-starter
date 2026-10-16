@@ -6,10 +6,11 @@ import {
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, OAuthError, TransportError, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
-import { allowRefreshReplayAfterSharedStoreRace } from '../support/tracking';
+import { allowRefreshReplayAfterSharedStoreRace, revokedTokens } from '../support/tracking';
 import {
   ACCESS_TOKEN,
   CONFIG,
+  Deferred,
   REFRESH_TOKEN,
   ScriptedTransport,
   apiReply,
@@ -19,7 +20,7 @@ import {
 } from '../support/support';
 
 describe('restore with live or owed session state', () => {
-  it('finishes restore and can sign in after deleting a session owed before restore', async () => {
+  it('finishes restore and can sign in after a revoked token could not leave storage', async () => {
     const originalTransport = new ScriptedTransport();
     const originalPorts = testPorts(originalTransport);
     const original = createAuthEngine(CONFIG, originalPorts);
@@ -29,14 +30,7 @@ describe('restore with live or owed session state', () => {
     const ports = testPorts(transport);
     ports.credentials = originalPorts.credentials;
     ports.install = originalPorts.install;
-    let rejectFirstDelete = true;
-    ports.credentials.beforeDelete = () => {
-      if (rejectFirstDelete) {
-        rejectFirstDelete = false;
-        return Promise.reject(new Error('keychain unavailable'));
-      }
-      return Promise.resolve();
-    };
+    ports.credentials.beforeDelete = () => Promise.reject(new Error('keychain unavailable'));
     transport.enqueue({ status: 200, body: {} });
     const engine = createAuthEngine(CONFIG, ports);
 
@@ -45,14 +39,22 @@ describe('restore with live or owed session state', () => {
       revocation: 'revoked',
     });
     ports.credentials.beforeDelete = undefined;
+    const slotCleared = new Deferred<void>();
+    ports.credentials.afterDelete = () => slotCleared.resolve();
+    // The first attempt was reserved, so the next one waits its delay. The server then
+    // answers the already revoked token as revoked, which removes it.
+    ports.clock.advance(30_000);
+    transport.enqueue({ status: 200, body: {} });
     ports.authBrowser.results.push(() => ({ kind: 'cancelled' }));
 
     await expect(engine.restore()).resolves.toEqual({
       kind: 'restored',
       status: 'signedOut',
     });
+    await slotCleared.promise;
     await expect(engine.signIn()).resolves.toMatchObject({ kind: 'cancelled' });
 
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN, REFRESH_TOKEN]);
     expect(ports.credentials.value).toBeUndefined();
     expect(engine.snapshot).toMatchObject({ status: 'signedOut', operation: 'none' });
   });
@@ -90,41 +92,35 @@ describe('restore with live or owed session state', () => {
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
   });
 
-  it('retries an owed sign-out deletion before restore reads credentials', async () => {
+  it('reads a waiting revocation once per restore and leaves it until its delay passes', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
     const engine = createAuthEngine(CONFIG, ports);
     await establishSession(engine, ports, transport);
-    ports.credentials.beforeDelete = () => Promise.reject(new Error('keychain locked'));
     transport.enqueue(new Error('offline'));
     await engine.signOut();
+    const waiting = ports.credentials.value;
     const readsBeforeRestore = ports.credentials.events.filter((event) => event === 'read').length;
-    ports.credentials.beforeDelete = undefined;
 
     const restored = await engine.restore();
 
     expect(restored).toEqual({ kind: 'restored', status: 'signedOut' });
-    expect(ports.credentials.value).toBeUndefined();
+    expect(ports.credentials.value).toBe(waiting);
     expect(ports.credentials.events.filter((event) => event === 'read')).toHaveLength(
       readsBeforeRestore + 1,
     );
     expect(engine.snapshot.status).toBe('signedOut');
-    const deletesAfterCleanup = ports.credentials.events.filter(
-      (event) => event === 'delete:done',
-    ).length;
-    const readsAfterCleanup = ports.credentials.events.filter((event) => event === 'read').length;
 
     await expect(engine.restore()).resolves.toEqual({
       kind: 'restored',
       status: 'signedOut',
     });
 
-    expect(ports.credentials.events.filter((event) => event === 'delete:done')).toHaveLength(
-      deletesAfterCleanup,
-    );
+    expect(ports.credentials.events.filter((event) => event.startsWith('delete'))).toEqual([]);
     expect(ports.credentials.events.filter((event) => event === 'read')).toHaveLength(
-      readsAfterCleanup + 1,
+      readsBeforeRestore + 2,
     );
+    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
   });
 
   it('stores only the refresh token and obtains a fresh access token after restart', async () => {

@@ -10,6 +10,7 @@ import {
   proofNonces,
   requestPayload,
 } from '../support/device-bound-support';
+import { expectOnlyPendingRevocation } from '../support/pending-revocation';
 import { SoftwareDeviceKey } from '../support/software-device-key';
 import {
   CONFIG,
@@ -91,7 +92,11 @@ describe('device-bound revocation', () => {
       expect(outcome.error).toBeInstanceOf(errorType);
       expect(proofNonces(revokeRequests(transport))).toEqual(['', CHALLENGE_NONCE]);
       expect(engine.snapshot).toEqual({ status: 'signedOut', operation: 'none' });
-      expect(ports.credentials.value).toBeUndefined();
+      await expectOnlyPendingRevocation(ports, {
+        refreshToken: REFRESH_TOKEN,
+        attempts: 1,
+        bound: true,
+      });
     },
   );
 
@@ -116,7 +121,11 @@ describe('device-bound revocation', () => {
     expect(outcome).toMatchObject({ kind: 'signedOut', revocation: 'failed' });
     expect(outcome.error).toBeInstanceOf(OAuthError);
     expect(proofNonces(revokeRequests(transport))).toEqual(['', CHALLENGE_NONCE, 'server-nonce-1']);
-    expect(ports.credentials.value).toBeUndefined();
+    await expectOnlyPendingRevocation(ports, {
+      refreshToken: REFRESH_TOKEN,
+      attempts: 1,
+      bound: true,
+    });
   });
 
   it('times the revoke out when the answer to the challenged retry never comes', async () => {
@@ -136,6 +145,10 @@ describe('device-bound revocation', () => {
     expect(waitingOn).toEqual([REVOKE_TIMEOUT_MS]);
     expect(revokeRequests(transport)).toHaveLength(2);
     expect(transport.sent.at(-1)?.signal?.aborted).toBe(true);
-    expect(ports.credentials.value).toBeUndefined();
+    await expectOnlyPendingRevocation(ports, {
+      refreshToken: REFRESH_TOKEN,
+      attempts: 1,
+      bound: true,
+    });
   });
 });
