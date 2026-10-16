@@ -19,6 +19,7 @@ import {
 } from './persistence/user-persistence';
 import { AccountSessions } from './stores/account-sessions';
 import { AccountProfileStore } from './stores/account-profile.store';
+import { ErasureModule } from './erasure/erasure.module';
 // feature:oauth-core:start
 import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tokens.module';
 // feature:oauth-core:end
@@ -30,6 +31,7 @@ import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tok
     ...USER_PERSISTENCE_IMPORTS,
     forwardRef(() => AuthModule),
     SessionModule,
+    ErasureModule,
     ProviderTokensModule, // feature:oauth-core
   ],
   controllers: [
