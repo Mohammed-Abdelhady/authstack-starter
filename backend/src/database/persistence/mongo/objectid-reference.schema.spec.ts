@@ -165,6 +165,8 @@ const migration = jest.requireActual<MigrationModule>(
 );
 
 const ALLOWED_MIXED_PATHS: Record<string, string> = {
+  'ApplicationSchema.signInMethods':
+    'Snapshot of the configured sign-in switches; validated as a plain object and holds no ObjectId.',
   'SecurityEventSchema.details':
     'Per-action activity details; activity-details.ts allows only listed fields per action.',
   'SessionSchema.device':
