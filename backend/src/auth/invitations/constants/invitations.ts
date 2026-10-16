@@ -24,3 +24,8 @@ export const ENROLMENT_LINK_LIFETIME_MS = 86_400_000;
 
 /** Frontend page that reads the token from the fragment and posts it on Accept. */
 export const INVITATION_PAGE_PATH = '/auth/invitation';
+
+export const INVITATION_INVALID_MESSAGE =
+  'This invitation is invalid or has expired.';
+export const INVITATION_MAX_TOKEN_LENGTH = 512;
+export const INVITATION_DAY_MS = 86_400_000;
