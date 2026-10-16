@@ -3,7 +3,7 @@ import { ROLE_AUDIENCE } from '../../src/host/types/host-role.type';
 import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
 import { MAX_SESSIONS_PER_USER } from '../../src/session/constants/session-policy';
 import { SessionIssuanceService } from '../../src/session/services/session-issuance.service';
-import { SEED_ADMIN } from '../constants/seed-users';
+import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import type { E2eApp } from '../utils/e2e-app';
 import { TEST_NOW } from '../utils/frozen-clock';
 import {
@@ -13,6 +13,7 @@ import {
 import { enrolmentCredentialFixture } from '../utils/session/enrolment-credential-fixture';
 import {
   bootEnrolmentApp,
+  ENROLMENT_CREDENTIAL_ID,
   issueEnrolment,
   promoteEnrolment,
 } from '../utils/session/enrolment-fixtures';
@@ -55,6 +56,43 @@ describe('enrolment issuance refusals', () => {
         await e2e.app.get(Sessions).validateBrowserSession(issued.sessionToken),
       ).toMatchObject({ id: issued.session.id });
       expect(await e2e.state.sessions.countSessions()).toBe(1);
+    },
+  );
+
+  // Failure: a credential of another relying party proves the enrolment's
+  // first passkey, or one stored before relying parties were recorded does not.
+  it.each([
+    { stored: 'another relying party', rpId: 'other.example.test' },
+    { stored: 'no relying party on record', rpId: undefined },
+  ])(
+    'promotes on a credential with $stored only when it is the web one',
+    async ({ rpId }) => {
+      const issued = await issueEnrolment(e2e);
+      await e2e.state.auth.storePasskey(SEED_USER.email, {
+        credentialId: ENROLMENT_CREDENTIAL_ID,
+        publicKey: Buffer.from([0, 255, 1, 128]),
+        counter: 0,
+        transports: ['internal'],
+        deviceType: 'singleDevice',
+        backedUp: false,
+        name: 'Stored before enrolment',
+        lastUsedAt: null,
+        ...(rpId ? { rpId } : {}),
+      });
+      const promotion = promoteEnrolment(e2e, issued, {
+        insertCredential: false,
+      });
+      if (rpId === undefined) {
+        expect(await promotion).toMatchObject({ clientId: WEB_CLIENT_ID });
+        return;
+      }
+      await expect(promotion).rejects.toMatchObject({
+        code: 'PASSKEY_CHALLENGE_INVALID',
+        status: 401,
+      });
+      expect(
+        await e2e.app.get(Sessions).validateBrowserSession(issued.sessionToken),
+      ).toMatchObject({ id: issued.session.id });
     },
   );
 
