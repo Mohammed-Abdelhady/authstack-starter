@@ -32,4 +32,6 @@ export interface UsersTable {
     RoleAudience | null | undefined,
     RoleAudience | null
   >;
+  /** Raised by a trigger on every write to a column staff read. */
+  version: ColumnType<number, never, never>;
 }
