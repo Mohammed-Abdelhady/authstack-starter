@@ -152,7 +152,7 @@ export class NativeRegistrationService {
           accountId,
         ),
       );
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       if (isUnknownTransactionOutcome(error)) {
         return this.resolveUnknownActivation(
@@ -223,12 +223,17 @@ export class NativeRegistrationService {
         emailCodeGenerationHash: null,
       },
     };
-    return this.attempts.completeFactorIn(unitOfWork, activationClaimed, {
-      userId: storedAccount.id,
-      userVersion: storedAccount.sessionVersion,
-      firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE,
-      authenticationMethods: [NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE],
-    });
+    return this.attempts.completeFactorIn(
+      unitOfWork,
+      activationClaimed,
+      {
+        userId: storedAccount.id,
+        userVersion: storedAccount.sessionVersion,
+        firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE,
+        authenticationMethods: [NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE],
+      },
+      secret,
+    );
   }
 
   private async resolveUnknownActivation(
@@ -247,7 +252,7 @@ export class NativeRegistrationService {
         attempt.details.activationCompleted === true &&
         attempt.details.verifiedAccount?.userId === accountId
       ) {
-        return this.attempts.view(attempt);
+        return this.attempts.viewAfter(attempt, secret);
       }
     } catch {
       return asAuthorityUnavailable(error);

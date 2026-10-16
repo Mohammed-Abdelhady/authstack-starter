@@ -150,7 +150,7 @@ export class NativeEmailLinkService {
         creationMethod: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
       },
     );
-    return this.attempts.view(completed);
+    return this.attempts.viewAfter(completed, secret);
   }
 
   /** Finishes a mailed first factor. The proof is spent inside the same unit of work. */
@@ -236,6 +236,7 @@ export class NativeEmailLinkService {
         firstFactor: proof.firstFactor,
         authenticationMethods: [proof.firstFactor],
       },
+      secret,
     );
   }
 

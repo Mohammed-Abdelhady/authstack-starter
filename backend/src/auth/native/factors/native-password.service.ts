@@ -64,14 +64,19 @@ export class NativePasswordService {
         input,
       );
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
-        this.attempts.completeFactorIn(work, claimed, {
-          userId: user.id,
-          userVersion: user.sessionVersion,
-          firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSWORD,
-          authenticationMethods: ['pwd'],
-        }),
+        this.attempts.completeFactorIn(
+          work,
+          claimed,
+          {
+            userId: user.id,
+            userVersion: user.sessionVersion,
+            firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSWORD,
+            authenticationMethods: ['pwd'],
+          },
+          secret,
+        ),
       );
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
       throw error;

@@ -24,11 +24,8 @@ import {
   NativeRelyingParties,
   PasskeyRelyingParty,
 } from '../../passkeys/native/native-relying-parties';
-import { NativeAttemptStore } from '../stores/native-attempt.store';
-import {
-  NativeAttemptService,
-  operationGuardOf,
-} from '../services/native-attempt.service';
+import { NativeAttemptService } from '../services/native-attempt.service';
+import { NativeAttemptCompletionService } from '../services/native-attempt-completion.service';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -53,7 +50,7 @@ import { assertNativePolicy } from '../utils/native-policy.util';
 export class NativePasskeyService {
   constructor(
     private readonly attempts: NativeAttemptService,
-    private readonly store: NativeAttemptStore,
+    private readonly completion: NativeAttemptCompletionService,
     private readonly methods: NativeMethodsService,
     private readonly credentials: PasskeyStore,
     private readonly adapter: WebAuthnAdapter,
@@ -197,13 +194,18 @@ export class NativePasskeyService {
             await this.credentials.markUsed(live, at, work);
           }
           if (purpose === 'firstFactor') {
-            return this.attempts.completeFactorIn(work, claimed, {
-              userId: account.id,
-              userVersion: account.sessionVersion,
-              firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY,
-              authenticationMethods: ['hwk'],
-              passkeyUserVerified: verification.userVerified,
-            });
+            return this.attempts.completeFactorIn(
+              work,
+              claimed,
+              {
+                userId: account.id,
+                userVersion: account.sessionVersion,
+                firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY,
+                authenticationMethods: ['hwk'],
+                passkeyUserVerified: verification.userVerified,
+              },
+              secret,
+            );
           }
           if (
             !verification.userVerified ||
@@ -221,32 +223,13 @@ export class NativePasskeyService {
             current.sessionVersion !== account.sessionVersion
           )
             throw wrongStage();
-          const transitioned = await this.store.transitionIn(
-            work,
-            operationGuardOf(claimed),
-            {
-              phase: NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED,
-              expiresAt: claimed.expiresAt,
-              details: {
-                ...claimed.details,
-                secondFactors: undefined,
-                passkeyChallengeHash: null,
-                passkeyPurpose: null,
-                verifiedAccount: {
-                  ...claimed.details.verifiedAccount,
-                  authenticationMethods: [
-                    ...claimed.details.verifiedAccount.authenticationMethods,
-                    'hwk',
-                  ],
-                },
-              },
-            },
-          );
-          if (!transitioned) throw wrongStage();
-          return transitioned;
+          return this.completion.afterLastFactorIn(work, claimed, {
+            method: 'hwk',
+            secret,
+          });
         },
       );
-      return this.attempts.view(result);
+      return this.attempts.viewAfter(result, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
       throw error;
