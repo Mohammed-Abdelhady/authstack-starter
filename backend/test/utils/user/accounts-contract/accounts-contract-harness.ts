@@ -24,6 +24,7 @@ import { RoleSweepStore } from '../../../../src/role/stores/role-sweep.store';
 import { AccountPermissionStore } from '../../../../src/user/stores/account-permission.store';
 import { AccountProfileStore } from '../../../../src/user/stores/account-profile.store';
 import { AccountSessions } from '../../../../src/user/stores/account-sessions';
+import { AccountDeletionStore } from '../../../../src/user/erasure/stores/account-deletion.store';
 import { FrozenClock } from '../../frozen-clock';
 
 export interface SeedRole {
@@ -98,6 +99,7 @@ export interface AccountsContractHarness {
   readonly profiles: AccountProfileStore;
   readonly permissions: AccountPermissionStore;
   readonly sessions: AccountSessions;
+  readonly deletion: AccountDeletionStore;
   readonly admin: AdminAccountStore;
   readonly activation: ActivationAccounts;
   readonly signIn: ActivationSignIn;

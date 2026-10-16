@@ -28,6 +28,7 @@ import {
   securityNoticeProviders,
   stubSmtpBoundary,
 } from '../../../../../test/utils/security-notice-fixture';
+import { accountDeletionProviders } from '../../../../../test/utils/account-deletion-fixture';
 
 jest.mock('bcrypt');
 
@@ -105,6 +106,7 @@ describe('UserProfileService', () => {
         { provide: SessionService, useValue: mockSessionService },
         { provide: getConnectionToken(), useValue: mockConnection },
         ...securityNoticeProviders(),
+        ...accountDeletionProviders(),
       ],
     }).compile();
 
