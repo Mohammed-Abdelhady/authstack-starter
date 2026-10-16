@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TEST_ID } from '../../src/constants';
 import { PHONE, TABLET } from '../support/devices';
 import { noResponse, ok, refusal, ROUTE, sessionList } from '../support/fake-server';
+import { LOCALES } from '../support/locales';
 import {
   byTestId,
   cleanup,
@@ -131,6 +132,33 @@ describe('signing devices out from the devices screen', () => {
       alerts: [[app.t('account.signOutFailed.title'), app.t('account.signOutFailed.description')]],
     });
   });
+
+  it.each(LOCALES)(
+    'keeps this device signed in and says so in %s when its sign-out could not be saved',
+    async (locale) => {
+      const app = await listed(locale);
+      app.fake.refuseSignOut();
+
+      await press(app.root, REVOKE('phone'));
+      await app.confirm.answer(true);
+
+      expect({
+        sessions: isShown(app.root, TEST_ID.SESSIONS_SCREEN),
+        alerts: alerts(app),
+        status: app.fake.engine.snapshot.status,
+        signOuts: app.fake.signOuts,
+        writes: writes(app),
+      }).toEqual({
+        sessions: true,
+        alerts: [
+          [app.t('account.signOutFailed.title'), app.t('account.signOutFailed.description')],
+        ],
+        status: 'signedIn',
+        signOuts: 1,
+        writes: [],
+      });
+    },
+  );
 
   it('shows the refresh indicator only while a pull is reading the list', async () => {
     const app = await listed();

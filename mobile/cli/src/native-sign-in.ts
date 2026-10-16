@@ -98,6 +98,9 @@ function createModules(): NativeSignInModules {
     passkeys: {
       isSupported: async () => (await loadPasskeyModule()).isSupported(),
       get: async (options) => (await loadPasskeyModule()).get(options),
+      // The module's type asks for a signal; the prompt lease ends a cancelled prompt.
+      create: async (options) =>
+        (await loadPasskeyModule()).create({ ...options, signal: new AbortController().signal }),
     },
   };
 }

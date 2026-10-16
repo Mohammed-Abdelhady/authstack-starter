@@ -5,6 +5,7 @@ import { NATIVE_AR } from './native.ar';
 import { ROLE_AR } from './role.ar';
 import { SESSIONS_AR } from './sessions.ar';
 import { SIGN_IN_AR } from './sign-in.ar';
+import { PASSKEYS_AR } from './passkeys.ar'; // feature:passkeys
 import { EMAIL_AR } from './email.ar';
 
 export const AR: Record<MessageKey, string> = {
@@ -14,5 +15,6 @@ export const AR: Record<MessageKey, string> = {
   ...ROLE_AR,
   ...SESSIONS_AR,
   ...NATIVE_AR,
+  ...PASSKEYS_AR, // feature:passkeys
   ...EMAIL_AR,
 };

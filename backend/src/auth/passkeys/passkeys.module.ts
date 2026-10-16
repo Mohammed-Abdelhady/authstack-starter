@@ -15,6 +15,14 @@ import { PasskeyManagementService } from './services/passkey-management.service'
 import { PasskeyRegistrationReauth } from './services/passkey-registration-reauth.service';
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
+import { PasskeyRecorder } from './services/passkey-recorder.service';
+import {
+  EnrolmentPromotion,
+  NoEnrolmentPromotion,
+} from './services/enrolment-promotion';
+import { NativePasskeysController } from './native/native-passkeys.controller';
+import { NativePasskeyRegistrationService } from './native/native-passkey-registration.service';
+import { NativeRelyingParties } from './native/native-relying-parties';
 import { WebAuthnAdapter } from './services/webauthn.adapter';
 import { LegacyPasskeyFactsModule } from './passkey-facts.module';
 import { UserModule } from '../../user/user.module';
@@ -42,7 +50,11 @@ import { CommonModule } from '../../common/common.module';
     // The rule that keeps a way to sign in on the account.
     UserModule,
   ],
-  controllers: [PasskeysController, PasskeyLoginController],
+  controllers: [
+    PasskeysController,
+    PasskeyLoginController,
+    NativePasskeysController,
+  ],
   providers: [
     WebAuthnAdapter,
     PasskeyChallengeService,
@@ -52,10 +64,18 @@ import { CommonModule } from '../../common/common.module';
     PasskeyLoginService,
     PasskeyManagementService,
     PasskeySecondFactorVerifier,
+    PasskeyRecorder,
+    // Where an enrolment promotion joins a registration's transaction. Moves
+    // to AuthContractsModule with contracts/enrolment-promotion.ts.
+    { provide: EnrolmentPromotion, useClass: NoEnrolmentPromotion },
+    NativeRelyingParties,
+    NativePasskeyRegistrationService,
     ...PASSKEYS_PERSISTENCE_PROVIDERS,
   ],
   exports: [
     WebAuthnAdapter,
+    // The one resolver of a native application's relying party.
+    NativeRelyingParties,
     LegacyPasskeyFactsModule,
     PasskeyAssertionService,
     PasskeyManagementService,
