@@ -20,6 +20,7 @@ import {
   WEB_CLIENT_ID,
 } from '../../../src/session/constants/client-ids';
 import { SEED_USER } from '../../constants/seed-users';
+import { setConfigValue } from '../config-settings';
 import { E2E_CLIENT_URL, type E2eApp } from '../e2e-app';
 import type { Enrolment } from './two-factor-enrolment';
 
@@ -152,12 +153,16 @@ export function twoFactorApplicationCases(
       const e2e = current();
       const config = e2e.app.get(ConfigService);
       previousAdminUrl = config.get<string>('cors.adminUrl');
-      config.set('cors.adminUrl', ADMIN_ORIGIN);
+      setConfigValue(config, 'cors.adminUrl', ADMIN_ORIGIN);
       await e2e.app.get(BrowserPolicyReconciler).reconcile();
     });
 
     afterEach(() => {
-      current().app.get(ConfigService).set('cors.adminUrl', previousAdminUrl);
+      setConfigValue(
+        current().app.get(ConfigService),
+        'cors.adminUrl',
+        previousAdminUrl,
+      );
     });
 
     // Failure: renaming a signed challenge cookie admits its first factor to another application.
