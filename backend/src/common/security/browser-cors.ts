@@ -5,6 +5,7 @@ import type {
 import type { Request } from 'express';
 import type { BrowserApplications } from '../../session/applications/browser-applications';
 import { CSRF_HEADER } from '../../session/constants/browser-proof';
+import { IDEMPOTENCY_KEY_HEADER } from '../constants/idempotency';
 import { ADMIN_CLIENT_ID } from '../../session/constants/client-ids';
 
 const BROWSER_CORS_MAX_AGE_SECONDS = 600;
@@ -22,7 +23,12 @@ export function browserCors(origins: string | readonly string[]): CorsOptions {
           },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', CSRF_HEADER],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      CSRF_HEADER,
+      IDEMPOTENCY_KEY_HEADER,
+    ],
     exposedHeaders: [CSRF_HEADER],
     maxAge: BROWSER_CORS_MAX_AGE_SECONDS,
   };
