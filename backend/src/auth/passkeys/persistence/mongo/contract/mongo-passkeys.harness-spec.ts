@@ -129,6 +129,7 @@ export async function bootMongoPasskeysHarness(): Promise<PasskeysContractHarnes
         name: passkey.name ?? 'Seeded key',
         lastUsedAt: null,
         createdAt: passkey.createdAt,
+        ...(passkey.rpId ? { rpId: passkey.rpId } : {}),
       });
       return created._id.toString();
     },
@@ -146,6 +147,16 @@ export async function bootMongoPasskeysHarness(): Promise<PasskeysContractHarnes
           backedUp: passkey.backedUp,
           name: passkey.name,
           lastUsedAt: passkey.lastUsedAt ?? null,
+        }))
+        .sort(byCredentialId);
+    },
+
+    storedRelyingParties: async () => {
+      const stored = await passkeys.find({}).lean().exec();
+      return stored
+        .map((passkey) => ({
+          credentialId: passkey.credentialId,
+          rpId: passkey.rpId ?? null,
         }))
         .sort(byCredentialId);
     },

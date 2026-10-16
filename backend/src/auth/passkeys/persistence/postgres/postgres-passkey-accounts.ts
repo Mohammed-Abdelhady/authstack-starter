@@ -13,6 +13,8 @@ import { secondFactorEnabled } from '../../../../user/persistence/postgres/postg
 import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
+import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import {
   PasskeyAccount,
   PasskeyAccountPassword,
@@ -86,6 +88,20 @@ export class PostgresPasskeyAccounts extends PasskeyAccounts {
           }
         : null;
     });
+  }
+
+  /** A share lock: a deactivation waits for the work, or the work sees it. */
+  async readStanding(
+    unitOfWork: UnitOfWork,
+    userId: string,
+  ): Promise<{ isDeleted: boolean } | null> {
+    const row = await postgresTransactionOf(unitOfWork)
+      .selectFrom('users')
+      .select('is_deleted')
+      .where('id', '=', toUuid(userId))
+      .forShare()
+      .executeTakeFirst();
+    return row ? { isDeleted: row.is_deleted } : null;
   }
 }
 

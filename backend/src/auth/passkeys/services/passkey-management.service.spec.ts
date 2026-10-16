@@ -10,6 +10,7 @@ import { SignInMethodRule } from '../../../user/services/sign-in-method.rule';
 import { createModelMock } from '../../../common/testing/test-doubles.harness-spec';
 import {
   createMockPasskey,
+  createPasskeyConfig,
   MockPasskey,
   PASSKEY_ID,
   USER_ID,
@@ -123,6 +124,7 @@ function createHarness(state: AccountState = {}): Harness {
           { startSession: jest.fn().mockResolvedValue(transactionSession()) },
         ),
       ),
+      createPasskeyConfig(),
     ),
     passkeyModel,
     passkey: passkey ?? createMockPasskey(),
@@ -208,6 +210,26 @@ describe('PasskeyManagementService', () => {
       expect(harness.passkeyModel.deleteOne).toHaveBeenCalledWith({
         _id: PASSKEY_ID,
       });
+    });
+
+    it('should keep the last web passkey when the other passkey belongs to an app', async () => {
+      const harness = createHarness({
+        passkeyCount: 2,
+        passwordEnabled: false,
+      });
+      // Two passkeys on the account; the web scope's count finds this one.
+      harness.passkeyModel.countDocuments.mockImplementation(
+        (filter: Record<string, unknown>) => ({
+          session: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue('$or' in filter ? 1 : 2),
+        }),
+      );
+
+      await expect(harness.service.remove(USER, ID)).rejects.toMatchObject({
+        code: ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
+        status: 409,
+      });
+      expect(harness.passkeyModel.deleteOne).not.toHaveBeenCalled();
     });
 
     it('should keep the last passkey when it is the only way in', async () => {

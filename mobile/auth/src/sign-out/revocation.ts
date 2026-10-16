@@ -15,7 +15,34 @@ export interface RevocationBinding {
   proofKeyThumbprint: string;
 }
 
-export async function revokeWithDeadline(
+// One revoke per token at a time for each engine; a second caller waits on the first.
+const inFlight = new WeakMap<AuthDependencies, Map<string, Promise<RevokeResult>>>();
+
+export function revokeWithDeadline(
+  client: ApiClient<AbortSignalPort>,
+  dependencies: AuthDependencies,
+  token: string,
+  clientId: string,
+  binding?: RevocationBinding,
+): Promise<RevokeResult> {
+  let running = inFlight.get(dependencies);
+  if (!running) {
+    running = new Map();
+    inFlight.set(dependencies, running);
+  }
+  const shared = running.get(token);
+  if (shared) return shared;
+  const revocation = sendRevoke(client, dependencies, token, clientId, binding);
+  running.set(token, revocation);
+  const owner = running;
+  const settle = () => {
+    if (owner.get(token) === revocation) owner.delete(token);
+  };
+  void revocation.then(settle, settle);
+  return revocation;
+}
+
+async function sendRevoke(
   client: ApiClient<AbortSignalPort>,
   dependencies: AuthDependencies,
   token: string,
