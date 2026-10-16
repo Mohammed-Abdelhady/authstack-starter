@@ -21,6 +21,7 @@ import type {
   ErasureLease,
   ErasureSubject,
   LinkedIdentity,
+  UnscheduledSelection,
 } from '../types/erasure';
 
 class MemoryUnitOfWork extends UnitOfWork {}
@@ -35,6 +36,9 @@ export class InPlaceRunner extends UnitOfWorkRunner {
 export interface MemoryAccount {
   isDeleted: boolean;
   eraseAfter: Date | null;
+  deletedAt?: Date;
+  /** The mark a person's own deletion leaves. */
+  selfDeletedAt?: Date;
   address: string | null;
   pendingAddress: string | null;
   identities: LinkedIdentity[];
@@ -208,10 +212,27 @@ export class MemoryErasureJobStore extends ErasureJobStore {
     return Promise.resolve(open.slice(0, limit).map(view));
   }
 
-  scheduleUnscheduled(eraseAfter: Date, limit: number): Promise<number> {
-    const waiting = [...this.world.accounts.values()].filter(
-      (account) => account.isDeleted && account.eraseAfter === null,
-    );
+  scheduleUnscheduled(
+    selection: UnscheduledSelection,
+    limit: number,
+  ): Promise<number> {
+    const { eraseAfter, deletedBefore } = selection;
+    const waiting = [...this.world.accounts.values()].filter((account) => {
+      const deletedAt = account.deletedAt?.getTime();
+      const own =
+        account.selfDeletedAt !== undefined &&
+        account.selfDeletedAt.getTime() === deletedAt;
+      const unmarkedBefore =
+        account.selfDeletedAt === undefined &&
+        deletedAt !== undefined &&
+        deletedBefore !== undefined &&
+        deletedAt < deletedBefore.getTime();
+      return (
+        account.isDeleted &&
+        account.eraseAfter === null &&
+        (own || unmarkedBefore)
+      );
+    });
     for (const account of waiting.slice(0, limit))
       account.eraseAfter = eraseAfter;
     return Promise.resolve(Math.min(waiting.length, limit));

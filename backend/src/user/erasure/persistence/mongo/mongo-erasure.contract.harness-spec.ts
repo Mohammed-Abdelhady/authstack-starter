@@ -213,6 +213,14 @@ export async function bootMongoErasureHarness(): Promise<ErasureHarness> {
         .findOne({ _id: new ObjectId(id) });
       return user?.eraseAfter ?? null;
     },
+    deactivate: async (id, deletedAt) => {
+      await db
+        .collection('users')
+        .updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { isDeleted: true, deletedAt } },
+        );
+    },
     seedChildren,
     counts: async (a) => {
       const rows = tracked.get(a.id);

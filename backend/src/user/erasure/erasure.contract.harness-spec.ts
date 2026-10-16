@@ -35,6 +35,8 @@ export interface ErasureHarness {
     eraseAfter?: Date,
   ): Promise<ErasureAccount>;
   schedule(id: string): Promise<Date | null>;
+  /** Deactivates as a staff action or a deletion does, at `deletedAt`. */
+  deactivate(id: string, deletedAt: Date): Promise<void>;
   seedChildren(account: ErasureAccount): Promise<void>;
   counts(account: ErasureAccount): Promise<Record<string, number>>;
   events(): Promise<ErasureEvent[]>;
@@ -231,6 +233,7 @@ export function describeErasureContract(
       const mine = await account();
       const record = {
         userId: mine.id,
+        deletedAt: TEST_NOW,
         eraseAfter: ERASURE_FUTURE,
         receipt: {
           keyHash: RECEIPT_HASH,
@@ -258,24 +261,57 @@ export function describeErasureContract(
         constraint: DELETION_RECEIPT_CONSTRAINT.KEY,
       });
       await h.runner.run((u) =>
-        h.deletion.recordIn(u, { userId: mine.id, eraseAfter: null }),
+        h.deletion.recordIn(u, {
+          userId: mine.id,
+          deletedAt: TEST_NOW,
+          eraseAfter: null,
+        }),
       );
       expect(await h.schedule(mine.id)).toBeNull();
       expect(await h.deletion.findReceipt('missing')).toBeNull();
     });
-    it('schedules only unscheduled deactivated accounts within the batch limit', async () => {
-      const first = await h.seedAccount('first@example.test', true);
-      const second = await h.seedAccount('second@example.test', true);
+    it("dates a person's own deletions, and unmarked ones only before the time given", async () => {
+      const deactivated = async (email: string, at: Date, own: boolean) => {
+        const seeded = await h.seedAccount(email);
+        await h.deactivate(seeded.id, at);
+        const record = { userId: seeded.id, deletedAt: at, eraseAfter: null };
+        if (own) await h.runner.run((u) => h.deletion.recordIn(u, record));
+        return seeded;
+      };
+      const first = await deactivated('own-1@example.test', ERASURE_PAST, true);
+      const second = await deactivated(
+        'own-2@example.test',
+        ERASURE_PAST,
+        true,
+      );
+      const staff = await deactivated(
+        'staff@example.test',
+        ERASURE_PAST,
+        false,
+      );
+      const late = await deactivated('late@example.test', TEST_NOW, false);
+      // Deleted by the person, restored, and later deactivated by staff.
+      const restored = await deactivated(
+        'back@example.test',
+        ERASURE_PAST,
+        true,
+      );
+      await h.deactivate(restored.id, TEST_NOW);
       const scheduled = await account();
       const active = await h.seedAccount('active@example.test');
-      expect(await h.jobs.scheduleUnscheduled(ERASURE_FUTURE, 1)).toBe(1);
-      const dates = [await h.schedule(first.id), await h.schedule(second.id)];
-      expect(dates.filter((value) => value !== null)).toEqual([ERASURE_FUTURE]);
-      expect(await h.jobs.scheduleUnscheduled(ERASURE_FUTURE, 10)).toBe(1);
+      const own = { eraseAfter: ERASURE_FUTURE };
+      expect(await h.jobs.scheduleUnscheduled(own, 1)).toBe(1);
+      expect(await h.jobs.scheduleUnscheduled(own, 10)).toBe(1);
       expect(await h.schedule(first.id)).toEqual(ERASURE_FUTURE);
       expect(await h.schedule(second.id)).toEqual(ERASURE_FUTURE);
+      for (const kept of [staff, late, restored, active])
+        expect(await h.schedule(kept.id)).toBeNull();
       expect(await h.schedule(scheduled.id)).toEqual(ERASURE_PAST);
-      expect(await h.schedule(active.id)).toBeNull();
+      const unmarked = { ...own, deletedBefore: TEST_NOW };
+      expect(await h.jobs.scheduleUnscheduled(unmarked, 10)).toBe(1);
+      expect(await h.schedule(staff.id)).toEqual(ERASURE_FUTURE);
+      for (const kept of [late, restored])
+        expect(await h.schedule(kept.id)).toBeNull();
     });
   });
 }
