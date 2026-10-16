@@ -5,6 +5,7 @@ import type {
   ErasureFailure,
   ErasureJob,
   ErasureLease,
+  UnscheduledSelection,
 } from '../types/erasure';
 
 /**
@@ -70,9 +71,12 @@ export abstract class ErasureJobStore {
   /** Jobs that have not finished, newest first. */
   abstract listOpen(limit: number): Promise<ErasureJob[]>;
 
-  /** Dates deactivated accounts that have no schedule. Answers how many. */
+  /**
+   * Dates deactivated accounts that have no schedule and whose deactivation
+   * is the person's own deletion, never a staff one. Answers how many.
+   */
   abstract scheduleUnscheduled(
-    eraseAfter: Date,
+    selection: UnscheduledSelection,
     limit: number,
   ): Promise<number>;
 }

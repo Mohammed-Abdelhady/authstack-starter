@@ -10,6 +10,11 @@
 -- NULL while erasure is off, and for an account deleted before it was on.
 ALTER TABLE users ADD COLUMN erase_after timestamptz;
 
+-- When the person last deleted the account themselves, written even while
+-- erasure is off. Staff never write it, and a later staff deactivation moves
+-- deleted_at away from it, so the schedule command dates own deletions only.
+ALTER TABLE users ADD COLUMN self_deleted_at timestamptz;
+
 -- Serves the worker's search for deactivated accounts that are due.
 CREATE INDEX user_erase_due ON users (erase_after)
   WHERE is_deleted AND erase_after IS NOT NULL;

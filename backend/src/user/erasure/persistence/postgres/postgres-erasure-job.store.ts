@@ -1,4 +1,9 @@
-import type { Kysely, Selectable, Transaction } from 'kysely';
+import type {
+  ExpressionBuilder,
+  Kysely,
+  Selectable,
+  Transaction,
+} from 'kysely';
 import type { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import type { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
@@ -15,6 +20,7 @@ import type {
   ErasureFailure,
   ErasureJob,
   ErasureLease,
+  UnscheduledSelection,
 } from '../../types/erasure';
 import type { ErasureJobsTable } from './postgres-erasure.tables';
 
@@ -49,6 +55,29 @@ function isTaken(row: JobRow, lease: ErasureLease): boolean {
   const waiting =
     row.next_attempt_at !== null && row.next_attempt_at > lease.now;
   return row.step === ERASURE_STEP.ERASED || leasedByOther || waiting;
+}
+
+/**
+ * Deactivated with no schedule, by the person's own deletion: its mark still
+ * equals `deleted_at`, which a later staff deactivation or restore moves.
+ */
+function unscheduled({ deletedBefore }: UnscheduledSelection) {
+  return (eb: ExpressionBuilder<PostgresTables, 'users'>) =>
+    eb.and([
+      eb('is_deleted', '=', true),
+      eb('erase_after', 'is', null),
+      eb.or([
+        eb('self_deleted_at', '=', eb.ref('deleted_at')),
+        ...(deletedBefore
+          ? [
+              eb.and([
+                eb('self_deleted_at', 'is', null),
+                eb('deleted_at', '<', deletedBefore),
+              ]),
+            ]
+          : []),
+      ]),
+    ]);
 }
 
 /**
@@ -258,22 +287,20 @@ export class PostgresErasureJobStore extends ErasureJobStore {
     return rows.map(toJob);
   }
 
-  async scheduleUnscheduled(eraseAfter: Date, limit: number): Promise<number> {
+  async scheduleUnscheduled(
+    selection: UnscheduledSelection,
+    limit: number,
+  ): Promise<number> {
+    const matches = unscheduled(selection);
     const updated = await this.database
       .updateTable('users')
-      .set({ erase_after: eraseAfter })
+      .set({ erase_after: selection.eraseAfter })
       .where('id', 'in', (eb) =>
-        eb
-          .selectFrom('users')
-          .select('id')
-          .where('is_deleted', '=', true)
-          .where('erase_after', 'is', null)
-          .limit(limit),
+        eb.selectFrom('users').select('id').where(matches).limit(limit),
       )
-      // Again on the row itself: a restore that commits while this waits for
-      // the row is seen here, and its account is not scheduled.
-      .where('is_deleted', '=', true)
-      .where('erase_after', 'is', null)
+      // Again on the row itself: a restore or a staff deactivation that
+      // commits while this waits for the row is seen here.
+      .where(matches)
       .executeTakeFirst();
     return Number(updated.numUpdatedRows);
   }

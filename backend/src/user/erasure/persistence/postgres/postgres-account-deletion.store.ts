@@ -56,7 +56,10 @@ export class PostgresAccountDeletionStore extends AccountDeletionStore {
     const userId = toUuid(record.userId);
     await transaction
       .updateTable('users')
-      .set({ erase_after: record.eraseAfter })
+      .set({
+        erase_after: record.eraseAfter,
+        self_deleted_at: record.deletedAt,
+      })
       .where('id', '=', userId)
       .execute();
     if (!record.receipt) return;
