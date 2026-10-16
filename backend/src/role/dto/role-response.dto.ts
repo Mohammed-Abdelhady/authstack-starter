@@ -62,6 +62,13 @@ export class RoleResponseDto {
     example: '2024-01-20T14:20:00Z',
   })
   updatedAt!: Date;
+
+  @ApiProperty({
+    description:
+      'Raised by every write to the role. Send it back with an edit so a stale form is refused',
+    example: 2,
+  })
+  version!: number;
 }
 
 export class RoleUpdateResponseDto extends RoleResponseDto {

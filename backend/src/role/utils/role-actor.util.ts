@@ -11,6 +11,7 @@ import {
 } from '../../common/utils/role-hierarchy';
 import { RoleChangeStore } from '../stores/role-change.store';
 import { RoleLevelSource, resolveRoleLevel } from './role.util';
+import { UserRole } from '../../user/enums/user-role.enum';
 
 /** What the acting account holds, read inside the caller's unit of work. */
 export interface FreshRoleActor extends LevelActor {
@@ -116,6 +117,21 @@ export function levelEdit(
   }
   assertLevelBelowActor(actor, level);
   return level;
+}
+
+/**
+ * The admin role is fixed: nobody edits, renames or deletes it, so the
+ * accounts that run the system cannot lose what they hold.
+ *
+ * @throws AppException ROLE_PROTECTED
+ */
+export function assertEditableRole(role: { slug: string }): void {
+  if (role.slug !== (UserRole.ADMIN as string)) return;
+  throw new AppException(
+    ErrorCode.ROLE_PROTECTED,
+    'The admin role cannot be edited',
+    HttpStatus.FORBIDDEN,
+  );
 }
 
 /**

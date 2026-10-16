@@ -128,5 +128,6 @@ export function mapRoleToResponseDto(role: StoredRole): RoleResponseDto {
     permissions: role.permissions,
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
+    version: role.version ?? 0,
   };
 }
