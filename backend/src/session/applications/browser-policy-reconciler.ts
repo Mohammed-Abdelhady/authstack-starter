@@ -1,4 +1,3 @@
-import { refuseRequiredPasskeyUntilPlan3 } from '../../config/utils/refuse-required-passkey-until-plan3';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { readBrowserSessionLimits } from '../../config/utils/session-limit-config';
@@ -98,12 +97,6 @@ export class BrowserPolicyReconciler {
     const configured = [this.applications.configuration(WEB_CLIENT_ID)];
     if (this.applications.isConfigured(ADMIN_CLIENT_ID)) {
       configured.push(this.applications.configuration(ADMIN_CLIENT_ID));
-    }
-    for (const application of configured) {
-      refuseRequiredPasskeyUntilPlan3(
-        application.signIn?.requirePasskey,
-        application.clientId,
-      );
     }
     const limitsByClient = new Map(
       configured.map(

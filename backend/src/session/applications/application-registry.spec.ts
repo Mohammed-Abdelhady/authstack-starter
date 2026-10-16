@@ -27,7 +27,6 @@ function reconciledWith(applications: NativeApplicationConfiguration[]) {
       return Promise.resolve();
     },
     disableNativeApplicationsExcept: () => Promise.resolve(),
-    findRequiredPasskeyApplication: () => Promise.resolve(null),
   });
   const runner = partialMock<UnitOfWorkRunner>({
     run: (work) => work(partialMock<UnitOfWork>()),

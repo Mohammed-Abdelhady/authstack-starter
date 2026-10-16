@@ -1,5 +1,4 @@
 import { nativeSessionPolicy } from '../../config/utils/session-limit-config';
-import { refuseRequiredPasskeyUntilPlan3 } from '../../config/utils/refuse-required-passkey-until-plan3';
 import { Injectable } from '@nestjs/common';
 import {
   runLeavingFailuresAsRaised,
@@ -188,18 +187,9 @@ export class ApplicationRegistry {
    * are disabled. Nothing is stored unless all of it is.
    */
   async reconcileNativeApplications(): Promise<void> {
-    if (!this.authEpoch.nativeEnabled()) {
-      await this.assertNoStoredRequiredPasskey();
-      return;
-    }
+    if (!this.authEpoch.nativeEnabled()) return;
     const environment = this.authEpoch.environment();
     const configured = this.authEpoch.nativeApplications();
-    for (const application of configured) {
-      refuseRequiredPasskeyUntilPlan3(
-        application.requirePasskey,
-        application.clientId,
-      );
-    }
     const configuredPolicies = configured.map((application) => ({
       application,
       policy: nativeSessionPolicy(
@@ -246,14 +236,6 @@ export class ApplicationRegistry {
         clientIds,
       );
     });
-    await this.assertNoStoredRequiredPasskey();
-  }
-
-  private async assertNoStoredRequiredPasskey(): Promise<void> {
-    const clientId = await this.store.findRequiredPasskeyApplication(
-      this.authEpoch.environment(),
-    );
-    if (clientId !== null) refuseRequiredPasskeyUntilPlan3(true, clientId);
   }
 
   private clientOrigin(): string {

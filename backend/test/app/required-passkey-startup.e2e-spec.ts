@@ -1,22 +1,128 @@
 import { ConfigService } from '@nestjs/config';
-import { bootE2eApp } from '../utils/e2e-app';
-import { SESSION_AUTHORITY_BOOT_TIMEOUT_MS } from '../utils/hook-timeouts';
+import request from 'supertest';
+import {
+  assertionCredential,
+  createSoftwareAuthenticator,
+  FLAG_USER_PRESENT,
+  FLAG_USER_VERIFIED,
+  type SoftwareAuthenticator,
+} from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
+import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service';
+import { ErrorCode } from '../../src/common/enums/error-code.enum';
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { SEED_USER } from '../constants/seed-users';
+import {
+  anonymousPost,
+  expectNoAuthority,
+} from '../utils/auth/audience-refusal.fixtures';
+import { bootE2eApp, E2E_CLIENT_URL, type E2eApp } from '../utils/e2e-app';
+import { TEST_NOW } from '../utils/frozen-clock';
+import {
+  SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
+  SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
+} from '../utils/hook-timeouts';
+import { storedBrowserSession } from '../utils/session/stored-browser-session';
 
-// Failure: a beforeStart override bypasses env validation and starts an unenforced policy.
-describe('temporary required-passkey startup refusal', () => {
-  it(
-    'rejects a web policy supplied after environment validation',
-    async () => {
-      await expect(
-        bootE2eApp(0, {
-          beforeStart: (app) => {
-            app.get(ConfigService).set('auth.web.signIn', {
-              requirePasskey: true,
-            });
-          },
+const LOGIN = '/api/auth/passkeys/login';
+
+// Failure: a required passkey keeps the server from starting, or a passkey
+// that did not verify its user opens the application.
+describe('an application that requires a passkey', () => {
+  let e2e: E2eApp;
+
+  beforeAll(async () => {
+    e2e = await bootE2eApp(0, {
+      beforeStart: (app) => {
+        const config = app.get(ConfigService);
+        config.set('passkeys.enabled', true);
+        config.set('auth.web.signIn', { requirePasskey: true });
+      },
+    });
+  }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
+
+  beforeEach(async () => {
+    e2e.clock.set(TEST_NOW);
+    await e2e.reset();
+  });
+
+  afterAll(async () => {
+    await e2e?.close();
+  }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
+
+  async function signIn(
+    key: SoftwareAuthenticator,
+    flags: number,
+    counter: number,
+  ) {
+    const browser = request.agent(e2e.httpServer);
+    const options = await anonymousPost(
+      e2e,
+      `${LOGIN}/options`,
+      {},
+      browser,
+      E2E_CLIENT_URL,
+    );
+    expect(options.status).toBe(200);
+    const { challenge, rpId } = (
+      options.body as { data: { challenge: string; rpId: string } }
+    ).data;
+    return anonymousPost(
+      e2e,
+      `${LOGIN}/verify`,
+      {
+        response: assertionCredential(key, {
+          challenge,
+          rpId,
+          origin: E2E_CLIENT_URL,
+          flags,
+          counter,
         }),
-      ).rejects.toThrow(/web.*plan 3.*passkey sign-in evidence/);
-    },
-    SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
-  );
+      },
+      browser,
+      E2E_CLIENT_URL,
+    );
+  }
+
+  it('starts, and lets in only a passkey that verified its user', async () => {
+    const key = createSoftwareAuthenticator(
+      Buffer.from('required-passkey-startup'),
+    );
+    await e2e.state.auth.storePasskey(SEED_USER.email, {
+      credentialId: key.credentialId,
+      publicKey: key.cosePublicKey,
+      counter: 0,
+      transports: ['internal'],
+      deviceType: 'singleDevice',
+      backedUp: false,
+      name: 'Required key',
+      lastUsedAt: null,
+    });
+
+    const unverified = await signIn(key, FLAG_USER_PRESENT, 1);
+    expect(unverified.status).toBe(401);
+    expect(unverified.body).toMatchObject({
+      error: { code: ErrorCode.PASSKEY_VERIFICATION_FAILED },
+    });
+    expectNoAuthority(e2e, unverified);
+    expect(await e2e.state.sessions.countSessions()).toBe(0);
+
+    const verified = await signIn(
+      key,
+      FLAG_USER_PRESENT | FLAG_USER_VERIFIED,
+      2,
+    );
+    expect(verified.status).toBe(200);
+    const name = e2e.app.get(SessionCookieService).nameFor(WEB_CLIENT_ID);
+    const cookie = (verified.get('Set-Cookie') ?? []).find((value) =>
+      value.startsWith(`${name}=`),
+    );
+    if (!cookie) throw new Error('The passkey sign-in set no session cookie');
+    expect(
+      await storedBrowserSession(e2e.app, cookie.split(';')[0]),
+    ).toMatchObject({
+      clientId: WEB_CLIENT_ID,
+      authenticationMethods: ['passkey'],
+      userVerified: true,
+    });
+  });
 });

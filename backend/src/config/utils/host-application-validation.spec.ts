@@ -95,30 +95,16 @@ describe('application admission policy validation', () => {
   });
 
   // feature:passkeys:start
+  // Failure: a deployment cannot require a passkey that its application can make.
   it.each(['AUTH_WEB_SIGN_IN', 'AUTH_ADMIN_SIGN_IN'] as const)(
-    'temporarily refuses an otherwise available required passkey in %s',
+    'accepts an available required passkey in %s',
     (setting) => {
-      expect(() =>
-        validateEnvironment({
-          ...BROWSER_POLICY_ENV,
-          [setting]: JSON.stringify({ requirePasskey: true }),
-        }),
-      ).toThrow(new RegExp(`${setting}.*plan 3.*passkey sign-in evidence`));
+      const raw = JSON.stringify({ requirePasskey: true });
+      expect(
+        validateEnvironment({ ...BROWSER_POLICY_ENV, [setting]: raw })[setting],
+      ).toBe(raw);
     },
   );
-
-  it('keeps D10 errors ahead of the temporary refusal in another application', () => {
-    expect(() =>
-      validateEnvironment({
-        ...BROWSER_POLICY_ENV,
-        AUTH_WEB_SIGN_IN: JSON.stringify({ requirePasskey: true }),
-        AUTH_ADMIN_SIGN_IN: JSON.stringify({
-          requirePasskey: true,
-          passkeys: false,
-        }),
-      }),
-    ).toThrow(/AUTH_ADMIN_SIGN_IN.*requires application passkeys/);
-  });
   // feature:passkeys:end
 
   it.each([
@@ -173,7 +159,7 @@ describe('application admission policy validation', () => {
   });
 
   // feature:passkeys:start
-  it('temporarily refuses closed native staff with an available required passkey', () => {
+  it('accepts closed native staff with an available required passkey', () => {
     const raw = JSON.stringify([
       {
         ...NATIVE_APPLICATION,
@@ -187,12 +173,12 @@ describe('application admission policy validation', () => {
         },
       },
     ]);
-    expect(() =>
+    expect(
       validateEnvironment({
         ...NATIVE_POLICY_ENV,
         AUTH_NATIVE_APPLICATIONS: raw,
-      }),
-    ).toThrow(/mobile.*plan 3.*passkey sign-in evidence/);
+      }).AUTH_NATIVE_APPLICATIONS,
+    ).toBe(raw);
   });
   // feature:passkeys:end
 
