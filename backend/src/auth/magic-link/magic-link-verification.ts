@@ -2,7 +2,6 @@ import { Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import type { AppException } from '../../common/exceptions/app.exception';
-import type { SupportedLocale } from '../../common/constants/locales';
 import { requestLocaleOf } from '../../common/decorators/request-locale.decorator';
 import { Clock } from '../../common/services/clock';
 import { BrowserApplications } from '../../session/applications/browser-applications';
@@ -12,6 +11,7 @@ import { LoginResponseDto } from '../dto/login-response.dto';
 import { SelfSignUpRefusedError } from '../services/registration/self-sign-up-refused.error';
 import { MAGIC_LINK_CONFIRM_MESSAGE } from './constants/magic-link.constants';
 import type { VerifyMagicLinkDto } from './dto/verify-magic-link.dto';
+import type { MagicLinkAccountCreation } from './magic-link-account-creation';
 import { MagicLinkBrowserService } from './magic-link-browser.service';
 import { MagicLinkCeremonies } from './magic-link-ceremonies';
 import type {
@@ -36,11 +36,7 @@ interface VerificationDependencies {
   ceremonies: MagicLinkCeremonies;
   applications: BrowserApplications;
   clock: Clock;
-  createAccount(
-    email: string,
-    locale: SupportedLocale,
-    clientId: BrowserApplicationId,
-  ): Promise<MagicLinkAccount>;
+  accountCreation: MagicLinkAccountCreation;
   invalidLink(reason: string): AppException;
 }
 
@@ -166,7 +162,7 @@ export class MagicLinkVerification {
       throw this.dependencies.invalidLink('account is deleted');
     }
     if (!existing) {
-      return this.dependencies.createAccount(
+      return this.dependencies.accountCreation.createUser(
         email,
         requestLocaleOf(request),
         clientId,

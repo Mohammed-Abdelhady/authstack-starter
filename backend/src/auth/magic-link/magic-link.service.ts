@@ -91,8 +91,7 @@ export class MagicLinkService implements OnModuleInit {
       ceremonies: this.ceremonies,
       applications,
       clock,
-      createAccount: (email, locale, clientId) =>
-        this.accountCreation.createUser(email, locale, clientId),
+      accountCreation: this.accountCreation,
       invalidLink: (reason) => this.invalidLink(reason),
     });
   }
