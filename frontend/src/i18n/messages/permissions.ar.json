@@ -40,7 +40,8 @@
       "delete": "حذف",
       "manage": "إدارة",
       "grant": "منح",
-      "revoke": "سحب"
+      "revoke": "سحب",
+      "suspend": "تعليق"
     },
     "scopes": {
       "own": "الخاصة به",

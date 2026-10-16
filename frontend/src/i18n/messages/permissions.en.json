@@ -40,7 +40,8 @@
       "delete": "Delete",
       "manage": "Manage",
       "grant": "Grant",
-      "revoke": "Revoke"
+      "revoke": "Revoke",
+      "suspend": "Suspend"
     },
     "scopes": {
       "own": "own",
