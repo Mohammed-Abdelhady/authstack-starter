@@ -23,6 +23,7 @@ import { CommonModule } from '../common/common.module';
 import { AuthContractsModule } from '../auth/contracts/auth-contracts.module';
 import { StaffMutationsModule } from './services/staff-mutations/staff-mutations.module';
 import { LastAdminGuard } from './services/staff-mutations/last-admin-guard';
+import { InvitationsModule } from '../auth/invitations/invitations.module'; // feature:invitations
 import {
   ADMIN_PERSISTENCE_IMPORTS,
   ADMIN_PERSISTENCE_PROVIDERS,
@@ -43,6 +44,7 @@ import {
     RoleModule,
     AuthContractsModule,
     StaffMutationsModule,
+    InvitationsModule, // feature:invitations
     forwardRef(() => UserModule),
   ],
   controllers: [
