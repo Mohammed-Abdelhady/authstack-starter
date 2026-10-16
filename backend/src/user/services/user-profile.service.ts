@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpStatus } from '@nestjs/common';
+import { Injectable, Logger, HttpStatus, Optional } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../enums/user-role.enum';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
@@ -24,6 +24,9 @@ import {
   assertAccountId,
   assertActiveUser,
 } from '../utils/account-lookup.util';
+import { AccountDeletionService } from '../erasure/services/account-deletion.service';
+import type { AccountDeletionResultDto } from '../erasure/dto/account-deletion.dto';
+import type { DeletionOutcome } from '../erasure/types/account-deletion';
 
 /**
  * Self-service profile operations: reading and updating the profile,
@@ -40,6 +43,7 @@ export class UserProfileService {
     private readonly clock: Clock,
     private readonly hashService: HashService,
     private readonly notices?: SecurityNoticeService,
+    @Optional() private readonly deletion?: AccountDeletionService,
   ) {}
 
   /**
@@ -159,28 +163,54 @@ export class UserProfileService {
   }
 
   /**
-   * Soft delete (deactivate) own account.
-   * The last active admin is refused: nobody else could restore the account.
+   * Soft delete (deactivate) own account, and while erasure is on, schedule
+   * its erasure. The last active admin is refused: nobody else could restore
+   * the account. A receipt key is stored with the deletion, and the same key
+   * sent again gets the same answer without a second deletion.
    */
   async deactivateAccount(
     userId: string,
-  ): Promise<ApiResponse<{ message: string }>> {
-    // The check, the soft delete and the revocation commit or abort together.
-    await runLeavingFailuresAsRaised(this.runner, async (unitOfWork) => {
-      const user = await this.accounts.readAccount(unitOfWork, userId);
-      assertActiveUser(user);
-      if (user.role === (UserRole.ADMIN as string)) {
-        await this.assertAnotherActiveAdmin(unitOfWork, user.id);
-      }
+    receiptKey?: string,
+  ): Promise<ApiResponse<AccountDeletionResultDto>> {
+    const key = this.deletion?.receiptKeyOf(receiptKey);
+    // The check, the soft delete, the schedule, the receipt and the revocation
+    // commit or abort together.
+    const outcome = await runLeavingFailuresAsRaised(
+      this.runner,
+      async (unitOfWork): Promise<DeletionOutcome> => {
+        const repeated = await this.deletion?.repeatedIn(
+          unitOfWork,
+          userId,
+          key,
+        );
+        if (repeated) return repeated;
+        const user = await this.accounts.readAccount(unitOfWork, userId);
+        assertActiveUser(user);
+        if (user.role === (UserRole.ADMIN as string)) {
+          await this.assertAnotherActiveAdmin(unitOfWork, user.id);
+        }
 
-      await this.accounts.saveDeactivation(unitOfWork, user, this.clock.now());
+        const deletedAt = this.clock.now();
+        await this.accounts.saveDeactivation(unitOfWork, user, deletedAt);
+        const recorded = await this.deletion?.recordIn(
+          unitOfWork,
+          user,
+          deletedAt,
+          key,
+        );
 
-      await this.sessions.revokeAll(unitOfWork, user.id);
-    });
+        await this.sessions.revokeAll(unitOfWork, user.id);
+        return recorded ?? {};
+      },
+    );
 
     this.logger.log(`Account deactivated: userId=${userId}`);
+    this.deletion?.afterCommit(outcome, this.clock.now());
     return ApiResponse.success({
       message: 'Account deactivated successfully',
+      ...(outcome.eraseAfter && {
+        eraseAfter: outcome.eraseAfter.toISOString(),
+      }),
     });
   }
 

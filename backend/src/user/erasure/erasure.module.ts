@@ -8,8 +8,11 @@ import {
 } from '../../host/account-erasure';
 import { ProviderTokensModule } from '../../auth/oauth/provider-tokens/provider-tokens.module'; // feature:oauth-core
 import { AccountErasureHook } from './account-erasure-hook';
+import { AccountDeletionReceiptController } from './account-deletion-receipt.controller';
 import { AdminErasureJobsController } from './admin-erasure-jobs.controller';
 import { ERASURE_PERSISTENCE_PROVIDERS } from './persistence/erasure-persistence';
+import { AccountDeletionService } from './services/account-deletion.service';
+import { DeletionReceiptService } from './services/deletion-receipt.service';
 import { ErasureJobsAdminService } from './services/erasure-jobs-admin.service';
 import { ErasureSettings } from './services/erasure-settings';
 import { ErasureWorker } from './services/erasure-worker';
@@ -28,15 +31,17 @@ import { StoredErasureLock } from './services/stored-erasure-lock';
     ...HOST_ERASURE_HOOK_IMPORTS,
     ProviderTokensModule, // feature:oauth-core
   ],
-  controllers: [AdminErasureJobsController],
+  controllers: [AccountDeletionReceiptController, AdminErasureJobsController],
   providers: [
     ErasureSettings,
     ErasureWorker,
+    AccountDeletionService,
+    DeletionReceiptService,
     ErasureJobsAdminService,
     StoredErasureLock,
     { provide: AccountErasureHook, useClass: HOST_ERASURE_HOOK },
     ...ERASURE_PERSISTENCE_PROVIDERS,
   ],
-  exports: [StoredErasureLock],
+  exports: [AccountDeletionService, StoredErasureLock],
 })
 export class ErasureModule {}
