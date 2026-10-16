@@ -1,4 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { AudienceAdmissionRefused } from '../../utils/authority/audience-admission';
+import { admitsAudience } from '../utils/native-audience';
+import {
+  SECURITY_EVENT_ACTION,
+  SECURITY_EVENT_OUTCOME,
+} from '../../constants/security-event-action';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -57,6 +65,7 @@ export class NativeRefreshService {
     private readonly boundProofs: NativeBoundProofService,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly events: NativeSecurityEvents,
   ) {}
 
   async rotate(
@@ -140,6 +149,9 @@ export class NativeRefreshService {
         );
       });
     } catch (error) {
+      if (storeFailureCause(error) instanceof AudienceAdmissionRefused) {
+        return this.invalidGrant();
+      }
       if (isNativeProofIdReplay(error) && refusalContext) {
         await this.boundProofs.recordRefusal(
           undefined,
@@ -257,6 +269,21 @@ export class NativeRefreshService {
     }
     const account = await this.issuance.findAccount(db, session.userId);
     const application = await this.registry.findClientIn(db, clientId);
+    if (
+      account &&
+      application?.enabled &&
+      !admitsAudience(account.accountAudience, application.accountAudience)
+    ) {
+      // An unusable authority: a replayed token still ends its family.
+      await this.events.record(db, {
+        targetUserId: account.id,
+        clientId,
+        sessionId: session.id,
+        action: SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
+        outcome: SECURITY_EVENT_OUTCOME.FAILED,
+      });
+      return undefined;
+    }
     const grant = account
       ? await this.issuance.findGrant(db, account.id, clientId)
       : null;

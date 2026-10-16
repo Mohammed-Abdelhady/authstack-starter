@@ -1,3 +1,7 @@
+import { AuthFeaturesService } from '../../../../src/auth/services/features/auth-features.service';
+import { PasskeyConfigService } from '../../../../src/auth/passkeys/services/passkey-config.service'; // feature:passkeys
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
+import { StoredApplicationPolicyReader } from '../../../../src/session/applications/stored-application-policy-reader';
 import { SessionExpiry } from '../../../../src/session/authority/session-expiry';
 import { ConfigService } from '@nestjs/config';
 import type { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
@@ -77,6 +81,17 @@ export function buildNativeServices(
   const authEpoch = new AuthEpochService(config);
   const registry = new ApplicationRegistry(runner, stores.registry, authEpoch);
   const applications = new ApplicationAccess(runner, stores.grants, authEpoch);
+  const browserApplications = browserApplicationsForTest(
+    config,
+    async (clientId) =>
+      (await registry.findByClientId(clientId))?.enabled ?? false,
+  );
+  const policies = new StoredApplicationPolicyReader(
+    parts.issuanceApplications,
+    config,
+    new AuthFeaturesService(config, browserApplications),
+    new PasskeyConfigService(config), // feature:passkeys
+  );
   const issuer = new NativeCredentialIssuer(
     stores.credentials,
     stores.events,
@@ -101,6 +116,7 @@ export function buildNativeServices(
     boundProofs,
     clock,
     authEpoch,
+    stores.events,
   );
   const revocations = new NativeRevokeService(
     runner,
@@ -128,6 +144,7 @@ export function buildNativeServices(
       parts.issuanceStore,
       clock,
       authEpoch,
+      stores.events,
     ),
     browser: new NativeAuthorizeBrowserService(
       stores.authorizations,
@@ -149,6 +166,7 @@ export function buildNativeServices(
       stores.events,
       clock,
       authEpoch,
+      policies,
     ),
     rotation,
     retries,

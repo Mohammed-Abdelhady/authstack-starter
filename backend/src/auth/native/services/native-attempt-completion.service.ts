@@ -9,7 +9,9 @@ import { ApplicationRegistry } from '../../../session/applications/application-r
 import { ApplicationAccessStore } from '../../../session/applications/application-access.store';
 import { BrowserIssuanceStore } from '../../../session/issuance/browser-issuance.store';
 import { NativeAuthorizeService } from '../../../session/native/authorize/native-authorize.service';
+import { assertAudienceAdmission } from '../../../session/utils/authority/audience-admission';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
+import { ApplicationPolicyReader } from '../../contracts/application-policy';
 import { AuthFeature } from '../../enums/auth-feature.enum'; // feature:totp
 import { AuthFeaturesService } from '../../services/features/auth-features.service'; // feature:totp
 import { PasskeyStore } from '../../passkeys/stores/passkey.store'; // feature:passkeys
@@ -44,6 +46,7 @@ export class NativeAttemptCompletionService {
     private readonly features: AuthFeaturesService, // feature:totp
     private readonly clock: Clock,
     private readonly epoch: AuthEpochService,
+    private readonly policy: ApplicationPolicyReader,
     private readonly passkeys: PasskeyStore, // feature:passkeys
   ) {}
 
@@ -86,6 +89,8 @@ export class NativeAttemptCompletionService {
       !client.enabled
     )
       throw wrongStage();
+    const policy = await this.policy.requireEnabled(work, claimed.clientId);
+    assertAudienceAdmission(authority.accountAudience, policy.accountAudience);
     const grant = await this.grants.takeGrantForChange(
       work,
       account.id,
@@ -154,6 +159,11 @@ export class NativeAttemptCompletionService {
   ): Promise<NativeAttempt> {
     const principal = claimed.details.verifiedAccount;
     if (!principal || !claimed.activeOperationId) throw wrongStage();
+    const account = await this.issuance.findAccount(work, principal.userId);
+    const client = await this.registry.findClientIn(work, claimed.clientId);
+    if (!account || account.isDeleted || !client || !client.enabled)
+      throw wrongStage();
+    assertAudienceAdmission(account.accountAudience, client.accountAudience);
     return this.finishIn(
       work,
       claimed,

@@ -11,6 +11,8 @@ import { SecondFactorStore } from '../../two-factor/stores/second-factor.store';
 import { TwoFactorVerificationService } from '../../two-factor/services/two-factor-verification.service';
 import { NativeAttemptService } from '../services/native-attempt.service';
 import { NativeAttemptCompletionService } from '../services/native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
 import {
   featureDisabled,
@@ -26,6 +28,7 @@ export class NativeSecondFactorService {
   constructor(
     private readonly attempts: NativeAttemptService,
     private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
     private readonly factors: SecondFactorStore,
     private readonly verification: TwoFactorVerificationService,
     private readonly passkeys: NativePasskeyService, // feature:passkeys
@@ -108,7 +111,14 @@ export class NativeSecondFactorService {
       return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        () => this.verification.invalidCode('account audience is not admitted'),
+        claimed.details.verifiedAccount?.userId,
+      );
+      throw refusal ?? error;
     }
   }
 }

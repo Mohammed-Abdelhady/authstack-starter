@@ -1,4 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ApplicationPolicyReader } from '../../../auth/contracts/application-policy';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { AudienceAdmissionRefused } from '../../utils/authority/audience-admission';
+import { admitsAudience } from '../utils/native-audience';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -61,6 +65,7 @@ export class NativeTokenService {
     private readonly events: NativeSecurityEvents,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly policies: ApplicationPolicyReader,
   ) {}
 
   async grant(
@@ -174,6 +179,9 @@ export class NativeTokenService {
         this.consumeCode(unitOfWork, pending.id, meta, verifiedProof),
       );
     } catch (error) {
+      if (storeFailureCause(error) instanceof AudienceAdmissionRefused) {
+        return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
+      }
       if (isNativeProofIdReplay(error)) {
         await this.recordProofRefusal(
           code,
@@ -245,6 +253,25 @@ export class NativeTokenService {
       pending.authEpoch === this.authEpoch.current(),
     );
     if (validAuthority && account && application && grant) {
+      const policy = await this.policies.requireEnabled(
+        unitOfWork,
+        pending.clientId,
+      );
+      if (!admitsAudience(account.accountAudience, policy.accountAudience)) {
+        const spent = await this.authorizations.spendCodeIn(
+          unitOfWork,
+          pending.id,
+        );
+        if (spent === CODE_SPEND.SPENT) {
+          await this.events.record(unitOfWork, {
+            targetUserId: account.id,
+            clientId: pending.clientId,
+            action: SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
+            outcome: SECURITY_EVENT_OUTCOME.FAILED,
+          });
+        }
+        return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
+      }
       await this.issuance.markAccountIssuance(unitOfWork, account.id);
       await this.sessionIssuance.assertSessionLimit(
         unitOfWork,

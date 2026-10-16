@@ -26,6 +26,8 @@ import {
 } from '../../passkeys/native/native-relying-parties';
 import { NativeAttemptService } from '../services/native-attempt.service';
 import { NativeAttemptCompletionService } from '../services/native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -51,6 +53,7 @@ export class NativePasskeyService {
   constructor(
     private readonly attempts: NativeAttemptService,
     private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
     private readonly methods: NativeMethodsService,
     private readonly credentials: PasskeyStore,
     private readonly adapter: WebAuthnAdapter,
@@ -128,6 +131,7 @@ export class NativePasskeyService {
     const purpose = this.purpose(current);
     const config = await this.config(current);
     const claimed = await this.attempts.claim(attemptId, secret, current.phase);
+    let targetUserId = claimed.details.verifiedAccount?.userId;
     try {
       const userId =
         purpose === 'secondFactor'
@@ -142,6 +146,7 @@ export class NativePasskeyService {
         throw wrongStage();
       if (!assertHandle(assertion.response.userHandle, passkey.userId, purpose))
         throw wrongStage();
+      targetUserId = passkey.userId;
       const account = await this.accounts.findProfile(passkey.userId);
       if (!account || account.isDeleted) throw wrongStage();
       const verification = await this.adapter.verifyNativeAssertion(
@@ -233,7 +238,14 @@ export class NativePasskeyService {
       return this.attempts.viewAfter(result, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        wrongStage,
+        targetUserId,
+      );
+      throw refusal ?? error;
     }
   }
 

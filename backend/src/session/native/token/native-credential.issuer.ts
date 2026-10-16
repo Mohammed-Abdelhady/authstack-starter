@@ -18,6 +18,7 @@ import {
   IssuanceApplication,
   IssuanceGrant,
 } from '../../issuance/browser-issuance.store';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { boundLabel } from '../../utils/session/bound-label';
 import { addMs, capIdleByAbsolute } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
@@ -63,6 +64,10 @@ export class NativeCredentialIssuer {
   ): Promise<TokenSuccess> {
     const { account, application, grant, context, meta, now, existing } =
       request;
+    assertAudienceAdmission(
+      account.accountAudience,
+      application.accountAudience,
+    );
     const familyId = request.familyId ?? randomSecret();
     const proofKeyThumbprint = request.proofKeyThumbprint;
     const absoluteExpiresAt = existing

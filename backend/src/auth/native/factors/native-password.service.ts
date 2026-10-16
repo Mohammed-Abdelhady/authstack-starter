@@ -8,8 +8,13 @@ import { HashService } from '../../../common/services/hash.service';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
 import { PasswordSignInStore } from '../../stores/password-sign-in.store';
-import { verifyPasswordCredentials } from '../../services/password/password-credentials';
+import {
+  invalidCredentials,
+  verifyPasswordCredentials,
+} from '../../services/password/password-credentials';
 import { NativeAttemptService } from '../services/native-attempt.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -30,6 +35,7 @@ export class NativePasswordService {
     private readonly accounts: PasswordSignInStore,
     private readonly hashes: HashService,
     private readonly runner: UnitOfWorkRunner,
+    private readonly events: EventRecorder,
   ) {}
 
   async password(
@@ -54,6 +60,7 @@ export class NativePasswordService {
       secret,
       NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
     );
+    let targetUserId: string | undefined;
     try {
       if (claimed.flow !== NATIVE_ATTEMPT_FLOW.SIGN_IN) throw wrongStage();
       const methods = await this.methods.forClient(claimed.clientId);
@@ -63,6 +70,7 @@ export class NativePasswordService {
         this.hashes,
         input,
       );
+      targetUserId = user.id;
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
         this.attempts.completeFactorIn(
           work,
@@ -79,7 +87,14 @@ export class NativePasswordService {
       return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        invalidCredentials,
+        targetUserId,
+      );
+      throw refusal ?? error;
     }
   }
 }
