@@ -7,6 +7,8 @@ How to read the tables:
 - **Public** needs no sign-in.
 - **Signed in** needs the session cookie, or the access token of a mobile app.
 - A permission such as `users:read:all` means signed in and holding that permission, through the role or directly. `*` holds every permission.
+- Permissions joined by **or** mean that holding any one of them is enough.
+- **Staff** needs a staff account in a browser session of the admin console, signed in with a passkey when that application asks for one. The check applies while a configured application serves the staff audience.
 - **Closed by** names the setting that turns the route off. With that setting `false` the route answers `404` with the error code `FEATURE_DISABLED`.
 
 ## Server
@@ -123,38 +125,38 @@ GET navigation start always selects web.
 
 ## Roles (`/api/roles`)
 
-| Method | Path                   | Who may call it    | Closed by | What it does                                 |
-| ------ | ---------------------- | ------------------ | --------- | -------------------------------------------- |
-| GET    | `/api/roles`           | `roles:list:all`   |           | Lists roles, paged, with an optional search  |
-| GET    | `/api/roles/:idOrSlug` | `roles:read:all`   |           | Returns one role                             |
-| POST   | `/api/roles`           | `roles:create:all` |           | Creates a custom role                        |
-| PATCH  | `/api/roles/:idOrSlug` | `roles:update:all` |           | Changes the name, description or permissions |
-| DELETE | `/api/roles/:idOrSlug` | `roles:delete:all` |           | Deletes a role that no account holds         |
+| Method | Path                   | Who may call it           | Closed by | What it does                                 |
+| ------ | ---------------------- | ------------------------- | --------- | -------------------------------------------- |
+| GET    | `/api/roles`           | Staff, `roles:list:all`   |           | Lists roles, paged, with an optional search  |
+| GET    | `/api/roles/:idOrSlug` | Staff, `roles:read:all`   |           | Returns one role                             |
+| POST   | `/api/roles`           | Staff, `roles:create:all` |           | Creates a custom role                        |
+| PATCH  | `/api/roles/:idOrSlug` | Staff, `roles:update:all` |           | Changes the name, description or permissions |
+| DELETE | `/api/roles/:idOrSlug` | Staff, `roles:delete:all` |           | Deletes a role that no account holds         |
 
 A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 characters long. System roles cannot be deleted.
 
 ## User administration (`/api/admin/users`)
 
-| Method | Path                                           | Who may call it          | Closed by | What it does                                             |
-| ------ | ---------------------------------------------- | ------------------------ | --------- | -------------------------------------------------------- |
-| GET    | `/api/admin/users`                             | `users:list:all`         |           | Lists accounts, paged, with filters                      |
-| POST   | `/api/admin/users`                             | `users:create:all`       |           | Creates an account                                       |
-| GET    | `/api/admin/users/:id`                         | `users:read:all`         |           | Returns one account                                      |
-| PATCH  | `/api/admin/users/:id`                         | `users:update:all`       |           | Changes the name, or asks for an email                   |
-| POST   | `/api/admin/users/:id/resend-email-change`     | `users:update:all`       |           | Mails the code for the email that waits again            |
-| PATCH  | `/api/admin/users/:id/status`                  | `users:update:all`       |           | Activates or deactivates the account                     |
-| PATCH  | `/api/admin/users/:id/role`                    | `users:update:all`       |           | Assigns a role                                           |
-| DELETE | `/api/admin/users/:id`                         | `users:delete:all`       |           | Deactivates the account and ends its sessions. See below |
-| GET    | `/api/admin/users/:id/permissions`             | `permissions:read:all`   |           | Lists the permissions of the account                     |
-| POST   | `/api/admin/users/:id/permissions`             | `permissions:grant:all`  |           | Adds a direct permission                                 |
-| DELETE | `/api/admin/users/:id/permissions/:permission` | `permissions:revoke:all` |           | Removes a direct permission                              |
+| Method | Path                                           | Who may call it                                   | Closed by | What it does                                             |
+| ------ | ---------------------------------------------- | ------------------------------------------------- | --------- | -------------------------------------------------------- |
+| GET    | `/api/admin/users`                             | Staff, `users:list:all` or `users:list:staff`     |           | Lists accounts, paged, with filters                      |
+| POST   | `/api/admin/users`                             | Staff, `users:create:all` or `users:create:staff` |           | Creates an account                                       |
+| GET    | `/api/admin/users/:id`                         | Staff, `users:read:all` or `users:read:staff`     |           | Returns one account                                      |
+| PATCH  | `/api/admin/users/:id`                         | Staff, `users:update:all` or `users:update:staff` |           | Changes the name, or asks for an email                   |
+| POST   | `/api/admin/users/:id/resend-email-change`     | Staff, `users:update:all` or `users:update:staff` |           | Mails the code for the email that waits again            |
+| PATCH  | `/api/admin/users/:id/status`                  | Staff, `users:update:all` or `users:update:staff` |           | Activates or deactivates the account                     |
+| PATCH  | `/api/admin/users/:id/role`                    | Staff, `users:update:all` or `users:update:staff` |           | Assigns a role                                           |
+| DELETE | `/api/admin/users/:id`                         | Staff, `users:delete:all` or `users:delete:staff` |           | Deactivates the account and ends its sessions. See below |
+| GET    | `/api/admin/users/:id/permissions`             | Staff, `permissions:read:all`                     |           | Lists the permissions of the account                     |
+| POST   | `/api/admin/users/:id/permissions`             | Staff, `permissions:grant:all`                    |           | Adds a direct permission                                 |
+| DELETE | `/api/admin/users/:id/permissions/:permission` | Staff, `permissions:revoke:all`                   |           | Removes a direct permission                              |
 
-| Method | Path                                       | Who may call it       | Closed by | What it does                                       |
-| ------ | ------------------------------------------ | --------------------- | --------- | -------------------------------------------------- |
-| GET    | `/api/admin/users/:id/sessions`            | `sessions:read:all`   |           | Lists the target account's active sessions         |
-| DELETE | `/api/admin/users/:id/sessions/:sessionId` | `sessions:delete:all` |           | Ends one target session                            |
-| POST   | `/api/admin/users/:id/sessions/revoke-all` | `sessions:delete:all` |           | Ends every target session                          |
-| GET    | `/api/admin/activity`                      | `activity:read:all`   |           | Lists retained staff activity, paged, with filters |
+| Method | Path                                       | Who may call it              | Closed by | What it does                                       |
+| ------ | ------------------------------------------ | ---------------------------- | --------- | -------------------------------------------------- |
+| GET    | `/api/admin/users/:id/sessions`            | Staff, `sessions:read:all`   |           | Lists the target account's active sessions         |
+| DELETE | `/api/admin/users/:id/sessions/:sessionId` | Staff, `sessions:delete:all` |           | Ends one target session                            |
+| POST   | `/api/admin/users/:id/sessions/revoke-all` | Staff, `sessions:delete:all` |           | Ends every target session                          |
+| GET    | `/api/admin/activity`                      | Staff, `activity:read:all`   |           | Lists retained staff activity, paged, with filters |
 
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
 

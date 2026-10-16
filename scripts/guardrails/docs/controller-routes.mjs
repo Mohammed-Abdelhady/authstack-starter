@@ -1,7 +1,10 @@
 import { createRequire } from 'node:module';
 
 const HTTP_DECORATORS = { Get: 'GET', Post: 'POST', Put: 'PUT', Patch: 'PATCH', Delete: 'DELETE' };
-export const ACCESS = { PUBLIC: 'Public', SIGNED_IN: 'Signed in' };
+export const ACCESS = { PUBLIC: 'Public', SIGNED_IN: 'Signed in', STAFF: 'Staff' };
+const STAFF_GUARD = 'StaffGuard';
+/** Joins the permissions of `@RequireAnyPermission` the way the document writes them. */
+const ANY_OF = ' or ';
 /** The setting that closes a route marked with each `AuthFeature` member. */
 const FEATURE_SWITCHES = {
   PASSWORD: 'AUTH_PASSWORD_ENABLED',
@@ -41,15 +44,32 @@ function featureSwitch(decorators, file) {
   return setting;
 }
 
-function accessOf(decorators, permissions, file) {
-  if (decorators.some(({ name }) => name === 'Public')) return [ACCESS.PUBLIC];
-  const required = decorators.find(({ name }) => name === 'RequirePermissions');
-  if (!required) return [ACCESS.SIGNED_IN];
-  return required.args.map((argument) => {
+const isStaffGuarded = (decorators) =>
+  decorators.some(
+    ({ name, args }) =>
+      name === 'UseGuards' && args.some((guard) => guard.getText() === STAFF_GUARD),
+  );
+
+function permissionsOf(decorators, marker, { permissions, file }) {
+  const found = decorators.find(({ name }) => name === marker);
+  return (found?.args ?? []).map((argument) => {
     const permission = permissions[argument.getText()];
     if (!permission) throw new Error(`${file}: unknown permission ${argument.getText()}`);
     return permission;
   });
+}
+
+/** The caller's requirements, as in `['Staff', 'users:list:all or users:list:staff']`. */
+function accessOf(decorators, permissions, file) {
+  const staff = isStaffGuarded(decorators) ? [ACCESS.STAFF] : [];
+  if (decorators.some(({ name }) => name === 'Public')) return [...staff, ACCESS.PUBLIC];
+  const anyOf = permissionsOf(decorators, 'RequireAnyPermission', { permissions, file });
+  const needs = [
+    ...staff,
+    ...permissionsOf(decorators, 'RequirePermissions', { permissions, file }),
+    ...(anyOf.length > 0 ? [anyOf.join(ANY_OF)] : []),
+  ];
+  return needs.length > 0 ? needs : [ACCESS.SIGNED_IN];
 }
 
 function fullPath(controllerPath, routePath, bootstrap) {

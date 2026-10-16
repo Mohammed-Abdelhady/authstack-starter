@@ -20,7 +20,10 @@ const CODE_SPAN = /`([^`]+)`/g;
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
-/** Every route row of the documented tables. A trailing marker cell is ignored. */
+/**
+ * Every route row of the documented tables. A comma starts another access requirement.
+ * A trailing marker cell is ignored.
+ */
 export function documentedRoutes(markdown) {
   return markdown
     .split('\n')
@@ -34,7 +37,7 @@ export function documentedRoutes(markdown) {
       return {
         method,
         path: spans(path)[0] ?? path,
-        access: spans(access).length > 0 ? spans(access) : [access],
+        access: access.split(',').map((part) => part.trim().replace(CODE_SPAN, '$1')),
         closedBy: spans(closedBy)[0] ?? null,
       };
     });
@@ -83,7 +86,11 @@ function controllerFiles(directory) {
 }
 
 const SETTINGS = {
-  permissions: { 'USER_PERMISSIONS.READ_ALL': 'users:read:all' },
+  permissions: {
+    'USER_PERMISSIONS.READ_ALL': 'users:read:all',
+    'USER_PERMISSIONS.LIST_ALL': 'users:list:all',
+    'USER_PERMISSIONS.LIST_STAFF': 'users:list:staff',
+  },
   bootstrap: { prefix: 'api', exclude: ['health'] },
 };
 const route = (method, path, access = [ACCESS.SIGNED_IN], closedBy = null) => ({
@@ -231,6 +238,39 @@ test('a wrong guard, a wrong switch and a repeated row are named', () => {
   );
   assert.deepEqual(routeTableProblems(coded, [...coded, ...coded]), [
     'POST /api/user/password is documented twice',
+  ]);
+});
+
+const problemsBetween = (source, markdown) =>
+  routeTableProblems(
+    controllerRoutes('admin.controller.ts', source, SETTINGS),
+    documentedRoutes(markdown),
+  );
+
+test('a wrong permission among the ones a route accepts is named', () => {
+  const source = `@Controller('admin/users') @UseGuards(StaffGuard, PermissionGuard) export class A {
+    @Get() @RequireAnyPermission(USER_PERMISSIONS.LIST_ALL, USER_PERMISSIONS.LIST_STAFF) list() {} }`;
+  const row =
+    '| GET | `/api/admin/users` | Staff, `users:list:all` or `users:list:staff` | | Lists |';
+  assert.deepEqual(problemsBetween(source, row.replace('users:list:staff', 'users:read:all')), [
+    'GET /api/admin/users needs Staff, users:list:all or users:list:staff, the document says Staff, users:list:all or users:read:all',
+  ]);
+  assert.deepEqual(problemsBetween(source, row), []);
+});
+
+test('a staff guard the document leaves out, or claims without the guard, is named', () => {
+  const source = `
+    @Controller('admin/users') @UseGuards(StaffGuard, PermissionGuard)
+    export class Guarded { @Get(':id') @RequirePermissions(USER_PERMISSIONS.READ_ALL) read() {} }
+    @Controller('admin/users') @UseGuards(PermissionGuard)
+    export class Unguarded { @Get() @RequirePermissions(USER_PERMISSIONS.LIST_ALL) list() {} }`;
+  const markdown = [
+    '| GET | `/api/admin/users/:id` | `users:read:all` | | Returns one account |',
+    '| GET | `/api/admin/users` | Staff, `users:list:all` | | Lists accounts |',
+  ].join('\n');
+  assert.deepEqual(problemsBetween(source, markdown), [
+    'GET /api/admin/users/:id needs Staff, users:read:all, the document says users:read:all',
+    'GET /api/admin/users needs users:list:all, the document says Staff, users:list:all',
   ]);
 });
 
