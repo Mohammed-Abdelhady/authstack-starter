@@ -43,7 +43,10 @@ import { partialMock } from '../../../../common/testing/test-doubles.harness-spe
 import { PasskeyRecorder } from '../../services/passkey-recorder.service';
 import { NoopEnrolmentPromotion } from '../../../contracts/defaults/noop-enrolment-promotion';
 import { SessionCookieService } from '../../../services/sessions/session-cookie.service';
-import { webPasskeyPolicy } from '../../services/browser-passkey-policy.harness-spec';
+import {
+  noRequiredRelyingParties,
+  webPasskeyPolicy,
+} from '../../services/browser-passkey-policy.harness-spec';
 import {
   AttestationVerification,
   WebAuthnAdapter,
@@ -177,6 +180,7 @@ describe('passkey ObjectId round trip', () => {
           new MongoUnitOfWorkRunner(connection),
           new PasskeyConfigService(config),
           browserApplications,
+          noRequiredRelyingParties(),
         );
 
         await users.create({

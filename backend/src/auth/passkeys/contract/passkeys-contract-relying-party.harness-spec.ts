@@ -36,6 +36,7 @@ import {
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import { PasskeyManagementService } from '../services/passkey-management.service';
 import { APP_CLIENT_ID } from './passkeys-contract-native.harness-spec';
+import { noRequiredRelyingParties } from '../services/browser-passkey-policy.harness-spec';
 // feature:email-code:end
 
 const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
@@ -244,6 +245,7 @@ export function relyingPartyCases(
       harness().runner(rerunAtOnce),
       new PasskeyConfigService(config),
       browserApplicationsForTest(config),
+      noRequiredRelyingParties(),
     );
     const webId = await harness().seedPasskey({
       userId: ownerId,

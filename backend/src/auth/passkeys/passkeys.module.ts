@@ -17,6 +17,7 @@ import { PasskeyRegistrationService } from './services/passkey-registration.serv
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from './services/passkey-recorder.service';
 import { BrowserPasskeyPolicy } from './services/browser-passkey-policy.service';
+import { RequiredPasskeyRelyingParties } from './services/required-passkey-relying-parties.service';
 import { NativePasskeysController } from './native/native-passkeys.controller';
 import { NativePasskeyRegistrationService } from './native/native-passkey-registration.service';
 import { NativeRelyingParties } from './native/native-relying-parties';
@@ -64,6 +65,7 @@ import { CommonModule } from '../../common/common.module';
     PasskeySecondFactorVerifier,
     PasskeyRecorder,
     BrowserPasskeyPolicy,
+    RequiredPasskeyRelyingParties,
     NativeRelyingParties,
     NativePasskeyRegistrationService,
     ...PASSKEYS_PERSISTENCE_PROVIDERS,

@@ -22,6 +22,7 @@ import { SignInMethodRule } from '../../../../user/services/sign-in-method.rule'
 import { AuthFeaturesService } from '../../../services/features/auth-features.service';
 import { PasskeyManagementService } from '../../services/passkey-management.service';
 import { PasskeyConfigService } from '../../services/passkey-config.service';
+import { noRequiredRelyingParties } from '../../services/browser-passkey-policy.harness-spec';
 import { PostgresPasskeyStore } from './postgres-passkey.store';
 
 /** `POSTGRES_POOL_MAX=1`, the smallest pool the settings accept. */
@@ -114,6 +115,7 @@ describe('passkey removal on a PostgreSQL pool of one connection', () => {
         new ConfigService({ passkeys: { rpId: 'localhost' } }),
       ),
       browserApplications,
+      noRequiredRelyingParties(),
     );
 
     const answer = await management.remove(account.id, removedId);
