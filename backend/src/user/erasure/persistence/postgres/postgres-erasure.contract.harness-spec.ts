@@ -243,6 +243,7 @@ export async function bootPostgresErasureHarness(): Promise<ErasureHarness> {
     deletion: new PostgresAccountDeletionStore(c.database),
     eraser: new PostgresAccountEraser(),
     runner: new PostgresUnitOfWorkRunner(c.database),
+    runnerWith: (pause) => new PostgresUnitOfWorkRunner(c.database, pause),
     clock,
     seedAccount: async (email, deleted = false, eraseAfter) => {
       const pendingEmail = ` Pending-${email} `;
