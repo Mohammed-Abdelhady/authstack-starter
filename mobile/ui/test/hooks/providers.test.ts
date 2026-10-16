@@ -13,6 +13,7 @@ import { useProviders } from '../../src/hooks/use-providers';
 import { deferred, signedInAs, type Deferred } from '../support/fake-engine';
 import { ok, refusal } from '../support/fake-server';
 import { renderUiHook } from '../support/hook';
+import { device } from '../support/react-native';
 import { cleanup, flush } from '../support/render';
 
 vi.mock('react-native', () => import('../support/react-native'));
@@ -36,6 +37,12 @@ const METHODS: NativeMethods = {
   },
   providers: [METHOD],
 };
+const FACEBOOK: NativeProviderMethod = {
+  id: 'facebook',
+  displayName: 'Facebook',
+  mode: 'facebook',
+  sdk: { kind: 'facebook', appId: '1234' },
+};
 const CREDENTIAL = {
   kind: 'googleIdentityToken',
   identityToken: 'proof-1',
@@ -49,7 +56,7 @@ const START = {
   expiresAt: '2026-06-10T08:12:00.000Z',
 };
 
-async function setup() {
+async function setup(methods: NativeMethods = METHODS) {
   const calls: {
     request: TransportRequest<AbortSignalPort>;
     answer: Deferred<TransportResponse>;
@@ -69,7 +76,7 @@ async function setup() {
   const subject = await renderUiHook(() => {
     const { runtime } = useUi();
     runtime.engine.transport.request = transport.request;
-    runtime.engine.methods = async () => METHODS;
+    runtime.engine.methods = async () => methods;
     return useProviders(port);
   }, signedInAs('ada'));
   async function answer(index: number, response: TransportResponse) {
@@ -125,6 +132,19 @@ describe('provider account linking', () => {
       }),
     );
     expect(app.subject.current().list?.providers).toEqual(['email', 'google']);
+  });
+
+  it('offers Facebook for linking only on iOS, where its proof carries the nonce', async () => {
+    const withFacebook = { ...METHODS, providers: [METHOD, FACEBOOK] };
+    const android = await setup(withFacebook);
+    expect(android.subject.current().linkable.map((method) => method.id)).toEqual(['google']);
+    cleanup();
+    device.platform = 'ios';
+    const ios = await setup(withFacebook);
+    expect(ios.subject.current().linkable.map((method) => method.id)).toEqual([
+      'google',
+      'facebook',
+    ]);
   });
 
   it('preserves the list and reports a provider identity owned by another account', async () => {
