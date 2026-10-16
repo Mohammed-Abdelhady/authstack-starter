@@ -14,6 +14,7 @@ const FILES = [
   'backend/tsconfig.json',
   'backend/src/auth/constants/available-auth-features.ts',
   'backend/src/auth/enums/auth-feature.enum.ts',
+  'backend/src/auth/contracts/feature-applications.ts',
   'backend/src/auth/services/features/auth-features.service.ts',
   'backend/src/common/exceptions/app.exception.ts',
   'backend/src/common/enums/error-code.enum.ts',
