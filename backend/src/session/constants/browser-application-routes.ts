@@ -27,4 +27,5 @@ export const BROWSER_APPLICATION_ROUTES = {
   OAUTH_START: new RegExp(`${AUTH_ROUTE}oauth/[^/]+/start/?$`, 'u'),
   OAUTH_CALLBACK: new RegExp(`${AUTH_ROUTE}oauth/([^/]+)/callback/?$`, 'u'),
   MAGIC_LINK_VERIFY: new RegExp(`${AUTH_ROUTE}magic-link/verify/?$`, 'u'),
+  INVITATION_ACCEPT: new RegExp(`${AUTH_ROUTE}invitations/accept/?$`, 'u'), // feature:invitations
 } as const;
