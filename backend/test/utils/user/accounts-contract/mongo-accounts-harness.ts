@@ -70,6 +70,7 @@ import {
   refuseSecurityEvents,
 } from '../../transaction-failure';
 import { AccountsContractHarness } from './accounts-contract-harness';
+import { MongoAccountDeletionStore } from '../../../../src/user/erasure/persistence/mongo/mongo-account-deletion.store';
 
 const A_UUID = '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e5f';
 
@@ -113,6 +114,8 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     clock,
   );
   const { app, users, sessions, connection } = booted;
+  if (!connection.db) throw new Error('MongoDB connection is not ready');
+  const deletion = new MongoAccountDeletionStore(connection.db);
   const creation = mongoAccountsApplications(booted);
   connection.model(Role.name, RoleSchema);
   connection.model(PendingRegistration.name, PendingRegistrationSchema);
@@ -170,6 +173,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     ),
     permissions: new MongoAccountPermissionStore(users),
     sessions: new RevokerAccountSessions(app.get(SessionRevoker)),
+    deletion,
     admin: new MongoAdminAccountStore(users, roles),
     activation: new MongoActivationAccounts(users),
     signIn: new SummarySignIn(),

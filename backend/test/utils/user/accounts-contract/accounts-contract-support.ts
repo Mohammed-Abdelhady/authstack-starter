@@ -28,6 +28,9 @@ import { MailService } from '../../../../src/mail/mail.service';
 import { RoleHierarchyService } from '../../../../src/role/services/role-hierarchy.service';
 import { UserPermissionsService } from '../../../../src/user/services/user-permissions.service';
 import { UserProfileService } from '../../../../src/user/services/user-profile.service';
+import { AccountDeletionService } from '../../../../src/user/erasure/services/account-deletion.service';
+import { ErasureSettings } from '../../../../src/user/erasure/services/erasure-settings';
+import { idleErasureWorker } from '../../account-deletion-fixture';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { AccountsContractHarness } from './accounts-contract-harness';
 
@@ -69,6 +72,7 @@ export interface AccountServices {
 
 export function configurationForAccounts(
   auth: Record<string, unknown> = {},
+  account: Record<string, unknown> = {},
 ): ConfigService {
   return new ConfigService({
     activation: { maxAttempts: 5, codeExpiresIn: 900_000 },
@@ -76,6 +80,7 @@ export function configurationForAccounts(
     cors: { clientUrl: 'http://localhost:3000' },
     smtp: { from: 'contract@example.test' },
     auth,
+    account,
   });
 }
 
@@ -111,9 +116,15 @@ export function servicesOn(
     mail.push(options);
     return Promise.resolve();
   };
-  const authMail = new AuthMailService(
+  const dispatcher = new MailDispatcherService(config, mailService);
+  const authMail = new AuthMailService(mailService, dispatcher);
+  const erasure = new ErasureSettings(config);
+  const deletion = new AccountDeletionService(
+    harness.deletion,
+    erasure,
+    idleErasureWorker(harness.clock, erasure),
     mailService,
-    new MailDispatcherService(config, mailService),
+    dispatcher,
   );
   const hash = new HashService(config);
   const mailCounter = new MailCounterService(
@@ -151,6 +162,7 @@ export function servicesOn(
       runner,
       harness.clock,
       hash,
+      deletion,
     ),
     permissions,
     adminPermissions: new AdminPermissionsService(

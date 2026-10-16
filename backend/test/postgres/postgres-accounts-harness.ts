@@ -22,6 +22,7 @@ import {
 import { AccountsContractHarness } from '../utils/user/accounts-contract/accounts-contract-harness';
 import { PostgresAccountPermissionStore } from '../../src/user/persistence/postgres/postgres-account-permission.store';
 import { PostgresAccountProfileStore } from '../../src/user/persistence/postgres/postgres-account-profile.store';
+import { PostgresAccountDeletionStore } from '../../src/user/erasure/persistence/postgres/postgres-account-deletion.store';
 import {
   activatedSignInAccountOf,
   PostgresActivationAccounts,
@@ -131,6 +132,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         clock,
       ),
     ),
+    deletion: new PostgresAccountDeletionStore(database),
     admin: new PostgresAdminAccountStore(database, clock),
     activation: new PostgresActivationAccounts(database, clock),
     signIn: new SummarySignIn(),

@@ -37,6 +37,7 @@ import {
   securityNoticeProviders,
   stubSmtpBoundary,
 } from '../../../../../test/utils/security-notice-fixture';
+import { accountDeletionProviders } from '../../../../../test/utils/account-deletion-fixture';
 
 const OLD_PASSWORD = 'OldPassword123!';
 const NEW_PASSWORD = 'NewPassword123!';
@@ -85,6 +86,7 @@ describe('password change keeps the calling session (plan S1)', () => {
         { provide: SessionRevoker, useValue: harness.app.get(SessionRevoker) },
         { provide: getConnectionToken(), useValue: harness.connection },
         ...securityNoticeProviders(),
+        ...accountDeletionProviders(),
       ],
     }).compile();
     await module.get<Model<Role>>(getModelToken(Role.name)).init();
