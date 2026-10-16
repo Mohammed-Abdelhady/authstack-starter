@@ -24,7 +24,6 @@ import {
 } from '../../constants/session-policy';
 import { ApplicationAccessStore } from '../../applications/application-access.store';
 import { ApplicationRegistry } from '../../applications/application-registry';
-import { RegisteredClient } from '../../applications/application-registry.store';
 import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
 import { addMs } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
@@ -41,6 +40,7 @@ import {
   validateNativeAuthorizationRequest,
 } from './native-authorize-validation';
 import { assertNativeVerifiedAuthority } from './native-verified-authority';
+import { allowNativeGrant } from './native-authorize-grant';
 import type { ValidatedNativeAuthorization } from '../types/native-authorization';
 import {
   appendAuthorizationCode,
@@ -291,11 +291,14 @@ export class NativeAuthorizeService {
     if (claimed !== AUTHORIZATION_APPROVAL.APPROVED) {
       throw expiredTransaction();
     }
-    const grant = await this.allowGrant(
+    const grant = await allowNativeGrant(
       unitOfWork,
-      account.id,
-      application,
-      expected?.grantVersion,
+      { grants: this.grants, issuance: this.issuance },
+      {
+        userId: account.id,
+        application,
+        expectedVersion: expected?.grantVersion,
+      },
     );
     const captured = await this.store.captureGrantVersion(
       unitOfWork,
@@ -312,39 +315,5 @@ export class NativeAuthorizeService {
       code,
       grantVersion: grant.sessionVersion,
     };
-  }
-
-  private async allowGrant(
-    unitOfWork: UnitOfWork,
-    userId: string,
-    application: RegisteredClient,
-    expectedVersion?: number | null,
-  ): Promise<{ sessionVersion: number }> {
-    const existing = await this.grants.takeGrantForChange(
-      unitOfWork,
-      userId,
-      application.clientId,
-    );
-    if (
-      expectedVersion !== undefined &&
-      (existing?.sessionVersion ?? null) !== expectedVersion
-    ) {
-      throw expiredTransaction();
-    }
-    if (existing && !existing.allowed) {
-      throw new AppException(
-        ErrorCode.GRANT_BLOCKED,
-        'Application access is blocked for this account',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-    if (existing) {
-      return existing;
-    }
-    return this.issuance.createGrant(unitOfWork, {
-      userId,
-      clientId: application.clientId,
-      allowedScopes: application.allowedScopes,
-    });
   }
 }
