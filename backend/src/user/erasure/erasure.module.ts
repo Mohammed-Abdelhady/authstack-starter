@@ -14,6 +14,7 @@ import { ERASURE_PERSISTENCE_PROVIDERS } from './persistence/erasure-persistence
 import { AccountDeletionService } from './services/account-deletion.service';
 import { DeletionReceiptService } from './services/deletion-receipt.service';
 import { ErasureJobsAdminService } from './services/erasure-jobs-admin.service';
+import { ErasureRefusal } from './services/erasure-refusal';
 import { ErasureSettings } from './services/erasure-settings';
 import { ErasureWorker } from './services/erasure-worker';
 import { StoredErasureLock } from './services/stored-erasure-lock';
@@ -39,9 +40,10 @@ import { StoredErasureLock } from './services/stored-erasure-lock';
     DeletionReceiptService,
     ErasureJobsAdminService,
     StoredErasureLock,
+    ErasureRefusal,
     { provide: AccountErasureHook, useClass: HOST_ERASURE_HOOK },
     ...ERASURE_PERSISTENCE_PROVIDERS,
   ],
-  exports: [AccountDeletionService, StoredErasureLock],
+  exports: [AccountDeletionService, StoredErasureLock, ErasureRefusal],
 })
 export class ErasureModule {}
