@@ -54,6 +54,9 @@ const EVERY_TABLE: Record<keyof PostgresTables, true> = {
   user_recovery_codes: true, // feature:totp
   user_two_factor: true, // feature:totp
   user_linked_accounts: true,
+  session_proofs: true,
+  staff_idempotency_keys: true,
+  invitations: true, // feature:invitations
   users: true,
 };
 const [FIRST_TABLE, ...OTHER_TABLES] = Object.keys(EVERY_TABLE);
