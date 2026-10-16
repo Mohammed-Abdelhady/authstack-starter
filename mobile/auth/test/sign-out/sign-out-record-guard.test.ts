@@ -1,6 +1,6 @@
 import { createApiClient } from '@app/sdk';
 import { describe, expect, it } from 'vitest';
-import { CREDENTIAL_DELETE_TIMEOUT_MS } from '../../src/constants';
+import { CREDENTIAL_READ_TIMEOUT_MS, CREDENTIAL_WRITE_TIMEOUT_MS } from '../../src/constants';
 import { createSignOutOperation } from '../../src/sign-out/sign-out';
 import { makeRefreshRecord } from '../../src/refresh/refresh-helpers';
 import { AuthRuntime } from '../../src/runtime/runtime';
@@ -30,11 +30,18 @@ describe('sign-out storage discovered during the operation', () => {
 
     const blockerStarted = new Deferred<void>();
     const releaseBlocker = new Deferred<void>();
-    const deleteQueued = new Deferred<void>();
+    const writeQueued = new Deferred<void>();
     const revokeCompleted = new Deferred<void>();
+    // The revocation leaves storage only after the server confirmed it.
+    const slotCleared = new Deferred<void>();
+    ports.credentials.afterDelete = () => slotCleared.resolve();
+    // The stored-token read comes first; the next deadline of that length is the sign-out write's.
+    let readDeadlineSeen = false;
     const timersDrained = watchTimerDrain(ports.timer, {
       onSchedule: (milliseconds) => {
-        if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS) deleteQueued.resolve();
+        if (milliseconds === CREDENTIAL_READ_TIMEOUT_MS && !readDeadlineSeen)
+          readDeadlineSeen = true;
+        else if (milliseconds === CREDENTIAL_WRITE_TIMEOUT_MS) writeQueued.resolve();
       },
     });
     transport.onResponse = (request) => {
@@ -51,10 +58,16 @@ describe('sign-out storage discovered during the operation', () => {
     await blockerStarted.promise;
 
     const signOut = createSignOutOperation(runtime, createApiClient(runtime.rawTransport))();
-    await deleteQueued.promise;
+    await writeQueued.promise;
     runtime.dispose();
     releaseBlocker.resolve();
-    await Promise.all([blocker, runtime.writeTail, revokeCompleted.promise, signOut]);
+    await Promise.all([
+      blocker,
+      runtime.writeTail,
+      revokeCompleted.promise,
+      signOut,
+      slotCleared.promise,
+    ]);
     await timersDrained();
 
     expect(ports.credentials.value).toBeUndefined();

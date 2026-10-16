@@ -527,8 +527,8 @@
     },
     {
       "files": ["docs/setup/setup-passkeys.md"],
-      "from": "One document per credential: the public key, the credential id, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the collection leaking gives an attacker nothing they can sign with.",
-      "to": "One row per credential: the public key, the credential id, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the table leaking gives an attacker nothing they can sign with."
+      "from": "One document per credential: the public key, the credential id, the relying party it was made for, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the collection leaking gives an attacker nothing they can sign with.",
+      "to": "One row per credential: the public key, the credential id, the relying party it was made for, the signature counter, the transports, the name, and when it was last used. No private key material ever reaches the server, so the table leaking gives an attacker nothing they can sign with."
     },
     {
       "files": ["docs/operations/deployment-custom-domain.md"],

@@ -64,15 +64,15 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 
 ## Passkeys (`/api/auth/passkeys`)
 
-| Method | Path                                  | Who may call it | Closed by          | What it does                                    |
-| ------ | ------------------------------------- | --------------- | ------------------ | ----------------------------------------------- |
-| POST   | `/api/auth/passkeys/login/options`    | Public          | `PASSKEYS_ENABLED` | Returns the options for a passkey sign-in       |
-| POST   | `/api/auth/passkeys/login/verify`     | Public          | `PASSKEYS_ENABLED` | Signs in with a passkey                         |
-| POST   | `/api/auth/passkeys/register/options` | Signed in       | `PASSKEYS_ENABLED` | Returns the options for adding a passkey        |
-| POST   | `/api/auth/passkeys/register/verify`  | Signed in       | `PASSKEYS_ENABLED` | Stores the new passkey                          |
-| GET    | `/api/auth/passkeys`                  | Signed in       | `PASSKEYS_ENABLED` | Lists the passkeys on the account, newest first |
-| PATCH  | `/api/auth/passkeys/:id`              | Signed in       | `PASSKEYS_ENABLED` | Renames a passkey                               |
-| DELETE | `/api/auth/passkeys/:id`              | Signed in       | `PASSKEYS_ENABLED` | Removes a passkey                               |
+| Method | Path                                  | Who may call it | Closed by          | What it does                                                                               |
+| ------ | ------------------------------------- | --------------- | ------------------ | ------------------------------------------------------------------------------------------ |
+| POST   | `/api/auth/passkeys/login/options`    | Public          | `PASSKEYS_ENABLED` | Returns the options for a passkey sign-in                                                  |
+| POST   | `/api/auth/passkeys/login/verify`     | Public          | `PASSKEYS_ENABLED` | Signs in with a passkey                                                                    |
+| POST   | `/api/auth/passkeys/register/options` | Signed in       | `PASSKEYS_ENABLED` | Returns the options for adding a passkey. A mobile app's access token gets `403 FORBIDDEN` |
+| POST   | `/api/auth/passkeys/register/verify`  | Signed in       | `PASSKEYS_ENABLED` | Stores the new passkey. A mobile app's access token gets `403 FORBIDDEN`                   |
+| GET    | `/api/auth/passkeys`                  | Signed in       | `PASSKEYS_ENABLED` | Lists the passkeys on the account, newest first                                            |
+| PATCH  | `/api/auth/passkeys/:id`              | Signed in       | `PASSKEYS_ENABLED` | Renames a passkey                                                                          |
+| DELETE | `/api/auth/passkeys/:id`              | Signed in       | `PASSKEYS_ENABLED` | Removes a passkey                                                                          |
 
 <!-- feature:passkeys:end -->
 <!-- feature:oauth-core:start -->
@@ -240,10 +240,12 @@ Its answer must belong to the current attempt. A consumed recovery code cannot b
 These routes require enabled passkeys and the registered native RP and origin policy.
 The assertion and challenge are bound to this attempt rather than a browser cookie.
 
-| Method | Path                                                   | Who may call it | Closed by | What it does                                                        |
-| ------ | ------------------------------------------------------ | --------------- | --------- | ------------------------------------------------------------------- |
-| POST   | `/api/auth/native/attempts/:attemptId/passkey/options` | Public          |           | Creates the native assertion challenge                              |
-| POST   | `/api/auth/native/attempts/:attemptId/passkey/verify`  | Public          |           | Verifies the assertion and commits its counter and completed factor |
+| Method | Path                                                   | Who may call it | Closed by          | What it does                                                                                                              |
+| ------ | ------------------------------------------------------ | --------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/auth/native/attempts/:attemptId/passkey/options` | Public          |                    | Creates the native assertion challenge                                                                                    |
+| POST   | `/api/auth/native/attempts/:attemptId/passkey/verify`  | Public          |                    | Verifies the assertion and commits its counter and completed factor                                                       |
+| POST   | `/api/auth/native/passkeys/register/options`           | Signed in       | `PASSKEYS_ENABLED` | Returns the options for adding a passkey from the app, for the app's relying party. A session cookie gets `403 FORBIDDEN` |
+| POST   | `/api/auth/native/passkeys/register/verify`            | Signed in       | `PASSKEYS_ENABLED` | Stores the new passkey under the app's relying party. A session cookie gets `403 FORBIDDEN`                               |
 
 <!-- feature:passkeys:end -->
 <!-- feature:oauth-core:start -->

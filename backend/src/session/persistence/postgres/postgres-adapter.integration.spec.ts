@@ -143,6 +143,7 @@ describe('PostgreSQL adapter', () => {
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
         '0025_email_codes.sql', // feature:email-code
+        '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
       ],
       again: [],
@@ -169,6 +170,7 @@ describe('PostgreSQL adapter', () => {
         '0020_host_migrations.sql',
         '0021_address_claims.sql',
         '0025_email_codes.sql', // feature:email-code
+        '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
       ],
     });
