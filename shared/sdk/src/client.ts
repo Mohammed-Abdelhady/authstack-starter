@@ -8,6 +8,8 @@ import { createAuthArea, type ApiClientAuth } from './areas/auth';
 import { createOAuthArea, type ApiClientOAuth } from './areas/oauth';
 import { createUserArea, type ApiClientUser } from './areas/user';
 import { createPasskeysArea, type ApiClientPasskeys } from './areas/passkeys';
+import { createProvidersArea, type ApiClientProviders } from './areas/providers';
+import { createAccountDeletionArea, type ApiClientAccountDeletion } from './areas/account-deletion';
 import {
   TransportError,
   isTransportError,
@@ -36,7 +38,9 @@ export interface ApiClient<TSignal extends TransportSignal = TransportSignal>
     ApiClientUser<TSignal>,
     ApiClientAuth<TSignal>,
     ApiClientOAuth<TSignal>,
-    ApiClientPasskeys<TSignal> {
+    ApiClientPasskeys<TSignal>,
+    ApiClientProviders<TSignal>,
+    ApiClientAccountDeletion<TSignal> {
   nativeAuth: NativeAuthClient<TSignal>;
 }
 
@@ -82,5 +86,7 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
     ...createAuthArea<TSignal>(senders),
     ...createOAuthArea<TSignal>(senders),
     ...createPasskeysArea<TSignal>(senders),
+    ...createProvidersArea<TSignal>(senders),
+    ...createAccountDeletionArea<TSignal>(senders),
   };
 }
