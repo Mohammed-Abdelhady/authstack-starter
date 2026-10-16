@@ -37,19 +37,19 @@ Policy keys are `signUp: "open" | "closed"`,
 `requirePasskey: boolean` and `audience: "customer" | "staff"`. Missing policy
 keys mean open sign-up, no required passkey and unrestricted audience. A staff
 application must specify `signUp: "closed"`; `requirePasskey: true` requires
-passkeys to be available for that application. It is temporarily refused at
-startup until the passkeys work in plan 3 supplies verified passkey sign-in
-evidence. Keep `requirePasskey` false until that work lands. Startup names the
-application and its repair.
+passkeys to be available for that application, and startup names the
+application and its repair when they are not. With it on, only a passkey sign-in
+that verified its user, with a PIN or a biometric, is let in. A browser passkey
+belongs to its application's relying party: the web one is `WEBAUTHN_RP_ID` and
+`WEBAUTHN_ORIGIN`, and the admin one is the host and origin of `ADMIN_URL`.
 
 Audience admission and target scopes activate when any application names an
 audience. The staff browser guard activates only when an application names
 `staff`. Closed sign-up refuses new self-created accounts. A required passkey
 refuses them too, the same way: password, link and provider sign-up cannot give
 a new account its first passkey. Staff account creation
-and seed bootstrap remain allowed. The issuer enforces required-passkey policy;
-the startup refusal prevents enabling it before the passkey route can supply
-verified evidence.
+and seed bootstrap remain allowed. The issuer enforces required-passkey policy
+from the evidence the passkey sign-in records on the session.
 A real change to the admission snapshot or configured method list
 advances the application policy version and records `policy_changed` in the same
 transaction. Changing server-wide method availability does not advance this version.

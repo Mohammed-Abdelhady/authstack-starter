@@ -8,7 +8,7 @@ A passkey is a key pair. The private half stays on the authenticator, which is t
 
 **How a sign-in runs**:
 
-1. The client posts to `POST /api/auth/passkeys/login/options` and gets back the challenge, in a `pk_challenge` cookie and in the body.
+1. The client posts to `POST /api/auth/passkeys/login/options` and gets back the challenge, in a `pk_challenge` cookie and in the body. The admin application keeps its challenge in `pk_challenge-admin`, and a challenge is only good for the application it was issued for.
 2. The browser prompts, the user confirms with a fingerprint or a PIN, and hands back a signed assertion.
 3. The client posts it to `POST /api/auth/passkeys/login/verify`. The backend checks the signature against the stored public key, sets the session cookie and returns the account.
 
@@ -62,6 +62,8 @@ If the client and the API sit on different hosts, the RP ID follows the **client
 
 Behind a reverse proxy, set `WEBAUTHN_ORIGIN` explicitly to the public URL. The origin the browser reports is the public one, not whatever the app binds to internally.
 
+The admin application, when `ADMIN_URL` is set, has a relying party of its own: the host of `ADMIN_URL`, with that origin. Its passkeys are made, offered and accepted there only, so a staff member registers one on the admin address even when they already have one for the web.
+
 <!-- feature:native-core:start -->
 
 ### A relying party for the mobile app
@@ -112,7 +114,7 @@ A mobile access token on these two routes gets `403 FORBIDDEN`; the app register
 POST /api/auth/passkeys/register/options
 ```
 
-Returns the options to pass to `navigator.credentials.create()`, and sets `pk_challenge` for five minutes. Passkeys already on the account are listed in `excludeCredentials`, so an authenticator that holds one says so instead of registering a duplicate.
+Returns the options to pass to `navigator.credentials.create()`, and sets the application's challenge cookie for five minutes. Passkeys the account already has for the application's relying party are listed in `excludeCredentials`, so an authenticator that holds one says so instead of registering a duplicate.
 
 ```http
 POST /api/auth/passkeys/register/verify
@@ -140,7 +142,9 @@ Content-Type: application/json
 
 `backedUp` says the credential is synced to a provider keychain, so it survives losing the device. `deviceType` is `multiDevice` for a synced credential and `singleDevice` for one that lives on one authenticator only.
 
-The browser route asks the authenticator to verify the user but does not require it, as before. A security key used without a PIN can still register. Requiring user verification on this route for an application that sets `requirePasskey` arrives with the application sign-in policy. Until then the route never requires it.
+The browser route asks the authenticator to verify the user. It requires it where the application sets `requirePasskey` and on an enrolment session; elsewhere a security key used without a PIN can still register, as before.
+
+An enrolment session, the fifteen-minute session that exists only to add a first passkey, reaches both routes for its whole life: the rule that a sign-in be no older than five minutes does not apply to it. Its first passkey and the change into a full session are one transaction. The verify reply then sets the full session's cookie and a fresh `X-CSRF-Token`, and the enrolment session stops working. When the change is refused, for example because the account's audience is no longer admitted, nothing is stored, no session cookie is set, and the reply is `401 PASSKEY_CHALLENGE_INVALID`.
 
 <!-- feature:native-core:start -->
 
@@ -210,7 +214,8 @@ PATCH  /api/auth/passkeys/:id     { "name": "iPhone" }
 DELETE /api/auth/passkeys/:id
 ```
 
-Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the last passkey of its relying party **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes. A passkey of the other relying party does not count as a way in: with one web passkey and one app passkey and nothing else, neither can be removed.
+Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the last passkey of its relying party **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes. A passkey of the other relying party does not count as a way in: with one web passkey and one app passkey and nothing else, neither can be removed. Where an application that admits the account requires a passkey, the last passkey it can use stays whatever else the account has.
+An emailed sign-in code, where an app offers one, counts for an app's passkeys and never for the web or admin ones, which a browser uses. <!-- feature:email-code -->
 
 The list answer carries the same decision ahead of time, so a page can say why before anyone tries:
 
@@ -257,7 +262,7 @@ The counter is checked on every sign-in. An authenticator that counts and report
 
 **`PASSKEY_VERIFICATION_FAILED` on every sign-in, registration worked.** `WEBAUTHN_ORIGIN` or `WEBAUTHN_RP_ID` changed between the two. Check both against what the browser actually reports; a trailing slash or a missing port in the origin is enough.
 
-**`PASSKEY_CHALLENGE_INVALID`.** The `pk_challenge` cookie did not arrive. It is `SameSite=Strict`, so a ceremony started on a different site will not carry it, and it expires after five minutes.
+**`PASSKEY_CHALLENGE_INVALID`.** The challenge cookie did not arrive, or it belongs to the other application. It is `SameSite=Strict`, so a ceremony started on a different site will not carry it, and it expires after five minutes. A challenge the web application issued is never spent by the admin one, or the other way round.
 
 **Existing passkeys stopped working after a deploy.** The RP ID changed. Credentials cannot be migrated between RP IDs; the users have to register again with another sign-in method first.
 
