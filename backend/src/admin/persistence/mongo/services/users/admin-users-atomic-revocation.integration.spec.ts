@@ -265,7 +265,8 @@ describe('admin changes end sessions atomically', () => {
     expect(await sessionAlive(session.sessionToken)).toBe(true);
   });
 
-  it('marks an admin-forced sign-out with the actor and reason', async () => {
+  // Failure: a deletion shows twice in the staff log, as itself and as the sign-out it caused.
+  it('keeps an admin-forced sign-out out of the staff log', async () => {
     const user = await seedUser('actor-event@example.test');
     await login(user);
 
@@ -275,7 +276,7 @@ describe('admin changes end sessions atomically', () => {
       .findOne({ targetUserId: idOf(user), action: 'sessions_revoked_all' })
       .lean()
       .exec();
-    expect(event?.actorId).toBe(actorId);
     expect(event?.reasonCode).toBe(REVOKED_REASON.ADMIN_FORCED);
+    expect(event?.kind).toBe('sign_in');
   });
 });

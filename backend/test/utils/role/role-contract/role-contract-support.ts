@@ -7,6 +7,7 @@ import { RoleEditService } from '../../../../src/role/services/edit/role-edit.se
 import { RoleHierarchyService } from '../../../../src/role/services/role-hierarchy.service';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { RoleContractHarness } from './role-contract-harness';
+import { testStaffMutationRules } from '../../admin/staff-mutation-test-kit';
 
 export type RoleHarnessSource = () => RoleContractHarness;
 
@@ -48,6 +49,7 @@ export function servicesOn(
     harness.changes,
     harness.sweeps,
     audiences,
+    testStaffMutationRules({ config }),
   );
   return {
     roles: new RoleService(harness.catalog, edit),

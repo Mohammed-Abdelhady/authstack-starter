@@ -22,6 +22,14 @@ import { RoleSweepStore } from '../../../../../role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../../../session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../mongo-admin-stores';
 import { recordedAccountSessions } from '../../../../../../test/utils/user/recorded-account-sessions';
+import { StaffMutationRules } from '../../../../../admin/services/staff-mutations/staff-mutation-rules';
+import {
+  testLastAdminGuard,
+  testStaffMutationRules,
+} from '../../../../../../test/utils/admin/staff-mutation-test-kit';
+import { ErasureLock } from '../../../../../auth/contracts/erasure-lock';
+import { DisabledErasureLock } from '../../../../../auth/contracts/defaults/disabled-erasure-lock';
+import { LastAdminGuard } from '../../../../../admin/services/staff-mutations/last-admin-guard';
 
 const LEVELS: Record<string, number> = {
   user: 1,
@@ -126,6 +134,9 @@ describe('AdminUsersService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: StaffMutationRules, useValue: testStaffMutationRules() },
+        { provide: ErasureLock, useClass: DisabledErasureLock },
+        { provide: LastAdminGuard, useValue: testLastAdminGuard() },
         AdminUsersService,
         AdminUserAccessService,
         MONGO_ADMIN_ACCOUNT_STORE,

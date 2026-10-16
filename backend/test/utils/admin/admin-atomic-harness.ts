@@ -35,6 +35,7 @@ import { RoleChangeStore } from '../../../src/role/stores/role-change.store';
 import { RoleSweepStore } from '../../../src/role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../../src/admin/persistence/mongo/mongo-admin-stores';
+import { MONGO_PASSWORD_SIGN_IN_STORE } from '../../../src/auth/persistence/mongo/mongo-password-sign-in.store';
 import {
   MONGO_ACCOUNT_PERMISSION_STORE,
   MONGO_ACCOUNT_SESSIONS,
@@ -44,6 +45,14 @@ import {
   bootSessionAuthority,
   type SessionAuthorityHarness,
 } from '../session-authority-harness';
+import { StaffMutationRules } from '../../../src/admin/services/staff-mutations/staff-mutation-rules';
+import {
+  testLastAdminGuard,
+  testStaffMutationRules,
+} from './staff-mutation-test-kit';
+import { ErasureLock } from '../../../src/auth/contracts/erasure-lock';
+import { DisabledErasureLock } from '../../../src/auth/contracts/defaults/disabled-erasure-lock';
+import { LastAdminGuard } from '../../../src/admin/services/staff-mutations/last-admin-guard';
 
 export interface AdminAtomicHarness extends SessionAuthorityHarness {
   service: AdminUsersService;
@@ -64,6 +73,9 @@ export async function bootAdminAtomic(
   );
   const module: TestingModule = await Test.createTestingModule({
     providers: [
+      { provide: StaffMutationRules, useValue: testStaffMutationRules() },
+      { provide: ErasureLock, useClass: DisabledErasureLock },
+      { provide: LastAdminGuard, useValue: testLastAdminGuard() },
       AdminUsersService,
       AdminUserCreateService,
       AccountCreationPolicy,
@@ -81,6 +93,7 @@ export async function bootAdminAtomic(
       { provide: RoleSweepStore, useClass: MongoRoleSweepStore },
       { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
       MONGO_ADMIN_ACCOUNT_STORE,
+      MONGO_PASSWORD_SIGN_IN_STORE,
       MONGO_ACCOUNT_SESSIONS,
       MONGO_ACCOUNT_PERMISSION_STORE,
       { provide: getModelToken(User.name), useValue: harness.users },
