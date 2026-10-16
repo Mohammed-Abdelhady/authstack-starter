@@ -29,6 +29,7 @@ import {
 import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from '../services/passkey-recorder.service';
 import { NoEnrolmentPromotion } from '../services/enrolment-promotion';
+import { webPasskeyPolicy } from '../services/browser-passkey-policy.harness-spec';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
 
@@ -133,12 +134,21 @@ export function passkeyServices(
   const authenticator = new ScriptedAuthenticator();
   const passkeyConfig = new PasskeyConfigService(config);
   const featureSwitches = new AuthFeaturesService(config, browserApplications);
-  const challenge = new PasskeyChallengeService(challenges, config);
+  const challenge = new PasskeyChallengeService(
+    challenges,
+    config,
+    browserApplications,
+  );
+  const policy = webPasskeyPolicy({
+    rpId: passkeyConfig.rpId,
+    origins: [passkeyConfig.origin],
+  });
   const assertion = new PasskeyAssertionService(
     passkeys,
     authenticator,
     passkeyConfig,
     challenge,
+    policy,
   );
   const signIn = new RecordingSignIn();
   const signInRule = new SignInMethodRule(
@@ -173,6 +183,7 @@ export function passkeyServices(
         // feature:totp:end
       ),
       recorder,
+      policy,
     ),
     assertion,
     login: new PasskeyLoginService(accounts, assertion, signIn),

@@ -16,6 +16,7 @@ import { PasskeyRegistrationReauth } from './services/passkey-registration-reaut
 import { PasskeyRegistrationService } from './services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from './services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from './services/passkey-recorder.service';
+import { BrowserPasskeyPolicy } from './services/browser-passkey-policy.service';
 import {
   EnrolmentPromotion,
   NoEnrolmentPromotion,
@@ -68,6 +69,7 @@ import { CommonModule } from '../../common/common.module';
     // Where an enrolment promotion joins a registration's transaction. Moves
     // to AuthContractsModule with contracts/enrolment-promotion.ts.
     { provide: EnrolmentPromotion, useClass: NoEnrolmentPromotion },
+    BrowserPasskeyPolicy,
     NativeRelyingParties,
     NativePasskeyRegistrationService,
     ...PASSKEYS_PERSISTENCE_PROVIDERS,

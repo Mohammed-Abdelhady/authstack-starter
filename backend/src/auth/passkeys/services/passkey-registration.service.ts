@@ -7,6 +7,10 @@ import { PasskeyRegistrationOptionsDto } from '../dto/passkey-registration-optio
 import { PasskeySummaryDto } from '../dto/passkey-summary.dto';
 import { VerifyPasskeyRegistrationDto } from '../dto/verify-passkey-registration.dto';
 import { toPasskeySummary } from '../utils/passkey-summary.util';
+import {
+  BrowserPasskeyCeremony,
+  BrowserPasskeyPolicy,
+} from './browser-passkey-policy.service';
 import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyConfigService } from './passkey-config.service';
 import { PasskeyRegistrationReauth } from './passkey-registration-reauth.service';
@@ -15,7 +19,6 @@ import { PasskeyCreationOptions, WebAuthnAdapter } from './webauthn.adapter';
 import {
   PASSKEY_CEREMONY,
   PASSKEY_DEFAULT_NAME,
-  REGISTRATION_POLICY_UNTIL_READER,
   UserVerificationRequirement,
 } from '../constants/passkeys.constants';
 import { PasskeyAccounts } from '../stores/passkey-accounts';
@@ -44,6 +47,8 @@ export type SignedInRequest = Request & {
  * again, and the challenge names the session that did. The verify route takes
  * a challenge from that session and no other, so the two routes cannot be
  * called under different conditions.
+ *
+ * The passkey belongs to the relying party of the session's application.
  */
 @Injectable()
 export class PasskeyRegistrationService {
@@ -57,13 +62,14 @@ export class PasskeyRegistrationService {
     private readonly challenges: PasskeyChallengeService,
     private readonly reauth: PasskeyRegistrationReauth,
     private readonly recorder: PasskeyRecorder,
+    private readonly policy: BrowserPasskeyPolicy,
     private readonly notices?: SecurityNoticeService,
   ) {}
 
   /**
    * Options for navigator.credentials.create(). Credentials the account
-   * already has for the web relying party are excluded, so an authenticator
-   * that holds one says so instead of registering a second.
+   * already has for the application's relying party are excluded, so an
+   * authenticator that holds one says so instead of registering a second.
    *
    * @throws AppException FORBIDDEN for a mobile access token, which registers
    * through the native routes
@@ -90,13 +96,14 @@ export class PasskeyRegistrationService {
 
     await this.reauth.assertMayAddPasskey(user.id, proof, request.session);
 
+    const ceremony = await this.policy.of(request);
     const existing = await this.passkeys.listDescriptorsFor(
       user.id,
-      relyingPartyScope(this.config.rpId, this.config.rpId),
+      relyingPartyScope(ceremony.relyingParty.rpId, this.config.rpId),
     );
 
     const options = await this.adapter.createRegistrationOptions({
-      rpId: this.config.rpId,
+      rpId: ceremony.relyingParty.rpId,
       rpName: this.config.rpName,
       userId: user.id,
       userName: user.email,
@@ -105,7 +112,7 @@ export class PasskeyRegistrationService {
         id: passkey.credentialId,
         transports: passkey.transports,
       })),
-      userVerification: this.userVerification(),
+      userVerification: userVerificationFor(ceremony),
     });
 
     await this.challenges.issue(
@@ -121,8 +128,8 @@ export class PasskeyRegistrationService {
 
   /**
    * @throws AppException PASSKEY_CHALLENGE_INVALID when the cookie belongs to
-   * another account, another ceremony, or a session other than the one that
-   * proved itself for it
+   * another account, another ceremony, another application, or a session
+   * other than the one that proved itself for it
    * @throws AppException PASSKEY_VERIFICATION_FAILED when the attestation does
    * not check out, or the credential is already registered
    */
@@ -133,7 +140,7 @@ export class PasskeyRegistrationService {
     response: Response,
   ): Promise<ApiResponse<PasskeySummaryDto>> {
     if (isNativeSession(request.session)) throw wrongCredentialKind();
-    const challenge = this.challenges.read(request, 'register');
+    const challenge = await this.challenges.read(request, 'register');
     try {
       await this.challenges.consume('register', challenge.challenge);
     } finally {
@@ -153,13 +160,13 @@ export class PasskeyRegistrationService {
       );
     }
 
-    const verified = await this.adapter.verifyAttestation(
-      dto.response,
-      this.config.attestationExpectations(
-        challenge.challenge,
-        this.userVerification(),
-      ),
-    );
+    const ceremony = await this.policy.of(request);
+    const verified = await this.adapter.verifyAttestation(dto.response, {
+      challenge: challenge.challenge,
+      origins: ceremony.relyingParty.origins,
+      rpId: ceremony.relyingParty.rpId,
+      userVerification: userVerificationFor(ceremony),
+    });
 
     if (!verified) {
       throw this.verificationFailed('attestation did not verify');
@@ -172,7 +179,7 @@ export class PasskeyRegistrationService {
     const passkey = await this.recorder.record(
       {
         userId,
-        rpId: this.config.rpId,
+        rpId: ceremony.relyingParty.rpId,
         credentialId: verified.credentialId,
         publicKey: verified.publicKey,
         counter: verified.counter,
@@ -193,14 +200,6 @@ export class PasskeyRegistrationService {
     return ApiResponse.success(toPasskeySummary(passkey), 'Passkey added');
   }
 
-  /** Today's rule in the browser until the policy reader lands. */
-  private userVerification(): UserVerificationRequirement {
-    return registrationUserVerification({
-      ceremony: PASSKEY_CEREMONY.BROWSER,
-      ...REGISTRATION_POLICY_UNTIL_READER,
-    });
-  }
-
   private verificationFailed(reason: string): AppException {
     this.logger.warn(`Passkey registration refused: ${reason}`);
     return new AppException(
@@ -209,4 +208,19 @@ export class PasskeyRegistrationService {
       HttpStatus.UNAUTHORIZED,
     );
   }
+}
+
+/**
+ * A browser registration verifies its user where the application lets its
+ * users in with a passkey only. Otherwise it is asked for, not required, as
+ * before.
+ */
+function userVerificationFor(
+  ceremony: BrowserPasskeyCeremony,
+): UserVerificationRequirement {
+  return registrationUserVerification({
+    ceremony: PASSKEY_CEREMONY.BROWSER,
+    requirePasskey: ceremony.requirePasskey,
+    enrolment: false,
+  });
 }

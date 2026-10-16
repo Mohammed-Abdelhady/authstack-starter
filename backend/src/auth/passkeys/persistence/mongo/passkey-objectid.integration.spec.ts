@@ -42,6 +42,7 @@ import {
 import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
 import { PasskeyRecorder } from '../../services/passkey-recorder.service';
 import { NoEnrolmentPromotion } from '../../services/enrolment-promotion';
+import { webPasskeyPolicy } from '../../services/browser-passkey-policy.harness-spec';
 import {
   AttestationVerification,
   WebAuthnAdapter,
@@ -142,6 +143,7 @@ describe('passkey ObjectId round trip', () => {
         const challengeService = new PasskeyChallengeService(
           new MongoPasskeyChallengeStore(challenges),
           config,
+          browserApplications,
         );
         const adapter = new WebAuthnAdapter();
         jest.spyOn(adapter, 'verifyAttestation').mockResolvedValue(ATTESTATION);
@@ -159,6 +161,10 @@ describe('passkey ObjectId round trip', () => {
             new MongoUnitOfWorkRunner(connection),
             new NoEnrolmentPromotion(),
           ),
+          webPasskeyPolicy({
+            rpId: TEST_CONFIGURATION.passkeys.rpId,
+            origins: [TEST_CONFIGURATION.passkeys.origin],
+          }),
         );
         const management = new PasskeyManagementService(
           new MongoPasskeyStore(passkeys),

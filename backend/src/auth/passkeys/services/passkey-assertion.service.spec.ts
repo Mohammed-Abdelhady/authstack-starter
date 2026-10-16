@@ -15,6 +15,7 @@ import {
   createMockRequest,
   createMockResponse,
   createPasskeyConfig,
+  createPasskeyPolicy,
   MockPasskey,
   RP_ID,
 } from '../persistence/mongo/passkeys.harness-spec';
@@ -62,6 +63,7 @@ async function createHarness(
       partialMock<WebAuthnAdapter>(adapter),
       createPasskeyConfig(),
       challenges,
+      createPasskeyPolicy(),
     ),
     adapter,
     passkey: passkey ?? createMockPasskey(),
@@ -255,6 +257,7 @@ describe('PasskeyAssertionService', () => {
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,
+        createPasskeyPolicy(),
       );
       const request = createMockRequest({
         [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],
@@ -301,6 +304,7 @@ describe('PasskeyAssertionService', () => {
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,
+        createPasskeyPolicy(),
       );
       const request = createMockRequest({
         [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],
