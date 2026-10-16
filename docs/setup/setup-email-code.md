@@ -136,10 +136,13 @@ application the account's current address takes a fixed code, and no mail is
 sent for it. The code has six digits like any other, so the app needs no
 special screen.
 
-Store a bcrypt hash of the code, never the code itself. From `backend/`:
+Choose six digits of your own that are not published anywhere, so no example
+or shared note can give the review account away. Store a bcrypt hash of the
+code, never the code itself. From `backend/`, with your code in place of the
+placeholder:
 
 ```bash
-node -e "require('bcrypt').hash(process.argv[1], 12).then(console.log)" 246810
+node -e "require('bcrypt').hash(process.argv[1], 12).then(console.log)" <your six-digit code>
 ```
 
 Every use checks again that the account still has that id, is not
