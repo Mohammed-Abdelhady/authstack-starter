@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BROWSER_PROOF_ENDPOINT, CSRF_ENDPOINT } from '@/constants/api';
+import { BROWSER_PROOF_ENDPOINT, CSRF_ENDPOINT } from '@app/sdk';
 import { ErrorCode } from '@app/core';
 import { authApi } from '@/modules/auth/store/authApi';
 import { CSRF_HEADER, clearBrowserProof, rememberBrowserProof } from '../browser-proof';

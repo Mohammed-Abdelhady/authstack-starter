@@ -167,7 +167,7 @@ export const usersApi = baseApi.injectEndpoints({
     /**
      * Update user role (admin)
      */
-    updateUserRole: builder.mutation<AdminUser, UpdateUserRoleRequest>({
+    updateUserRole: builder.mutation<{ id: string; role: string }, UpdateUserRoleRequest>({
       query: ({ userId, role }) => ({
         url: `/api/admin/users/${userId}/role`,
         method: 'PATCH',
@@ -175,12 +175,9 @@ export const usersApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: {
         success: boolean;
-        data: Omit<AdminUser, '_id'> & { id: string };
+        data: { id: string; role: string };
         message: string;
-      }) => {
-        const { id, ...rest } = response.data;
-        return { ...rest, _id: id };
-      },
+      }) => response.data,
       // The permissions read of a user carries the role and what it grants.
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ userId }: UpdateUserRoleRequest) => [
         { type: 'User', id: userId },
