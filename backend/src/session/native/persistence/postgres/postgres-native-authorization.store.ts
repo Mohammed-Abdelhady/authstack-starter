@@ -50,6 +50,7 @@ function toCode(row: Row): AuthorizationCode {
     requestedScopes: row.requested_scopes,
     audience: row.audience,
     authenticationMethods: row.authentication_methods,
+    userVerified: row.user_verified,
     capturedUserVersion: row.captured_user_version,
     capturedClientVersion: row.captured_client_version,
     capturedGrantVersion: row.captured_grant_version,
@@ -152,6 +153,7 @@ export class PostgresNativeAuthorizationStore extends NativeAuthorizationStore {
         captured_user_version: approval.capturedUserVersion,
         captured_client_version: approval.capturedClientVersion,
         authentication_methods: approval.authenticationMethods,
+        user_verified: approval.userVerified,
       })
       .where('id', '=', toUuid(id))
       .where('consumed', '=', false)

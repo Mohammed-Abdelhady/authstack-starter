@@ -286,6 +286,7 @@ export class NativeAuthorizeService {
       capturedUserVersion: account.sessionVersion,
       capturedClientVersion: application.sessionVersion,
       authenticationMethods: authenticationMethods.slice(0, 10),
+      userVerified: expected?.userVerified === true,
     });
     if (claimed !== AUTHORIZATION_APPROVAL.APPROVED) {
       throw expiredTransaction();

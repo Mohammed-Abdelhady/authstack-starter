@@ -149,6 +149,7 @@ export class PostgresNativeCredentialStore extends NativeCredentialStore {
         scopes: session.scopes,
         audience: session.audience,
         authentication_methods: session.authenticationMethods,
+        user_verified: session.userVerified,
         credential_purpose: session.credentialPurpose,
         browser_generation: 0,
         authenticated_at: session.authenticatedAt,

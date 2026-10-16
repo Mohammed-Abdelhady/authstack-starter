@@ -54,6 +54,9 @@ export class AuthorizationTransaction {
   @Prop({ type: [String], default: [] })
   authenticationMethods!: string[];
 
+  @Prop({ type: Boolean })
+  userVerified?: boolean;
+
   @Prop()
   codeHash?: string;
 

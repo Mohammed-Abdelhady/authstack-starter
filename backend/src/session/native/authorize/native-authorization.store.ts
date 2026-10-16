@@ -68,6 +68,8 @@ export interface AuthorizationCode {
   requestedScopes: string[];
   audience: string | null;
   authenticationMethods: string[];
+  /** False for a code approved before approvals stored it. */
+  userVerified: boolean;
   capturedUserVersion: number | null;
   capturedClientVersion: number | null;
   capturedGrantVersion: number | null;
@@ -88,6 +90,7 @@ export interface AuthorizationApproval {
   capturedUserVersion: number;
   capturedClientVersion: number;
   authenticationMethods: string[];
+  userVerified: boolean;
 }
 
 export interface AuthorizationDenialGuard {
