@@ -13,6 +13,7 @@ import { accountPermissionRaceCases } from './accounts-contract-permission-races
 import { accountPendingEmailCases } from './accounts-contract-pending-email';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import { accountLeavingCases } from './accounts-contract-leaving';
+import { accountDeletionReceiptCases } from './accounts-contract-deletion';
 import { accountPasswordCases } from './accounts-contract-password';
 import { accountPermissionAgreementCases } from './accounts-contract-permission-agreement';
 import { accountProfileCases } from './accounts-contract-profile';
@@ -67,6 +68,7 @@ export function describeAccountStoresContract(
     accountActivationAudienceCases(current);
     accountProfileCases(current, seeded);
     accountLeavingCases(current, seeded);
+    accountDeletionReceiptCases(current, seeded);
     accountAdminCases(current, seeded);
     accountAdminRoleCases(current, seeded);
     accountGrantCases(current, seeded);
