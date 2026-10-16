@@ -96,18 +96,26 @@ export class AccountDeletionService {
     };
   }
 
-  /** Once the deactivation committed: the mail, and an erasure due now. */
+  /**
+   * Once the deactivation committed: the mail when there is a recipient, and
+   * an erasure due now whether or not anyone is mailed.
+   */
   afterCommit(outcome: DeletionOutcome, now: Date): void {
     const { eraseAfter, recipient } = outcome;
-    if (!eraseAfter || !recipient) return;
-    this.dispatcher.dispatch(
-      () =>
-        this.mail.sendMail({
-          to: recipient.email,
-          ...buildAccountErasureMail({ locale: recipient.locale, eraseAfter }),
-        }),
-      'Erasure date mail failed',
-    );
+    if (!eraseAfter) return;
+    if (recipient) {
+      this.dispatcher.dispatch(
+        () =>
+          this.mail.sendMail({
+            to: recipient.email,
+            ...buildAccountErasureMail({
+              locale: recipient.locale,
+              eraseAfter,
+            }),
+          }),
+        'Erasure date mail failed',
+      );
+    }
     if (eraseAfter.getTime() <= now.getTime()) void this.worker.runOnce();
   }
 }
