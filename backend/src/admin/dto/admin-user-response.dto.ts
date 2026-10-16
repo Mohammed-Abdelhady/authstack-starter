@@ -92,6 +92,13 @@ export class AdminUserDto {
     example: '2024-01-15T10:30:00.000Z',
   })
   updatedAt?: Date;
+
+  @ApiProperty({
+    description:
+      'Raised by every write to the account. Send it back with an edit so a stale form is refused',
+    example: 3,
+  })
+  version!: number;
 }
 
 /**

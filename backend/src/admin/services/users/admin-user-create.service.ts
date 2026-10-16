@@ -28,6 +28,19 @@ import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 import { chosenLocale } from '../../../common/constants/locales';
 import { AccountCreationPolicy } from '../../../auth/services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../../auth/constants/account-creation';
+import type { ActingSession } from '../../../auth/proof/types/acting-session';
+import { SECURITY_EVENT_ACTION } from '../../../session/constants/security-event-action';
+import { STAFF_OPERATION } from '../../constants/staff-operations';
+import { StaffMutationRules } from '../staff-mutations/staff-mutation-rules';
+import { assertReplayedPassword, replayedAccount } from './admin-user-replay';
+import { PasswordSignInStore } from '../../../auth/stores/password-sign-in.store';
+
+/** The request facts a create carries beside its body. */
+export interface CreateRequest {
+  session?: ActingSession;
+  /** The Idempotency-Key header, when sent. */
+  key?: string;
+}
 
 /**
  * Creating an account from the admin area. The role must exist and sit below
@@ -49,6 +62,8 @@ export class AdminUserCreateService {
     private readonly ledger: AddressLedger,
     private readonly clock: Clock,
     private readonly audiences: AudiencePolicy,
+    private readonly rules: StaffMutationRules,
+    private readonly passwords: PasswordSignInStore,
   ) {}
 
   /**
@@ -61,11 +76,24 @@ export class AdminUserCreateService {
     actorRole: string,
     actorId: string,
     actorPermissions?: readonly string[],
+    request: CreateRequest = {},
   ): Promise<ApiResponse<AdminUserDto>> {
     const locale = chosenLocale(dto.locale);
     const { email, name, password, role } = dto;
+    this.rules.policy.assertKey(request.key);
+    const create = {
+      key: request.key,
+      actorId,
+      clientId: request.session?.clientId ?? '',
+      operation: STAFF_OPERATION.ACCOUNT_CREATE,
+      body: dto,
+    };
 
-    if (await this.accounts.isAddressTaken(email)) {
+    // A replay finds its own account there; the transaction still refuses a taken address.
+    if (
+      request.key === undefined &&
+      (await this.accounts.isAddressTaken(email))
+    ) {
       throw new AppException(
         ErrorCode.EMAIL_ALREADY_EXISTS,
         'Email already in use',
@@ -84,6 +112,16 @@ export class AdminUserCreateService {
       const outcome = await this.runner.runForAuthority(
         actorId,
         async (unitOfWork) => {
+          const start = await this.rules.idempotency.start(unitOfWork, create);
+          if (start.replayed) {
+            return {
+              replayed: await replayedAccount(
+                { accounts: this.accounts, access: this.accessService },
+                unitOfWork,
+                { actorId, resourceId: start.resourceId },
+              ),
+            };
+          }
           const assignedRole = await this.accounts.readRoleBySlug(
             unitOfWork,
             role,
@@ -148,6 +186,18 @@ export class AdminUserCreateService {
             unitOfWork,
             reservation.reservation,
           );
+          await this.rules.idempotency.finish(unitOfWork, create, newUser.id);
+          await this.rules.events.record(unitOfWork, {
+            action: SECURITY_EVENT_ACTION.ACCOUNT_CREATED,
+            actorId,
+            targetUserId: newUser.id,
+            clientId: request.session?.clientId,
+            details: {
+              name: newUser.name,
+              email: newUser.email,
+              roleId: assignedRole.id,
+            },
+          });
           createdUserId = newUser.id;
           assignmentRef = {
             roleId: assignedRole.id,
@@ -161,6 +211,17 @@ export class AdminUserCreateService {
         },
       );
       transactionAcknowledged = true;
+      if (outcome.replayed !== undefined) {
+        await assertReplayedPassword(
+          { passwords: this.passwords, hashes: this.hashService },
+          outcome.replayed,
+          password,
+        );
+        return ApiResponse.success(
+          mapToAdminUserDto(outcome.replayed),
+          'User created successfully',
+        );
+      }
       const { newUser } = outcome;
       const liveRole = await reconcileAssignedRole({
         accounts: this.accounts,

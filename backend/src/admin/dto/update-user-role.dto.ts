@@ -5,6 +5,7 @@ import {
   ROLE_SLUG_MESSAGE,
   ROLE_SLUG_REGEX,
 } from '../../common/constants/roles';
+import { StaffVersion } from './staff-version.decorator';
 
 /**
  * DTO for updating user role.
@@ -22,4 +23,7 @@ export class UpdateUserRoleDto {
   @MaxLength(ROLE_SLUG_MAX_LENGTH)
   @Matches(ROLE_SLUG_REGEX, { message: ROLE_SLUG_MESSAGE })
   role!: string;
+
+  @StaffVersion()
+  version?: number;
 }
