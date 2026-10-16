@@ -103,6 +103,7 @@ export class AccountDeletionService {
   afterCommit(outcome: DeletionOutcome, now: Date): void {
     const { eraseAfter, recipient } = outcome;
     if (!eraseAfter) return;
+    const dueNow = eraseAfter.getTime() <= now.getTime();
     if (recipient) {
       this.dispatcher.dispatch(
         () =>
@@ -111,11 +112,12 @@ export class AccountDeletionService {
             ...buildAccountErasureMail({
               locale: recipient.locale,
               eraseAfter,
+              dueNow,
             }),
           }),
         'Erasure date mail failed',
       );
     }
-    if (eraseAfter.getTime() <= now.getTime()) void this.worker.runOnce();
+    if (dueNow) void this.worker.runOnce();
   }
 }
