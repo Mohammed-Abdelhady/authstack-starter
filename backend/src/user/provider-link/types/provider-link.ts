@@ -1,3 +1,5 @@
+import type { CredentialPurpose } from '../../../session/constants/credential-purpose';
+
 /** The signed-in session a link belongs to, as the guard let it in. */
 export interface ProviderLinkCaller {
   userId: string;
@@ -5,6 +7,8 @@ export interface ProviderLinkCaller {
   clientId: string;
   /** When the session's sign-in happened. */
   signedInAt: Date;
+  /** A browser session, or a mobile app's access token. */
+  credentialPurpose: CredentialPurpose;
 }
 
 export interface NewProviderLinkTicket {
