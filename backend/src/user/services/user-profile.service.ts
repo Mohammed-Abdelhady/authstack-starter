@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpStatus, Optional } from '@nestjs/common';
+import { Injectable, Logger, HttpStatus } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../enums/user-role.enum';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
@@ -42,8 +42,8 @@ export class UserProfileService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly hashService: HashService,
+    private readonly deletion: AccountDeletionService,
     private readonly notices?: SecurityNoticeService,
-    @Optional() private readonly deletion?: AccountDeletionService,
   ) {}
 
   /**
@@ -172,13 +172,13 @@ export class UserProfileService {
     userId: string,
     receiptKey?: string,
   ): Promise<ApiResponse<AccountDeletionResultDto>> {
-    const key = this.deletion?.receiptKeyOf(receiptKey);
+    const key = this.deletion.receiptKeyOf(receiptKey);
     // The check, the soft delete, the schedule, the receipt and the revocation
     // commit or abort together.
     const outcome = await runLeavingFailuresAsRaised(
       this.runner,
       async (unitOfWork): Promise<DeletionOutcome> => {
-        const repeated = await this.deletion?.repeatedIn(
+        const repeated = await this.deletion.repeatedIn(
           unitOfWork,
           userId,
           key,
@@ -192,7 +192,7 @@ export class UserProfileService {
 
         const deletedAt = this.clock.now();
         await this.accounts.saveDeactivation(unitOfWork, user, deletedAt);
-        const recorded = await this.deletion?.recordIn(
+        const recorded = await this.deletion.recordIn(
           unitOfWork,
           user,
           deletedAt,
@@ -200,12 +200,12 @@ export class UserProfileService {
         );
 
         await this.sessions.revokeAll(unitOfWork, user.id);
-        return recorded ?? {};
+        return recorded;
       },
     );
 
     this.logger.log(`Account deactivated: userId=${userId}`);
-    this.deletion?.afterCommit(outcome, this.clock.now());
+    this.deletion.afterCommit(outcome, this.clock.now());
     return ApiResponse.success({
       message: 'Account deactivated successfully',
       ...(outcome.eraseAfter && {
