@@ -110,6 +110,7 @@ export class NativeCredentialIssuer {
         authenticationMethods: context.authenticationMethods ?? [],
         userVerified: context.userVerified === true,
         authenticatedAt: context.authenticatedAt ?? now,
+        issuedAt: now,
         idleExpiresAt,
         lastActivityAt: now,
         credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,

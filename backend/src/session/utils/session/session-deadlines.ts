@@ -8,6 +8,18 @@ import type {
 import { addMs, effectiveDeadline, isDeadlinePassed } from './session-deadline';
 import { sessionLimitsFor } from './session-limits';
 
+/**
+ * Lifetimes count from issue, never from an earlier sign-in a mobile session
+ * took over. A missing or unreadable issue time falls back to the sign-in,
+ * which is never later, so the lifetime can only get shorter.
+ */
+function lifetimeStart(session: SessionAuthorityFields): Date {
+  const issued = session.issuedAt;
+  return issued instanceof Date && Number.isFinite(issued.getTime())
+    ? issued
+    : session.authenticatedAt;
+}
+
 export function effectiveSessionDeadlines(
   session: SessionAuthorityFields,
   application: ApplicationAuthorityFields,
@@ -15,7 +27,7 @@ export function effectiveSessionDeadlines(
   if (session.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT) {
     const absolute = effectiveDeadline(
       session.expiresAt,
-      addMs(session.authenticatedAt, ENROLMENT_LIFETIME_MS),
+      addMs(lifetimeStart(session), ENROLMENT_LIFETIME_MS),
     );
     return {
       absolute,
@@ -29,7 +41,7 @@ export function effectiveSessionDeadlines(
   return {
     absolute: effectiveDeadline(
       session.expiresAt,
-      addMs(session.authenticatedAt, limits.absoluteLifetimeMs),
+      addMs(lifetimeStart(session), limits.absoluteLifetimeMs),
     ),
     idle: effectiveDeadline(
       session.idleExpiresAt,

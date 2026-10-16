@@ -62,6 +62,7 @@ export function toStoredSession(record: SessionRecord): StoredSession {
     clientVersion: record.clientVersion,
     grantVersion: record.grantVersion,
     authenticatedAt: record.authenticatedAt,
+    issuedAt: record.issuedAt ?? null,
     expiresAt: record.expiresAt,
     idleExpiresAt: record.idleExpiresAt,
     lastActivityAt: record.lastActivityAt,

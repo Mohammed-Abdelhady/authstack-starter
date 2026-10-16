@@ -190,6 +190,7 @@ export class PostgresBrowserIssuanceStore extends BrowserIssuanceStore {
         's.client_version',
         's.grant_version',
         's.authenticated_at',
+        's.issued_at',
         's.expires_at',
         's.idle_expires_at',
         's.last_activity_at',
