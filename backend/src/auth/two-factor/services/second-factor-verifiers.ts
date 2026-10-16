@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AppException } from '../../../common/exceptions/app.exception';
 import { SecondFactorAccount } from '../stores/second-factor-account';
 import { VerifyTwoFactorDto } from '../dto/verify-two-factor.dto';
 import { FirstFactor } from '../../services/sessions/first-factor';
@@ -23,6 +24,9 @@ export interface SecondFactorAttempt {
 export interface SecondFactorVerifier {
   /** True when the payload carries the credential this verifier checks. */
   supports(dto: VerifyTwoFactorDto): boolean;
+
+  /** The reply a refused answer of this kind gets, the same as a wrong one. */
+  refusal(): AppException;
 
   /**
    * @throws AppException when the credential does not answer the challenge,
