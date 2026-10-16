@@ -14,6 +14,8 @@ import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
 import { EventRecorder } from '../../contracts/event-recorder';
+import { SelfSignUpRefusedError } from '../../services/registration/self-sign-up-refused.error';
+import { SessionIssuanceService } from '../../../session/services/session-issuance.service';
 import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { Clock } from '../../../common/services/clock';
 import { NativeEmailLinkMailService } from './native-email-link-mail.service'; // feature:magic-link
@@ -62,6 +64,7 @@ export class NativeEmailLinkService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly events: EventRecorder,
+    private readonly issuance: SessionIssuanceService,
   ) {}
 
   async request(
@@ -88,6 +91,7 @@ export class NativeEmailLinkService {
         attempt.attemptId,
         attempt.state,
         attempt.expiresAt,
+        attempt.clientId,
         async (tokenHash) => {
           await this.attempts.transition(
             claimed,
@@ -183,6 +187,13 @@ export class NativeEmailLinkService {
           refusalContext.targetUserId,
         );
         if (refusal) throw refusal;
+        if (storeFailureCause(error) instanceof SelfSignUpRefusedError) {
+          await this.issuance.recordCreationRefusal(
+            attempt.clientId,
+            proof.creationMethod,
+          );
+          throw proof.refuse();
+        }
         if (error instanceof AddressReservationTakenError) {
           const owner = await this.links.hasAccountAtAddress(
             attempt.details.email?.address ?? '',
