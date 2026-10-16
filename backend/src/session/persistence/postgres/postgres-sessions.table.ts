@@ -30,6 +30,8 @@ export interface SessionsTable {
   credential_purpose: string;
   browser_generation: number;
   authenticated_at: Timestamp;
+  /** From 0030: set on a mobile session only, and never changed. */
+  issued_at: ColumnType<Date | null, Date | null | undefined, never>;
   last_used_at: Timestamp;
   last_activity_at: Timestamp;
   expires_at: Timestamp;

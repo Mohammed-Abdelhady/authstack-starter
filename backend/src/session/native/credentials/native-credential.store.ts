@@ -53,7 +53,10 @@ export interface NewNativeSession {
   authenticationMethods: string[];
   userVerified: boolean;
   credentialPurpose: CredentialPurpose;
+  /** When the person last proved who they are; may predate the session. */
   authenticatedAt: Date;
+  /** When the session was issued, which its lifetime counts from. */
+  issuedAt: Date;
   lastUsedAt: Date;
   lastActivityAt: Date;
   expiresAt: Date;

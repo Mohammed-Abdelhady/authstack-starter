@@ -30,6 +30,7 @@ export interface SessionCapRow {
   client_version: number;
   grant_version: number;
   authenticated_at: Date;
+  issued_at: Date | null;
   expires_at: Date;
   idle_expires_at: Date;
   last_activity_at: Date;
@@ -124,6 +125,7 @@ export function toSessionCapCandidate(row: SessionCapRow): SessionCapCandidate {
       clientVersion: row.client_version,
       grantVersion: row.grant_version,
       authenticatedAt: row.authenticated_at,
+      issuedAt: row.issued_at,
       expiresAt: row.expires_at,
       idleExpiresAt: row.idle_expires_at,
       lastActivityAt: row.last_activity_at,

@@ -8,3 +8,11 @@
 ALTER TABLE authorization_transactions
   ADD COLUMN user_verified boolean NOT NULL DEFAULT false,
   ADD COLUMN authenticated_at timestamptz;
+
+-- When a mobile session was issued. Its lifetime counts from here, while
+-- authenticated_at only says how fresh the sign-in is, and the two differ
+-- when a browser approved the app. Null for a browser session, and for a
+-- mobile session issued before this file: their authentication time is
+-- their issue time.
+ALTER TABLE sessions
+  ADD COLUMN issued_at timestamptz;

@@ -20,7 +20,10 @@ export interface SessionAuthorityFields {
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  /** How fresh the sign-in is. Lifetimes never count from it. */
   authenticatedAt: Date;
+  /** When a mobile session was issued; absent where `authenticatedAt` is that time. */
+  issuedAt?: Date | null;
   expiresAt: Date;
   idleExpiresAt: Date;
   lastActivityAt: Date;

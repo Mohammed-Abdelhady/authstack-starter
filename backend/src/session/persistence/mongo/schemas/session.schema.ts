@@ -97,6 +97,10 @@ export class Session {
   @Prop({ required: true })
   authenticatedAt!: Date;
 
+  /** When a mobile session was issued; absent where `authenticatedAt` is that time. */
+  @Prop({ type: Date })
+  issuedAt?: Date;
+
   @Prop()
   stepUpAt?: Date;
 

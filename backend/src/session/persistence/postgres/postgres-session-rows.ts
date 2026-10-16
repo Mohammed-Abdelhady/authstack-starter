@@ -24,6 +24,7 @@ export const STORED_SESSION_COLUMNS = [
   'client_version',
   'grant_version',
   'authenticated_at',
+  'issued_at',
   'expires_at',
   'idle_expires_at',
   'last_activity_at',
@@ -53,6 +54,7 @@ export interface StoredSessionRow {
   client_version: number;
   grant_version: number;
   authenticated_at: Date;
+  issued_at: Date | null;
   expires_at: Date;
   idle_expires_at: Date;
   last_activity_at: Date;
@@ -144,6 +146,7 @@ export function toStoredSession(row: StoredSessionRow): StoredSession {
     clientVersion: row.client_version,
     grantVersion: row.grant_version,
     authenticatedAt: row.authenticated_at,
+    issuedAt: row.issued_at,
     expiresAt: row.expires_at,
     idleExpiresAt: row.idle_expires_at,
     lastActivityAt: row.last_activity_at,
