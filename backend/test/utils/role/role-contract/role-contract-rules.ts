@@ -238,7 +238,7 @@ export function roleRuleCases(
     });
   });
 
-  it('keeps the wildcard on the admin role', async () => {
+  it('refuses any edit of the admin role', async () => {
     const failure = await rejectionOf(
       roles().update(
         ADMIN_SLUG,
@@ -251,7 +251,7 @@ export function roleRuleCases(
       answer: answerOf(failure),
       permissions: (await harness().role(ADMIN_SLUG))?.permissions,
     }).toEqual({
-      answer: { code: ErrorCode.ADMIN_WILDCARD_REQUIRED, status: 403 },
+      answer: { code: ErrorCode.ROLE_PROTECTED, status: 403 },
       permissions: [WILDCARD],
     });
   });

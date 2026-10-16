@@ -66,23 +66,23 @@ describe('RoleService', () => {
 
   describe('update (S-15 system role immutability)', () => {
     it('should refuse a rename that would change a system role slug', async () => {
-      const admin = buildRole({
-        name: 'Admin',
-        slug: 'admin',
+      const support = buildRole({
+        name: 'Support',
+        slug: 'support',
         isSystemRole: true,
         isProtected: true,
-        level: 4,
-        permissions: ['*'],
+        level: 2,
+        permissions: ['users:read:all'],
       });
-      mockRoleModel.findOne.mockResolvedValueOnce(admin);
+      mockRoleModel.findOne.mockResolvedValueOnce(support);
 
       await expect(
-        service.update('admin', { name: 'Super Admin' }, actorId),
+        service.update('support', { name: 'Helpdesk' }, actorId),
       ).rejects.toMatchObject({
         code: 'SYSTEM_ROLE_RENAME_FORBIDDEN',
         status: 403,
       });
-      expect(admin.save).not.toHaveBeenCalled();
+      expect(support.save).not.toHaveBeenCalled();
     });
 
     it('should accept a rename that leaves the system role slug alone', async () => {
@@ -115,8 +115,14 @@ describe('RoleService', () => {
     });
   });
 
-  describe('update (S-15 admin wildcard)', () => {
-    it('should refuse dropping the wildcard from the admin role', async () => {
+  // Failure: an edit strips the admin role of what the accounts that run the system hold.
+  describe('update (R7 the admin role is fixed)', () => {
+    it.each([
+      [{ name: 'Admin' }],
+      [{ description: 'Runs the system' }],
+      [{ permissions: ['*', 'reports:read:all'] }],
+      [{ level: 4 }],
+    ])('should refuse %j on the admin role', async (dto) => {
       const admin = buildRole({
         name: 'Admin',
         slug: 'admin',
@@ -127,50 +133,10 @@ describe('RoleService', () => {
       });
       mockRoleModel.findOne.mockResolvedValueOnce(admin);
 
-      await expect(
-        service.update('admin', { permissions: ['users:read:all'] }, actorId),
-      ).rejects.toMatchObject({
-        code: 'ADMIN_WILDCARD_REQUIRED',
-        status: 403,
-      });
-      expect(admin.save).not.toHaveBeenCalled();
-    });
-
-    it('should accept admin permissions that keep the wildcard', async () => {
-      const admin = buildRole({
-        name: 'Admin',
-        slug: 'admin',
-        isSystemRole: true,
-        isProtected: true,
-        level: 4,
-        permissions: ['*'],
-      });
-      mockRoleModel.findOne.mockResolvedValueOnce(admin);
-      mockRoleEditService.commit.mockResolvedValueOnce({
-        role: buildRole({
-          name: 'Admin',
-          slug: 'admin',
-          isSystemRole: true,
-          isProtected: true,
-          level: 4,
-          permissions: ['*', 'reports:read:all'],
-        }),
-        usersMoved: 0,
-        previousSlug: 'admin',
-        nextSlug: 'admin',
-        renamed: false,
-      });
-
-      const result = await service.update(
-        'admin',
-        {
-          permissions: ['*', 'reports:read:all'],
-        },
-        actorId,
+      await expect(service.update('admin', dto, actorId)).rejects.toMatchObject(
+        { code: 'ROLE_PROTECTED', status: 403 },
       );
-
-      expect(result.permissions).toEqual(['*', 'reports:read:all']);
-      expect(mockRoleEditService.commit).toHaveBeenCalled();
+      expect(mockRoleEditService.commit).not.toHaveBeenCalled();
     });
   });
 
