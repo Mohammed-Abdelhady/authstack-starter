@@ -262,6 +262,12 @@ export async function bootPostgresErasureHarness(): Promise<ErasureHarness> {
       );
       return result.rows[0]?.erase_after ?? null;
     },
+    deactivate: async (id, deletedAt) => {
+      await c.pool.query(
+        'UPDATE users SET is_deleted=true, deleted_at=$2 WHERE id=$1',
+        [id, deletedAt],
+      );
+    },
     seedChildren,
     counts: async (a) => {
       const results: Record<string, number> = {};
