@@ -67,7 +67,9 @@ export class UserProvidersController {
   @ApiOperation({
     summary: 'Start linking a provider from an app',
     description:
-      'Needs a sign-in no older than five minutes (REAUTH_REQUIRED otherwise). ' +
+      'Needs a fresh proof (REAUTH_REQUIRED otherwise). A browser session signed ' +
+      "in within the last five minutes is one; a mobile session's age is not, " +
+      'because approving a signed-in browser mints a session that looks new. ' +
       'Answers a link id and a nonce digest bound to this account, this session ' +
       "and the provider, for the app's native provider prompt. Refused with " +
       'PROVIDER_ALREADY_LINKED, or FEATURE_DISABLED when this app does not ' +

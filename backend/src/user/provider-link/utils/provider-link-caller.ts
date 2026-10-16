@@ -27,5 +27,6 @@ export function providerLinkCaller(
     sessionId: session.id,
     clientId: session.clientId,
     signedInAt: session.authenticatedAt,
+    credentialPurpose: session.credentialPurpose,
   };
 }

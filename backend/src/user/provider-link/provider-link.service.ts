@@ -13,6 +13,7 @@ import {
 } from '../../auth/services/reauth/reauth.service';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { Clock } from '../../common/services/clock';
+import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
 import { hashToken } from '../../session/utils/hashing/token-hash';
 import {
   AccountLinkingService,
@@ -66,9 +67,10 @@ export class ProviderLinkService {
   ) {}
 
   /**
-   * @throws AppException REAUTH_REQUIRED without a sign-in in the last five
-   * minutes, PROVIDER_ALREADY_LINKED, FEATURE_DISABLED when the app does not
-   * offer the provider natively
+   * @throws AppException REAUTH_REQUIRED without a fresh proof: a browser
+   * session signed in within the last five minutes, never a mobile session's
+   * age; PROVIDER_ALREADY_LINKED; FEATURE_DISABLED when the app does not offer
+   * the provider natively
    */
   async start(
     caller: ProviderLinkCaller,
@@ -149,14 +151,23 @@ export class ProviderLinkService {
     this.logger.log(`Linked ${ticket.provider} from a mobile app`);
   }
 
+  /**
+   * A mobile session's age proves nothing yet: one made by approving a
+   * browser sign-in carries the approval time, so a browser left signed in
+   * for hours could mint a session that looks fresh.
+   */
   private async assertFresh(caller: ProviderLinkCaller): Promise<void> {
+    const ageCounts =
+      caller.credentialPurpose === CREDENTIAL_PURPOSE.BROWSER_SESSION;
     const fresh = await this.runner.run((unitOfWork) =>
       this.freshProof.isFresh(unitOfWork, {
         userId: caller.userId,
         clientId: caller.clientId,
         sessionId: caller.sessionId,
         signedInAt: caller.signedInAt,
-        requirement: FRESH_PROOF_REQUIREMENT.ACT_OR_AGE,
+        requirement: ageCounts
+          ? FRESH_PROOF_REQUIREMENT.ACT_OR_AGE
+          : FRESH_PROOF_REQUIREMENT.ACT,
         requirePasskey: false,
       }),
     );
