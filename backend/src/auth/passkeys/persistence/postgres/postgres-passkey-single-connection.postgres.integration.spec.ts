@@ -113,6 +113,7 @@ describe('passkey removal on a PostgreSQL pool of one connection', () => {
       new PasskeyConfigService(
         new ConfigService({ passkeys: { rpId: 'localhost' } }),
       ),
+      browserApplications,
     );
 
     const answer = await management.remove(account.id, removedId);

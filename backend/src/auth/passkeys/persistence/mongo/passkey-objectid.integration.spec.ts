@@ -168,6 +168,7 @@ describe('passkey ObjectId round trip', () => {
           ),
           new MongoUnitOfWorkRunner(connection),
           new PasskeyConfigService(config),
+          browserApplications,
         );
 
         await users.create({

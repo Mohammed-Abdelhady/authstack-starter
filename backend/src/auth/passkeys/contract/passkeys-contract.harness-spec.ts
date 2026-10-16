@@ -181,6 +181,7 @@ export function passkeyServices(
       signInRule,
       harness.runner(pause),
       passkeyConfig,
+      browserApplications,
     ),
     verifier: new PasskeySecondFactorVerifier(featureSwitches, assertion),
     challenge,
