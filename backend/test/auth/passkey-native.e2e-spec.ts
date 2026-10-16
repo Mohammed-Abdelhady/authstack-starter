@@ -11,6 +11,7 @@ import {
   type SoftwareAuthenticator,
 } from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
 import { DEFAULT_API_AUDIENCE } from '../../src/session/constants/client-ids';
+import { reconcileStartupApplications } from '../../src/session/session.module';
 import { nativeAuthorizeQuery } from '../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../utils/e2e-app';
@@ -20,6 +21,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import {
+  issueNativeGrantFor,
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
   seedUserId,
@@ -38,6 +40,12 @@ const APPLICATION = {
   redirectUris: [NATIVE_REDIRECT],
   allowedScopes: [DEFAULT_API_AUDIENCE],
   signIn: { password: true, passkeys: true, rpId: RP_ID, origins: [ORIGIN] },
+};
+/** A second app on the same relying party, so only the session tells the two apart. */
+const SECOND_APPLICATION = {
+  ...APPLICATION,
+  clientId: 'native-app-two',
+  displayName: 'Second native passkey test client',
 };
 
 interface Answered {
@@ -276,5 +284,43 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
     await app.delete(`${PASSKEYS}/${ownId}`).expect(200);
     expect(await e2e.state.auth.countPasskeys()).toBe(1);
     expect((await signInWith(key, 1)).answered.status).toBe(409);
+  });
+
+  // Failure: a registration challenge one app's session took is spent by
+  // another app's session of the same account.
+  it("refuses one app's registration challenge under another app's session", async () => {
+    e2e.app
+      .get(ConfigService)
+      .set('auth.nativeApplications', [APPLICATION, SECOND_APPLICATION]);
+    await reconcileStartupApplications(e2e.app);
+    const { tokens } = await signInNative(e2e);
+    const second = await issueNativeGrantFor(
+      e2e,
+      SEED_USER.email,
+      SECOND_APPLICATION.clientId,
+    );
+    const options = await bearer(tokens.accessToken).post(OPTIONS).expect(200);
+    const response = attestationCredential(
+      createSoftwareAuthenticator(randomBytes(32)),
+      {
+        rpId: RP_ID,
+        origin: ORIGIN,
+        challenge: dataOf<{ challenge: string }>(options).challenge,
+        flags: VERIFIED_TOUCH,
+        counter: 0,
+      },
+    );
+
+    const replayed = await bearer(second.accessToken).post(VERIFY, {
+      response,
+    });
+    expect(refusalOf(replayed)).toEqual({
+      status: 401,
+      code: 'PASSKEY_CHALLENGE_INVALID',
+    });
+    expect(await e2e.state.auth.countPasskeys()).toBe(0);
+    // The app the challenge was issued to can still spend it.
+    await bearer(tokens.accessToken).post(VERIFY, { response }).expect(200);
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
   });
 });
