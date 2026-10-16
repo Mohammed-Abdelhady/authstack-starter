@@ -24,6 +24,12 @@ import { AuthContractsModule } from '../auth/contracts/auth-contracts.module';
 import { StaffMutationsModule } from './services/staff-mutations/staff-mutations.module';
 import { LastAdminGuard } from './services/staff-mutations/last-admin-guard';
 import { InvitationsModule } from '../auth/invitations/invitations.module'; // feature:invitations
+// feature:invitations:start
+import {
+  ADMIN_INVITATION_CONTROLLERS,
+  ADMIN_INVITATION_PROVIDERS,
+} from './invitations/admin-invitation-providers';
+// feature:invitations:end
 import {
   ADMIN_PERSISTENCE_IMPORTS,
   ADMIN_PERSISTENCE_PROVIDERS,
@@ -53,6 +59,7 @@ import {
     AdminPermissionsController,
     AdminSessionsController,
     AdminActivityController,
+    ...ADMIN_INVITATION_CONTROLLERS, // feature:invitations
   ],
   providers: [
     AdminUsersService,
@@ -66,6 +73,7 @@ import {
     AdminSessionAccessService,
     AdminActivityService,
     LastAdminGuard,
+    ...ADMIN_INVITATION_PROVIDERS, // feature:invitations
     ...ADMIN_PERSISTENCE_PROVIDERS,
   ],
   exports: [AdminUsersService],
