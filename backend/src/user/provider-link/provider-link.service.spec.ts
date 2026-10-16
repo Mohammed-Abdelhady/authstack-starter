@@ -7,6 +7,7 @@ import { OAuthRegistryService } from '../../auth/oauth/oauth-registry.service';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import { Clock } from '../../common/services/clock';
+import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
 import { InPlaceRunner } from '../erasure/testing/erasure-memory.harness-spec';
 import { AccountLinkingService } from '../services/account-linking.service';
 import { ProfileSyncService } from '../services/profile-sync.service';
@@ -46,11 +47,17 @@ class MemoryTickets extends ProviderLinkTicketStore {
   }
 }
 
-const CALLER: ProviderLinkCaller = {
+const APP_CALLER: ProviderLinkCaller = {
   userId: 'account-1',
   sessionId: 'session-1',
   clientId: 'mobile-app',
   signedInAt: new Date(TEST_NOW.getTime() - 60_000),
+  credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
+};
+/** Signed in a minute ago; the catalogue stub offers it Google like the app. */
+const CALLER: ProviderLinkCaller = {
+  ...APP_CALLER,
+  credentialPurpose: CREDENTIAL_PURPOSE.BROWSER_SESSION,
 };
 const GOOGLE = {
   id: 'google',
@@ -119,6 +126,15 @@ describe('linking a provider from an app', () => {
     };
 
     await expect(service.start(stale, 'google')).rejects.toMatchObject({
+      code: ErrorCode.REAUTH_REQUIRED,
+    });
+    expect(tickets.opened).toEqual([]);
+  });
+
+  it("refuses to start on a mobile session's age alone, since approving a browser sign-in mints one that looks new", async () => {
+    const { service, tickets } = await setUp();
+
+    await expect(service.start(APP_CALLER, 'google')).rejects.toMatchObject({
       code: ErrorCode.REAUTH_REQUIRED,
     });
     expect(tickets.opened).toEqual([]);
