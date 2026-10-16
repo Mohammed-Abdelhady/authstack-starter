@@ -10,7 +10,7 @@ export const DELETION_AR: Record<keyof typeof DELETION_EN, string> = {
   'deletion.checking': 'جارٍ التحقق من حذف الحساب',
   'deletion.checkAgain': 'التحقق مجددًا',
   'deletion.deleted': 'حُذف حسابك',
-  'deletion.eraseAfter': 'ستُمحى بيانات حسابك في {date}.',
+  'deletion.eraseAfter': 'ستُمحى بيانات حسابك بعد {date}.',
   'deletion.notDeleted': 'لم يُحذف حسابك. يمكنك محاولة حذفه مجددًا.',
   'deletion.unknown': 'تعذر تأكيد الحذف.',
   'deletion.pending': 'لم تُعرف النتيجة بعد. تحقق مجددًا عند الاتصال بالإنترنت.',

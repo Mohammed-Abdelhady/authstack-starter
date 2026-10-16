@@ -8,7 +8,7 @@ export const DELETION_EN = {
   'deletion.checking': 'Checking account deletion',
   'deletion.checkAgain': 'Check again',
   'deletion.deleted': 'Your account was deleted',
-  'deletion.eraseAfter': 'Your account data will be erased on {date}.',
+  'deletion.eraseAfter': 'Your account data will be erased after {date}.',
   'deletion.notDeleted': 'Your account was not deleted. You can try deleting it again.',
   'deletion.unknown': 'The deletion could not be confirmed.',
   'deletion.pending': 'The result is not known yet. Check again when you are connected.',

@@ -19,9 +19,15 @@ export function deletionRefusal(error: unknown): MessageKey | undefined {
   return REFUSAL_TEXT.get(error.code) ?? 'deletion.refused';
 }
 
+/** The device's own time, with its zone named, as the erasure mail names its zone. */
 export function erasureDate(locale: Locale, iso: string | undefined): string | undefined {
   if (iso === undefined || !Number.isFinite(Date.parse(iso))) return undefined;
-  return new Intl.DateTimeFormat(`${locale}-u-nu-latn`, { dateStyle: 'medium' }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat(`${locale}-u-nu-latn`, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).format(new Date(iso));
 }
