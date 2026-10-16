@@ -40,6 +40,10 @@ application must specify `signUp: "closed"`; `requirePasskey: true` requires
 passkeys to be available for that application, and startup names the
 application and its repair when they are not. With it on, a browser application
 lets in only a passkey sign-in that verified its user, with a PIN or a biometric.
+For the admin application, have every staff member register a passkey on the
+`ADMIN_URL` address while `requirePasskey` is still `false`, then set it in
+`AUTH_ADMIN_SIGN_IN`. Once it is on, a staff member without an admin passkey
+cannot sign in to add one until it is set back to `false` and the server restarts.
 A native application cannot require a passkey yet, because native sign-in does
 not record verified passkey evidence. Startup refuses `requirePasskey: true` in
 an `AUTH_NATIVE_APPLICATIONS` entry, and a native application stored with it, so

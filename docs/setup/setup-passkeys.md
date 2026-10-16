@@ -62,7 +62,7 @@ If the client and the API sit on different hosts, the RP ID follows the **client
 
 Behind a reverse proxy, set `WEBAUTHN_ORIGIN` explicitly to the public URL. The origin the browser reports is the public one, not whatever the app binds to internally.
 
-The admin application, when `ADMIN_URL` is set, has a relying party of its own: the host of `ADMIN_URL`, with that origin. Its passkeys are made, offered and accepted there only, so a staff member registers one on the admin address even when they already have one for the web.
+The admin application, when `ADMIN_URL` is set, has a relying party of its own: the host of `ADMIN_URL`, with that origin. Its passkeys are made, offered and accepted there only, so a staff member registers one on the admin address even when they already have one for the web. Before the admin application requires a passkey, every staff member registers one there while `requirePasskey` is still `false`. Once it is on, a staff member without an admin passkey cannot sign in to the admin application to add one.
 
 <!-- feature:native-core:start -->
 
