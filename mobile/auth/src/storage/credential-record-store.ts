@@ -8,7 +8,8 @@ import {
 } from '../constants';
 import { deleteStoredRecord, replaceStoredRecord } from './credential-write';
 import { withPortDeadline } from '../runtime/deadlines';
-import { parseStoredRecord, recordMatches } from './persistence';
+import { recordMatches } from './persistence';
+import { readStoredValue } from './envelope';
 import type { AuthRuntime } from '../runtime/runtime';
 import type { AuthRecord } from '../types/record';
 
@@ -273,8 +274,11 @@ export async function classifyDisposedCredentialRecord(
       );
       if (stored.kind === 'missing') return DISPOSED_RECORD_OWNER.EMPTY;
       if (stored.kind !== 'found') continue;
-      const record = parseStoredRecord(stored.value);
-      if (!record) continue;
+      const read = readStoredValue(stored.value);
+      if (read.kind !== 'read') continue;
+      // A value that holds only revocations waiting on the server has no session.
+      if (read.session === undefined) return DISPOSED_RECORD_OWNER.EMPTY;
+      const record = read.session;
       const digest =
         guard.kind === 'authorization' ? (runtime.installDigest ?? '') : guard.installDigest;
       if (!recordMatches(record, runtime.config, digest)) return DISPOSED_RECORD_OWNER.FOREIGN;

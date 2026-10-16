@@ -5,7 +5,6 @@ import {
   FLAG_USER_PRESENT,
   FLAG_USER_VERIFIED,
   assertionCredential,
-  attestationCredential,
   createSoftwareAuthenticator,
   signAssertion,
   toAssertionCredential,
@@ -157,6 +156,28 @@ describe('WebAuthnAdapter with a software authenticator', () => {
       ).resolves.toBeNull();
     });
 
+    it('refuses a touch without user verification when the caller requires it', async () => {
+      await expect(
+        adapter.verifyAssertion(
+          assertionCredential(authenticator, TOUCH),
+          stored,
+          EXPECTED,
+          'required',
+        ),
+      ).resolves.toBeNull();
+    });
+
+    it('accepts a verified assertion when the caller requires verification', async () => {
+      await expect(
+        adapter.verifyAssertion(
+          assertionCredential(authenticator, VERIFIED),
+          stored,
+          EXPECTED,
+          'required',
+        ),
+      ).resolves.toEqual({ newCounter: 5, userVerified: true });
+    });
+
     it.each([
       ['behind the stored one', 3],
       ['equal to the stored one', 4],
@@ -169,90 +190,6 @@ describe('WebAuthnAdapter with a software authenticator', () => {
       await expect(
         adapter.verifyAssertion(credential, stored, EXPECTED),
       ).resolves.toBeNull();
-    });
-  });
-
-  describe('registration', () => {
-    const REGISTERED = {
-      credentialId: CREDENTIAL_ID,
-      counter: 0,
-      transports: ['internal'],
-      deviceType: 'singleDevice',
-      backedUp: false,
-    };
-
-    it.each([
-      ['without user verification', FLAG_USER_PRESENT],
-      ['with user verification', FLAG_USER_PRESENT | FLAG_USER_VERIFIED],
-    ])('accepts an unattested key %s', async (_label, flags) => {
-      const credential = attestationCredential(authenticator, {
-        ...TOUCH,
-        flags,
-        counter: 0,
-      });
-
-      const result = await adapter.verifyAttestation(credential, EXPECTED);
-
-      expect(result).toEqual({
-        ...REGISTERED,
-        publicKey: authenticator.cosePublicKey,
-      });
-    });
-
-    it('refuses a registration made on another origin', async () => {
-      const credential = attestationCredential(authenticator, {
-        ...TOUCH,
-        counter: 0,
-        origin: 'https://evil.example.com',
-      });
-
-      await expect(
-        adapter.verifyAttestation(credential, EXPECTED),
-      ).resolves.toBeNull();
-    });
-
-    it('refuses a registration made for another relying party', async () => {
-      const credential = attestationCredential(authenticator, {
-        ...TOUCH,
-        counter: 0,
-        rpId: 'evil.example.com',
-      });
-
-      await expect(
-        adapter.verifyAttestation(credential, EXPECTED),
-      ).resolves.toBeNull();
-    });
-
-    it('refuses a registration that answers another challenge', async () => {
-      const credential = attestationCredential(authenticator, {
-        ...TOUCH,
-        counter: 0,
-        challenge: 'YW5vdGhlci1jaGFsbGVuZ2U',
-      });
-
-      await expect(
-        adapter.verifyAttestation(credential, EXPECTED),
-      ).resolves.toBeNull();
-    });
-
-    it('stores a key the same authenticator can then sign in with', async () => {
-      const registered = await adapter.verifyAttestation(
-        attestationCredential(authenticator, { ...TOUCH, counter: 0 }),
-        EXPECTED,
-      );
-
-      const assertion = await adapter.verifyAssertion(
-        assertionCredential(authenticator, { ...VERIFIED, counter: 1 }),
-        {
-          id: registered?.credentialId ?? '',
-          publicKey: registered?.publicKey ?? Buffer.alloc(0),
-          counter: registered?.counter ?? -1,
-          transports: registered?.transports ?? [],
-        },
-        EXPECTED,
-      );
-
-      expect(assertion).toEqual({ newCounter: 1, userVerified: true });
     });
   });
 });

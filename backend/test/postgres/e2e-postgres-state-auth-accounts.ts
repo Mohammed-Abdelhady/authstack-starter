@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common'; // feature:passkeys
 import { storedAddress } from '../../src/auth/persistence/postgres/postgres-pending-codes-database';
 import type { PostgresDatabase } from '../../src/common/persistence/postgres/postgres-connection';
 import { Clock } from '../../src/common/services/clock'; // feature:passkeys
+import { withPasskeyColumns } from '../../src/auth/passkeys/persistence/postgres/postgres-passkey.tables'; // feature:passkeys
 import type {
   E2eAccountState,
   E2eLinkedAccount,
@@ -73,7 +74,7 @@ export function postgresAccountState(
     // feature:passkeys:start
     storePasskey: async (email, passkey) => {
       const at = app.get(Clock, { strict: false }).now();
-      const stored = await database
+      const stored = await withPasskeyColumns(database)
         .insertInto('passkeys')
         .values({
           user_id: await idOf(email),
@@ -85,6 +86,7 @@ export function postgresAccountState(
           backed_up: passkey.backedUp,
           name: passkey.name,
           last_used_at: passkey.lastUsedAt,
+          rp_id: passkey.rpId ?? null,
           created_at: at,
           updated_at: at,
         })

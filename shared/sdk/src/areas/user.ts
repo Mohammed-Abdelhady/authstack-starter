@@ -1,5 +1,5 @@
 import type { CallOptions } from '../client';
-import { HTTP_METHOD, UNSAFE_PATH_SEGMENTS } from '../constants';
+import { HTTP_METHOD } from '../constants';
 import { unwrapSessionList } from '../sessions';
 import type { TransportSignal } from '../transport';
 import type {
@@ -9,19 +9,8 @@ import type {
   UpdateProfileRequest,
   User,
 } from '../types';
+import { pathSegment } from './path-segment';
 import type { AreaSenders } from './shared';
-
-/**
- * One value as one path segment. `encodeURIComponent` leaves `.` and `..`
- * alone and a URL parser resolves them, so they are refused along with the
- * empty string instead of being sent to another route.
- */
-function pathSegment(value: string, name: string): string {
-  if (UNSAFE_PATH_SEGMENTS.has(value)) {
-    throw new TypeError(`${name} cannot be used in a path: ${JSON.stringify(value)}`);
-  }
-  return encodeURIComponent(value);
-}
 
 export const USER_PATHS = {
   profile: '/api/user/profile',
