@@ -31,7 +31,7 @@ import { PasskeyRecorder } from '../services/passkey-recorder.service';
 import { NoopEnrolmentPromotion } from '../../contracts/defaults/noop-enrolment-promotion';
 import { SessionCookieService } from '../../services/sessions/session-cookie.service';
 import {
-  noRequiredRelyingParties,
+  requiredRelyingPartiesOf,
   webPasskeyPolicy,
 } from '../services/browser-passkey-policy.harness-spec';
 import { AttestationVerification } from '../services/webauthn.adapter';
@@ -109,6 +109,8 @@ export interface FeatureSwitches {
   password?: boolean;
   magicLink?: boolean;
   passkeys?: boolean;
+  /** The web application lets the account in with a passkey only. */
+  requirePasskey?: boolean;
 }
 
 /** The real services on one database's adapters. */
@@ -198,7 +200,9 @@ export function passkeyServices(
       harness.runner(pause),
       passkeyConfig,
       browserApplications,
-      noRequiredRelyingParties(),
+      requiredRelyingPartiesOf(
+        features.requirePasskey ? [passkeyConfig.rpId] : [],
+      ),
     ),
     verifier: new PasskeySecondFactorVerifier(featureSwitches, assertion),
     challenge,

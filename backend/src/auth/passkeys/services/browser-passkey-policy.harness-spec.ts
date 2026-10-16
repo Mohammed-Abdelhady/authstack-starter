@@ -21,7 +21,14 @@ export function webPasskeyPolicy(
 
 /** No application requires a passkey of the account. */
 export function noRequiredRelyingParties(): RequiredPasskeyRelyingParties {
+  return requiredRelyingPartiesOf([]);
+}
+
+/** Applications that admit the account require a passkey of these relying parties. */
+export function requiredRelyingPartiesOf(
+  rpIds: string[],
+): RequiredPasskeyRelyingParties {
   return partialMock<RequiredPasskeyRelyingParties>({
-    forAccountIn: () => Promise.resolve([]),
+    forAccountIn: () => Promise.resolve(rpIds),
   });
 }
