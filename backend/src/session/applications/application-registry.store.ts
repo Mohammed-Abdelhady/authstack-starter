@@ -116,11 +116,6 @@ export function issuanceApplicationOf(
  * not wait.
  */
 export abstract class ApplicationRegistryStore {
-  /** Committed lookup across all applications in the environment, enabled or not. */
-  abstract findRequiredPasskeyApplication(
-    environment: string,
-  ): Promise<string | null>;
-
   /** Include every stored application, enabled or not, in this environment. */
   abstract hasAccountAudience(
     unitOfWork: UnitOfWork,

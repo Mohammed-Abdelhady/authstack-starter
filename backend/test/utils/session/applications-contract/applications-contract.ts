@@ -1,5 +1,4 @@
 import { applicationSessionLimitCases } from './applications-session-limit-cases';
-import { requiredPasskeyStartupCases } from './applications-required-passkey-cases';
 import { browserPolicyReconcileCases } from './browser-policy-reconcile-cases';
 import { applicationPolicyCases } from './applications-policy-cases';
 import { TEST_NOW } from '../../frozen-clock';
@@ -52,7 +51,6 @@ export function describeApplicationsContract(
       await issuance.seedApplication(ADMIN_APPLICATION);
     }, budgets.resetMs);
 
-    requiredPasskeyStartupCases(current);
     applicationRegistryCases(current);
     applicationPolicyCases(current);
     applicationSessionLimitCases(current);

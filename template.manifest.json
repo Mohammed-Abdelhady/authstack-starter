@@ -714,6 +714,7 @@
         "mobile/ui/src/i18n/passkeys.en.ts",
         "mobile/ui/src/i18n/passkeys.ar.ts",
         "mobile/ui/test/hooks/passkeys.test.ts",
+        "backend/test/app/required-passkey-startup.e2e-spec.ts",
         "backend/test/auth/passkey-application-binding.e2e-spec.ts"
       ],
       "envVars": [

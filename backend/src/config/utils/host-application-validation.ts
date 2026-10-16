@@ -1,10 +1,5 @@
 import { validateNativeLinkHost } from './native-link-host-validation';
 import { validateSessionLimitConfiguration } from './session-limit-config';
-import { refuseRequiredPasskeyUntilPlan3 } from './refuse-required-passkey-until-plan3';
-import {
-  ADMIN_CLIENT_ID,
-  WEB_CLIENT_ID,
-} from '../../session/constants/client-ids';
 import { AVAILABLE_AUTH_FEATURES } from '../../auth/constants/available-auth-features';
 import { AuthFeature } from '../../auth/enums/auth-feature.enum';
 import { ROLE_AUDIENCE } from '../../host/types/host-role.type';
@@ -44,7 +39,6 @@ export function validateHostApplications(
     }
   }
 
-  const requiredApplications: string[] = [];
   const passkeysAvailable =
     AVAILABLE_AUTH_FEATURES.has(AuthFeature.PASSKEYS) &&
     config.PASSKEYS_ENABLED !== false;
@@ -57,11 +51,6 @@ export function validateHostApplications(
       policy?.passkeys !== false,
       'set passkeys to true',
     );
-    if (policy?.requirePasskey) {
-      const clientId =
-        setting === 'AUTH_WEB_SIGN_IN' ? WEB_CLIENT_ID : ADMIN_CLIENT_ID;
-      requiredApplications.push(`${clientId} (${setting})`);
-    }
   }
   const applications = config.AUTH_NATIVE_ENABLED
     ? parseNativeApplications(config.AUTH_NATIVE_APPLICATIONS, {
@@ -77,14 +66,8 @@ export function validateHostApplications(
       nativePasskeysAvailable(application.signIn),
       'set signIn.passkeys to true and supply signIn.rpId and exact signIn.origins',
     );
-    if (application.requirePasskey) {
-      requiredApplications.push(application.clientId);
-    }
   }
   validateSessionLimitConfiguration(config);
-  for (const application of requiredApplications) {
-    refuseRequiredPasskeyUntilPlan3(true, application);
-  }
 }
 
 function validateApplicationPolicy(

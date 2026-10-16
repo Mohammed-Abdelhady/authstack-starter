@@ -1,5 +1,4 @@
 import { storePostgresNativeRegistration } from './postgres-native-registration';
-import { readPostgresRequiredPasskeyApplication } from './postgres-required-passkey-application';
 import { hasPostgresAccountAudience } from './postgres-application-audience';
 import { storePostgresBrowserRegistration } from './postgres-browser-registration';
 import type { BrowserRegistration } from '../../applications/types/browser-registration';
@@ -72,9 +71,6 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
   constructor(private readonly database: Kysely<PostgresTables>) {
     super();
   }
-
-  findRequiredPasskeyApplication = (environment: string) =>
-    readPostgresRequiredPasskeyApplication(this.database, environment);
 
   hasAccountAudience(
     unitOfWork: UnitOfWork,
