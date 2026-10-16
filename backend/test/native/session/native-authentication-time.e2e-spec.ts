@@ -10,7 +10,12 @@ import { NATIVE_ATTEMPT_HEADER } from '../../../src/auth/native/constants/native
 import { NativeAttemptService } from '../../../src/auth/native/services/native-attempt.service';
 import { SessionValidator } from '../../../src/session/authority/session-validator';
 import { DEFAULT_API_AUDIENCE } from '../../../src/session/constants/client-ids';
-import { nativeAuthorizeQuery } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
+import {
+  NATIVE_META,
+  nativeAuthorizeQuery,
+} from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
+import { NativeTokenService } from '../../../src/session/native/token/native-token.service';
+import { reconcileStartupApplications } from '../../../src/session/session.module';
 import { hashToken } from '../../../src/session/utils/hashing/token-hash';
 import { AccountProfileStore } from '../../../src/user/stores/account-profile.store';
 import { SEED_USER } from '../../constants/seed-users';
@@ -34,10 +39,11 @@ import {
 import { publicClient, required } from '../../utils/sdk/sdk-transport';
 
 const REGISTER_OPTIONS = '/api/auth/native/passkeys/register/options';
+const PROFILE = '/api/user/profile';
 const MINUTE_MS = 60_000;
-/** The browser is used within its 30-minute idle limit, so it stays signed in. */
-const BROWSER_USED_AT_MINUTES = [25, 50];
-const AN_HOUR_LATER = new Date(TEST_NOW.getTime() + 60 * MINUTE_MS);
+/** Within the browser's 30-minute idle limit, so it stays signed in. */
+const BROWSER_USE_EVERY_MINUTES = 25;
+const AN_HOUR_LATER = minutesAfterSignIn(60);
 const APPLICATION = {
   clientId: NATIVE_CLIENT_ID,
   displayName: 'Native authentication time client',
@@ -49,6 +55,18 @@ const APPLICATION = {
     origins: ['https://localhost'],
   },
 };
+/** Mobile sessions of one hour, shorter than the browser sign-in is old. */
+const ONE_HOUR_APPLICATION = {
+  ...APPLICATION,
+  session: {
+    bound: { absoluteHours: 1, idleMinutes: 60 },
+    unbound: { absoluteHours: 1, idleMinutes: 60 },
+  },
+};
+
+function minutesAfterSignIn(minutes: number): Date {
+  return new Date(TEST_NOW.getTime() + minutes * MINUTE_MS);
+}
 
 interface Refusal {
   status: number;
@@ -74,6 +92,21 @@ describe('when a native session counts as signed in (e2e)', () => {
     config.set('auth.nativeApplications', [APPLICATION]);
     await e2e.reset();
   });
+
+  /** Signs the browser in at `TEST_NOW` and keeps it in use until `minutes` later. */
+  async function browserSignedInFor(minutes: number): Promise<TestAgent> {
+    const browser = await loginAs(e2e.httpServer, SEED_USER);
+    for (
+      let used = BROWSER_USE_EVERY_MINUTES;
+      used < minutes;
+      used += BROWSER_USE_EVERY_MINUTES
+    ) {
+      e2e.clock.set(minutesAfterSignIn(used));
+      await browser.get(PROFILE).expect(200);
+    }
+    e2e.clock.set(minutesAfterSignIn(minutes));
+    return browser;
+  }
 
   /** A signed-in browser approves the app's request, then the app exchanges the code. */
   async function approvedFromBrowser(browser: TestAgent): Promise<TokenSet> {
@@ -160,14 +193,20 @@ describe('when a native session counts as signed in (e2e)', () => {
     return { status: answer.status, code: body.error?.code };
   }
 
+  function refreshed(refreshToken: string) {
+    return e2e.app.get(NativeTokenService).grant(
+      {
+        grant_type: 'refresh_token',
+        client_id: NATIVE_CLIENT_ID,
+        refresh_token: refreshToken,
+      },
+      NATIVE_META,
+    );
+  }
+
   // Failure: a browser left signed in for an hour mints a mobile session that passes the five-minute rule.
   it('gives a browser-approved mobile session the browser sign-in time, so adding a passkey needs a fresh sign-in', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-    for (const minutes of BROWSER_USED_AT_MINUTES) {
-      e2e.clock.set(new Date(TEST_NOW.getTime() + minutes * MINUTE_MS));
-      await browser.get('/api/user/profile').expect(200);
-    }
-    e2e.clock.set(AN_HOUR_LATER);
+    const browser = await browserSignedInFor(60);
 
     const tokens = await approvedFromBrowser(browser);
 
@@ -186,5 +225,35 @@ describe('when a native session counts as signed in (e2e)', () => {
 
     expect(await authenticatedAtOf(tokens)).toEqual(AN_HOUR_LATER);
     expect((await passkeyOptionsFor(tokens)).status).toBe(200);
+  });
+
+  // Failure: a lifetime counted from an old browser sign-in ends the mobile session as it is issued.
+  it('gives a browser-approved mobile session its whole lifetime from the approval, kept by refresh until it ends, while adding a passkey still needs a fresh sign-in', async () => {
+    e2e.app
+      .get(ConfigService)
+      .set('auth.nativeApplications', [ONE_HOUR_APPLICATION]);
+    await reconcileStartupApplications(e2e.app);
+    const browser = await browserSignedInFor(120);
+
+    const tokens = await approvedFromBrowser(browser);
+
+    await request(e2e.httpServer)
+      .get(PROFILE)
+      .set('Authorization', `Bearer ${tokens.accessToken}`)
+      .expect(200);
+    expect(await passkeyOptionsFor(tokens)).toEqual({
+      status: 401,
+      code: 'REAUTH_REQUIRED',
+    });
+    e2e.clock.set(minutesAfterSignIn(175));
+    const rotated = await refreshed(tokens.refreshToken);
+    expect(rotated.ok).toBe(true);
+    if (!rotated.ok) throw new Error('refresh inside the lifetime failed');
+    e2e.clock.set(minutesAfterSignIn(180));
+    expect(await refreshed(rotated.refreshToken)).toEqual({
+      ok: false,
+      status: 400,
+      error: 'invalid_grant',
+    });
   });
 });
