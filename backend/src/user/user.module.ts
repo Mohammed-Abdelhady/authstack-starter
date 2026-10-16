@@ -21,7 +21,10 @@ import { AccountSessions } from './stores/account-sessions';
 import { AccountProfileStore } from './stores/account-profile.store';
 import { ErasureModule } from './erasure/erasure.module';
 // feature:oauth-core:start
+import { AuthContractsModule } from '../auth/contracts/auth-contracts.module';
 import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tokens.module';
+import { ProviderLinkService } from './provider-link/provider-link.service';
+import { PROVIDER_LINK_PERSISTENCE_PROVIDERS } from './provider-link/persistence/provider-link-persistence';
 // feature:oauth-core:end
 
 @Module({
@@ -32,6 +35,7 @@ import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tok
     forwardRef(() => AuthModule),
     SessionModule,
     ErasureModule,
+    AuthContractsModule, // feature:oauth-core
     ProviderTokensModule, // feature:oauth-core
   ],
   controllers: [
@@ -48,6 +52,8 @@ import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tok
     AccountLinkingService, // feature:oauth-core
     ProfileSyncService, // feature:oauth-core
     ...USER_PERSISTENCE_PROVIDERS,
+    ProviderLinkService, // feature:oauth-core
+    ...PROVIDER_LINK_PERSISTENCE_PROVIDERS, // feature:oauth-core
   ],
   exports: [
     ...USER_PERSISTENCE_IMPORTS,
