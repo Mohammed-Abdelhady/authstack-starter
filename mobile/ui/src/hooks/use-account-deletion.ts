@@ -21,10 +21,7 @@ export function useAccountDeletion({
 }: AccountDeletionProps) {
   const ui = useUi();
   const client = useMemo(() => createApiClient(ui.runtime.engine.transport), [ui.runtime]);
-  const receiptClient = useMemo(
-    () => createApiClient(receiptTransport ?? ui.runtime.engine.transport),
-    [receiptTransport, ui.runtime],
-  );
+  const receiptClient = useMemo(() => createApiClient(receiptTransport), [receiptTransport]);
   const latest = useRef({ ui, randomBytes, onDeleted });
   useEffect(() => {
     latest.current = { ui, randomBytes, onDeleted };
