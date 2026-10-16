@@ -6,6 +6,7 @@ import {
 import type { BrowserRegistration } from '../../../../src/session/applications/types/browser-registration';
 import { RetryableAbortError } from '../../../../src/common/persistence/persistence-errors';
 import { ConfigService } from '@nestjs/config';
+import { setConfigValue } from '../../config-settings';
 import { rerunAtOnce } from '../issuance-contract/issuance-contract-support';
 import {
   ApplicationsHarnessSource,
@@ -40,7 +41,7 @@ export function browserPolicyReconcileCases(
   it('restores default lifetimes and keeps versions across restarts and explicit default methods', async () => {
     const config = configuration();
     await reconciler(config).reconcile();
-    config.set('auth.web.signIn', { password: true });
+    setConfigValue(config, 'auth.web.signIn', { password: true });
     await reconciler(config).reconcile();
     expect({
       version: (await web()).policyVersion,
@@ -63,7 +64,7 @@ export function browserPolicyReconcileCases(
   it('keeps reserved emailCode out of the snapshot and policy version', async () => {
     const config = configuration();
     for (const emailCode of [false, true]) {
-      config.set('auth.web.signIn', { emailCode });
+      setConfigValue(config, 'auth.web.signIn', { emailCode });
       await reconciler(config).reconcile();
       const application = await web();
       expect({
@@ -78,7 +79,7 @@ export function browserPolicyReconcileCases(
   // Failure: tightening policy leaves old sessions usable or records duplicate transitions.
   it('advances and records once per real change, including removal of audience policy', async () => {
     const config = configuration();
-    config.set('auth.web.signIn', {
+    setConfigValue(config, 'auth.web.signIn', {
       signUp: 'closed',
       audience: 'customer',
       password: false,
@@ -98,7 +99,7 @@ export function browserPolicyReconcileCases(
       audience: 'customer',
       actions: [['policy_changed', WEB_CLIENT_ID]],
     });
-    config.set('auth.web.signIn', undefined);
+    setConfigValue(config, 'auth.web.signIn', undefined);
     await reconcile.reconcile();
     const restored = await web();
     expect({
@@ -134,7 +135,7 @@ export function browserPolicyReconcileCases(
         )
       )?.enabled,
     ).toBe(false);
-    config.set('auth.web.enabledExplicit', true);
+    setConfigValue(config, 'auth.web.enabledExplicit', true);
     await reconciler(config).reconcile();
     expect(
       (
@@ -144,7 +145,7 @@ export function browserPolicyReconcileCases(
         )
       )?.enabled,
     ).toBe(true);
-    config.set('auth.web.enabled', false);
+    setConfigValue(config, 'auth.web.enabled', false);
     await reconciler(config).reconcile();
     expect(
       (
@@ -160,7 +161,7 @@ export function browserPolicyReconcileCases(
   it('rolls back the policy version and snapshot when recording fails', async () => {
     const config = configuration();
     const before = await web();
-    config.set('auth.web.signIn', { password: false });
+    setConfigValue(config, 'auth.web.signIn', { password: false });
     const restore = await harness().authority.issuance.refuseSecurityEvents();
     try {
       await expect(reconciler(config).reconcile()).rejects.toBeInstanceOf(
@@ -232,7 +233,7 @@ export function browserPolicyReconcileCases(
         ADMIN_CLIENT_ID,
       ),
     ).toEqual(beforeAdmin);
-    config.set('server.nodeEnv', 'production');
+    setConfigValue(config, 'server.nodeEnv', 'production');
     await reconciler(config).reconcile();
     expect(
       await current.registryStore.readCommittedApplication(
