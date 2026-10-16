@@ -1,6 +1,6 @@
 import type { ColumnType, Generated } from 'kysely';
 
-/** `0029_account_erasure.sql`. */
+/** `0032_provider_revocations.sql`. */
 export interface ProviderLinkTicketsTable {
   id: Generated<string>;
   ticket_hash: string;
