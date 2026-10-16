@@ -37,6 +37,10 @@ const FEATURE_TABLES: Record<string, { tables: string[]; migrations: string[] }>
     migrations: ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'],
   },
   'email-code': { tables: ['email_codes'], migrations: ['0025_email_codes.sql'] },
+  'oauth-core': {
+    tables: ['provider_tokens', 'provider_revocations', 'provider_link_tickets'],
+    migrations: ['0032_provider_revocations.sql'],
+  },
 };
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
