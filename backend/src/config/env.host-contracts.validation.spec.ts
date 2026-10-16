@@ -230,22 +230,24 @@ describe('reserved host settings validation', () => {
     ).toThrow(new RegExp(setting));
   });
 
-  it('accepts a previous provider key without a current key', () => {
-    expect(
+  // A previous key alone, or one equal to the current, could not read a
+  // rotated token and would look like a rotation that never happened.
+  it('refuses a previous provider key without a current key', () => {
+    expect(() =>
       validateEnvironment({
         ...BASE_ENV,
         PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS: 'b'.repeat(32),
-      }).PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS,
-    ).toBe('b'.repeat(32));
+      }),
+    ).toThrow(/PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS needs/);
   });
 
-  it('accepts a previous provider key equal to the current key', () => {
-    expect(
+  it('refuses a previous provider key equal to the current key', () => {
+    expect(() =>
       validateEnvironment({
         ...BASE_ENV,
         PROVIDER_TOKEN_ENCRYPTION_KEY: 'a'.repeat(32),
         PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS: 'a'.repeat(32),
-      }).PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS,
-    ).toBe('a'.repeat(32));
+      }),
+    ).toThrow(/PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS needs/);
   });
 });
