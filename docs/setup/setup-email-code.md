@@ -123,6 +123,10 @@ code.
   spent.
 - Five wrong guesses end the attempt. They count on that attempt alone, so they
   never lock the address and a new attempt works at once.
+- Wrong guesses at live codes also count on the address for the UTC day, from
+  any attempt. After 100 in a day the address is mailed no code until the next
+  UTC day, and the code made for each request is stored already spent. Codes
+  already mailed keep working, and the account is never locked.
 - The per-caller throttles of the email link routes apply.
 
 [`backend/docs/registration-limits.md`](../../backend/docs/registration-limits.md)

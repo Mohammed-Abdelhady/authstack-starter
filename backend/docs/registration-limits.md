@@ -100,6 +100,7 @@ leaves the attempt's wrong guesses in place for the next code.
 | -------------------------------- | ---------------------------------- | -------------------------------------------- |
 | Sign-in mails per address        | 5 per hour                         | `magicLink.maxPerHour`, shared with the link |
 | Wrong guesses per attempt        | 5, then the attempt ends           | `EMAIL_CODE_GUESS_LIMIT`                     |
+| Wrong guesses per address        | 100 a UTC day, then no code mailed | `ADDRESS_GUESS_CEILING`                      |
 | Code lifetime                    | 10 minutes, never past the attempt | `EMAIL_CODE_EXPIRES_IN`                      |
 | Per-caller requests and verifies | see `common/constants/throttle.ts` | `@Throttle`                                  |
 
@@ -118,20 +119,29 @@ codes. Password, passkey and provider sign-in are not affected, and the owner
 can sign in again by code once the hour rolls over. The plan accepts this
 residual denial of service.
 
-Those guesses add up across windows, and nothing caps the wrong guesses at one
-address or account. Someone who keeps the hourly limit full gets 25 guesses an
-hour, 600 a day, for as long as they keep going. One caller is enough, because
-the per-caller throttles allow five requests and ten verifies in fifteen
-minutes, and starting an attempt falls under the default limit of 60 requests a
-minute. Against 900,000 codes that is about a 0.067% chance a day of signing in
-as the account, about 2% over 30 days and about 22% over a year. The owner's
-own code and link mails stay blocked the whole time, and the owner receives
-every code the attacker asks for, five an hour, which is the only sign of the
-attack. NIST SP 800-63B, section 5.2.2, caps consecutive failed attempts on one
-account at 100, and these limits do not meet that. This is a known residual
-risk. A ceiling on wrong guesses per address, for example 100 in a UTC day,
-after which new codes for the address are stored already spent, would close
-it. That is for the plan owner to decide.
+Those guesses would add up across windows, so wrong guesses at live codes are
+also counted on the address for the UTC day, from any attempt. NIST SP 800-63B,
+section 5.2.2, limits consecutive failed attempts on one account to 100, and
+`ADDRESS_GUESS_CEILING` applies that number to each address for each UTC day.
+Once an address has 100 in a day, a request still gets the same reply, but its
+code is stored already spent and nothing is mailed until the next UTC day. A
+guess at a code that is spent, expired or out of guesses does not count. Codes
+already mailed keep working, the account is never locked, and password, passkey
+and provider sign-in are not affected. The row that counts holds no code and is
+kept only until its day ends.
+
+That leaves an attacker 100 guesses a day against 900,000 codes, about a 0.011%
+chance a day of signing in as the account, about 0.33% over 30 days and about
+4% over a year, because the count starts again each day. The price is a longer
+denial of service. Someone who keeps the hourly limit full and guesses wrong at
+every code reaches the ceiling in four hours, 25 guesses an hour. One caller is
+enough, because the per-caller throttles allow five requests and ten verifies
+in fifteen minutes, and starting an attempt falls under the default limit of 60
+requests a minute. From then until the UTC day ends the owner is mailed no
+code. The email link route does not read the ceiling, but it shares the hourly
+limit the attacker keeps full. The owner receives every code the attacker asks
+for, five an hour, which is the only sign of the attack. The plan accepts this
+residual denial of service.
 
 Delivery has no durable queue. The server answers first and sends the mail in
 the same process afterwards, trying up to three times in a row. If every try
