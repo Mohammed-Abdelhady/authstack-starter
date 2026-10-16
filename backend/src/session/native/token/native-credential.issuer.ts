@@ -44,6 +44,7 @@ export interface NativePairRequest {
   meta: ClientMeta;
   now: Date;
   generation: number;
+  policyVersion: number;
   /** The family's session when the pair replaces an older one. */
   existing?: NativeFamilySession;
   familyId?: string;
@@ -99,6 +100,7 @@ export class NativeCredentialIssuer {
         userVersion: account.sessionVersion,
         clientVersion: application.sessionVersion,
         grantVersion: grant.sessionVersion,
+        policyVersion: request.policyVersion,
         scopes: context.requestedScopes,
         audience: context.audience || DEFAULT_API_AUDIENCE,
         authenticationMethods: context.authenticationMethods ?? [],

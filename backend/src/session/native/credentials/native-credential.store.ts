@@ -45,6 +45,7 @@ export interface NewNativeSession {
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  policyVersion: number;
   authEpoch: number;
   schemaVersion: number;
   scopes: string[];

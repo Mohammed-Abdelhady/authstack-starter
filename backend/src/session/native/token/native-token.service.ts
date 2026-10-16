@@ -252,11 +252,13 @@ export class NativeTokenService {
       grant.sessionVersion === (pending.capturedGrantVersion ?? -1) &&
       pending.authEpoch === this.authEpoch.current(),
     );
+    let policyVersion = 0;
     if (validAuthority && account && application && grant) {
       const policy = await this.policies.requireEnabled(
         unitOfWork,
         pending.clientId,
       );
+      policyVersion = policy.policyVersion ?? 0;
       if (!admitsAudience(account.accountAudience, policy.accountAudience)) {
         const spent = await this.authorizations.spendCodeIn(
           unitOfWork,
@@ -301,6 +303,7 @@ export class NativeTokenService {
       meta,
       now,
       generation: 1,
+      policyVersion,
       proofKeyThumbprint: proof?.thumbprint,
     });
   }

@@ -52,6 +52,9 @@ import {
 
 type ProofEventContext = BoundProofEventContext;
 
+/** Issued under an older policy of its application: refused before any write. */
+const POLICY_MOVED = 'policy_moved' as const;
+
 @Injectable()
 export class NativeRefreshService {
   constructor(
@@ -202,6 +205,7 @@ export class NativeRefreshService {
     }
     setRefusalContext(this.proofEventContext(presented, session));
     const authority = await this.loadAuthority(db, clientId, session, now);
+    if (authority === POLICY_MOVED) return this.invalidGrant();
     if (!authority) {
       if (presented.spent) {
         return this.rotation.replay(db, presented, now);
@@ -245,14 +249,12 @@ export class NativeRefreshService {
     meta: ClientMeta,
     now: Date,
   ): Promise<TokenSuccess | OauthFailure> {
+    const authority = await this.loadAuthority(db, clientId, session, now);
+    if (authority === POLICY_MOVED) return this.invalidGrant();
     if (presented.spent) {
       return this.rotation.replay(db, presented, now);
     }
-    if (presented.expiresAt.getTime() <= now.getTime()) {
-      return this.invalidGrant();
-    }
-    const authority = await this.loadAuthority(db, clientId, session, now);
-    if (!authority) {
+    if (presented.expiresAt.getTime() <= now.getTime() || !authority) {
       return this.invalidGrant();
     }
     return this.rotation.claimAndRotate(db, presented, authority, meta, now);
@@ -263,12 +265,18 @@ export class NativeRefreshService {
     clientId: string,
     session: NativeFamilySession | null,
     now: Date,
-  ): Promise<RefreshAuthority | undefined> {
+  ): Promise<RefreshAuthority | typeof POLICY_MOVED | undefined> {
     if (!session || session.clientId !== clientId) {
       return undefined;
     }
     const account = await this.issuance.findAccount(db, session.userId);
     const application = await this.registry.findClientIn(db, clientId);
+    if (
+      application?.enabled &&
+      session.policyVersion !== (application.policyVersion ?? 0)
+    ) {
+      return POLICY_MOVED;
+    }
     if (
       account &&
       application?.enabled &&
