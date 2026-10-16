@@ -38,8 +38,12 @@ Policy keys are `signUp: "open" | "closed"`,
 keys mean open sign-up, no required passkey and unrestricted audience. A staff
 application must specify `signUp: "closed"`; `requirePasskey: true` requires
 passkeys to be available for that application, and startup names the
-application and its repair when they are not. With it on, only a passkey sign-in
-that verified its user, with a PIN or a biometric, is let in. A browser passkey
+application and its repair when they are not. With it on, a browser application
+lets in only a passkey sign-in that verified its user, with a PIN or a biometric.
+A native application cannot require a passkey yet, because native sign-in does
+not record verified passkey evidence. Startup refuses `requirePasskey: true` in
+an `AUTH_NATIVE_APPLICATIONS` entry, and a native application stored with it, so
+keep it false for native applications. A browser passkey
 belongs to its application's relying party: the web one is `WEBAUTHN_RP_ID` and
 `WEBAUTHN_ORIGIN`, and the admin one is the host and origin of `ADMIN_URL`.
 
