@@ -10,7 +10,8 @@ import {
   toSignInAccount,
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
-import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor';
+import type { BrowserEvidence } from '../../../../session/types/browser-evidence';
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { autocommit } from '../../../persistence/postgres/postgres-pending-codes-database';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
@@ -114,8 +115,13 @@ export class PostgresPasskeySignIn extends PasskeySignIn {
   issueSession(
     account: PasskeyAccount,
     response: Response,
+    evidence: BrowserEvidence,
   ): Promise<AuthenticatedUserSummary> {
-    return this.completion.issueSession(signInAccountOf(account), response);
+    return this.completion.issueSession(
+      signInAccountOf(account),
+      response,
+      evidence,
+    );
   }
 
   completeSignIn(
@@ -125,7 +131,7 @@ export class PostgresPasskeySignIn extends PasskeySignIn {
     return this.completion.completeSignIn(
       signInAccountOf(account),
       response,
-      FIRST_FACTOR.PASSKEY, // feature:totp
+      FIRST_FACTOR.PASSKEY,
     );
   }
 }

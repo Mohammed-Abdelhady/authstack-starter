@@ -5,6 +5,7 @@ import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { LoginResponseDto } from '../../dto/login-response.dto';
 import { AudienceAdmissionRefused } from '../../../session/utils/authority/audience-admission';
+import { FIRST_FACTOR } from '../../services/sessions/first-factor';
 import { VerifyPasskeyLoginDto } from '../dto/verify-passkey-login.dto';
 import { PasskeyAssertionService } from './passkey-assertion.service';
 import { PasskeyRequestOptions } from './webauthn.adapter';
@@ -64,7 +65,10 @@ export class PasskeyLoginService {
 
     try {
       if (userVerified) {
-        const summary = await this.signIn.issueSession(user, response);
+        const summary = await this.signIn.issueSession(user, response, {
+          authenticationMethods: [FIRST_FACTOR.PASSKEY],
+          userVerified: true,
+        });
         this.logger.log(
           `Passkey sign-in with user verification: userId=${user.id}`,
         );
