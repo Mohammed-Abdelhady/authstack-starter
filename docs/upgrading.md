@@ -134,8 +134,6 @@ permissions until audience mode is enabled.
 The role and account permission routes still refuse new grants of these reserved
 permission strings:
 
-- `users:suspend:all`
-- `users:suspend:staff`
 - `activity:read:all`
 - `sessions:read:staff`
 - `sessions:delete:staff`
@@ -146,6 +144,21 @@ when updated. New role grants and direct account grants are refused.
 If your host application uses one of these strings for its own meaning, rename it
 before upgrading. Update its stored grants and permission checks to use the new
 name.
+
+## Suspending needs its own permission
+
+`PATCH /api/admin/users/:id/status` now needs `users:suspend:all`, or `users:suspend:staff` for a
+staff account, instead of the update permission. Renaming and other edits still need only
+`users:update:all` or `users:update:staff`.
+
+Migration `0028_staff_console.sql` on PostgreSQL, and
+`20261016000001-suspend-permission.js` on MongoDB, give `users:suspend:all` to every role and direct
+grant that holds `users:update:all`, and `users:suspend:staff` to every one that holds
+`users:update:staff`. Run them before the new server starts, as with any upgrade. A host product that
+grants permissions in its own seeds or fixtures adds the suspend permission next to the update one.
+
+The same migration adds a `version` to accounts and roles, the invitation, proof and idempotency key
+tables, and fixes the `admin` role: it can no longer be edited, renamed or deleted through the API.
 
 ## Live session limits
 
