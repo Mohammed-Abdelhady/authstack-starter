@@ -22,6 +22,8 @@ export interface NewDeletionReceipt {
 /** What the deactivating unit of work writes beside the deactivation. */
 export interface DeletionRecord {
   userId: string;
+  /** The deactivation's own time, kept as the mark of a person's own deletion. */
+  deletedAt: Date;
   /** Null while erasure is off: the account is only deactivated. */
   eraseAfter: Date | null;
   receipt?: NewDeletionReceipt;

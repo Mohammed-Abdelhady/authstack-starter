@@ -20,9 +20,9 @@ export abstract class AccountDeletionStore {
   ): Promise<StoredDeletionReceipt | null>;
 
   /**
-   * Sets `erase_after` (clears it when erasure is off) and stores the
-   * receipt. A key already stored is a `UniqueConflictError` named
-   * `DELETION_RECEIPT_CONSTRAINT.KEY`.
+   * Sets `erase_after` (clears it when erasure is off), marks the deletion as
+   * the person's own with its time, and stores the receipt. A key already
+   * stored is a `UniqueConflictError` named `DELETION_RECEIPT_CONSTRAINT.KEY`.
    */
   abstract recordIn(
     unitOfWork: UnitOfWork,

@@ -71,6 +71,10 @@ export class User {
   @Prop()
   eraseAfter?: Date;
 
+  /** When the person last deleted the account themselves; staff never set it. */
+  @Prop()
+  selfDeletedAt?: Date;
+
   /** Written by erasure step 1 and by a restore, so the two conflict. */
   @Prop({ type: Number, select: false })
   erasureFence?: number;

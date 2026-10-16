@@ -71,15 +71,21 @@ export class MongoAccountDeletionStore extends AccountDeletionStore {
     const session = mongoSessionOf(unitOfWork);
     if (!ObjectId.isValid(record.userId)) throw new MalformedIdError();
     const userId = new ObjectId(record.userId);
-    await this.db
-      .collection('users')
-      .updateOne(
-        { _id: userId },
-        record.eraseAfter === null
-          ? { $unset: { eraseAfter: '' } }
-          : { $set: { eraseAfter: record.eraseAfter } },
-        { session },
-      );
+    await this.db.collection('users').updateOne(
+      { _id: userId },
+      record.eraseAfter === null
+        ? {
+            $set: { selfDeletedAt: record.deletedAt },
+            $unset: { eraseAfter: '' },
+          }
+        : {
+            $set: {
+              selfDeletedAt: record.deletedAt,
+              eraseAfter: record.eraseAfter,
+            },
+          },
+      { session },
+    );
     if (!record.receipt) return;
     try {
       await this.receipts.insertOne(

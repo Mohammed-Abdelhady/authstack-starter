@@ -7,17 +7,26 @@ import { ErasureJobStore } from '../stores/erasure-job.store';
 export interface ErasureScheduleOptions {
   /** When the accounts are erased. Absent: the grace period from now. */
   at?: Date;
+  /**
+   * Also the accounts deactivated before this time that carry no mark of the
+   * person's own deletion. Staff deactivations of that time are among them.
+   */
+  deletedBefore?: Date;
 }
 
 export interface ErasureScheduleSummary {
   scheduled: number;
   eraseAfter: string;
+  deletedBefore?: string;
 }
 
+const USAGE =
+  'Usage: erasure:schedule [--at <ISO 8601 time>] [--deleted-before <ISO 8601 time>]';
+
 /**
- * Dates the accounts deactivated before erasure was turned on, which a
- * deletion never scheduled. The owner runs it when they decide; nothing runs
- * it by itself.
+ * Dates the accounts their owners deleted while erasure was off, which a
+ * deletion never scheduled; a staff deactivation is never one of them. The
+ * owner runs it when they decide; nothing runs it by itself.
  */
 @Injectable()
 export class ErasureScheduleCommand {
@@ -27,38 +36,63 @@ export class ErasureScheduleCommand {
     private readonly clock: Clock,
   ) {}
 
-  /** @throws Error while ACCOUNT_ERASE_GRACE_DAYS is not set */
+  /**
+   * @throws Error while ACCOUNT_ERASE_GRACE_DAYS is not set, or for a
+   *   `deletedBefore` later than now
+   */
   async schedule(
     options: ErasureScheduleOptions,
   ): Promise<ErasureScheduleSummary> {
-    const eraseAfter = options.at ?? this.settings.eraseAfter(this.clock.now());
+    const now = this.clock.now();
+    const eraseAfter = options.at ?? this.settings.eraseAfter(now);
     if (!this.settings.enabled() || eraseAfter === null) {
       throw new Error(
         'Erasure is off: set ACCOUNT_ERASE_GRACE_DAYS before scheduling accounts',
       );
     }
+    const { deletedBefore } = options;
+    if (deletedBefore && deletedBefore > now) {
+      throw new Error('--deleted-before must not be later than now');
+    }
+    const selection = { eraseAfter, ...(deletedBefore && { deletedBefore }) };
     let scheduled = 0;
     for (;;) {
       const dated = await this.jobs.scheduleUnscheduled(
-        eraseAfter,
+        selection,
         ERASURE_SCHEDULE_BATCH,
       );
       scheduled += dated;
       if (dated < ERASURE_SCHEDULE_BATCH) break;
     }
-    return { scheduled, eraseAfter: eraseAfter.toISOString() };
+    return {
+      scheduled,
+      eraseAfter: eraseAfter.toISOString(),
+      ...(deletedBefore && { deletedBefore: deletedBefore.toISOString() }),
+    };
   }
 }
 
-/** `[--at <ISO 8601 time>]` */
+function optionOf(
+  flag: string | undefined,
+): keyof ErasureScheduleOptions | undefined {
+  if (flag === '--at') return 'at';
+  if (flag === '--deleted-before') return 'deletedBefore';
+  return undefined;
+}
+
+/** `[--at <ISO 8601 time>] [--deleted-before <ISO 8601 time>]`, each once. */
 export function erasureScheduleArguments(
   args: readonly string[],
 ): ErasureScheduleOptions {
-  if (args.length === 0) return {};
-  const [flag, value, ...rest] = args;
-  const at = value === undefined ? Number.NaN : Date.parse(value);
-  if (flag !== '--at' || rest.length > 0 || Number.isNaN(at)) {
-    throw new Error('Usage: erasure:schedule [--at <ISO 8601 time>]');
+  const options: ErasureScheduleOptions = {};
+  for (let index = 0; index < args.length; index += 2) {
+    const option = optionOf(args[index]);
+    const value = args[index + 1];
+    const time = value === undefined ? Number.NaN : Date.parse(value);
+    if (!option || options[option] || Number.isNaN(time)) {
+      throw new Error(USAGE);
+    }
+    options[option] = new Date(time);
   }
-  return { at: new Date(at) };
+  return options;
 }

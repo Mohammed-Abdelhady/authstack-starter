@@ -41,6 +41,17 @@ export interface BegunErasure {
   onAccount: AccountAddresses;
 }
 
+/** Which deactivated accounts the schedule command dates, and to when. */
+export interface UnscheduledSelection {
+  eraseAfter: Date;
+  /**
+   * Also accounts deactivated before this time with no mark of an own
+   * deletion, from before the mark was written. Staff deactivations of that
+   * time are among them: nothing tells the two apart.
+   */
+  deletedBefore?: Date;
+}
+
 export interface ErasureFailure {
   code: string;
   at: Date;

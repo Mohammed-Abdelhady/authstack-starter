@@ -1,4 +1,4 @@
-import { Collection, Db, ObjectId } from 'mongodb';
+import { Collection, Db, Filter, ObjectId } from 'mongodb';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import type { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
@@ -13,6 +13,7 @@ import type {
   ErasureFailure,
   ErasureJob,
   ErasureLease,
+  UnscheduledSelection,
 } from '../../types/erasure';
 
 export const ERASURE_JOB_COLLECTION = 'erasure_jobs';
@@ -28,6 +29,8 @@ type AccountDocument = {
   email: string;
   pendingEmail?: string;
   isDeleted: boolean;
+  deletedAt?: Date;
+  selfDeletedAt?: Date;
   eraseAfter?: Date;
   erasureFence?: number;
 };
@@ -35,6 +38,26 @@ type AccountDocument = {
 function objectId(value: string): ObjectId {
   if (!ObjectId.isValid(value)) throw new MalformedIdError();
   return new ObjectId(value);
+}
+
+/**
+ * Deactivated with no schedule, by the person's own deletion: its mark still
+ * equals `deletedAt`, which a later staff deactivation or restore moves.
+ */
+function unscheduled({
+  deletedBefore,
+}: UnscheduledSelection): Filter<AccountDocument> {
+  const own = {
+    selfDeletedAt: { $type: 'date' as const },
+    $expr: { $eq: ['$selfDeletedAt', '$deletedAt'] },
+  };
+  const waiting = { isDeleted: true, eraseAfter: { $exists: false } };
+  if (!deletedBefore) return { ...waiting, ...own };
+  const unmarked = {
+    selfDeletedAt: { $exists: false },
+    deletedAt: { $lt: deletedBefore },
+  };
+  return { ...waiting, $or: [own, unmarked] };
 }
 
 function toJob(document: JobDocument): ErasureJob {
@@ -270,14 +293,17 @@ export class MongoErasureJobStore extends ErasureJobStore {
     return rows.map(toJob);
   }
 
-  async scheduleUnscheduled(eraseAfter: Date, limit: number): Promise<number> {
+  async scheduleUnscheduled(
+    selection: UnscheduledSelection,
+    limit: number,
+  ): Promise<number> {
     if (limit <= 0) return 0;
-    const unscheduled = { isDeleted: true, eraseAfter: { $exists: false } };
-    const rows = await this.users.find(unscheduled).limit(limit).toArray();
+    const matches = unscheduled(selection);
+    const rows = await this.users.find(matches).limit(limit).toArray();
     if (rows.length === 0) return 0;
     const result = await this.users.updateMany(
-      { ...unscheduled, _id: { $in: rows.map((row) => row._id) } },
-      { $set: { eraseAfter } },
+      { ...matches, _id: { $in: rows.map((row) => row._id) } },
+      { $set: { eraseAfter: selection.eraseAfter } },
     );
     return result.modifiedCount;
   }

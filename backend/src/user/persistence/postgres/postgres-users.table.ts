@@ -34,4 +34,10 @@ export interface UsersTable {
   >;
   /** `0029_account_erasure.sql`. Null unless a deletion scheduled erasure. */
   erase_after: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  /** `0029_account_erasure.sql`. When the person last deleted the account. */
+  self_deleted_at: ColumnType<
+    Date | null,
+    Date | null | undefined,
+    Date | null
+  >;
 }

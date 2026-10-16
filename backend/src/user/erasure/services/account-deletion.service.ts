@@ -76,6 +76,7 @@ export class AccountDeletionService {
     const eraseAfter = this.settings.eraseAfter(deletedAt);
     await this.store.recordIn(unitOfWork, {
       userId: account.id,
+      deletedAt,
       eraseAfter,
       ...(key && {
         receipt: {
