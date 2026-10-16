@@ -70,6 +70,11 @@ export interface AuthorizationCode {
   authenticationMethods: string[];
   /** False for a code approved before approvals stored it. */
   userVerified: boolean;
+  /**
+   * When the approving browser session signed in. Null for a code approved in
+   * the app, or before approvals stored it: its session takes its issue time.
+   */
+  authenticatedAt: Date | null;
   capturedUserVersion: number | null;
   capturedClientVersion: number | null;
   capturedGrantVersion: number | null;
@@ -91,6 +96,8 @@ export interface AuthorizationApproval {
   capturedClientVersion: number;
   authenticationMethods: string[];
   userVerified: boolean;
+  /** When the approving browser session signed in; null for an approval in the app. */
+  authenticatedAt: Date | null;
 }
 
 export interface AuthorizationDenialGuard {

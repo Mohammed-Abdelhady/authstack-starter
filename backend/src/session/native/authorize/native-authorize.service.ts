@@ -59,6 +59,13 @@ interface ApprovedAuthorization {
   grantVersion: number;
 }
 
+/** How the person proved who they are, kept on the code for its session. */
+interface ApprovalEvidence {
+  authenticationMethods: string[];
+  userVerified: boolean;
+  authenticatedAt: Date | null;
+}
+
 @Injectable()
 export class NativeAuthorizeService {
   constructor(
@@ -102,10 +109,16 @@ export class NativeAuthorizeService {
     );
   }
 
+  /**
+   * A signed-in browser approves the request. The mobile session takes
+   * `authenticatedAt`, when that browser session signed in, never the approval
+   * time. Without it the mobile session takes its own issue time.
+   */
   async approve(
     userId: string,
     transactionId: string,
     authenticationMethods: string[],
+    authenticatedAt?: Date,
   ): Promise<{ redirectUri: string }> {
     if (!this.authEpoch.nativeEnabled()) {
       throw new AppException(
@@ -127,7 +140,11 @@ export class NativeAuthorizeService {
             unitOfWork,
             userId,
             transactionId,
-            authenticationMethods,
+            {
+              authenticationMethods,
+              userVerified: false,
+              authenticatedAt: authenticatedAt ?? null,
+            },
             undefined,
             (value) => {
               clientId = value;
@@ -183,11 +200,16 @@ export class NativeAuthorizeService {
       expiresAt: addMs(now, AUTHORIZATION_CODE_LIFETIME_MS),
       authEpoch: attempt.authEpoch,
     });
+    // A sign-in in the app: the session takes its own issue time.
     const approved = await this.approveIn(
       unitOfWork,
       principal.userId,
       transactionId,
-      principal.authenticationMethods,
+      {
+        authenticationMethods: principal.authenticationMethods,
+        userVerified: principal.userVerified === true,
+        authenticatedAt: null,
+      },
       principal,
     );
     return {
@@ -221,7 +243,7 @@ export class NativeAuthorizeService {
     unitOfWork: UnitOfWork,
     userId: string,
     transactionId: string,
-    authenticationMethods: string[],
+    evidence: ApprovalEvidence,
     expected?: VerifiedNativeAccount,
     setClientId?: (clientId: string) => void,
   ): Promise<ApprovedAuthorization> {
@@ -285,8 +307,9 @@ export class NativeAuthorizeService {
       userId: account.id,
       capturedUserVersion: account.sessionVersion,
       capturedClientVersion: application.sessionVersion,
-      authenticationMethods: authenticationMethods.slice(0, 10),
-      userVerified: expected?.userVerified === true,
+      authenticationMethods: evidence.authenticationMethods.slice(0, 10),
+      userVerified: evidence.userVerified,
+      authenticatedAt: evidence.authenticatedAt,
     });
     if (claimed !== AUTHORIZATION_APPROVAL.APPROVED) {
       throw expiredTransaction();
