@@ -11,12 +11,14 @@ import { withPortDeadline } from '../runtime/deadlines';
 import { deviceKeyThumbprint } from '../proof/dpop-proof';
 import { DeviceKeyAuthError } from '../errors/errors';
 import { finishRestoreWithLaunchAddress } from '../sign-in/launch-address';
+import { digestInstallIdentity, recordMatches, transactionExpired } from './persistence';
+import { readStoredValue } from './envelope';
 import {
-  digestInstallIdentity,
-  parseStoredRecord,
-  recordMatches,
-  transactionExpired,
-} from './persistence';
+  drainPendingRevocations,
+  holdPendingRevocations,
+  recordEndedRevocation,
+} from './pending-revocations';
+import { PENDING_REVOCATION_END } from '../constants';
 import type { AuthRuntime } from '../runtime/runtime';
 import { saveSessionAfterUnlock } from './session-save';
 import type { RestoreOutcome } from '../types/auth';
@@ -30,6 +32,9 @@ export function createRestoreOperation(
 ) {
   const restore = (): Promise<RestoreOutcome> => {
     if (runtime.disposed) return Promise.resolve({ kind: 'disposed' });
+    // Each restore, the start and every return to the foreground, retries what
+    // waits on the server: there is no network signal, so this is the trigger.
+    void drainPendingRevocations(runtime).catch(() => undefined);
     if (runtime.restorePromise) return runtime.restorePromise;
     if (runtime.snapshot.status === SESSION_STATUS.SIGNED_IN && runtime.tokens) {
       const saving = saveSessionAfterUnlock(runtime);
@@ -160,6 +165,7 @@ export function createRestoreOperation(
       return { kind: 'storageBlocked', reason: stored.kind };
     }
     if (stored.kind === 'missing') {
+      holdPendingRevocations(runtime, []);
       runtime.record = undefined;
       runtime.tokens = undefined;
       runtime.setState(SESSION_STATUS.SIGNED_OUT, AUTH_OPERATION.NONE);
@@ -168,8 +174,24 @@ export function createRestoreOperation(
     if (stored.kind === 'corrupt') {
       return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);
     }
-    const record = parseStoredRecord(stored.value);
-    if (!record) return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);
+    // Pending revocations are read before any token, and never become a session.
+    const read = readStoredValue(stored.value);
+    if (read.kind === 'unsupported') {
+      recordEndedRevocation(runtime, PENDING_REVOCATION_END.UNSUPPORTED_VERSION);
+      holdPendingRevocations(runtime, []);
+      return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);
+    }
+    if (read.kind === 'unreadable')
+      return deleteInvalidRecord(runtime, epoch, AUTH_REASON.INVALID_RECORD);
+    holdPendingRevocations(runtime, read.pending);
+    if (read.pending.length > 0) void drainPendingRevocations(runtime).catch(() => undefined);
+    const record = read.session;
+    if (!record) {
+      runtime.record = undefined;
+      runtime.tokens = undefined;
+      runtime.setState(SESSION_STATUS.SIGNED_OUT, AUTH_OPERATION.NONE);
+      return finishRestoreWithLaunchAddress(runtime, signIn);
+    }
     if (!recordMatches(record, runtime.config, runtime.installDigest)) {
       const reason =
         record.installDigest === runtime.installDigest

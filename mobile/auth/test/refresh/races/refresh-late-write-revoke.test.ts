@@ -49,12 +49,17 @@ describe('late refresh write revocation', () => {
       );
     await rotationStarted.promise;
     const signOut = engine.signOut();
-    await revokeStarted.promise;
+    // The sign-out's write queues behind the rotated write, so its revoke follows the release.
     finishRotation.resolve();
+    await revokeStarted.promise;
     const [requestError, signOutResult] = await Promise.all([request, signOut]);
 
     expect(requestError).toBeInstanceOf(AuthSessionError);
     expect(signOutResult).toMatchObject({ kind: 'signedOut', revocation: 'revoked' });
-    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN, REFRESH_NEXT_TOKEN]);
+    // Revoking any token of a family ends the whole family, so the order is not a guarantee.
+    expect(revokedTokens(transport)).toHaveLength(2);
+    expect(revokedTokens(transport)).toEqual(
+      expect.arrayContaining([REFRESH_TOKEN, REFRESH_NEXT_TOKEN]),
+    );
   });
 });

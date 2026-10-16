@@ -17,12 +17,24 @@ export const COUNTER_OUTCOME = {
 export type CounterOutcome =
   (typeof COUNTER_OUTCOME)[keyof typeof COUNTER_OUTCOME];
 
+/**
+ * The relying party a read is about. Passkeys stored before the relying party
+ * was recorded carry none and belong to the web one, so a scope for that id
+ * takes them in as well.
+ */
+export interface RelyingPartyScope {
+  readonly rpId: string;
+  readonly includesUnmarked: boolean;
+}
+
 /** One WebAuthn credential. A write takes the record back. */
 export interface StoredPasskey {
   readonly id: string;
   readonly userId: string;
   /** Credential id as base64url. */
   readonly credentialId: string;
+  /** Absent on a passkey stored before the relying party was recorded. */
+  readonly rpId?: string;
   /** COSE public key exactly as the authenticator produced it. */
   readonly publicKey: Buffer;
   /** Signature count last reported. Zero for authenticators that do not count. */
@@ -37,6 +49,8 @@ export interface StoredPasskey {
 
 export interface NewPasskey {
   userId: string;
+  /** The relying party the authenticator registered the credential under. */
+  rpId: string;
   credentialId: string;
   publicKey: Buffer;
   counter: number;
@@ -57,17 +71,33 @@ export interface PasskeyDescriptor {
  * passkey, and every read of an account's passkeys is scoped to that account.
  */
 export abstract class PasskeyStore {
-  /** The credentials already on the account. */
+  /** The credentials already on the account, for every relying party. */
   abstract listDescriptors(
     userId: string,
     unitOfWork?: UnitOfWork,
   ): Promise<PasskeyDescriptor[]>;
+  /** The credentials already on the account for one relying party. */
+  abstract listDescriptorsFor(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]>;
+  /** How many passkeys the account holds for one relying party. */
+  abstract countForRelyingParty(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<number>;
   abstract isCredentialRegistered(credentialId: string): Promise<boolean>;
   /**
    * Stores a passkey that was never used. A credential id that is already
-   * stored is a `UniqueConflictError` named `passkey.credential_id`.
+   * stored is a `UniqueConflictError` named `passkey.credential_id`. Inside a
+   * unit of work it commits or aborts with the work.
    */
-  abstract insert(passkey: NewPasskey): Promise<StoredPasskey>;
+  abstract insert(
+    passkey: NewPasskey,
+    unitOfWork?: UnitOfWork,
+  ): Promise<StoredPasskey>;
 
   abstract findByCredentialId(
     credentialId: string,

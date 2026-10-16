@@ -13,6 +13,7 @@ import type {
   NativeSignInOutcome,
 } from './native-sign-in-actions';
 import type { PasskeyPort, ProviderSignInPort } from './passkey-port';
+import type { PasskeyActions } from './passkey-actions';
 import type { NativeMethods } from '@app/sdk';
 
 export type SessionStatus =
@@ -190,7 +191,9 @@ export type SignOutOutcome =
       kind: 'signedOut';
       revocation: RevocationOutcome;
       error?: Error | ApiError | OAuthError | TransportError | undefined;
-    };
+    }
+  /** The sign-out could not be saved, so nothing changed: the person is still signed in. */
+  | { kind: 'signOutNotSaved'; revocation?: undefined; error?: Error | undefined };
 
 /** `error` is what a request waiting on the same refresh would have rejected with. */
 export type RefreshOutcome =
@@ -211,6 +214,8 @@ export interface AuthEngine {
   signOut(): Promise<SignOutOutcome>;
   /** Refreshes now, sharing any refresh already running. */
   refresh(): Promise<RefreshOutcome>;
+  /** The signed-in account's passkeys, and making one on this device. */
+  readonly passkeys: PasskeyActions;
   dispose(): void;
 }
 

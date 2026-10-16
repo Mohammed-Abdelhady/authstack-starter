@@ -124,16 +124,91 @@ No provider registration or production credential is created by the generator.
 
 ## Passkeys
 
-Native passkeys use the existing relying party and enrolled credentials. Set
-`signIn.passkeys=true`, `signIn.rpId` and `signIn.origins` on the registered native
-application. Origins are exact HTTPS origins or Android origins in the form
-`android:apk-key-hash:` followed by the 43-character base64url SHA-256 certificate
-digest. Do not add native identities to the browser origin list.
+Set `signIn.passkeys=true`, `signIn.rpId` and `signIn.origins` on the registered
+native application. An application without `signIn.rpId` and `signIn.origins`
+makes no passkeys. The browser keeps its own relying party, `WEBAUTHN_RP_ID`.
 
-Set `MOBILE_PASSKEY_RP_ID` to the same relying party domain. The build plugin adds
-the iOS `webcredentials:` associated domain. Serve the matching Apple association
-file and Android Digital Asset Links for the installed application and signing
-certificate. Existing credentials remain bound to their original RP ID.
+```json
+"signIn": {
+  "passkeys": true,
+  "rpId": "example.com",
+  "origins": [
+    "https://example.com",
+    "android:apk-key-hash:YOUR_43_CHARACTER_BASE64URL_DIGEST"
+  ]
+}
+```
+
+### Relying party
+
+`signIn.rpId` is a bare domain, with no scheme, port or path. It can be the same
+as `WEBAUTHN_RP_ID` or a different domain. When it differs, passkeys made in the
+app belong to the app's relying party and passkeys made in the browser belong to
+the web one. Each is counted, offered at sign-in and removable only for its own
+relying party. See [a relying party for the mobile app](setup-passkeys.md#a-relying-party-for-the-mobile-app).
+
+Pick the relying party id once. Changing `signIn.rpId` orphans every passkey made
+for the old value, and those people have to register again through another
+sign-in method.
+
+Set `MOBILE_PASSKEY_RP_ID` to the same value as `signIn.rpId`. The app refuses
+registration options for any other relying party.
+
+### iOS associated domain
+
+The build plugin adds `webcredentials:` followed by `MOBILE_PASSKEY_RP_ID` to the
+iOS associated domains. Serve the Apple association file on that domain, listing
+the app's team and bundle identifier under `webcredentials`. Rebuild the app after
+changing the domain.
+
+### Android key hash origin
+
+On Android, the app's ceremonies report the origin `android:apk-key-hash:`
+followed by the SHA-256 digest of the app's signing certificate, encoded as
+base64url without padding. That is 43 characters. Take the digest from the
+certificate that signs the build you install: the debug and release certificates
+give different values, and so does a Play App Signing key. Add each one you use
+to `signIn.origins`. Serve Android Digital Asset Links on the relying party
+domain for the same package and certificate.
+
+### Origins match exactly
+
+Every entry in `signIn.origins` is either an exact HTTPS origin with no path, or
+an Android key hash origin. The backend refuses anything else at startup. At
+registration and sign-in an origin is accepted only when it equals an entry.
+A subdomain of the relying party, a sibling domain or another port does not
+match. Do not add native identities to `WEBAUTHN_ORIGIN`.
+
+### Making a passkey in the app
+
+The engine's `passkeys.register()` asks the server for options, opens the system
+prompt and sends the result to verify. It uses
+`/api/auth/native/passkeys/register/options` and `/register/verify` with the
+app's access token. See [register a passkey from the mobile app](setup-passkeys.md#register-a-passkey-from-the-mobile-app).
+
+- The person must have signed in within the last five minutes. Otherwise the
+  outcome is `signInAgain`: send them through sign-in, then call `register()`
+  again.
+- The app route always asks the authenticator to verify the user, and refuses a
+  passkey made without it.
+- The other outcomes are `created`, `cancelled`, `notSupported`,
+  `alreadyRegistered` and `failed`. `passkeys.available()` says whether this
+  device can make a passkey. Whether the account has one comes from
+  `passkeys.list()`.
+
+Listing, renaming and removing take the app's access token on the same routes
+the browser uses. A mobile access token on the browser registration routes gets
+`403 FORBIDDEN`.
+
+### Not verified
+
+- Android device builds: the Kotlin side of the passkey library and the key hash
+  origin have been typechecked and unit tested only.
+- A physical iPhone. The simulator covers the ceremony, not real secure hardware.
+- On iOS, `react-native-passkeys` 0.4.2 reports an authenticator that already
+  holds the account's passkey as an unknown error, so the outcome is `failed`
+  rather than `alreadyRegistered`. Android reports it correctly.
+
 See [passkey setup and enrollment](setup-passkeys.md) and the
 [native passkey bridge](https://github.com/peterferguson/react-native-passkeys).
 <!-- feature:passkeys:end -->

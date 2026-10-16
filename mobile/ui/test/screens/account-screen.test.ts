@@ -134,6 +134,20 @@ describe.each(LOCALES)('the account screen in %s', (locale) => {
     ]);
   });
 
+  it('keeps the person signed in and says so when the sign-out could not be saved', async () => {
+    const app = await renderApp(ADA, { locale });
+    app.fake.refuseSignOut();
+
+    await press(app.root, TEST_ID.ACCOUNT_SIGN_OUT);
+
+    expect(alerts(app)).toEqual([
+      [app.t('account.signOutFailed.title'), app.t('account.signOutFailed.description')],
+    ]);
+    expect(isShown(app.root, TEST_ID.ACCOUNT_SCREEN)).toBe(true);
+    expect(app.fake.engine.snapshot.status).toBe('signedIn');
+    expect(app.fake.signOuts).toBe(1);
+  });
+
   it('says the person is still signed in when the sign-out fails, and signs out on a retry', async () => {
     const app = await renderApp(ADA, { locale });
     app.fake.failSignOut(new Error('port crashed'));

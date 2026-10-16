@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 import { LOCALES, MESSAGES } from '../src/i18n/messages';
 import { createDebugTransport, type DebugTransport } from '../src/logic/debug-transport';
 import { STORAGE_WARNING_KEY, type StorageWarning } from '../src/logic/outcome-keys';
+import { describeAction, describeSignOut, render } from '../src/logic/outcome-text';
 import { resolveConfig } from '../src/logic/resolve-config';
 import { storageWarningAfter } from '../src/logic/storage-warning';
 
@@ -107,15 +108,39 @@ describe('which storage warning the screen shows, from what the engine did', () 
 
   it('says the saved record could not be deleted after a sign-out whose delete failed', async () => {
     const { engine, store, refreshesSent } = await signedIn();
+    await engine.signOut();
+    // With no session left, a sign-out only removes the record, and that delete is refused.
     store.writeFailure = IO_ERROR;
     const sentBefore = refreshesSent();
 
-    await engine.signOut();
+    const outcome = await engine.signOut();
 
+    expect(outcome).toMatchObject({ kind: 'signedOut', revocation: 'notNeeded' });
     expect(engine.snapshot).toMatchObject({ status: 'signedOut', warning: 'storageBlocked' });
     expect(storageWarningAfter(undefined, engine.snapshot, refreshesSent() > sentBefore)).toBe(
       'deleteFailed',
     );
+  });
+
+  it('keeps the person signed in and says storage failed when a sign-out cannot be saved', async () => {
+    const { engine, store, server, refreshesSent } = await signedIn();
+    store.writeFailure = IO_ERROR;
+    const sentBefore = refreshesSent();
+
+    const outcome = await engine.signOut();
+
+    // Nothing was written, so no warning says the person left or a delete failed.
+    expect(outcome.kind).toBe('signOutNotSaved');
+    expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
+    expect(engine.snapshot.warning).toBeUndefined();
+    expect(storageWarningAfter(undefined, engine.snapshot, refreshesSent() > sentBefore)).toBe(
+      undefined,
+    );
+    expect(server.revoked).toEqual([]);
+    const line = describeAction('signOut', describeSignOut(outcome));
+    expect(line).toEqual({ key: 'actionSignOut', value: { key: 'reasonStorageFailure' } });
+    for (const locale of LOCALES)
+      expect(render(locale, line)).toContain(MESSAGES[locale].reasonStorageFailure);
   });
 
   it('shows no warning for a refresh that was saved', async () => {

@@ -12,7 +12,8 @@ export const CHALLENGE_USE = {
 
 /**
  * How spending a challenge ended: this call spent it, or it was unknown,
- * spent before, issued for the other ceremony, or past its expiry.
+ * spent before, issued for the other ceremony, issued to another session, or
+ * past its expiry.
  */
 export type ChallengeUse = (typeof CHALLENGE_USE)[keyof typeof CHALLENGE_USE];
 
@@ -25,12 +26,16 @@ export interface NewPasskeyChallenge {
    * not have issued is left off rather than refused.
    */
   userId?: string;
+  /** Session a challenge was issued to, when only that session may spend it. */
+  sessionId?: string;
   expiresAt: Date;
 }
 
 export interface PasskeyChallengeKey {
   challengeHash: string;
   purpose: PasskeyChallengePurpose;
+  /** When given, a challenge issued to any other session is refused. */
+  sessionId?: string;
 }
 
 /**
@@ -42,8 +47,9 @@ export abstract class PasskeyChallengeStore {
   /** A challenge that is already stored is a `UniqueConflictError`. */
   abstract open(challenge: NewPasskeyChallenge): Promise<void>;
   /**
-   * Spends the challenge. A challenge whose expiry is at or before `now` is
-   * refused. Of two requests that arrive together, one spends it.
+   * Spends the challenge in one conditional write. A challenge whose expiry is
+   * at or before `now` is refused. Of two requests that arrive together, one
+   * spends it.
    */
   abstract consume(key: PasskeyChallengeKey, now: Date): Promise<ChallengeUse>;
 }

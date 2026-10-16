@@ -14,6 +14,7 @@ import {
   PostgresPasskeyStore,
 } from '../../src/auth/passkeys/persistence/postgres/postgres-passkey.store';
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
+import { withPasskeyColumns } from '../../src/auth/passkeys/persistence/postgres/postgres-passkey.tables';
 import { openTestConnection } from './postgres-connection';
 
 const AN_OBJECT_ID = '65f000000000000000000001';
@@ -80,10 +81,11 @@ export async function bootPostgresPasskeysHarness(): Promise<PasskeysContractHar
     },
 
     seedPasskey: async (passkey) => {
-      const row = await database
+      const row = await withPasskeyColumns(database)
         .insertInto('passkeys')
         .values({
           user_id: passkey.userId,
+          rp_id: passkey.rpId ?? null,
           credential_id: passkey.credentialId,
           public_key: Buffer.from([7, 7, 7]),
           counter: passkey.counter ?? 0,
@@ -114,6 +116,16 @@ export async function bootPostgresPasskeysHarness(): Promise<PasskeysContractHar
           name: row.name,
           lastUsedAt: row.last_used_at,
         }))
+        .sort(byCredentialId);
+    },
+
+    storedRelyingParties: async () => {
+      const rows = await withPasskeyColumns(database)
+        .selectFrom('passkeys')
+        .select(['credential_id', 'rp_id'])
+        .execute();
+      return rows
+        .map((row) => ({ credentialId: row.credential_id, rpId: row.rp_id }))
         .sort(byCredentialId);
     },
 

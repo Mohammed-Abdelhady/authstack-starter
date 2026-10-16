@@ -26,6 +26,8 @@ import {
   SignedInRequest,
 } from '../services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.verifier';
+import { PasskeyRecorder } from '../services/passkey-recorder.service';
+import { NoEnrolmentPromotion } from '../services/enrolment-promotion';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
 
@@ -68,6 +70,8 @@ export interface PasskeyServices {
   management: PasskeyManagementService;
   verifier: PasskeySecondFactorVerifier;
   challenge: PasskeyChallengeService;
+  /** The one write both registration routes store a passkey through. */
+  recorder: PasskeyRecorder;
   authenticator: ScriptedAuthenticator;
   signIn: RecordingSignIn;
   /** The rule every removal of a way in asks, on the same feature switches. */
@@ -139,6 +143,12 @@ export function passkeyServices(
     harness.signInMethods,
     featureSwitches,
   );
+  const recorder = new PasskeyRecorder(
+    passkeys,
+    accounts,
+    harness.runner(pause),
+    new NoEnrolmentPromotion(),
+  );
 
   return {
     registration: new PasskeyRegistrationService(
@@ -160,6 +170,7 @@ export function passkeyServices(
         partialMock<TwoFactorVerificationService>({}),
         // feature:totp:end
       ),
+      recorder,
     ),
     assertion,
     login: new PasskeyLoginService(accounts, assertion, signIn),
@@ -167,9 +178,11 @@ export function passkeyServices(
       passkeys,
       signInRule,
       harness.runner(pause),
+      passkeyConfig,
     ),
     verifier: new PasskeySecondFactorVerifier(featureSwitches, assertion),
     challenge,
+    recorder,
     authenticator,
     signIn,
     signInRule,
@@ -199,6 +212,7 @@ export function attestationOf(
     transports: ['internal', 'hybrid'],
     deviceType: 'multiDevice',
     backedUp: true,
+    userVerified: true,
   };
 }
 
@@ -206,10 +220,15 @@ export function attestationOf(
 export interface BrowserSession {
   id: string;
   createdAt: Date;
+  clientId: string;
 }
 
 /** A session that started at the frozen time, so it counts as a recent sign-in. */
-export const SESSION: BrowserSession = { id: 'session-one', createdAt: NOW };
+export const SESSION: BrowserSession = {
+  id: 'session-one',
+  createdAt: NOW,
+  clientId: 'contract-web',
+};
 
 /** One browser: the cookies it holds, and the request and response using them. */
 export interface Browser {
