@@ -3,6 +3,7 @@ import {
   ADMIN_CLIENT_ID,
   WEB_CLIENT_ID,
 } from '../../../../src/session/constants/client-ids';
+import { setConfigValue } from '../../config-settings';
 import {
   type ApplicationsHarnessSource,
   browserReconcilerOn,
@@ -33,7 +34,7 @@ export function applicationSessionLimitCases(
     async ({ clientId, absolute, idle }) => {
       const h = harness();
       const config = configuration();
-      config.set(`auth.${clientId}.session`, {
+      setConfigValue(config, `auth.${clientId}.session`, {
         absoluteHours: 3,
         idleMinutes: 7,
         cap: 2,
@@ -47,13 +48,13 @@ export function applicationSessionLimitCases(
         policyVersion: 0,
         sessionVersion: 0,
       });
-      config.set(`auth.${clientId}.session`, {
+      setConfigValue(config, `auth.${clientId}.session`, {
         absoluteHours: 4,
         idleMinutes: 8,
         cap: 3,
       });
       await reconcileBrowser.reconcile();
-      config.set(`auth.${clientId}.session`, undefined);
+      setConfigValue(config, `auth.${clientId}.session`, undefined);
       await reconcileBrowser.reconcile();
       const removed = await read();
       expect({
@@ -80,8 +81,8 @@ export function applicationSessionLimitCases(
   it('stores configured session policy when startup creates a browser row', async () => {
     const h = harness();
     const config = configuration();
-    config.set('server.nodeEnv', 'production');
-    config.set('auth.web.session', {
+    setConfigValue(config, 'server.nodeEnv', 'production');
+    setConfigValue(config, 'auth.web.session', {
       absoluteHours: 2,
       idleMinutes: 4,
       cap: 2,
@@ -103,7 +104,7 @@ export function applicationSessionLimitCases(
     const h = harness();
     const before = await registryOn(h).findByClientId(WEB_CLIENT_ID);
     const config = configuration();
-    config.set('auth.admin.session', {
+    setConfigValue(config, 'auth.admin.session', {
       absoluteHours: 8,
       idleMinutes: 16,
       cap: 5,
