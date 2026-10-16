@@ -136,6 +136,17 @@ describe('native first-party authority (e2e)', () => {
     );
   }
 
+  function refresh(refreshToken: string) {
+    return e2e.app.get(NativeTokenService).grant(
+      {
+        grant_type: 'refresh_token',
+        client_id: NATIVE_CLIENT_ID,
+        refresh_token: refreshToken,
+      },
+      NATIVE_META,
+    );
+  }
+
   /** Signs in with one first factor and reads the session its code was exchanged for. */
   async function issuedSession(factor: FirstFactor) {
     const { attempt, verifier } = await start();
@@ -189,8 +200,8 @@ describe('native first-party authority (e2e)', () => {
     expect(await e2e.state.sessions.countSessions()).toBe(0);
   });
 
-  // Failure: exchange loses the policy version or refresh rotates a session after its policy changed.
-  it('persists the issuing policy version and refuses stale refresh without rewriting the session', async () => {
+  // Failure: exchange drops the policy version, or refresh refuses a current one or takes a stale one.
+  it('persists the issuing policy version, refreshes under it and refuses stale refresh without rewriting the session', async () => {
     await storeNativePolicy(e2e, NATIVE_CLIENT_ID, 7);
     const { attempt, verifier } = await start();
     const completed = await complete(attempt);
@@ -200,27 +211,26 @@ describe('native first-party authority (e2e)', () => {
     const pair = await exchange(code, verifier);
     expect(pair.ok).toBe(true);
     if (!pair.ok) throw new Error('exchange failed');
-    const [credential] = await e2e.state.native.credentialsForTokens([
+    const [issued] = await e2e.state.native.credentialsForTokens([
       hashToken(pair.refreshToken),
     ]);
-    if (!credential) throw new Error('refresh credential missing');
+    if (!issued) throw new Error('refresh credential missing');
     const sessions = e2e.app.get(SessionValidator);
-    const original = await sessions.findById(credential.sessionId);
-    expect(original?.policyVersion).toBe(7);
+    expect((await sessions.findById(issued.sessionId))?.policyVersion).toBe(7);
     expect(
       (await e2e.app.get(ApplicationRegistry).findByClientId(NATIVE_CLIENT_ID))
         ?.policyVersion,
     ).toBe(7);
+    const rotated = await refresh(pair.refreshToken);
+    expect(rotated.ok).toBe(true);
+    if (!rotated.ok) throw new Error('refresh failed');
+    const [credential] = await e2e.state.native.credentialsForTokens([
+      hashToken(rotated.refreshToken),
+    ]);
+    if (!credential) throw new Error('rotated refresh credential missing');
+    const original = await sessions.findById(credential.sessionId);
     await storeNativePolicy(e2e, NATIVE_CLIENT_ID, 8);
-    const refresh = await e2e.app.get(NativeTokenService).grant(
-      {
-        grant_type: 'refresh_token',
-        client_id: NATIVE_CLIENT_ID,
-        refresh_token: pair.refreshToken,
-      },
-      NATIVE_META,
-    );
-    expect(refresh).toEqual({
+    expect(await refresh(rotated.refreshToken)).toEqual({
       ok: false,
       status: 400,
       error: 'invalid_grant',
@@ -228,10 +238,10 @@ describe('native first-party authority (e2e)', () => {
     expect(await sessions.findById(credential.sessionId)).toEqual(original);
     expect(
       await e2e.state.native.credentialsForTokens([
-        hashToken(pair.refreshToken),
+        hashToken(rotated.refreshToken),
       ]),
     ).toEqual([credential]);
-    expect(await e2e.state.native.credentialCount()).toBe(2);
+    expect(await e2e.state.native.credentialCount()).toBe(4);
   });
 
   // Failure: the user verification a passkey proved is lost before the session, or claimed without it.
