@@ -170,4 +170,17 @@ describe('local logical create operations', () => {
       'POST /api/admin/users',
     ]);
   });
+
+  // Mutation: areas/admin.ts settleWrite, turn a 5xx that send throws into an unknown outcome.
+  it('reports a create refused by the proof endpoint before dispatch as a plain refusal', async () => {
+    const io = network(refusal('INTERNAL_ERROR', 503));
+    const browser = createBrowserTransport({ fetch: io.fetch });
+    const failure: unknown = await createApiClient(browser)
+      .admin.accounts.create(BODY, { createOperationKey: () => 'refused-create-1' })
+      .catch((error: unknown) => error);
+
+    expect(isUnknownOutcomeError(failure)).toBe(false);
+    expect(failure).toMatchObject({ status: 503, code: 'INTERNAL_ERROR', unknownOutcome: false });
+    expect(io.sent.map(({ url, init }) => `${init.method} ${url}`)).toEqual(['GET /api/auth/csrf']);
+  });
 });
