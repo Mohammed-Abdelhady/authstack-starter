@@ -1,6 +1,7 @@
 import { PERMISSION_REGEX } from '../../../common/constants/permissions';
 import {
   ACTIVITY_DETAIL_FIELDS,
+  ACTIVITY_MAX_LIST_LENGTH,
   ACTIVITY_MAX_TEXT_LENGTH,
   SECURITY_EVENT_KIND,
 } from '../constants/activity-details';
@@ -12,7 +13,6 @@ import {
 
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.:@/-]{0,199}$/;
 const CHANGED_FIELDS = ['name', 'email'];
-const MAX_LIST_LENGTH = 100;
 
 function validListItem(shape: string, value: unknown): value is string {
   if (typeof value !== 'string') return false;
@@ -37,7 +37,8 @@ function validValue(shape: string, value: unknown): boolean {
       value.length <= ACTIVITY_MAX_TEXT_LENGTH &&
       PERMISSION_REGEX.test(value)
     );
-  if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) return false;
+  if (!Array.isArray(value) || value.length > ACTIVITY_MAX_LIST_LENGTH)
+    return false;
   for (let index = 0; index < value.length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, index);
     const item: unknown = descriptor?.value;
