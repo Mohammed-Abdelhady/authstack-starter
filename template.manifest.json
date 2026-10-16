@@ -453,6 +453,8 @@
         "backend/src/auth/native/lifecycle/native-recovery.controller.ts",
         "backend/src/auth/native/lifecycle/native-recovery.service.ts",
         "backend/test/native/lifecycle/native-registration.e2e-spec.ts",
+        "backend/test/native/lifecycle/native-registration-binding.e2e-spec.ts",
+        "backend/test/native/attempts/native-first-party-policy.e2e-spec.ts",
         "backend/test/native/lifecycle/native-recovery.e2e-spec.ts",
         "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
