@@ -63,7 +63,9 @@ export function routeTableProblems(coded, documented) {
       );
     }
     if (row.closedBy !== route.closedBy) {
-      problems.push(`${routeKey(route)} is closed by ${route.closedBy}, the document says ${row.closedBy}`);
+      problems.push(
+        `${routeKey(route)} is closed by ${route.closedBy}, the document says ${row.closedBy}`,
+      );
     }
   }
   for (const key of rows.keys()) {
@@ -135,7 +137,10 @@ test('a permission or a feature the check cannot name stops the run', () => {
     /no setting is known for feature SMS/,
   );
   const computed = `@Controller(PREFIX) export class X { @Get() read() {} }`;
-  assert.throws(() => controllerRoutes('x.controller.ts', computed, SETTINGS), /a path this check cannot read/);
+  assert.throws(
+    () => controllerRoutes('x.controller.ts', computed, SETTINGS),
+    /a path this check cannot read/,
+  );
 });
 
 test('the permission constants and the global prefix are read from source text', () => {
@@ -192,7 +197,10 @@ test('a route missing on either side is named, and so is another method on the s
     ],
   );
   assert.deepEqual(
-    routeTableProblems([route('PATCH', '/api/roles/:idOrSlug')], [route('PUT', '/api/roles/:idOrSlug')]),
+    routeTableProblems(
+      [route('PATCH', '/api/roles/:idOrSlug')],
+      [route('PUT', '/api/roles/:idOrSlug')],
+    ),
     [
       'PATCH /api/roles/:idOrSlug is served and not documented',
       'PUT /api/roles/:idOrSlug is documented and not served',
@@ -206,7 +214,9 @@ test('a route missing on either side is named, and so is another method on the s
 test('a wrong guard, a wrong switch and a repeated row are named', () => {
   const coded = [route('POST', '/api/user/password', ['Signed in'], 'AUTH_PASSWORD_ENABLED')];
   assert.deepEqual(
-    routeTableProblems(coded, [route('POST', '/api/user/password', ['Public'], 'AUTH_PASSWORD_ENABLED')]),
+    routeTableProblems(coded, [
+      route('POST', '/api/user/password', ['Public'], 'AUTH_PASSWORD_ENABLED'),
+    ]),
     ['POST /api/user/password needs Signed in, the document says Public'],
   );
   assert.deepEqual(routeTableProblems(coded, [route('POST', '/api/user/password')]), [
@@ -229,7 +239,9 @@ test('the documented routes are the routes the controllers serve', () => {
     permissions: permissionConstants(read(PERMISSIONS_FILE)),
     bootstrap: globalPrefix(read(BOOTSTRAP_FILE), read(HTTP_ROUTES_FILE)),
   };
-  const coded = controllerFiles(BACKEND_SOURCE).flatMap((file) => controllerRoutes(file, read(file), settings));
+  const coded = controllerFiles(BACKEND_SOURCE).flatMap((file) =>
+    controllerRoutes(file, read(file), settings),
+  );
   assert.ok(
     coded.some((entry) => routeKey(entry) === 'POST /api/auth/login'),
     'the controllers were not read',
