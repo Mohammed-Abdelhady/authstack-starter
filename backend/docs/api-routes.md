@@ -18,20 +18,21 @@ How to read the tables:
 
 ## Sign-in and account (`/api/auth`)
 
-| Method | Path                             | Who may call it | Closed by               | What it does                                                                                        |
-| ------ | -------------------------------- | --------------- | ----------------------- | --------------------------------------------------------------------------------------------------- |
-| GET    | `/api/auth/methods`              | Public          |                         | Lists the sign-in methods this server has turned on                                                 |
-| GET    | `/api/auth/identity`             | Public          |                         | Optional current identity. Signed-out browsers receive 200; invalid native credentials are refused. |
-| GET    | `/api/auth/browser-proof`        | Public          |                         | Issues the short-lived proof a browser sends before it has a session                                |
-| GET    | `/api/auth/csrf`                 | Signed in       |                         | Returns the CSRF secret of the current session                                                      |
-| POST   | `/api/auth/register`             | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                                                           |
-| POST   | `/api/auth/activate`             | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password                                           |
-| POST   | `/api/auth/resend-activation`    | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                                                            |
-| POST   | `/api/auth/login`                | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                                                    |
-| POST   | `/api/auth/forgot-password`      | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                                                 |
-| POST   | `/api/auth/reset-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                                                             |
-| POST   | `/api/auth/confirm-email-change` | Public          |                         | Moves the account to the address an administrator asked for                                         |
-| POST   | `/api/auth/logout`               | Signed in       |                         | Ends the current session and clears its cookie                                                      |
+| Method | Path                              | Who may call it | Closed by               | What it does                                                                                                   |
+| ------ | --------------------------------- | --------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/auth/methods`               | Public          |                         | Lists the sign-in methods this server has turned on                                                            |
+| GET    | `/api/auth/identity`              | Public          |                         | Optional current identity. Signed-out browsers receive 200; invalid native credentials are refused.            |
+| GET    | `/api/auth/browser-proof`         | Public          |                         | Issues the short-lived proof a browser sends before it has a session                                           |
+| GET    | `/api/auth/csrf`                  | Signed in       |                         | Returns the CSRF secret of the current session                                                                 |
+| POST   | `/api/auth/register`              | Public          | `AUTH_PASSWORD_ENABLED` | Starts a sign-up and mails a 6-digit code                                                                      |
+| POST   | `/api/auth/activate`              | Public          | `AUTH_PASSWORD_ENABLED` | Finishes the sign-up with the code, a name and a password                                                      |
+| POST   | `/api/auth/resend-activation`     | Public          | `AUTH_PASSWORD_ENABLED` | Mails a new sign-up code                                                                                       |
+| POST   | `/api/auth/login`                 | Public          | `AUTH_PASSWORD_ENABLED` | Signs in with email and password                                                                               |
+| POST   | `/api/auth/forgot-password`       | Public          | `AUTH_PASSWORD_ENABLED` | Mails a 6-digit password reset code                                                                            |
+| POST   | `/api/auth/reset-password`        | Public          | `AUTH_PASSWORD_ENABLED` | Sets a new password with the reset code                                                                        |
+| POST   | `/api/auth/confirm-email-change`  | Public          |                         | Moves the account to the address an administrator asked for                                                    |
+| POST   | `/api/auth/logout`                | Signed in       |                         | Ends the current session and clears its cookie                                                                 |
+| GET    | `/api/auth/account-deletion/:key` | Public          |                         | Answers `recorded`, `not_recorded` or `unknown` for the receipt key a deletion was sent with. Names no account |
 
 With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `404` along with the other password routes, and so does `POST /api/user/password` further down.
 
@@ -92,32 +93,41 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 
 ## Own profile and sessions (`/api/user`)
 
-| Method | Path                               | Who may call it | Closed by               | What it does                                       |
-| ------ | ---------------------------------- | --------------- | ----------------------- | -------------------------------------------------- |
-| GET    | `/api/user/profile`                | Signed in       |                         | Returns the signed-in account                      |
-| PATCH  | `/api/user/profile`                | Signed in       |                         | Updates the name or the mail language              |
-| POST   | `/api/user/password`               | Signed in       | `AUTH_PASSWORD_ENABLED` | Changes the password, given the current one        |
-| DELETE | `/api/user/account`                | Signed in       |                         | Deactivates the own account and ends its sessions  |
-| GET    | `/api/user/sessions`               | Signed in       |                         | Lists the active sessions of the account           |
-| DELETE | `/api/user/sessions/:sessionId`    | Signed in       |                         | Ends one other session. It refuses the current one |
-| POST   | `/api/user/sessions/revoke-others` | Signed in       |                         | Ends every session except the current one          |
+| Method | Path                               | Who may call it | Closed by               | What it does                                                                                 |
+| ------ | ---------------------------------- | --------------- | ----------------------- | -------------------------------------------------------------------------------------------- |
+| GET    | `/api/user/profile`                | Signed in       |                         | Returns the signed-in account                                                                |
+| PATCH  | `/api/user/profile`                | Signed in       |                         | Updates the name or the mail language                                                        |
+| POST   | `/api/user/password`               | Signed in       | `AUTH_PASSWORD_ENABLED` | Changes the password, given the current one                                                  |
+| DELETE | `/api/user/account`                | Signed in       |                         | Deactivates the own account and ends its sessions. Schedules its erasure while erasure is on |
+| GET    | `/api/user/sessions`               | Signed in       |                         | Lists the active sessions of the account                                                     |
+| DELETE | `/api/user/sessions/:sessionId`    | Signed in       |                         | Ends one other session. It refuses the current one                                           |
+| POST   | `/api/user/sessions/revoke-others` | Signed in       |                         | Ends every session except the current one                                                    |
 
 <!-- feature:oauth-core:start -->
 
 ## Linked providers (`/api/user`)
 
-| Method | Path                                  | Who may call it | Closed by | What it does                                           |
-| ------ | ------------------------------------- | --------------- | --------- | ------------------------------------------------------ |
-| GET    | `/api/user/linked-providers`          | Signed in       |           | Lists the sign-in methods on the account               |
-| DELETE | `/api/user/unlink-provider/:provider` | Signed in       |           | Unlinks a provider from the account                    |
-| POST   | `/api/user/set-primary-provider`      | Signed in       |           | Chooses the provider the profile is synced from        |
-| GET    | `/api/user/sync-status`               | Signed in       |           | Returns the last profile sync and the primary provider |
-| POST   | `/api/user/sync-profile`              | Signed in       |           | Syncs the profile from the primary provider now        |
-| POST   | `/api/user/link-provider`             | Signed in       |           | Removed. Always answers `410`                          |
+| Method | Path                                  | Who may call it | Closed by | What it does                                                                                |
+| ------ | ------------------------------------- | --------------- | --------- | ------------------------------------------------------------------------------------------- |
+| GET    | `/api/user/linked-providers`          | Signed in       |           | Lists the sign-in methods on the account                                                    |
+| DELETE | `/api/user/unlink-provider/:provider` | Signed in       |           | Unlinks a provider from the account                                                         |
+| POST   | `/api/user/set-primary-provider`      | Signed in       |           | Chooses the provider the profile is synced from                                             |
+| GET    | `/api/user/sync-status`               | Signed in       |           | Returns the last profile sync and the primary provider                                      |
+| POST   | `/api/user/sync-profile`              | Signed in       |           | Syncs the profile from the primary provider now                                             |
+| POST   | `/api/user/link-provider`             | Signed in       |           | Removed. Always answers `410`                                                               |
+| POST   | `/api/user/providers/link/start`      | Signed in       |           | Starts a link from a mobile app: a nonce bound to the account, the session and the provider |
+| POST   | `/api/user/providers/link/finish`     | Signed in       |           | Links the provider identity the proof made with that nonce names                            |
 
 To link a provider, fetch `POST /api/auth/oauth/:provider/start` with browser
 credentials and proof, then navigate to the returned provider URL. The retained
 GET navigation start always selects web.
+
+A mobile app links through `providers/link/start` and `providers/link/finish`
+instead. The start needs a sign-in from the last five minutes. The finish takes
+the proof the app's provider prompt made with the start's `nonceDigest` and
+`state`, once, within ten minutes, from the same session. Because the person
+proved both the account and the identity, the provider's address may differ
+from the account's; the browser flow keeps requiring the same address.
 
 <!-- feature:oauth-core:end -->
 
@@ -149,12 +159,21 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | POST   | `/api/admin/users/:id/permissions`             | `permissions:grant:all`  |           | Adds a direct permission                                 |
 | DELETE | `/api/admin/users/:id/permissions/:permission` | `permissions:revoke:all` |           | Removes a direct permission                              |
 
-| Method | Path                                       | Who may call it       | Closed by | What it does                                       |
-| ------ | ------------------------------------------ | --------------------- | --------- | -------------------------------------------------- |
-| GET    | `/api/admin/users/:id/sessions`            | `sessions:read:all`   |           | Lists the target account's active sessions         |
-| DELETE | `/api/admin/users/:id/sessions/:sessionId` | `sessions:delete:all` |           | Ends one target session                            |
-| POST   | `/api/admin/users/:id/sessions/revoke-all` | `sessions:delete:all` |           | Ends every target session                          |
-| GET    | `/api/admin/activity`                      | `activity:read:all`   |           | Lists retained staff activity, paged, with filters |
+| Method | Path                                       | Who may call it       | Closed by | What it does                                                           |
+| ------ | ------------------------------------------ | --------------------- | --------- | ---------------------------------------------------------------------- |
+| GET    | `/api/admin/users/:id/sessions`            | `sessions:read:all`   |           | Lists the target account's active sessions                             |
+| DELETE | `/api/admin/users/:id/sessions/:sessionId` | `sessions:delete:all` |           | Ends one target session                                                |
+| POST   | `/api/admin/users/:id/sessions/revoke-all` | `sessions:delete:all` |           | Ends every target session                                              |
+| GET    | `/api/admin/activity`                      | `activity:read:all`   |           | Lists retained staff activity, paged, with filters                     |
+| GET    | `/api/admin/erasure-jobs`                  | `users:delete:all`    |           | Lists erasures that have not finished and flagged provider revocations |
+
+<!-- feature:oauth-core:start -->
+
+| Method | Path                                            | Who may call it    | Closed by | What it does                                                    |
+| ------ | ----------------------------------------------- | ------------------ | --------- | --------------------------------------------------------------- |
+| POST   | `/api/admin/erasure-jobs/revocations/:id/close` | `users:delete:all` |           | Ends a pending provider revocation without calling the provider |
+
+<!-- feature:oauth-core:end -->
 
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
 
