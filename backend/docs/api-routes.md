@@ -174,6 +174,9 @@ A request over that limit is answered 403 with the code `FORBIDDEN`, and nothing
 These JSON routes reject browser cookies and Origin headers. They create no browser
 session. Routes containing `:attemptId` require its secret in `X-Native-Attempt`.
 Native sessions, the registered application and its selected methods must be enabled.
+For an application with `firstParty: true`, a step that would advance to consent returns
+the code exchange callback instead. An account outside the application's audience gets
+each step's wrong-credential answer.
 The application settings and SDK requirements are in [mobile setup](../../docs/setup/setup-mobile-sign-in.md).
 
 | Method | Path                                           | Who may call it | Closed by | What it does                                                                              |
