@@ -8,6 +8,7 @@ import { RoleSweepBootstrapService } from '../../../src/role/services/bootstrap/
 import { RoleEditService } from '../../../src/role/services/edit/role-edit.service';
 import { SecurityEventService } from '../../../src/session/persistence/mongo/security-event.service';
 import { UserDocument } from '../../../src/user/persistence/mongo/schemas/user.schema';
+import { testStaffMutationRules } from '../admin/staff-mutation-test-kit';
 
 /** The startup repair on the MongoDB adapter over the given models. */
 export function mongoRoleSweepBootstrap(
@@ -40,5 +41,6 @@ export function mongoRoleEdit(
     stores.changes,
     stores.sweeps,
     new AudiencePolicy(new ConfigService({})),
+    testStaffMutationRules(),
   );
 }

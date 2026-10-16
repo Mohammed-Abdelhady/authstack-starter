@@ -13,6 +13,8 @@ import {
   UnitOfWorkRunner,
 } from '../../../../../common/persistence/unit-of-work';
 import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
+import { StaffMutationRules } from '../../../../../admin/services/staff-mutations/staff-mutation-rules';
+import { testStaffMutationRules } from '../../../../../../test/utils/admin/staff-mutation-test-kit';
 
 const LEVELS: Record<string, number> = {
   user: 1,
@@ -129,6 +131,7 @@ describe('AdminPermissionsService (S-03)', () => {
     stubTarget(UserRole.USER);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: StaffMutationRules, useValue: testStaffMutationRules() },
         AdminPermissionsService,
         AdminUserAccessService,
         { provide: AdminAccountStore, useValue: mockAccountStore },

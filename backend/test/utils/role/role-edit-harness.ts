@@ -27,6 +27,8 @@ import {
   bootSessionAuthority,
   type SessionAuthorityHarness,
 } from '../session-authority-harness';
+import { StaffMutationRules } from '../../../src/admin/services/staff-mutations/staff-mutation-rules';
+import { testStaffMutationRules } from '../admin/staff-mutation-test-kit';
 
 export interface RoleEditHarness extends SessionAuthorityHarness {
   service: RoleService;
@@ -43,6 +45,7 @@ export async function bootRoleEdit(mongoUri: string): Promise<RoleEditHarness> {
   );
   const module: TestingModule = await Test.createTestingModule({
     providers: [
+      { provide: StaffMutationRules, useValue: testStaffMutationRules() },
       RoleService,
       RoleEditService,
       { provide: AudiencePolicy, useValue: harness.app.get(AudiencePolicy) },

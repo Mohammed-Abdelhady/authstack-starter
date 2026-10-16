@@ -9,6 +9,7 @@ import { RerunPause } from '../../src/common/persistence/unit-of-work';
 import { SecurityEventStore } from '../../src/session/events/security-event.store';
 import { AuthorityContractHarness } from '../utils/session/authority-contract/authority-contract-harness';
 import { rerunAtOnce } from '../utils/session/issuance-contract/issuance-contract-support';
+import { testStaffMutationPolicy } from '../utils/admin/staff-mutation-test-kit';
 
 export interface StaffSessionHarness {
   authority: AuthorityContractHarness;
@@ -37,6 +38,7 @@ export function staffSessionServices(
       new RoleHierarchyService(stores.catalog),
     ),
     stores.roles,
+    testStaffMutationPolicy(),
   );
   return {
     access,

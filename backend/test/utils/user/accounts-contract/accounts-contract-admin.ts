@@ -138,8 +138,9 @@ export function accountAdminCases(
     expect(stored.deletedAt).toBeInstanceOf(Date);
     expect(stored.sessionVersion).toBe(1);
     expect(await harness().liveSessionIds(userId)).toEqual([]);
+    // The status change is the staff record; its sign-out names no actor.
     expect(await revocationsOf(harness())).toEqual([
-      `${REVOKED_ALL} of ${userId} by ${managerId} (${ADMIN_FORCED})`,
+      `${REVOKED_ALL} of ${userId} by nobody (${ADMIN_FORCED})`,
     ]);
   });
 

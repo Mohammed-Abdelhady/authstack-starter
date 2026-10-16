@@ -30,6 +30,11 @@ import { UserPermissionsService } from '../../../../src/user/services/user-permi
 import { UserProfileService } from '../../../../src/user/services/user-profile.service';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { AccountsContractHarness } from './accounts-contract-harness';
+import { DisabledErasureLock } from '../../../../src/auth/contracts/defaults/disabled-erasure-lock';
+import {
+  testLastAdminGuard,
+  testStaffMutationRules,
+} from '../../admin/staff-mutation-test-kit';
 
 export type AccountsHarnessSource = () => AccountsContractHarness;
 
@@ -160,6 +165,7 @@ export function servicesOn(
       runner,
       harness.roleChanges,
       audiences,
+      testStaffMutationRules(),
     ),
     adminUsers: new AdminUsersService(
       harness.admin,
@@ -170,6 +176,9 @@ export function servicesOn(
       access,
       emailChanges,
       audiences,
+      testStaffMutationRules(),
+      new DisabledErasureLock(),
+      testLastAdminGuard(),
     ),
     adminCreate: new AdminUserCreateService(
       harness.admin,
@@ -182,6 +191,8 @@ export function servicesOn(
       harness.ledger,
       harness.clock,
       audiences,
+      testStaffMutationRules(),
+      harness.passwords,
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(
