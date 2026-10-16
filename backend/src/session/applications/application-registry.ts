@@ -1,4 +1,5 @@
 import { nativeSessionPolicy } from '../../config/utils/session-limit-config';
+import { refuseNativeRequiredPasskey } from '../../config/utils/refuse-native-required-passkey';
 import { Injectable } from '@nestjs/common';
 import {
   runLeavingFailuresAsRaised,
@@ -187,9 +188,21 @@ export class ApplicationRegistry {
    * are disabled. Nothing is stored unless all of it is.
    */
   async reconcileNativeApplications(): Promise<void> {
-    if (!this.authEpoch.nativeEnabled()) return;
+    if (!this.authEpoch.nativeEnabled()) {
+      await this.refuseStoredRequiredPasskey();
+      return;
+    }
     const environment = this.authEpoch.environment();
     const configured = this.authEpoch.nativeApplications();
+    // Configuration set after the environment was validated reaches here too.
+    for (const application of configured) {
+      if (application.requirePasskey === true) {
+        refuseNativeRequiredPasskey(
+          `${NATIVE_APPLICATIONS_CONFIG_VARIABLE} entry ${JSON.stringify(application.clientId)}`,
+        );
+      }
+    }
+    await this.refuseStoredRequiredPasskey();
     const configuredPolicies = configured.map((application) => ({
       application,
       policy: nativeSessionPolicy(
@@ -236,6 +249,21 @@ export class ApplicationRegistry {
         clientIds,
       );
     });
+  }
+
+  /**
+   * A requirement stored by another version is refused as well, whether or not
+   * its application is configured or enabled now.
+   */
+  private async refuseStoredRequiredPasskey(): Promise<void> {
+    const clientId = await this.store.findNativeRequiredPasskey(
+      this.authEpoch.environment(),
+    );
+    if (clientId !== null) {
+      refuseNativeRequiredPasskey(
+        `Stored native application ${JSON.stringify(clientId)}`,
+      );
+    }
   }
 
   private clientOrigin(): string {

@@ -1,3 +1,4 @@
+import { readMongoNativeRequiredPasskey } from './mongo-native-required-passkey';
 import { storeMongoBrowserRegistration } from './mongo-browser-registration';
 import type { BrowserRegistration } from '../../applications/types/browser-registration';
 import { Injectable } from '@nestjs/common';
@@ -51,6 +52,9 @@ export class MongoApplicationRegistryStore extends ApplicationRegistryStore {
   ) {
     super();
   }
+
+  findNativeRequiredPasskey = (environment: string) =>
+    readMongoNativeRequiredPasskey(this.applicationModel, environment);
 
   async hasAccountAudience(
     unitOfWork: UnitOfWork,
