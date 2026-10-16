@@ -171,4 +171,62 @@ describe('invitation credential safety', () => {
       requests.filter((request) => request === 'POST /api/auth/proof/code/verify'),
     ).toHaveLength(1);
   });
+
+  // Catches administrators being blocked from sending an invitation for the admin role.
+  it('lets an administrator select admin and sends that role in the create request', async () => {
+    const scrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: () => undefined,
+    });
+    try {
+      const adminRole = {
+        ...ROLE,
+        id: 'role-admin',
+        name: ACTOR.name,
+        slug: 'admin',
+        level: 100,
+        audience: 'staff',
+      };
+      const bodies: unknown[] = [];
+      stubNetwork(async (request, path) => {
+        if (path === '/api/roles')
+          return success({ roles: [ROLE, adminRole], total: 2, page: 1, pages: 1 });
+        if (path === '/api/auth/identity') return identitySuccess(ACTOR);
+        if (path === '/api/admin/invitations') {
+          bodies.push(await request.json());
+          return success({ ...INVITATION, role: 'admin' });
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      });
+      const store = makeStore();
+      store.dispatch(loginFulfilled(ACTOR));
+      const { message } = await renderForm('en', <InviteDialog />, store);
+      fireEvent.click(screen.getByRole('button', { name: message('invitations.invite') }));
+      const dialog = await screen.findByRole('dialog', { name: message('invitations.invite') });
+      fireEvent.change(
+        within(dialog).getByRole('textbox', { name: message('invitations.email') }),
+        {
+          target: { value: 'invitee@example.com' },
+        },
+      );
+      const role = within(dialog).getByRole('combobox', { name: message('invitations.role') });
+      await waitFor(() => expect(role.hasAttribute('disabled')).toBe(false));
+      fireEvent.keyDown(role, { key: 'Enter' });
+      fireEvent.keyDown(await screen.findByRole('option', { name: adminRole.name }), {
+        key: 'Enter',
+      });
+      fireEvent.click(within(dialog).getByRole('button', { name: message('invitations.invite') }));
+
+      await waitFor(() =>
+        expect(bodies).toEqual([{ email: 'invitee@example.com', role: 'admin', locale: 'en' }]),
+      );
+    } finally {
+      if (scrollIntoView) {
+        Object.defineProperty(Element.prototype, 'scrollIntoView', scrollIntoView);
+      } else {
+        Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+      }
+    }
+  });
 });
