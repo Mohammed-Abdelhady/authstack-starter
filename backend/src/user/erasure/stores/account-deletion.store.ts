@@ -31,4 +31,7 @@ export abstract class AccountDeletionStore {
 
   /** A committed read, for the public receipt route. */
   abstract findReceipt(keyHash: string): Promise<StoredDeletionReceipt | null>;
+
+  /** When a deactivated account is erased; null for any other account. */
+  abstract findEraseAfter(userId: string): Promise<Date | null>;
 }

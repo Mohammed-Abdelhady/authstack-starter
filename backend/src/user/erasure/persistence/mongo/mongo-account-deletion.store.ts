@@ -104,4 +104,17 @@ export class MongoAccountDeletionStore extends AccountDeletionStore {
   async findReceipt(keyHash: string): Promise<StoredDeletionReceipt | null> {
     return receiptOf(await this.receipts.findOne({ _id: keyHash }));
   }
+
+  async findEraseAfter(userId: string): Promise<Date | null> {
+    if (!ObjectId.isValid(userId)) throw new MalformedIdError();
+    const account = await this.db
+      .collection<{ _id: ObjectId; isDeleted?: boolean; eraseAfter?: Date }>(
+        'users',
+      )
+      .findOne(
+        { _id: new ObjectId(userId), isDeleted: true },
+        { projection: { eraseAfter: 1 } },
+      );
+    return account?.eraseAfter ?? null;
+  }
 }

@@ -87,4 +87,14 @@ export class PostgresAccountDeletionStore extends AccountDeletionStore {
   findReceipt(keyHash: string): Promise<StoredDeletionReceipt | null> {
     return receiptOf(this.database, keyHash);
   }
+
+  async findEraseAfter(userId: string): Promise<Date | null> {
+    const row = await this.database
+      .selectFrom('users')
+      .select('erase_after')
+      .where('id', '=', toUuid(userId))
+      .where('is_deleted', '=', true)
+      .executeTakeFirst();
+    return row?.erase_after ?? null;
+  }
 }
