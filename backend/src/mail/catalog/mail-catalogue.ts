@@ -1,3 +1,5 @@
+import type { InvitationMessages } from './en/invitation'; // feature:invitations
+import type { PasskeyResetMessages } from './en/passkey-reset'; // feature:invitations
 import type { SupportedLocale } from '../../common/constants/locales';
 import type { TextDirection } from '../types/mail-catalogue.types';
 import { AR_MAIL_CATALOGUE } from './ar'; // feature:locale-ar
@@ -25,6 +27,8 @@ export type MailCatalogue = {
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;
   readonly signInCode: SignInCodeMessages; // feature:email-code
+  readonly invitation: InvitationMessages; // feature:invitations
+  readonly passkeyReset: PasskeyResetMessages; // feature:invitations
 };
 
 type ByLocale<Value> = Readonly<Record<SupportedLocale, Value>>;
