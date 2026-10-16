@@ -1,6 +1,12 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OAuthFailureReason } from '../oauth.constants';
+import { OAUTH_HTTP_TIMEOUT_MS, OAuthFailureReason } from '../oauth.constants';
+import { REVOCATION_FAILURE } from '../provider-tokens/constants/provider-tokens.constants';
+import type {
+  RevocableProvider,
+  RevocationAttempt,
+} from '../provider-tokens/revocable-provider';
+import { ProviderTokenVault } from '../provider-tokens/services/provider-token-vault';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { BaseOAuthStrategy, joseCodeOf } from '../base-oauth.strategy';
@@ -23,7 +29,10 @@ import {
 
 const AUTH_URL = 'https://appleid.apple.com/auth/authorize';
 const TOKEN_URL = 'https://appleid.apple.com/auth/token';
+const REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
 const JWKS_URI = 'https://appleid.apple.com/auth/keys';
+/** Apple's answer for a token that no longer grants anything. */
+const ALREADY_INVALID = 'invalid_grant';
 const ISSUERS = ['https://appleid.apple.com'];
 const SCOPES = ['name', 'email'];
 
@@ -54,9 +63,15 @@ interface AppleSigningKey {
  * Apple posts the callback as a form because scopes are requested, and it sends
  * the user's name once, with the first authorization only. There is no userinfo
  * endpoint, so the profile comes from the id_token plus that one payload.
+ *
+ * Each exchange keeps the refresh token Apple returns, beside the client id that
+ * obtained it, so deleting the account or unlinking Apple can revoke it.
  */
 @Injectable()
-export class AppleOAuthStrategy extends BaseOAuthStrategy {
+export class AppleOAuthStrategy
+  extends BaseOAuthStrategy
+  implements RevocableProvider
+{
   readonly id = 'apple';
   readonly displayName = 'Apple';
   readonly supportsPkce = false;
@@ -65,7 +80,10 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
   readonly autoLinksByEmail = true;
   readonly callbackMethod: OAuthCallbackMethod = 'POST';
 
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    @Optional() private readonly tokens?: ProviderTokenVault,
+  ) {
     super(configService);
   }
 
@@ -113,7 +131,12 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
         : this.codeExchangeFailed(OAuthFailureReason.NO_ID_TOKEN);
     }
 
-    await this.verifyClaims(response.id_token, params.nonce);
+    const claims = await this.verifyClaims(response.id_token, params.nonce);
+    await this.tokens?.keep(
+      { provider: this.id, subject: claims.sub, clientId: this.clientId() },
+      response.refresh_token,
+      this,
+    );
 
     return {
       // Apple's access token only reaches the token revocation endpoint.
@@ -202,6 +225,11 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
       });
       if (confirmed.sub !== claims.sub)
         throw new Error('Apple identity subject changed');
+      await this.tokens?.keep(
+        { provider: this.id, subject: confirmed.sub, clientId: audience },
+        exchanged.refresh_token,
+        this,
+      );
       return nativeProfileFromClaims(claims);
     } catch (error) {
       if (error instanceof AppException) throw error;
@@ -209,6 +237,38 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
         joseCode: joseCodeOf(error),
       });
     }
+  }
+
+  /**
+   * Revokes a kept refresh token with the client id that obtained it. Apple
+   * answers a token that already grants nothing with `invalid_grant`, which
+   * leaves nothing to revoke and settles the job too.
+   */
+  async revokeProviderToken(request: {
+    token: string;
+    clientId: string;
+  }): Promise<RevocationAttempt> {
+    let clientSecret: string;
+    try {
+      clientSecret = await this.clientSecret(request.clientId);
+    } catch {
+      return { kind: 'failed', code: REVOCATION_FAILURE.PROVIDER_UNAVAILABLE };
+    }
+    const response = await fetch(REVOKE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: request.clientId,
+        client_secret: clientSecret,
+        token: request.token,
+        token_type_hint: 'refresh_token',
+      }).toString(),
+      signal: AbortSignal.timeout(OAUTH_HTTP_TIMEOUT_MS),
+    });
+    if (response.ok || (await appleErrorOf(response)) === ALREADY_INVALID) {
+      return { kind: 'revoked' };
+    }
+    return { kind: 'failed', code: REVOCATION_FAILURE.PROVIDER_REFUSED };
   }
 
   private async clientSecret(clientId = this.clientId()): Promise<string> {
@@ -255,5 +315,20 @@ export class AppleOAuthStrategy extends BaseOAuthStrategy {
       HttpStatus.SERVICE_UNAVAILABLE,
       { provider: this.id },
     );
+  }
+}
+
+/** Apple's `error` code from a refusal body, never its free text. */
+async function appleErrorOf(response: Response): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    return typeof body === 'object' &&
+      body !== null &&
+      'error' in body &&
+      typeof body.error === 'string'
+      ? body.error
+      : undefined;
+  } catch {
+    return undefined;
   }
 }
