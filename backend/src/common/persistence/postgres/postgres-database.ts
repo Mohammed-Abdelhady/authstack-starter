@@ -5,6 +5,17 @@ import { UsersTable } from '../../../user/persistence/postgres/postgres-users.ta
 import { NativeAttemptsTable } from '../../../auth/native/persistence/postgres/postgres-native-attempt.table';
 import { EmailCodesTable } from '../../../auth/persistence/postgres/postgres-email-code.table'; // feature:email-code
 import { SecurityEventsTable } from '../../../session/persistence/postgres/types/security-events.table';
+import {
+  AccountDeletionReceiptsTable,
+  ErasureJobsTable,
+} from '../../../user/erasure/persistence/postgres/postgres-erasure.tables';
+// feature:oauth-core:start
+import {
+  ProviderRevocationsTable,
+  ProviderTokensTable,
+} from '../../../auth/oauth/provider-tokens/persistence/postgres/postgres-provider-token.tables';
+import { ProviderLinkTicketsTable } from '../../../user/provider-link/persistence/postgres/postgres-provider-link.table';
+// feature:oauth-core:end
 import { ColumnType, Generated, Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { commitCheckedPool } from './postgres-commit-tag';
@@ -196,6 +207,11 @@ export interface PostgresTables {
   native_dpop_proof_ids: NativeDpopProofIdsTable;
   native_attempts: NativeAttemptsTable;
   email_codes: EmailCodesTable; // feature:email-code
+  erasure_jobs: ErasureJobsTable;
+  account_deletion_receipts: AccountDeletionReceiptsTable;
+  provider_tokens: ProviderTokensTable; // feature:oauth-core
+  provider_revocations: ProviderRevocationsTable; // feature:oauth-core
+  provider_link_tickets: ProviderLinkTicketsTable; // feature:oauth-core
 }
 
 /**

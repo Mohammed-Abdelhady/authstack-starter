@@ -67,6 +67,14 @@ export class User {
   @Prop()
   deletedAt?: Date;
 
+  /** Set by a deletion while erasure is on: when the worker may erase it. */
+  @Prop()
+  eraseAfter?: Date;
+
+  /** Written by erasure step 1 and by a restore, so the two conflict. */
+  @Prop({ type: Number, select: false })
+  erasureFence?: number;
+
   @Prop({ type: Number, default: 0 })
   sessionVersion!: number;
 
