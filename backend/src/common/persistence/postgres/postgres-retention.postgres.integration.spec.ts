@@ -232,6 +232,10 @@ describe('PostgreSQL retention', () => {
         native_dpop_proof_ids: 0,
         sessions: 0,
         security_events: 0,
+        erasure_jobs: 0,
+        account_deletion_receipts: 0,
+        provider_revocations: 0, // feature:oauth-core
+        provider_link_tickets: 0, // feature:oauth-core
       },
     );
   });
