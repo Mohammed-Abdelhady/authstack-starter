@@ -46,15 +46,28 @@ The hook must be safe to call twice for one account. A hook whose data lives in 
 database sets `runsInEraseTransaction` and runs inside the final transaction instead, so a
 failure there rolls the whole removal back.
 
-### Accounts deleted before erasure was turned on
+### Accounts deleted while erasure was off
 
-They keep no erasure date and stay deactivated. To erase them, run the schedule command once
-erasure is on; it gives every deactivated account without a date the grace period from now, or
-the time you pass:
+A person's own deletion marks the account with its time, even while erasure is off. Staff never
+mark one, and a later staff deactivation or restore moves the account away from its mark. These
+accounts keep no erasure date and stay deactivated. To erase them, run the schedule command once
+erasure is on. It gives every account its owner deleted, still deactivated and without a date,
+the grace period from now, or the time you pass with `--at`. An account staff deactivated is
+left alone:
 
 ```bash
 pnpm --filter backend exec ts-node -r tsconfig-paths/register src/user/erasure/cli/erasure-schedule.ts
 pnpm --filter backend exec ts-node -r tsconfig-paths/register src/user/erasure/cli/erasure-schedule.ts --at 2027-01-01T00:00:00Z
+```
+
+An account deleted before this version first ran carries no mark, and nothing tells its owner's
+deletion apart from a staff deactivation. To include those, pass `--deleted-before` with the time
+this version was first deployed. Every unmarked deactivated account deleted before that time is
+then dated too, the ones staff deactivated included. Review them first and restore the accounts
+staff only suspended:
+
+```bash
+pnpm --filter backend exec ts-node -r tsconfig-paths/register src/user/erasure/cli/erasure-schedule.ts --deleted-before 2026-11-01T00:00:00Z
 ```
 
 From a build, run `node dist/user/erasure/cli/erasure-schedule.js` in `backend/`.
