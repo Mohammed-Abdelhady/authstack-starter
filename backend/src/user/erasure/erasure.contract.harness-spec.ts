@@ -176,6 +176,41 @@ export function describeErasureContract(
       expect(await h.jobs.findDue(RETRY_AT, 10)).toEqual([user.id]);
       expect((await begin(user.id, 'worker-b'))?.job.id).toBe(first.job.id);
     });
+    it('reads step 3 facts only for an account still deactivated and due', async () => {
+      const restored = await h.seedAccount(
+        'restored@example.test',
+        false,
+        ERASURE_PAST,
+      );
+      const unscheduled = await h.seedAccount('unscheduled@example.test', true);
+      const later = await h.seedAccount(
+        'later@example.test',
+        true,
+        ERASURE_FUTURE,
+      );
+      const due = await account();
+      const read = (id: string) =>
+        h.runner.run((u) => h.eraser.readFactsIn(u, id, h.clock.now()));
+      expect(await read(restored.id)).toBeNull();
+      expect(await read(unscheduled.id)).toBeNull();
+      expect(await read(later.id)).toBeNull();
+      expect((await read(due.id))?.accountId).toBe(due.id);
+    });
+    it('withdraws an unfinished job so a restore goes on, and never a finished one', async () => {
+      const open = await account('open@example.test');
+      const done = await account('done@example.test');
+      const opened = await begun(open.id);
+      const finished = await begun(done.id);
+      await h.runner.run(async (u) => {
+        await h.jobs.finishIn(u, finished.job.id, TEST_NOW, PURGE_AT);
+        await h.jobs.withdrawIn(u, opened.job.id);
+        await h.jobs.withdrawIn(u, finished.job.id);
+      });
+      const standing = (id: string) =>
+        h.runner.run((u) => h.jobs.holdForRestoreIn(u, id));
+      expect(await standing(open.id)).toBe(ERASURE_STANDING.RESTORABLE);
+      expect(await standing(done.id)).toBe(ERASURE_STANDING.ERASING);
+    });
     it('finishes the persisted job once', async () => {
       const user = await account();
       const first = await begun(user.id);

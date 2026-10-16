@@ -47,7 +47,11 @@ export function describeErasureDataContract(
 ): void {
   async function erase(subject: ErasureAccount) {
     return get().runner.run(async (u) => {
-      const read = await get().eraser.readFactsIn(u, subject.id);
+      const read = await get().eraser.readFactsIn(
+        u,
+        subject.id,
+        get().clock.now(),
+      );
       if (!read) throw new Error('Account facts were missing');
       expect(read.onAccount).toEqual({
         address: subject.email,
@@ -118,7 +122,9 @@ export function describeErasureDataContract(
       ]),
     );
     expect(
-      await h.runner.run((u) => h.eraser.readFactsIn(u, mine.id)),
+      await h.runner.run((u) =>
+        h.eraser.readFactsIn(u, mine.id, h.clock.now()),
+      ),
     ).toBeNull();
   });
   it('releases the erased address for a new account with a different id', async () => {
