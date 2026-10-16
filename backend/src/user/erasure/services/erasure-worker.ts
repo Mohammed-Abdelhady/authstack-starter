@@ -227,11 +227,14 @@ export class ErasureWorker implements OnApplicationBootstrap, OnModuleDestroy {
       addresses: await this.ownAddresses(unitOfWork, read.accountId, onAccount),
     };
     if (this.hook.runsInEraseTransaction) {
-      await this.hook
-        .erase(begun.subject, unitOfWork)
-        .catch((error: unknown) => {
-          throw new HookFailedInTransaction(hookFailureCode(error));
-        });
+      // The addresses held now, with their claims locked, not those step 1 saw.
+      const subject = {
+        accountId: facts.accountId,
+        addresses: facts.addresses,
+      };
+      await this.hook.erase(subject, unitOfWork).catch((error: unknown) => {
+        throw new HookFailedInTransaction(hookFailureCode(error));
+      });
     }
     // feature:oauth-core:start
     await this.revocations.enqueueIn(unitOfWork, {
