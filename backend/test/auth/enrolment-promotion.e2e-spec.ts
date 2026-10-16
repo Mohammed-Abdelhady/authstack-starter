@@ -16,7 +16,6 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
-import { enrolmentCredentialFixture } from '../utils/session/enrolment-credential-fixture';
 import {
   bootEnrolmentApp,
   ENROLMENT_CREDENTIAL_ID,
@@ -89,16 +88,12 @@ describe('enrolment promotion on the real database', () => {
           .readCommittedSessionById(issued.session.id),
       ).toMatchObject({ isValid: false, revokedAt: e2e.clock.now() });
       expect(
-        await (
-          await enrolmentCredentialFixture(e2e.app)
-        ).revocationReason(issued.session.id),
+        await e2e.state.enrolment.revocationReason(issued.session.id),
       ).toBe('enrolment_promoted');
       expect(await sessionRevocations(e2e, issued.userId)).toEqual([
         { sessionId: issued.session.id, reasonCode: 'enrolment_promoted' },
       ]);
-      expect(
-        await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
-      ).toBe(1);
+      expect(await e2e.state.enrolment.count(issued.userId)).toBe(1);
       expect(
         await e2e.app.get(Sessions).getUserSessions(issued.userId),
       ).toHaveLength(1);
@@ -118,9 +113,7 @@ describe('enrolment promotion on the real database', () => {
           .get(SessionValidator)
           .validateByToken(issued.sessionToken, false, true),
       ).toBeNull();
-      expect(
-        await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
-      ).toBe(0);
+      expect(await e2e.state.enrolment.count(issued.userId)).toBe(0);
       expect(await e2e.state.sessions.countSessions()).toBe(1);
     },
   );
@@ -129,9 +122,7 @@ describe('enrolment promotion on the real database', () => {
     const issued = await issueEnrolment(e2e);
     const abort = new Error('Abort after promotion before commit');
     await expect(promoteEnrolment(e2e, issued, { abort })).rejects.toBe(abort);
-    expect(
-      await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
-    ).toBe(0);
+    expect(await e2e.state.enrolment.count(issued.userId)).toBe(0);
     expect(await e2e.state.sessions.countSessions()).toBe(1);
     const sessions = e2e.app.get(Sessions);
     expect(await sessions.getUserSessions(issued.userId)).toEqual([]);
@@ -151,9 +142,7 @@ describe('enrolment promotion on the real database', () => {
     await expect(promoteEnrolment(e2e, issued)).rejects.toMatchObject(
       INVALID_ENROLMENT,
     );
-    expect(
-      await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
-    ).toBe(0);
+    expect(await e2e.state.enrolment.count(issued.userId)).toBe(0);
     expect(await e2e.state.sessions.countSessions()).toBe(1);
     expect(
       await e2e.app.get(Sessions).validateBrowserSession(issued.sessionToken),
@@ -179,9 +168,7 @@ describe('enrolment promotion on the real database', () => {
       await expect(
         promoteEnrolment(e2e, issued, options),
       ).rejects.toMatchObject(INVALID_ENROLMENT);
-      expect(
-        await (await enrolmentCredentialFixture(e2e.app)).count(issued.userId),
-      ).toBe(0);
+      expect(await e2e.state.enrolment.count(issued.userId)).toBe(0);
       expect(await e2e.state.sessions.countSessions()).toBe(1);
       expect(
         await e2e.app.get(Sessions).validateBrowserSession(issued.sessionToken),

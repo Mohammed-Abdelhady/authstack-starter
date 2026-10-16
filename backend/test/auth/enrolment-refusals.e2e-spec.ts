@@ -10,7 +10,6 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
-import { enrolmentCredentialFixture } from '../utils/session/enrolment-credential-fixture';
 import {
   bootEnrolmentApp,
   issueEnrolment,
@@ -47,7 +46,7 @@ describe('enrolment issuance refusals', () => {
         code: 'PASSKEY_CHALLENGE_INVALID',
         status: 401,
       });
-      const stored = await enrolmentCredentialFixture(e2e.app);
+      const stored = e2e.state.enrolment;
       expect(await stored.count(issued.userId)).toBe(0);
       expect(await stored.count(otherId)).toBe(0);
       expect(await stored.revocationReason(issued.session.id)).toBeNull();
@@ -71,7 +70,7 @@ describe('enrolment issuance refusals', () => {
       code: 'PASSKEY_CHALLENGE_INVALID',
       status: 401,
     });
-    const stored = await enrolmentCredentialFixture(e2e.app);
+    const stored = e2e.state.enrolment;
     expect(await stored.count(issued.userId)).toBe(0);
     expect(await stored.revocationReason(issued.session.id)).toBeNull();
     expect(await stored.audienceRefusals(issued.userId)).toEqual([
@@ -97,7 +96,7 @@ describe('enrolment issuance refusals', () => {
       code: 'PASSKEY_CHALLENGE_INVALID',
       status: 401,
     });
-    const stored = await enrolmentCredentialFixture(e2e.app);
+    const stored = e2e.state.enrolment;
     expect(await stored.count(issued.userId)).toBe(0);
     expect(await stored.revocationReason(issued.session.id)).toBeNull();
     expect(

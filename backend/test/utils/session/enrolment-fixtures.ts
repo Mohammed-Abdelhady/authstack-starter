@@ -14,7 +14,6 @@ import { hashToken } from '../../../src/session/utils/hashing/token-hash';
 import { SEED_USER } from '../../constants/seed-users';
 import { ADMIN_ORIGIN } from '../audience-authorization.fixtures';
 import { bootE2eApp, E2E_CLIENT_URL, type E2eApp } from '../e2e-app';
-import { enrolmentCredentialFixture } from './enrolment-credential-fixture';
 import { storeBrowserPolicy } from './store-browser-policy';
 
 export const ENROLMENT_ORIGIN = E2E_CLIENT_URL;
@@ -92,7 +91,7 @@ export async function promoteEnrolment(
     credentialOwnerId?: string;
   } = {},
 ): Promise<PromotedEnrolmentSession | undefined> {
-  const credentials = await enrolmentCredentialFixture(e2e.app);
+  const credentials = e2e.state.enrolment;
   const promotion = e2e.app.get(EnrolmentPromotion);
   return promotion.withRefusalRecorded(() =>
     e2e.app.get(UnitOfWorkRunner).run(async (work) => {

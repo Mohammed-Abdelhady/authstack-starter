@@ -12,7 +12,6 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
-import { enrolmentCredentialFixture } from '../utils/session/enrolment-credential-fixture';
 import {
   bootEnrolmentApp,
   issueEnrolment,
@@ -79,11 +78,9 @@ describe('enrolment replacement', () => {
     expect(
       await sessions.validateBrowserSession(otherClient.sessionToken),
     ).not.toBeNull();
-    expect(
-      await (
-        await enrolmentCredentialFixture(e2e.app)
-      ).revocationReason(first.session.id),
-    ).toBe('enrolment_replaced');
+    expect(await e2e.state.enrolment.revocationReason(first.session.id)).toBe(
+      'enrolment_replaced',
+    );
     expect(await sessionRevocations(e2e, first.userId)).toEqual([
       { sessionId: first.session.id, reasonCode: 'enrolment_replaced' },
     ]);
@@ -112,9 +109,7 @@ describe('enrolment replacement', () => {
       await e2e.app.get(Sessions).validateBrowserSession(first.sessionToken),
     ).toMatchObject({ id: first.session.id });
     expect(
-      await (
-        await enrolmentCredentialFixture(e2e.app)
-      ).revocationReason(first.session.id),
+      await e2e.state.enrolment.revocationReason(first.session.id),
     ).toBeNull();
     expect(await sessionRevocations(e2e, first.userId)).toEqual([]);
   });
