@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AdminPermissionsService } from '../../../../services/roles/admin-permissions.service';
 import { AdminUserAccessService } from '../../../../services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../../services/users/admin-audience-scopes';
 import { AdminAccountStore } from '../../../../stores/admin-account.store';
+import { AudiencePolicy } from '../../../../../session/applications/audience-policy';
 import { RoleHierarchyService } from '../../../../../role/services/role-hierarchy.service';
 import { UserPermissionsService } from '../../../../../user/services/user-permissions.service';
 import { StoredAccount } from '../../../../../user/stores/stored-account';
@@ -131,6 +134,11 @@ describe('AdminPermissionsService (S-03)', () => {
       providers: [
         AdminPermissionsService,
         AdminUserAccessService,
+        AdminAudienceScopes,
+        {
+          provide: AudiencePolicy,
+          useValue: new AudiencePolicy(new ConfigService({})),
+        },
         { provide: AdminAccountStore, useValue: mockAccountStore },
         { provide: RoleHierarchyService, useValue: mockRoleHierarchyService },
         {

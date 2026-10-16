@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { AdminUserQueriesService } from '../../../../services/users/admin-user-queries.service';
 import { AdminUserAccessService } from '../../../../services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../../services/users/admin-audience-scopes';
+import { AudiencePolicy } from '../../../../../session/applications/audience-policy';
+import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
+import { partialMock } from '../../../../../common/testing/test-doubles.harness-spec';
 import { RoleHierarchyService } from '../../../../../role/services/role-hierarchy.service';
 import { User } from '../../../../../user/persistence/mongo/schemas/user.schema';
 import { UserRole } from '../../../../../user/enums/user-role.enum';
@@ -61,6 +66,14 @@ describe('AdminUserQueriesService', () => {
       providers: [
         AdminUserQueriesService,
         AdminUserAccessService,
+        {
+          provide: AdminAudienceScopes,
+          // With no audience configured the scopes never read the role store.
+          useValue: new AdminAudienceScopes(
+            new AudiencePolicy(new ConfigService({})),
+            partialMock<RoleChangeStore>(),
+          ),
+        },
         MONGO_ADMIN_ACCOUNT_STORE,
         { provide: getModelToken(Role.name), useValue: {} },
         { provide: getModelToken(User.name), useValue: mockUserModel },

@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { SecurityEventService } from '../../../../../session/persistence/mongo/security-event.service';
+import { AudiencePolicy } from '../../../../../session/applications/audience-policy';
 import { AdminUsersService } from '../../../../services/users/admin-users.service';
 import { AdminUserAccessService } from '../../../../services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../../services/users/admin-audience-scopes';
 import { AdminEmailChangeService } from '../../../../services/users/admin-email-change.service';
 import { RoleHierarchyService } from '../../../../../role/services/role-hierarchy.service';
 import { SessionService } from '../../../../../auth/persistence/mongo/session.service';
@@ -128,6 +131,11 @@ describe('AdminUsersService', () => {
       providers: [
         AdminUsersService,
         AdminUserAccessService,
+        AdminAudienceScopes,
+        {
+          provide: AudiencePolicy,
+          useValue: new AudiencePolicy(new ConfigService({})),
+        },
         MONGO_ADMIN_ACCOUNT_STORE,
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: RoleChangeStore, useClass: MongoRoleChangeStore },
