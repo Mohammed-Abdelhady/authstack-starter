@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
+import { applicationSecret } from '../../../src/session/utils/hashing/application-secret';
+import { NATIVE_CLIENT_ID } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { AccountProfileStore } from '../../../src/user/stores/account-profile.store';
 import {
@@ -80,7 +82,12 @@ describe('native registration lifecycle contract', () => {
       .digest('hex');
     expect(stored.details.emailCodeGenerationHash).toBe(generationHash);
     expect(stored.details.emailCodeGenerationHash).not.toBe(code);
-    expect(await bcrypt.compare(code, pending.hashedCode)).toBe(true);
+    expect(
+      await bcrypt.compare(
+        applicationSecret(code, NATIVE_CLIENT_ID),
+        pending.hashedCode,
+      ),
+    ).toBe(true);
 
     const activated = await activate(attempt, EMAIL, code).expect(200);
     expect(parseLifecycleResult(activated)).toMatchObject({
@@ -110,10 +117,12 @@ describe('native registration lifecycle contract', () => {
     expect(secondAttempt.details.emailCodeGenerationHash).not.toBe(
       firstAttempt.details.emailCodeGenerationHash,
     );
+    const pending = await e2e.state.auth.pendingRegistrationFor(EMAIL);
+    if (!pending) throw new Error('registration code was not persisted');
     expect(
       await bcrypt.compare(
-        secondCode,
-        (await e2e.state.auth.pendingRegistrationFor(EMAIL))!.hashedCode,
+        applicationSecret(secondCode, NATIVE_CLIENT_ID),
+        pending.hashedCode,
       ),
     ).toBe(true);
 
