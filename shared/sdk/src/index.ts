@@ -14,3 +14,5 @@ export * from './paths';
 export * from './types';
 export * from './client';
 export * from './areas/passkeys';
+export * from './browser-transport';
+export * from './areas/admin';
