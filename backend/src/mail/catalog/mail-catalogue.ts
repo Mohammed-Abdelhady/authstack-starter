@@ -11,6 +11,7 @@ import type { ProofCodeMessages } from './en/proof-code';
 import type { RegistrationNoticeMessages } from './en/registration-notice';
 import type { SecurityNoticeMessages } from './en/security-notice';
 import type { SignInCodeMessages } from './en/sign-in-code'; // feature:email-code
+import type { AccountErasureMessages } from './en/account-erasure';
 import { EN_MAIL_CATALOGUE } from './en';
 
 /** Every mail's messages in one language, keyed by mail name. */
@@ -25,6 +26,7 @@ export type MailCatalogue = {
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;
   readonly signInCode: SignInCodeMessages; // feature:email-code
+  readonly accountErasure: AccountErasureMessages;
 };
 
 type ByLocale<Value> = Readonly<Record<SupportedLocale, Value>>;
