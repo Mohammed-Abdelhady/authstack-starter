@@ -161,7 +161,7 @@ export class NativeEmailCodeService {
         creationMethod: ACCOUNT_CREATION_METHOD.EMAIL_CODE,
       },
     );
-    return this.attempts.view(completed);
+    return this.attempts.viewAfter(completed, secret);
   }
 
   /**

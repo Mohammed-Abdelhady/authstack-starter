@@ -10,12 +10,8 @@ import { NativeAuthorizeService } from '../../../session/native/authorize/native
 import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
 import { NativeAttemptStore } from '../stores/native-attempt.store';
 import type { NativeAttempt } from '../types/native-attempt';
-import { decryptCodeReply, encryptCodeReply } from '../utils/native-code-reply';
-import {
-  NativeAttemptService,
-  guardOf,
-  operationGuardOf,
-} from './native-attempt.service';
+import { NativeAttemptCompletionService } from './native-attempt-completion.service';
+import { NativeAttemptService, guardOf } from './native-attempt.service';
 
 @Injectable()
 export class NativeConsentService {
@@ -25,6 +21,7 @@ export class NativeConsentService {
     private readonly authorize: NativeAuthorizeService,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly completion: NativeAttemptCompletionService,
   ) {}
 
   async consent(attemptId: string, secret: string): Promise<NativeAttemptView> {
@@ -39,9 +36,9 @@ export class NativeConsentService {
     }
     const completed = await runLeavingFailuresAsRaised(
       this.runner,
-      async (unitOfWork) => {
+      async (work) => {
         const claimed = await this.attempts.claimIn(
-          unitOfWork,
+          work,
           guardOf(current),
           randomUUID(),
         );
@@ -52,38 +49,10 @@ export class NativeConsentService {
         ) {
           throw wrongStage();
         }
-        const approved = await this.authorize.approveVerifiedIn(
-          unitOfWork,
-          claimed,
-          claimed.details.verifiedAccount,
-        );
-        const reply = encryptCodeReply(
-          claimed,
-          secret,
-          approved.redirectUri,
-          approved.expiresAt,
-        );
-        const result = await this.attempts.transitionIn(
-          unitOfWork,
-          operationGuardOf(claimed),
-          {
-            phase: NATIVE_ATTEMPT_PHASE.CODE_READY,
-            expiresAt: claimed.expiresAt,
-            details: {
-              ...claimed.details,
-              verifiedAccount: {
-                ...claimed.details.verifiedAccount,
-                grantVersion: approved.grantVersion,
-              },
-              codeReply: reply,
-            },
-          },
-        );
-        if (!result) throw wrongStage();
-        return { result, redirectUri: approved.redirectUri };
+        return this.completion.sealCodeIn(work, claimed, secret);
       },
     );
-    return this.codeReady(completed.result, completed.redirectUri);
+    return this.completion.codeReadyView(completed, secret);
   }
 
   async resume(attemptId: string, secret: string): Promise<NativeAttemptView> {
@@ -111,29 +80,10 @@ export class NativeConsentService {
         HttpStatus.GONE,
       );
     }
-    await runLeavingFailuresAsRaised(this.runner, (unitOfWork) =>
-      this.authorize.assertVerifiedCurrentIn(unitOfWork, attempt, principal),
+    await runLeavingFailuresAsRaised(this.runner, (work) =>
+      this.authorize.assertVerifiedCurrentIn(work, attempt, principal),
     );
-    let redirectUri: string;
-    try {
-      redirectUri = decryptCodeReply(attempt, secret);
-    } catch {
-      throw wrongStage();
-    }
-    return this.codeReady(attempt, redirectUri);
-  }
-
-  private codeReady(
-    attempt: NativeAttempt,
-    redirectUri: string,
-  ): NativeAttemptView {
-    return {
-      attemptId: attempt.attemptId,
-      expiresAt: attempt.expiresAt.toISOString(),
-      stage: 'codeReady',
-      redirectUri,
-      activationCompleted: attempt.details.activationCompleted,
-    };
+    return this.completion.codeReadyView(attempt, secret);
   }
 }
 

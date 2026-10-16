@@ -89,15 +89,20 @@ export class NativeProviderService {
         claimed.clientId,
       );
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
-        this.attempts.completeFactorIn(work, claimed, {
-          userId: account.id,
-          userVersion: account.sessionVersion,
-          firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PROVIDER,
-          authenticationMethods: [`provider:${method.id}`],
-        }),
+        this.attempts.completeFactorIn(
+          work,
+          claimed,
+          {
+            userId: account.id,
+            userVersion: account.sessionVersion,
+            firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PROVIDER,
+            authenticationMethods: [`provider:${method.id}`],
+          },
+          secret,
+        ),
       );
       transitioned = true;
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } finally {
       if (!transitioned)
         await this.attempts.release(claimed).catch(() => undefined);
