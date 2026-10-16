@@ -1,6 +1,13 @@
 import type { UnitOfWork } from '../../common/persistence/unit-of-work';
 import type { StoredSession } from '../authority/session-authority.store';
 
+/** The relying party a promoted credential has to belong to. */
+export interface CredentialRelyingParty {
+  readonly rpId: string;
+  /** A credential stored without a relying party, before 0026, counts as this one. */
+  readonly includesUnmarked: boolean;
+}
+
 export abstract class EnrolmentStore {
   abstract readSessionIn(
     work: UnitOfWork,
@@ -12,6 +19,7 @@ export abstract class EnrolmentStore {
     _work: UnitOfWork,
     _userId: string,
     _credentialId: string,
+    _relyingParty: CredentialRelyingParty,
   ): Promise<boolean> {
     return Promise.resolve(false);
   }

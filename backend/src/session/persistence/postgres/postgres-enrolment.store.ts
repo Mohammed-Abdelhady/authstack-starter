@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
-import { EnrolmentStore } from '../../enrolment/enrolment.store';
+import {
+  type CredentialRelyingParty, // feature:passkeys
+  EnrolmentStore,
+} from '../../enrolment/enrolment.store';
 import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
 import { REVOKED_REASON } from '../../constants/revoked-reason';
 import {
@@ -9,6 +12,7 @@ import {
   toStoredSession,
 } from './postgres-session-rows';
 import { toUuid } from './postgres-issuance-mappers';
+import { withPasskeyColumns } from '../../../auth/passkeys/persistence/postgres/postgres-passkey.tables'; // feature:passkeys
 
 @Injectable()
 export class PostgresEnrolmentStore extends EnrolmentStore {
@@ -17,12 +21,21 @@ export class PostgresEnrolmentStore extends EnrolmentStore {
     work: UnitOfWork,
     userId: string,
     credentialId: string,
+    relyingParty: CredentialRelyingParty,
   ): Promise<boolean> {
-    const credential = await postgresTransactionOf(work)
+    const credential = await withPasskeyColumns(postgresTransactionOf(work))
       .selectFrom('passkeys')
       .select('id')
       .where('user_id', '=', toUuid(userId))
       .where('credential_id', '=', credentialId)
+      .where((where) =>
+        relyingParty.includesUnmarked
+          ? where.or([
+              where('rp_id', '=', relyingParty.rpId),
+              where('rp_id', 'is', null),
+            ])
+          : where('rp_id', '=', relyingParty.rpId),
+      )
       .executeTakeFirst();
     return credential !== undefined;
   }

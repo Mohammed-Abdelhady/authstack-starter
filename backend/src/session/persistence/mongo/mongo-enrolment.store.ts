@@ -6,7 +6,10 @@ import type { Connection } from 'mongoose';
 // feature:passkeys:end
 import type { Model } from 'mongoose';
 import type { UnitOfWork } from '../../../common/persistence/unit-of-work';
-import { EnrolmentStore } from '../../enrolment/enrolment.store';
+import {
+  type CredentialRelyingParty, // feature:passkeys
+  EnrolmentStore,
+} from '../../enrolment/enrolment.store';
 import { CREDENTIAL_PURPOSE } from '../../constants/credential-purpose';
 import { REVOKED_REASON } from '../../constants/revoked-reason';
 import { mongoSessionOf } from './mongo-unit-of-work';
@@ -31,13 +34,18 @@ export class MongoEnrolmentStore extends EnrolmentStore {
     work: UnitOfWork,
     userId: string,
     credentialId: string,
+    relyingParty: CredentialRelyingParty,
   ): Promise<boolean> {
-    const credential = await this.connection
-      .collection('passkeys')
-      .findOne(
-        { user: toObjectId(userId), credentialId },
-        { session: mongoSessionOf(work), projection: { _id: 1 } },
-      );
+    const credential = await this.connection.collection('passkeys').findOne(
+      {
+        user: toObjectId(userId),
+        credentialId,
+        ...(relyingParty.includesUnmarked
+          ? { $or: [{ rpId: { $eq: relyingParty.rpId } }, { rpId: null }] }
+          : { rpId: { $eq: relyingParty.rpId } }),
+      },
+      { session: mongoSessionOf(work), projection: { _id: 1 } },
+    );
     return credential !== null;
   }
   // feature:passkeys:end

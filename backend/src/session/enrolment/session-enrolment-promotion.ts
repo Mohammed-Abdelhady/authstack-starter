@@ -10,6 +10,8 @@ import type { IssuancePolicy } from '../../auth/contracts/types/application-poli
 import type { StoredSession } from '../authority/session-authority.store';
 import { ApplicationPolicyReader } from '../../auth/contracts/application-policy';
 import { FIRST_FACTOR } from '../../auth/services/sessions/first-factor';
+import { PasskeyConfigService } from '../../auth/passkeys/services/passkey-config.service';
+import { relyingPartyScope } from '../../auth/passkeys/utils/relying-party.util';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { MalformedIdError } from '../../common/persistence/persistence-errors';
@@ -45,6 +47,7 @@ export class SessionEnrolmentPromotion extends EnrolmentPromotion {
     private readonly clock: Clock,
     private readonly epoch: AuthEpochService,
     private readonly events: EventRecorder,
+    private readonly passkeys: PasskeyConfigService,
   ) {
     super();
   }
@@ -118,6 +121,7 @@ export class SessionEnrolmentPromotion extends EnrolmentPromotion {
         work,
         input.userId,
         input.proof.credentialId,
+        relyingPartyScope(input.proof.rpId, this.passkeys.rpId),
       ))
     ) {
       throw invalidEnrolment();
