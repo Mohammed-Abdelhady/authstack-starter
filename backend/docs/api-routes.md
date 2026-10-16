@@ -75,6 +75,38 @@ With `AUTH_PASSWORD_ENABLED=false`, `activate` and `resend-activation` answer `4
 | DELETE | `/api/auth/passkeys/:id`              | Signed in       | `PASSKEYS_ENABLED` | Removes a passkey                                                                          |
 
 <!-- feature:passkeys:end -->
+
+## Fresh proof (`/api/auth/proof`)
+
+| Method | Path                          | Who may call it | Closed by | What it does                                                |
+| ------ | ----------------------------- | --------------- | --------- | ----------------------------------------------------------- |
+| POST   | `/api/auth/proof/code`        | Signed in       |           | Mails a proof code to the signed-in account's own address   |
+| POST   | `/api/auth/proof/code/verify` | Signed in       |           | Records a proof on the current session from the mailed code |
+
+<!-- feature:passkeys:start -->
+
+| Method | Path                      | Who may call it | Closed by          | What it does                                                   |
+| ------ | ------------------------- | --------------- | ------------------ | -------------------------------------------------------------- |
+| POST   | `/api/auth/proof/options` | Signed in       | `PASSKEYS_ENABLED` | Returns the options for a passkey check of the current session |
+| POST   | `/api/auth/proof/verify`  | Signed in       | `PASSKEYS_ENABLED` | Records a proof on the current session from a verified passkey |
+
+<!-- feature:passkeys:end -->
+
+These routes take a full browser session. A proof belongs to the session that made it, counts for five minutes, and never signs anyone in or changes the session id. Where the application requires a passkey only the passkey check counts, made with user verification, and the code route answers `403 FEATURE_DISABLED`. A wrong or expired code answers `401 EMAIL_CODE_INVALID`, and five wrong codes end that code.
+
+A staff route that needs a proof answers `401 REAUTH_REQUIRED` with `details.required` set to `fresh_proof` and `details.methods` naming what would satisfy it.
+
+<!-- feature:invitations:start -->
+
+## Invitations (`/api/auth/invitations`)
+
+| Method | Path                           | Who may call it | Closed by | What it does                                                             |
+| ------ | ------------------------------ | --------------- | --------- | ------------------------------------------------------------------------ |
+| POST   | `/api/auth/invitations/accept` | Public          |           | Spends an invitation or enrolment link, creates the account, signs it in |
+
+The token travels in the mailed link's fragment, and the page posts it only when the person presses Accept. An unknown, used, revoked or expired token answers `400 INVITATION_INVALID`, and so does an invitation whose role, audience or inviter's authority changed since it was sent. Where the invitation's application requires a passkey, the session is a 15-minute enrolment session.
+
+<!-- feature:invitations:end -->
 <!-- feature:oauth-core:start -->
 
 ## Sign-in with a provider (`/api/auth/oauth`)
@@ -142,7 +174,7 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | GET    | `/api/admin/users/:id`                         | `users:read:all`         |           | Returns one account                                      |
 | PATCH  | `/api/admin/users/:id`                         | `users:update:all`       |           | Changes the name, or asks for an email                   |
 | POST   | `/api/admin/users/:id/resend-email-change`     | `users:update:all`       |           | Mails the code for the email that waits again            |
-| PATCH  | `/api/admin/users/:id/status`                  | `users:update:all`       |           | Activates or deactivates the account                     |
+| PATCH  | `/api/admin/users/:id/status`                  | `users:suspend:all`      |           | Suspends or restores the account                         |
 | PATCH  | `/api/admin/users/:id/role`                    | `users:update:all`       |           | Assigns a role                                           |
 | DELETE | `/api/admin/users/:id`                         | `users:delete:all`       |           | Deactivates the account and ends its sessions. See below |
 | GET    | `/api/admin/users/:id/permissions`             | `permissions:read:all`   |           | Lists the permissions of the account                     |
@@ -155,6 +187,27 @@ A role name takes Latin letters, digits, spaces and hyphens, and is 2 to 50 char
 | DELETE | `/api/admin/users/:id/sessions/:sessionId` | `sessions:delete:all` |           | Ends one target session                            |
 | POST   | `/api/admin/users/:id/sessions/revoke-all` | `sessions:delete:all` |           | Ends every target session                          |
 | GET    | `/api/admin/activity`                      | `activity:read:all`   |           | Lists retained staff activity, paged, with filters |
+
+<!-- feature:invitations:start -->
+
+| Method | Path                                | Who may call it    | Closed by | What it does                                           |
+| ------ | ----------------------------------- | ------------------ | --------- | ------------------------------------------------------ |
+| GET    | `/api/admin/invitations`            | `users:list:all`   |           | Lists invitations, paged, by status                    |
+| POST   | `/api/admin/invitations`            | `users:create:all` |           | Invites an address to a role and mails the link        |
+| POST   | `/api/admin/invitations/:id/resend` | `users:create:all` |           | Replaces the invitation's token and mails the new link |
+| DELETE | `/api/admin/invitations/:id`        | `users:create:all` |           | Revokes an invitation and frees its address            |
+
+<!-- feature:passkeys:start -->
+
+| Method | Path                                 | Who may call it    | Closed by          | What it does                                                     |
+| ------ | ------------------------------------ | ------------------ | ------------------ | ---------------------------------------------------------------- |
+| POST   | `/api/admin/users/:id/passkey-reset` | `users:update:all` | `PASSKEYS_ENABLED` | Removes the passkeys, ends the sessions, mails an enrolment link |
+
+<!-- feature:passkeys:end -->
+
+A staff role also needs the `:staff` permission of the same action. Inviting an administrator, and resetting another administrator's passkeys, need an administrator with a fresh proof. See `docs/setup/setup-invitations.md`.
+
+<!-- feature:invitations:end -->
 
 `DELETE /api/admin/users/:id` deactivates the account. It does not remove the record, and `PATCH /api/admin/users/:id/status` can activate the account again. The routes that change an account refuse one at or above the caller's own role level.
 
