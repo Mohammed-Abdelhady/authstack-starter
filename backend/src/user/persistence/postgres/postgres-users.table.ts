@@ -32,4 +32,6 @@ export interface UsersTable {
     RoleAudience | null | undefined,
     RoleAudience | null
   >;
+  /** `0029_account_erasure.sql`. Null unless a deletion scheduled erasure. */
+  erase_after: ColumnType<Date | null, Date | null | undefined, Date | null>;
 }
