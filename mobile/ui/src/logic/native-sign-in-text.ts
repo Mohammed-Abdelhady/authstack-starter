@@ -11,6 +11,8 @@ const OUTCOME_MESSAGE: Record<NativeSignInOutcome['kind'], MessageKey | undefine
   unavailable: 'native.unavailable',
   busy: undefined,
   invalidInput: 'native.invalidInput',
+  codeRefused: 'native.codeRefused', // feature:email-code
+  codeAttemptEnded: 'native.codeAttemptEnded', // feature:email-code
   storageFailure: 'signIn.failed.storage',
   apiFailure: 'native.refused',
   transportFailure: 'common.offline',

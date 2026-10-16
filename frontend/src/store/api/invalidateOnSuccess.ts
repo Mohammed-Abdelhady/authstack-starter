@@ -63,6 +63,9 @@ function httpStatusOf(error: unknown): number | undefined {
 
 /** True when the request or answer was lost, or the server itself failed. */
 function outcomeUnknown(error: unknown): boolean {
+  if (typeof error === 'object' && error !== null && 'unknownOutcome' in error) {
+    if (typeof error.unknownOutcome === 'boolean') return error.unknownOutcome;
+  }
   const status = httpStatusOf(error);
   return status === undefined || status >= SERVER_ERROR_STATUS_MIN;
 }

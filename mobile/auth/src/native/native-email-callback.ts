@@ -8,6 +8,18 @@ interface NativeEmailCallback {
   state: string;
 }
 
+type ParsedAddress = NonNullable<ReturnType<typeof parseUri>>;
+
+/**
+ * The link's values, in the query or after `#`, never in both. A mail that puts them after `#`
+ * keeps them out of a web server's log when the link opens in a browser instead of the app.
+ */
+function callbackValues(address: string, actual: ParsedAddress): string | undefined {
+  if (!actual.hasFragment) return actual.query;
+  if (actual.hasQuery) return undefined;
+  return address.slice(address.indexOf('#') + 1);
+}
+
 export function parseNativeEmailCallback(
   address: string,
   runtime: AuthRuntime,
@@ -17,7 +29,7 @@ export function parseNativeEmailCallback(
   if (!transaction || !native || address.length > MAX_CALLBACK_LENGTH) return undefined;
   const expected = parseUri(transaction.returnAddress);
   const actual = parseUri(address);
-  if (!expected || !actual || actual.hasUserInfo || actual.hasFragment) return undefined;
+  if (!expected || !actual || actual.hasUserInfo) return undefined;
   if (
     actual.scheme !== expected.scheme ||
     actual.host !== expected.host ||
@@ -26,9 +38,11 @@ export function parseNativeEmailCallback(
     actual.hasAuthority !== expected.hasAuthority
   )
     return undefined;
+  const parameters = callbackValues(address, actual);
+  if (parameters === undefined) return undefined;
   const values = new Map<string, string>();
   try {
-    for (const pair of actual.query.split('&')) {
+    for (const pair of parameters.split('&')) {
       const separator = pair.indexOf('=');
       const key = decodeURIComponent(
         (separator < 0 ? pair : pair.slice(0, separator)).replace(/\+/g, ' '),

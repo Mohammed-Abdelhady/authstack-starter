@@ -83,3 +83,73 @@ The generic reply ("If an account exists, a code has been sent") on every
 address request, and no mail while the cap or the lock is in force. The owner
 cannot tell the cap apart from a missing account, by design. Once the window
 rolls over, register or resend mails a fresh code again.
+
+<!-- feature:email-code:start -->
+
+## Sign-in codes for native apps
+
+A sign-in code belongs to one native attempt, never to an address. Its wrong
+guesses are counted on that attempt's row. The fifth wrong guess spends the
+code and ends the attempt. It never locks the address and never touches
+another attempt, so a new attempt for the same address works at once. A resend
+on the same attempt keeps the count it has. Cleanup keeps the row until the
+attempt ends, not the code, so a code that expired while its attempt lives
+leaves the attempt's wrong guesses in place for the next code.
+
+| Limit                            | Value                              | Where                                        |
+| -------------------------------- | ---------------------------------- | -------------------------------------------- |
+| Sign-in mails per address        | 5 per hour                         | `magicLink.maxPerHour`, shared with the link |
+| Wrong guesses per attempt        | 5, then the attempt ends           | `EMAIL_CODE_GUESS_LIMIT`                     |
+| Code lifetime                    | 10 minutes, never past the attempt | `EMAIL_CODE_EXPIRES_IN`                      |
+| Per-caller requests and verifies | see `common/constants/throttle.ts` | `@Throttle`                                  |
+
+One mail carries both the code and the link, so they share one counter. A
+request over the limit, or for an unknown address while sign-up is closed,
+mails nothing and stores its code already spent, so no guess can match it. A
+deactivated account is mailed like any other, and only its right code is
+answered with `FORBIDDEN` instead of a sign-in. The reply to the request is the
+same in every case.
+
+What an attacker can still do: knowing only an address, someone can request
+codes for it until the hourly limit is reached. For the rest of that hour the
+owner's own requests mail nothing, by code or by link. Each mailed code allows
+at most five guesses, so a window holds at most 25 guesses against 900,000
+codes. Password, passkey and provider sign-in are not affected, and the owner
+can sign in again by code once the hour rolls over. The plan accepts this
+residual denial of service.
+
+Those guesses add up across windows, and nothing caps the wrong guesses at one
+address or account. Someone who keeps the hourly limit full gets 25 guesses an
+hour, 600 a day, for as long as they keep going. One caller is enough, because
+the per-caller throttles allow five requests and ten verifies in fifteen
+minutes, and starting an attempt falls under the default limit of 60 requests a
+minute. Against 900,000 codes that is about a 0.067% chance a day of signing in
+as the account, about 2% over 30 days and about 22% over a year. The owner's
+own code and link mails stay blocked the whole time, and the owner receives
+every code the attacker asks for, five an hour, which is the only sign of the
+attack. NIST SP 800-63B, section 5.2.2, caps consecutive failed attempts on one
+account at 100, and these limits do not meet that. This is a known residual
+risk. A ceiling on wrong guesses per address, for example 100 in a UTC day,
+after which new codes for the address are stored already spent, would close
+it. That is for the plan owner to decide.
+
+Delivery has no durable queue. The server answers first and sends the mail in
+the same process afterwards, trying up to three times in a row. If every try
+fails, or the server stops or restarts before the send finishes, the mail is
+lost and nothing sends it later. The reply still looked like success, so the
+person sees no error and asks again, which costs one of the five mails in the
+window.
+
+### Access for store reviewers
+
+With the four `EMAIL_CODE_REVIEW_*` settings, one customer account takes a
+fixed code on one application and is mailed nothing. A fixed code can be
+guessed from any number of attempts, so its wrong guesses also count on the
+account for the UTC day. The fifth one of the day switches review access off
+until the next day and records `email_code_review_locked`. After that even the
+right fixed code is refused, and the address is mailed codes like any other.
+Each attempt still ends after five wrong guesses of its own, and each review
+request still takes one of the address's five mails an hour, so a request past
+that limit stores the fixed code already spent.
+
+<!-- feature:email-code:end -->

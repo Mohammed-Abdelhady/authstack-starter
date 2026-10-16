@@ -13,6 +13,7 @@ const REQUESTS: AccountCreationRequest[] = [
   { application: 'native-client', method: ACCOUNT_CREATION_METHOD.MAGIC_LINK },
   { application: WEB_CLIENT_ID, method: ACCOUNT_CREATION_METHOD.PROVIDER },
   { application: null, method: ACCOUNT_CREATION_METHOD.STAFF },
+  { application: 'native-client', method: ACCOUNT_CREATION_METHOD.EMAIL_CODE }, // feature:email-code
 ];
 
 describe('account creation policy contract', () => {
@@ -22,6 +23,7 @@ describe('account creation policy contract', () => {
       MAGIC_LINK: 'magic_link',
       PROVIDER: 'provider',
       STAFF: 'staff',
+      EMAIL_CODE: 'email_code', // feature:email-code
     });
   });
 

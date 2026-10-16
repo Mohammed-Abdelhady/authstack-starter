@@ -6,6 +6,7 @@ Authentication starter with a NestJS 11 backend, a Next.js 16 frontend and React
 
 - Email and password registration with a 6-digit verification code sent by email
 - Magic link sign-in sent by email <!-- feature:magic-link -->
+- Sign-in codes sent by email to native apps <!-- feature:email-code -->
 - Two-factor authentication (TOTP) with single-use recovery codes <!-- feature:totp -->
 - Passkey (WebAuthn) registration and authentication <!-- feature:passkeys -->
 - 12 OAuth providers plus generic OIDC
@@ -42,6 +43,7 @@ At runtime, the frontend calls `GET /api/auth/methods` to learn which authentica
 | ------------------- | --------------------- | ------------------------------------------------------ |
 | Email and password  | Credential            | [SMTP setup](docs/setup/setup-smtp.md)                 | <!-- feature:email-password --> |
 | Magic link          | Passwordless          | [Magic link setup](docs/setup/setup-magic-link.md)     | <!-- feature:magic-link -->     |
+| Email code          | Passwordless, native  | [Email code setup](docs/setup/setup-email-code.md)     | <!-- feature:email-code -->     |
 | Two-factor (TOTP)   | Second factor         | [Two-factor setup](docs/setup/setup-two-factor.md)     | <!-- feature:totp -->           |
 | Passkeys (WebAuthn) | Credential / 2FA      | [Passkey setup](docs/setup/setup-passkeys.md)          | <!-- feature:passkeys -->       |
 | Google              | OAuth 2.0             | [Google setup](docs/setup/setup-google-oauth.md)       | <!-- feature:google -->         |
@@ -189,6 +191,7 @@ Endpoints:
 | `OAUTH_GITHUB_CLIENT_ID`, `OAUTH_GITHUB_CLIENT_SECRET`, `OAUTH_GITHUB_CALLBACK_URL`, `NEXT_PUBLIC_GITHUB_CLIENT_ID`                                                                                                                                                                    | GitHub configuration. See its setup guide.               | `backend/.env.example` and `frontend/.env.example` | <!-- feature:github -->                    |
 | `OAUTH_FACEBOOK_CLIENT_ID`, `OAUTH_FACEBOOK_CLIENT_SECRET`, `OAUTH_FACEBOOK_CALLBACK_URL`, `NEXT_PUBLIC_FACEBOOK_APP_ID`                                                                                                                                                               | Facebook configuration. See its setup guide.             | `backend/.env.example` and `frontend/.env.example` | <!-- feature:facebook -->                  |
 | `MAGIC_LINK_ENABLED`, `MAGIC_LINK_EXPIRES_IN`, `MAGIC_LINK_MAX_PER_HOUR`                                                                                                                                                                                                               | Magic link configuration. See its setup guide.           | `backend/.env.example` and `frontend/.env.example` | <!-- feature:magic-link -->                |
+| `EMAIL_CODE_ENABLED`, `EMAIL_CODE_EXPIRES_IN`, `EMAIL_CODE_REVIEW_ACCOUNT_ID`, `EMAIL_CODE_REVIEW_CLIENT_ID`, `EMAIL_CODE_REVIEW_CODE_HASH`, `EMAIL_CODE_REVIEW_UNTIL`                                                                                                                 | Email code configuration. See its setup guide.           | `backend/.env.example`                             | <!-- feature:email-code -->                |
 | `TWO_FACTOR_ENABLED`                                                                                                                                                                                                                                                                   | TOTP two-factor configuration. See its setup guide.      | `backend/.env.example` and `frontend/.env.example` | <!-- feature:totp -->                      |
 | `PASSKEYS_ENABLED`, `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`                                                                                                                                                                                                            | Passkeys configuration. See its setup guide.             | `backend/.env.example` and `frontend/.env.example` | <!-- feature:passkeys -->                  |
 | `OAUTH_MICROSOFT_CLIENT_ID`, `OAUTH_MICROSOFT_CLIENT_SECRET`, `OAUTH_MICROSOFT_CALLBACK_URL`, `OAUTH_MICROSOFT_TENANT`                                                                                                                                                                 | Microsoft configuration. See its setup guide.            | `backend/.env.example` and `frontend/.env.example` | <!-- feature:microsoft -->                 |

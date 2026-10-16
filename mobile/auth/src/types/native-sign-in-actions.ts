@@ -37,6 +37,8 @@ export type NativeSignInAction =
   | { kind: 'secondFactor'; input: NativeSecondFactorInput }
   | { kind: 'requestEmailLink'; email: string }
   | { kind: 'verifyEmailLink'; token: string; state: string }
+  | { kind: 'requestEmailCode'; email: string; locale?: NativeSignInLocale } // feature:email-code
+  | { kind: 'verifyEmailCode'; code: string; locale?: NativeSignInLocale } // feature:email-code
   | { kind: 'register'; email: string }
   | { kind: 'activate'; input: NativeActivationInput }
   | { kind: 'requestRecovery'; email: string }
@@ -53,6 +55,12 @@ export type NativeSignInOutcome =
   | { kind: 'unavailable' }
   | { kind: 'busy' }
   | { kind: 'invalidInput' }
+  // feature:email-code:start
+  /** The attempt still waits for a code: this one was wrong, expired or already spent. */
+  | { kind: 'codeRefused' }
+  /** The server ended the attempt after too many refused codes. A new attempt works at once. */
+  | { kind: 'codeAttemptEnded' }
+  // feature:email-code:end
   | { kind: 'storageFailure' }
   | { kind: 'apiFailure' }
   | { kind: 'transportFailure' }
