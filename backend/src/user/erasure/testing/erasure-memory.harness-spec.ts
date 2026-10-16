@@ -183,6 +183,13 @@ export class MemoryErasureJobStore extends ErasureJobStore {
     return Promise.resolve(true);
   }
 
+  withdrawIn(_unitOfWork: UnitOfWork, jobId: string): Promise<void> {
+    const job = this.world.jobById(jobId);
+    if (job && job.step !== ERASURE_STEP.ERASED)
+      this.world.jobs.delete(job.userId);
+    return Promise.resolve();
+  }
+
   holdForRestoreIn(
     _unitOfWork: UnitOfWork,
     userId: string,
@@ -223,19 +230,24 @@ export class MemoryAccountEraser extends AccountEraser {
     return this.removals.map((facts) => facts.accountId);
   }
 
-  readFactsIn(_unitOfWork: UnitOfWork, userId: string) {
+  readFactsIn(_unitOfWork: UnitOfWork, userId: string, now: Date) {
     const account = this.world.accounts.get(userId);
-    const read: AccountErasureRead | null = account
-      ? {
-          accountId: userId,
-          onAccount: {
-            address: account.address,
-            pendingAddress: account.pendingAddress,
-          },
-          sessionIds: [],
-          identities: [...account.identities],
-        }
-      : null;
+    const due =
+      account?.isDeleted === true &&
+      account.eraseAfter !== null &&
+      account.eraseAfter <= now;
+    const read: AccountErasureRead | null =
+      account && due
+        ? {
+            accountId: userId,
+            onAccount: {
+              address: account.address,
+              pendingAddress: account.pendingAddress,
+            },
+            sessionIds: [],
+            identities: [...account.identities],
+          }
+        : null;
     return Promise.resolve(read);
   }
 

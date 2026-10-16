@@ -210,6 +210,23 @@ describe('the erasure worker', () => {
     });
   });
 
+  it('erases nothing and withdraws the job when a restore lands after step 1', async () => {
+    const { world, hook, eraser, worker } = setUp();
+    // A restore that did not take the erasure lock commits while the hook runs.
+    jest.spyOn(hook, 'erase').mockImplementationOnce(() => {
+      const account = world.accounts.get(ACCOUNT);
+      if (account)
+        Object.assign(account, { isDeleted: false, eraseAfter: null });
+      return Promise.resolve();
+    });
+
+    await worker.runOnce();
+
+    expect(eraser.erased).toEqual([]);
+    expect(world.accounts.get(ACCOUNT)?.isDeleted).toBe(false);
+    expect(world.jobOf(ACCOUNT)).toBeUndefined();
+  });
+
   it('calls an in-transaction hook inside the removal, and a failure there erases nothing', async () => {
     const { world, hook, eraser, worker } = setUp({ inTransaction: true });
     hook.failure = new Error('host table locked');
