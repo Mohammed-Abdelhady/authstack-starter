@@ -159,7 +159,9 @@ describe('application admission policy validation', () => {
   });
 
   // feature:passkeys:start
-  it('accepts closed native staff with an available required passkey', () => {
+  // Failure: a native application requires a passkey that nothing holds its
+  // sign-ins to, so password, code and provider sign-ins still get tokens.
+  it('refuses closed native staff with an otherwise available required passkey', () => {
     const raw = JSON.stringify([
       {
         ...NATIVE_APPLICATION,
@@ -173,12 +175,14 @@ describe('application admission policy validation', () => {
         },
       },
     ]);
-    expect(
+    expect(() =>
       validateEnvironment({
         ...NATIVE_POLICY_ENV,
         AUTH_NATIVE_APPLICATIONS: raw,
-      }).AUTH_NATIVE_APPLICATIONS,
-    ).toBe(raw);
+      }),
+    ).toThrow(
+      'AUTH_NATIVE_APPLICATIONS entry "mobile": requirePasskey=true is not available for a native application',
+    );
   });
   // feature:passkeys:end
 

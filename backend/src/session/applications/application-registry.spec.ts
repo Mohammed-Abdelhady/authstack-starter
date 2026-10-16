@@ -18,9 +18,13 @@ const NATIVE_ENTRY = {
   allowedScopes: ['api'],
 };
 
-function reconciledWith(applications: NativeApplicationConfiguration[]) {
+function reconciledWith(
+  applications: NativeApplicationConfiguration[],
+  storedRequirement: string | null = null,
+) {
   const stored: NativeRegistration[] = [];
   const store = partialMock<ApplicationRegistryStore>({
+    findNativeRequiredPasskey: () => Promise.resolve(storedRequirement),
     takeRegistrations: () => Promise.resolve([]),
     storeNativeRegistration: (_work, registration) => {
       stored.push(registration);
@@ -68,5 +72,33 @@ describe('native application reconciliation', () => {
       { clientId: 'shop', signUp: 'closed', accountAudience: 'customer' },
       { clientId: 'plain', signUp: 'open', accountAudience: null },
     ]);
+  });
+});
+
+// Failure: a native application requires a passkey that nothing holds its
+// sign-ins to, so password, code and provider sign-ins still get tokens.
+describe('a native application that requires a passkey', () => {
+  it('is refused from configuration set after validation, before anything is stored', async () => {
+    const { registry, stored } = reconciledWith([
+      { ...NATIVE_ENTRY, clientId: 'plain' },
+      { ...NATIVE_ENTRY, clientId: 'shop', requirePasskey: true },
+    ]);
+
+    await expect(registry.reconcileNativeApplications()).rejects.toThrow(
+      'AUTH_NATIVE_APPLICATIONS entry "shop": requirePasskey=true is not available',
+    );
+    expect(stored).toEqual([]);
+  });
+
+  it('is refused when another version stored it', async () => {
+    const { registry, stored } = reconciledWith(
+      [{ ...NATIVE_ENTRY, clientId: 'plain' }],
+      'retired',
+    );
+
+    await expect(registry.reconcileNativeApplications()).rejects.toThrow(
+      'Stored native application "retired": requirePasskey=true is not available',
+    );
+    expect(stored).toEqual([]);
   });
 });
