@@ -127,3 +127,42 @@ export const REVOKE_OUTCOME = {
   FAILED: 'failed',
   TIMED_OUT: 'timedOut',
 } as const;
+
+/**
+ * The stored value, once a sign-out waits on the server: the session fields
+ * (when there is a session), plus this version and the pending revocations.
+ * A value without `version` is the earlier format and reads as a session alone.
+ */
+export const CREDENTIAL_ENVELOPE_VERSION = 1;
+
+/** Attempts to revoke a signed-out token before it is dropped. */
+export const PENDING_REVOCATION_MAX_ATTEMPTS = 6;
+
+/** Wait before the next attempt, after the first, second, ... failed one. The last repeats. */
+export const PENDING_REVOCATION_RETRY_DELAYS_MS = [
+  30_000, 120_000, 600_000, 1_800_000, 3_600_000,
+] as const;
+
+/** Why a pending revocation left storage. */
+export const PENDING_REVOCATION_END = {
+  REVOKED: 'revoked',
+  DEVICE_KEY_GONE: 'deviceKeyGone',
+  ATTEMPT_LIMIT: 'attemptLimit',
+  OTHER_APPLICATION: 'otherApplication',
+  UNSUPPORTED_VERSION: 'unsupportedVersion',
+  UNREADABLE: 'unreadable',
+  /** A newer sign-out needed the room and this one was the oldest. */
+  CAPACITY: 'capacity',
+} as const;
+
+/** Most revocations one stored value may hold; more is read as unreadable. */
+export const PENDING_REVOCATION_MAX_ENTRIES = 8;
+
+/** Longest refresh token a pending revocation may hold. */
+export const PENDING_REVOCATION_MAX_TOKEN_LENGTH = 4096;
+
+/** Longest address, environment, client, digest, lineage or thumbprint it may hold. */
+export const PENDING_REVOCATION_MAX_IDENTIFIER_LENGTH = 512;
+
+/** Ended revocations remembered by one engine; the oldest goes first. */
+export const PENDING_REVOCATION_ENDED_HISTORY = 16;

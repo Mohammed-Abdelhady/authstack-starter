@@ -145,6 +145,7 @@ const REFRESH: Samples<RefreshOutcome> = {
 const SIGN_OUT: Samples<SignOutOutcome> = {
   disposed: { outcome: { kind: 'disposed' }, key: 'engineDisposed' },
   signedOut: { outcome: { kind: 'signedOut', revocation: 'revoked' }, key: 'signOutSignedOut' },
+  signOutNotSaved: { outcome: { kind: 'signOutNotSaved' }, key: 'reasonStorageFailure' },
 };
 
 interface Line {
@@ -183,8 +184,8 @@ const ACTION_KEYS: Record<string, MessageKey> = {
 };
 
 describe('every outcome of every action', () => {
-  it('covers the 30 outcome kinds the engine can return', () => {
-    expect(EVERY_OUTCOME).toHaveLength(30);
+  it('covers the 31 outcome kinds the engine can return', () => {
+    expect(EVERY_OUTCOME).toHaveLength(31);
   });
 
   it.each(EVERY_OUTCOME)('reads $name from the catalogue', ({ name, line, key }) => {

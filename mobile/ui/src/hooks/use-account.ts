@@ -17,7 +17,9 @@ export function useAccount() {
   const signOut = useCallback(() => {
     setSignOutState(SIGN_OUT_STATE.PENDING);
     void engine.signOut().then(
-      () => setSignOutState(SIGN_OUT_STATE.IDLE),
+      // Only a finished sign-out is success; one that was not saved leaves the person signed in.
+      (outcome) =>
+        setSignOutState(outcome.kind === 'signedOut' ? SIGN_OUT_STATE.IDLE : SIGN_OUT_STATE.FAILED),
       () => setSignOutState(SIGN_OUT_STATE.FAILED),
     );
   }, [engine]);

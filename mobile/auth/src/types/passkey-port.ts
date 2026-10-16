@@ -1,6 +1,8 @@
 import type {
   NativePasskeyAssertion,
   NativePasskeyOptions,
+  PasskeyAttestation,
+  PasskeyCreationOptions,
   NativeProviderCredential,
   NativeProviderMethod,
 } from '@app/sdk';
@@ -11,6 +13,12 @@ export type NativePromptResult<T> =
   | { kind: 'cancelled' }
   | { kind: 'unavailable' }
   | { kind: 'failed'; reason: 'sdk' | 'invalidResponse' };
+
+/**
+ * A registration prompt also ends with `excluded`: the authenticator already
+ * holds a passkey the options listed to leave out.
+ */
+export type NativeRegistrationResult<T> = NativePromptResult<T> | { kind: 'excluded' };
 
 export interface NativeInteractivePromptRequest<T> {
   controller: { signal: AbortSignalPort; abort(): void };
@@ -36,4 +44,9 @@ export interface PasskeyPort {
     options: NativePasskeyOptions,
     signal: AbortSignalPort,
   ): Promise<NativePromptResult<NativePasskeyAssertion>>;
+  /** Makes a passkey. A port without it reads as a device that cannot make one. */
+  register?(
+    options: PasskeyCreationOptions,
+    signal: AbortSignalPort,
+  ): Promise<NativeRegistrationResult<PasskeyAttestation>>;
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { FilterQuery, Model, Types } from 'mongoose';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { mapMongoError } from '../../../../session/persistence/mongo/mongo-persistence-errors';
@@ -17,6 +17,7 @@ import {
   PASSKEY_CONSTRAINT,
   PasskeyDescriptor,
   PasskeyStore,
+  RelyingPartyScope,
   StoredPasskey,
 } from '../../stores/passkey.store';
 
@@ -41,6 +42,7 @@ export function toStoredPasskey(document: PasskeyDocument): StoredPasskey {
   const passkey: StoredPasskey = {
     id: document._id.toString(),
     userId: document.user.toString(),
+    ...(document.rpId ? { rpId: document.rpId } : {}),
     credentialId: document.credentialId,
     // Plain values: a document hands out its own buffer and array types.
     publicKey: Buffer.from(document.publicKey),
@@ -54,6 +56,15 @@ export function toStoredPasskey(document: PasskeyDocument): StoredPasskey {
   };
   DOCUMENTS.set(passkey, document);
   return passkey;
+}
+
+/** Documents of the relying party, and unmarked ones when the scope does. */
+function inRelyingParty(
+  relyingParty: RelyingPartyScope,
+): FilterQuery<PasskeyDocument> {
+  return relyingParty.includesUnmarked
+    ? { $or: [{ rpId: { $eq: relyingParty.rpId } }, { rpId: null }] }
+    : { rpId: { $eq: relyingParty.rpId } };
 }
 
 /**
@@ -101,25 +112,72 @@ export class MongoPasskeyStore extends PasskeyStore {
     }));
   }
 
+  async listDescriptorsFor(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<PasskeyDescriptor[]> {
+    const user = toObjectId(userId);
+    const read = () =>
+      this.passkeyModel
+        .find(
+          { user, ...inRelyingParty(relyingParty) },
+          null,
+          unitOfWork ? { session: mongoSessionOf(unitOfWork) } : undefined,
+        )
+        .select('credentialId transports');
+    const existing = unitOfWork ? await read() : await passkeyStatement(read);
+    return existing.map((passkey) => ({
+      credentialId: passkey.credentialId,
+      transports: passkey.transports,
+    }));
+  }
+
+  async countForRelyingParty(
+    userId: string,
+    relyingParty: RelyingPartyScope,
+    unitOfWork?: UnitOfWork,
+  ): Promise<number> {
+    const user = toObjectId(userId);
+    const count = () =>
+      this.passkeyModel
+        .countDocuments({ user, ...inRelyingParty(relyingParty) })
+        .session(unitOfWork ? mongoSessionOf(unitOfWork) : null)
+        .exec();
+    return unitOfWork ? count() : passkeyStatement(count);
+  }
+
   async isCredentialRegistered(credentialId: string): Promise<boolean> {
     return Boolean(
       await passkeyStatement(() => this.passkeyModel.exists({ credentialId })),
     );
   }
 
-  async insert(passkey: NewPasskey): Promise<StoredPasskey> {
-    const user = toObjectId(passkey.userId);
-    const created = await insertOrConflict(PASSKEY_CONSTRAINTS, () =>
-      this.passkeyModel.create({
-        user,
-        credentialId: passkey.credentialId,
-        publicKey: passkey.publicKey,
-        counter: passkey.counter,
-        transports: passkey.transports,
-        deviceType: passkey.deviceType,
-        backedUp: passkey.backedUp,
-        name: passkey.name,
-        lastUsedAt: null,
+  async insert(
+    passkey: NewPasskey,
+    unitOfWork?: UnitOfWork,
+  ): Promise<StoredPasskey> {
+    const fields = {
+      user: toObjectId(passkey.userId),
+      rpId: passkey.rpId,
+      credentialId: passkey.credentialId,
+      publicKey: passkey.publicKey,
+      counter: passkey.counter,
+      transports: passkey.transports,
+      deviceType: passkey.deviceType,
+      backedUp: passkey.backedUp,
+      name: passkey.name,
+      lastUsedAt: null,
+    };
+    if (!unitOfWork) {
+      const created = await insertOrConflict(PASSKEY_CONSTRAINTS, () =>
+        this.passkeyModel.create(fields),
+      );
+      return toStoredPasskey(created);
+    }
+    const [created] = await insertOrConflict(PASSKEY_CONSTRAINTS, () =>
+      this.passkeyModel.create([fields], {
+        session: mongoSessionOf(unitOfWork),
       }),
     );
     return toStoredPasskey(created);

@@ -46,6 +46,7 @@ export class MongoPasskeyChallengeStore extends PasskeyChallengeStore {
           userId && Types.ObjectId.isValid(userId)
             ? new Types.ObjectId(userId)
             : undefined,
+        sessionId: challenge.sessionId,
         expiresAt: challenge.expiresAt,
       }),
     );
@@ -54,9 +55,12 @@ export class MongoPasskeyChallengeStore extends PasskeyChallengeStore {
   async consume(key: PasskeyChallengeKey, now: Date): Promise<ChallengeUse> {
     const deleted = await singleStatement(() =>
       this.challengeModel.findOneAndDelete({
-        challengeHash: key.challengeHash,
-        purpose: key.purpose,
+        challengeHash: { $eq: key.challengeHash },
+        purpose: { $eq: key.purpose },
         expiresAt: { $gt: now },
+        ...(key.sessionId === undefined
+          ? {}
+          : { sessionId: { $eq: key.sessionId } }),
       }),
     );
     return deleted ? CHALLENGE_USE.CONSUMED : CHALLENGE_USE.REFUSED;

@@ -61,6 +61,13 @@ export function trackEngine(
     cancelNativeSignIn: () => track(engine.cancelNativeSignIn()),
     signOut: () => track(engine.signOut()),
     refresh: () => track(engine.refresh()),
+    passkeys: {
+      available: () => track(engine.passkeys.available()),
+      register: (name) => track(engine.passkeys.register(name)),
+      list: () => track(engine.passkeys.list()),
+      rename: (passkeyId, name) => track(engine.passkeys.rename(passkeyId, name)),
+      remove: (passkeyId) => track(engine.passkeys.remove(passkeyId)),
+    },
     dispose: () => engine.dispose(),
   };
 }

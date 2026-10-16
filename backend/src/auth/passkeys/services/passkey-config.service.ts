@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_NAME } from '../../../common/constants/app';
-import { CeremonyExpectations } from './webauthn.adapter';
+import { UserVerificationRequirement } from '../constants/passkeys.constants';
+import {
+  AttestationExpectations,
+  CeremonyExpectations,
+} from './webauthn.adapter';
 
 /**
  * Relying party settings, in one place because both ceremonies and both verify
@@ -33,5 +37,18 @@ export class PasskeyConfigService {
 
   expectations(challenge: string): CeremonyExpectations {
     return { challenge, origin: this.origin, rpId: this.rpId };
+  }
+
+  /** What a browser registration must have been made for. */
+  attestationExpectations(
+    challenge: string,
+    userVerification: UserVerificationRequirement,
+  ): AttestationExpectations {
+    return {
+      challenge,
+      origins: [this.origin],
+      rpId: this.rpId,
+      userVerification,
+    };
   }
 }
