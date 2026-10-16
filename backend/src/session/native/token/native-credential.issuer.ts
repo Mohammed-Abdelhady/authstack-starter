@@ -34,6 +34,8 @@ export interface NativeGrantContext {
   requestedScopes: string[];
   audience?: string | null;
   authenticationMethods?: string[];
+  /** Stored on a new session only; refresh and retry keep the session's own. */
+  userVerified?: boolean;
 }
 
 export interface NativePairRequest {
@@ -104,6 +106,7 @@ export class NativeCredentialIssuer {
         scopes: context.requestedScopes,
         audience: context.audience || DEFAULT_API_AUDIENCE,
         authenticationMethods: context.authenticationMethods ?? [],
+        userVerified: context.userVerified === true,
         authenticatedAt: now,
         idleExpiresAt,
         lastActivityAt: now,

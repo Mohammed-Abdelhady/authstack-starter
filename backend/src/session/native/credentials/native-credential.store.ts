@@ -51,6 +51,7 @@ export interface NewNativeSession {
   scopes: string[];
   audience: string;
   authenticationMethods: string[];
+  userVerified: boolean;
   credentialPurpose: CredentialPurpose;
   authenticatedAt: Date;
   lastUsedAt: Date;
