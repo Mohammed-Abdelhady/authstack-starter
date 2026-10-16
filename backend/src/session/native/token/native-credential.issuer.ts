@@ -36,6 +36,8 @@ export interface NativeGrantContext {
   authenticationMethods?: string[];
   /** Stored on a new session only; refresh and retry keep the session's own. */
   userVerified?: boolean;
+  /** An earlier sign-in a new session takes as its own; without one, its issue time. */
+  authenticatedAt?: Date | null;
 }
 
 export interface NativePairRequest {
@@ -107,7 +109,7 @@ export class NativeCredentialIssuer {
         audience: context.audience || DEFAULT_API_AUDIENCE,
         authenticationMethods: context.authenticationMethods ?? [],
         userVerified: context.userVerified === true,
-        authenticatedAt: now,
+        authenticatedAt: context.authenticatedAt ?? now,
         idleExpiresAt,
         lastActivityAt: now,
         credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,

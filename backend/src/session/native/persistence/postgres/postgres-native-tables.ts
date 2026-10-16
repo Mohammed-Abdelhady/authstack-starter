@@ -1,4 +1,5 @@
-// The tables of mobile sign-in, from migration 0010. 0030 adds user_verified.
+// The tables of mobile sign-in, from migration 0010. 0030 adds user_verified
+// and authenticated_at.
 import { ColumnType, Generated } from 'kysely';
 
 type Timestamp = ColumnType<Date, Date, Date>;
@@ -38,6 +39,7 @@ export interface AuthorizationTransactionsTable {
   auth_epoch: number;
   authentication_methods: Generated<string[]>;
   user_verified: Generated<boolean>;
+  authenticated_at: NullableTimestamp;
   code_hash: NullableText;
   code_expires_at: NullableTimestamp;
 }

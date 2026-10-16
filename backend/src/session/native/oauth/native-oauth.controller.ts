@@ -184,6 +184,7 @@ export class NativeOAuthController {
       userId,
       transactionId,
       request.session?.authenticationMethods ?? [],
+      request.session?.authenticatedAt,
     );
     response.setHeader('Cache-Control', 'no-store');
     response.status(HttpStatus.OK).json({ success: true, data: approved });
