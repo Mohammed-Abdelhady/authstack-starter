@@ -16,6 +16,11 @@ import {
   NATIVE_EMAIL,
 } from './native-provider-proof.harness-spec';
 import { resetJwksCache } from '../utils/id-token.util';
+import { ConfigService } from '@nestjs/config';
+import { FrozenClock } from '../../../../test/utils/frozen-clock';
+import { ProviderTokenCrypto } from '../provider-tokens/services/provider-token-crypto';
+import { ProviderTokenVault } from '../provider-tokens/services/provider-token-vault';
+import { MemoryProviderTokenStore } from '../provider-tokens/testing/provider-token-memory.harness-spec';
 
 const ISSUER = 'https://appleid.apple.com';
 const JWKS_URI = `${ISSUER}/auth/keys`;
@@ -107,6 +112,62 @@ describe('native Apple identity and authorization code', () => {
     const { result, transport } = await proof({ nonce: 'b'.repeat(64) });
     await expect(result).rejects.toMatchObject({ status: 502 });
     expect(transport.calls.some((call) => call.url === TOKEN_URI)).toBe(false);
+  });
+
+  // Erasing the account later revokes Apple's grant with this token.
+  it("keeps the exchange's refresh token, readable only as this subject's for the app id", async () => {
+    const tokens = new MemoryProviderTokenStore();
+    const crypto = new ProviderTokenCrypto(
+      new ConfigService({ providerTokens: { encryptionKey: 'k'.repeat(32) } }),
+    );
+    const vault = new ProviderTokenVault(
+      tokens,
+      crypto,
+      new FrozenClock(NATIVE_NOW),
+    );
+    mockFetch([
+      { url: JWKS_URI, body: key.jwks },
+      {
+        url: TOKEN_URI,
+        body: {
+          id_token: await signedNativeToken(key, ISSUER, {}),
+          refresh_token: 'apple-refresh-1',
+        },
+      },
+    ]);
+
+    await new AppleOAuthStrategy(
+      configFor('apple', {
+        clientId: 'web-service-id',
+        extra: { TEAM_ID, KEY_ID, PRIVATE_KEY: privateKey },
+      }),
+      vault,
+    ).verifyNativeCredential({
+      method: NATIVE_METHOD.apple,
+      nonceDigest: NATIVE_NONCE,
+      credential: {
+        kind: 'appleIdentityTokenAndCode',
+        identityToken: await signedNativeToken(key, ISSUER, {}),
+        authorizationCode: 'one-use-apple-code',
+        nonceDigest: NATIVE_NONCE,
+      },
+    });
+
+    const owner = {
+      provider: 'apple',
+      subject: NATIVE_SUBJECT,
+      clientId: NATIVE_AUDIENCE,
+    };
+    expect(
+      tokens.tokens.map((kept) => ({
+        owner: {
+          provider: kept.provider,
+          subject: kept.subject,
+          clientId: kept.clientId,
+        },
+        token: crypto.open(kept.sealed, owner),
+      })),
+    ).toEqual([{ owner, token: 'apple-refresh-1' }]);
   });
 
   it('does not accept identity when the provider refuses the code', async () => {

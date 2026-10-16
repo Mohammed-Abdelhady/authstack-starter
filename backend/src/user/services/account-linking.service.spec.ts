@@ -1,4 +1,7 @@
-import { AccountLinkingService } from './account-linking.service';
+import {
+  AccountLinkingService,
+  LINK_ADDRESS_RULE,
+} from './account-linking.service';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
 import {
@@ -87,6 +90,26 @@ describe('AccountLinkingService link and unlink', () => {
         status: 409,
       });
       expect(user.save).not.toHaveBeenCalled();
+    });
+
+    // An account made with Apple's relay address must be able to add Google,
+    // but only on the reauthenticated path; the default keeps the rule.
+    it('should link a provider with another address when the link was reauthenticated', async () => {
+      const user = buildUser();
+      resolveUser(user);
+
+      const result = await service.linkProvider(
+        USER_ID,
+        'google',
+        { ...GOOGLE_PROFILE, email: 'someone-else@example.com' },
+        LINK_ADDRESS_RULE.ANY,
+      );
+
+      expect(result.linkedAccounts[0]).toMatchObject({
+        provider: 'google',
+        providerId: 'google-123',
+      });
+      expect(user.save).toHaveBeenCalled();
     });
 
     it('should map a duplicate key error to OAUTH_ACCOUNT_LINKED_ELSEWHERE', async () => {

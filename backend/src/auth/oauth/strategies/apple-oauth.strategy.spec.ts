@@ -123,6 +123,45 @@ describe('AppleOAuthStrategy', () => {
     });
   });
 
+  describe('revokeProviderToken', () => {
+    const REVOKE_URL = 'https://appleid.apple.com/auth/revoke';
+    const request = { token: 'apple-refresh-1', clientId: 'com.example.app' };
+
+    it('revokes the refresh token for the client id that obtained it', async () => {
+      const fetchMock = mockFetch([{ url: REVOKE_URL, body: {} }]);
+
+      await expect(strategy().revokeProviderToken(request)).resolves.toEqual({
+        kind: 'revoked',
+      });
+      expect(fetchMock.callTo(REVOKE_URL).body).toMatchObject({
+        client_id: 'com.example.app',
+        token: 'apple-refresh-1',
+        token_type_hint: 'refresh_token',
+      });
+    });
+
+    it('settles a token Apple says grants nothing any more', async () => {
+      mockFetch([
+        { url: REVOKE_URL, status: 400, body: { error: 'invalid_grant' } },
+      ]);
+
+      await expect(strategy().revokeProviderToken(request)).resolves.toEqual({
+        kind: 'revoked',
+      });
+    });
+
+    it('keeps the job open when Apple refuses the client', async () => {
+      mockFetch([
+        { url: REVOKE_URL, status: 400, body: { error: 'invalid_client' } },
+      ]);
+
+      await expect(strategy().revokeProviderToken(request)).resolves.toEqual({
+        kind: 'failed',
+        code: 'provider_refused',
+      });
+    });
+  });
+
   describe('exchangeCode', () => {
     it('signs a short lived ES256 client secret for the token request', async () => {
       const token = await idToken({ nonce: 'nonce-value' });
