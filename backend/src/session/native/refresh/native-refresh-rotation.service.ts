@@ -73,6 +73,7 @@ export class NativeRefreshRotationService {
       meta,
       now,
       generation: presented.generation + 1,
+      policyVersion: authority.session.policyVersion ?? 0,
       existing: authority.session,
       familyId: presented.familyId,
       proofKeyThumbprint: thumbprint,

@@ -69,6 +69,7 @@ function toFamilySession(stored: SessionDocument): NativeFamilySession {
     userVersion: stored.userVersion,
     clientVersion: stored.clientVersion,
     grantVersion: stored.grantVersion,
+    policyVersion: stored.policyVersion ?? 0,
     authenticatedAt: stored.authenticatedAt,
     expiresAt: stored.expiresAt,
     idleExpiresAt: stored.idleExpiresAt,
