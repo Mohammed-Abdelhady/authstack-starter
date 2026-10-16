@@ -7,6 +7,7 @@ import { SESSIONS_AR } from './sessions.ar';
 import { SIGN_IN_AR } from './sign-in.ar';
 import { PASSKEYS_AR } from './passkeys.ar'; // feature:passkeys
 import { DELETION_AR } from './deletion.ar';
+import { PROVIDERS_AR } from './providers.ar';
 
 export const AR: Record<MessageKey, string> = {
   ...COMMON_AR,
@@ -17,4 +18,5 @@ export const AR: Record<MessageKey, string> = {
   ...NATIVE_AR,
   ...PASSKEYS_AR, // feature:passkeys
   ...DELETION_AR,
+  ...PROVIDERS_AR,
 };
