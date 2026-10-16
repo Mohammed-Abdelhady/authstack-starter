@@ -10,7 +10,10 @@ import { AdminPermissionsService } from '../../../src/admin/services/roles/admin
 import { UserPermissionsService } from '../../../src/user/services/user-permissions.service';
 import { HashService } from '../../../src/common/services/hash.service';
 import { AdminUserAccessService } from '../../../src/admin/services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../src/admin/services/users/admin-audience-scopes';
 import { AdminEmailChangeService } from '../../../src/admin/services/users/admin-email-change.service';
+import { AudiencePolicy } from '../../../src/session/applications/audience-policy';
+import { IssuanceApplications } from '../../../src/session/issuance/issuance-applications';
 import { RoleHierarchyService } from '../../../src/role/services/role-hierarchy.service';
 import { RoleService } from '../../../src/role/role.service';
 import { RoleEditService } from '../../../src/role/services/edit/role-edit.service';
@@ -67,12 +70,18 @@ export async function bootAdminAtomic(
       AdminUsersService,
       AdminUserCreateService,
       AccountCreationPolicy,
+      {
+        provide: IssuanceApplications,
+        useValue: harness.app.get(IssuanceApplications),
+      },
+      { provide: AudiencePolicy, useValue: harness.app.get(AudiencePolicy) },
       { provide: AddressLedger, useValue: harness.app.get(AddressLedger) },
       { provide: Clock, useValue: harness.clock },
       AdminPermissionsService,
       UserPermissionsService,
       { provide: HashService, useValue: harness.app.get(HashService) },
       AdminUserAccessService,
+      AdminAudienceScopes,
       RoleHierarchyService,
       RoleService,
       RoleEditService,
