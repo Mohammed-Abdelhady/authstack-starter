@@ -30,7 +30,10 @@ import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.v
 import { PasskeyRecorder } from '../services/passkey-recorder.service';
 import { NoopEnrolmentPromotion } from '../../contracts/defaults/noop-enrolment-promotion';
 import { SessionCookieService } from '../../services/sessions/session-cookie.service';
-import { webPasskeyPolicy } from '../services/browser-passkey-policy.harness-spec';
+import {
+  noRequiredRelyingParties,
+  webPasskeyPolicy,
+} from '../services/browser-passkey-policy.harness-spec';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
 
@@ -195,6 +198,7 @@ export function passkeyServices(
       harness.runner(pause),
       passkeyConfig,
       browserApplications,
+      noRequiredRelyingParties(),
     ),
     verifier: new PasskeySecondFactorVerifier(featureSwitches, assertion),
     challenge,

@@ -1,4 +1,5 @@
 import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
+import { noRequiredRelyingParties } from './browser-passkey-policy.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
@@ -126,6 +127,7 @@ function createHarness(state: AccountState = {}): Harness {
       ),
       createPasskeyConfig(),
       browserApplications,
+      noRequiredRelyingParties(),
     ),
     passkeyModel,
     passkey: passkey ?? createMockPasskey(),

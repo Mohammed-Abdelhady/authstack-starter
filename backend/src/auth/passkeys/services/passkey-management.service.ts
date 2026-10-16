@@ -26,6 +26,7 @@ import { toPasskeySummary } from '../utils/passkey-summary.util';
 import { PasskeyStore, StoredPasskey } from '../stores/passkey.store';
 import { relyingPartyOf, relyingPartyScope } from '../utils/relying-party.util';
 import { PasskeyConfigService } from './passkey-config.service';
+import { RequiredPasskeyRelyingParties } from './required-passkey-relying-parties.service';
 
 /**
  * What a passkey removal accepts as left: another passkey, or any other way in
@@ -54,6 +55,7 @@ export class PasskeyManagementService {
     private readonly runner: UnitOfWorkRunner,
     private readonly config: PasskeyConfigService,
     private readonly applications: BrowserApplications,
+    private readonly required: RequiredPasskeyRelyingParties,
   ) {}
 
   async list(userId: string): Promise<ApiResponse<PasskeyListResponseDto>> {
@@ -84,8 +86,9 @@ export class PasskeyManagementService {
   /**
    * @throws AppException PASSKEY_NOT_FOUND when the account has no such passkey
    * @throws AppException PASSKEY_LAST_SIGN_IN_METHOD when removing it would
-   * lock the account out, or leave its relying party with no passkey and the
-   * account with no other way in
+   * lock the account out, leave its relying party with no passkey and the
+   * account with no other way in, or leave an application that requires a
+   * passkey without one
    */
   async remove(
     userId: string,
@@ -141,7 +144,9 @@ export class PasskeyManagementService {
   /**
    * A passkey of one relying party does not sign in to another, so the last
    * passkey of a relying party stays unless the account has another way in.
-   * Counted under the rule's hold, in the removal's unit of work.
+   * Where an application that admits the account lets it in with a passkey
+   * only, no other way in counts. Read under the rule's hold, in the
+   * removal's unit of work.
    */
   private async assertRelyingPartyKeepsAWayIn(
     unitOfWork: UnitOfWork,
@@ -149,13 +154,19 @@ export class PasskeyManagementService {
     waysBesidesPasskeys: number,
   ): Promise<void> {
     const webRpId = this.config.rpId;
+    const rpId = relyingPartyOf(passkey, webRpId);
+    const required = await this.required.forAccountIn(
+      unitOfWork,
+      passkey.userId,
+    );
     const samePartyPasskeys = await this.passkeys.countForRelyingParty(
       passkey.userId,
-      relyingPartyScope(relyingPartyOf(passkey, webRpId), webRpId),
+      relyingPartyScope(rpId, webRpId),
       unitOfWork,
     );
+    const otherWays = required.includes(rpId) ? 0 : waysBesidesPasskeys;
     this.assertNotTheLastWayIn(
-      samePartyPasskeys - 1 + waysBesidesPasskeys > 0
+      samePartyPasskeys - 1 + otherWays > 0
         ? WAY_IN_OUTCOME.ANOTHER_LEFT
         : WAY_IN_OUTCOME.LAST,
     );
