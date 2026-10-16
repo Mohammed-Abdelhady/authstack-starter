@@ -8,6 +8,7 @@ import { createAuthArea, type ApiClientAuth } from './areas/auth';
 import { createOAuthArea, type ApiClientOAuth } from './areas/oauth';
 import { createUserArea, type ApiClientUser } from './areas/user';
 import { createPasskeysArea, type ApiClientPasskeys } from './areas/passkeys';
+import { createAdminArea, type ApiClientAdmin } from './areas/admin';
 import {
   TransportError,
   isTransportError,
@@ -36,7 +37,8 @@ export interface ApiClient<TSignal extends TransportSignal = TransportSignal>
     ApiClientUser<TSignal>,
     ApiClientAuth<TSignal>,
     ApiClientOAuth<TSignal>,
-    ApiClientPasskeys<TSignal> {
+    ApiClientPasskeys<TSignal>,
+    ApiClientAdmin<TSignal> {
   nativeAuth: NativeAuthClient<TSignal>;
 }
 
@@ -82,5 +84,6 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
     ...createAuthArea<TSignal>(senders),
     ...createOAuthArea<TSignal>(senders),
     ...createPasskeysArea<TSignal>(senders),
+    ...createAdminArea<TSignal>(senders),
   };
 }

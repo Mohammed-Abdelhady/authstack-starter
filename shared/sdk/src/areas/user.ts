@@ -65,3 +65,5 @@ export function createUserArea<TSignal extends TransportSignal>({
     },
   };
 }
+
+export { pathSegment };

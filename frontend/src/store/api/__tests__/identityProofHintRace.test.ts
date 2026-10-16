@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { ErrorCode } from '@app/core';
-import { BROWSER_PROOF_ENDPOINT, CSRF_ENDPOINT } from '@/constants/api';
+import { BROWSER_PROOF_ENDPOINT, CSRF_ENDPOINT } from '@app/sdk';
 import { HTTP_STATUS } from '@/constants/httpStatus';
 import { authApi } from '@/modules/auth/store/authApi';
 import {
@@ -38,6 +38,10 @@ interface CapturedRequest {
 }
 
 const OBSOLETE_IDENTITY_REPLIES = [
+  {
+    name: 'signed-in',
+    respond: () => success({ authenticated: true, user: { ...PROFILE, id: 'obsolete-user' } }),
+  },
   {
     name: 'signed-out',
     respond: () => success({ authenticated: false, user: null }),
