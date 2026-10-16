@@ -22,10 +22,11 @@ export function isFirstFactorClaim(
         NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK,
       ].some((factor) => factor === principal.firstFactor);
     case NATIVE_ATTEMPT_PHASE.EMAIL_LINK_SENT:
-      return (
-        attempt.flow === NATIVE_ATTEMPT_FLOW.SIGN_IN &&
-        principal.firstFactor === NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK
-      );
+      if (attempt.flow !== NATIVE_ATTEMPT_FLOW.SIGN_IN) return false;
+      return [
+        NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK,
+        NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE, // feature:email-code
+      ].some((factor) => factor === principal.firstFactor);
     case NATIVE_ATTEMPT_PHASE.REGISTRATION_CODE_REQUIRED:
       return (
         attempt.flow === NATIVE_ATTEMPT_FLOW.REGISTRATION &&

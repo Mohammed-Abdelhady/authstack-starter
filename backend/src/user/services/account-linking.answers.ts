@@ -16,7 +16,14 @@ import { WAY_IN_OUTCOME, WayInOutcome, WaysLeft } from './sign-in-method.rule';
  * recover it, by password reset or by magic link.
  */
 export const emailWayIn: WaysLeft = (held, switches) =>
-  held.emailSignIn && (switches.password || switches.magicLink) ? 1 : 0;
+  held.emailSignIn &&
+  [
+    switches.password,
+    switches.magicLink,
+    switches.emailCode, // feature:email-code
+  ].some(Boolean)
+    ? 1
+    : 0;
 
 /** What the rule's answer about `emailWayIn` means for the email row. */
 export function emailSignInAnswer(wayIn: WayInOutcome): EmailSignInHint {

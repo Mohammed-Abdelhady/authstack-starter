@@ -10,6 +10,7 @@ import type { PasswordResetCodeMessages } from './en/password-reset-code';
 import type { ProofCodeMessages } from './en/proof-code';
 import type { RegistrationNoticeMessages } from './en/registration-notice';
 import type { SecurityNoticeMessages } from './en/security-notice';
+import type { SignInCodeMessages } from './en/sign-in-code'; // feature:email-code
 import { EN_MAIL_CATALOGUE } from './en';
 
 /** Every mail's messages in one language, keyed by mail name. */
@@ -23,6 +24,7 @@ export type MailCatalogue = {
   readonly magicLink: MagicLinkMessages;
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;
+  readonly signInCode: SignInCodeMessages; // feature:email-code
 };
 
 type ByLocale<Value> = Readonly<Record<SupportedLocale, Value>>;
