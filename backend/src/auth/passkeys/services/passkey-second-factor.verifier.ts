@@ -76,7 +76,7 @@ export class PasskeySecondFactorVerifier {
     this.authFeaturesService.assertEnabled(AuthFeature.PASSKEYS);
 
     if (!dto.passkeyResponse) {
-      throw this.refused();
+      throw this.refusal();
     }
 
     const { passkey, userVerified } = await this.assertions.verify(
@@ -86,15 +86,15 @@ export class PasskeySecondFactorVerifier {
     );
 
     if (passkey.userId !== user.id) {
-      throw this.refused();
+      throw this.refusal();
     }
 
     if (!userVerified && signIn.firstFactor === FIRST_FACTOR.PASSKEY) {
-      throw this.refused();
+      throw this.refusal();
     }
   }
 
-  private refused(): AppException {
+  refusal(): AppException {
     return new AppException(
       ErrorCode.PASSKEY_VERIFICATION_FAILED,
       'That passkey could not be used to sign in',

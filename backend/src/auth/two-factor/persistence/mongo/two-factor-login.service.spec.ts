@@ -120,6 +120,12 @@ function createHarness(user: MockUser | null): Harness {
   // cases compare against.
   const verifierOnDocuments: SecondFactorVerifier = {
     supports: (dto) => verifier.supports({ ...dto }),
+    refusal: () =>
+      new AppException(
+        ErrorCode.TWO_FACTOR_CODE_INVALID,
+        'refused by the verifier',
+        HttpStatus.UNAUTHORIZED,
+      ),
     verify: async (dto, account, request, response) => {
       await verifier.verify(
         dto,

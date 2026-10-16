@@ -66,10 +66,14 @@ export class TwoFactorLoginService {
       );
     }
 
+    const verifier = this.verifiers.find((candidate) =>
+      candidate.supports(dto),
+    );
     let secondFactor: string | null;
     try {
       await this.signIn.assertAdmission(user.id, response);
       secondFactor = await this.checkSecondFactor(
+        verifier,
         dto,
         user,
         request,
@@ -80,7 +84,7 @@ export class TwoFactorLoginService {
       );
     } catch (error) {
       await this.challengeService.registerFailure(challenge.challengeId);
-      this.rethrowAdmission(error);
+      this.rethrowAdmission(error, verifier);
     }
 
     const evidence = this.applications.evidenceFor(request);
@@ -97,7 +101,7 @@ export class TwoFactorLoginService {
     await this.discard(challenge.challengeId, response);
     const summary = await this.signIn
       .issueSession(user, response)
-      .catch((error: unknown) => this.rethrowAdmission(error));
+      .catch((error: unknown) => this.rethrowAdmission(error, verifier));
 
     this.logger.log(`Second factor accepted: userId=${user.id}`);
     return LoginResponseDto.success(summary);
@@ -108,16 +112,13 @@ export class TwoFactorLoginService {
    * registered verifier owns, such as a passkey.
    */
   private async checkSecondFactor(
+    verifier: SecondFactorVerifier | undefined,
     dto: VerifyTwoFactorDto,
     user: SecondFactorAccount,
     request: Request,
     response: Response,
     attempt: SecondFactorAttempt,
   ): Promise<string | null> {
-    const verifier = this.verifiers.find((candidate) =>
-      candidate.supports(dto),
-    );
-
     if (!verifier) {
       await this.verificationService.verifySecondFactor(user, dto);
       if (dto.code) return SECOND_FACTOR_AUTHENTICATION_METHOD.TOTP;
@@ -130,9 +131,14 @@ export class TwoFactorLoginService {
     return null;
   }
 
-  private rethrowAdmission(error: unknown): never {
+  private rethrowAdmission(
+    error: unknown,
+    verifier: SecondFactorVerifier | undefined,
+  ): never {
     if (error instanceof AudienceAdmissionRefused) {
-      throw this.verificationService.invalidCode('account audience refused');
+      throw verifier
+        ? verifier.refusal()
+        : this.verificationService.invalidCode('account audience refused');
     }
     throw error;
   }
