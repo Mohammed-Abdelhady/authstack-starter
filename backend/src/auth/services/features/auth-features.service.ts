@@ -1,6 +1,5 @@
 import type { Request } from 'express';
-import { BrowserApplications } from '../../../session/applications/browser-applications';
-import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
+import { FeatureApplications } from '../../contracts/feature-applications';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuthFeature } from '../../enums/auth-feature.enum';
@@ -32,7 +31,7 @@ const FEATURE_FALLBACKS: Record<AuthFeature, boolean> = {
 export class AuthFeaturesService {
   constructor(
     private readonly configService: ConfigService,
-    private readonly applications: BrowserApplications,
+    private readonly applications: FeatureApplications,
   ) {}
 
   async assertForRequest(
@@ -59,7 +58,7 @@ export class AuthFeaturesService {
     );
   }
 
-  isEnabled(feature: AuthFeature, clientId?: BrowserApplicationId): boolean {
+  isEnabled(feature: AuthFeature, clientId?: string): boolean {
     if (clientId) {
       const policy = this.applications.configuration(clientId).signIn;
       if (feature === AuthFeature.PASSWORD && policy?.password === false) {
@@ -84,7 +83,7 @@ export class AuthFeaturesService {
    * @throws AppException FEATURE_DISABLED with a 404, so a deployment that
    * turned the method off looks like one that never had the route
    */
-  assertEnabled(feature: AuthFeature, clientId?: BrowserApplicationId): void {
+  assertEnabled(feature: AuthFeature, clientId?: string): void {
     if (this.isEnabled(feature, clientId)) {
       return;
     }
