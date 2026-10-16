@@ -10,11 +10,13 @@ export abstract class AccountEraser {
   /**
    * Takes the account row and reads what the removal goes by: its session
    * ids, the addresses on the row and its linked identities. Null when the
-   * account is gone.
+   * account is gone, or is no longer deactivated with an erasure date that
+   * `now` has reached, so a restored account is never removed.
    */
   abstract readFactsIn(
     unitOfWork: UnitOfWork,
     userId: string,
+    now: Date,
   ): Promise<AccountErasureRead | null>;
 
   /**

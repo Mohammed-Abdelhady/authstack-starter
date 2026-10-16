@@ -51,6 +51,13 @@ export abstract class ErasureJobStore {
   ): Promise<boolean>;
 
   /**
+   * Removes a job that has not finished, for an account step 3 found no
+   * longer due. A later deletion then starts again at step 1, and a restore
+   * is not refused for an erasure that never happened.
+   */
+  abstract withdrawIn(unitOfWork: UnitOfWork, jobId: string): Promise<void>;
+
+  /**
    * For a restore: takes the account row, answers whether step 1 committed,
    * and when it did not, clears the schedule so the restored account is no
    * longer due.

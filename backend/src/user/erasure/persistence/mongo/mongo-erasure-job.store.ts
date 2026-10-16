@@ -229,6 +229,13 @@ export class MongoErasureJobStore extends ErasureJobStore {
     return result.modifiedCount === 1;
   }
 
+  async withdrawIn(unitOfWork: UnitOfWork, jobId: string): Promise<void> {
+    await this.jobs.deleteOne(
+      { _id: objectId(jobId), step: { $ne: ERASURE_STEP.ERASED } },
+      { session: mongoSessionOf(unitOfWork) },
+    );
+  }
+
   async holdForRestoreIn(
     unitOfWork: UnitOfWork,
     userId: string,
