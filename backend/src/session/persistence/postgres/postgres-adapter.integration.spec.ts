@@ -151,6 +151,7 @@ describe('PostgreSQL adapter', () => {
         '0025_email_codes.sql', // feature:email-code
         '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
+        '0029_account_erasure.sql',
       ],
       again: [],
       recorded: [
@@ -181,6 +182,7 @@ describe('PostgreSQL adapter', () => {
         '0025_email_codes.sql', // feature:email-code
         '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
+        '0029_account_erasure.sql',
       ],
     });
   });
