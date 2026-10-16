@@ -247,7 +247,7 @@ export class PostgresAdminAccountStore extends AdminAccountStore {
         .values({
           email: storedAddress(account.email),
           name: account.name.trim(),
-          password_hash: account.passwordHash,
+          password_hash: account.passwordHash ?? null,
           role: account.role,
           is_verified: true,
           permissions: [],

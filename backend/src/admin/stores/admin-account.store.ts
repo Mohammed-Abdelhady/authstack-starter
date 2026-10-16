@@ -27,7 +27,8 @@ export interface NewAdminAccount {
   audience?: RoleAudience;
   email: string;
   name: string;
-  passwordHash: string;
+  /** Absent for an account made from an invitation, which signs in without one. */
+  passwordHash?: string;
   role: string;
   locale: SupportedLocale;
 }
