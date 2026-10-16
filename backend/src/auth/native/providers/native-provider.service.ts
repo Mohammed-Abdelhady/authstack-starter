@@ -3,7 +3,14 @@ import { ModuleRef } from '@nestjs/core';
 import type { NativeProviderCredential, NativeProviderMethod } from '@app/sdk';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import type { SupportedLocale } from '../../../common/constants/locales';
-import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
+import { AudienceAdmissionRefused } from '../../../session/utils/authority/audience-admission';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { providerAuthenticationFailed } from '../../oauth/oauth-account-rules';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
+import {
+  runLeavingFailuresAsRaised,
+  storeFailureCause,
+} from '../../../common/persistence/store-failure';
 import { OAuthRegistryService } from '../../oauth/oauth-registry.service';
 import { OAuthService } from '../../oauth/oauth.service';
 import { NativeAttemptService } from '../services/native-attempt.service';
@@ -33,6 +40,7 @@ export class NativeProviderService {
     private readonly methods: NativeMethodsService,
     private readonly modules: ModuleRef,
     private readonly runner: UnitOfWorkRunner,
+    private readonly events: EventRecorder,
   ) {}
 
   async verify(
@@ -82,12 +90,14 @@ export class NativeProviderService {
       )
         throw wrongStage();
       const oauth = this.modules.get(OAuthService, { strict: false });
-      const account = await oauth.resolveVerifiedProfile(
-        strategy,
-        profile,
-        locale,
-        claimed.clientId,
-      );
+      const account = await oauth
+        .resolveVerifiedProfile(strategy, profile, locale, claimed.clientId)
+        .catch((error: unknown) => {
+          const cause = storeFailureCause(error);
+          if (cause instanceof AudienceAdmissionRefused)
+            throw providerAuthenticationFailed(method.id);
+          throw error;
+        });
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
         this.attempts.completeFactorIn(
           work,
@@ -100,7 +110,17 @@ export class NativeProviderService {
           },
           secret,
         ),
-      );
+      ).catch(async (error: unknown) => {
+        throw (
+          (await nativeAudienceRefusal(
+            error,
+            this.events,
+            claimed.clientId,
+            () => providerAuthenticationFailed(method.id),
+            account.id,
+          )) ?? error
+        );
+      });
       transitioned = true;
       return this.attempts.viewAfter(completed, secret);
     } finally {

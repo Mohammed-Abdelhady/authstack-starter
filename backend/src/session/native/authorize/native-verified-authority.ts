@@ -15,6 +15,7 @@ import type {
   NativeAttempt,
   VerifiedNativeAccount,
 } from '../../../auth/native/types/native-attempt';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { expiredTransaction } from './native-authorization-result';
 import { nativeRedirectPolicy } from './native-authorize-validation';
 
@@ -64,6 +65,7 @@ export async function assertNativeVerifiedAuthority(
   ) {
     throw expiredTransaction();
   }
+  assertAudienceAdmission(account.accountAudience, application.accountAudience);
   const grant = await authority.grants.takeGrantForChange(
     unitOfWork,
     principal.userId,

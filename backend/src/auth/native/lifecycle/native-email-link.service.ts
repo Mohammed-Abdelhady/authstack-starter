@@ -13,6 +13,8 @@ import type { AccountCreationMethod } from '../../types/account-creation';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { Clock } from '../../../common/services/clock';
 import { NativeEmailLinkMailService } from './native-email-link-mail.service'; // feature:magic-link
 import { MAGIC_LINK_ACCOUNT_CONSTRAINT } from '../../magic-link/stores/magic-link-accounts';
@@ -59,6 +61,7 @@ export class NativeEmailLinkService {
     private readonly accounts: AccountProfileStore,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly events: EventRecorder,
   ) {}
 
   async request(
@@ -161,15 +164,25 @@ export class NativeEmailLinkService {
     locale: SupportedLocale,
     proof: NativeEmailProof,
   ): Promise<NativeAttempt> {
+    const refusalContext: { targetUserId?: string } = {};
     const work = (unitOfWork: UnitOfWork) =>
       this.completeIn(unitOfWork, attempt, attemptId, secret, {
         proof,
         locale,
+        refusalContext,
       });
     for (let pass = 0; pass < EMAIL_LINK_RETRY_LIMIT; pass += 1) {
       try {
         return await this.runner.run(work);
       } catch (error) {
+        const refusal = await nativeAudienceRefusal(
+          error,
+          this.events,
+          attempt.clientId,
+          proof.refuse,
+          refusalContext.targetUserId,
+        );
+        if (refusal) throw refusal;
         if (error instanceof AddressReservationTakenError) {
           const owner = await this.links.hasAccountAtAddress(
             attempt.details.email?.address ?? '',
@@ -193,7 +206,11 @@ export class NativeEmailLinkService {
     expected: NativeAttempt,
     attemptId: string,
     secret: string,
-    spending: { proof: NativeEmailProof; locale: SupportedLocale },
+    spending: {
+      proof: NativeEmailProof;
+      locale: SupportedLocale;
+      refusalContext: { targetUserId?: string };
+    },
   ): Promise<NativeAttempt> {
     const { proof, locale } = spending;
     const claimed = await this.attempts.claimIn(
@@ -220,6 +237,7 @@ export class NativeEmailLinkService {
     const account = await this.accounts.readAccount(unitOfWork, linkAccount.id);
     if (account?.isDeleted) throw refuseDeactivated();
     if (!account || account.email !== email) throw proof.refuse();
+    spending.refusalContext.targetUserId = account.id;
     return this.attempts.completeFactorIn(
       unitOfWork,
       {

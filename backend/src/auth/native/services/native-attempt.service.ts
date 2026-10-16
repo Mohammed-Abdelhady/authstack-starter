@@ -41,6 +41,8 @@ import {
   wrongStage,
 } from '../utils/native-attempt-errors';
 import { NativeAttemptCompletionService } from './native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 
 const ATTEMPT_LIFETIME_MS = 15 * 60 * 1000;
 
@@ -55,6 +57,7 @@ export class NativeAttemptService {
     private readonly runner: UnitOfWorkRunner,
     private readonly views: NativeAttemptViewService,
     private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
   ) {}
 
   async start(input: NativeAttemptStart): Promise<NativeAttemptStartResult> {
@@ -196,20 +199,31 @@ export class NativeAttemptService {
     secret: string,
     principal: VerifiedNativePrincipal,
   ): Promise<NativeAttemptView> {
-    const completed = await runLeavingFailuresAsRaised(
-      this.runner,
-      async (unitOfWork) => {
-        const current = await this.authenticate(attemptId, secret);
-        const claimed = await this.claimIn(
-          unitOfWork,
-          attemptId,
-          secret,
-          current.phase,
-        );
-        return this.completeFactorIn(unitOfWork, claimed, principal, secret);
-      },
-    );
-    return this.viewAfter(completed, secret);
+    const current = await this.authenticate(attemptId, secret);
+    try {
+      const completed = await runLeavingFailuresAsRaised(
+        this.runner,
+        async (work) => {
+          const claimed = await this.claimIn(
+            work,
+            attemptId,
+            secret,
+            current.phase,
+          );
+          return this.completeFactorIn(work, claimed, principal, secret);
+        },
+      );
+      return this.viewAfter(completed, secret);
+    } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        current.clientId,
+        wrongStage,
+        principal.userId,
+      );
+      throw refusal ?? error;
+    }
   }
 
   async completeFactorIn(

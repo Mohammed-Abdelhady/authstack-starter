@@ -11,6 +11,9 @@ import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
 import { NativeAttemptStore } from '../stores/native-attempt.store';
 import type { NativeAttempt } from '../types/native-attempt';
 import { NativeAttemptCompletionService } from './native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
+import { expiredTransaction } from '../../../session/native/authorize/native-authorization-result';
 import { NativeAttemptService, guardOf } from './native-attempt.service';
 
 @Injectable()
@@ -22,6 +25,7 @@ export class NativeConsentService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
   ) {}
 
   async consent(attemptId: string, secret: string): Promise<NativeAttemptView> {
@@ -34,25 +38,36 @@ export class NativeConsentService {
     ) {
       throw wrongStage();
     }
-    const completed = await runLeavingFailuresAsRaised(
-      this.runner,
-      async (work) => {
-        const claimed = await this.attempts.claimIn(
-          work,
-          guardOf(current),
-          randomUUID(),
-        );
-        if (
-          !claimed ||
-          claimed.phase !== NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED ||
-          !claimed.details.verifiedAccount
-        ) {
-          throw wrongStage();
-        }
-        return this.completion.sealCodeIn(work, claimed, secret);
-      },
-    );
-    return this.completion.codeReadyView(completed, secret);
+    try {
+      const completed = await runLeavingFailuresAsRaised(
+        this.runner,
+        async (work) => {
+          const claimed = await this.attempts.claimIn(
+            work,
+            guardOf(current),
+            randomUUID(),
+          );
+          if (
+            !claimed ||
+            claimed.phase !== NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED ||
+            !claimed.details.verifiedAccount
+          ) {
+            throw wrongStage();
+          }
+          return this.completion.sealCodeIn(work, claimed, secret);
+        },
+      );
+      return this.completion.codeReadyView(completed, secret);
+    } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        current.clientId,
+        expiredTransaction,
+        current.details.verifiedAccount.userId,
+      );
+      throw refusal ?? error;
+    }
   }
 
   async resume(attemptId: string, secret: string): Promise<NativeAttemptView> {
@@ -80,10 +95,21 @@ export class NativeConsentService {
         HttpStatus.GONE,
       );
     }
-    await runLeavingFailuresAsRaised(this.runner, (work) =>
-      this.authorize.assertVerifiedCurrentIn(work, attempt, principal),
-    );
-    return this.completion.codeReadyView(attempt, secret);
+    try {
+      await runLeavingFailuresAsRaised(this.runner, (work) =>
+        this.authorize.assertVerifiedCurrentIn(work, attempt, principal),
+      );
+      return this.completion.codeReadyView(attempt, secret);
+    } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        attempt.clientId,
+        expiredTransaction,
+        principal.userId,
+      );
+      throw refusal ?? error;
+    }
   }
 }
 

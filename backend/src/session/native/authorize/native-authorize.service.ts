@@ -1,4 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
+import { nativeAudienceRefusal } from '../../../auth/native/utils/native-audience-refusal';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { randomUUID } from 'crypto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -66,6 +69,7 @@ export class NativeAuthorizeService {
     private readonly issuance: BrowserIssuanceStore,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly events: NativeSecurityEvents,
   ) {}
 
   async begin(query: unknown): Promise<AuthorizeBegin | OauthFailure> {
@@ -114,6 +118,7 @@ export class NativeAuthorizeService {
       throw incompleteApproval();
     }
     let approved: ApprovedAuthorization;
+    let clientId = '';
     try {
       approved = await runLeavingFailuresAsRaised(
         this.unitOfWork,
@@ -123,9 +128,21 @@ export class NativeAuthorizeService {
             userId,
             transactionId,
             authenticationMethods,
+            undefined,
+            (value) => {
+              clientId = value;
+            },
           ),
       );
     } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        clientId,
+        expiredTransaction,
+        userId,
+      );
+      if (refusal) throw refusal;
       if (error instanceof MalformedIdError) {
         throw incompleteApproval();
       }
@@ -206,6 +223,7 @@ export class NativeAuthorizeService {
     transactionId: string,
     authenticationMethods: string[],
     expected?: VerifiedNativeAccount,
+    setClientId?: (clientId: string) => void,
   ): Promise<ApprovedAuthorization> {
     const now = this.clock.now();
     const account = await this.issuance.findAccount(unitOfWork, userId);
@@ -226,6 +244,7 @@ export class NativeAuthorizeService {
     if (!pending) {
       throw expiredTransaction();
     }
+    setClientId?.(pending.clientId);
     if (
       !isAcceptableRedirectUri(
         pending.redirectUri,
@@ -251,6 +270,10 @@ export class NativeAuthorizeService {
     }
     if (expected && application.sessionVersion !== expected.clientVersion)
       throw expiredTransaction();
+    assertAudienceAdmission(
+      account.accountAudience,
+      application.accountAudience,
+    );
     const code = randomSecret();
     const codeExpiresAt = addMs(now, AUTHORIZATION_CODE_LIFETIME_MS);
     const codeHash = hashToken(code);

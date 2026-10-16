@@ -17,6 +17,8 @@ import { ActivationAccounts } from '../../pending-codes/activation-accounts';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { createActivatedAccount } from '../../utils/activation.util';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import {
   hashPendingCodeGeneration,
@@ -60,6 +62,7 @@ export class NativeRegistrationService {
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
+    private readonly events: EventRecorder,
   ) {}
 
   async request(
@@ -162,7 +165,16 @@ export class NativeRegistrationService {
           error,
         );
       }
-      throw storeFailureCause(error);
+      const cause = storeFailureCause(error);
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        attempt.clientId,
+        activationCodeInvalid,
+        accountId,
+      );
+      if (refusal) throw refusal;
+      throw cause;
     }
   }
 
