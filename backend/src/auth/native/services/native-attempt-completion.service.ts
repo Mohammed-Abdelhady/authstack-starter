@@ -124,6 +124,7 @@ export class NativeAttemptCompletionService {
         grantVersion: grant?.sessionVersion ?? null,
         authenticationMethods: principal.authenticationMethods.slice(0, 10),
         firstFactor: principal.firstFactor,
+        userVerified: principal.passkeyUserVerified === true,
         verifiedAt: this.clock.now(),
       },
       secondFactors: owesMfa
@@ -149,7 +150,7 @@ export class NativeAttemptCompletionService {
   async afterLastFactorIn(
     work: UnitOfWork,
     claimed: NativeAttempt,
-    factor: { method: string; secret: string },
+    factor: { method: string; userVerified: boolean; secret: string },
   ): Promise<NativeAttempt> {
     const principal = claimed.details.verifiedAccount;
     if (!principal || !claimed.activeOperationId) throw wrongStage();

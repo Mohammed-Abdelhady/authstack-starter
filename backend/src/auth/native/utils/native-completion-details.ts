@@ -6,7 +6,7 @@ import type {
 export function nativeCompletionDetails(
   details: NativeAttemptDetails,
   verifiedAccount: VerifiedNativeAccount,
-  factor: { method: string },
+  factor: { method: string; userVerified: boolean },
 ): NativeAttemptDetails {
   return {
     ...details,
@@ -19,6 +19,8 @@ export function nativeCompletionDetails(
         ...verifiedAccount.authenticationMethods,
         factor.method,
       ],
+      userVerified:
+        verifiedAccount.userVerified === true || factor.userVerified,
     },
   };
 }
