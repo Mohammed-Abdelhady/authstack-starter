@@ -14,20 +14,42 @@ import {
 export interface AccountErasureMail {
   locale: SupportedLocale;
   eraseAfter: Date;
+  /** The erasure is due at once: the mail names no time and offers no wait. */
+  dueNow: boolean;
 }
 
-/** The day in the reader's language, with Western digits, as the app shows dates. */
-function erasureDay(locale: SupportedLocale, day: Date): string {
+/**
+ * The time in the reader's language with Western digits, as the app shows
+ * dates. A mail cannot know the reader's zone, so it names the one it uses.
+ */
+function erasureTime(locale: SupportedLocale, at: Date): string {
   return new Intl.DateTimeFormat(`${locale}-u-nu-latn`, {
-    dateStyle: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
     timeZone: 'UTC',
-  }).format(day);
+    timeZoneName: 'short',
+  }).format(at);
 }
 
-/** Sent when a person deletes their account: the day it will be erased. */
+/** Sent when a person deletes their account: when it will be erased. */
 export function buildAccountErasureMail(mail: AccountErasureMail): MailContent {
   const { common, accountErasure: copy } = MAIL_CATALOGUES[mail.locale];
-  const date = erasureDay(mail.locale, mail.eraseAfter);
+  if (mail.dueNow) {
+    return {
+      subject: copy.subjectNow,
+      html: htmlDocument(mail.locale, copy.titleNow, [
+        heading(copy.headingNow),
+        paragraph(common.greeting),
+        paragraph(copy.bodyNow),
+        signOffHtml(common),
+      ]),
+      text: textBody([common.greeting, copy.bodyNow, signOffText(common)]),
+    };
+  }
+  const date = erasureTime(mail.locale, mail.eraseAfter);
   return {
     subject: copy.subject,
     html: htmlDocument(mail.locale, copy.title, [
