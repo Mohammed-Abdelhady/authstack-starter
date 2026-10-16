@@ -14,8 +14,7 @@ export interface AccountDeletionProps {
   /**
    * A transport that sends no credential, for the public receipt route. The
    * deletion ends the session the engine's transport needs, so after a lost
-   * answer or a restart only this one can still ask. Without it the engine's
-   * transport asks, which works while its tokens are still held.
+   * answer or a restart only this one can still ask.
    */
-  receiptTransport?: Transport<AbortSignalPort>;
+  receiptTransport: Transport<AbortSignalPort>;
 }
