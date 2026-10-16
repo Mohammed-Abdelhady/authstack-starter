@@ -27,6 +27,8 @@ export const USER_PERMISSIONS = {
   DELETE_ALL: 'users:delete:all',
   DELETE_STAFF: 'users:delete:staff',
   UPDATE_OWN: 'users:update:own',
+  SUSPEND_ALL: 'users:suspend:all',
+  SUSPEND_STAFF: 'users:suspend:staff',
 } as const;
 
 // ========== Role Management Permissions ==========
@@ -105,6 +107,7 @@ export const PERMISSION_ACTIONS = [
   'manage',
   'grant',
   'revoke',
+  'suspend',
 ] as const;
 
 /**
@@ -116,7 +119,4 @@ export const PERMISSION_SCOPES = ['own', 'all', 'staff'] as const;
  * Outside the active catalogue and picker. The permission format accepts these,
  * but grant validation refuses them until their plan.
  */
-export const RESERVED_PERMISSIONS = [
-  'users:suspend:all',
-  'users:suspend:staff',
-] as const;
+export const RESERVED_PERMISSIONS: readonly string[] = [];
