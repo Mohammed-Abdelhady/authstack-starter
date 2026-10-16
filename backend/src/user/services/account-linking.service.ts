@@ -1,5 +1,7 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
+import { REVOCATION_REASON } from '../../auth/oauth/provider-tokens/constants/provider-tokens.constants';
+import { ProviderRevocations } from '../../auth/oauth/provider-tokens/services/provider-revocations';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
@@ -61,6 +63,7 @@ export class AccountLinkingService {
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
     private readonly notices?: SecurityNoticeService,
+    @Optional() private readonly revocations?: ProviderRevocations,
   ) {}
 
   /**
@@ -167,13 +170,22 @@ export class AccountLinkingService {
     const remaining = user.linkedAccounts.filter(
       (account) => account.provider !== provider,
     );
-    return this.links.removeLink(unitOfWork, user, {
+    const unlinked = await this.links.removeLink(unitOfWork, user, {
       provider,
       primaryProvider:
         user.primaryProvider === provider
           ? remaining[0]?.provider
           : user.primaryProvider,
     });
+    // In this unit of work, so the job exists exactly when the link is gone.
+    await this.revocations?.enqueueIn(unitOfWork, {
+      userId: user.id,
+      identities: user.linkedAccounts.filter(
+        (account) => account.provider === provider,
+      ),
+      reason: REVOCATION_REASON.UNLINK,
+    });
+    return unlinked;
   }
 
   /** Every sign-in method on the account, including 'email'. */
