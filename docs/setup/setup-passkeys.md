@@ -214,7 +214,7 @@ PATCH  /api/auth/passkeys/:id     { "name": "iPhone" }
 DELETE /api/auth/passkeys/:id
 ```
 
-Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the last passkey of its relying party **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes. A passkey of the other relying party does not count as a way in: with one web passkey and one app passkey and nothing else, neither can be removed. Where an application that admits the account requires a passkey, the last passkey it can use stays whatever else the account has.
+Delete is refused with `409 PASSKEY_LAST_SIGN_IN_METHOD` when it is the last passkey of its relying party **and** the account has no password to sign in with, no linked OAuth provider, and magic links are off. Any one of those, and the passkey goes. A passkey of the other relying party does not count as a way in: with one web passkey and one app passkey and nothing else, neither can be removed. Where an application that admits the account requires a passkey, the last passkey it can use stays whatever else the account has. That refusal keeps the same code, and its message asks for another passkey instead of a password.
 An emailed sign-in code, where an app offers one, counts for an app's passkeys and never for the web or admin ones, which a browser uses. <!-- feature:email-code -->
 
 The list answer carries the same decision ahead of time, so a page can say why before anyone tries:
@@ -223,7 +223,7 @@ The list answer carries the same decision ahead of time, so a page can say why b
 { "passkeys": [{ "id": "…", "name": "Laptop" }], "canRemove": false }
 ```
 
-`canRemove` is advice for the whole account. It is `false` when removing one passkey would leave the account with no way in, counting every passkey and every other sign-in method. It does not look at relying parties, so it can be `true` while a delete is still refused. With one web passkey and one app passkey and no other sign-in method, the list says `true`, and deleting either one answers `409 PASSKEY_LAST_SIGN_IN_METHOD`. The delete decides, so a page handles the `409` whatever the field says. The field is optional. A client that does not know it can ignore it.
+`canRemove` is advice for the whole account. It is `false` when no listed passkey could be deleted now, by the same rules the delete applies, relying parties and required passkeys included. When some can go and others cannot, it is `true`, and deleting one that has to stay still answers `409 PASSKEY_LAST_SIGN_IN_METHOD`. With a linked provider, a web passkey, and an admin passkey the admin application requires, the list says `true`. The web passkey can go and the admin one stays. The delete decides, so a page handles the `409` whatever the field says. The field is optional. A client that does not know it can ignore it.
 
 ---
 
