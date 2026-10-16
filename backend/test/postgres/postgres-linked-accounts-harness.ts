@@ -2,6 +2,11 @@ import { LinkedAccountsContractHarness } from '../../src/user/linked-accounts-co
 import { PostgresLinkedAccountStore } from '../../src/user/persistence/postgres/postgres-linked-account.store';
 import { PostgresProviderSignInStore } from '../../src/auth/oauth/persistence/postgres/postgres-provider-sign-in.store';
 import { PostgresSignInMethodStore } from '../../src/user/persistence/postgres/postgres-sign-in-method.store';
+// feature:email-code:start
+import { PostgresApplicationAccessStore } from '../../src/session/persistence/postgres/postgres-application-access.store';
+import { PostgresApplicationRegistryStore } from '../../src/session/persistence/postgres/postgres-application-registry.store';
+import { PostgresSecurityEventStore } from '../../src/session/persistence/postgres/postgres-security-event.store';
+// feature:email-code:end
 import { bootPostgresAccountsHarness } from './postgres-accounts-harness';
 
 export async function bootPostgresLinkedAccountsHarness(): Promise<LinkedAccountsContractHarness> {
@@ -12,6 +17,14 @@ export async function bootPostgresLinkedAccountsHarness(): Promise<LinkedAccount
     links: new PostgresLinkedAccountStore(database, clock),
     providerSignIn: new PostgresProviderSignInStore(database, clock),
     signInMethods: new PostgresSignInMethodStore(database),
+    // feature:email-code:start
+    applicationStore: new PostgresApplicationRegistryStore(database),
+    accessStore: new PostgresApplicationAccessStore(
+      database,
+      clock,
+      new PostgresSecurityEventStore(database),
+    ),
+    // feature:email-code:end
     storedLinks: async (userId: string) => {
       const rows = await database
         .selectFrom('user_linked_accounts')

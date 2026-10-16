@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches, // feature:email-code
   Min,
   MinLength,
   Validate,
@@ -19,9 +20,16 @@ import {
   transformOptionalString,
 } from '../common/utils/environment-transform';
 import { ProductionGuardEnvironmentVariables } from './env.production.schema';
-import { HostPolicyJsonConstraint } from './env.host-contracts.constraints';
+import {
+  // feature:email-code:start
+  EmailCodeReviewGroupConstraint,
+  EmailCodeReviewUntilConstraint,
+  // feature:email-code:end
+  HostPolicyJsonConstraint,
+} from './env.host-contracts.constraints';
 import {
   ACTIVITY_RETENTION_DAYS_DEFAULT,
+  BCRYPT_HASH_PATTERN, // feature:email-code
   EMAIL_CODE_EXPIRES_IN_DEFAULT, // feature:email-code
   INVITATION_EXPIRES_IN_DEFAULT, // feature:invitations
 } from './constants/host-contracts';
@@ -79,23 +87,32 @@ export class HostContractsEnvironmentVariables extends ProductionGuardEnvironmen
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_ACCOUNT_ID?: string;
 
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_CLIENT_ID?: string;
 
   @Transform(transformOptionalString)
   @IsString()
   @IsNotEmpty()
+  @Matches(BCRYPT_HASH_PATTERN, {
+    message:
+      'EMAIL_CODE_REVIEW_CODE_HASH must be a bcrypt hash of the review code, never the code itself',
+  })
+  @Validate(EmailCodeReviewGroupConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_CODE_HASH?: string;
 
   @Transform(transformOptionalString)
   @IsISO8601({ strict: true })
+  @Validate(EmailCodeReviewGroupConstraint)
+  @Validate(EmailCodeReviewUntilConstraint)
   @IsOptional()
   EMAIL_CODE_REVIEW_UNTIL?: string;
   // feature:email-code:end

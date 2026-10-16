@@ -13,6 +13,8 @@ import { MongoProviderSignInStore } from '../../../../auth/oauth/persistence/mon
 import { MongoLinkedAccountStore } from '../mongo-linked-account.store';
 import { MongoSignInMethodStore } from '../mongo-sign-in-method.store';
 import { LinkedAccountsContractHarness } from '../../../linked-accounts-contract/linked-accounts-contract.harness-spec';
+import { ApplicationAccessStore } from '../../../../session/applications/application-access.store'; // feature:email-code
+import { ApplicationRegistryStore } from '../../../../session/applications/application-registry.store'; // feature:email-code
 
 export async function bootMongoLinkedAccountsHarness(): Promise<
   LinkedAccountsContractHarness & MongoAccountsHarness
@@ -32,6 +34,11 @@ export async function bootMongoLinkedAccountsHarness(): Promise<
       users,
       passkeys, // feature:passkeys
     ),
+    // feature:email-code:start
+    // The session module's own adapters, on the same connection.
+    applicationStore: accounts.booted.app.get(ApplicationRegistryStore),
+    accessStore: accounts.booted.app.get(ApplicationAccessStore),
+    // feature:email-code:end
     storedLinks: async (userId: string) => {
       const user = await users.findById(userId).lean().exec();
       return (user?.linkedAccounts ?? []).map((linked) => ({

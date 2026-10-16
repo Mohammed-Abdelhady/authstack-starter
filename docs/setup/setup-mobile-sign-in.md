@@ -231,6 +231,7 @@ permission for that method.
   email token and PKCE state. Open the link on the device that requested it.
   A cold start restores the saved attempt from secure storage. Resending replaces
   the previous token. Email-link completion still requires MFA when enabled.
+- Emailed codes sign in with the six digits from the mail, and its button finishes the same attempt on the phone that asked. See [setup-email-code.md](setup-email-code.md). <!-- feature:email-code -->
 - Signup requests a six-digit verification code, then asks for the code, name and
   password. The code is bound to the stored registration generation. Account
   activation can succeed even if the subsequent sign-in fails; the app reports

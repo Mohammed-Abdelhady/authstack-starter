@@ -37,7 +37,14 @@ function parseCapabilities(value: unknown, status: number): NativeAuthCapabiliti
   const fields: JsonFields<NativeAuthCapabilities> = requireObject(value, 'capabilities', status);
   exactKeys(
     fields,
-    ['password', 'emailLink', 'passkeys', 'registration', 'recovery'],
+    [
+      'password',
+      'emailLink',
+      'passkeys',
+      'registration',
+      'recovery',
+      'emailCode', // feature:email-code
+    ],
     'capabilities',
     status,
   );
@@ -47,6 +54,11 @@ function parseCapabilities(value: unknown, status: number): NativeAuthCapabiliti
     passkeys: booleanValue(fields.passkeys, 'capabilities.passkeys', status),
     registration: booleanValue(fields.registration, 'capabilities.registration', status),
     recovery: booleanValue(fields.recovery, 'capabilities.recovery', status),
+    // feature:email-code:start
+    ...(fields.emailCode === undefined
+      ? {}
+      : { emailCode: booleanValue(fields.emailCode, 'capabilities.emailCode', status) }),
+    // feature:email-code:end
   };
 }
 

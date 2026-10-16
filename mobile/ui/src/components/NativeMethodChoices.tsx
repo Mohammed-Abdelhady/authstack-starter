@@ -17,6 +17,16 @@ interface ChoicesProps {
   startFactor(action: 'passkey' | { providerId: string }): void;
   providerWeb(providerId: string): void;
 }
+
+/** Whether the mailed link is a choice of its own. */
+function offersEmailLink(capabilities: NativeMethods['capabilities']): boolean {
+  // feature:email-code:start
+  // The code mail carries the link as its button, so one email choice covers both.
+  if (capabilities.emailCode === true) return false;
+  // feature:email-code:end
+  return capabilities.emailLink;
+}
+
 export function NativeMethodChoices({
   methods,
   disabled,
@@ -29,6 +39,9 @@ export function NativeMethodChoices({
   const { t } = useUi();
   const password = useCallback(() => choose(NATIVE_METHOD.PASSWORD), [choose]);
   const emailLink = useCallback(() => choose(NATIVE_METHOD.EMAIL_LINK), [choose]);
+  // feature:email-code:start
+  const emailCode = useCallback(() => choose(NATIVE_METHOD.EMAIL_CODE), [choose]);
+  // feature:email-code:end
   const registration = useCallback(() => choose(NATIVE_METHOD.REGISTRATION), [choose]);
   const recovery = useCallback(() => choose(NATIVE_METHOD.RECOVERY), [choose]);
   const passkey = useCallback(() => startFactor('passkey'), [startFactor]);
@@ -75,7 +88,18 @@ export function NativeMethodChoices({
           web={providerWeb}
         />
       ))}
-      {methods.capabilities.emailLink ? (
+      {/* feature:email-code:start */}
+      {methods.capabilities.emailCode === true ? (
+        <Button
+          label={t('native.emailCodeChoice')}
+          onPress={emailCode}
+          disabled={disabled}
+          stretch
+          testID={NATIVE_UI_TEST_ID.EMAIL_CODE_CHOICE}
+        />
+      ) : null}
+      {/* feature:email-code:end */}
+      {offersEmailLink(methods.capabilities) ? (
         <Button
           label={t('native.emailLinkChoice')}
           onPress={emailLink}

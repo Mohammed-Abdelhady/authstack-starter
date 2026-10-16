@@ -6,6 +6,8 @@ import {
 } from '@app/core';
 import type {
   NativeAttemptStart,
+  NativeEmailCodeRequestInput, // feature:email-code
+  NativeEmailCodeVerificationInput, // feature:email-code
   NativePasskeyAssertion,
   NativeProviderCredential,
 } from '../types/native-auth';
@@ -176,3 +178,26 @@ export function validateProviderCredential(input: NativeProviderCredential): voi
       throw new TypeError('provider credential kind is not supported');
   }
 }
+
+// feature:email-code:start
+/** The longest language tag the server reads, its `LANGUAGE_TAG_MAX_LENGTH`. */
+const LANGUAGE_TAG_LIMIT = 35;
+
+function requireLanguageTag(locale: string | undefined): void {
+  if (locale !== undefined) requireBoundedString(locale, 'locale', LANGUAGE_TAG_LIMIT);
+}
+
+export function validateEmailCodeRequest(input: NativeEmailCodeRequestInput): void {
+  requireKeys(input, input.locale === undefined ? ['email'] : ['email', 'locale'], 'code request');
+  requireEmail(input.email);
+  requireLanguageTag(input.locale);
+}
+
+export function validateEmailCodeVerification(input: NativeEmailCodeVerificationInput): void {
+  requireKeys(input, input.locale === undefined ? ['code'] : ['code', 'locale'], 'code check');
+  requireBoundedString(input.code, 'email code', NATIVE_AUTH_LIMITS.ACTIVATION_CODE_LENGTH);
+  if (!NATIVE_AUTH_PATTERN.ACTIVATION_CODE.test(input.code))
+    throw new TypeError('email code has an invalid format');
+  requireLanguageTag(input.locale);
+}
+// feature:email-code:end

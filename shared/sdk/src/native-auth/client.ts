@@ -1,5 +1,7 @@
 import { NATIVE_AUTH_HEADER, NATIVE_AUTH_LIMITS, NATIVE_AUTH_PATTERN } from '@app/core';
+import { ErrorCode } from '@app/core'; // feature:email-code
 import { HTTP_METHOD } from '../constants';
+import { ApiError } from '../errors'; // feature:email-code
 import type { CallOptions } from '../client';
 import {
   unwrapNativeAttemptResult,
@@ -17,6 +19,8 @@ import {
   validatePasskeyAssertion,
   validateProviderCredential,
   validateStart,
+  validateEmailCodeRequest, // feature:email-code
+  validateEmailCodeVerification, // feature:email-code
 } from './input-validation';
 import type { TransportRequest, TransportResponse, TransportSignal } from '../transport';
 import type {
@@ -25,6 +29,8 @@ import type {
   NativeAttemptResult,
   NativeAttemptStart,
   NativeAuthClient as NativeAuthClientType,
+  NativeEmailCodeRequestInput, // feature:email-code
+  NativeEmailCodeVerificationInput, // feature:email-code
   NativeEmailLinkVerificationInput,
   NativePasskeyAssertion,
   NativePasskeyOptions,
@@ -175,6 +181,28 @@ export function createNativeAuthClient<TSignal extends TransportSignal>(
         input,
       );
     },
+    // feature:email-code:start
+    requestEmailCode: async (attempt, input: NativeEmailCodeRequestInput, options) => {
+      validateEmailCodeRequest(input);
+      return attemptCall(
+        HTTP_METHOD.POST,
+        NATIVE_AUTH_PATHS.requestEmailCode,
+        attempt,
+        options,
+        input,
+      );
+    },
+    verifyEmailCode: async (attempt, input: NativeEmailCodeVerificationInput, options) => {
+      validateEmailCodeVerification(input);
+      return attemptCall(
+        HTTP_METHOD.POST,
+        NATIVE_AUTH_PATHS.verifyEmailCode,
+        attempt,
+        options,
+        input,
+      );
+    },
+    // feature:email-code:end
     register: async (attempt, email, options) => {
       requireEmail(email);
       return attemptCall(HTTP_METHOD.POST, NATIVE_AUTH_PATHS.register, attempt, options, { email });
@@ -223,3 +251,10 @@ export function createNativeAuthClient<TSignal extends TransportSignal>(
       attemptCall(HTTP_METHOD.POST, NATIVE_AUTH_PATHS.cancel, attempt, options),
   };
 }
+
+// feature:email-code:start
+/** The server refused an emailed code: wrong, expired, spent, or never mailed. */
+export function isEmailCodeRefusal(error: unknown): boolean {
+  return error instanceof ApiError && error.code === ErrorCode.EMAIL_CODE_INVALID;
+}
+// feature:email-code:end
