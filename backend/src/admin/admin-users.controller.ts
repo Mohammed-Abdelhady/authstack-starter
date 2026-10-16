@@ -6,6 +6,7 @@ import {
   Post,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -31,6 +32,11 @@ import { AdminUserDto } from './dto/admin-user-response.dto';
 import { USER_PERMISSIONS } from '../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
 import { RouteIdPipe } from '../common/pipes/route-id.pipe';
+import { ActingSessionOf } from '../auth/proof/decorators/acting-session.decorator';
+import type { ActingSession } from '../auth/proof/types/acting-session';
+import { IdempotencyKey } from './decorators/idempotency-key.decorator';
+import { StaffVersionQueryDto } from './dto/staff-version.decorator';
+import type { StatusResult } from './services/users/admin-user-status';
 
 /**
  * Admin endpoints for user records.
@@ -66,6 +72,8 @@ export class AdminUsersController {
     @Body() dto: CreateUserDto,
     @CurrentUser('role') actorRole: string,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
+    @IdempotencyKey() key: string | undefined,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<AdminUserDto>> {
     return this.adminUserCreateService.createUser(
@@ -73,6 +81,7 @@ export class AdminUsersController {
       actorRole,
       actorId,
       actorPermissions,
+      { session, key },
     );
   }
 
@@ -105,6 +114,7 @@ export class AdminUsersController {
     @Body() dto: UpdateUserDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<ApiResponse<AdminUserDto>> {
     return this.adminUsersService.updateUser(
@@ -113,6 +123,7 @@ export class AdminUsersController {
       actorId,
       actorRole,
       actorPermissions,
+      session,
     );
   }
 
@@ -160,14 +171,15 @@ export class AdminUsersController {
    */
   @Patch(':id/status')
   @RequireAnyPermission(
-    USER_PERMISSIONS.UPDATE_ALL,
-    USER_PERMISSIONS.UPDATE_STAFF,
+    USER_PERMISSIONS.SUSPEND_ALL,
+    USER_PERMISSIONS.SUSPEND_STAFF,
   )
   @ApiOperation({
     summary: 'Update user status',
     description:
-      'Activates or deactivates a user. Cannot modify users at or above the ' +
-      "actor's role level, and cannot modify the actor's own account.",
+      'Suspends or restores a user, with the suspend permission for its ' +
+      "audience. Cannot modify users at or above the actor's role level, " +
+      "and cannot modify the actor's own account.",
   })
   @ApiParam({
     name: 'id',
@@ -179,15 +191,15 @@ export class AdminUsersController {
     @Param('id', RouteIdPipe) id: string,
     @Body() dto: UpdateUserStatusDto,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
-  ): Promise<
-    ApiResponse<{ id: string; isDeleted: boolean; deletedAt?: Date }>
-  > {
+  ): Promise<ApiResponse<StatusResult>> {
     return this.adminUsersService.updateUserStatus(
       id,
       dto,
       actorId,
       actorPermissions,
+      session,
     );
   }
 
@@ -219,14 +231,16 @@ export class AdminUsersController {
     @Body() dto: UpdateUserRoleDto,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
-  ): Promise<ApiResponse<{ id: string; role: string }>> {
+  ): Promise<ApiResponse<{ id: string; role: string; version: number }>> {
     return this.adminUsersService.updateUserRole(
       id,
       dto,
       actorId,
       actorRole,
       actorPermissions,
+      session,
     );
   }
 
@@ -250,9 +264,17 @@ export class AdminUsersController {
   })
   async deleteUser(
     @Param('id', RouteIdPipe) id: string,
+    @Query() query: StaffVersionQueryDto,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
     @CurrentUser('permissions') actorPermissions?: readonly string[],
   ): Promise<void> {
-    return this.adminUsersService.deleteUser(id, actorId, actorPermissions);
+    return this.adminUsersService.deleteUser(
+      id,
+      actorId,
+      actorPermissions,
+      session,
+      query.version,
+    );
   }
 }

@@ -1,17 +1,13 @@
 import type { UserScopeAction } from '../types/user-scope-action';
 import { USER_SCOPE_ACTION } from '../constants/user-scope-permissions';
 import { HttpStatus, Logger } from '@nestjs/common';
-import { AdminEmailChangeService } from '../services/users/admin-email-change.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import {
   isStoreOutage,
   storeFailureCause,
 } from '../../common/persistence/store-failure';
-import {
-  UnitOfWork,
-  UnitOfWorkRunner,
-} from '../../common/persistence/unit-of-work';
+import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { asAuthorityUnavailable } from '../../session/utils/authority/authority-unavailable';
 import { StoredAccount } from '../../user/stores/stored-account';
 import { AdminUserAccessService } from '../services/users/admin-user-access.service';
@@ -85,60 +81,4 @@ export async function loadAuthorizedUser(
     options.requireAdmin,
   );
   return current;
-}
-
-/**
- * Write an admin name or pending address onto the target as it is now, after
- * the actor's rank is checked again. The next email generation is allocated
- * under the account write, before a confirmation code is issued.
- */
-export function saveUserUpdate(
-  runner: UnitOfWorkRunner,
-  accounts: AdminAccountStore,
-  accessService: AdminUserAccessService,
-  edit: {
-    id: string;
-    actorId: string;
-    name?: string;
-    pendingEmail?: string;
-    previousEmail: string;
-    previousGeneration: number;
-  },
-  emailChange: AdminEmailChangeService,
-): Promise<StoredAccount> {
-  return runner.run(async (unitOfWork) => {
-    const current = await loadAuthorizedUser(
-      accounts,
-      accessService,
-      unitOfWork,
-      edit.id,
-      edit.actorId,
-      undefined,
-      { requireAdmin: edit.pendingEmail !== undefined },
-    );
-    if (
-      edit.pendingEmail !== undefined &&
-      (current.email !== edit.previousEmail ||
-        current.addressGeneration !== edit.previousGeneration)
-    ) {
-      throw new AppException(
-        ErrorCode.CONFLICT,
-        'The email address changed while this edit was prepared',
-        HttpStatus.CONFLICT,
-      );
-    }
-    if (edit.pendingEmail !== undefined) {
-      await emailChange.claimPendingIn(unitOfWork, current, edit.pendingEmail);
-    }
-    return accounts.saveIdentity(unitOfWork, current, {
-      name: edit.name,
-      address:
-        edit.pendingEmail === undefined
-          ? undefined
-          : {
-              email: edit.pendingEmail,
-              addressGeneration: current.addressGeneration + 1,
-            },
-    });
-  });
 }

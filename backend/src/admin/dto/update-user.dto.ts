@@ -6,6 +6,7 @@ import {
   NamePolicy,
   transformTrimmedName,
 } from '../../common/decorators/name-policy.decorator';
+import { StaffVersion } from './staff-version.decorator';
 
 /**
  * DTO for updating user basic information.
@@ -29,4 +30,7 @@ export class UpdateUserDto {
   @IsOptional()
   @IsEmail({}, { message: 'Invalid email address' })
   email?: string;
+
+  @StaffVersion()
+  version?: number;
 }

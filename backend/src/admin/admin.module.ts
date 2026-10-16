@@ -20,6 +20,9 @@ import { SessionModule } from '../session/session.module';
 import { RoleModule } from '../role/role.module';
 import { UserModule } from '../user/user.module';
 import { CommonModule } from '../common/common.module';
+import { AuthContractsModule } from '../auth/contracts/auth-contracts.module';
+import { StaffMutationsModule } from './services/staff-mutations/staff-mutations.module';
+import { LastAdminGuard } from './services/staff-mutations/last-admin-guard';
 import {
   ADMIN_PERSISTENCE_IMPORTS,
   ADMIN_PERSISTENCE_PROVIDERS,
@@ -38,6 +41,8 @@ import {
     SessionModule,
     MailModule,
     RoleModule,
+    AuthContractsModule,
+    StaffMutationsModule,
     forwardRef(() => UserModule),
   ],
   controllers: [
@@ -58,6 +63,7 @@ import {
     AdminSessionsService,
     AdminSessionAccessService,
     AdminActivityService,
+    LastAdminGuard,
     ...ADMIN_PERSISTENCE_PROVIDERS,
   ],
   exports: [AdminUsersService],

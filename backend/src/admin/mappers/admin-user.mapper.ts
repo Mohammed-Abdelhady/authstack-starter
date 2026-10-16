@@ -23,5 +23,6 @@ export function mapToAdminUserDto(user: StoredAccount): AdminUserDto {
     linkedProviders: user.linkedProviders,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    version: user.version ?? 0,
   };
 }
