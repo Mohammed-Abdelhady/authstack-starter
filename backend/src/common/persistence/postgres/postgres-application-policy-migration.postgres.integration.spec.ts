@@ -100,7 +100,10 @@ describe('application policy and evidence upgrade', () => {
       );
 
       expect({
-        migrations: (await recorded(pool)).slice(-3),
+        // Newer migrations sort after these, so match them by name.
+        migrations: (await recorded(pool)).filter((name) =>
+          POLICY_MIGRATIONS.includes(name),
+        ),
         application: application.rows,
         session: session.rows,
         audiences: audiences.rows,
