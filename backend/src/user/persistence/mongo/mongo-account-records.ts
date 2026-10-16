@@ -55,6 +55,7 @@ export function toStoredAccount(
     twoFactorEnabled: user.twoFactor?.enabled === true, // feature:totp
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    version: user.version ?? 0,
   };
 }
 

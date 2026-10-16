@@ -41,6 +41,7 @@ export const ACCOUNT_COLUMNS = [
   'locale',
   'created_at',
   'updated_at',
+  'version',
 ] as const;
 
 export interface AccountRow {
@@ -64,6 +65,7 @@ export interface AccountRow {
   locale: string;
   created_at: Date;
   updated_at: Date;
+  version: number;
 }
 
 /** Constraint names on an account to the rules' shared names. */
@@ -160,6 +162,7 @@ export function toStoredAccount(
     twoFactorEnabled, // feature:totp
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    version: row.version,
   };
 }
 

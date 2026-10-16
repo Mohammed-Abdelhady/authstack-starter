@@ -23,6 +23,7 @@ export interface RoleFields {
   pendingHolderSweeps?: PendingRoleSweep[];
   createdAt: Date;
   updatedAt: Date;
+  version?: number;
 }
 
 const OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
@@ -63,6 +64,7 @@ export function toStoredRole(role: RoleFields): StoredRole {
     pendingHolderSweeps: (role.pendingHolderSweeps ?? []).map(toPendingSweep),
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
+    version: role.version ?? 0,
   };
 }
 

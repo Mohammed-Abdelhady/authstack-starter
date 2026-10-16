@@ -31,6 +31,7 @@ export const ROLE_COLUMNS = [
   'permissions',
   'created_at',
   'updated_at',
+  'version',
 ] as const;
 
 export interface RoleRow {
@@ -45,6 +46,7 @@ export interface RoleRow {
   permissions: string[];
   created_at: Date;
   updated_at: Date;
+  version: number;
 }
 
 interface PendingSweepRow {
@@ -78,6 +80,7 @@ function toStoredRole(row: RoleRow, owed: PendingSweep[]): StoredRole {
     pendingHolderSweeps: owed,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    version: row.version,
   };
 }
 
