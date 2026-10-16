@@ -183,7 +183,7 @@ export class NativePasskeyRegistrationService {
       throw this.verificationFailed('credential is already registered');
     }
 
-    const passkey = await this.recorder.record(
+    const { passkey } = await this.recorder.record(
       {
         userId,
         rpId: relyingParty.rpId,

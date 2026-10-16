@@ -3,7 +3,7 @@ import { rerunAtOnce } from '../../../../test/utils/session/issuance-contract/is
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
-import { EnrolmentPromotion } from '../services/enrolment-promotion';
+import { EnrolmentPromotion } from '../../contracts/enrolment-promotion';
 import { PasskeyRecorder } from '../services/passkey-recorder.service';
 import {
   attestationOf,

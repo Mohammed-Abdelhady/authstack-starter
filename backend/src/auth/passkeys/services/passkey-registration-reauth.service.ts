@@ -13,6 +13,10 @@ import { TwoFactorVerificationService } from '../../two-factor/services/two-fact
 import { SecondFactorStore } from '../../two-factor/stores/second-factor.store'; // feature:totp
 import { PasskeyRegistrationOptionsDto } from '../dto/passkey-registration-options.dto';
 import { PasskeyAccounts } from '../stores/passkey-accounts';
+import {
+  isEnrolmentSession,
+  RegisteringSession,
+} from '../utils/session-kind.util';
 
 /**
  * Who may add a passkey to an account. A passkey that verifies its user signs
@@ -26,6 +30,10 @@ import { PasskeyAccounts } from '../stores/passkey-accounts';
  * step again as well, with a code or a recovery code in the same request. A
  * session does not record when its factors were proved, so nothing short of a
  * fresh answer shows the second step is current.
+ *
+ * An enrolment session is the permission to register for its whole life, so
+ * the five-minute rule does not apply to it. The password and the second step
+ * still do.
  */
 @Injectable()
 export class PasskeyRegistrationReauth extends ReauthService {
@@ -54,10 +62,15 @@ export class PasskeyRegistrationReauth extends ReauthService {
   async assertMayAddPasskey(
     userId: string,
     proof: PasskeyRegistrationOptionsDto,
-    session: SessionAge | undefined,
+    session:
+      (SessionAge & Pick<RegisteringSession, 'credentialPurpose'>) | undefined,
   ): Promise<void> {
     const holder = await this.accounts.findPassword(userId);
-    await this.assertReauthenticated(holder ?? {}, proof.password, session);
+    if (isEnrolmentSession(session)) {
+      await this.assertPasswordIfSet(holder ?? {}, proof.password);
+    } else {
+      await this.assertReauthenticated(holder ?? {}, proof.password, session);
+    }
     await this.assertSecondStep(userId, proof); // feature:totp
   }
 
