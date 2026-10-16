@@ -152,6 +152,7 @@ describe('PostgreSQL adapter', () => {
         '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
         '0029_account_erasure.sql',
+        '0032_provider_revocations.sql', // feature:oauth-core
       ],
       again: [],
       recorded: [
@@ -183,6 +184,7 @@ describe('PostgreSQL adapter', () => {
         '0026_passkey_relying_party.sql', // feature:passkeys
         '0027_activity_log.sql',
         '0029_account_erasure.sql',
+        '0032_provider_revocations.sql', // feature:oauth-core
       ],
     });
   });

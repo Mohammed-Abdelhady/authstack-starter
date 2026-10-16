@@ -25,7 +25,7 @@ describeProviderLinkContract(
       close: connection.close,
       checkSetup: async () => {
         expect(connection.appliedMigrations).toContain(
-          '0029_account_erasure.sql',
+          '0032_provider_revocations.sql',
         );
         const indexes = await connection.pool.query<{ indexname: string }>(
           "SELECT indexname FROM pg_indexes WHERE tablename = 'provider_link_tickets'",
