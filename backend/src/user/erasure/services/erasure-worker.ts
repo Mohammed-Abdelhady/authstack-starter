@@ -185,7 +185,14 @@ export class ErasureWorker implements OnApplicationBootstrap, OnModuleDestroy {
     lease: ErasureLease,
   ): Promise<void> {
     try {
-      await this.runner.run((unitOfWork) => this.removeIn(unitOfWork, begun));
+      const erased = await this.runner.run((unitOfWork) =>
+        this.removeIn(unitOfWork, begun),
+      );
+      if (!erased) {
+        this.logger.warn(
+          `Erasure job ${begun.job.id} withdrawn: its account is no longer due`,
+        );
+      }
     } catch (error) {
       const code =
         error instanceof HookFailedInTransaction
@@ -196,42 +203,49 @@ export class ErasureWorker implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  /**
+   * False when the account is gone or no longer due, as when it was restored
+   * after step 1: nothing is removed and the job is withdrawn.
+   */
   private async removeIn(
     unitOfWork: UnitOfWork,
     begun: StartedErasure,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const now = this.clock.now();
+    const read = await this.eraser.readFactsIn(
+      unitOfWork,
+      begun.job.userId,
+      now,
+    );
+    if (!read) {
+      await this.jobs.withdrawIn(unitOfWork, begun.job.id);
+      return false;
+    }
+    const { onAccount, ...rest } = read;
+    const facts = {
+      ...rest,
+      addresses: await this.ownAddresses(unitOfWork, read.accountId, onAccount),
+    };
+    if (this.hook.runsInEraseTransaction) {
+      await this.hook
+        .erase(begun.subject, unitOfWork)
+        .catch((error: unknown) => {
+          throw new HookFailedInTransaction(hookFailureCode(error));
+        });
+    }
+    // feature:oauth-core:start
+    await this.revocations.enqueueIn(unitOfWork, {
+      userId: facts.accountId,
+      identities: facts.identities,
+      reason: REVOCATION_REASON.ERASURE,
+    });
+    // feature:oauth-core:end
+    await this.eraser.eraseIn(unitOfWork, facts);
     const purgeAfter = new Date(
       now.getTime() + ERASURE_JOB_KEEP_DAYS * MS_PER_DAY,
     );
-    const read = await this.eraser.readFactsIn(unitOfWork, begun.job.userId);
-    if (read) {
-      const { onAccount, ...rest } = read;
-      const facts = {
-        ...rest,
-        addresses: await this.ownAddresses(
-          unitOfWork,
-          read.accountId,
-          onAccount,
-        ),
-      };
-      if (this.hook.runsInEraseTransaction) {
-        await this.hook
-          .erase(begun.subject, unitOfWork)
-          .catch((error: unknown) => {
-            throw new HookFailedInTransaction(hookFailureCode(error));
-          });
-      }
-      // feature:oauth-core:start
-      await this.revocations.enqueueIn(unitOfWork, {
-        userId: facts.accountId,
-        identities: facts.identities,
-        reason: REVOCATION_REASON.ERASURE,
-      });
-      // feature:oauth-core:end
-      await this.eraser.eraseIn(unitOfWork, facts);
-    }
     await this.jobs.finishIn(unitOfWork, begun.job.id, now, purgeAfter);
+    return true;
   }
 
   private async fail(

@@ -17,6 +17,8 @@ type AccountDocument = {
   _id: ObjectId;
   email: string;
   pendingEmail?: string;
+  isDeleted: boolean;
+  eraseAfter?: Date;
   linkedAccounts?: LinkedIdentity[];
   erasureFence?: number;
 };
@@ -34,13 +36,14 @@ export class MongoAccountEraser extends AccountEraser {
   async readFactsIn(
     unitOfWork: UnitOfWork,
     userId: string,
+    now: Date,
   ): Promise<AccountErasureRead | null> {
     const session = mongoSessionOf(unitOfWork);
     const id = objectId(userId);
     const account = await this.db
       .collection<AccountDocument>('users')
       .findOneAndUpdate(
-        { _id: id },
+        { _id: id, isDeleted: true, eraseAfter: { $lte: now } },
         { $inc: { erasureFence: 1 } },
         { session, returnDocument: 'after' },
       );

@@ -22,13 +22,17 @@ export class PostgresAccountEraser extends AccountEraser {
   async readFactsIn(
     unitOfWork: UnitOfWork,
     userId: string,
+    now: Date,
   ): Promise<AccountErasureRead | null> {
     const transaction = postgresTransactionOf(unitOfWork);
     const id = toUuid(userId);
+    // A row a restore changed while this waited for it is checked again here.
     const account = await transaction
       .selectFrom('users')
       .select(['id', 'email', 'pending_email'])
       .where('id', '=', id)
+      .where('is_deleted', '=', true)
+      .where('erase_after', '<=', now)
       .forUpdate()
       .executeTakeFirst();
     if (!account) return null;

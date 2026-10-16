@@ -210,6 +210,14 @@ export class PostgresErasureJobStore extends ErasureJobStore {
     return finished !== undefined;
   }
 
+  async withdrawIn(unitOfWork: UnitOfWork, jobId: string): Promise<void> {
+    await postgresTransactionOf(unitOfWork)
+      .deleteFrom('erasure_jobs')
+      .where('id', '=', toUuid(jobId))
+      .where('step', '!=', ERASURE_STEP.ERASED)
+      .execute();
+  }
+
   async holdForRestoreIn(
     unitOfWork: UnitOfWork,
     userId: string,
