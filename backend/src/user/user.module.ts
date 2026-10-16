@@ -19,6 +19,9 @@ import {
 } from './persistence/user-persistence';
 import { AccountSessions } from './stores/account-sessions';
 import { AccountProfileStore } from './stores/account-profile.store';
+// feature:oauth-core:start
+import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tokens.module';
+// feature:oauth-core:end
 
 @Module({
   imports: [
@@ -27,6 +30,7 @@ import { AccountProfileStore } from './stores/account-profile.store';
     ...USER_PERSISTENCE_IMPORTS,
     forwardRef(() => AuthModule),
     SessionModule,
+    ProviderTokensModule, // feature:oauth-core
   ],
   controllers: [
     UserProfileController,
@@ -54,6 +58,8 @@ import { AccountProfileStore } from './stores/account-profile.store';
     SignInMethodRule,
     AccountLinkingService, // feature:oauth-core
     ProfileSyncService, // feature:oauth-core
+    // The OAuth module imports this one, and its Apple strategy keeps tokens.
+    ProviderTokensModule, // feature:oauth-core
   ],
 })
 export class UserModule {}
