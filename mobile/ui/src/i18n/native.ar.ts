@@ -60,4 +60,16 @@ export const NATIVE_AR: Record<keyof typeof NATIVE_EN, string> = {
   'native.webRegistration': 'إنشاء حساب في المتصفح',
   'native.webRecovery': 'إعادة تعيين كلمة المرور في المتصفح',
   'native.providerWeb': 'المتابعة باستخدام \u2068{provider}\u2069 في المتصفح',
+  // feature:email-code:start
+  'native.emailCodeChoice': 'إرسال رمز تسجيل الدخول إلى بريدي الإلكتروني',
+  'native.sendSignInCode': 'إرسال رمز تسجيل الدخول',
+  'native.emailCode': 'رمز تسجيل الدخول',
+  'native.emailCodeHint':
+    'إذا كان تسجيل الدخول متاحًا لهذا العنوان، فقد أُرسل رمز تسجيل الدخول إلى \u2066{email}\u2069. أدخله هنا.',
+  'native.emailCodeLinkHint':
+    'إذا كان تسجيل الدخول متاحًا لهذا العنوان، فقد أُرسل رمز تسجيل الدخول إلى \u2066{email}\u2069. أدخله هنا، أو استخدم الزر الموجود في تلك الرسالة على هذا الجهاز.',
+  'native.codeRefused': 'لم يُقبل هذا الرمز. تحقق من أحدث رسالة، أو اطلب رمزًا جديدًا.',
+  'native.codeAttemptEnded':
+    'انتهت محاولة تسجيل الدخول هذه بعد إدخال رموز خاطئة كثيرة. ابدأ من جديد للحصول على رمز جديد.',
+  // feature:email-code:end
 };

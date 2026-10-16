@@ -7,6 +7,9 @@ import {
 } from '../../../common/persistence/unit-of-work';
 import { storeFailureCause } from '../../../common/persistence/store-failure';
 import { UniqueConflictError } from '../../../common/persistence/persistence-errors';
+import { AppException } from '../../../common/exceptions/app.exception';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import type { AccountCreationMethod } from '../../types/account-creation';
 import { isUnknownTransactionOutcome } from '../../../common/exceptions/unknown-transaction-outcome.error';
 import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
 import { AccountProfileStore } from '../../../user/stores/account-profile.store';
@@ -33,6 +36,19 @@ import {
 } from './native-lifecycle-guards';
 
 const EMAIL_LINK_RETRY_LIMIT = 2;
+
+/** A mailed proof of the attempt's address: the link token, or the emailed code. */
+export interface NativeEmailProof {
+  firstFactor:
+    | typeof NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK
+    | typeof NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE;
+  /** Throws when the proof no longer holds for the claimed attempt. */
+  spendIn: (unitOfWork: UnitOfWork, claimed: NativeAttempt) => Promise<void>;
+  refuse: () => AppException;
+  /** Answers a deactivated account once the proof held. Absent, `refuse` does. */
+  refuseDeactivated?: () => AppException;
+  creationMethod: AccountCreationMethod;
+}
 
 @Injectable()
 export class NativeEmailLinkService {
@@ -117,26 +133,37 @@ export class NativeEmailLinkService {
     ) {
       throw this.links.invalidNativeLink();
     }
-    const completed = await this.complete(
+    const completed = await this.completeWithProof(
       attempt,
       attemptId,
       secret,
-      tokenHash,
       input.locale,
+      {
+        firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK,
+        spendIn: (_unitOfWork, claimed) => {
+          if (!sameHash(claimed.details.emailTokenHash ?? '', tokenHash)) {
+            throw wrongStage();
+          }
+          return Promise.resolve();
+        },
+        refuse: () => this.links.invalidNativeLink(),
+        creationMethod: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+      },
     );
     return this.attempts.view(completed);
   }
 
-  private async complete(
+  /** Finishes a mailed first factor. The proof is spent inside the same unit of work. */
+  async completeWithProof(
     attempt: NativeAttempt,
     attemptId: string,
     secret: string,
-    tokenHash: string,
     locale: SupportedLocale,
+    proof: NativeEmailProof,
   ): Promise<NativeAttempt> {
     const work = (unitOfWork: UnitOfWork) =>
       this.completeIn(unitOfWork, attempt, attemptId, secret, {
-        tokenHash,
+        proof,
         locale,
       });
     for (let pass = 0; pass < EMAIL_LINK_RETRY_LIMIT; pass += 1) {
@@ -147,7 +174,7 @@ export class NativeEmailLinkService {
           const owner = await this.links.hasAccountAtAddress(
             attempt.details.email?.address ?? '',
           );
-          if (!owner) throw this.links.invalidNativeLink();
+          if (!owner) throw proof.refuse();
         }
         if (
           !this.isAddressConflict(error) ||
@@ -166,9 +193,9 @@ export class NativeEmailLinkService {
     expected: NativeAttempt,
     attemptId: string,
     secret: string,
-    proof: { tokenHash: string; locale: SupportedLocale },
+    spending: { proof: NativeEmailProof; locale: SupportedLocale },
   ): Promise<NativeAttempt> {
-    const { tokenHash, locale } = proof;
+    const { proof, locale } = spending;
     const claimed = await this.attempts.claimIn(
       unitOfWork,
       attemptId,
@@ -176,23 +203,23 @@ export class NativeEmailLinkService {
       NATIVE_ATTEMPT_PHASE.EMAIL_LINK_SENT,
     );
     const email = claimed.details.email?.address;
-    if (
-      !email ||
-      email !== expected.details.email?.address ||
-      !sameHash(claimed.details.emailTokenHash ?? '', tokenHash)
-    ) {
+    if (!email || email !== expected.details.email?.address) {
       throw wrongStage();
     }
+    await proof.spendIn(unitOfWork, claimed);
+    const refuseDeactivated = proof.refuseDeactivated ?? proof.refuse;
     const linkAccount = await this.links.resolveAccountIn(
       unitOfWork,
       email,
       locale,
       claimed.clientId,
+      proof.refuse,
+      proof.creationMethod,
+      refuseDeactivated,
     );
     const account = await this.accounts.readAccount(unitOfWork, linkAccount.id);
-    if (!account || account.isDeleted || account.email !== email) {
-      throw this.links.invalidNativeLink();
-    }
+    if (account?.isDeleted) throw refuseDeactivated();
+    if (!account || account.email !== email) throw proof.refuse();
     return this.attempts.completeFactorIn(
       unitOfWork,
       {
@@ -206,8 +233,8 @@ export class NativeEmailLinkService {
       {
         userId: account.id,
         userVersion: account.sessionVersion,
-        firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK,
-        authenticationMethods: [NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_LINK],
+        firstFactor: proof.firstFactor,
+        authenticationMethods: [proof.firstFactor],
       },
     );
   }

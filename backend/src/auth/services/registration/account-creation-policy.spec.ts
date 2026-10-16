@@ -36,6 +36,7 @@ describe('account creation policy contract', () => {
       MAGIC_LINK: 'magic_link',
       PROVIDER: 'provider',
       STAFF: 'staff',
+      EMAIL_CODE: 'email_code', // feature:email-code
     });
   });
 
@@ -60,6 +61,7 @@ describe('account creation where a passkey is required', () => {
     ACCOUNT_CREATION_METHOD.PASSWORD,
     ACCOUNT_CREATION_METHOD.MAGIC_LINK,
     ACCOUNT_CREATION_METHOD.PROVIDER,
+    ACCOUNT_CREATION_METHOD.EMAIL_CODE, // feature:email-code
   ])('refuses %s sign-up before anything is created', async (method) => {
     await expect(
       policyOn(requiresPasskey).assertMayCreate(

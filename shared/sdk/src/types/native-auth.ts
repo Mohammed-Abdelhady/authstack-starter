@@ -41,6 +41,8 @@ export interface NativeAuthCapabilities {
   passkeys: boolean;
   registration: boolean;
   recovery: boolean;
+  /** Absent from a server that does not carry email-code sign-in. */
+  emailCode?: boolean; // feature:email-code
 }
 
 export interface NativeGoogleSdkConfiguration {
@@ -154,6 +156,20 @@ export interface NativeEmailLinkVerificationInput {
   state: string;
 }
 
+// feature:email-code:start
+export interface NativeEmailCodeRequestInput {
+  email: string;
+  /** Language tag for the mail, and for an account this sign-in creates. */
+  locale?: string;
+}
+
+export interface NativeEmailCodeVerificationInput {
+  /** Six Western digits, as mailed. */
+  code: string;
+  locale?: string;
+}
+// feature:email-code:end
+
 export interface NativeActivationInput {
   email: string;
   code: string;
@@ -208,6 +224,18 @@ export interface NativeAuthClient<TSignal extends TransportSignal = TransportSig
     input: NativeEmailLinkVerificationInput,
     options?: CallOptions<TSignal>,
   ): Promise<NativeAttemptResult>;
+  // feature:email-code:start
+  requestEmailCode(
+    attempt: NativeAttempt,
+    input: NativeEmailCodeRequestInput,
+    options?: CallOptions<TSignal>,
+  ): Promise<NativeAttemptResult>;
+  verifyEmailCode(
+    attempt: NativeAttempt,
+    input: NativeEmailCodeVerificationInput,
+    options?: CallOptions<TSignal>,
+  ): Promise<NativeAttemptResult>;
+  // feature:email-code:end
   register(
     attempt: NativeAttempt,
     email: string,

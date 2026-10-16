@@ -21,6 +21,7 @@ const FEATURE_FILES = [
   ['0008_two_factor.sql', '0017_two_factor_lockout.sql'], // feature:totp
   ['0009_passkeys.sql'], // feature:passkeys
   ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'], // feature:magic-link
+  ['0025_email_codes.sql'], // feature:email-code
 ];
 // feature:totp,passkeys,magic-link:end
 
@@ -127,6 +128,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0022_application_policy.sql',
           '0023_account_audience.sql',
           '0024_session_evidence.sql',
+          '0025_email_codes.sql', // feature:email-code
           '0027_activity_log.sql',
         ],
         refused: 'StorageNotReadyError',
@@ -182,6 +184,7 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
           '0015_magic_link_request_nonce.sql',
         ),
         // feature:magic-link:end
+        '0025_email_codes.sql': gained('0025_email_codes.sql'), // feature:email-code
       });
     },
     MIGRATE_CASE_TIMEOUT_MS,
