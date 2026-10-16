@@ -48,6 +48,7 @@ export async function loadMessages(locale: AppLocale): Promise<AbstractIntlMessa
       'validation',
     ].map(async (topic) => (await import(`./messages/${topic}.${locale}.json`)).default),
   );
+  topics.push((await import(`../modules/invitations/messages/${locale}.json`)).default); // feature:invitations
   const base = topics.reduce<AbstractIntlMessages>((messages, topic: unknown) => {
     if (!isMessageTree(topic)) throw new Error(`Locale messages for ${locale} are not objects`);
     return mergeMessageTrees(messages, topic);
