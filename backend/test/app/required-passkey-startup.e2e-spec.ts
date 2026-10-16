@@ -9,6 +9,7 @@ import {
 } from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
 import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
+import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
 import { SEED_USER } from '../constants/seed-users';
 import {
@@ -24,6 +25,7 @@ import {
 import { storedBrowserSession } from '../utils/session/stored-browser-session';
 
 const LOGIN = '/api/auth/passkeys/login';
+const PASSKEYS = '/api/auth/passkeys';
 
 // Failure: a required passkey keeps the server from starting, or a passkey
 // that did not verify its user opens the application.
@@ -49,12 +51,26 @@ describe('an application that requires a passkey', () => {
     await e2e?.close();
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
+  /** Stores a passkey for the seed account and hands back its id. */
+  function storeKey(key: SoftwareAuthenticator): Promise<string> {
+    return e2e.state.auth.storePasskey(SEED_USER.email, {
+      credentialId: key.credentialId,
+      publicKey: key.cosePublicKey,
+      counter: 0,
+      transports: ['internal'],
+      deviceType: 'singleDevice',
+      backedUp: false,
+      name: 'Required key',
+      lastUsedAt: null,
+    });
+  }
+
   async function signIn(
     key: SoftwareAuthenticator,
     flags: number,
     counter: number,
+    browser = request.agent(e2e.httpServer),
   ) {
-    const browser = request.agent(e2e.httpServer);
     const options = await anonymousPost(
       e2e,
       `${LOGIN}/options`,
@@ -87,16 +103,7 @@ describe('an application that requires a passkey', () => {
     const key = createSoftwareAuthenticator(
       Buffer.from('required-passkey-startup'),
     );
-    await e2e.state.auth.storePasskey(SEED_USER.email, {
-      credentialId: key.credentialId,
-      publicKey: key.cosePublicKey,
-      counter: 0,
-      transports: ['internal'],
-      deviceType: 'singleDevice',
-      backedUp: false,
-      name: 'Required key',
-      lastUsedAt: null,
-    });
+    await storeKey(key);
 
     const unverified = await signIn(key, FLAG_USER_PRESENT, 1);
     expect(unverified.status).toBe(401);
@@ -124,5 +131,42 @@ describe('an application that requires a passkey', () => {
       authenticationMethods: ['passkey'],
       userVerified: true,
     });
+  });
+
+  // Failure: a password left on the account lets the last passkey the
+  // application requires go, and the account can no longer sign in there.
+  it('keeps the last passkey the application requires, password or not', async () => {
+    const key = createSoftwareAuthenticator(
+      Buffer.from('required-passkey-removal'),
+    );
+    const passkeyId = await storeKey(key);
+    const browser = request.agent(e2e.httpServer);
+    const signedIn = await signIn(
+      key,
+      FLAG_USER_PRESENT | FLAG_USER_VERIFIED,
+      1,
+      browser,
+    );
+    expect(signedIn.status).toBe(200);
+    const csrf: unknown = signedIn.headers[CSRF_HEADER];
+    if (typeof csrf !== 'string') throw new Error('No CSRF token was issued');
+    const remove = () =>
+      browser
+        .delete(`${PASSKEYS}/${passkeyId}`)
+        .set('Origin', E2E_CLIENT_URL)
+        .set(CSRF_HEADER, csrf);
+
+    const kept = await remove();
+    expect(kept.status).toBe(409);
+    expect(kept.body).toMatchObject({
+      error: { code: ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD },
+    });
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
+
+    await storeKey(
+      createSoftwareAuthenticator(Buffer.from('required-passkey-spare')),
+    );
+    expect((await remove()).status).toBe(200);
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
   });
 });
