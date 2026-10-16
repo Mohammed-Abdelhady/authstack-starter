@@ -6,7 +6,7 @@ import { SESSIONS_EN } from './sessions.en';
 import { SIGN_IN_EN } from './sign-in.en';
 import { PASSKEYS_EN } from './passkeys.en'; // feature:passkeys
 import { DELETION_EN } from './deletion.en';
-import { PROVIDERS_EN } from './providers.en';
+import { PROVIDERS_EN } from './providers.en'; // feature:oauth-core
 
 export const EN = {
   ...COMMON_EN,
@@ -17,7 +17,7 @@ export const EN = {
   ...NATIVE_EN,
   ...PASSKEYS_EN, // feature:passkeys
   ...DELETION_EN,
-  ...PROVIDERS_EN,
+  ...PROVIDERS_EN, // feature:oauth-core
 };
 
 export type MessageKey = keyof typeof EN;
