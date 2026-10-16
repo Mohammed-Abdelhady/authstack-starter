@@ -1,3 +1,4 @@
+import { registerUserVersion } from './user-version';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import { EMAIL_PROVIDER } from '../../../../common/constants/oauth-providers';
@@ -27,6 +28,9 @@ export const LinkedAccountSchema = SchemaFactory.createForClass(LinkedAccount);
 
 @Schema({ timestamps: true })
 export class User {
+  @Prop({ type: Number, default: 0 })
+  version!: number;
+
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email!: string;
 
@@ -164,3 +168,5 @@ UserSchema.index(
   { 'linkedAccounts.provider': 1, 'linkedAccounts.providerId': 1 },
   { unique: true, sparse: true },
 );
+
+registerUserVersion(UserSchema);

@@ -1,3 +1,4 @@
+import { registerRoleVersion } from './role-version';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import {
@@ -28,6 +29,9 @@ const PendingRoleSweepSchema = SchemaFactory.createForClass(PendingRoleSweep);
  */
 @Schema({ timestamps: true })
 export class Role {
+  @Prop({ type: Number, default: 0 })
+  version!: number;
+
   @Prop({ required: true, trim: true })
   name!: string;
 
@@ -90,3 +94,5 @@ RoleSchema.pre('save', function (next) {
   }
   next();
 });
+
+registerRoleVersion(RoleSchema);
