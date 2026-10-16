@@ -87,6 +87,7 @@ export class NativeRegistrationService {
         email,
         locale,
         claimed.clientId,
+        true,
       );
       const next = await this.attempts.transition(
         claimed,
@@ -131,6 +132,7 @@ export class NativeRegistrationService {
       input.email,
       input.code,
       PENDING_PURPOSE.SIGNUP,
+      attempt.clientId,
     );
     if (
       !matchesPendingCodeGeneration(
