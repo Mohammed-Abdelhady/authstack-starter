@@ -1,3 +1,5 @@
+import { PASSKEY_RESET_AR } from './passkey-reset'; // feature:invitations
+import { INVITATION_AR } from './invitation'; // feature:invitations
 import type { MailCatalogue } from '../mail-catalogue';
 import { ACTIVATION_CODE_AR } from './activation-code';
 import { COMMON_AR } from './common';
@@ -21,4 +23,6 @@ export const AR_MAIL_CATALOGUE: MailCatalogue = {
   registrationNotice: REGISTRATION_NOTICE_AR,
   securityNotice: SECURITY_NOTICE_AR,
   signInCode: SIGN_IN_CODE_AR, // feature:email-code
+  invitation: INVITATION_AR, // feature:invitations
+  passkeyReset: PASSKEY_RESET_AR, // feature:invitations
 };

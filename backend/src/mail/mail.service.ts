@@ -1,3 +1,5 @@
+import { buildInvitationMail } from './builders/invitation'; // feature:invitations
+import { buildPasskeyResetMail } from './builders/passkey-reset'; // feature:invitations
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
@@ -224,4 +226,33 @@ export class MailService implements FreshProofSender {
       buildSecurityNoticeMail(recipient.locale, notice),
     );
   }
+  // feature:invitations:start
+  async sendInvitation(
+    recipient: MailRecipient,
+    link: string,
+    expiresInDays: number,
+    inviterName?: string,
+  ): Promise<void> {
+    await this.send(
+      recipient,
+      buildInvitationMail({
+        locale: recipient.locale,
+        link,
+        expiresInDays,
+        inviterName,
+      }),
+    );
+  }
+
+  async sendPasskeyReset(
+    recipient: MailRecipient,
+    link: string,
+    expiresInDays: number,
+  ): Promise<void> {
+    await this.send(
+      recipient,
+      buildPasskeyResetMail({ locale: recipient.locale, link, expiresInDays }),
+    );
+  }
+  // feature:invitations:end
 }

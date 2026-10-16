@@ -1,3 +1,5 @@
+import { PASSKEY_RESET_EN } from './passkey-reset'; // feature:invitations
+import { INVITATION_EN } from './invitation'; // feature:invitations
 import type { MailCatalogue } from '../mail-catalogue';
 import { ACTIVATION_CODE_EN } from './activation-code';
 import { COMMON_EN } from './common';
@@ -21,4 +23,6 @@ export const EN_MAIL_CATALOGUE: MailCatalogue = {
   registrationNotice: REGISTRATION_NOTICE_EN,
   securityNotice: SECURITY_NOTICE_EN,
   signInCode: SIGN_IN_CODE_EN, // feature:email-code
+  invitation: INVITATION_EN, // feature:invitations
+  passkeyReset: PASSKEY_RESET_EN, // feature:invitations
 };
