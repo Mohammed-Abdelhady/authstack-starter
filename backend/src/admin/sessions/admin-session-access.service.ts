@@ -12,6 +12,9 @@ import { AdminUserAccessService } from '../services/users/admin-user-access.serv
 import { AdminAccountStore } from '../stores/admin-account.store';
 import { loadAuthorizedUser } from '../utils/admin-transaction.util';
 import { assertSessionTargetScope } from './utils/admin-session-scope';
+import { isAdminRole } from '../../common/utils/role-hierarchy';
+import type { ActingSession } from '../../auth/proof/types/acting-session';
+import { StaffMutationPolicy } from '../services/staff-mutations/staff-mutation-policy';
 
 @Injectable()
 export class AdminSessionAccessService {
@@ -19,13 +22,19 @@ export class AdminSessionAccessService {
     private readonly accounts: AdminAccountStore,
     private readonly access: AdminUserAccessService,
     private readonly roles: RoleChangeStore,
+    private readonly policy: StaffMutationPolicy,
   ) {}
 
+  /**
+   * An administrator may manage another administrator's sessions only with a
+   * fresh act from the session it is using.
+   */
   async authorizeIn(
     unitOfWork: UnitOfWork,
     targetId: string,
     actorId: string,
     permissions: { route: string; staff: string },
+    session?: ActingSession,
   ): Promise<StoredAccount> {
     this.access.assertNotSelf(
       targetId,
@@ -49,6 +58,10 @@ export class AdminSessionAccessService {
         permissions.staff,
       );
     }
+    if (actor.isAdmin && scopedTarget && isAdminRole(scopedTarget.role)) {
+      await this.policy.assertAct(unitOfWork, session);
+      return this.peerTarget(unitOfWork, targetId);
+    }
     const target = await loadAuthorizedUser(
       this.accounts,
       this.access,
@@ -56,6 +69,24 @@ export class AdminSessionAccessService {
       targetId,
       actorId,
     );
+    return target;
+  }
+
+  private async peerTarget(
+    unitOfWork: UnitOfWork,
+    targetId: string,
+  ): Promise<StoredAccount> {
+    const target = await this.accounts.takeAccountForChange(
+      unitOfWork,
+      targetId,
+    );
+    if (!target || target.isDeleted || !isAdminRole(target.role)) {
+      throw new AppException(
+        ErrorCode.USER_NOT_FOUND,
+        'User not found',
+        HttpStatus.NOT_FOUND,
+      );
+    }
     return target;
   }
 
