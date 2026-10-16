@@ -7,7 +7,7 @@ type OptionalTimestamp = ColumnType<
   Date | null
 >;
 
-/** `0029_account_erasure.sql`. */
+/** `0032_provider_revocations.sql`. */
 export interface ProviderTokensTable {
   id: Generated<string>;
   provider: string;
@@ -21,7 +21,7 @@ export interface ProviderTokensTable {
   check_after: OptionalTimestamp;
 }
 
-/** `0029_account_erasure.sql`. The four token columns are set together or not at all. */
+/** `0032_provider_revocations.sql`. The four token columns are set together or not at all. */
 export interface ProviderRevocationsTable {
   id: Generated<string>;
   provider: string;
