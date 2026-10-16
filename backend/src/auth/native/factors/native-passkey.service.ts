@@ -225,6 +225,7 @@ export class NativePasskeyService {
             throw wrongStage();
           return this.completion.afterLastFactorIn(work, claimed, {
             method: 'hwk',
+            userVerified: true,
             secret,
           });
         },

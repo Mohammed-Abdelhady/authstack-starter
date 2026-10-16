@@ -100,6 +100,7 @@ export class NativeSecondFactorService {
           await verify(work);
           return this.completion.afterLastFactorIn(work, claimed, {
             method: 'code' in input ? 'otp' : 'recovery',
+            userVerified: false,
             secret,
           });
         },
