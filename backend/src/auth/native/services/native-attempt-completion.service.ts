@@ -15,6 +15,8 @@ import { ApplicationPolicyReader } from '../../contracts/application-policy';
 import { AuthFeature } from '../../enums/auth-feature.enum'; // feature:totp
 import { AuthFeaturesService } from '../../services/features/auth-features.service'; // feature:totp
 import { PasskeyStore } from '../../passkeys/stores/passkey.store'; // feature:passkeys
+import { PasskeyConfigService } from '../../passkeys/services/passkey-config.service'; // feature:passkeys
+import { relyingPartyScope } from '../../passkeys/utils/relying-party.util'; // feature:passkeys
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR, // feature:totp,passkeys
   NATIVE_ATTEMPT_PHASE,
@@ -48,6 +50,7 @@ export class NativeAttemptCompletionService {
     private readonly epoch: AuthEpochService,
     private readonly policy: ApplicationPolicyReader,
     private readonly passkeys: PasskeyStore, // feature:passkeys
+    private readonly passkeyConfig: PasskeyConfigService, // feature:passkeys
   ) {}
 
   async afterFirstFactorIn(
@@ -117,7 +120,17 @@ export class NativeAttemptCompletionService {
       owesMfa &&
       principal.firstFactor !== NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
       methods?.capabilities.passkeys === true &&
-      (await this.passkeys.listDescriptors(account.id, work)).length > 0,
+      policy.passkeyRelyingParty !== null &&
+      (
+        await this.passkeys.listDescriptorsFor(
+          account.id,
+          relyingPartyScope(
+            policy.passkeyRelyingParty.rpId,
+            this.passkeyConfig.rpId,
+          ),
+          work,
+        )
+      ).length > 0,
       // feature:passkeys:end
     );
     const details: NativeAttemptDetails = {
