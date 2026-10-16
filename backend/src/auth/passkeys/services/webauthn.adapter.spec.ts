@@ -18,6 +18,12 @@ import {
  */
 
 const EXPECTED = { challenge: 'challenge', origin: ORIGIN, rpId: RP_ID };
+const REGISTRATION = {
+  challenge: 'challenge',
+  origins: [ORIGIN],
+  rpId: RP_ID,
+  userVerification: 'preferred' as const,
+};
 
 const STORED = {
   id: CREDENTIAL_ID,
@@ -36,7 +42,7 @@ describe('WebAuthnAdapter', () => {
 
     // The real library throws for a payload it cannot parse; its message
     // quotes the client-supplied payload.
-    await adapter.verifyAttestation(CREDENTIAL_BODY, EXPECTED);
+    await adapter.verifyAttestation(CREDENTIAL_BODY, REGISTRATION);
 
     const logged = warnSpy.mock.calls
       .map((call: unknown[]) => call.map((v) => String(v)).join(' '))
@@ -55,6 +61,7 @@ describe('WebAuthnAdapter', () => {
       userName: 'user@example.com',
       userDisplayName: 'Test User',
       excludeCredentials: [{ id: CREDENTIAL_ID, transports: ['internal'] }],
+      userVerification: 'preferred',
     });
 
     expect(options.rp).toEqual({ id: RP_ID, name: 'Test App' });
@@ -79,7 +86,7 @@ describe('WebAuthnAdapter', () => {
 
   it('should report an unreadable attestation as a refusal, not an error', async () => {
     await expect(
-      adapter.verifyAttestation(CREDENTIAL_BODY, EXPECTED),
+      adapter.verifyAttestation(CREDENTIAL_BODY, REGISTRATION),
     ).resolves.toBeNull();
   });
 

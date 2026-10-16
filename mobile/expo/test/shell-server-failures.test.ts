@@ -20,14 +20,24 @@ import { createShellAuth, type ShellAuth } from '../src/shell';
 
 /** Written by hand: prefix, escaped client id, environment. */
 const RECORD_KEY = 'auth.com_002eexample_002emobile.development';
+/** The refresh token the fake server issues at the first sign-in. */
+const SESSION_REFRESH_TOKEN = 'refresh-1';
 /** The server's access tokens live 300 seconds and the engine renews 30 seconds early. */
 const RENEW_AFTER_MS = 270_000;
 
-function device() {
-  const store = new FakeSecureStore();
+/** What a restart keeps: the keychain, the install marker and the clock. */
+interface KeptOnDevice {
+  store: FakeSecureStore;
+  installMarker: FakeMarkerFile;
+  time: FakeTime;
+}
+
+function device(kept?: KeptOnDevice) {
+  const store = kept?.store ?? new FakeSecureStore();
+  const installMarker = kept?.installMarker ?? new FakeMarkerFile();
   const server = new FakeServer();
   const browser = new FakeWebBrowser();
-  const time = new FakeTime();
+  const time = kept?.time ?? new FakeTime();
   browser.respond = (url) => ({ type: 'success', url: server.authorize(url) });
   const app: ShellAuth = createShellAuth(
     {
@@ -37,7 +47,7 @@ function device() {
       crypto: new FakeCrypto(),
       sha256Algorithm: FAKE_SHA256,
       linking: new FakeLinking(null),
-      installMarker: new FakeMarkerFile(),
+      installMarker,
       recordMarker: new FakeMarkerFile(),
       uuid: new FakeUuid(),
       clock: time,
@@ -53,7 +63,25 @@ function device() {
       ephemeralBrowserSession: true,
     },
   );
-  return { store, server, browser, time, app };
+  return { store, installMarker, server, browser, time, app };
+}
+
+/** The refresh tokens the stored value keeps for revocation, and whether it holds a session. */
+function storedValue(store: FakeSecureStore) {
+  const parsed: unknown = JSON.parse(store.items.get(RECORD_KEY) ?? '{}');
+  if (typeof parsed !== 'object' || parsed === null) return { session: false, waiting: [] };
+  const waiting =
+    'pendingRevocations' in parsed && Array.isArray(parsed.pendingRevocations)
+      ? parsed.pendingRevocations.map((entry: unknown) =>
+          typeof entry === 'object' && entry !== null && 'refreshToken' in entry
+            ? {
+                refreshToken: entry.refreshToken,
+                attempts: 'attempts' in entry ? entry.attempts : undefined,
+              }
+            : undefined,
+        )
+      : [];
+  return { session: 'serverBaseAddress' in parsed || 'tokens' in parsed, waiting };
 }
 
 async function signedIn() {
@@ -241,15 +269,29 @@ describe('a signed-in app against a server that refuses or cannot be reached', (
   ] as const)(
     'signs out on the device and reports the revoke as failed when %s',
     async (_name, fail, revoked) => {
-      const { app, server, store } = await signedIn();
+      const { app, server, store, installMarker, time } = await signedIn();
       fail(server);
 
       const outcome = await app.engine.signOut();
 
       expect(outcome).toMatchObject({ kind: 'signedOut', revocation: 'failed' });
       expect(app.engine.snapshot.status).toBe('signedOut');
-      expect(store.items.has(RECORD_KEY)).toBe(false);
       expect(server.revoked).toEqual(revoked);
+      // The token the server did not confirm waits to be revoked again; it is no session.
+      expect(storedValue(store)).toEqual({
+        session: false,
+        waiting: [{ refreshToken: SESSION_REFRESH_TOKEN, attempts: 1 }],
+      });
+      const stored = store.items.get(RECORD_KEY);
+
+      const restarted = device({ store, installMarker, time });
+      await expect(restarted.app.engine.restore()).resolves.toEqual({
+        kind: 'restored',
+        status: 'signedOut',
+      });
+      await expect(restarted.app.engine.refresh()).resolves.toEqual({ kind: 'notSignedIn' });
+      expect(restarted.server.requests).toEqual([]);
+      expect(store.items.get(RECORD_KEY)).toBe(stored);
     },
   );
 });

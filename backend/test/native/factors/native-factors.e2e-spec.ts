@@ -187,6 +187,7 @@ describe('native password and passkey factors (e2e)', () => {
       backedUp: false,
       name: 'Native fixture',
       lastUsedAt: null,
+      rpId: RP_ID,
     });
     const attempt = await start();
     const optionsResponse = await request(e2e.httpServer)
@@ -242,6 +243,7 @@ describe('native password and passkey factors (e2e)', () => {
       backedUp: false,
       name: 'Native fixture',
       lastUsedAt: null,
+      rpId: RP_ID,
     });
     const attempt = await start();
     const issue = async () => {

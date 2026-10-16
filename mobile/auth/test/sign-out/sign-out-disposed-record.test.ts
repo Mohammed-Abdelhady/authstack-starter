@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CREDENTIAL_DELETE_TIMEOUT_MS } from '../../src/constants';
+import { CREDENTIAL_READ_TIMEOUT_MS, CREDENTIAL_WRITE_TIMEOUT_MS } from '../../src/constants';
 import { createAuthEngine } from '../support/engine';
 import { revokedTokens } from '../support/tracking';
 import { watchTimerDrain } from '../support/timer-drain';
@@ -24,9 +24,15 @@ describe('sign out of a session read from storage', () => {
     ports.credentials = firstPorts.credentials;
     let engine: ReturnType<typeof createAuthEngine> | undefined;
     const originalAfter = ports.timer.after.bind(ports.timer);
+    // The stored-token read comes first; the next deadline of that length is the sign-out write's.
+    let readDeadlineSeen = false;
     ports.timer.after = (milliseconds, callback) => {
       const cancel = originalAfter(milliseconds, callback);
-      if (milliseconds === CREDENTIAL_DELETE_TIMEOUT_MS && engine) {
+      if (milliseconds === CREDENTIAL_READ_TIMEOUT_MS && !readDeadlineSeen) {
+        readDeadlineSeen = true;
+        return cancel;
+      }
+      if (milliseconds === CREDENTIAL_WRITE_TIMEOUT_MS && engine) {
         const current = engine;
         engine = undefined;
         current.dispose();
@@ -34,6 +40,9 @@ describe('sign out of a session read from storage', () => {
       return cancel;
     };
     const revokeCompleted = new Deferred<void>();
+    // The revocation leaves storage only after the server confirmed it.
+    const slotCleared = new Deferred<void>();
+    ports.credentials.afterDelete = () => slotCleared.resolve();
     transport.respond = async ({ path }) => {
       if (path !== '/api/oauth/revoke') throw new Error(`Unexpected request: ${path}`);
       return { status: 200, body: {} };
@@ -45,7 +54,7 @@ describe('sign out of a session read from storage', () => {
     const timersDrained = watchTimerDrain(ports.timer);
 
     await expect(engine.signOut()).resolves.toEqual({ kind: 'disposed' });
-    await revokeCompleted.promise;
+    await Promise.all([revokeCompleted.promise, slotCleared.promise]);
     await timersDrained();
 
     expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);

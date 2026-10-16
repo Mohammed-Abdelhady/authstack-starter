@@ -78,7 +78,9 @@ describe('rotated credentials during sign-out and disposal', () => {
     await Promise.all([signOut, rotatedRevocation.promise]);
     await timersDrained();
 
-    expect(revoked).toEqual([REFRESH_TOKEN, REFRESH_ROTATED_TOKEN]);
+    // Revoking any token of a family ends the whole family, so the order is not a guarantee.
+    expect(revoked).toHaveLength(2);
+    expect(revoked).toEqual(expect.arrayContaining([REFRESH_TOKEN, REFRESH_ROTATED_TOKEN]));
     expect(ports.credentials.value).toBeUndefined();
     expect(ports.timer.pending).toBe(0);
   });

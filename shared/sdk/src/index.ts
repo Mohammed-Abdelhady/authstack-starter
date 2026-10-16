@@ -13,4 +13,5 @@ export * from './native-auth/paths';
 export * from './paths';
 export * from './types';
 export * from './client';
+export * from './areas/passkeys';
 export * from './areas/account';

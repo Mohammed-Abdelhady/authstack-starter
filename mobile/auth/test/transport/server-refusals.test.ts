@@ -12,6 +12,7 @@ import {
   oauthTokenReply,
   testPorts,
 } from '../support/support';
+import { expectOnlyPendingRevocation } from '../support/pending-revocation';
 import { revokedTokens } from '../support/tracking';
 
 const PROFILE = { method: HTTP_METHOD.GET, path: '/api/user/profile' } as const;
@@ -155,7 +156,11 @@ describe('refusals the server sends that the engine must not mistake for others'
       expect(outcome.error).toBeInstanceOf(ApiError);
       expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
       expect(engine.snapshot).toEqual({ status: 'signedOut', operation: 'none' });
-      expect(ports.credentials.value).toBeUndefined();
+      await expectOnlyPendingRevocation(ports, {
+        refreshToken: REFRESH_TOKEN,
+        attempts: 1,
+        bound: false,
+      });
     },
   );
 

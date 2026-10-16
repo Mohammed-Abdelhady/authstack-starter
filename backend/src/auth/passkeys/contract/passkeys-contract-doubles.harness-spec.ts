@@ -1,9 +1,12 @@
 import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
+import { signedChallengeOf } from '../native/native-registration-challenge';
 import {
   AssertionVerification,
+  AttestationExpectations,
   AttestationVerification,
   AuthenticationOptionsInput,
   PasskeyCreationOptions,
+  PasskeyCredentialJson,
   PasskeyRequestOptions,
   RegistrationOptionsInput,
   StoredCredential,
@@ -31,6 +34,12 @@ export class ScriptedAuthenticator extends WebAuthnAdapter {
   readonly checkedAgainst: StoredCredential[] = [];
   /** The challenge each ceremony was expected to have signed. */
   readonly expectedChallenges: string[] = [];
+  /** The relying party and origins each registration was checked against. */
+  readonly attestationTargets: {
+    rpId: string;
+    origins: readonly string[];
+    userVerification: string;
+  }[] = [];
 
   createRegistrationOptions(
     input: RegistrationOptionsInput,
@@ -55,12 +64,28 @@ export class ScriptedAuthenticator extends WebAuthnAdapter {
     return Promise.resolve({ challenge: this.nextChallenge() });
   }
 
+  /**
+   * A challenge check is asked about the challenge the client data names, as
+   * the library asks it, so a refused check is a refused registration.
+   */
   verifyAttestation(
-    _credential: unknown,
-    expected: { challenge: string },
+    credential: PasskeyCredentialJson,
+    expected: AttestationExpectations,
   ): Promise<AttestationVerification | null> {
-    this.expectedChallenges.push(expected.challenge);
-    return Promise.resolve(this.attestation);
+    this.attestationTargets.push({
+      rpId: expected.rpId,
+      origins: expected.origins,
+      userVerification: expected.userVerification,
+    });
+    if (typeof expected.challenge === 'string') {
+      this.expectedChallenges.push(expected.challenge);
+      return Promise.resolve(this.attestation);
+    }
+    const signed = signedChallengeOf(credential) ?? '';
+    this.expectedChallenges.push(signed);
+    return Promise.resolve(
+      expected.challenge(signed) ? this.attestation : null,
+    );
   }
 
   verifyAssertion(
