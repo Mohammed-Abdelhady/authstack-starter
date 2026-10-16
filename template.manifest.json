@@ -414,7 +414,16 @@
         "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts",
         "backend/test/native/attempts/native-attempt-sdk-providers.ts",
         "backend/test/auth/audience-provider.e2e-spec.ts",
-        "backend/test/auth/audience-provider-effects.e2e-spec.ts"
+        "backend/test/auth/audience-provider-effects.e2e-spec.ts",
+        "mobile/ui/src/components/ProvidersSection.tsx",
+        "mobile/ui/src/components/ProviderRow.tsx",
+        "mobile/ui/src/hooks/use-providers.ts",
+        "mobile/ui/src/logic/provider-text.ts",
+        "mobile/ui/src/logic/provider-link.ts",
+        "mobile/ui/src/constants/providers.ts",
+        "mobile/ui/src/i18n/providers.en.ts",
+        "mobile/ui/src/i18n/providers.ar.ts",
+        "mobile/ui/test/hooks/providers.test.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
