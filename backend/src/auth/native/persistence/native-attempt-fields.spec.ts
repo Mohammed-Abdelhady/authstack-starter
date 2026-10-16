@@ -27,3 +27,59 @@ describe('native email code generation commitment', () => {
     expect(nativeAttemptDetails(BASE)).toEqual(BASE);
   });
 });
+
+describe('native user verification evidence', () => {
+  const ACCOUNT = {
+    userId: 'account-id',
+    userVersion: 2,
+    clientVersion: 3,
+    grantVersion: null,
+    authenticationMethods: ['hwk'],
+    verifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+    firstFactor: 'passkey' as const,
+  };
+
+  // Catches the persistence filter losing verified or unverified passkey evidence.
+  it.each([true, false])('preserves userVerified=%s', (userVerified) => {
+    expect(
+      nativeAttemptDetails({
+        ...BASE,
+        verifiedAccount: { ...ACCOUNT, userVerified },
+      }),
+    ).toEqual({
+      verifiedAccount: {
+        userId: 'account-id',
+        userVersion: 2,
+        clientVersion: 3,
+        grantVersion: null,
+        authenticationMethods: ['hwk'],
+        verifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+        firstFactor: 'passkey',
+        userVerified,
+      },
+      nonceDigest: null,
+      email: null,
+      codeReply: null,
+    });
+  });
+
+  // Catches legacy attempts being given verification evidence they never recorded.
+  it('omits userVerified when the stored attempt has no evidence', () => {
+    expect(
+      nativeAttemptDetails({ ...BASE, verifiedAccount: ACCOUNT }),
+    ).toStrictEqual({
+      verifiedAccount: {
+        userId: 'account-id',
+        userVersion: 2,
+        clientVersion: 3,
+        grantVersion: null,
+        authenticationMethods: ['hwk'],
+        verifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+        firstFactor: 'passkey',
+      },
+      nonceDigest: null,
+      email: null,
+      codeReply: null,
+    });
+  });
+});
