@@ -9,6 +9,7 @@ import {
   ADMIN_ORIGIN,
   arrangeAudiences,
 } from '../audience-authorization.fixtures';
+import { setConfigValue } from '../config-settings';
 import type { E2eApp } from '../e2e-app';
 import {
   anonymousPost,
@@ -35,14 +36,14 @@ export function twoFactorAudienceCases(
     });
     afterEach(() => {
       const config = current().app.get(ConfigService);
-      config.set('auth.web.signIn', undefined);
-      config.set('auth.admin.signIn', undefined);
-      config.set('cors.adminUrl', previousAdminUrl);
+      setConfigValue(config, 'auth.web.signIn', undefined);
+      setConfigValue(config, 'auth.admin.signIn', undefined);
+      setConfigValue(config, 'cors.adminUrl', previousAdminUrl);
     });
     // Failure: a correct password for an excluded audience opens a challenge.
     it('refuses before issuing or storing a second-factor challenge', async () => {
       const e2e = current();
-      e2e.app.get(ConfigService).set('cors.adminUrl', ADMIN_ORIGIN);
+      setConfigValue(e2e.app.get(ConfigService), 'cors.adminUrl', ADMIN_ORIGIN);
       await arrangeAudiences(e2e);
       await enrolled();
       const beforeSessions = await e2e.state.sessions.countSessions();
@@ -67,10 +68,10 @@ export function twoFactorAudienceCases(
     it('matches a bad-code reply when admission changes during the challenge', async () => {
       const e2e = current();
       const config = e2e.app.get(ConfigService);
-      config.set('cors.adminUrl', ADMIN_ORIGIN);
+      setConfigValue(config, 'cors.adminUrl', ADMIN_ORIGIN);
       await arrangeAudiences(e2e);
       const { secret } = await enrolled();
-      config.set('auth.admin.signIn', { signUp: 'closed' });
+      setConfigValue(config, 'auth.admin.signIn', { signUp: 'closed' });
       await reconcileStartupApplications(e2e.app);
       jest.setSystemTime(STEP_TWO);
       e2e.clock.set(STEP_TWO);
@@ -90,7 +91,7 @@ export function twoFactorAudienceCases(
         browser,
       );
       const beforeSessions = await e2e.state.sessions.countSessions();
-      config.set('auth.admin.signIn', {
+      setConfigValue(config, 'auth.admin.signIn', {
         audience: ROLE_AUDIENCE.STAFF,
         signUp: 'closed',
       });
@@ -105,7 +106,7 @@ export function twoFactorAudienceCases(
       expect(wrong.status).toBe(401);
       expectNoAuthority(e2e, refused);
       expect(await e2e.state.sessions.countSessions()).toBe(beforeSessions);
-      config.set('auth.admin.signIn', { signUp: 'closed' });
+      setConfigValue(config, 'auth.admin.signIn', { signUp: 'closed' });
       await reconcileStartupApplications(e2e.app);
       const admitted = await anonymousPost(
         e2e,
