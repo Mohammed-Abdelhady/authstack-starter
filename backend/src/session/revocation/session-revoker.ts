@@ -30,6 +30,19 @@ export interface RevocationContext {
   roleAssignment?: RoleAssignmentEvent;
 }
 
+/** The role ids a staff role assignment adds to the log. */
+function roleAssignmentDetails(
+  assignment: RoleAssignmentEvent | undefined,
+): Record<string, string> | undefined {
+  if (!assignment) return undefined;
+  return {
+    assignedRoleId: assignment.assignedRoleId,
+    ...(assignment.previousRoleId === undefined
+      ? {}
+      : { previousRoleId: assignment.previousRoleId }),
+  };
+}
+
 /**
  * Ends sessions. One session ends by its own guarded write. Every session of an
  * account ends when the account's version moves past the one they carry, and
@@ -116,6 +129,7 @@ export class SessionRevoker {
       action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_ALL,
       reasonCode: context?.reasonCode ?? REVOKED_REASON.ALL_USER,
       roleAssignment: context?.roleAssignment,
+      details: roleAssignmentDetails(context?.roleAssignment),
     });
     return count;
   }
