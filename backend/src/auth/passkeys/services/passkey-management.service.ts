@@ -40,6 +40,25 @@ function refusesRemoval(wayIn: WayInOutcome): boolean {
   return wayIn === WAY_IN_OUTCOME.LAST;
 }
 
+/** The relying party of a passkey, as a removal of that passkey counts it. */
+interface RelyingPartyCount {
+  /** The account's passkeys there, the one being removed included. */
+  readonly passkeys: number;
+  /** An application that admits the account lets it in there with a passkey only. */
+  readonly required: boolean;
+}
+
+/**
+ * What the relying party keeps once the passkey is gone: its other passkeys,
+ * and the account's other ways in unless a passkey is required there.
+ */
+function waysLeftAtRelyingParty(
+  party: RelyingPartyCount,
+  waysBesidesPasskeys: number,
+): number {
+  return party.passkeys - 1 + (party.required ? 0 : waysBesidesPasskeys);
+}
+
 /**
  * The passkeys on an account, from the account settings. Every lookup is
  * scoped to the signed-in user, so an id belonging to someone else reads as
@@ -59,15 +78,26 @@ export class PasskeyManagementService {
   ) {}
 
   async list(userId: string): Promise<ApiResponse<PasskeyListResponseDto>> {
-    const [passkeys, advise] = await Promise.all([
+    const [passkeys, advise, required] = await Promise.all([
       this.passkeys.listForAccount(userId),
       this.signInMethods.adviseOnRemoval(userId),
+      this.runner.run((unitOfWork) =>
+        this.required.forAccountIn(unitOfWork, userId),
+      ),
     ]);
+
+    // What `remove` would answer for each one, with nothing held.
+    const removable = (passkey: StoredPasskey): boolean =>
+      !refusesRemoval(
+        advise(this.relyingPartyWaysLeft(passkey, passkeys, required)),
+      );
 
     return ApiResponse.success({
       passkeys: passkeys.map(toPasskeySummary),
-      // The answer `remove` would get from the same rule, with nothing held.
-      canRemove: !refusesRemoval(advise(waysLeftWithoutOnePasskey)),
+      // An empty list keeps the account's own answer.
+      canRemove:
+        !refusesRemoval(advise(waysLeftWithoutOnePasskey)) &&
+        (passkeys.length === 0 || passkeys.some(removable)),
     });
   }
 
@@ -159,17 +189,41 @@ export class PasskeyManagementService {
       unitOfWork,
       passkey.userId,
     );
-    const samePartyPasskeys = await this.passkeys.countForRelyingParty(
-      passkey.userId,
-      relyingPartyScope(rpId, webRpId),
-      unitOfWork,
-    );
-    const otherWays = required.includes(rpId) ? 0 : waysBesidesPasskeys;
+    const party: RelyingPartyCount = {
+      passkeys: await this.passkeys.countForRelyingParty(
+        passkey.userId,
+        relyingPartyScope(rpId, webRpId),
+        unitOfWork,
+      ),
+      required: required.includes(rpId),
+    };
     this.assertNotTheLastWayIn(
-      samePartyPasskeys - 1 + otherWays > 0
+      waysLeftAtRelyingParty(party, waysBesidesPasskeys) > 0
         ? WAY_IN_OUTCOME.ANOTHER_LEFT
         : WAY_IN_OUTCOME.LAST,
     );
+  }
+
+  /** The same relying-party count, on the passkeys a list read. */
+  private relyingPartyWaysLeft(
+    passkey: StoredPasskey,
+    listed: StoredPasskey[],
+    required: string[],
+  ): WaysLeft {
+    const webRpId = this.config.rpId;
+    const rpId = relyingPartyOf(passkey, webRpId);
+    const surface = this.surfaceOf(passkey);
+    const party: RelyingPartyCount = {
+      passkeys: listed.filter(
+        (other) => relyingPartyOf(other, webRpId) === rpId,
+      ).length,
+      required: required.includes(rpId),
+    };
+    return (held, switches) =>
+      waysLeftAtRelyingParty(
+        party,
+        waysInBesidesPasskeys(held, switches, surface),
+      );
   }
 
   private async findOwned(
