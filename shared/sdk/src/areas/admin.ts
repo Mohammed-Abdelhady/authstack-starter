@@ -6,7 +6,7 @@ import { unwrapEnvelope } from '../envelope';
 import { createOperationHandle } from '../browser-transport/operations';
 import { unwrapSessionList } from '../sessions';
 import { unwrapObject } from '../shapes';
-import type { TransportSignal } from '../transport';
+import type { TransportResponse, TransportSignal } from '../transport';
 import type { AreaCall, AreaOptions, AreaSenders } from './shared';
 import { ADMIN_PATHS, withQuery } from './admin/paths';
 import type { AdminCreateOptions, AdminSessionList, ApiClientAdmin } from './admin/types';
@@ -21,10 +21,15 @@ interface AdminSenders<TSignal extends TransportSignal> extends AreaSenders<TSig
   writeNoContent(call: WriteCall<TSignal>, options: AreaOptions<TSignal>): Promise<void>;
 }
 
-/** A 5xx answer to a write can follow its commit, so it is an unknown outcome, not a refusal. */
-async function settleWrite<T>(operationKey: string | undefined, write: () => Promise<T>) {
+/** A 5xx answer can follow the write's commit; what send throws keeps the transport's verdict. */
+async function settleWrite<T>(
+  operationKey: string | undefined,
+  answer: Promise<TransportResponse>,
+  read: (response: TransportResponse) => T,
+): Promise<T> {
+  const response = await answer;
   try {
-    return await write();
+    return read(response);
   } catch (error) {
     if (error instanceof ApiError && error.status >= SERVER_ERROR_STATUS_MIN) {
       throw new UnknownOutcomeError(operationKey, { cause: error, status: error.status });
@@ -39,10 +44,11 @@ function withWriters<TSignal extends TransportSignal>(
   return {
     ...senders,
     write: <T extends object>(call: WriteCall<TSignal>, options: AreaOptions<TSignal>) =>
-      settleWrite(call.operationKey, () => senders.sendObject<T>(call, options)),
+      settleWrite(call.operationKey, senders.send(call, options), (response) =>
+        unwrapObject<T>(response),
+      ),
     writeNoContent: (call, options) =>
-      settleWrite(call.operationKey, async () => {
-        const response = await senders.send(call, options);
+      settleWrite(call.operationKey, senders.send(call, options), (response) => {
         if (response.status !== HTTP_STATUS_NO_CONTENT) unwrapEnvelope(response);
       }),
   };
