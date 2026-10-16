@@ -49,6 +49,7 @@ const CORE_MIGRATIONS = [
   '0023_account_audience.sql',
   '0024_session_evidence.sql',
   '0027_activity_log.sql',
+  '0028_staff_console.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -245,6 +246,7 @@ export function databaseCases(getPacked: () => Packed): void {
       '0025_email_codes.sql',
       '0026_passkey_relying_party.sql',
       '0027_activity_log.sql',
+      '0028_staff_console.sql',
     ]);
   });
 
