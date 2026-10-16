@@ -125,6 +125,7 @@ function createHarness(state: AccountState = {}): Harness {
         ),
       ),
       createPasskeyConfig(),
+      browserApplications,
     ),
     passkeyModel,
     passkey: passkey ?? createMockPasskey(),

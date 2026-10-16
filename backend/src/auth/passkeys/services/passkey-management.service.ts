@@ -8,12 +8,15 @@ import {
 } from '../../../common/persistence/unit-of-work';
 import {
   SignInMethodRule,
-  SignInSwitches,
+  WAY_IN_SURFACE,
+  WayInSurface,
+  waysInBesidesPasskeys,
   WAY_IN_OUTCOME,
   WayInOutcome,
   WaysLeft,
 } from '../../../user/services/sign-in-method.rule';
-import { HeldSignInMethods } from '../../../user/stores/sign-in-method.store';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
+import { ADMIN_CLIENT_ID } from '../../../session/constants/client-ids';
 import {
   PasskeyListResponseDto,
   PasskeySummaryDto,
@@ -24,24 +27,12 @@ import { PasskeyStore, StoredPasskey } from '../stores/passkey.store';
 import { relyingPartyOf, relyingPartyScope } from '../utils/relying-party.util';
 import { PasskeyConfigService } from './passkey-config.service';
 
-/** A stored password while password sign-in is on, linked providers, magic links. */
-function waysInBesidesPasskeys(
-  held: HeldSignInMethods,
-  switches: SignInSwitches,
-): number {
-  return (
-    (switches.password && held.hasPassword ? 1 : 0) +
-    held.linkedProviders.length +
-    (switches.magicLink ? 1 : 0)
-  );
-}
-
 /**
- * What a passkey removal accepts as left: another passkey, a stored password
- * while password sign-in is on, a linked provider, and magic links.
+ * What a passkey removal accepts as left: another passkey, or any other way in
+ * on any surface, an emailed code included.
  */
 const waysLeftWithoutOnePasskey: WaysLeft = (held, switches) =>
-  held.passkeys - 1 + waysInBesidesPasskeys(held, switches);
+  held.passkeys - 1 + waysInBesidesPasskeys(held, switches, WAY_IN_SURFACE.ANY);
 
 /** Only the last way in stays. The passkey of an account that is gone goes. */
 function refusesRemoval(wayIn: WayInOutcome): boolean {
@@ -62,6 +53,7 @@ export class PasskeyManagementService {
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
     private readonly config: PasskeyConfigService,
+    private readonly applications: BrowserApplications,
   ) {}
 
   async list(userId: string): Promise<ApiResponse<PasskeyListResponseDto>> {
@@ -100,6 +92,7 @@ export class PasskeyManagementService {
     passkeyId: string,
   ): Promise<ApiResponse<{ message: string }>> {
     const passkey = await this.findOwned(userId, passkeyId);
+    const surface = this.surfaceOf(passkey);
     // The count and the removal commit or abort together, so two removals at
     // once cannot each count the other's passkey as the one that stays.
     await this.runner.run(async (unitOfWork) => {
@@ -110,7 +103,7 @@ export class PasskeyManagementService {
         unitOfWork,
         userId,
         (held, switches) => {
-          besides.ways = waysInBesidesPasskeys(held, switches);
+          besides.ways = waysInBesidesPasskeys(held, switches, surface);
           return waysLeftWithoutOnePasskey(held, switches);
         },
       );
@@ -130,6 +123,19 @@ export class PasskeyManagementService {
 
     this.logger.log(`Passkey removed for user ${userId}`);
     return ApiResponse.success({ message: 'Passkey removed' });
+  }
+
+  /** The web and admin relying parties sign in through a browser, any other through an app. */
+  private surfaceOf(passkey: StoredPasskey): WayInSurface {
+    const rpId = relyingPartyOf(passkey, this.config.rpId);
+    if (rpId === this.config.rpId) return WAY_IN_SURFACE.BROWSER;
+    if (this.applications.isConfigured(ADMIN_CLIENT_ID)) {
+      const adminRpId = new URL(
+        this.applications.configuration(ADMIN_CLIENT_ID).origin,
+      ).hostname;
+      if (rpId === adminRpId) return WAY_IN_SURFACE.BROWSER;
+    }
+    return WAY_IN_SURFACE.NATIVE;
   }
 
   /**
