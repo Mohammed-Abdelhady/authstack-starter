@@ -227,6 +227,7 @@ describe('PostgreSQL retention', () => {
         passkey_challenges: 0, // feature:passkeys
         authorization_transactions: 0,
         native_attempts: 0,
+        email_codes: 0, // feature:email-code
         native_credentials: 0,
         native_dpop_proof_ids: 0,
         sessions: 0,

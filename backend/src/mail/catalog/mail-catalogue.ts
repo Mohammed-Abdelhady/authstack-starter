@@ -10,6 +10,7 @@ import type { PasswordResetCodeMessages } from './en/password-reset-code';
 import type { ProofCodeMessages } from './en/proof-code';
 import type { RegistrationNoticeMessages } from './en/registration-notice';
 import type { SecurityNoticeMessages } from './en/security-notice';
+import type { SignInCodeMessages } from './en/sign-in-code'; // feature:email-code
 import type { OwnEmailChangeCodeMessages } from './en/own-email-change-code';
 import { EN_MAIL_CATALOGUE } from './en';
 
@@ -24,6 +25,7 @@ export type MailCatalogue = {
   readonly magicLink: MagicLinkMessages;
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;
+  readonly signInCode: SignInCodeMessages; // feature:email-code
   readonly ownEmailChangeCode: OwnEmailChangeCodeMessages;
 };
 

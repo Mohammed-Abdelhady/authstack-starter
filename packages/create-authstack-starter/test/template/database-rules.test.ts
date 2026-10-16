@@ -36,6 +36,7 @@ const FEATURE_TABLES: Record<string, { tables: string[]; migrations: string[] }>
     tables: ['pending_magic_links'],
     migrations: ['0013_magic_links.sql', '0015_magic_link_request_nonce.sql'],
   },
+  'email-code': { tables: ['email_codes'], migrations: ['0025_email_codes.sql'] },
 };
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 

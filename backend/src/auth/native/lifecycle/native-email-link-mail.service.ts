@@ -30,6 +30,7 @@ import type { SupportedLocale } from '../../../common/constants/locales';
 import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import type { AccountCreationMethod } from '../../types/account-creation';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 
@@ -100,22 +101,24 @@ export class NativeEmailLinkMailService {
     email: string,
     locale: SupportedLocale,
     clientId: string,
+    refuse: () => AppException = () => this.invalidNativeLink(),
+    method: AccountCreationMethod = ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    refuseDeactivated: () => AppException = refuse,
   ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmailIn(unitOfWork, email);
-    if (existing?.isDeleted) throw this.invalidNativeLink();
+    if (existing?.isDeleted) throw refuseDeactivated();
     if (existing) {
       if (existing.isVerified) return existing;
       if (!(await this.accounts.markVerifiedIn(unitOfWork, existing))) {
-        throw this.invalidNativeLink();
+        throw refuse();
       }
       const verified = await this.accounts.findByEmailIn(unitOfWork, email);
-      if (!verified || verified.isDeleted || !verified.isVerified) {
-        throw this.invalidNativeLink();
-      }
+      if (verified?.isDeleted) throw refuseDeactivated();
+      if (!verified || !verified.isVerified) throw refuse();
       return verified;
     }
     await this.policy.assertMayCreate(
-      { application: clientId, method: ACCOUNT_CREATION_METHOD.MAGIC_LINK },
+      { application: clientId, method },
       unitOfWork,
     );
     const reservation = await this.ledger.reserveForAccount(unitOfWork, {

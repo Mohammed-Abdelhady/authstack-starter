@@ -45,6 +45,7 @@ export const NATIVE_AUTH_FIRST_FACTOR = {
   PROVIDER: 'provider',
   PASSKEY: 'passkey',
   EMAIL_LINK: 'emailLink',
+  EMAIL_CODE: 'emailCode', // feature:email-code
 } as const;
 
 export const NATIVE_AUTH_SECOND_FACTOR = {
