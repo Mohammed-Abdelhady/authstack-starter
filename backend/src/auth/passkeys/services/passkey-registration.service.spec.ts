@@ -23,6 +23,7 @@ import {
   createMockRequest,
   createMockResponse,
   createPasskeyConfig,
+  createPasskeyPolicy,
   OTHER_USER_ID,
   ORIGIN,
   RP_ID,
@@ -125,6 +126,7 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
       partialMock<PasskeyRecorder>({
         record: (passkey: NewPasskey) => store.insert(passkey),
       }),
+      createPasskeyPolicy(),
     ),
     adapter,
     passkeyModel,
@@ -210,7 +212,7 @@ describe('PasskeyRegistrationService', () => {
         challenge: 'challenge-value',
         origins: [ORIGIN],
         rpId: RP_ID,
-        // Today's rule until the application policy reader lands.
+        // Neither a required passkey nor an enrolment session asks for more.
         userVerification: 'preferred',
       });
       expect(stored.rpId).toBe(RP_ID);

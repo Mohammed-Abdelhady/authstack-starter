@@ -10,7 +10,7 @@ import {
   PASSKEY_CEREMONY,
   PASSKEY_CHALLENGE_TTL_MS,
   PASSKEY_DEFAULT_NAME,
-  REGISTRATION_POLICY_UNTIL_READER,
+  NATIVE_REGISTRATION_POLICY,
   UserVerificationRequirement,
 } from '../constants/passkeys.constants';
 import { PasskeySummaryDto } from '../dto/passkey-summary.dto';
@@ -217,7 +217,7 @@ export class NativePasskeyRegistrationService {
   private userVerification(): UserVerificationRequirement {
     return registrationUserVerification({
       ceremony: PASSKEY_CEREMONY.NATIVE,
-      ...REGISTRATION_POLICY_UNTIL_READER,
+      ...NATIVE_REGISTRATION_POLICY,
     });
   }
 

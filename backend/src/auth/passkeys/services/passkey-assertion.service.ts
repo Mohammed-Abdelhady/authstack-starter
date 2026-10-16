@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { PasskeyCredentialDto } from '../dto/passkey-credential.dto';
+import { BrowserPasskeyPolicy } from './browser-passkey-policy.service';
 import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyConfigService } from './passkey-config.service';
 import { PasskeyRequestOptions, WebAuthnAdapter } from './webauthn.adapter';
@@ -41,16 +42,19 @@ export class PasskeyAssertionService {
     private readonly adapter: WebAuthnAdapter,
     private readonly config: PasskeyConfigService,
     private readonly challenges: PasskeyChallengeService,
+    private readonly policy: BrowserPasskeyPolicy,
   ) {}
 
   /**
    * Options for navigator.credentials.get(). `allowCredentials` is always
    * empty: the browser picks a discoverable credential, and an empty list is
    * also what keeps the route from confirming that an address has an account.
+   * The relying party is the one of the request's application.
    */
   async createOptions(response: Response): Promise<PasskeyRequestOptions> {
+    const { relyingParty } = await this.policy.of(response.req);
     const options = await this.adapter.createAuthenticationOptions({
-      rpId: this.config.rpId,
+      rpId: relyingParty.rpId,
       allowCredentials: [],
     });
 
@@ -76,21 +80,23 @@ export class PasskeyAssertionService {
     response: Response,
     userVerification: UserVerificationRequirement = USER_VERIFICATION.PREFERRED,
   ): Promise<PasskeyAssertionResult> {
-    const challenge = this.challenges.read(request, 'login');
+    const challenge = await this.challenges.read(request, 'login');
     try {
       await this.challenges.consume('login', challenge.challenge);
     } finally {
       this.challenges.clear(response);
     }
 
+    const { relyingParty } = await this.policy.of(request);
     const passkey = await this.passkeys.findByCredentialId(credential.id);
 
     if (!passkey) {
       throw this.failed('credential is not registered');
     }
 
-    // A passkey made for an app's own relying party never opens the web one.
-    if (!belongsTo(passkey, this.config.rpId, this.config.rpId)) {
+    // A passkey made for another relying party, an app's included, never
+    // opens this application.
+    if (!belongsTo(passkey, relyingParty.rpId, this.config.rpId)) {
       throw this.failed('credential belongs to another relying party');
     }
 
@@ -102,7 +108,11 @@ export class PasskeyAssertionService {
         counter: passkey.counter,
         transports: passkey.transports,
       },
-      this.config.expectations(challenge.challenge),
+      {
+        challenge: challenge.challenge,
+        origin: relyingParty.origins,
+        rpId: relyingParty.rpId,
+      },
       userVerification,
     );
 

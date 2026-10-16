@@ -7,6 +7,11 @@ import {
   USER_ID,
 } from '../persistence/mongo/passkeys.harness-spec';
 
+const CHALLENGE_INVALID = {
+  code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
+  status: 401,
+};
+
 describe('PasskeyChallengeService', () => {
   it('signs new cookies with the dedicated key and refuses them under the old key alone', async () => {
     const dedicated = createChallengeService({
@@ -15,19 +20,15 @@ describe('PasskeyChallengeService', () => {
     });
     const { response, cookies } = createMockResponse();
     await dedicated.issue(response, 'login', 'new-key-challenge');
-    expect(dedicated.read(createMockRequest(cookies), 'login').challenge).toBe(
-      'new-key-challenge',
-    );
-    expect(() =>
+    expect(
+      (await dedicated.read(createMockRequest(cookies), 'login')).challenge,
+    ).toBe('new-key-challenge');
+    await expect(
       createChallengeService({ 'oauth.stateSecret': 'o'.repeat(32) }).read(
         createMockRequest(cookies),
         'login',
       ),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
   });
 
   it('reads a previous dedicated key during rotation', async () => {
@@ -42,9 +43,9 @@ describe('PasskeyChallengeService', () => {
       'passkeys.challengeSecret': 'n'.repeat(32),
       'passkeys.previousChallengeSecret': 'p'.repeat(32),
     });
-    expect(rotated.read(createMockRequest(cookies), 'login').challenge).toBe(
-      'rotation-challenge',
-    );
+    expect(
+      (await rotated.read(createMockRequest(cookies), 'login')).challenge,
+    ).toBe('rotation-challenge');
   });
 
   it('reads a legacy OAuth-derived cookie for its remaining lifetime', async () => {
@@ -60,9 +61,9 @@ describe('PasskeyChallengeService', () => {
         Date.now() + 60_000,
       ).toISOString(),
     });
-    expect(next.read(createMockRequest(cookies), 'login').challenge).toBe(
-      'legacy-challenge',
-    );
+    expect(
+      (await next.read(createMockRequest(cookies), 'login')).challenge,
+    ).toBe('legacy-challenge');
   });
 
   it('refuses legacy cookies when the bounded fallback is absent or over', async () => {
@@ -82,11 +83,9 @@ describe('PasskeyChallengeService', () => {
           ? { 'passkeys.legacyChallengeUntil': legacyChallengeUntil }
           : {}),
       });
-      expect(() => next.read(createMockRequest(cookies), 'login')).toThrow(
-        expect.objectContaining({
-          code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-        }) as Error,
-      );
+      await expect(
+        next.read(createMockRequest(cookies), 'login'),
+      ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
     }
   });
 
@@ -104,7 +103,7 @@ describe('PasskeyChallengeService', () => {
     const raw = cookies[PASSKEY_CHALLENGE_COOKIE];
     expect(raw).toEqual(expect.stringContaining('.'));
 
-    const payload = service.read(
+    const payload = await service.read(
       createMockRequest({ [PASSKEY_CHALLENGE_COOKIE]: raw }),
       'register',
     );
@@ -118,7 +117,7 @@ describe('PasskeyChallengeService', () => {
     const { response, cookies } = createMockResponse();
 
     await service.issue(response, 'login', 'challenge-value');
-    const payload = service.read(
+    const payload = await service.read(
       createMockRequest({
         [PASSKEY_CHALLENGE_COOKIE]: cookies[PASSKEY_CHALLENGE_COOKIE],
       }),
@@ -139,19 +138,14 @@ describe('PasskeyChallengeService', () => {
       USER_ID.toString(),
     );
 
-    expect(() =>
+    await expect(
       service.read(
         createMockRequest({
           [PASSKEY_CHALLENGE_COOKIE]: cookies[PASSKEY_CHALLENGE_COOKIE],
         }),
         'login',
       ),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-        status: 401,
-      }) as Error,
-    );
+    ).rejects.toMatchObject(CHALLENGE_INVALID);
   });
 
   it('should refuse an edited payload', async () => {
@@ -168,18 +162,14 @@ describe('PasskeyChallengeService', () => {
       }),
     ).toString('base64url');
 
-    expect(() =>
+    await expect(
       service.read(
         createMockRequest({
           [PASSKEY_CHALLENGE_COOKIE]: `${forged}.${signature}`,
         }),
         'login',
       ),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
   });
 
   it('should refuse a cookie signed with another secret', async () => {
@@ -191,18 +181,14 @@ describe('PasskeyChallengeService', () => {
       'oauth.stateSecret': 'a'.repeat(32),
     });
 
-    expect(() =>
+    await expect(
       other.read(
         createMockRequest({
           [PASSKEY_CHALLENGE_COOKIE]: cookies[PASSKEY_CHALLENGE_COOKIE],
         }),
         'login',
       ),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
   });
 
   it('should refuse an expired challenge', async () => {
@@ -213,30 +199,22 @@ describe('PasskeyChallengeService', () => {
 
     jest.setSystemTime(new Date('2026-01-01T00:06:00.000Z'));
 
-    expect(() =>
+    await expect(
       service.read(
         createMockRequest({
           [PASSKEY_CHALLENGE_COOKIE]: cookies[PASSKEY_CHALLENGE_COOKIE],
         }),
         'login',
       ),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
 
     jest.useRealTimers();
   });
 
-  it('should refuse a request with no cookie at all', () => {
-    expect(() =>
+  it('should refuse a request with no cookie at all', async () => {
+    await expect(
       createChallengeService().read(createMockRequest({}), 'login'),
-    ).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.PASSKEY_CHALLENGE_INVALID,
-      }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_CHALLENGE_INVALID });
   });
 
   it('should report 503 when the signing secret is missing', async () => {

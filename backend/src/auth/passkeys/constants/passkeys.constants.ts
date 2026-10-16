@@ -1,7 +1,24 @@
+import { API_GLOBAL_PREFIX } from '../../../common/constants/http-routes';
 import { hostCookieName } from '../../utils/cookie-name.util';
 
 /** Which ceremony a challenge was handed out for. */
 export type PasskeyChallengePurpose = 'register' | 'login' | 'nativeRegister';
+
+/** The ceremonies a browser challenge cookie is handed out for. */
+export type BrowserChallengePurpose = Exclude<
+  PasskeyChallengePurpose,
+  'nativeRegister'
+>;
+
+const PASSKEYS_ROUTE = `^/(?:${API_GLOBAL_PREFIX}/)?auth/passkeys/`;
+
+/** The browser routes that spend a challenge, by the ceremony each spends. */
+export const PASSKEY_VERIFY_ROUTES: Readonly<
+  Record<BrowserChallengePurpose, RegExp>
+> = {
+  login: new RegExp(`${PASSKEYS_ROUTE}login/verify/?$`, 'u'),
+  register: new RegExp(`${PASSKEYS_ROUTE}register/verify/?$`, 'u'),
+};
 
 /** What a ceremony asks of the authenticator before it signs. */
 export const USER_VERIFICATION = {
@@ -22,10 +39,10 @@ export type PasskeyCeremony =
   (typeof PASSKEY_CEREMONY)[keyof typeof PASSKEY_CEREMONY];
 
 /**
- * The registration policy until the application policy reader exposes
- * `requirePasskey` and enrolment sessions: neither applies, as today.
+ * A registration made in an app reads neither browser rule: enrolment is
+ * browser-only, and the native ceremony verifies its user anyway.
  */
-export const REGISTRATION_POLICY_UNTIL_READER = {
+export const NATIVE_REGISTRATION_POLICY = {
   requirePasskey: false,
   enrolment: false,
 } as const;
