@@ -123,7 +123,9 @@ credentials and proof, then navigate to the returned provider URL. The retained
 GET navigation start always selects web.
 
 A mobile app links through `providers/link/start` and `providers/link/finish`
-instead. The start needs a sign-in from the last five minutes. The finish takes
+instead. The start needs a fresh proof. A browser session signed in within the
+last five minutes is one. A mobile session's age is not, because approving a
+signed-in browser mints a session that looks new. The finish takes
 the proof the app's provider prompt made with the start's `nonceDigest` and
 `state`, once, within ten minutes, from the same session. Because the person
 proved both the account and the identity, the provider's address may differ
