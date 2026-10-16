@@ -107,7 +107,10 @@ Removing it leaves such a token unreadable, and its later revocation job fails a
 
 A mobile app links Google, Apple or Facebook (limited login) through
 `POST /api/user/providers/link/start` and `POST /api/user/providers/link/finish`. The start
-needs a sign-in in the last five minutes. The finish takes the proof the app's provider prompt
+needs a fresh proof. A browser session signed in within the last five minutes is one. A mobile
+session's age is not yet, because a session made when a signed-in browser approves the app
+carries the approval time, so the start answers `REAUTH_REQUIRED` to an app until that session
+carries the browser's sign-in time. The finish takes the proof the app's provider prompt
 made with the start's nonce, once, from the same session, within ten minutes. An identity that
 belongs to another account is refused and the accounts are never merged. The provider's address
 may differ from the account's, so an account made with Apple's private relay address can add
