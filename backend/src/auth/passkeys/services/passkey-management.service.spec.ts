@@ -6,7 +6,13 @@ import { MongoPasskeyStore } from '../persistence/mongo/mongo-passkey.store';
 import { MongoUnitOfWorkRunner } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { MongoSignInMethodStore } from '../../../user/persistence/mongo/mongo-sign-in-method.store';
 import { SignInMethodRule } from '../../../user/services/sign-in-method.rule';
-import { createModelMock } from '../../../common/testing/test-doubles.harness-spec';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
+import type { SecurityNotice } from '../../../user/types/security-notice.type';
+import {
+  createModelMock,
+  partialMock,
+} from '../../../common/testing/test-doubles.harness-spec';
 import {
   createMockPasskey,
   createPasskeyConfig,
@@ -15,11 +21,18 @@ import {
   USER_ID,
 } from '../persistence/mongo/passkeys.harness-spec';
 
+/** A delete, a commit and a notice, in the order the removal made them. */
+type Recorded =
+  'delete' | 'commit' | { userId: string; notice: SecurityNotice };
+
 /** A driver session whose transaction commits. */
-function transactionSession(): Record<string, jest.Mock> {
+function transactionSession(recorded: Recorded[]): Record<string, jest.Mock> {
   return {
     startTransaction: jest.fn(),
-    commitTransaction: jest.fn().mockResolvedValue(undefined),
+    commitTransaction: jest.fn().mockImplementation(() => {
+      recorded.push('commit');
+      return Promise.resolve();
+    }),
     abortTransaction: jest.fn().mockResolvedValue(undefined),
     endSession: jest.fn().mockResolvedValue(undefined),
     inTransaction: jest.fn().mockReturnValue(true),
@@ -46,11 +59,13 @@ interface Harness {
     deleteOne: jest.Mock;
   };
   passkey: MockPasskey;
+  recorded: Recorded[];
 }
 
 function createHarness(state: AccountState = {}): Harness {
   const passkey =
     state.passkey === undefined ? createMockPasskey() : state.passkey;
+  const recorded: Recorded[] = [];
 
   const passkeyModel = {
     find: jest.fn().mockReturnValue({
@@ -64,8 +79,9 @@ function createHarness(state: AccountState = {}): Harness {
     updateMany: jest
       .fn()
       .mockResolvedValue({ matchedCount: state.passkeyCount ?? 1 }),
-    deleteOne: jest.fn().mockReturnValue({
-      session: jest.fn().mockResolvedValue({ deletedCount: 1 }),
+    deleteOne: jest.fn().mockImplementation(() => {
+      recorded.push('delete');
+      return { session: jest.fn().mockResolvedValue({ deletedCount: 1 }) };
     }),
   };
 
@@ -117,13 +133,23 @@ function createHarness(state: AccountState = {}): Harness {
       ),
       new MongoUnitOfWorkRunner(
         createModelMock<ConstructorParameters<typeof MongoUnitOfWorkRunner>[0]>(
-          { startSession: jest.fn().mockResolvedValue(transactionSession()) },
+          {
+            startSession: jest
+              .fn()
+              .mockResolvedValue(transactionSession(recorded)),
+          },
         ),
       ),
       createPasskeyConfig(),
+      partialMock<SecurityNoticeService>({
+        defer: (userId, notice) => {
+          recorded.push({ userId, notice });
+        },
+      }),
     ),
     passkeyModel,
     passkey: passkey ?? createMockPasskey(),
+    recorded,
   };
 }
 
@@ -192,6 +218,7 @@ describe('PasskeyManagementService', () => {
         status: 404,
       });
       expect(harness.passkeyModel.deleteOne).not.toHaveBeenCalled();
+      expect(harness.recorded).toEqual([]);
     });
 
     it('should remove one of several passkeys', async () => {
@@ -206,6 +233,21 @@ describe('PasskeyManagementService', () => {
       expect(harness.passkeyModel.deleteOne).toHaveBeenCalledWith({
         _id: PASSKEY_ID,
       });
+    });
+
+    it('should send one removed-passkey notice after the removal commits', async () => {
+      const harness = createHarness({
+        passkeyCount: 2,
+        passwordEnabled: false,
+      });
+
+      await harness.service.remove(USER, ID);
+
+      expect(harness.recorded).toEqual([
+        'delete',
+        'commit',
+        { userId: USER, notice: SECURITY_NOTICE.PASSKEY_REMOVED },
+      ]);
     });
 
     it('should keep the last web passkey when the other passkey belongs to an app', async () => {
@@ -226,6 +268,7 @@ describe('PasskeyManagementService', () => {
         status: 409,
       });
       expect(harness.passkeyModel.deleteOne).not.toHaveBeenCalled();
+      expect(harness.recorded).toEqual([]);
     });
 
     it('should keep the last passkey when it is the only way in', async () => {
@@ -242,6 +285,7 @@ describe('PasskeyManagementService', () => {
         status: 409,
       });
       expect(harness.passkeyModel.deleteOne).not.toHaveBeenCalled();
+      expect(harness.recorded).toEqual([]);
     });
 
     // feature:email-password:start
