@@ -25,6 +25,12 @@ import { SecondFactorSignIn } from '../../../src/auth/two-factor/stores/second-f
 import { SecondFactorStore } from '../../../src/auth/two-factor/stores/second-factor.store';
 import { SeedStore } from '../../../src/database/seeds/seed.store';
 import { SEED_MANAGER, SEED_USER } from '../../constants/seed-users';
+
+/** What a passkey that verified its user leaves on its session. */
+const VERIFIED_PASSKEY = {
+  authenticationMethods: ['passkey'],
+  userVerified: true,
+};
 // feature:passkeys:end
 // feature:totp:end
 
@@ -255,7 +261,11 @@ describe('the sign-in ports on the running database (e2e)', () => {
     const factor = browser('Factor/1');
 
     const summaries = [
-      await port(PasskeySignIn).issueSession(passkeyAccount, passkey.response),
+      await port(PasskeySignIn).issueSession(
+        passkeyAccount,
+        passkey.response,
+        VERIFIED_PASSKEY,
+      ),
       await port(SecondFactorSignIn).issueSession(
         factorAccount,
         factor.response,
@@ -312,6 +322,7 @@ describe('the sign-in ports on the running database (e2e)', () => {
         port(PasskeySignIn).issueSession(
           { ...passkeyAccount },
           browser('Copy/1').response,
+          VERIFIED_PASSKEY,
         ),
       ),
       await refused(() =>

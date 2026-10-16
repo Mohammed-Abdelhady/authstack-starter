@@ -107,7 +107,15 @@ describe('PasskeyLoginService', () => {
       requiresTwoFactor: false,
       user: USER_SUMMARY,
     });
-    expect(harness.signInService.issueSession).toHaveBeenCalled();
+    // The session records what the passkey verified, which a required
+    // passkey and the staff guard read.
+    expect(harness.signInService.issueSession.mock.calls).toEqual([
+      [
+        expect.anything(),
+        response,
+        { authenticationMethods: ['passkey'], userVerified: true },
+      ],
+    ]);
     // User verification is the second factor, so the TOTP path is skipped.
     expect(harness.signInService.completeSignIn).not.toHaveBeenCalled();
   });
