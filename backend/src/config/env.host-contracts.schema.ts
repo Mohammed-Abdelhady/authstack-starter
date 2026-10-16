@@ -26,6 +26,7 @@ import {
   EmailCodeReviewUntilConstraint,
   // feature:email-code:end
   HostPolicyJsonConstraint,
+  ProviderTokenPreviousKeyConstraint,
 } from './env.host-contracts.constraints';
 import {
   ACTIVITY_RETENTION_DAYS_DEFAULT,
@@ -153,6 +154,7 @@ export class HostContractsEnvironmentVariables extends ProductionGuardEnvironmen
   @IsString()
   @IsNotEmpty()
   @MinLength(32)
+  @Validate(ProviderTokenPreviousKeyConstraint)
   @IsOptional()
   PROVIDER_TOKEN_ENCRYPTION_KEY_PREVIOUS?: string;
 }

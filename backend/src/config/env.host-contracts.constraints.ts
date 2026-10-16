@@ -52,6 +52,30 @@ export class EmailCodeReviewUntilConstraint implements ValidatorConstraintInterf
 }
 // feature:email-code:end
 
+/**
+ * The previous provider token key only reads tokens written before a rotation,
+ * so it needs a current key beside it, and a different one.
+ */
+@ValidatorConstraint({ name: 'providerTokenPreviousKey' })
+export class ProviderTokenPreviousKeyConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown, validation: ValidationArguments): boolean {
+    const current: unknown = Reflect.get(
+      validation.object,
+      'PROVIDER_TOKEN_ENCRYPTION_KEY',
+    );
+    return (
+      typeof value === 'string' &&
+      typeof current === 'string' &&
+      current.trim() !== '' &&
+      current !== value
+    );
+  }
+
+  defaultMessage(validation: ValidationArguments): string {
+    return `${validation.property} needs PROVIDER_TOKEN_ENCRYPTION_KEY set to a different key`;
+  }
+}
+
 @ValidatorConstraint({ name: 'hostPolicyJson' })
 export class HostPolicyJsonConstraint implements ValidatorConstraintInterface {
   validate(value: unknown, validation: ValidationArguments): boolean {
