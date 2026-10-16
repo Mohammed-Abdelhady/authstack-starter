@@ -29,6 +29,7 @@ import { generateVerificationCode } from '../../utils/verification-code.util';
 import { NATIVE_EMAIL_CALLBACK_PARAM } from '../constants/native-lifecycle.constants';
 import type { NativeAttempt } from '../types/native-attempt';
 import { mailedCodeMinutes } from './email-code-minutes';
+import { NativeEmailCodeCeilingService } from './native-email-code-ceiling.service';
 import { NativeEmailCodeReviewService } from './native-email-code-review.service';
 
 /** Immediate resends of one mail before the dispatcher logs it as failed. */
@@ -57,6 +58,7 @@ export class NativeEmailCodeMailService {
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
     private readonly review: NativeEmailCodeReviewService,
+    private readonly ceiling: NativeEmailCodeCeilingService,
   ) {}
 
   /**
@@ -64,7 +66,8 @@ export class NativeEmailCodeMailService {
    * branch hashes and stores a code, so the reply never tells a known address
    * from an unknown, closed, capped or deactivated one. A deactivated account
    * is mailed like any other, and only its right code learns of the
-   * deactivation. A code that will not be mailed is stored already spent. The
+   * deactivation. A code that will not be mailed is stored already spent, as
+   * is every code for an address past the day's wrong-guess ceiling. The
    * review account on its application gets the fixed code stored instead, and
    * no mail.
    */
@@ -90,7 +93,8 @@ export class NativeEmailCodeMailService {
       limit: this.config.get<number>('magicLink.maxPerHour', 5),
     });
     const reviewHash = await this.review.codeHashFor(attempt, email);
-    const mailed = reviewHash === null && mayCreate && underCap;
+    const pastCeiling = await this.ceiling.reachedFor(email);
+    const mailed = reviewHash === null && mayCreate && underCap && !pastCeiling;
     const code = generateVerificationCode();
     const token = withLink ? createMagicLinkToken() : null;
     const lifetimeMs = this.config.get<number>(
@@ -109,12 +113,16 @@ export class NativeEmailCodeMailService {
       codeHash: reviewHash ?? codeHash,
       expiresAt,
       purgeAfter: attempt.expiresAt,
-      // Past the mail limit the fixed code is stored spent like any other.
-      spent: reviewHash === null ? !mailed : !underCap,
+      // Past the mail limit or the ceiling the fixed code is stored spent like any other.
+      spent: reviewHash === null ? !mailed : !underCap || pastCeiling,
     });
     if (!mailed) {
       this.logger.warn(
-        this.unsentReason(mayCreate, reviewHash !== null && underCap),
+        this.unsentReason({
+          mayCreate,
+          review: reviewHash !== null && underCap,
+          pastCeiling,
+        }),
       );
     }
     const recipient = { email, locale: owner?.locale ?? requested.locale };
@@ -134,12 +142,20 @@ export class NativeEmailCodeMailService {
     };
   }
 
-  private unsentReason(mayCreate: boolean, review: boolean): string {
+  /** Names why, never the address or the code. */
+  private unsentReason(unsent: {
+    mayCreate: boolean;
+    review: boolean;
+    pastCeiling: boolean;
+  }): string {
     const requestId = currentRequestId() ?? 'unknown';
-    if (review) {
+    if (unsent.pastCeiling) {
+      return `Sign-in code not mailed: wrong-guess ceiling reached requestId=${requestId}`;
+    }
+    if (unsent.review) {
       return `Sign-in code not mailed: review access requestId=${requestId}`;
     }
-    if (!mayCreate) {
+    if (!unsent.mayCreate) {
       return `Sign-in code not mailed: sign-up closed requestId=${requestId}`;
     }
     return `Sign-in code not mailed: address cap reached requestId=${requestId}`;

@@ -5,6 +5,8 @@ export const EMAIL_CODE_PURPOSE = {
   SIGN_IN: 'sign-in',
   /** Wrong guesses at the fixed review code, owned by the review account's day. Holds no code. */
   REVIEW_GUESSES: 'review-guesses',
+  /** Wrong guesses at live sign-in codes, owned by an address's day. Holds no code. */
+  ADDRESS_GUESSES: 'address-guesses',
 } as const;
 
 export type EmailCodePurpose =
@@ -23,8 +25,9 @@ export function storedEmailCodePurpose(value: string): EmailCodePurpose {
 export const EMAIL_CODE_GUESS_LIMIT = 5;
 
 /**
- * One code per owner and purpose. The owner is an attempt, or for the review
- * guesses an account's day, never an address.
+ * One code per owner and purpose. The owner of a code is an attempt, never an
+ * address. A row that only counts guesses is owned by the review account's
+ * day, or by an address's day.
  */
 export interface EmailCodeKey {
   ownerId: string;
