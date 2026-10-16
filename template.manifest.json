@@ -374,6 +374,7 @@
         "backend/src/auth/oauth/**",
         "backend/src/user/user-providers.controller.ts",
         "backend/src/user/provider-link/**",
+        "backend/src/common/persistence/postgres/migrations/0032_provider_revocations.sql",
         "backend/src/user/persistence/mongo/linked-accounts-contract/mongo-linked-accounts.harness-spec.ts",
         "backend/src/user/linked-accounts-contract/**",
         "backend/src/user/stores/linked-account.store.ts",
