@@ -21,6 +21,7 @@ export class AccountCreationPolicy {
   ): Promise<RoleAudience | undefined> {
     if (
       request.method === ACCOUNT_CREATION_METHOD.STAFF ||
+      request.method === ACCOUNT_CREATION_METHOD.INVITATION || // feature:invitations
       request.application === null
     ) {
       return undefined;
