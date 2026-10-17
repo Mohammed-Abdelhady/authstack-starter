@@ -46,6 +46,7 @@ const USER = {
   permissions: [],
 };
 const IDENTITY_USER = {
+  locale: 'en',
   ...USER,
   authProvider: 'email',
   isVerified: true,
