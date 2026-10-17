@@ -11,6 +11,10 @@ export class PostgresSecondFactorSignIn extends SecondFactorSignIn {
     super();
   }
 
+  assertAdmission(userId: string, response: Response): Promise<void> {
+    return this.completion.assertAdmission(userId, response);
+  }
+
   issueSession(
     account: SecondFactorAccount,
     response: Response,
