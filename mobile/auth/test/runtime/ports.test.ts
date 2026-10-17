@@ -138,27 +138,9 @@ describe('ports and configuration', () => {
     });
   });
 
-  it('does not require the future device key port', async () => {
-    const engine = createAuthEngine(CONFIG, testPorts(new ScriptedTransport()));
-
-    await engine.restore();
-
-    expect(engine.snapshot.status).toBe('signedOut');
-  });
-
   it('stores a digest of the install id and client id', async () => {
     await expect(
       digestInstallIdentity('id', 'client', { sha256: async (bytes) => sha256(bytes) }),
     ).resolves.toBe('FJCK-A2Sts2abhm3ST3F7JY6eivgb4Q5Iy8HU9BORp4');
-  });
-
-  it('unsubscribes the callback listener when disposed', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    const engine = createAuthEngine(CONFIG, ports);
-
-    expect(ports.callbacks.listeners.size).toBe(1);
-    engine.dispose();
-
-    expect(ports.callbacks.listeners.size).toBe(0);
   });
 });

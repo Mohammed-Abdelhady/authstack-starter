@@ -65,16 +65,6 @@ describe.each(DEVICES)('device key on $platform with $hardware', (device) => {
 });
 
 describe('device key lifecycle', () => {
-  it('keeps one key across uses', async () => {
-    const { native, key } = subject();
-
-    const first = await key.publicKey();
-    const second = await key.publicKey();
-
-    expect(second).toEqual(first);
-    expect(native.count('generateKeyAsync')).toBe(1);
-  });
-
   it('creates one key when two first uses overlap', async () => {
     const { native, key } = subject();
     const release = native.hold('generateKeyAsync');

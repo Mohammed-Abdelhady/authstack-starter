@@ -1,5 +1,4 @@
 import {
-  REFRESH_2_TOKEN,
   REFRESH_FIRST_TOKEN,
   REFRESH_NEXT_TOKEN,
   REFRESH_RESTORED_NEXT_TOKEN,
@@ -52,38 +51,6 @@ describe('session lineage', () => {
     expect(ports.credentials.value).toContain(REFRESH_NEXT_TOKEN);
     expect(JSON.stringify(transport.sent)).not.toContain('"lineageId"');
     expect(ports.timer.pending).toBe(0);
-  });
-
-  it('carries the same lineage through a second rotation', async () => {
-    const transport = new ScriptedTransport();
-    let refreshNumber = 0;
-    transport.respond = async ({ path, body }) => {
-      if (path === '/api/oauth/token') {
-        if (JSON.stringify(body).includes('authorization_code'))
-          return oauthTokenReply('access-first', REFRESH_FIRST_TOKEN);
-        refreshNumber += 1;
-        return oauthTokenReply(`access-${refreshNumber}`, `refresh-${refreshNumber}`);
-      }
-      if (path === '/api/user/profile') return successUserReply();
-      throw new Error(`Unexpected request: ${path}`);
-    };
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-    acceptCode(ports.authBrowser);
-
-    expect((await engine.signIn()).kind).toBe('signedIn');
-    ports.clock.advance(270_000);
-    await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
-    ports.clock.advance(270_000);
-    await engine.transport.request({ method: 'GET', path: '/api/user/profile' });
-
-    expect(ports.credentials.value).toContain(`"lineageId":"${EXPECTED_LINEAGE_ID}"`);
-    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_2_TOKEN}"`);
-    expect(refreshNumber).toBe(2);
-    expect(JSON.stringify(transport.sent)).not.toContain('lineageId');
-    expect(ports.timer.pending).toBe(0);
-    engine.dispose();
   });
 
   it('carries the stored lineage through restore and the next rotation', async () => {

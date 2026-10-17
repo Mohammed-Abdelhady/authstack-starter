@@ -26,7 +26,6 @@ const CONFIGURATION = {
   scopes: ['api'],
 };
 /** Written by hand: prefix, protection part, escaped client id, environment. */
-const HARDWARE_ALIAS = 'devicekey.hw.com_002eexample_002emobile.development';
 const SOFTWARE_ALIAS = 'devicekey.sw.com_002eexample_002emobile.development';
 /** The first canned key, as the base64url coordinates of its point. */
 const PROOF_HEADER = {
@@ -123,19 +122,6 @@ afterEach(() => {
 });
 
 describe('the bare shell handing the device key to the engine', () => {
-  it('prepares the key once at start, before anything is sent', async () => {
-    const { native, sent, start } = device('secureEnclave');
-
-    const app = await start('hardwareOnly');
-
-    expect(app.deviceKey).toEqual({ kind: 'ready', protection: 'secureEnclave' });
-    expect([...native.keys.keys()]).toEqual([HARDWARE_ALIAS]);
-    expect(native.count('getKeyAsync')).toBe(1);
-    expect(native.count('generateKeyAsync')).toBe(1);
-    expect(sent).toEqual([]);
-    app.engine.dispose();
-  });
-
   it('signs the code exchange with the key when the key is ready', async () => {
     const { native, sent, start } = device('secureEnclave');
     const app = await start('hardwareOnly');

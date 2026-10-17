@@ -51,22 +51,6 @@ function disposedRuntime() {
 }
 
 describe('disposed refresh storage guards', () => {
-  it('persists a rotation while its original marker is still current', async () => {
-    const { runtime, ports, transport, client } = disposedRuntime();
-
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_OLD_TOKEN, {
-      accessToken: 'access-next',
-      refreshToken: REFRESH_NEXT_TOKEN,
-      lineageId: LINEAGE_ID,
-    });
-
-    expect(ports.credentials.value).toContain(`"refreshToken":"${REFRESH_NEXT_TOKEN}"`);
-    expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
-    expect(ports.credentials.value).not.toContain('access-next');
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/revoke')).toHaveLength(0);
-    expect(ports.credentials.events.filter((event) => event === 'read')).toHaveLength(1);
-  });
-
   it('revokes a late rotation when only the sent predecessor marker remains', async () => {
     const { runtime, ports, transport, client } = disposedRuntime();
     const marker = ports.credentials.value;

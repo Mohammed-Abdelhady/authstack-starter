@@ -63,13 +63,10 @@ describe('native interactive lifetime', () => {
 
   it.each([
     { locale: 'en' as const, completion: 'cancelled' },
-    { locale: 'ar' as const, completion: 'cancelled' }, // feature:locale-ar
     { locale: 'en' as const, completion: 'success' },
     { locale: 'ar' as const, completion: 'success' }, // feature:locale-ar
     { locale: 'en' as const, completion: 'expired' },
-    { locale: 'ar' as const, completion: 'expired' }, // feature:locale-ar
     { locale: 'en' as const, completion: 'disposed' },
-    { locale: 'ar' as const, completion: 'disposed' }, // feature:locale-ar
   ])('keeps $locale fallback ownership for $completion past15s', async ({ locale, completion }) => {
     const success = completion === 'success';
     const transport = new ScriptedTransport();

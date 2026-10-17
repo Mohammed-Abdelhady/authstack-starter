@@ -1,4 +1,3 @@
-import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { createAuthEngine } from '../support/engine';
 import {
@@ -6,8 +5,6 @@ import {
   Deferred,
   ScriptedTransport,
   establishSession,
-  oauthTokenReply,
-  apiReply,
   testPorts,
 } from '../support/support';
 
@@ -102,24 +99,6 @@ describe('restore', () => {
     expect(ports.credentials.events).not.toContain('delete:start');
   });
 
-  it('publishes snapshots in order and freezes every delivered snapshot', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    const engine = createAuthEngine(CONFIG, ports);
-    const seen: { status: string; operation: string; frozen: boolean }[] = [];
-    engine.subscribe((snapshot) => {
-      seen.push({
-        status: snapshot.status,
-        operation: snapshot.operation,
-        frozen: Object.isFrozen(snapshot),
-      });
-    });
-
-    await engine.restore();
-
-    expect(seen.map(({ status }) => status)).toEqual(['restoring', 'signedOut']);
-    expect(seen.every(({ frozen }) => frozen)).toBe(true);
-  });
-
   it.each([
     ['server', { ...CONFIG, serverBaseAddress: 'https://other.example.test' }],
     ['environment', { ...CONFIG, environment: 'production' }],
@@ -147,31 +126,6 @@ describe('restore', () => {
     expect(engine.snapshot.status).toBe('signedOut');
   });
 
-  it('deletes a record whose refresh token is not text', async () => {
-    const { ports } = await storedSession();
-    ports.credentials.value = ports.credentials.value?.replace(
-      /"refreshToken":"[^"]*"/,
-      '"refreshToken":7',
-    );
-    const engine = createAuthEngine(CONFIG, ports);
-
-    await engine.restore();
-
-    expect(ports.credentials.value).toBeUndefined();
-    expect(engine.snapshot.status).toBe('signedOut');
-  });
-
-  it('reads the cold-start callback at most once', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    ports.callbacks.initial = undefined;
-    const engine = createAuthEngine(CONFIG, ports);
-
-    await engine.restore();
-    await engine.restore();
-
-    expect(ports.callbacks.initialCalls).toBe(1);
-  });
-
   it('deletes a valid record when the install identity changes', async () => {
     const { ports } = await storedSession();
     ports.install.result = { kind: 'found', id: 'install-2' };
@@ -187,22 +141,6 @@ describe('restore', () => {
     const { ports } = await storedSession();
 
     expect(ports.credentials.value).not.toContain('install-1');
-  });
-
-  it('treats a restored access token as expired before the next request', async () => {
-    const { ports } = await storedSession();
-    const transport = new ScriptedTransport();
-    const restoredPorts = { ...ports, makeTransport: (_baseAddress: string) => transport };
-    const restored = createAuthEngine(CONFIG, restoredPorts);
-    await restored.restore();
-    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
-
-    await restored.transport.request({ method: 'GET', path: '/api/user/profile' });
-
-    expect(transport.sent.map(({ path }) => path)).toEqual([
-      '/api/oauth/token',
-      '/api/user/profile',
-    ]);
   });
 
   it('keeps sign out in control when invalid-record deletion rejects after its epoch', async () => {

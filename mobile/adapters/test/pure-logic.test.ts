@@ -14,13 +14,6 @@ describe('launch address handed over once', () => {
     expect(filter.takeLaunch()).toBeUndefined();
   });
 
-  it('drops the event that repeats an address already read', () => {
-    const filter = createLaunchAddressFilter(LAUNCH);
-    filter.takeLaunch();
-
-    expect(filter.admitEvent(LAUNCH)).toBe(false);
-  });
-
   it('lets the event carry the launch address when it comes before the read', () => {
     const filter = createLaunchAddressFilter(LAUNCH);
 

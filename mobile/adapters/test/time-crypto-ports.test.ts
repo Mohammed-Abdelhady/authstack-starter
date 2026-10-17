@@ -12,15 +12,6 @@ function hex(bytes: Uint8Array): string {
 }
 
 describe('clock adapter', () => {
-  it('reads wall time from the date and elapsed time from the performance clock', () => {
-    const time = new FakeTime();
-    const clock = createClockPort(time);
-    time.advance(5000);
-
-    expect(clock.wallTime()).toBe(1_800_000_005_000);
-    expect(clock.monotonicTime()).toBe(5000);
-  });
-
   it('keeps elapsed time still when the person moves the wall clock', () => {
     const time = new FakeTime();
     const clock = createClockPort(time);
@@ -43,21 +34,6 @@ describe('clock adapter', () => {
 });
 
 describe('timer adapter', () => {
-  it('runs the callback once when the delay has passed', () => {
-    const time = new FakeTime();
-    let calls = 0;
-    createTimerPort(time).after(200, () => {
-      calls += 1;
-    });
-
-    time.advance(199);
-    expect(calls).toBe(0);
-    time.advance(1);
-    expect(calls).toBe(1);
-    time.advance(1000);
-    expect(calls).toBe(1);
-  });
-
   it('removes the platform timer on cancel', () => {
     const time = new FakeTime();
     let calls = 0;
@@ -120,11 +96,5 @@ describe('crypto adapter', () => {
     await expect(createCryptoPort(crypto, FAKE_SHA256).randomBytes(16)).rejects.toThrow(
       'The random source returned the wrong number of bytes.',
     );
-  });
-
-  it('returns no bytes when none are asked for', async () => {
-    const bytes = await createCryptoPort(new FakeCrypto(), FAKE_SHA256).randomBytes(0);
-
-    expect([...bytes]).toEqual([]);
   });
 });

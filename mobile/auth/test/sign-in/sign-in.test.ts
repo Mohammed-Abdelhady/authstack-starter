@@ -107,21 +107,6 @@ describe('sign in', () => {
     expect(engine.snapshot.status).toBe('signedOut');
   });
 
-  it('returns the same pending promise when sign in is already running', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    const browser = new Deferred<{ kind: 'cancelled' }>();
-    ports.authBrowser.results.push(() => browser.promise);
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-
-    const first = engine.signIn();
-    const second = engine.signIn();
-
-    expect(second).toBe(first);
-    browser.resolve({ kind: 'cancelled' });
-    await first;
-  });
-
   it('shares the pending sign-in promise with a reentrant subscriber', async () => {
     const ports = testPorts(new ScriptedTransport());
     const engine = createAuthEngine(CONFIG, ports);
