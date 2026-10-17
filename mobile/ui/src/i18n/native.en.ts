@@ -1,4 +1,5 @@
 export const NATIVE_EN = {
+  'native.erasurePending': 'Your account is scheduled for erasure on {date}.',
   'native.description': 'Choose how to sign in. You can also continue in your browser.',
   'native.loading': 'Loading sign-in options',
   'native.methodsFailed': 'Sign-in options could not be loaded',

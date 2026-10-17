@@ -1,6 +1,7 @@
 import type { NATIVE_EN } from './native.en';
 
 export const NATIVE_AR: Record<keyof typeof NATIVE_EN, string> = {
+  'native.erasurePending': 'من المقرر محو حسابك في {date}.',
   'native.description': 'اختر طريقة تسجيل الدخول. يمكنك أيضًا المتابعة في المتصفح.',
   'native.loading': 'جارٍ تحميل خيارات تسجيل الدخول',
   'native.methodsFailed': 'تعذر تحميل خيارات تسجيل الدخول',
