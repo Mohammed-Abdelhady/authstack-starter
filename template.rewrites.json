@@ -163,7 +163,7 @@
     },
     {
       "files": [".github/workflows/ci.yml"],
-      "from": "      - name: Resolve Mongo binary cache\n        id: mongo\n        run: node scripts/ci.mjs --cache\n      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3\n        with:\n          path: ${{ steps.mongo.outputs.path }}\n          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}\n",
+      "from": "      - name: Resolve Mongo binary cache\n        id: mongo\n        run: node scripts/ci.mjs --cache\n      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n        with:\n          path: ${{ steps.mongo.outputs.path }}\n          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}\n",
       "to": ""
     },
     {
