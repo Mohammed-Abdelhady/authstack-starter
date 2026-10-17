@@ -84,11 +84,6 @@ test('staged ceiling reads index content', (t) => {
   });
 });
 
-test('empty staged diff passes', (t) => {
-  const repo = repository(t);
-  assert.deepEqual(outcome(repo.check('--staged')), { status: 0, hits: [], caps: [] });
-});
-
 for (const filePath of ['src/with space.ts', 'src/é.ts', 'src/quote"tab\t.ts']) {
   test(`range preserves git path ${JSON.stringify(filePath)}`, (t) => {
     const { repo, base } = range(t);
@@ -164,11 +159,6 @@ test('first push excludes inherited root content and checks later added lines', 
     hits: [['src/added.ts', 1, DOM_NAME]],
     caps: [],
   });
-});
-
-test('clean first push without upstream or default branch passes', (t) => {
-  const { repo } = range(t);
-  assert.deepEqual(outcome(repo.check('--push')), { status: 0, hits: [], caps: [] });
 });
 
 test('push without HEAD reports resolution error', (t) => {

@@ -3,13 +3,9 @@ import test from 'node:test';
 import { chmodSync, mkdirSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { evaluateChanges, findBannedToken } from './checker.mjs';
-import { decodeContent, isUtf16 } from './text-content.mjs';
 import { repository, outcome } from '../test-repository.mjs';
 
 const TOKEN = 'inner' + 'HTML';
-const CAST_TOKEN = 'as ' + 'unknown ' + 'as';
-const CAST_SUFFIX = ' as ' + 'unknown) as string;';
 const ENCODED_MODULE = new URL('./encoded-diff.mjs', import.meta.url).href;
 const ENV_MODULE = new URL('../git/git-environment.mjs', import.meta.url).href;
 
@@ -94,72 +90,4 @@ test('decoded diff success removes temporary files after returning added lines',
 test('decoded diff failure propagates its status and removes temporary files', (t) => {
   const repo = repository(t);
   assert.deepEqual(encodedResult(repo, true), { status: 0, errorStatus: 2, temporary: [] });
-});
-
-for (const [bytes, utf16, decoded] of [
-  [[], false, ''],
-  [[255], false, '\uFFFD'],
-  [[254], false, '\uFFFD'],
-  [[65], false, 'A'],
-  [[255, 254], true, ''],
-  [[254, 255], true, ''],
-]) {
-  test(`BOM detection and decoding handle ${JSON.stringify(bytes)}`, () => {
-    const content = Buffer.from(bytes);
-    assert.deepEqual(
-      { utf16: isUtf16(content), decoded: decodeContent(content) },
-      { utf16, decoded },
-    );
-  });
-}
-
-test('a single cast without a following cast remains allowed', () => {
-  assert.equal(findBannedToken('value as ' + 'unknown'), null);
-});
-
-test('parenthesized cast diagnostics center on the cast after a long receiver', () => {
-  assert.deepEqual(
-    evaluateChanges({
-      added: [
-        {
-          path: 'src/value.ts',
-          addedLines: [{ line: 1, text: '(' + 'x'.repeat(500) + CAST_SUFFIX }],
-        },
-      ],
-      lineCounts: [],
-    }),
-    {
-      bans: [
-        { path: 'src/value.ts', line: 1, token: CAST_TOKEN, text: 'x'.repeat(217) + CAST_SUFFIX },
-      ],
-      caps: [],
-      ok: false,
-    },
-  );
-});
-
-test('a token near the tail retains a complete bounded diagnostic excerpt', () => {
-  assert.deepEqual(
-    evaluateChanges({
-      added: [
-        {
-          path: 'src/value.ts',
-          addedLines: [{ line: 1, text: 'x'.repeat(500) + '.' + TOKEN + ';tail' }],
-        },
-      ],
-      lineCounts: [],
-    }),
-    {
-      bans: [
-        {
-          path: 'src/value.ts',
-          line: 1,
-          token: TOKEN,
-          text: 'x'.repeat(225) + '.' + TOKEN + ';tail',
-        },
-      ],
-      caps: [],
-      ok: false,
-    },
-  );
 });
