@@ -159,9 +159,9 @@ describe('staff session routes', () => {
     const refused = await admin
       .post(`${route(otherAdmin._id)}/revoke-all`)
       .send({})
-      .expect(403);
+      .expect(401);
     expect((refused.body as ErrorBody).error.code).toBe(
-      ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+      ErrorCode.REAUTH_REQUIRED,
     );
   });
 

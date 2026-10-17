@@ -43,7 +43,7 @@ export function staffSessionAuthorizationCases(
       name: 'target promoted',
       actorPatch: {},
       targetPatch: { role: 'admin' },
-      code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+      code: ErrorCode.REAUTH_REQUIRED,
     },
     {
       name: 'target deleted',
@@ -80,16 +80,16 @@ export function staffSessionAuthorizationCases(
     },
   );
 
-  it('refuses wildcard peers and case-insensitive self targeting without opening the administrator exception', async () => {
+  it('requires a fresh act for administrator peers and refuses case-insensitive self targeting', async () => {
     const harness = current();
     const actorId = await staffActor(harness);
     const targetId = await staffActor(harness);
     expect(await outcomeOf(harness.service().list(targetId, actorId))).toBe(
-      ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+      ErrorCode.REAUTH_REQUIRED,
     );
     expect(
       await outcomeOf(harness.service().revokeAll(targetId, actorId)),
-    ).toBe(ErrorCode.CANNOT_MODIFY_HIGHER_ROLE);
+    ).toBe(ErrorCode.REAUTH_REQUIRED);
     expect(
       await outcomeOf(harness.service().list(actorId.toUpperCase(), actorId)),
     ).toBe(ErrorCode.CANNOT_MODIFY_SELF);
