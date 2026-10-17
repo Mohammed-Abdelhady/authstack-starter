@@ -23,6 +23,7 @@ export const BROWSER_APPLICATION_ROUTES = {
     `^(?:/${HEALTH_ROUTE}/?|/${API_GLOBAL_PREFIX}/?|/|/${OPTIONAL_API_PREFIX}auth/oauth/providers/?)$`,
     'u',
   ),
+  DELETION_RECEIPT: new RegExp(`${AUTH_ROUTE}account-deletion/[^/]+/?$`, 'u'),
   IDENTITY: new RegExp(`${AUTH_ROUTE}identity/?$`, 'u'),
   OAUTH_START: new RegExp(`${AUTH_ROUTE}oauth/[^/]+/start/?$`, 'u'),
   OAUTH_CALLBACK: new RegExp(`${AUTH_ROUTE}oauth/([^/]+)/callback/?$`, 'u'),

@@ -172,6 +172,8 @@ export class BrowserApplications {
   ): boolean {
     const path = request.path ?? request.url?.split('?')[0] ?? '';
     if (
+      (request.method === 'GET' &&
+        BROWSER_APPLICATION_ROUTES.DELETION_RECEIPT.test(path)) ||
       BROWSER_APPLICATION_ROUTES.MACHINE.test(path) ||
       BROWSER_APPLICATION_ROUTES.MACHINE_METADATA.test(path)
     ) {
