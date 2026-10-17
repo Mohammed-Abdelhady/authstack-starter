@@ -104,6 +104,7 @@ describe('role edits end affected sessions atomically', () => {
       user._id,
       'agent',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     return { user, token: issued.sessionToken };
   }

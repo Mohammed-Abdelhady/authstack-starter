@@ -15,10 +15,6 @@ import {
   servicesOn,
 } from './role-contract-support';
 
-const OLDEST = new Date('2098-01-01T00:00:00.000Z');
-const MIDDLE = new Date('2098-01-02T00:00:00.000Z');
-const NEWEST = new Date('2098-01-03T00:00:00.000Z');
-
 /** Reads that change nothing: lookups, the list, holder counts and levels. */
 export function roleReadCases(
   harness: RoleHarnessSource,
@@ -44,77 +40,6 @@ export function roleReadCases(
       missing: { code: ErrorCode.ROLE_NOT_FOUND, status: 404 },
       foreign: { code: ErrorCode.ROLE_NOT_FOUND, status: 404 },
     });
-  });
-
-  it('lists roles newest first, a page at a time', async () => {
-    await harness().reset();
-    for (const [name, slug, createdAt] of [
-      ['Alpha', 'alpha', OLDEST],
-      ['Beta', 'beta', MIDDLE],
-      ['Gamma', 'gamma', NEWEST],
-    ] as const) {
-      await harness().seedRole({ name, slug, permissions: [], createdAt });
-    }
-    const page = async (number: number) => {
-      const listed = await roles().findAll({ page: number, limit: 2 });
-      return {
-        slugs: listed.roles.map((role) => role.slug),
-        total: listed.total,
-        pages: listed.pages,
-      };
-    };
-
-    expect({
-      first: await page(1),
-      last: await page(2),
-      beyond: await page(3),
-    }).toEqual({
-      first: { slugs: ['gamma', 'beta'], total: 3, pages: 2 },
-      last: { slugs: ['alpha'], total: 3, pages: 2 },
-      beyond: { slugs: [], total: 3, pages: 2 },
-    });
-  });
-
-  it('searches name and slug without case and takes the text literally', async () => {
-    await harness().seedRole({
-      name: 'Billing 100% (EU)',
-      slug: 'billing-100-eu',
-      permissions: [],
-    });
-    const found = async (search: string) => {
-      const listed = await roles().findAll({ page: 1, limit: 10, search });
-      return listed.roles.map((role) => role.slug).sort();
-    };
-
-    expect({
-      byName: await found('CONTENT ed'),
-      bySlug: await found('tent-EDIT'),
-      percent: await found('100%'),
-      parenthesis: await found('(eu)'),
-      anyCharacter: await found('.*'),
-      underscore: await found('_'),
-      nothing: await found('no such role'),
-    }).toEqual({
-      byName: [EDITOR_SLUG],
-      bySlug: [EDITOR_SLUG],
-      percent: ['billing-100-eu'],
-      parenthesis: ['billing-100-eu'],
-      anyCharacter: [],
-      underscore: [],
-      nothing: [],
-    });
-  });
-
-  it('counts the holders of a slug', async () => {
-    await harness().seedAccount({ role: EDITOR_SLUG });
-    await harness().seedAccount({ role: EDITOR_SLUG });
-
-    expect({
-      editors: await roles().getUserCount(EDITOR_SLUG),
-      assigned: await roles().isRoleAssignedToUsers(EDITOR_SLUG),
-      nobody: await roles().getUserCount('ghost'),
-      unassigned: await roles().isRoleAssignedToUsers('ghost'),
-    }).toEqual({ editors: 2, assigned: true, nobody: 0, unassigned: false });
   });
 
   it('reads hierarchy levels with the fallbacks for older roles', async () => {

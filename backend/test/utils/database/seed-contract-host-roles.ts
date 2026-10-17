@@ -32,6 +32,7 @@ export function seedHostRoleCases(current: () => SeedContractHarness): void {
       {
         name: 'Editor',
         slug: 'editor',
+        audience: ROLE_AUDIENCE.STAFF,
         description: 'Edits posts',
         isSystemRole: true,
         isProtected: true,
@@ -58,6 +59,7 @@ export function seedHostRoleCases(current: () => SeedContractHarness): void {
         {
           name: 'Editor',
           slug: 'editor',
+          audience: ROLE_AUDIENCE.STAFF,
           description: 'Edits posts',
           isSystemRole: true,
           isProtected: true,

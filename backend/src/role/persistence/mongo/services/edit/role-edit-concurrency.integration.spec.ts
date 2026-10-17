@@ -110,6 +110,7 @@ describe('role edit concurrency', () => {
       user._id,
       'agent',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     return { user, token: issued.sessionToken };
   }
@@ -184,6 +185,7 @@ describe('role edit concurrency', () => {
         holder.user._id,
         'agent',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       fresh = issued.sessionToken;
     });

@@ -15,22 +15,30 @@ const HIERARCHY_REFUSAL = {
 describe('role edits respect wildcard authority and hierarchy', () => {
   const fixture = useAdminRoundFour('role_edit_hierarchy');
 
-  it('lets an admin edit the admin description while keeping the wildcard', async () => {
-    await fixture.h.roles.update(
-      UserRole.ADMIN,
-      { description: DESCRIPTION },
-      fixture.actorId,
-    );
+  it('protects the admin description and wildcard from administrator edits', async () => {
+    await expect(
+      fixture.h.roles.update(
+        UserRole.ADMIN,
+        { description: DESCRIPTION },
+        fixture.actorId,
+      ),
+    ).rejects.toMatchObject({ code: 'ROLE_PROTECTED', status: 403 });
     const stored = await fixture.h.roleModel
       .findOne({ slug: UserRole.ADMIN })
       .exec();
-    expect(stored?.description).toBe(DESCRIPTION);
+    expect(stored?.description).toBeUndefined();
     expect(stored?.permissions).toEqual([WILDCARD_PERMISSION]);
   });
 
-  it.each([UserRole.MANAGER, UserRole.ADMIN])(
-    'refuses a manager editing the %s description',
-    async (slug) => {
+  it.each([
+    { slug: UserRole.MANAGER, refusal: HIERARCHY_REFUSAL },
+    {
+      slug: UserRole.ADMIN,
+      refusal: { code: 'ROLE_PROTECTED', status: 403 },
+    },
+  ])(
+    'refuses a manager editing the $slug description',
+    async ({ slug, refusal }) => {
       const manager = await fixture.seed(
         'edit-manager@example.test',
         UserRole.MANAGER,
@@ -46,7 +54,7 @@ describe('role edits respect wildcard authority and hierarchy', () => {
           { description: DESCRIPTION },
           manager._id.toString(),
         ),
-      ).rejects.toMatchObject(HIERARCHY_REFUSAL);
+      ).rejects.toMatchObject(refusal);
       const after = await fixture.h.roleModel.findOne({ slug }).exec();
       expect(after?.description).toBe(before?.description);
       expect(after?.permissions).toEqual(

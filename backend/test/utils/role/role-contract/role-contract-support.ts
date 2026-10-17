@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { AudiencePolicy } from '../../../../src/session/applications/audience-policy';
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import { RoleService } from '../../../../src/role/role.service';
 import { RoleSweepBootstrapService } from '../../../../src/role/services/bootstrap/role-sweep-bootstrap.service';
@@ -5,6 +7,7 @@ import { RoleEditService } from '../../../../src/role/services/edit/role-edit.se
 import { RoleHierarchyService } from '../../../../src/role/services/role-hierarchy.service';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { RoleContractHarness } from './role-contract-harness';
+import { testStaffMutationRules } from '../../admin/staff-mutation-test-kit';
 
 export type RoleHarnessSource = () => RoleContractHarness;
 
@@ -37,9 +40,17 @@ export interface RoleServices {
 export function servicesOn(
   harness: RoleContractHarness,
   pause: RerunPause = rerunAtOnce,
+  config: ConfigService = new ConfigService({}),
 ): RoleServices {
+  const audiences = new AudiencePolicy(config);
   const runner = harness.runner(pause);
-  const edit = new RoleEditService(runner, harness.changes, harness.sweeps);
+  const edit = new RoleEditService(
+    runner,
+    harness.changes,
+    harness.sweeps,
+    audiences,
+    testStaffMutationRules({ config }),
+  );
   return {
     roles: new RoleService(harness.catalog, edit),
     edit,
@@ -50,6 +61,7 @@ export function servicesOn(
         harness.changes,
         harness.sweeps,
         harness.clock,
+        audiences,
       ),
   };
 }

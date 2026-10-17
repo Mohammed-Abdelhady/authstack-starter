@@ -1,3 +1,4 @@
+import { AudiencePolicy } from '../../../src/session/applications/audience-policy';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
@@ -26,6 +27,8 @@ import {
   bootSessionAuthority,
   type SessionAuthorityHarness,
 } from '../session-authority-harness';
+import { StaffMutationRules } from '../../../src/admin/services/staff-mutations/staff-mutation-rules';
+import { testStaffMutationRules } from '../admin/staff-mutation-test-kit';
 
 export interface RoleEditHarness extends SessionAuthorityHarness {
   service: RoleService;
@@ -42,8 +45,10 @@ export async function bootRoleEdit(mongoUri: string): Promise<RoleEditHarness> {
   );
   const module: TestingModule = await Test.createTestingModule({
     providers: [
+      { provide: StaffMutationRules, useValue: testStaffMutationRules() },
       RoleService,
       RoleEditService,
+      { provide: AudiencePolicy, useValue: harness.app.get(AudiencePolicy) },
       { provide: RoleCatalogStore, useClass: MongoRoleCatalogStore },
       { provide: RoleChangeStore, useClass: MongoRoleChangeStore },
       { provide: RoleSweepStore, useClass: MongoRoleSweepStore },

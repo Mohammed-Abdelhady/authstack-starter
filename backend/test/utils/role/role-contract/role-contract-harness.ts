@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import {
   RerunPause,
   UnitOfWorkRunner,
@@ -8,6 +9,7 @@ import { RoleSweepStore } from '../../../../src/role/stores/role-sweep.store';
 import { FrozenClock } from '../../frozen-clock';
 
 export interface SeedRole {
+  audience?: RoleAudience;
   name: string;
   slug: string;
   permissions: string[];
@@ -19,6 +21,7 @@ export interface SeedRole {
 }
 
 export interface SeedAccount {
+  audience?: RoleAudience;
   role: string;
   permissions?: string[];
   deleted?: boolean;
@@ -46,6 +49,7 @@ export interface SeedAssignment {
 }
 
 export interface StoredRoleFacts {
+  audience?: RoleAudience;
   id: string;
   name: string;
   slug: string;
@@ -58,6 +62,7 @@ export interface StoredRoleFacts {
 }
 
 export interface StoredAccountFacts {
+  audience?: RoleAudience;
   role: string;
   sessionVersion: number;
 }
@@ -83,6 +88,7 @@ export interface RoleContractHarness {
   runner(pause: RerunPause): UnitOfWorkRunner;
 
   seedRole(role: SeedRole): Promise<string>;
+  alterRoleAudience(slug: string, audience: RoleAudience): Promise<void>;
   seedAccount(account: SeedAccount): Promise<string>;
   /** Stores `count` accounts on a role in bulk. Answers with their ids, sorted. */
   seedAccounts(count: number, role: string): Promise<string[]>;

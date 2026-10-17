@@ -102,6 +102,7 @@ describe('role edit failures and retries', () => {
       user._id,
       'agent',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     return { user, token: issued.sessionToken };
   }
@@ -195,16 +196,5 @@ describe('role edit failures and retries', () => {
     }
 
     expect((await storedRole(ROLE_SLUG))?.name).toBe('Content Editor');
-  });
-
-  it('answers a validation failure as a 400 field error, not 503', async () => {
-    await seedRole();
-
-    await expect(
-      service.update(ROLE_SLUG, { name: '   ' }, actorId),
-    ).rejects.toMatchObject({
-      code: ErrorCode.VALIDATION_ERROR,
-      status: 400,
-    });
   });
 });

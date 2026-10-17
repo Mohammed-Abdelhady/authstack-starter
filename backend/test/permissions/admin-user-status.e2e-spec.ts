@@ -1,4 +1,5 @@
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
+import { MAIL_CATALOGUES } from '../../src/mail/catalog/mail-catalogue';
 import { UserRole } from '../../src/user/enums/user-role.enum';
 import {
   SEED_ADMIN,
@@ -21,6 +22,7 @@ import {
 } from '../utils/hook-timeouts';
 
 interface StatusResponse {
+  version: number;
   id: string;
   isDeleted: boolean;
   deletedAt?: string;
@@ -63,13 +65,29 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
   it('reactivates a deactivated user, who signs in again with a new session', async () => {
     const id = await idOf(SEED_USER);
     const before = await loginAs(e2e.httpServer, SEED_USER);
+    const mailsBefore = (await e2e.captureMail()).length;
     await setStatus(admin, id, false).expect(200);
 
     const reactivated = await setStatus(admin, id, true).expect(200);
+    expect(
+      (await e2e.captureMail())
+        .slice(mailsBefore)
+        .map(({ to, subject }) => ({ to, subject })),
+    ).toEqual([
+      {
+        to: SEED_USER.email,
+        subject: MAIL_CATALOGUES.en.securityNotice.accountDeactivatedSubject,
+      },
+      {
+        to: SEED_USER.email,
+        subject: MAIL_CATALOGUES.en.securityNotice.accountRestoredSubject,
+      },
+    ]);
 
     expect((reactivated.body as ApiBody<StatusResponse>).data).toEqual({
       id,
       isDeleted: false,
+      version: expect.any(Number),
     });
     const stored = await e2e.state.accounts.accountWithId(id);
     expect(stored?.isDeleted).toBe(false);
@@ -115,6 +133,7 @@ describe('PATCH /api/admin/users/:id/status (e2e)', () => {
     expect((repeated.body as ApiBody<StatusResponse>).data).toEqual({
       id,
       isDeleted: false,
+      version: expect.any(Number),
     });
     await session.get('/api/user/profile').expect(200);
   });

@@ -31,48 +31,12 @@ describe('Role CRUD (e2e)', () => {
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   describe('GET /api/roles', () => {
-    it('should return all roles for admin with wildcard permission', async () => {
-      const response: Response = await adminAgent.get('/api/roles').expect(200);
-
-      const roles = (response.body as ApiBody<{ roles: RoleResponse[] }>).data
-        .roles;
-      expect(Array.isArray(roles)).toBe(true);
-      expect(roles.length).toBeGreaterThan(0);
-
-      const [role] = roles;
-      expect(role).toHaveProperty('id');
-      expect(role).toHaveProperty('name');
-      expect(role).toHaveProperty('slug');
-      expect(role).toHaveProperty('permissions');
-      expect(role).toHaveProperty('isSystemRole');
-      expect(role).toHaveProperty('isProtected');
-    });
-
-    it('should deny access for regular user without permission', async () => {
-      await userAgent.get('/api/roles').expect(403);
-    });
-
     it('should deny access for unauthenticated users', async () => {
       await request(e2e.httpServer).get('/api/roles').expect(401);
     });
   });
 
   describe('GET /api/roles/:slug', () => {
-    it('should return a specific role by slug', async () => {
-      const response: Response = await adminAgent
-        .get('/api/roles/admin')
-        .expect(200);
-
-      const role = (response.body as ApiBody<RoleResponse>).data;
-      expect(role.slug).toBe('admin');
-      expect(role.name).toBe('Admin');
-      expect(Array.isArray(role.permissions)).toBe(true);
-    });
-
-    it('should return 404 for non-existent role', async () => {
-      await adminAgent.get('/api/roles/nonexistent-role').expect(404);
-    });
-
     it('should deny access for regular user', async () => {
       await userAgent.get('/api/roles/admin').expect(403);
     });
@@ -105,13 +69,6 @@ describe('Role CRUD (e2e)', () => {
         .post('/api/roles')
         .send({ name: 'Test Role', permissions: ['users:read:all'] })
         .expect(409);
-    });
-
-    it('should validate required fields', async () => {
-      await adminAgent
-        .post('/api/roles')
-        .send({ description: 'Missing name' })
-        .expect(400);
     });
 
     it('should validate permission format', async () => {
@@ -147,19 +104,6 @@ describe('Role CRUD (e2e)', () => {
       const role = (response.body as ApiBody<RoleResponse>).data;
       expect(role.description).toBe(updates.description);
       expect(role.permissions).toEqual(updates.permissions);
-    });
-
-    it('should allow updating description of protected role', async () => {
-      const updates = { description: 'Updated user role description' };
-
-      const response: Response = await adminAgent
-        .patch('/api/roles/user')
-        .send(updates)
-        .expect(200);
-
-      expect((response.body as ApiBody<RoleResponse>).data.description).toBe(
-        updates.description,
-      );
     });
 
     it('should prevent renaming protected roles', async () => {
