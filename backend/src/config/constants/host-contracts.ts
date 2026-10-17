@@ -8,6 +8,7 @@ export const BROWSER_SIGN_IN_METHODS = [
   'emailLink',
   'emailCode', // feature:email-code
   'passkeys',
+  'oauth', // feature:oauth-core
 ] as const;
 
 // feature:email-code:start

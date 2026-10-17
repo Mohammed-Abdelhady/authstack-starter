@@ -3,6 +3,7 @@
  * Frontend can use these codes for i18n translation and programmatic error handling.
  */
 export enum ErrorCode {
+  PASSKEY_REQUIRED_LAST = 'PASSKEY_REQUIRED_LAST', // feature:passkeys
   // Authentication errors
   /** Invalid email or password provided */
   INVALID_CREDENTIALS = 'INVALID_CREDENTIALS',

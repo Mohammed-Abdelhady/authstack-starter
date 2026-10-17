@@ -115,3 +115,18 @@ export const THROTTLE_PASSKEY_REGISTER = {
     ttl: THROTTLE_PASSKEY_REGISTER_TTL,
   },
 } as const;
+
+/** A mailed proof code for a signed-in session, as many as a password reset. */
+export const THROTTLE_PROOF_CODE_REQUEST = {
+  default: {
+    limit: THROTTLE_FORGOT_PASSWORD_LIMIT,
+    ttl: THROTTLE_TTL_15_MIN,
+  },
+} as const;
+
+export const THROTTLE_PROOF_CODE_VERIFY = {
+  default: {
+    limit: THROTTLE_RESET_PASSWORD_LIMIT,
+    ttl: THROTTLE_TTL_15_MIN,
+  },
+} as const;

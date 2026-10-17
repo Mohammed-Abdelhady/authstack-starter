@@ -25,7 +25,11 @@ export class RequestIdMiddleware implements NestMiddleware {
     request.requestId = requestId;
     response.setHeader(REQUEST_ID_HEADER, requestId);
 
-    runWithRequestContext(requestId, () => next());
+    runWithRequestContext(
+      requestId,
+      () => next(),
+      request.header('user-agent'),
+    );
   }
 
   private resolveId(incoming: string | undefined): string {
