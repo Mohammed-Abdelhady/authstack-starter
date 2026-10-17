@@ -1,4 +1,6 @@
 export const PASSKEYS_EN = {
+  'passkeys.removeFailed.required':
+    'Keep this passkey until you add another passkey for the application that requires it.',
   'passkeys.title': 'Passkeys',
   'passkeys.description':
     'Sign in with your face, fingerprint or screen lock instead of a password.',
