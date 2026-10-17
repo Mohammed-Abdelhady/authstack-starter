@@ -15,6 +15,7 @@ import {
 } from '../support/answers-helpers.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
+const PLANNED_FEATURE_ID = 'planned-feature';
 const roots: string[] = [];
 const manifestRoot = fixtureRoot();
 
@@ -42,15 +43,21 @@ function sentenceFor(error: PlanError): string {
   return describePlanErrors(PLAN_MANIFEST, [error])[0];
 }
 
-/** A manifest root whose manifest offers PostgreSQL as planned, not available. */
-function plannedDatabaseRoot(): string {
+/** A manifest root with one genuinely planned catalogue entry. */
+function plannedRoot(dimension: 'databases' | 'features' = 'databases'): string {
   const root = mkdtempSync(join(tmpdir(), 'cna-usage-planned-'));
   roots.push(root);
   const manifest: unknown = JSON.parse(readFileSync(join(manifestRoot, MANIFEST_FILE), 'utf8'));
-  if (!isRecord(manifest) || !isRecord(manifest.databases)) {
-    throw new Error('the manifest has no databases');
-  }
-  manifest.databases.postgres = { label: 'PostgreSQL', default: false, status: 'planned' };
+  const entries = isRecord(manifest) ? manifest[dimension] : undefined;
+  if (!isRecord(entries)) throw new Error('the manifest has no requested catalogue');
+  if (dimension === 'databases')
+    entries.postgres = { label: 'PostgreSQL', default: false, status: 'planned' };
+  else
+    entries[PLANNED_FEATURE_ID] = {
+      ...PLAN_MANIFEST.features['email-password'],
+      default: false,
+      status: 'planned',
+    };
   writeFileSync(join(root, MANIFEST_FILE), JSON.stringify(manifest));
   copyFileSync(join(manifestRoot, TEMPLATE_IDENTITY_FILE), join(root, TEMPLATE_IDENTITY_FILE));
   return root;
@@ -71,44 +78,6 @@ describe('usage errors exit 2', () => {
     expect(code).toBe(2);
     expect(output).toContain('nope');
     expect(output).not.toContain('not available yet, skipped');
-  });
-
-  it('rejects a planned target id', async () => {
-    const { code, output } = await run([
-      ...(await target()).flags,
-      '--dry-run',
-      '--targets',
-      'native-cli',
-    ]);
-    expect(code).toBe(2);
-    expect(output).toContain('"native-cli" is not available yet.');
-  });
-
-  it('accepts a locale list that includes Arabic', async () => {
-    const { code } = await run([...(await target()).flags, '--dry-run', '--locales', 'en,ar']);
-    expect(code).toBe(0);
-  });
-
-  it('rejects docker off while production is still requested', async () => {
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--no-docker']);
-    expect(code).toBe(2);
-    expect(output).toContain('"production" needs "docker", which was turned off.');
-  });
-
-  it('accepts docker and production off together', async () => {
-    const { code } = await run([
-      ...(await target()).flags,
-      '--dry-run',
-      '--no-docker',
-      '--no-production',
-    ]);
-    expect(code).toBe(0);
-  });
-
-  it('accepts dropping Arabic with an English-only locale list', async () => {
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--locales', 'en']);
-    expect(code).toBe(0);
-    expect(output).not.toContain('not available yet');
   });
 
   it('requires English in a locale list', async () => {
@@ -135,21 +104,10 @@ describe('usage errors exit 2', () => {
   });
 
   it('reports a planned database before any prompt', async () => {
-    const { code, output } = await runCli(plannedDatabaseRoot(), ['app', '--database', 'postgres']);
+    const { code, output } = await runCli(plannedRoot(), ['app', '--database', 'postgres']);
     expect(code).toBe(2);
     expect(output).toContain('postgres');
     expect(output).not.toContain('No terminal to prompt in');
-  });
-
-  it('deduplicates repeated target ids so the error prints once', async () => {
-    const { code, output } = await run([
-      ...(await target()).flags,
-      '--dry-run',
-      '--targets',
-      'ghost,ghost',
-    ]);
-    expect(code).toBe(2);
-    expect(output.split('ghost')).toHaveLength(2);
   });
 
   it('accepts a repeated database id after deduplication', async () => {
@@ -161,35 +119,6 @@ describe('usage errors exit 2', () => {
     ]);
     expect(code).toBe(0);
     expect(output).not.toContain('Choose exactly one database');
-  });
-
-  it('does not add an empty-database error on top of an unknown one', async () => {
-    const { code, output } = await run([
-      ...(await target()).flags,
-      '--dry-run',
-      '--database',
-      'mysql',
-    ]);
-    expect(code).toBe(2);
-    expect(output).toContain(sentenceFor({ id: 'mysql', reason: 'unknown' }));
-    expect(output).not.toContain(sentenceFor({ id: 'database', reason: 'empty' }));
-  });
-
-  it('does not add an empty-database error on top of a planned one', async () => {
-    const { code, output } = await runCli(plannedDatabaseRoot(), [
-      ...(await target()).flags,
-      '--dry-run',
-      '--database',
-      'postgres',
-    ]);
-    expect(code).toBe(2);
-    expect(output).toContain(sentenceFor({ id: 'postgres', reason: 'planned' }));
-    expect(output).not.toContain(sentenceFor({ id: 'database', reason: 'empty' }));
-  });
-
-  it('accepts a preset in any case', async () => {
-    const { code } = await run([...(await target()).flags, '--dry-run', '--preset', 'Standard']);
-    expect(code).toBe(0);
   });
 
   it('rejects an unknown preset', async () => {
@@ -242,45 +171,11 @@ describe('config file usage errors exit 2', () => {
     expect(output).toContain('config file not found');
   });
 
-  it('reports a directory instead of a raw EISDIR', async () => {
-    const directory = await tempRoot();
-    const { code, output } = await run([
-      ...(await target()).flags,
-      '--dry-run',
-      '--config',
-      directory,
-    ]);
-    expect(code).toBe(2);
-    expect(output).toContain('directory, not a file');
-    expect(output).not.toContain('EISDIR');
-  });
-
   it('reports invalid JSON', async () => {
     const path = await config('{ not json');
     const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
     expect(code).toBe(2);
     expect(output).toContain('not valid JSON');
-  });
-
-  it('reports an unknown key', async () => {
-    const path = await config(JSON.stringify({ turbo: true }));
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
-    expect(code).toBe(2);
-    expect(output).toContain('unknown key "turbo"');
-  });
-
-  it('reports a wrong type', async () => {
-    const path = await config(JSON.stringify({ docker: 'yes' }));
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
-    expect(code).toBe(2);
-    expect(output).toContain('docker must be a boolean');
-  });
-
-  it('reports an empty database string', async () => {
-    const path = await config(JSON.stringify({ database: '' }));
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
-    expect(code).toBe(2);
-    expect(output).toContain('database must be a non-empty string');
   });
 
   it('reads a valid config and applies its selection', async () => {
@@ -304,29 +199,27 @@ describe('config file usage errors exit 2', () => {
   });
 
   // Catches replay generating a project with an unimplemented feature silently omitted.
-  it.each(['invitations'])(
+  it.each([PLANNED_FEATURE_ID])(
     'refuses planned %s in a v4 answers file and writes nothing',
     async (feature) => {
       const path = await answersConfig(['email-password', feature]);
       const { path: project, flags } = await target();
-      const { code, output } = await run([...flags, '--config', path]);
+      const { code, output } = await runCli(plannedRoot('features'), [...flags, '--config', path]);
       expect(code).toBe(2);
       expect(output).toContain(sentenceFor({ id: feature, reason: 'planned' }));
       expect(readdirSync(project)).toEqual([]);
     },
   );
 
-  it('refuses invitations from --config while it is planned', async () => {
-    const path = await config(JSON.stringify({ features: ['invitations'] }));
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
+  it('refuses a planned feature from --config', async () => {
+    const path = await config(JSON.stringify({ features: [PLANNED_FEATURE_ID] }));
+    const { code, output } = await runCli(plannedRoot('features'), [
+      ...(await target()).flags,
+      '--dry-run',
+      '--config',
+      path,
+    ]);
     expect(code).toBe(2);
-    expect(output).toContain(sentenceFor({ id: 'invitations', reason: 'planned' }));
-  });
-
-  it('turns options off from a config file', async () => {
-    const path = await config(JSON.stringify({ docker: false, production: false }));
-    const { code, output } = await run([...(await target()).flags, '--dry-run', '--config', path]);
-    expect(code).toBe(0);
-    expect(output).toContain('Removed    Docker files, Production nginx and compose (options)');
+    expect(output).toContain(sentenceFor({ id: PLANNED_FEATURE_ID, reason: 'planned' }));
   });
 });

@@ -32,7 +32,7 @@ export async function checkGeneratedCi(packed: Packed, preset: string): Promise<
   expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
   const workflow = readWorkflow(join(project, '.github/workflows/ci.yml'));
   const jobs = jobsOf(workflow);
-  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api']);
+  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api', 'dependency-audit']);
   expectNodeVersions(jobs['range-scan']);
   expectNodeVersions(jobs.quality, [22, 24]);
   expectNodeVersions(jobs.api, [22, 24]);

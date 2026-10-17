@@ -15,7 +15,6 @@ import {
   expectExpoWorkspace,
   EXPO_FOLDERS,
 } from '../support/mobile-workspace-assertions.js';
-import { ARABIC_FORBIDDEN, findForbiddenContent } from '../support/reference-content.js';
 
 /**
  * Generated projects that carry the Expo app. Each one is installed from the
@@ -28,18 +27,31 @@ interface MobileCase {
   targets: string;
   features: string[] | undefined;
   flags: string[];
-  /** Whether any file under `mobile/` may hold Arabic. */
-  arabic: boolean;
   identity: { name: string; slug: string; appId: string; scheme: string };
+  recordedTargets?: string[];
+  buildServices?: boolean;
 }
 
 const CASES: MobileCase[] = [
+  {
+    name: 'Dishdoo PostgreSQL native Expo accounts',
+    targets: 'native-expo',
+    recordedTargets: ['native-expo'],
+    buildServices: true,
+    features: ['magic-link', 'email-code', 'passkeys', 'invitations', 'google', 'apple'],
+    flags: ['--database', 'postgres', '--locales', 'en,ar'],
+    identity: {
+      name: 'Dishdoo',
+      slug: 'dishdoo',
+      appId: 'app.dishdoo.mobile',
+      scheme: 'dishdoo',
+    },
+  },
   {
     name: 'web and the Expo app',
     targets: 'web,native-expo',
     features: undefined,
     flags: [],
-    arabic: true,
     identity: {
       name: 'Trail Log',
       slug: 'trail-log',
@@ -52,7 +64,6 @@ const CASES: MobileCase[] = [
     targets: 'native-expo',
     features: ['email-password'],
     flags: ['--locales', 'en'],
-    arabic: false,
     identity: {
       name: 'Field Notes',
       slug: 'field-notes',
@@ -65,7 +76,6 @@ const CASES: MobileCase[] = [
     targets: 'native-expo',
     features: ['google'],
     flags: ['--locales', 'en'],
-    arabic: false,
     identity: {
       name: 'Google Field Notes',
       slug: 'google-field-notes',
@@ -78,7 +88,6 @@ const CASES: MobileCase[] = [
     targets: 'native-expo',
     features: ['passkeys', 'google'],
     flags: ['--locales', 'en'],
-    arabic: false,
     identity: {
       name: 'Passkey Field Notes',
       slug: 'passkey-field-notes',
@@ -105,7 +114,7 @@ afterAll(() => {
 });
 
 describe.each(CASES)('a generated project with $name', (mobileCase) => {
-  const { name, targets, features, flags, arabic, identity } = mobileCase;
+  const { name, targets, features, flags, identity } = mobileCase;
   let project = '';
   let generated: CommandResult = { ok: false, output: '' };
   let installed: CommandResult = { ok: false, output: '' };
@@ -132,12 +141,12 @@ describe.each(CASES)('a generated project with $name', (mobileCase) => {
     expect(built.ok, built.output).toBe(true);
     expect(generated.ok, generated.output).toBe(true);
     expectExpoWorkspace(project);
-  });
-
-  it('holds Arabic in its mobile workspaces only when the project has that language', () => {
-    const files = findForbiddenContent(join(project, 'mobile'), ARABIC_FORBIDDEN);
-
-    expect(files.length > 0, files.join('\n')).toBe(arabic);
+    if (mobileCase.recordedTargets) {
+      const recorded = JSON.parse(
+        readFileSync(join(project, '.create-authstack-starter.json'), 'utf8'),
+      ) as { answers: { targets: string[] } };
+      expect(recorded.answers.targets).toEqual(mobileCase.recordedTargets);
+    }
   });
 
   it('installs from the lockfile the installer wrote, with nothing resolved again', () => {
@@ -183,6 +192,17 @@ describe.each(CASES)('a generated project with $name', (mobileCase) => {
     });
     expect(tests.ok, tests.output).toBe(true);
   });
+
+  if (mobileCase.buildServices) {
+    it('builds the backend and the required sign-in site', async () => {
+      for (const workspace of ['backend', 'frontend']) {
+        const build = await runTool('pnpm', ['--filter', workspace, 'run', 'build'], {
+          cwd: project,
+        });
+        expect(build.ok, build.output).toBe(true);
+      }
+    });
+  }
 
   it('gives Expo the chosen identity as its app config', async () => {
     const config = await runTool(

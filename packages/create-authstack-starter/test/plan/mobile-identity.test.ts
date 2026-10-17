@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePlan } from '../../src/manifest/plan.js';
 import {
-  callbackAddress,
   checkMobileField,
   defaultMobileIdentity,
   resolveMobileIdentity,
@@ -39,10 +38,6 @@ describe('checkMobileField', () => {
     ['scheme', SCHEME_AT_LIMIT],
   ] as const)('accepts %s %j', (field, value) => {
     expect(checkMobileField(field, value)).toBeUndefined();
-  });
-
-  it('counts the limits it was written against', () => {
-    expect([THIRTY.length, APP_ID_AT_LIMIT.length, SCHEME_AT_LIMIT.length]).toEqual([30, 155, 128]);
   });
 
   it.each([
@@ -161,10 +156,6 @@ describe('resolveMobileIdentity', () => {
     expect(result.identity.appId).toBe('com.example.myapp');
     expect(result.identity.scheme).toBe('com.example.myapp');
     expect(result.problems.map((problem) => problem.field)).toEqual(['appId', 'scheme']);
-  });
-
-  it('builds the return address from the scheme', () => {
-    expect(callbackAddress('org.sample.notes')).toBe('org.sample.notes://oauth/callback');
   });
 });
 

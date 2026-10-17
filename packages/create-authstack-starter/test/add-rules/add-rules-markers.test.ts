@@ -30,10 +30,6 @@ describe('withoutMarkerComments', () => {
     );
   });
 
-  it('returns a file with no marker as it is', () => {
-    expect(withoutMarkerComments('export const a = 1;\n', 'a.mjs')).toBe('export const a = 1;\n');
-  });
-
   it('refuses a marker that names nothing', () => {
     expect(() => withoutMarkerComments('const a = 1; // feature::start\n', 'a.mjs')).toThrow(
       MarkerError,

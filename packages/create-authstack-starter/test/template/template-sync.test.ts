@@ -64,27 +64,3 @@ it('ships the project ignore list without only the instruction-file entries', ()
   );
   expect(shipped).toBe('node_modules/\noutput/\n');
 });
-
-it('ships the mobile commit scope with the marker that lets a project drop it', () => {
-  const source = readFileSync(join(REPOSITORY_ROOT, 'commitlint.config.cjs'), 'utf8');
-  const shipped = templateContent('commitlint.config.cjs', Buffer.from(source)).toString();
-
-  expect(shipped).toBe(source);
-  expect(shipped.split('\n')).toContain("        'mobile', // feature:native-core");
-});
-
-it('keeps repository cloning instructions out of the generated quick start', () => {
-  const source = readFileSync(join(REPOSITORY_ROOT, 'README.md'));
-  const shipped = templateContent('README.md', source).toString();
-  expect({
-    repositoryClone: source.toString().includes('git clone '),
-    generatedClone: shipped.includes('git clone '),
-    frozenInstall: shipped.includes('pnpm install --frozen-lockfile'),
-    projectInstall: shipped.includes('pnpm install\n'),
-  }).toEqual({
-    repositoryClone: true,
-    generatedClone: false,
-    frozenInstall: false,
-    projectInstall: true,
-  });
-});

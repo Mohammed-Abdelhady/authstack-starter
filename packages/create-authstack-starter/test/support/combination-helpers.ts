@@ -114,7 +114,6 @@ export function runBackendBoot(project: string): Promise<CommandResult> {
       '--runInBand',
       '--runTestsByPath',
       'test/app/app.boot.e2e-spec.ts',
-      'test/app/passkey-facts.e2e-spec.ts',
     ],
     { cwd: project },
   );

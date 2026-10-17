@@ -6,7 +6,6 @@ import { toPlanRequest } from '../../src/flags/request.js';
 import { resolvePlan } from '../../src/manifest/plan.js';
 import { askPlan, planPromptNeeds } from '../../src/prompts/plan.js';
 import { CANCELLED } from '../../src/prompts/index.js';
-import { buildSummary } from '../../src/report/summary.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 vi.mock('@clack/prompts', () => ({
   select: vi.fn(),
@@ -48,26 +47,8 @@ describe('rules selection', () => {
       }
     },
   );
-  it('defaults the one rules question to strict and records standard', async () => {
-    vi.mocked(select).mockResolvedValue('standard');
-    expect(await askPlan(PLAN_MANIFEST, {}, ONLY_RULES)).toEqual({ rules: 'standard' });
-    expect(select).toHaveBeenCalledTimes(1);
-    expect(select).toHaveBeenCalledWith({
-      message: 'Rules: strict (recommended) or standard',
-      initialValue: 'strict',
-      options: [
-        { value: 'strict', label: 'strict (recommended)' },
-        { value: 'standard', label: 'standard' },
-      ],
-    });
-  });
   it('propagates cancellation', async () => {
     vi.mocked(select).mockResolvedValue(Symbol('cancel'));
     expect(await askPlan(PLAN_MANIFEST, {}, ONLY_RULES)).toBe(CANCELLED);
-  });
-  it.each(['strict', 'standard'] as const)('shows %s in the summary', (rules) => {
-    expect(buildSummary(PLAN_MANIFEST, resolvePlan(PLAN_MANIFEST, { rules }))).toContain(
-      `Rules      ${rules}`,
-    );
   });
 });

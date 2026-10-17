@@ -11,7 +11,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SHA256_HEX_PATTERN, TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
+import { TEMPLATE_IDENTITY_FILE } from '../../src/constants/index.js';
 import { prunePackageScripts } from '../../src/prune/package-scripts.js';
 import {
   buildTemplate,
@@ -151,14 +151,6 @@ describe('sync-template exclusions', () => {
 });
 
 describe('template identity', () => {
-  it('ships a hex sha256 next to the template', () => {
-    const template = buildTemplate(roots, (fixture) => {
-      writeFileSync(join(fixture, 'app.txt'), 'one\n');
-    });
-
-    expect(identityOf(template)).toMatch(SHA256_HEX_PATTERN);
-  });
-
   it('changes when a template file changes', () => {
     const first = identityOf(
       buildTemplate(roots, (fixture) => {

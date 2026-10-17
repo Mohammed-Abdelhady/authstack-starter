@@ -45,7 +45,15 @@ const CORE_MIGRATIONS = [
   '0019_account_locale.sql',
   '0020_host_migrations.sql',
   '0021_address_claims.sql',
+  '0022_application_policy.sql',
+  '0023_account_audience.sql',
+  '0024_session_evidence.sql',
   '0027_activity_log.sql',
+  '0028_staff_console.sql',
+  '0029_account_erasure.sql',
+  '0030_native_code_evidence.sql',
+  '0033_account_completion.sql',
+  '0034_address_claim_retention.sql',
 ];
 const MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
 
@@ -236,9 +244,18 @@ export function databaseCases(getPacked: () => Packed): void {
       '0019_account_locale.sql',
       '0020_host_migrations.sql',
       '0021_address_claims.sql',
+      '0022_application_policy.sql',
+      '0023_account_audience.sql',
+      '0024_session_evidence.sql',
       '0025_email_codes.sql',
       '0026_passkey_relying_party.sql',
       '0027_activity_log.sql',
+      '0028_staff_console.sql',
+      '0029_account_erasure.sql',
+      '0030_native_code_evidence.sql',
+      '0032_provider_revocations.sql',
+      '0033_account_completion.sql',
+      '0034_address_claim_retention.sql',
     ]);
   });
 

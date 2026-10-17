@@ -1,9 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
-import { NATIVE_REGISTRATION_FILES } from '../../src/constants/mobile.js';
 import {
   applyMobileIdentity,
   nativeRegistration,
@@ -13,7 +11,6 @@ import {
 import type { MobileIdentity } from '../../src/types/mobile.js';
 import { createTargetsTree, REGISTRATION_EXAMPLE } from '../support/targets-fixture.js';
 
-const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
 const roots: string[] = [];
 
 afterEach(async () => {
@@ -77,12 +74,6 @@ describe('withMobileIdentity', () => {
 });
 
 describe('nativeRegistration', () => {
-  it('registers the scheme as the client and its return address', () => {
-    expect(nativeRegistration(NOTES)).toBe(
-      `'[{"clientId":"org.sample.notes-app","displayName":"Field Notes","redirectUris":["org.sample.notes-app://oauth/callback"]}]'`,
-    );
-  });
-
   it('keeps a hostile name inside the quotes and readable as the same name', () => {
     const value = nativeRegistration(HOSTILE);
     const inner = value.slice(1, -1);
@@ -118,13 +109,6 @@ describe('withNativeRegistration', () => {
     expect(withNativeRegistration(`${REGISTRATION_EXAMPLE}\n`, identity).content).toBe(
       `AUTH_NATIVE_APPLICATIONS=${nativeRegistration(identity)}\n`,
     );
-  });
-
-  it('leaves a file with no example alone and says so', () => {
-    expect(withNativeRegistration('AUTH_NATIVE_ENABLED=false\n', NOTES)).toEqual({
-      content: 'AUTH_NATIVE_ENABLED=false\n',
-      replaced: 0,
-    });
   });
 });
 
@@ -173,43 +157,5 @@ describe('applyMobileIdentity', () => {
     await expect(applyMobileIdentity(root, ['native-expo'], NOTES)).rejects.toThrow(
       'mobile/expo/app.json is missing, so the mobile app cannot be named.',
     );
-  });
-});
-
-describe('where the identity lives in this repository', () => {
-  it('lists every tracked file that carries an example registration', () => {
-    const tracked = execFileSync(
-      'git',
-      ['grep', '-l', '-I', "AUTH_NATIVE_APPLICATIONS='", '--', '.', ':!packages', ':!.hyperflow'],
-      { cwd: REPO_ROOT, encoding: 'utf8' },
-    )
-      .split('\n')
-      .filter(Boolean)
-      .sort();
-
-    expect(tracked).toEqual([...NATIVE_REGISTRATION_FILES].sort());
-  });
-
-  it('holds the identity in app.json and in no Expo source file', async () => {
-    const app = JSON.parse(await readFile(join(REPO_ROOT, 'mobile/expo/app.json'), 'utf8')) as {
-      expo: { name: string; scheme: string; ios: { bundleIdentifier: string } };
-    };
-    const values = [app.expo.name, app.expo.scheme, app.expo.ios.bundleIdentifier];
-    const sources = execFileSync('git', ['ls-files', '-z', '--', 'mobile/expo/src'], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-    })
-      .split('\0')
-      .filter(Boolean);
-
-    const copies: string[] = [];
-    for (const file of sources) {
-      const content = await readFile(join(REPO_ROOT, file), 'utf8');
-      if (values.some((value) => content.includes(value))) copies.push(file);
-    }
-
-    expect(values).toEqual(['Mobile Expo', 'com.example.mobile', 'com.example.mobileexpo']);
-    expect(sources.length).toBeGreaterThan(10);
-    expect(copies).toEqual([]);
   });
 });

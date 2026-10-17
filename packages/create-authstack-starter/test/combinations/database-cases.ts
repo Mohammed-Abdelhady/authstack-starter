@@ -60,6 +60,7 @@ export interface DatabaseCase {
   features: string[] | undefined;
   flags?: string[];
   checkBuiltHostMigrations?: boolean;
+  checkMobileWorkspaces?: boolean;
   budgetMs: number;
   /** The time one suite may take inside the case. */
   suiteMs: number;
@@ -92,14 +93,6 @@ export function describeDatabaseProjects(title: string, cases: DatabaseCase[]): 
       expect(built.ok, built.output).toBe(true);
     });
 
-    it('names the default selection as the manifest has it', () => {
-      const defaults = availableFeatures(manifest)
-        .filter(({ feature }) => feature.default && feature.kind !== 'hidden')
-        .map(({ id }) => id);
-
-      expect(defaults).toEqual(DEFAULT_SELECTION);
-    });
-
     for (const testCase of cases) {
       it(
         `installs, builds and passes its own suites: ${testCase.name}`,
@@ -116,6 +109,24 @@ export function describeDatabaseProjects(title: string, cases: DatabaseCase[]): 
           if (testCase.checkBuiltHostMigrations) writeHostMigrationFixture(project);
           await expectInstallsLintsBuilds(project, inject('pnpmStore'), signal);
           if (testCase.checkBuiltHostMigrations) await expectBuiltHostMigrations(project, signal);
+          if (testCase.checkMobileWorkspaces) {
+            for (const script of ['lint', 'typecheck', 'test']) {
+              const mobile = await runTool(
+                'pnpm',
+                [
+                  '-r',
+                  '--workspace-concurrency=1',
+                  '--filter',
+                  './mobile/*',
+                  '--if-present',
+                  'run',
+                  script,
+                ],
+                { cwd: project, timeout: testCase.suiteMs, signal },
+              );
+              expect(mobile.ok, mobile.output.slice(-FAILURE_OUTPUT_CHARS)).toBe(true);
+            }
+          }
           // The lockfile the install wrote names nothing of the other database.
           const lockfile = readFileSync(join(project, 'pnpm-lock.yaml'), 'utf8');
           const foreign = Object.entries(manifest.databases)

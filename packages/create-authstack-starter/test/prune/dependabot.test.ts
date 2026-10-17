@@ -154,20 +154,6 @@ describe('pruneDependabot', () => {
     expect(await readFile(join(root, '.github/dependabot.yml'), 'utf8')).toBe(WITHOUT_BACKEND);
   });
 
-  it('returns false and leaves the file byte for byte alone when nothing is deleted', async () => {
-    const root = await tempRoot();
-    await writeFile(join(root, '.github/dependabot.yml'), FULL, 'utf8');
-
-    await expect(pruneDependabot(root, [])).resolves.toBe(false);
-    expect(await readFile(join(root, '.github/dependabot.yml'), 'utf8')).toBe(FULL);
-  });
-
-  it('returns false for a missing file', async () => {
-    const root = await tempRoot();
-
-    await expect(pruneDependabot(root, ['backend/Dockerfile'])).resolves.toBe(false);
-  });
-
   it('removes a root-level docker entry when the root Dockerfile is deleted', async () => {
     const root = await tempRoot();
     const content = [

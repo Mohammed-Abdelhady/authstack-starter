@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadManifest } from '../../src/manifest/load.js';
+import { availableFeatures, resolveSelection } from '../../src/manifest/select.js';
 import { stripFeatureMarkers } from '../../src/prune/markers.js';
 import { matchesAnyGlob } from '../../src/utils/glob.js';
 
@@ -14,6 +15,9 @@ const CONTROLLER_FILE = /\.controller\.ts$/;
 const CONTROLLER_BASE = /@Controller\(\s*(?:'([^']*)')?\s*\)/;
 const HANDLER_PATH = /@(?:Get|Post|Put|Patch|Delete)\(\s*(?:'([^']*)')?\s*\)/g;
 const MARKER_ID_LIST = /(?:\/\/|\{\/\*)\s*feature:([a-z0-9,-]+)/g;
+const SPEC_FILE = /\.(?:e2e-)?spec\.ts$/;
+const TEST_CALL = /\b(?:it|test)(?:\.each)?\s*[(`]/;
+const DATABASE_CHOICE = 'database-choice';
 
 interface OwnedFeature {
   files: string[];
@@ -24,6 +28,17 @@ interface LeftBehind {
   file: string;
   feature: string;
   route: string;
+}
+
+/** Who owns which files, as far as keeping a spec at all goes. */
+interface SpecOwners {
+  /** Every feature, option, target, shared module and database id, with its globs. */
+  files: Record<string, string[]>;
+  requires: Record<string, string[]>;
+  hiddenFeatures: string[];
+  visibleFeatureClosures: string[][];
+  databases: string[];
+  alwaysRemoved: string[];
 }
 
 /** The fixed part of a route, up to its first parameter. */
@@ -113,6 +128,60 @@ export function featureRoutesLeftBehind(
   return left;
 }
 
+/** A hidden owner needs a compatible visible root, even outside this file's markers. */
+function hiddenFeaturesAreRequired(
+  kept: Set<string>,
+  owners: SpecOwners,
+  known: Set<string>,
+): boolean {
+  const supported = owners.visibleFeatureClosures.filter((closure) =>
+    closure.every((id) => !known.has(id) || kept.has(id)),
+  );
+  return owners.hiddenFeatures.every(
+    (id) => !kept.has(id) || supported.some((closure) => closure.includes(id)),
+  );
+}
+
+/** A selection a project can have: requirements kept, and one database at most. */
+function possible(kept: Set<string>, owners: SpecOwners, known: Set<string>): boolean {
+  const databases = owners.databases.filter((id) => kept.has(id));
+  if (databases.length > 1) return false;
+  const naming = owners.databases.filter((id) => known.has(id));
+  if (databases.length === 0 && naming.length > 1) return false;
+  const requirementsSatisfied = [...kept].every((id) =>
+    (owners.requires[id] ?? []).every((needed) => !known.has(needed) || kept.has(needed)),
+  );
+  return requirementsSatisfied && hiddenFeaturesAreRequired(kept, owners, known);
+}
+
+/**
+ * The backend specs some project would keep with every test call taken out by
+ * markers, each with the ids that project keeps. Jest fails such a file: a
+ * suite must contain at least one test.
+ */
+export function specsLeftWithoutTests(files: Map<string, string>, owners: SpecOwners): string[] {
+  const left: string[] = [];
+  for (const [file, content] of files) {
+    if (!SPEC_FILE.test(file) || !TEST_CALL.test(content)) continue;
+    if (matchesAnyGlob(file, owners.alwaysRemoved)) continue;
+    const known = new Set(
+      [...content.matchAll(MARKER_ID_LIST)].flatMap((marker) => marker[1].split(',')),
+    );
+    const required = Object.keys(owners.files).filter((id) =>
+      matchesAnyGlob(file, owners.files[id]),
+    );
+    const free = [...known].filter((id) => !required.includes(id) && id !== DATABASE_CHOICE);
+    for (let mask = 0; mask < 2 ** free.length; mask += 1) {
+      const kept = new Set([...required, ...free.filter((_, bit) => mask & (2 ** bit))]);
+      if (!possible(kept, owners, known)) continue;
+      if (TEST_CALL.test(stripFeatureMarkers(content, file, kept, known).content)) continue;
+      left.push(`${file} keeping ${[...kept].sort().join(',') || 'none'}`);
+      break;
+    }
+  }
+  return left;
+}
+
 function sourceFiles(prefix: string): [string, string][] {
   return readdirSync(join(REPO_ROOT, prefix), { withFileTypes: true }).flatMap((entry) => {
     const path = `${prefix}/${entry.name}`;
@@ -121,87 +190,7 @@ function sourceFiles(prefix: string): [string, string][] {
   });
 }
 
-const MAGIC_LINK = { files: ['backend/src/auth/magic-link/**'], requires: [] };
-const CONTROLLER = [
-  "@Controller('auth/magic-link')",
-  'export class MagicLinkController {',
-  "  @Post('request')",
-  '  request() {}',
-  "  @Get('status/:token')",
-  '  status() {}',
-  '}',
-].join('\n');
-
-function madeUp(tests: Record<string, string>, features: Record<string, OwnedFeature>) {
-  return featureRoutesLeftBehind(
-    new Map([
-      ['backend/src/auth/magic-link/magic-link.controller.ts', CONTROLLER],
-      [
-        'backend/src/auth/auth.controller.ts',
-        "@Controller('auth')\nclass A {\n  @Post('login')\n  login() {}\n}",
-      ],
-      ...Object.entries(tests),
-    ]),
-    features,
-    ['backend/test/utils/browser/**'],
-  ).map(({ file, feature, route }) => `${file} ${feature} ${route}`);
-}
-
 describe('backend tests that outlive the feature whose routes they call', () => {
-  it('reports a kept suite that calls a route only the removed feature serves', () => {
-    expect(
-      madeUp(
-        {
-          'backend/test/auth/continuation.e2e-spec.ts':
-            "await agent.post('/api/auth/magic-link/request');\nawait agent.get(`/api/auth/magic-link/status/${token}`);",
-        },
-        { 'magic-link': MAGIC_LINK },
-      ),
-    ).toEqual([
-      'backend/test/auth/continuation.e2e-spec.ts magic-link auth/magic-link/request',
-      'backend/test/auth/continuation.e2e-spec.ts magic-link auth/magic-link/status',
-    ]);
-  });
-
-  it('accepts a suite the feature owns, one every project loses, and marked lines', () => {
-    const call = "await agent.post('/api/auth/magic-link/request');";
-    expect(
-      madeUp(
-        {
-          'backend/test/auth/owned.e2e-spec.ts': call,
-          'backend/test/utils/browser/server.ts': call,
-          'backend/test/auth/line.e2e-spec.ts': `${call} // feature:magic-link`,
-          'backend/test/auth/block.e2e-spec.ts': `// feature:magic-link:start\n${call}\n// feature:magic-link:end\nawait agent.post('/api/auth/login');`,
-          'backend/test/auth/other.e2e-spec.ts':
-            "await agent.post('/api/auth/magic-link-like/request');",
-        },
-        {
-          'magic-link': {
-            files: [...MAGIC_LINK.files, 'backend/test/auth/owned.e2e-spec.ts'],
-            requires: [],
-          },
-        },
-      ),
-    ).toEqual([]);
-  });
-
-  it('counts a line marked for a feature that needs the removed one as gone, and no other', () => {
-    const call = "await agent.post('/api/auth/magic-link/request');";
-    expect(
-      madeUp(
-        {
-          'backend/test/auth/needs.e2e-spec.ts': `${call} // feature:continuation`,
-          'backend/test/auth/unrelated.e2e-spec.ts': `${call} // feature:passkeys`,
-        },
-        {
-          'magic-link': MAGIC_LINK,
-          continuation: { files: [], requires: ['magic-link'] },
-          passkeys: { files: [], requires: [] },
-        },
-      ),
-    ).toEqual(['backend/test/auth/unrelated.e2e-spec.ts magic-link auth/magic-link/request']);
-  });
-
   it('finds none in this repository', async () => {
     const manifest = await loadManifest(REPO_ROOT);
     const files = new Map([...sourceFiles(BACKEND_SOURCE), ...sourceFiles(BACKEND_TESTS)]);
@@ -213,5 +202,40 @@ describe('backend tests that outlive the feature whose routes they call', () => 
     );
 
     expect(featureRoutesLeftBehind(files, features, manifest.core.alwaysRemoveFiles)).toEqual([]);
+  });
+});
+
+describe('backend specs that keep no test once markers are taken out', () => {
+  it('finds none in this repository', async () => {
+    const manifest = await loadManifest(REPO_ROOT);
+    const files = new Map([...sourceFiles(BACKEND_SOURCE), ...sourceFiles(BACKEND_TESTS)]);
+    const dimensions = [
+      manifest.features,
+      manifest.options,
+      manifest.databases,
+      manifest.targets,
+      manifest.shared,
+    ];
+
+    expect(
+      specsLeftWithoutTests(files, {
+        files: Object.fromEntries(
+          dimensions.flatMap((owners) =>
+            Object.entries(owners).map(([id, owner]) => [id, owner.files]),
+          ),
+        ),
+        requires: Object.fromEntries(
+          Object.entries(manifest.features).map(([id, feature]) => [id, feature.requires]),
+        ),
+        hiddenFeatures: Object.entries(manifest.features)
+          .filter(([, feature]) => feature.kind === 'hidden')
+          .map(([id]) => id),
+        visibleFeatureClosures: availableFeatures(manifest)
+          .filter((entry) => entry.feature.kind !== 'hidden')
+          .map(({ id }) => resolveSelection(manifest, [id]).selected),
+        databases: Object.keys(manifest.databases),
+        alwaysRemoved: manifest.core.alwaysRemoveFiles,
+      }),
+    ).toEqual([]);
   });
 });

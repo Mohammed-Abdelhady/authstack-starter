@@ -3,10 +3,10 @@ import { expect } from 'vitest';
 import { parseDocument } from 'yaml';
 import { isRecord } from '../../src/manifest/read.js';
 
-export const CHECKOUT_ACTION = 'actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683';
-export const SETUP_NODE_ACTION = 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020';
+export const CHECKOUT_ACTION = 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1';
+export const SETUP_NODE_ACTION = 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1';
 export const PNPM_SETUP_ACTION = 'pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413';
-export const CACHE_ACTION = 'actions/cache@5a3ec84eff668545956fd18022155c47e93e2684';
+export const CACHE_ACTION = 'actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9';
 
 const ACTION_INPUT_KEYS_BY_PINNED_REF: Record<string, readonly string[]> = {
   [CHECKOUT_ACTION]: [
@@ -30,9 +30,9 @@ const ACTION_INPUT_KEYS_BY_PINNED_REF: Record<string, readonly string[]> = {
     'submodules',
     'set-safe-directory',
     'github-server-url',
+    'allow-unsafe-pr-checkout',
   ],
   [SETUP_NODE_ACTION]: [
-    'always-auth',
     'node-version',
     'node-version-file',
     'architecture',
@@ -41,6 +41,7 @@ const ACTION_INPUT_KEYS_BY_PINNED_REF: Record<string, readonly string[]> = {
     'scope',
     'token',
     'cache',
+    'package-manager-cache',
     'cache-dependency-path',
     'mirror',
     'mirror-token',

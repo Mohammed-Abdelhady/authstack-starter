@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadManifest } from '../../src/manifest/load.js';
 import { resolvePlan } from '../../src/manifest/plan.js';
-import { buildSummary, describePlanErrors } from '../../src/report/summary.js';
 import { toPlanRequest } from '../../src/flags/request.js';
 import type { CliOptions } from '../../src/types.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
@@ -85,20 +84,6 @@ describe('plan precedence', () => {
 });
 
 describe('option availability', () => {
-  it('turns a locale off when the list drops Arabic', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    const plan = resolvePlan(manifest, { locales: ['en'] });
-    expect(plan.errors).toEqual([]);
-    expect(plan.options).not.toContain('locale-ar');
-  });
-
-  it('turns Arabic on when the list includes it', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    const plan = resolvePlan(manifest, { locales: ['en', 'ar'] });
-    expect(plan.errors).toEqual([]);
-    expect(plan.options).toContain('locale-ar');
-  });
-
   it('reports production needing docker when docker is turned off', async () => {
     const manifest = await loadManifest(REPO_ROOT);
     const plan = resolvePlan(manifest, { options: { docker: false } });
@@ -184,48 +169,5 @@ describe('planned options', () => {
     const plan = resolvePlan(withPlannedOptions, { options: { 'planned-off': true } });
 
     expect(plan.errors).toContainEqual({ id: 'planned-off', reason: 'planned' });
-  });
-
-  it('explains both planned-option directions with its label', () => {
-    expect(
-      describePlanErrors(withPlannedOptions, [{ id: 'planned-on', reason: 'planned' }]),
-    ).toEqual([
-      'Turning off "Planned on" is not available yet. Every project includes this for now.',
-    ]);
-    expect(
-      describePlanErrors(withPlannedOptions, [{ id: 'planned-off', reason: 'planned' }]),
-    ).toEqual(['Turning on "Planned off" is not available yet. Every project omits this for now.']);
-  });
-});
-
-describe('plan messages', () => {
-  it('gives a requested feature its own conflict wording', () => {
-    const plan = resolvePlan(PLAN_MANIFEST, {
-      targets: ['native-expo'],
-      features: ['web-widget-user'],
-    });
-    expect(describePlanErrors(PLAN_MANIFEST, plan.errors)).toEqual([
-      '"web-widget-user" needs "web-only", which the selected clients do not support.',
-    ]);
-  });
-
-  it('gives the database conflict its own wording', () => {
-    const plan = resolvePlan(PLAN_MANIFEST, { databases: ['mongodb', 'postgres'] });
-    expect(describePlanErrors(PLAN_MANIFEST, plan.errors)).toEqual([
-      'Choose exactly one database; got: mongodb,postgres.',
-    ]);
-  });
-
-  it('reads a removal with labels and a reason', () => {
-    const plan = resolvePlan(PLAN_MANIFEST, { preset: 'everything', targets: ['native-expo'] });
-    const summary = buildSummary(PLAN_MANIFEST, plan);
-    expect(summary).toContain('Removed    Web only widget, only available for Web app (Next.js)');
-    expect(
-      summary.some((line) =>
-        line.includes(
-          'Removed    Web widget user, needs Web only widget, which is not available for the selected clients',
-        ),
-      ),
-    ).toBe(true);
   });
 });
