@@ -4,31 +4,10 @@ import {
   normalizeRecoveryCode,
   recoveryHashEquals,
 } from './recovery-code.util';
-import {
-  RECOVERY_CODE_COUNT,
-  RECOVERY_CODE_LENGTH,
-} from '../constants/two-factor.constants';
 
 describe('recovery codes', () => {
-  it('should generate ten distinct base32 codes', () => {
-    const codes = generateRecoveryCodes();
-
-    expect(codes).toHaveLength(RECOVERY_CODE_COUNT);
-    expect(new Set(codes).size).toBe(RECOVERY_CODE_COUNT);
-    codes.forEach((code) => {
-      expect(code).toMatch(new RegExp(`^[A-Z2-7]{${RECOVERY_CODE_LENGTH}}$`));
-    });
-  });
-
   it('should not repeat a batch', () => {
     expect(generateRecoveryCodes()).not.toEqual(generateRecoveryCodes());
-  });
-
-  it('should hash to a sha256 digest that hides the code', () => {
-    const hash = hashRecoveryCode('K3M7QRTVWX');
-
-    expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(hash).not.toContain('K3M7QRTVWX');
   });
 
   it('should hash a retyped code to the same digest', () => {

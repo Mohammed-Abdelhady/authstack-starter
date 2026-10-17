@@ -36,8 +36,11 @@ export interface CapturedCookie {
 }
 
 /** A response that keeps the cookies set on it. */
-export function responseCapturing(cookies: CapturedCookie[]): Response {
-  const response: Partial<Response> = {};
+export function responseCapturing(
+  cookies: CapturedCookie[],
+  request?: Request,
+): Response {
+  const response: Partial<Response> = { req: request };
   response.cookie = (name: string, value: string) => {
     cookies.push({ name, value });
     return response as Response;

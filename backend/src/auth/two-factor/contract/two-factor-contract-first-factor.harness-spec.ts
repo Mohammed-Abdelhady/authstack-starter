@@ -1,3 +1,6 @@
+import { HttpStatus } from '@nestjs/common';
+import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { AppException } from '../../../common/exceptions/app.exception';
 import { createHash, createHmac } from 'node:crypto';
 import { SecondFactorVerifier } from '../services/second-factor-verifiers';
 import {
@@ -54,6 +57,12 @@ export function firstFactorCases(
     const seen: unknown[] = [];
     const verifier: SecondFactorVerifier = {
       supports: (dto) => dto.code === undefined,
+      refusal: () =>
+        new AppException(
+          ErrorCode.TWO_FACTOR_CODE_INVALID,
+          'refused by the verifier',
+          HttpStatus.UNAUTHORIZED,
+        ),
       verify: (_dto, _account, _request, _response, attempt) => {
         seen.push(attempt);
         return Promise.resolve();

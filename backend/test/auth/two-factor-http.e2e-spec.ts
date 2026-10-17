@@ -1,3 +1,10 @@
+// feature:email-password:start
+import {
+  cookieNames,
+  expectSecondFactorEvidence,
+} from '../utils/auth/second-factor-evidence';
+// feature:email-password:end
+import { twoFactorApplicationCases } from '../utils/auth/two-factor-application-cases'; // feature:email-password
 import type { Response } from 'supertest'; // feature:email-password
 import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service'; // feature:email-password
 import { TWO_FACTOR_CHALLENGE_COOKIE } from '../../src/auth/two-factor/constants/two-factor.constants'; // feature:email-password
@@ -52,13 +59,6 @@ interface SignedInBody {
   data: { requiresTwoFactor: boolean; user: { email: string } | null };
 }
 
-function cookieNames(response: Response): string[] {
-  const header: unknown = response.headers['set-cookie'];
-  const cookies = Array.isArray(header) ? header.map(String) : [];
-  return cookies
-    .filter((cookie) => !/^[^=]+=;/.test(cookie))
-    .map((cookie) => cookie.split('=')[0]);
-}
 // feature:email-password:end
 
 describe('two-step sign-in over HTTP (e2e)', () => {
@@ -93,6 +93,8 @@ describe('two-step sign-in over HTTP (e2e)', () => {
     const enrolment = await enrolTwoFactor(owner, SEED_USER.password, STEP_ONE);
     return { owner, ...enrolment };
   }
+
+  twoFactorApplicationCases(() => e2e, enrolled); // feature:email-password
 
   // feature:email-password:start
   async function expectSignedIn(agent: TestAgent, answered: Response) {
@@ -203,6 +205,7 @@ describe('two-step sign-in over HTTP (e2e)', () => {
       });
 
       await expectSignedIn(agent, answered);
+      await expectSecondFactorEvidence(e2e, answered, 'totp');
     });
 
     it('refuses the code that already confirmed the setup', async () => {
@@ -225,6 +228,7 @@ describe('two-step sign-in over HTTP (e2e)', () => {
       });
 
       await expectSignedIn(agent, answered);
+      await expectSecondFactorEvidence(e2e, answered, 'recovery_code');
     });
 
     it('signs in with a recovery code retyped in lower case with a dash', async () => {
