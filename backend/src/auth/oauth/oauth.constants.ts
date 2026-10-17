@@ -1,7 +1,7 @@
 /** Multi-provider injection token holding every registered strategy. */
 export const OAUTH_STRATEGIES = 'OAUTH_STRATEGIES';
 
-/** State cookies are named `oauth_<provider>`, behind `__Host-` in production. */
+/** State cookies are named `oauth_<application>_<provider>`, behind `__Host-` in production. */
 export const OAUTH_STATE_COOKIE_PREFIX = 'oauth_';
 
 /** How long a start request stays valid, in milliseconds. */

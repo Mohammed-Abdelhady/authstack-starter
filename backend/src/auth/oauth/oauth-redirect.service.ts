@@ -19,8 +19,12 @@ export class OAuthRedirectService {
 
   constructor(private readonly configService: ConfigService) {}
 
-  toClientSuccess(response: Response, redirect: string): void {
-    const url = this.clientCallbackUrl();
+  toClientSuccess(
+    response: Response,
+    redirect: string,
+    returnBase?: string,
+  ): void {
+    const url = this.clientCallbackUrl(returnBase);
     url.searchParams.set('status', 'ok');
     url.searchParams.set('redirect', redirect || DEFAULT_REDIRECT_PATH);
     response.redirect(HttpStatus.FOUND, url.toString());
@@ -30,11 +34,14 @@ export class OAuthRedirectService {
    * The provider signed the user in but the account owes a code. The challenge
    * cookie is already set, so the client only has to collect the code.
    */
-  toTwoFactorChallenge(response: Response, redirect: string): void {
-    const clientUrl = this.configService.get<string>(
-      'cors.clientUrl',
-      'http://localhost:3000',
-    );
+  toTwoFactorChallenge(
+    response: Response,
+    redirect: string,
+    returnBase?: string,
+  ): void {
+    const clientUrl =
+      returnBase ??
+      this.configService.get<string>('cors.clientUrl', 'http://localhost:3000');
     const url = new URL(
       `${clientUrl.replace(/\/$/, '')}${TWO_FACTOR_CLIENT_PATH}`,
     );
@@ -47,6 +54,7 @@ export class OAuthRedirectService {
     error: unknown,
     provider: string,
     redirect?: string,
+    returnBase?: string,
   ): void {
     const code =
       error instanceof AppException
@@ -62,7 +70,7 @@ export class OAuthRedirectService {
       }`,
     );
 
-    const url = this.clientCallbackUrl();
+    const url = this.clientCallbackUrl(returnBase);
     url.searchParams.set('status', 'error');
     url.searchParams.set('code', code);
     url.searchParams.set('provider', provider);
@@ -72,11 +80,10 @@ export class OAuthRedirectService {
     response.redirect(HttpStatus.FOUND, url.toString());
   }
 
-  private clientCallbackUrl(): URL {
-    const clientUrl = this.configService.get<string>(
-      'cors.clientUrl',
-      'http://localhost:3000',
-    );
+  private clientCallbackUrl(returnBase?: string): URL {
+    const clientUrl =
+      returnBase ??
+      this.configService.get<string>('cors.clientUrl', 'http://localhost:3000');
     return new URL(
       `${clientUrl.replace(/\/$/, '')}${OAUTH_CLIENT_CALLBACK_PATH}`,
     );

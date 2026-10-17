@@ -1,3 +1,4 @@
+import { assertPostgresAccountAudience } from '../../../../user/persistence/postgres/postgres-account-audience';
 import { Kysely } from 'kysely';
 import {
   NewProviderAccount,
@@ -90,6 +91,11 @@ export class PostgresProviderSignInStore extends ProviderSignInStore {
     unitOfWork: UnitOfWork,
     account: NewProviderAccount,
   ): Promise<StoredAccount> {
+    await assertPostgresAccountAudience(
+      unitOfWork,
+      account.role,
+      account.audience,
+    );
     const work = postgresTransactionOf(unitOfWork);
     try {
       const now = this.clock.now();
@@ -104,6 +110,7 @@ export class PostgresProviderSignInStore extends ProviderSignInStore {
           primary_provider: account.provider,
           role: account.role,
           locale: account.locale,
+          audience: account.audience ?? null,
           created_at: now,
           updated_at: now,
         })

@@ -52,6 +52,8 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'native_dpop_proof_ids', column: 'expires_at', keepForMs: 0 },
   { table: 'sessions', column: 'expires_at', keepForMs: 0 },
   { table: 'security_events', column: 'purge_after', keepForMs: 0 },
+  { table: 'provider_revocations', column: 'purge_after', keepForMs: 0 }, // feature:oauth-core
+  { table: 'provider_link_tickets', column: 'expires_at', keepForMs: 0 }, // feature:oauth-core
   { table: 'session_proofs', column: 'purge_after', keepForMs: 0 },
 ];
 
