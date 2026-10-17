@@ -1,5 +1,6 @@
 {
   "name": "frontend",
+  "description": "AuthStack Starter web app with account settings, session controls, and role and user administration",
   "version": "0.1.0",
   "private": true,
   "engines": {

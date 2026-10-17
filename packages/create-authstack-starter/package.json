@@ -1,7 +1,7 @@
 {
   "name": "create-authstack-starter",
   "version": "0.1.0",
-  "description": "Scaffold AuthStack Starter with NestJS, Next.js and React Native clients and the sign-in methods you pick",
+  "description": "Generate AuthStack Starter projects with selected clients, databases, sign-in methods, locales and deployment files",
   "keywords": [
     "create",
     "scaffold",
