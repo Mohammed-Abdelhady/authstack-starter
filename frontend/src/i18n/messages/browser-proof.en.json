@@ -6,5 +6,23 @@
       "ORIGIN_REJECTED": "This site is not allowed to make this request",
       "MIXED_CREDENTIALS": "Send one sign-in method at a time"
     }
+  },
+  "staffProof": {
+    "proof": {
+      "title": "Confirm your identity",
+      "description": "Verify your identity to continue sending this invitation.",
+      "passkey": "Use a passkey",
+      "send": "Send an email code",
+      "sent": "The code has been sent and expires in {minutes, plural, one {# minute} other {# minutes}}.",
+      "code": "Six-digit code",
+      "verify": "Verify code"
+    },
+    "cancel": "Cancel",
+    "errors": {
+      "reauth": "Your identity must be verified again. Submit the request again to continue.",
+      "invalidCode": "The code is invalid or has expired. Try again or request another code.",
+      "passkeyFailed": "Passkey verification did not complete. Try again or choose another available method.",
+      "generic": "The request could not be completed. Please try again."
+    }
   }
 }
