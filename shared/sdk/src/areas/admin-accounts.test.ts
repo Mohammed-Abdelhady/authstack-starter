@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from '../client';
-import { answering } from '../test-support';
+import { answering, respond } from '../test-support';
 import type { AdminAccountRoleResult, AdminAccountStatusResult } from './admin';
 
 const ACCOUNT = {
@@ -20,7 +20,7 @@ const CREATE_BODY = {
   name: 'Layla',
   password: 'a-strong-password',
   role: 'support',
-  locale: 'en-GB',
+  locale: 'en',
 };
 
 describe('admin accounts', () => {
@@ -83,7 +83,7 @@ describe('admin accounts', () => {
           name: 'Layla',
           password: 'a-strong-password',
           role: 'support',
-          locale: 'en-GB',
+          locale: 'en',
         },
         operationKey: 'create-1',
       },
@@ -176,7 +176,7 @@ describe('admin accounts', () => {
         name: 'Layla',
         password: 'a-strong-password',
         role: 'support',
-        locale: 'en-GB',
+        locale: 'en',
       });
     }
   });
@@ -214,6 +214,74 @@ describe('admin permissions', () => {
         body: { permission: 'users:read:all' },
       },
       { method: 'DELETE', path: '/api/admin/users/account-1/permissions/users%3Aread%2Fall%3F%23' },
+    ]);
+  });
+});
+
+describe('pending-address resend revision handoff', () => {
+  it('passes the actual read revision in the POST body with transport options intact', async () => {
+    const source = answering(200, { success: true, data: { ...ACCOUNT, version: 0 } });
+    const transport = {
+      ...source,
+      request: (request: Parameters<typeof source.request>[0]) => {
+        if (request.method === 'POST') {
+          source.sent.push(request);
+          return Promise.resolve(respond(200, { success: true, data: { message: 'resent' } }));
+        }
+        return source.request(request);
+      },
+    };
+    const signal = { aborted: false };
+    const { accounts } = createApiClient(transport).admin;
+    const observed = await accounts.get('a/b');
+    await accounts.resendEmailChange('a/b', {
+      version: observed.version,
+      signal,
+      headers: { 'X-Request': 'keep' },
+    });
+    expect(transport.sent).toStrictEqual([
+      { method: 'GET', path: '/api/admin/users/a%2Fb' },
+      {
+        method: 'POST',
+        path: '/api/admin/users/a%2Fb/resend-email-change',
+        body: { version: 0 },
+        signal,
+        headers: { 'X-Request': 'keep' },
+      },
+    ]);
+  });
+
+  it('preserves the existing options-only call without adding a body', async () => {
+    const transport = answering(200, { success: true, data: { message: 'resent' } });
+    const signal = { aborted: false };
+    await createApiClient(transport).admin.accounts.resendEmailChange('account-1', {
+      signal,
+      headers: { 'X-Request': 'legacy' },
+    });
+    expect(transport.sent).toStrictEqual([
+      {
+        method: 'POST',
+        path: '/api/admin/users/account-1/resend-email-change',
+        signal,
+        headers: { 'X-Request': 'legacy' },
+      },
+    ]);
+  });
+
+  it('keeps a stale server refusal as an error with the submitted version intact', async () => {
+    const transport = answering(409, {
+      success: false,
+      error: { code: 'CONFLICT', message: 'stale' },
+    });
+    await expect(
+      createApiClient(transport).admin.accounts.resendEmailChange('account-1', { version: 7 }),
+    ).rejects.toMatchObject({ status: 409, code: 'CONFLICT' });
+    expect(transport.sent).toStrictEqual([
+      {
+        method: 'POST',
+        path: '/api/admin/users/account-1/resend-email-change',
+        body: { version: 7 },
+      },
     ]);
   });
 });
