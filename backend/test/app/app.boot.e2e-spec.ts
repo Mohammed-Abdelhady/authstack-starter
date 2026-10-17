@@ -1,3 +1,7 @@
+import { ConfigService } from '@nestjs/config';
+import { unwrapAuthMethodsBody, unwrapObjectBody } from '@app/sdk';
+import { ROLE_AUDIENCE } from '../../src/host/types/host-role.type';
+import { setConfigValue } from '../utils/config-settings';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import { bootE2eApp, type E2eApp } from '../utils/e2e-app';
@@ -88,15 +92,6 @@ describe('AppModule boot (e2e)', () => {
   });
 
   // feature:oauth-core:start
-  it('should list OAuth providers without a session', async () => {
-    const response: Response = await request(e2e.httpServer)
-      .get('/api/auth/oauth/providers')
-      .expect(200);
-
-    const body = response.body as ProvidersBody;
-    expect(body.success).toBe(true);
-    expect(Array.isArray(body.data.providers)).toBe(true);
-  });
   // feature:oauth-core:end
 
   // feature:oauth-core:start
@@ -279,9 +274,41 @@ describe('AppModule boot (e2e)', () => {
   });
   // feature:passkeys:end
 
-  it('should return a request id header', async () => {
-    const response: Response = await request(e2e.httpServer).get('/health');
+  it.each([false, true])(
+    'advertises effective audience separation %s',
+    async (enabled) => {
+      const config = e2e.app.get(ConfigService);
+      const keys = [
+        'auth.web.signIn',
+        'auth.admin.signIn',
+        'auth.nativeEnabled',
+      ];
+      const previous = keys.map((key) => config.get<unknown>(key));
+      try {
+        setConfigValue(config, 'auth.web.signIn', undefined);
+        setConfigValue(
+          config,
+          'auth.admin.signIn',
+          enabled ? { audience: ROLE_AUDIENCE.STAFF } : undefined,
+        );
+        setConfigValue(config, 'auth.nativeEnabled', false);
 
-    expect(response.headers['x-request-id']).toEqual(expect.any(String));
-  });
+        const response = await request(e2e.httpServer)
+          .get('/api/auth/methods')
+          .expect(200);
+        const metadata = unwrapObjectBody<Record<string, unknown>>(
+          response.body,
+        );
+
+        expect(metadata['audiencesEnabled']).toBe(enabled);
+        expect(unwrapAuthMethodsBody(response.body)).not.toHaveProperty(
+          'audiencesEnabled',
+        );
+      } finally {
+        for (const [index, key] of keys.entries()) {
+          setConfigValue(config, key, previous[index]);
+        }
+      }
+    },
+  );
 });

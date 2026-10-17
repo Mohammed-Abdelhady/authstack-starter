@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { SENSITIVE_ACTION_WINDOW_MS } from '../../../src/session/constants/session-policy';
 import { bootE2eApp } from '../e2e-app';
 import { startLocalOAuth } from '../oauth/local-oauth';
 import {
@@ -14,11 +16,17 @@ async function main(): Promise<void> {
   const oauth = await startLocalOAuth();
   const fixture = await bootE2eApp(5107, {
     browserStrategy: oauth.strategy,
+    beforeStart: (app) => {
+      if (process.env.STARTER_E2E_STRICT_MUTATIONS === 'true') {
+        app.get(ConfigService).set('admin.strictMutations', true);
+      }
+    },
   }).catch(async (error: unknown) => {
     await oauth.close();
     throw error;
   });
   let stopping = false;
+  let proofClock: Date | undefined;
   const stop = async (): Promise<void> => {
     if (stopping) return;
     stopping = true;
@@ -57,7 +65,15 @@ async function main(): Promise<void> {
           process.exitCode = 1;
           void stop();
         });
+    } else if (message === 'expire-staff-proof') {
+      proofClock ??= fixture.clock.now();
+      fixture.clock.advance(SENSITIVE_ACTION_WINDOW_MS + 1);
+      process.send?.('staff-proof-expired');
     } else if (message === 'reset') {
+      if (proofClock) {
+        fixture.clock.set(proofClock);
+        proofClock = undefined;
+      }
       oauth.reset();
       void fixture
         .reset()
