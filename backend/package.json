@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "0.0.1",
-  "description": "",
+  "description": "AuthStack Starter API with configurable authentication, session management, and roles and permissions",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
