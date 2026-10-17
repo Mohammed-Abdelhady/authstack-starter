@@ -14,16 +14,13 @@ const SIGNAL_CASES = [
   ['escaped', 'timeout'],
 ] as const;
 
-async function waitForSignalExit(closed: Promise<string>): Promise<void> {
+async function withinSignalDeadline(closed: Promise<string>): Promise<string | undefined> {
   let timer: NodeJS.Timeout | undefined;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error('Signal fixture did not exit.')),
-      SIGNAL_EXIT_TIMEOUT_MS,
-    );
+  const deadline = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), SIGNAL_EXIT_TIMEOUT_MS);
   });
   try {
-    await Promise.race([closed, deadline]);
+    return await Promise.race([closed, deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -33,12 +30,11 @@ describe('packed workspace signal cleanup', () => {
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     for (const [mode, psMode] of SIGNAL_CASES) {
       it(`first ${signal} cleans up ${mode} pipes with ${psMode} ps`, async () => {
-        const { child, closed, workspace, descendantEnded } = await startWorkspaceFixture(
-          mode,
-          psMode,
-        );
+        const { child, closed, workspace, descendantEnded, commandEnded } =
+          await startWorkspaceFixture(mode, psMode);
         expect(child.kill(signal)).toBe(true);
-        await waitForSignalExit(closed);
+        expect(await withinSignalDeadline(closed)).toBe('closed');
+        expect(await withinSignalDeadline(commandEnded)).toBe('eof');
         expect(existsSync(workspace)).toBe(false);
         expect({ code: child.exitCode, signal: child.signalCode }).toEqual({ code: null, signal });
         if (mode !== 'escaped' || LISTING_PS_MODES.has(psMode))
