@@ -22,7 +22,7 @@ import { createOAuthConfig } from '../../config/oauth.config';
  * agreeing on the same provider ids.
  */
 
-const CALLBACK_BASE_URL = 'https://api.example.com/api/auth/oauth';
+const CALLBACK_BASE_URL = 'https://api.example.com/api/auth/oauth'; // feature:oidc
 const OIDC_ISSUER = 'https://sso.example.com'; // feature:oidc
 
 // feature:oidc:start
