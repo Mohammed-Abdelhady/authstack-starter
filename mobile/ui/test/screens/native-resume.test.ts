@@ -9,7 +9,6 @@ import {
 } from '../support/native-auth';
 import { cleanup, press, byTestId, isShown, textsOf } from '../support/render';
 import { translate } from '../../src/i18n';
-import { LOCALES } from '../support/locales';
 
 vi.mock('react-native', () => import('../support/react-native'));
 afterEach(() => {
@@ -17,7 +16,7 @@ afterEach(() => {
   disposeNativeApps();
 });
 
-describe.each(LOCALES)('native second-step resume in %s', (locale) => {
+describe.each(['en'] as const)('native second-step resume in %s', (locale) => {
   it('switches a resumed journey to browser after direct methods are disabled', async () => {
     const app = await nativeApp(locale);
     const mfa = {

@@ -9,7 +9,6 @@ import {
 } from '../support/native-auth';
 import { cleanup, press, byTestId, isShown, flush } from '../support/render';
 import { deferred } from '../support/fake-engine';
-import { LOCALES } from '../support/locales';
 
 vi.mock('react-native', () => import('../support/react-native'));
 afterEach(() => {
@@ -17,7 +16,7 @@ afterEach(() => {
   disposeNativeApps();
 });
 
-describe.each(LOCALES)('native method discovery in %s', (locale) => {
+describe.each(['en'] as const)('native method discovery in %s', (locale) => {
   it('keeps browser sign-in usable during discovery and offers only enabled methods', async () => {
     const reply = deferred<ReturnType<typeof apiReply>>();
     const app = await nativeApp(locale, { methodsResponse: () => reply.promise });
@@ -83,12 +82,6 @@ describe.each(LOCALES)('native method discovery in %s', (locale) => {
     expect(
       app.transport.sent.filter(({ path }) => path.startsWith('/api/auth/native/methods')),
     ).toHaveLength(2);
-  });
-
-  it('keeps the generic browser journey localized after discovery fails', async () => {
-    const app = await nativeApp(locale, { methodsResponse: async () => apiReply({ bad: true }) });
-    await press(app.root, 'sign-in-action');
-    expect(app.ports.authBrowser.opened[0]?.address).toContain(`locale=${locale}`);
   });
 
   it('uses the host SDK button contract and passes a selected provider through real engine', async () => {

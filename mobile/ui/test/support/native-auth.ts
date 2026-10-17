@@ -20,7 +20,14 @@ import { CONFIG, ScriptedTransport, apiReply, testPorts } from '../../../auth/te
 
 export const METHODS: NativeMethods = {
   nativeEnabled: true,
-  methods: { password: true, magicLink: true, passkeys: true, twoFactor: true, oauth: [] },
+  methods: {
+    password: true,
+    magicLink: true,
+    emailCode: false,
+    passkeys: true,
+    twoFactor: true,
+    oauth: [],
+  },
   capabilities: {
     password: true,
     emailLink: true,
