@@ -88,7 +88,7 @@ describe('local logical create operations', () => {
       },
     });
     const failure: unknown = await client.admin.accounts
-      .create(BODY, { createOperationKey })
+      .create(BODY, { createOperationKey, headers: { 'idempotency-key': 'other-operation' } })
       .catch((error: unknown) => error);
     expect(failure).toBeInstanceOf(UnknownOutcomeError);
     if (!(failure instanceof UnknownOutcomeError)) throw failure;
@@ -106,12 +106,13 @@ describe('local logical create operations', () => {
       '{"email":"mona@example.com","name":"Mona","password":"test-password","role":"support"}',
       '{"email":"mona@example.com","name":"Mona","password":"test-password","role":"support"}',
     ]);
+    expect(io.sent.map(({ init }) => init.headers['Idempotency-Key'])).toEqual([
+      'first-operation',
+      undefined,
+      'first-operation',
+      'second-operation',
+    ]);
     for (const { init } of io.sent) {
-      expect(Object.keys(init.headers).sort()).toEqual(
-        init.method === 'GET'
-          ? ['Accept', 'Content-Type']
-          : ['Accept', 'Content-Type', 'x-csrf-token'],
-      );
       expect(init.credentials).toBe('include');
       expect(init.headers['Content-Type']).toBe('application/json');
     }

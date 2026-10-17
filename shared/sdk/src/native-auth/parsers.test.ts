@@ -56,6 +56,7 @@ describe('native auth response parsers', () => {
       methods: {
         password: true,
         magicLink: true,
+        emailCode: false,
         twoFactor: true,
         passkeys: true,
         oauth: [
@@ -89,7 +90,7 @@ describe('native auth response parsers', () => {
         success: true,
         data: {
           nativeEnabled: true,
-          methods: { password: false, oauth: [] },
+          methods: { password: false, emailCode: true, oauth: [] },
           capabilities: {
             password: false,
             emailLink: false,
@@ -104,6 +105,9 @@ describe('native auth response parsers', () => {
 
     const catalogue = await createApiClient(reply(true)).nativeAuth.methods('mobile-app');
     expect(catalogue.capabilities.emailCode).toBe(true);
+    const disabled = await createApiClient(reply(false)).nativeAuth.methods('mobile-app');
+    expect(disabled.methods.emailCode).toBe(true);
+    expect(disabled.capabilities.emailCode).toBe(false);
     await expect(
       createApiClient(reply('yes')).nativeAuth.methods('mobile-app'),
     ).rejects.toMatchObject({ name: 'ApiError', status: 200 });

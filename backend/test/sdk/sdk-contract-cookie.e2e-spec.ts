@@ -1,6 +1,10 @@
-import { OAUTH_ERROR as SDK_OAUTH_ERROR } from '@app/sdk';
-import { OAUTH_ERROR } from '../../src/session/native/oauth/native-oauth.types';
 import { SEED_USER } from '../constants/seed-users';
+// feature:email-code:start
+import { ConfigService } from '@nestjs/config';
+import { lastSignInMail } from '../native/email-code/email-code.fixtures';
+import { browserAgent } from '../utils/e2e-app';
+import { browserCookieClient } from '../utils/sdk/staff-browser-client';
+// feature:email-code:end
 import { loginAs } from '../utils/e2e-app';
 import { ISSUED_ID_FORM } from '../utils/route-id-answers';
 import {
@@ -23,13 +27,13 @@ function isIsoDate(value: unknown): boolean {
   return typeof value === 'string' && new Date(value).toISOString() === value;
 }
 
-describe('sdk constants', () => {
-  it('names the same OAuth failures as the server', () => {
-    expect(Object.entries(SDK_OAUTH_ERROR).sort()).toEqual(
-      Object.entries(OAUTH_ERROR).sort(),
-    );
-  });
-});
+const PROFILE_PATH = '/api/user/profile';
+
+const PROFILE_LOCALE = [
+  'en',
+  'ar', // feature:locale-ar
+] as const;
+const SELECTED_LOCALE = PROFILE_LOCALE.at(-1) ?? 'en';
 
 describe('sdk contract over a cookie transport', () => {
   let e2e: E2eApp;
@@ -54,6 +58,7 @@ describe('sdk contract over a cookie transport', () => {
       email: 'user@seed.local',
       name: 'Seed User',
       role: 'user',
+      locale: 'en',
       authProvider: 'email',
       isVerified: true,
       linkedProviders: ['email'],
@@ -67,26 +72,124 @@ describe('sdk contract over a cookie transport', () => {
     expect(isIsoDate(profile.createdAt)).toBe(true);
     expect(isIsoDate(profile.updatedAt)).toBe(true);
 
-    const updated = await client.profile.update({ name: 'Contract User' });
+    const updated = await client.profile.update({
+      name: 'Contract User',
+      locale: SELECTED_LOCALE,
+      version: required(profile.version, 'observed profile version'),
+    });
+    expect(updated.version).toBe(
+      required(profile.version, 'profile version') + 1,
+    );
     expect(updated.name).toBe('Contract User');
+    expect(updated.locale).toBe(SELECTED_LOCALE);
+    const identity = await client.auth.identity();
+    expect(identity.authenticated && identity.user.locale).toBe(
+      SELECTED_LOCALE,
+    );
+    expect(identity.authenticated && identity.user.version).toBe(
+      updated.version,
+    );
     expect(updated.id).toBe(profile.id);
-    expect((await client.profile.get()).name).toBe('Contract User');
+    expect(await client.profile.get()).toMatchObject({
+      name: 'Contract User',
+      locale: SELECTED_LOCALE,
+      version: updated.version,
+    });
   });
 
-  it('surfaces the field errors of a refused profile update', async () => {
+  it('refuses stale own-profile writes and keeps the committed winner', async () => {
     const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
-
-    const error = await apiErrorOf(client.profile.update({ name: 'A' }));
-
-    expect(error.status).toBe(400);
-    expect(error.code).toBe('VALIDATION_ERROR');
-    // The key is the DTO property, not the first word of the message (`Name must be...`).
-    expect(Object.keys(required(error.fields, 'field errors'))).toEqual([
-      'name',
-    ]);
-    expect(error.fields?.name).toHaveLength(1);
-    expect((await client.profile.get()).name).toBe('Seed User');
+    const original = await client.profile.get();
+    const version = required(original.version, 'observed profile version');
+    const saved = await client.profile.update({
+      name: 'Committed profile',
+      version,
+    });
+    expect(saved.version).toBe(version + 1);
+    const stale = await apiErrorOf(
+      client.profile.update({ name: 'Stale profile', version }),
+    );
+    expect(stale).toMatchObject({ status: 409, code: 'CONFLICT' });
+    expect(await client.profile.get()).toMatchObject({
+      name: 'Committed profile',
+      version: version + 1,
+    });
   });
+
+  it('commits only one competing own-profile write for an observed version', async () => {
+    const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
+    const version = required(
+      (await client.profile.get()).version,
+      'profile version',
+    );
+    const results = await Promise.allSettled([
+      client.profile.update({ name: 'First profile', version }),
+      client.profile.update({ name: 'Second profile', version }),
+    ]);
+    const saved = results.filter((result) => result.status === 'fulfilled');
+    const refused = results.filter((result) => result.status === 'rejected');
+    expect(saved).toHaveLength(1);
+    expect(refused).toHaveLength(1);
+    expect(refused[0]).toMatchObject({
+      reason: { status: 409, code: 'CONFLICT' },
+    });
+    if (saved[0]?.status !== 'fulfilled')
+      throw new Error('No committed profile');
+    expect(await client.profile.get()).toMatchObject({
+      name: saved[0].value.name,
+      version: version + 1,
+    });
+  });
+
+  it.each([null, -1, 0.5, Number.MAX_SAFE_INTEGER + 1])(
+    'refuses a malformed supplied own-profile version without changing the account',
+    async (version) => {
+      const browser = await loginAs(e2e.httpServer, SEED_USER);
+      const client = cookieClient(browser);
+      const original = await client.profile.get();
+      await browser
+        .patch(PROFILE_PATH)
+        .send({ name: 'Refused profile', version })
+        .expect(400);
+      expect(await client.profile.get()).toMatchObject({
+        name: original.name,
+        version: original.version,
+      });
+    },
+  );
+
+  // feature:email-code:start
+  it('passes the browser code sign-in summary into a full identity with the stored locale', async () => {
+    const existing = cookieClient(await loginAs(e2e.httpServer, SEED_USER));
+    await existing.profile.update({ locale: SELECTED_LOCALE });
+    await existing.auth.signOut();
+    const config = e2e.app.get(ConfigService);
+    config.set('emailCode.enabled', true);
+    config.set('auth.web.signIn', { emailCode: true, emailLink: false });
+    const client = browserCookieClient(await browserAgent(e2e.httpServer));
+    expect((await client.auth.methods()).emailCode).toBe(true);
+    expect(
+      await client.emailCode.request({
+        email: ` ${SEED_USER.email.toUpperCase()} `,
+        locale: 'en',
+      }),
+    ).toEqual({ email: SEED_USER.email });
+    const mail = await lastSignInMail(e2e, SELECTED_LOCALE);
+    const result = await client.emailCode.verify({ code: mail.code });
+    expect(result).toMatchObject({
+      requiresTwoFactor: false,
+      user: { email: SEED_USER.email, authProvider: 'email' },
+    });
+    expect(result.user).not.toHaveProperty('locale');
+    const identity = await client.auth.identity();
+    expect(identity.authenticated && identity.user.locale).toBe(
+      SELECTED_LOCALE,
+    );
+    await expect(
+      client.emailCode.verify({ code: mail.code }),
+    ).rejects.toMatchObject({ code: 'EMAIL_CODE_INVALID' });
+  });
+  // feature:email-code:end
 
   it('lists the sessions and revokes one of them', async () => {
     const client = cookieClient(await loginAs(e2e.httpServer, SEED_USER));

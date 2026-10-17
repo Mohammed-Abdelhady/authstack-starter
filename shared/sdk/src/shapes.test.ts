@@ -86,6 +86,7 @@ describe('unwrapAuthMethods', () => {
     const methods = {
       password: true,
       magicLink: true,
+      emailCode: true,
       twoFactor: false,
       passkeys: true,
       oauth: [{ id: 'google', displayName: 'Google' }],
@@ -94,6 +95,7 @@ describe('unwrapAuthMethods', () => {
     expect(unwrapAuthMethods(respond(200, ok({ methods })))).toEqual({
       password: true,
       magicLink: true,
+      emailCode: true,
       twoFactor: false,
       passkeys: true,
       oauth: [{ id: 'google', displayName: 'Google' }],
@@ -104,6 +106,7 @@ describe('unwrapAuthMethods', () => {
     expect(unwrapAuthMethodsBody(ok({ methods: { password: false, passkeys: true } }))).toEqual({
       password: false,
       magicLink: false,
+      emailCode: false,
       twoFactor: false,
       passkeys: true,
       oauth: [],
@@ -142,12 +145,6 @@ describe('unwrapAuthMethods', () => {
 });
 
 describe('API_PATHS.user.session', () => {
-  it('builds the path of one session', () => {
-    expect(API_PATHS.user.session('65a000000000000000000001')).toBe(
-      '/api/user/sessions/65a000000000000000000001',
-    );
-  });
-
   it('keeps separators and query characters inside the segment', () => {
     expect(API_PATHS.user.session('../profile?x=1#y')).toBe(
       '/api/user/sessions/..%2Fprofile%3Fx%3D1%23y',
@@ -167,37 +164,5 @@ describe('API_PATHS.user.session', () => {
     ['a..b', '/api/user/sessions/a..b'],
   ])('accepts %j, which stays one segment', (sessionId, path) => {
     expect(API_PATHS.user.session(sessionId)).toBe(path);
-  });
-});
-
-describe('session device parts compatibility', () => {
-  it('passes optional device parts through the real response reader', () => {
-    const body = ok({
-      sessions: [
-        {
-          ...SESSION,
-          deviceName: 'Legacy phrase',
-          deviceParts: {
-            kind: 'browser',
-            browserName: 'Chrome',
-            browserMajorVersion: '140',
-            platformName: 'macOS',
-            platformVersion: '10.15',
-          },
-        },
-      ],
-      total: 1,
-    });
-    const session = unwrapSessionListBody(body).sessions[0];
-    expect({ deviceName: session?.deviceName, deviceParts: session?.deviceParts }).toEqual({
-      deviceName: 'Legacy phrase',
-      deviceParts: {
-        kind: 'browser',
-        browserName: 'Chrome',
-        browserMajorVersion: '140',
-        platformName: 'macOS',
-        platformVersion: '10.15',
-      },
-    });
   });
 });

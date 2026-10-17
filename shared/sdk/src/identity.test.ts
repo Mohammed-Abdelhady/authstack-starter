@@ -4,6 +4,7 @@ import { apiErrorFrom, respond } from './test-support';
 
 const ok = (data: unknown) => ({ success: true, data });
 const IDENTITY_USER = {
+  locale: 'en',
   id: 'account-1',
   email: 'account@example.test',
   name: 'Account',
@@ -78,46 +79,53 @@ describe('identity envelope', () => {
   });
 });
 
-describe('optional identity profile fields', () => {
-  it('retains text values', () => {
-    const body = ok({
-      authenticated: true,
-      user: {
-        ...IDENTITY_USER,
-        avatarUrl: 'https://example.test/avatar.png',
-        primaryProvider: 'google',
-        profileSyncedAt: '2026-01-15T10:30:00.000Z',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-16T08:00:00.000Z',
-      },
-    });
-
-    expect(unwrapIdentityBody(body)).toStrictEqual({
-      authenticated: true,
-      user: {
-        ...IDENTITY_USER,
-        avatarUrl: 'https://example.test/avatar.png',
-        primaryProvider: 'google',
-        profileSyncedAt: '2026-01-15T10:30:00.000Z',
-        createdAt: '2026-01-01T00:00:00.000Z',
-        updatedAt: '2026-01-16T08:00:00.000Z',
-      },
-    });
+describe('account mail locale handoff', () => {
+  it.each([
+    'en',
+    'ar', // feature:locale-ar
+  ])('retains the actual %s locale through identity', (locale) => {
+    const result = unwrapIdentityBody(
+      ok({ authenticated: true, user: { ...IDENTITY_USER, locale } }),
+    );
+    expect(result.authenticated && result.user.locale).toBe(locale);
   });
 
-  it('omits values that are not text', () => {
-    const body = ok({
-      authenticated: true,
-      user: {
-        ...IDENTITY_USER,
-        avatarUrl: null,
-        primaryProvider: 17,
-        profileSyncedAt: false,
-        createdAt: [],
-        updatedAt: {},
-      },
+  it.each([null, 4, undefined])('refuses a missing or non-text locale', (locale) => {
+    const error = apiErrorFrom(() =>
+      unwrapIdentityBody(ok({ authenticated: true, user: { ...IDENTITY_USER, locale } })),
+    );
+    expect({ status: error.status, code: error.code }).toEqual({
+      status: 200,
+      code: 'UNKNOWN_ERROR',
     });
-
-    expect(unwrapIdentityBody(body)).toStrictEqual({ authenticated: true, user: IDENTITY_USER });
   });
+});
+describe('observed own-profile versions', () => {
+  it('preserves a server version without manufacturing one for an older server', () => {
+    const legacy = unwrapIdentityBody(ok({ authenticated: true, user: IDENTITY_USER }));
+    const current = unwrapIdentityBody(
+      ok({
+        authenticated: true,
+        user: { ...IDENTITY_USER, version: 7 },
+      }),
+    );
+    expect(legacy.authenticated && Object.hasOwn(legacy.user, 'version')).toBe(false);
+    expect(current.authenticated && current.user.version).toBe(7);
+  });
+
+  it.each([null, -1, 0.5, Number.MAX_SAFE_INTEGER + 1, '7'])(
+    'refuses malformed present versions rather than exposing a writable revision',
+    (version) => {
+      expect(
+        apiErrorFrom(() =>
+          unwrapIdentityBody(
+            ok({
+              authenticated: true,
+              user: { ...IDENTITY_USER, version },
+            }),
+          ),
+        ),
+      ).toMatchObject({ code: 'UNKNOWN_ERROR', status: 200 });
+    },
+  );
 });

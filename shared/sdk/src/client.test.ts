@@ -3,6 +3,7 @@ import { createApiClient } from './client';
 import { answering } from './test-support';
 
 const PROFILE = {
+  locale: 'en',
   id: '507f1f77bcf86cd799439011',
   email: 'layla@example.com',
   name: 'Layla Haddad',
@@ -76,6 +77,7 @@ describe('createApiClient profile', () => {
 
     expect(transport.sent).toStrictEqual([{ method: 'GET', path: '/api/user/profile' }]);
     expect(user).toEqual({
+      locale: 'en',
       id: '507f1f77bcf86cd799439011',
       email: 'layla@example.com',
       name: 'Layla Haddad',
@@ -185,6 +187,7 @@ describe('createApiClient auth', () => {
     expect(methods).toEqual({
       password: true,
       magicLink: false,
+      emailCode: false,
       twoFactor: false,
       passkeys: true,
       oauth: [{ id: 'x', displayName: 'X' }],
