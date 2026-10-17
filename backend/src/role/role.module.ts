@@ -7,6 +7,7 @@ import { RoleHierarchyService } from './services/role-hierarchy.service';
 import { AuthModule } from '../auth/auth.module';
 import { CommonModule } from '../common/common.module';
 import { SessionModule } from '../session/session.module';
+import { StaffMutationsModule } from '../admin/services/staff-mutations/staff-mutations.module';
 import { RoleChangeStore } from './stores/role-change.store';
 import { RoleSweepStore } from './stores/role-sweep.store';
 import {
@@ -20,6 +21,7 @@ import {
     AuthModule, // Session services used by the global AuthGuard
     CommonModule, // Required for RolesGuard
     SessionModule, // Security events and the unit of work for role edits
+    StaffMutationsModule,
   ],
   controllers: [RoleController],
   providers: [

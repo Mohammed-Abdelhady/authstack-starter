@@ -1,3 +1,5 @@
+import { ErasureModule } from '../user/erasure/erasure.module';
+import { StaffGuard } from './guards/staff.guard';
 import { Module, forwardRef } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
@@ -36,6 +38,7 @@ import {
 
 @Module({
   imports: [
+    ErasureModule,
     ConfigModule,
     ...AUTH_PERSISTENCE_IMPORTS,
     CommonModule,
@@ -66,6 +69,7 @@ import {
     // feature:totp:end
     SignInCompletion,
     FeatureEnabledGuard,
+    StaffGuard,
     AuthGuard,
     // Registered here, not in AppModule: AuthGuard reads sessions and
     // accounts, which only resolve inside this module's context.
@@ -100,6 +104,7 @@ import {
     // feature:totp:end
     SignInCompletion,
     FeatureEnabledGuard,
+    StaffGuard,
     AuthGuard,
   ],
 })

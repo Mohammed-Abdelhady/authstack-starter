@@ -1,3 +1,4 @@
+import { ErasureModule } from '../../../user/erasure/erasure.module';
 import { Module } from '@nestjs/common';
 import { CommonModule } from '../../../common/common.module';
 import { SessionModule } from '../../../session/session.module';
@@ -17,10 +18,12 @@ import { NativeEmailCodeController } from './native-email-code.controller'; // f
 import { NativeEmailCodeService } from './native-email-code.service'; // feature:email-code
 import { NativeEmailCodeMailService } from './native-email-code-mail.service'; // feature:email-code
 import { NativeEmailCodeReviewService } from './native-email-code-review.service'; // feature:email-code
+import { NativeEmailCodeCeilingService } from './native-email-code-ceiling.service'; // feature:email-code
 import { EMAIL_CODE_PERSISTENCE_PROVIDERS } from '../../persistence/email-code-persistence'; // feature:email-code
 
 @Module({
   imports: [
+    ErasureModule,
     CommonModule,
     AuthModule,
     NativeAuthModule,
@@ -43,6 +46,7 @@ import { EMAIL_CODE_PERSISTENCE_PROVIDERS } from '../../persistence/email-code-p
     NativeEmailCodeService, // feature:email-code
     NativeEmailCodeMailService, // feature:email-code
     NativeEmailCodeReviewService, // feature:email-code
+    NativeEmailCodeCeilingService, // feature:email-code
     ...EMAIL_CODE_PERSISTENCE_PROVIDERS, // feature:email-code
   ],
 })

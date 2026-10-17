@@ -1,3 +1,4 @@
+import { ErasureModule } from '../../user/erasure/erasure.module';
 import { DynamicModule, Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth.module';
@@ -9,6 +10,7 @@ import { OAuthController } from './oauth.controller';
 import { OAuthRegistryService } from './oauth-registry.service';
 import { OAuthRedirectService } from './oauth-redirect.service';
 import { OAuthStateService } from './oauth-state.service';
+import { BrowserOAuthFlow } from './browser-oauth-flow';
 import { OAuthService } from './oauth.service';
 import {
   OAUTH_PERSISTENCE_IMPORTS,
@@ -30,6 +32,7 @@ export class OAuthModule {
     return {
       module: OAuthModule,
       imports: [
+        ErasureModule,
         ConfigModule,
         ...OAUTH_PERSISTENCE_IMPORTS,
         // Named directly. A forward reference inside a dynamic module's imports
@@ -52,6 +55,7 @@ export class OAuthModule {
         OAuthStateService,
         OAuthRedirectService,
         OAuthService,
+        BrowserOAuthFlow,
         ...OAUTH_PERSISTENCE_PROVIDERS,
         IsRegisteredProviderConstraint,
       ],

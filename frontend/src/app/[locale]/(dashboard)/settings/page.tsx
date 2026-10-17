@@ -1,3 +1,5 @@
+import { EmailChangeCard } from '@/modules/account/email-change';
+import { DeleteAccountCard } from '@/modules/account/deletion';
 import { Description, Heading } from '@/components/design-system';
 import { UpdateProfileCard } from '@/modules/account';
 import { LinkedAccounts, ProfileSyncStatus } from '@/modules/account'; // feature:oauth-core
@@ -50,6 +52,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           </Heading>
           <div className="grid gap-6 md:grid-cols-2">
             <UpdateProfileCard />
+            <EmailChangeCard />
+            <DeleteAccountCard />
             <ChangePasswordCard /> {/* feature:email-password */}
             {/* feature:totp:start */}
             <TwoFactorCard />

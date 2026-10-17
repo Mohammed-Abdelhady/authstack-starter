@@ -1,3 +1,4 @@
+import { ErasureModule } from '../../../user/erasure/erasure.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../../auth.module';
 import { PasskeysModule } from '../../passkeys/passkeys.module'; // feature:passkeys
@@ -12,6 +13,7 @@ import { NativePasskeyService } from './native-passkey.service'; // feature:pass
 
 @Module({
   imports: [
+    ErasureModule,
     AuthModule,
     PasskeysModule, // feature:passkeys
     CommonModule,

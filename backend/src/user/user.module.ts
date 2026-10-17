@@ -19,6 +19,16 @@ import {
 } from './persistence/user-persistence';
 import { AccountSessions } from './stores/account-sessions';
 import { AccountProfileStore } from './stores/account-profile.store';
+import { UserEmailModule } from './email/user-email.module';
+import { ErasureModule } from './erasure/erasure.module';
+import { ProofGateModule } from '../auth/proof/proof-gate.module';
+import { OwnAccountDeletionService } from './services/own-account-deletion.service';
+// feature:oauth-core:start
+import { AuthContractsModule } from '../auth/contracts/auth-contracts.module';
+import { ProviderTokensModule } from '../auth/oauth/provider-tokens/provider-tokens.module';
+import { ProviderLinkService } from './provider-link/provider-link.service';
+import { PROVIDER_LINK_PERSISTENCE_PROVIDERS } from './provider-link/persistence/provider-link-persistence';
+// feature:oauth-core:end
 
 @Module({
   imports: [
@@ -27,6 +37,11 @@ import { AccountProfileStore } from './stores/account-profile.store';
     ...USER_PERSISTENCE_IMPORTS,
     forwardRef(() => AuthModule),
     SessionModule,
+    forwardRef(() => UserEmailModule),
+    ErasureModule,
+    AuthContractsModule, // feature:oauth-core
+    ProofGateModule,
+    ProviderTokensModule, // feature:oauth-core
   ],
   controllers: [
     UserProfileController,
@@ -35,6 +50,7 @@ import { AccountProfileStore } from './stores/account-profile.store';
   ],
   providers: [
     UserProfileService,
+    OwnAccountDeletionService,
     SecurityNoticeService,
     UserSessionsService,
     UserPermissionsService,
@@ -42,6 +58,8 @@ import { AccountProfileStore } from './stores/account-profile.store';
     AccountLinkingService, // feature:oauth-core
     ProfileSyncService, // feature:oauth-core
     ...USER_PERSISTENCE_PROVIDERS,
+    ProviderLinkService, // feature:oauth-core
+    ...PROVIDER_LINK_PERSISTENCE_PROVIDERS, // feature:oauth-core
   ],
   exports: [
     ...USER_PERSISTENCE_IMPORTS,
@@ -54,6 +72,8 @@ import { AccountProfileStore } from './stores/account-profile.store';
     SignInMethodRule,
     AccountLinkingService, // feature:oauth-core
     ProfileSyncService, // feature:oauth-core
+    // The OAuth module imports this one, and its Apple strategy keeps tokens.
+    ProviderTokensModule, // feature:oauth-core
   ],
 })
 export class UserModule {}
