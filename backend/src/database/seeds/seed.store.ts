@@ -1,6 +1,8 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 
 export interface SeedRole {
+  audience?: RoleAudience;
   name: string;
   slug: string;
   description: string;
@@ -23,6 +25,7 @@ export const ROLE_SEED = {
 export type RoleSeedOutcome = (typeof ROLE_SEED)[keyof typeof ROLE_SEED];
 
 export interface NewSeedAccount {
+  audience?: RoleAudience;
   email: string;
   name: string;
   role: string;
@@ -68,6 +71,11 @@ export abstract class SeedStore {
 
   /** The id of the account with this address, deactivated or not. */
   abstract findAccountId(email: string): Promise<string | null>;
+
+  abstract roleAudience(
+    uow: UnitOfWork,
+    slug: string,
+  ): Promise<RoleAudience | undefined>;
 
   /** Stores a verified account that signs in with a password. Answers its id. */
   abstract createAccount(

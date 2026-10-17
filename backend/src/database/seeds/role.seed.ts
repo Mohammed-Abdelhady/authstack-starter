@@ -1,8 +1,11 @@
+import { permissionsRequireStaff } from '../../session/utils/authority/audience-permissions';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { configuredAccountAudiences } from '../../config/utils/application-audiences';
+import { ROLE_AUDIENCE, type HostRole } from '../../host/types/host-role.type';
 import { buildRoleHierarchy } from '../../common/utils/role-hierarchy';
 import { DEFAULT_ROLE_PERMISSIONS } from '../../common/constants/permissions';
 import { HOST_ROLES } from '../../host/access';
-import { HostRole } from '../../host/types/host-role.type';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { ROLE_SEED, SeedRole, SeedStore } from './seed.store';
 
@@ -18,12 +21,16 @@ const SYSTEM_ROLE_FLAGS = {
  *
  * @param hostRoles - The host product's roles
  */
-function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
+function systemSeedRoles(
+  hostRoles: readonly HostRole[],
+  audiencesEnabled: boolean,
+): SeedRole[] {
   const levels = buildRoleHierarchy(hostRoles);
-  return [
+  const roles: SeedRole[] = [
     {
       name: 'User',
       slug: UserRole.USER,
+      ...(audiencesEnabled ? { audience: ROLE_AUDIENCE.CUSTOMER } : {}),
       description: 'Default role for all customers',
       ...SYSTEM_ROLE_FLAGS,
       level: levels[UserRole.USER],
@@ -32,6 +39,7 @@ function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
     ...hostRoles.map((role) => ({
       name: role.name,
       slug: role.slug,
+      audience: role.audience,
       description: role.description,
       ...SYSTEM_ROLE_FLAGS,
       level: role.level,
@@ -40,6 +48,7 @@ function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
     {
       name: 'Admin',
       slug: UserRole.ADMIN,
+      ...(audiencesEnabled ? { audience: ROLE_AUDIENCE.STAFF } : {}),
       description: 'System administrator with full access',
       ...SYSTEM_ROLE_FLAGS,
       // Host roles a reseed drops stay stored, so admin never moves down.
@@ -48,6 +57,19 @@ function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
       permissions: [...DEFAULT_ROLE_PERMISSIONS.admin],
     },
   ];
+  if (audiencesEnabled) {
+    for (const role of roles) {
+      if (
+        role.audience !== ROLE_AUDIENCE.STAFF &&
+        permissionsRequireStaff(role.permissions)
+      ) {
+        throw new Error(
+          `HOST_ROLES role ${role.slug} has staff permissions. Use audience staff or remove the staff grants.`,
+        );
+      }
+    }
+  }
+  return roles;
 }
 
 /**
@@ -56,13 +78,19 @@ function systemSeedRoles(hostRoles: readonly HostRole[]): SeedRole[] {
  */
 @Injectable()
 export class RoleSeedService {
-  constructor(private readonly store: SeedStore) {}
+  constructor(
+    private readonly store: SeedStore,
+    private readonly config: ConfigService,
+  ) {}
 
   /**
    * Seed the system roles if they don't exist
    */
   async seed(hostRoles: readonly HostRole[] = HOST_ROLES): Promise<void> {
-    for (const roleData of systemSeedRoles(hostRoles)) {
+    for (const roleData of systemSeedRoles(
+      hostRoles,
+      configuredAccountAudiences(this.config).length > 0,
+    )) {
       const outcome = await this.store.seedRole(roleData);
 
       if (outcome === ROLE_SEED.CREATED) {
@@ -82,7 +110,10 @@ export class RoleSeedService {
   async updateRolePermissions(
     hostRoles: readonly HostRole[] = HOST_ROLES,
   ): Promise<void> {
-    for (const { slug, permissions } of systemSeedRoles(hostRoles)) {
+    for (const { slug, permissions } of systemSeedRoles(
+      hostRoles,
+      configuredAccountAudiences(this.config).length > 0,
+    )) {
       await this.store.replaceRolePermissions(slug, permissions);
       console.log(`Updated permissions for role: ${slug}`);
     }
