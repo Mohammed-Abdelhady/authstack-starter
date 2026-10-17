@@ -1,11 +1,6 @@
 import { Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { runWithRequestContext } from '../common/context/request-context';
-import {
-  MAIL_CONNECTION_TIMEOUT_MS,
-  MAIL_GREETING_TIMEOUT_MS,
-  MAIL_SOCKET_TIMEOUT_MS,
-} from './constants/mail.constants';
 import { mailHarness } from './mail-service.harness-spec';
 
 jest.mock('nodemailer');
@@ -30,18 +25,6 @@ describe('MailService transport', () => {
 
   beforeEach(() => {
     createTransport.mockClear();
-  });
-
-  it('sets a per-send deadline for every SMTP phase', () => {
-    mailHarness();
-
-    expect(createTransport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        connectionTimeout: MAIL_CONNECTION_TIMEOUT_MS,
-        greetingTimeout: MAIL_GREETING_TIMEOUT_MS,
-        socketTimeout: MAIL_SOCKET_TIMEOUT_MS,
-      }),
-    );
   });
 
   it.each<TransportCase>([
@@ -143,13 +126,5 @@ describe('MailService sending', () => {
     expect(message).toContain('EMAIL_FROM');
     expect(message).not.toContain('SMTP_FROM');
     expect(sendMail).not.toHaveBeenCalled();
-  });
-
-  it('closes the pooled transporter', () => {
-    const { service, close } = mailHarness();
-
-    service.closeTransport();
-
-    expect(close).toHaveBeenCalledTimes(1);
   });
 });

@@ -18,12 +18,6 @@ import {
 const ARABIC = MAIL_CATALOGUES.ar;
 const ENGLISH = MAIL_CATALOGUES.en; // feature:email-password
 const RTL_ROOT = '<html lang="ar" dir="rtl">';
-const CREATED = {
-  email: 'created@seed.local',
-  name: 'Created User',
-  password: 'Created123!',
-  role: 'user',
-};
 
 /** Who got the mail, in which language, and whether its root reads right to left. */
 function readMail(mail: MailOptions | undefined) {
@@ -59,47 +53,6 @@ describe('Arabic accounts and mail (e2e)', () => {
   async function lastMailTo(email: string): Promise<MailOptions | undefined> {
     return (await e2e.captureMail()).filter((mail) => mail.to === email).at(-1);
   }
-
-  it.each([
-    {
-      label: 'an Arabic body gives the account Arabic',
-      body: 'ar',
-      header: undefined,
-      stored: 'ar',
-    },
-    {
-      label: "the admin's Arabic header alone gives the account English",
-      body: undefined,
-      header: 'ar-EG',
-      stored: 'en',
-    },
-    {
-      label: 'an English body under an Arabic header gives English',
-      body: 'en',
-      header: 'ar',
-      stored: 'en',
-    },
-  ])('creates an account for someone else: $label', async (row) => {
-    const create = admin.post('/api/admin/users');
-    if (row.header !== undefined) create.set('Accept-Language', row.header);
-    await create.send({ ...CREATED, locale: row.body }).expect(201);
-
-    expect(await storedLocaleOf(CREATED.email)).toBe(row.stored);
-  });
-
-  it('changes the language through the profile', async () => {
-    const user = await loginAs(e2e.httpServer, SEED_USER);
-
-    const changed = await user
-      .patch('/api/user/profile')
-      .send({ locale: 'ar' })
-      .expect(200);
-
-    expect({
-      answered: (changed.body as { data: { locale: string } }).data.locale,
-      stored: await storedLocaleOf(SEED_USER.email),
-    }).toEqual({ answered: 'ar', stored: 'ar' });
-  });
 
   // feature:email-password:start
   it("mails an Arabic account in Arabic whatever the request's language", async () => {

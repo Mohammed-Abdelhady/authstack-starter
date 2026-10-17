@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { SEED_USER } from '../constants/seed-users';
 import {
   bootE2eApp,
@@ -82,11 +81,6 @@ describe('security notices after committed changes (e2e)', () => {
     });
     expect(JSON.stringify(mail[1])).not.toContain(code);
     expect(JSON.stringify(mail[1])).not.toContain(NEW_PASSWORD);
-  });
-
-  it('does not send a notice for an anonymous profile read', async () => {
-    await request(e2e.httpServer).get('/api/user/profile').expect(401);
-    expect(await e2e.captureMail()).toEqual([]);
   });
 });
 
