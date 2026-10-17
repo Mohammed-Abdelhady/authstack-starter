@@ -22,7 +22,7 @@ function serializedApiError(error: ApiError): BrowserQueryError {
           error: {
             code: error.code,
             message: error.message,
-            details: { fields: error.fields },
+            details: error.details ?? { fields: error.fields },
           },
           requestId: error.requestId,
         };

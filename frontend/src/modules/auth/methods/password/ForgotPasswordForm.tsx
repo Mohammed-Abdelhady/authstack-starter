@@ -2,7 +2,7 @@
 
 import { Description, Heading } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { FormProvider } from 'react-hook-form';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';

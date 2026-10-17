@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FormProvider } from 'react-hook-form';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { ErrorCode } from '@app/core';
 import { RefreshCw } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';

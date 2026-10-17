@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type DefaultValues, type FieldValues, type UseFormReturn } from 'react-hook-form';
-import { type z } from 'zod';
+import { type z } from 'zod/v3';
 
 /**
  * Custom hook that sets up React Hook Form with Zod validation
@@ -9,7 +9,7 @@ import { type z } from 'zod';
  * ```tsx
  * import { useFormWithValidation } from '@/hooks/useFormWithValidation';
  * import { zodEmail, zodPassword } from '@app/core';
- * import { z } from 'zod';
+ * import { z } from 'zod/v3';
  *
  * const loginSchema = z.object({
  *   email: zodEmail({ required: true, messages: { required: t('emailRequired'), invalid: t('emailInvalid') } }),

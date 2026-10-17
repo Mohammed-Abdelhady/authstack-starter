@@ -34,3 +34,9 @@ export interface OAuthProviderMeta {
   buttonClassName: string;
   hoverClassName: string;
 }
+
+export interface OAuthStartRequest {
+  providerId: string;
+  redirect: string;
+  intent: 'login' | 'link';
+}

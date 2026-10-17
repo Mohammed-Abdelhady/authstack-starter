@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { reportUnlessHandled } from '@/lib/requestFailure';
 import { useTranslations } from 'next-intl';
 import { Loader2 } from 'lucide-react';
 import { FOCUS_RING_CLASSES } from '@/constants/focusStyles';
@@ -28,9 +29,14 @@ export function OAuthButton({ provider, redirect, disabled = false }: OAuthButto
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { buttonClassName, hoverClassName } = getProviderMeta(provider.id);
 
-  const handleClick = () => {
+  const handleClick = async () => {
     setIsRedirecting(true);
-    startOAuthFlow(provider.id, redirect ?? currentRedirectPath());
+    try {
+      await startOAuthFlow(provider.id, redirect ?? currentRedirectPath());
+    } catch (error) {
+      setIsRedirecting(false);
+      reportUnlessHandled(error);
+    }
   };
 
   const isBusy = disabled || isRedirecting;

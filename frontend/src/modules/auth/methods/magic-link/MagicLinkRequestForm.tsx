@@ -4,7 +4,7 @@ import { Description, Heading } from '@/components/design-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { FormProvider } from 'react-hook-form';
 import { MailCheck, Send } from 'lucide-react';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';

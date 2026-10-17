@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { RECOVERY_CODE_LENGTH, TOTP_CODE_LENGTH } from '../constants';
 import type { TwoFactorAnswer } from '../types';
 
