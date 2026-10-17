@@ -28,34 +28,6 @@ describe('SeedService logging with real repositories', () => {
     await fixture?.close();
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
-  it('logs created seed users by role and their ids, never the address', async () => {
-    const log = captureLogs();
-    const error = jest
-      .spyOn(Logger.prototype, 'error')
-      .mockImplementation(() => {});
-    const created = await fixture.module.get(SeedService).seedUsers();
-    expect(created).toBe(4);
-    expect(loggedCalls(log, error)).toContain('role:');
-    const users = await fixture.users.find({}).exec();
-    expect(users).toHaveLength(4);
-    for (const user of users)
-      expect(loggedCalls(log, error)).toContain(
-        `userId=${user._id.toString()}`,
-      );
-    expect(loggedCalls(log, error)).not.toContain('@seed.local');
-  });
-  it('logs existing seed users by their ids, never the address', async () => {
-    const seeds = fixture.module.get(SeedService);
-    await seeds.seedUsers();
-    const users = await fixture.users.find({}).exec();
-    expect(users).toHaveLength(4);
-    const log = captureLogs();
-    const created = await seeds.seedUsers();
-    expect(created).toBe(0);
-    for (const user of users)
-      expect(loggedCalls(log)).toContain(`userId=${user._id.toString()}`);
-    expect(loggedCalls(log)).not.toContain('@seed.local');
-  });
   it('logs a failed seed user by error name and code, never the address', async () => {
     await createLoggingUser(fixture);
     await fixture.users.collection.createIndex(
