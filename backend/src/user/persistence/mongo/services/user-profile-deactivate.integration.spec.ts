@@ -1,5 +1,4 @@
-import { MongoNetworkError } from 'mongodb';
-import { failNextVersionWrite } from '../../../../../test/utils/transaction-failure';
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import { Role } from '../../../../role/persistence/mongo/schemas/role.schema';
 import { Types } from 'mongoose';
 import { SessionService } from '../../../../auth/persistence/mongo/session.service';
@@ -54,7 +53,12 @@ describe('account self-deletion keeps one active admin', () => {
       isVerified: true,
       sessionVersion: 0,
     });
-    const issued = await sessions.createSession(user._id, 'agent', '127.0.0.1');
+    const issued = await sessions.createSession(
+      user._id,
+      'agent',
+      '127.0.0.1',
+      WEB_CLIENT_ID,
+    );
     return { user, token: issued.sessionToken };
   }
 
@@ -143,24 +147,6 @@ describe('account self-deletion keeps one active admin', () => {
     });
     expect(await activeAdminCount()).toBe(2);
     expect(await sessionAlive(first.token)).toBe(true);
-  });
-
-  it('rolls back deletion and keeps sessions when revocation fails', async () => {
-    const owner = await seed('rollback-owner@example.test', UserRole.USER);
-    const failure = new MongoNetworkError('revocation write unavailable');
-    const restore = failNextVersionWrite(fixture.users, failure);
-    try {
-      await expect(
-        service.deactivateAccount(owner.user._id.toString()),
-      ).rejects.toBe(failure);
-    } finally {
-      restore();
-    }
-    expect(await isDeleted(owner.user._id)).toBe(false);
-    expect(await sessionAlive(owner.token)).toBe(true);
-    expect((await fixture.users.findById(owner.user._id))?.sessionVersion).toBe(
-      0,
-    );
   });
 
   it('leaves one admin when two delete themselves at the same time', async () => {

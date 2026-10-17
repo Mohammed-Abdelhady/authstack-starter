@@ -1,20 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sql } from 'kysely';
+import { Pool } from 'pg';
+import { openPostgresDatabase } from '../../../common/persistence/postgres/postgres-database';
 import {
-  openTestConnection,
-  TestConnection,
-} from '../../../../test/postgres/postgres-connection';
+  EVERY_MIGRATION,
+  useMigrateDatabases,
+} from '../../../common/persistence/postgres/postgres-migrate.harness-spec';
 import {
-  POSTGRES_BOOT_TIMEOUT_MS,
-  POSTGRES_TEARDOWN_TIMEOUT_MS,
-} from '../../../../test/postgres/server/postgres-test-server';
+  applyPostgresMigrations,
+  MIGRATION_LOCK_WAIT_MS,
+} from '../../../common/persistence/postgres/postgres-migrations';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { readAccount } from './postgres-account-rows';
 
+const MIGRATION_NAME = '0019_account_locale.sql';
 const MIGRATION = join(
   __dirname,
-  '../../../common/persistence/postgres/migrations/0019_account_locale.sql',
+  '../../../common/persistence/postgres/migrations',
+  MIGRATION_NAME,
 );
 
 interface LocaleColumn {
@@ -22,34 +25,28 @@ interface LocaleColumn {
   is_nullable: string;
 }
 
+async function insertAccount(pool: Pool, email: string): Promise<string> {
+  const row = await pool.query<{ id: string }>(
+    `INSERT INTO users (email, name, role, created_at, updated_at)
+     VALUES ($1, 'Stored', 'user', $2, $2) RETURNING id`,
+    [email, TEST_NOW],
+  );
+  const account = row.rows[0];
+  if (!account) throw new Error('Account fixture was not inserted');
+  return account.id;
+}
+
 describe('0019_account_locale.sql', () => {
-  let connection: TestConnection;
-
-  beforeAll(async () => {
-    connection = await openTestConnection();
-  }, POSTGRES_BOOT_TIMEOUT_MS);
-
-  afterAll(async () => {
-    await connection?.close();
-  }, POSTGRES_TEARDOWN_TIMEOUT_MS);
-
-  beforeEach(async () => {
-    await connection.reset();
-  });
-
-  async function insertAccount(email: string): Promise<string> {
-    const row = await sql<{ id: string }>`
-      INSERT INTO users (email, name, role, created_at, updated_at)
-      VALUES (${email}, 'Stored', 'user', ${TEST_NOW}, ${TEST_NOW})
-      RETURNING id`.execute(connection.database);
-    return row.rows[0].id;
-  }
+  const { emptyDatabase } = useMigrateDatabases();
 
   it('gives an account stored before it the language en, and runs twice', async () => {
-    const { pool } = connection;
-    await pool.query('ALTER TABLE users DROP COLUMN locale');
-    const id = await insertAccount('before@example.test');
-
+    const pool = await emptyDatabase();
+    await applyPostgresMigrations(
+      pool,
+      MIGRATION_LOCK_WAIT_MS,
+      EVERY_MIGRATION.filter((name) => name < MIGRATION_NAME),
+    );
+    const id = await insertAccount(pool, 'before@example.test');
     const migration = readFileSync(MIGRATION, 'utf8');
     await pool.query(migration);
     await pool.query(migration);
@@ -59,21 +56,29 @@ describe('0019_account_locale.sql', () => {
          FROM information_schema.columns
         WHERE table_name = 'users' AND column_name = 'locale'`,
     );
-    expect({
-      column: column.rows,
-      read: (await readAccount(connection.database, id))?.locale,
-    }).toEqual({
+    const stored = await pool.query<{ locale: string }>(
+      'SELECT locale FROM users WHERE id = $1',
+      [id],
+    );
+    expect({ column: column.rows, stored: stored.rows }).toEqual({
       column: [{ column_default: "'en'::text", is_nullable: 'NO' }],
-      read: 'en',
+      stored: [{ locale: 'en' }],
     });
+
+    await applyPostgresMigrations(pool, MIGRATION_LOCK_WAIT_MS);
+    expect((await readAccount(openPostgresDatabase(pool), id))?.locale).toBe(
+      'en',
+    );
   });
 
   it('reads a language this build does not carry as en', async () => {
-    const id = await insertAccount('elsewhere@example.test');
-    await connection.pool.query(
-      "UPDATE users SET locale = 'xx' WHERE email = 'elsewhere@example.test'",
-    );
+    const pool = await emptyDatabase();
+    await applyPostgresMigrations(pool, MIGRATION_LOCK_WAIT_MS);
+    const id = await insertAccount(pool, 'elsewhere@example.test');
+    await pool.query("UPDATE users SET locale = 'xx' WHERE id = $1", [id]);
 
-    expect((await readAccount(connection.database, id))?.locale).toBe('en');
+    expect((await readAccount(openPostgresDatabase(pool), id))?.locale).toBe(
+      'en',
+    );
   });
 });
