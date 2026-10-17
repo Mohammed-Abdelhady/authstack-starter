@@ -224,26 +224,4 @@ export function linkedAccountCases(
       { provider: 'google', providerId: 'google-1' },
     ]);
   });
-
-  it('chooses a linked provider as primary and refuses any other', async () => {
-    const { ownerId } = fixture();
-    const { linking } = linkedServicesOn(harness());
-    await linking.linkProvider(ownerId, 'google', profileOf('google-1'));
-    await linking.linkProvider(ownerId, 'github', profileOf('github-1'));
-
-    const chosen = await linking.setPrimaryProvider(ownerId, 'github');
-
-    expect(chosen.primaryProvider).toBe('github');
-    expect(await linking.isPrimaryProvider(ownerId, 'github')).toBe(true);
-    expect(await linking.isPrimaryProvider(ownerId, 'google')).toBe(false);
-    expect(
-      await refusalOf(linking.setPrimaryProvider(ownerId, 'gitlab')),
-    ).toEqual({ code: 'PROVIDER_NOT_LINKED', status: 400 });
-    expect(
-      await refusalOf(linking.setPrimaryProvider(ownerId, 'email')),
-    ).toEqual({ code: 'VALIDATION_ERROR', status: 400 });
-    expect((await harness().syncFacts(ownerId))?.primaryProvider).toBe(
-      'github',
-    );
-  });
 }

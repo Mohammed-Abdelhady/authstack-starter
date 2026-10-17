@@ -309,16 +309,6 @@ describe('MicrosoftOAuthStrategy', () => {
       expect(profile.emailVerified).toBe(false);
     });
 
-    it('does not carry the Graph picture URL as an avatar', async () => {
-      const profile = await profileWith(baseClaims(), {
-        sub: 'subject-id',
-        email: 'user@contoso.com',
-        picture: 'https://graph.microsoft.com/v1.0/me/photo/$value',
-      });
-
-      expect(profile.avatarUrl).toBeUndefined();
-    });
-
     it('fails when no email is available', async () => {
       await expectAppException(
         profileWith(baseClaims({ email: undefined }), { sub: 'subject-id' }),

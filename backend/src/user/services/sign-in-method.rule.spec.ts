@@ -1,6 +1,7 @@
 import type { HeldSignInMethods } from '../stores/sign-in-method.store';
 // feature:email-code:start
 import { ConfigService } from '@nestjs/config';
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import type { NativeApplicationConfiguration } from '../../config/types/native-application.type';
 import { AuthFeaturesService } from '../../auth/services/features/auth-features.service';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
@@ -195,14 +196,13 @@ function ruleFor(
   offering: NativeApplicationConfiguration[],
   stores?: ReturnType<typeof readers>,
 ): SignInMethodRule {
+  const features = new ConfigService({
+    auth: { passwordEnabled: false },
+    magicLink: { enabled: false },
+  });
   return new SignInMethodRule(
     new OneAccount(account),
-    new AuthFeaturesService(
-      new ConfigService({
-        auth: { passwordEnabled: false },
-        magicLink: { enabled: false },
-      }),
-    ),
+    new AuthFeaturesService(features, browserApplicationsForTest(features)),
     new ConfigService({
       emailCode: { enabled: true },
       auth: { nativeEnabled: true, nativeApplications: offering },

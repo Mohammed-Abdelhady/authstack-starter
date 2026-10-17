@@ -160,6 +160,7 @@ export function firstProviderSignInCases(
 
     const created = await current.runner(rerunAtOnce).run((work) =>
       providerSignIn.createFromProviderIn(work, {
+        audience: undefined,
         provider: 'google',
         providerId: 'google-new',
         email: NEW_ADDRESS,
@@ -231,6 +232,7 @@ export function firstProviderSignInCases(
 
     const created = await current.runner(rerunAtOnce).run((work) =>
       providerSignIn.createFromProviderIn(work, {
+        audience: undefined,
         provider: 'google',
         providerId: 'google-mixed',
         email: '  Mixed@Example.TEST ',
@@ -262,6 +264,7 @@ export function firstProviderSignInCases(
     const refused = await rejectionOf(
       current.runner(rerunAtOnce).run((work) =>
         providerSignIn.createFromProviderIn(work, {
+          audience: undefined,
           provider: 'google',
           providerId: 'google-clash',
           email: OWNER_EMAIL,
@@ -292,6 +295,7 @@ export function firstProviderSignInCases(
     const refused = await rejectionOf(
       current.runner(rerunAtOnce).run((work) =>
         providerSignIn.createFromProviderIn(work, {
+          audience: undefined,
           ...GOOGLE_OWNER,
           email: NEW_ADDRESS,
           name: 'New Comer',
@@ -316,6 +320,7 @@ export function firstProviderSignInCases(
         const account = await current.providerSignIn.createFromProviderIn(
           work,
           {
+            audience: undefined,
             provider: 'google',
             providerId: 'google-aborted',
             email: NEW_ADDRESS,
