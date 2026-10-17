@@ -30,6 +30,7 @@ export interface RetentionRule {
  * is refused exactly as one it has removed.
  */
 export const RETENTION_RULES: readonly RetentionRule[] = [
+  { table: 'address_claims', column: 'lapses_at', keepForMs: 0 },
   { table: 'mail_counters', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_registrations', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_password_resets', column: 'expires_at', keepForMs: 0 },

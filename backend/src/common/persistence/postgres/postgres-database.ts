@@ -1,6 +1,24 @@
+import { SessionsTable } from '../../../session/persistence/postgres/postgres-sessions.table';
+import { ApplicationsTable } from '../../../session/persistence/postgres/postgres-applications.table';
+import { RolesTable } from '../../../role/persistence/postgres/postgres-roles.table';
+import { UsersTable } from '../../../user/persistence/postgres/postgres-users.table';
 import { NativeAttemptsTable } from '../../../auth/native/persistence/postgres/postgres-native-attempt.table';
 import { EmailCodesTable } from '../../../auth/persistence/postgres/postgres-email-code.table'; // feature:email-code
 import { SecurityEventsTable } from '../../../session/persistence/postgres/types/security-events.table';
+import {
+  AccountDeletionReceiptsTable,
+  ErasureJobsTable,
+} from '../../../user/erasure/persistence/postgres/postgres-erasure.tables';
+// feature:oauth-core:start
+import {
+  ProviderRevocationsTable,
+  ProviderTokensTable,
+} from '../../../auth/oauth/provider-tokens/persistence/postgres/postgres-provider-token.tables';
+import { ProviderLinkTicketsTable } from '../../../user/provider-link/persistence/postgres/postgres-provider-link.table';
+// feature:oauth-core:end
+import { SessionProofsTable } from '../../../auth/proof/persistence/postgres/postgres-session-proofs.table';
+import { StaffIdempotencyKeysTable } from '../../../admin/persistence/postgres/postgres-staff-idempotency.table';
+import { InvitationsTable } from '../../../auth/invitations/persistence/postgres/postgres-invitations.table'; // feature:invitations
 import { ColumnType, Generated, Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { commitCheckedPool } from './postgres-commit-tag';
@@ -10,6 +28,8 @@ import {
   NativeDpopProofIdsTable,
 } from '../../../session/native/persistence/postgres/postgres-native-tables';
 
+export type { UsersTable, RolesTable, ApplicationsTable, SessionsTable };
+
 export type {
   AuthorizationTransactionsTable,
   NativeCredentialsTable,
@@ -17,36 +37,10 @@ export type {
 } from '../../../session/native/persistence/postgres/postgres-native-tables';
 
 type Timestamp = ColumnType<Date, Date, Date>;
+// feature:passkeys:start
 /** `bigint` comes back as text. Lifetimes in milliseconds fit a number. */
 type BigIntColumn = ColumnType<string, number, number>;
-
-export interface UsersTable {
-  id: Generated<string>;
-  is_deleted: Generated<boolean>;
-  session_version: Generated<number>;
-  issuance_fence: Generated<number>;
-  role: Generated<string>;
-  permissions: Generated<string[]>;
-  email: string | null;
-  pending_email: string | null;
-  name: string | null;
-  is_verified: Generated<boolean>;
-  auth_provider: string | null;
-  primary_provider: string | null;
-  password_hash: string | null;
-  avatar_url: string | null;
-  deleted_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
-  address_generation: Generated<number>;
-  profile_synced_at: ColumnType<
-    Date | null,
-    Date | null | undefined,
-    Date | null
-  >;
-  last_synced_provider: string | null;
-  locale: Generated<string>;
-  created_at: ColumnType<Date, Date | undefined, never>;
-  updated_at: ColumnType<Date, Date | undefined, Date>;
-}
+// feature:passkeys:end
 
 export interface UserLinkedAccountsTable {
   id: Generated<string>;
@@ -112,19 +106,6 @@ export interface PasskeyChallengesTable {
 }
 // feature:passkeys:end
 
-export interface RolesTable {
-  id: Generated<string>;
-  name: string;
-  slug: string;
-  description: string | null;
-  is_system_role: Generated<boolean>;
-  is_protected: Generated<boolean>;
-  level: number | null;
-  permissions: Generated<string[]>;
-  created_at: Timestamp;
-  updated_at: Timestamp;
-}
-
 export interface RolePendingSweepsTable {
   id: Generated<string>;
   owner_role_id: string;
@@ -132,25 +113,6 @@ export interface RolePendingSweepsTable {
   previous_slug: string;
   actor_id: string;
   sweep_id: string | null;
-}
-
-export interface ApplicationsTable {
-  client_id: string;
-  environment: string;
-  platform: string;
-  enabled: Generated<boolean>;
-  session_version: Generated<number>;
-  allowed_scopes: Generated<string[]>;
-  absolute_lifetime_ms: BigIntColumn;
-  idle_lifetime_ms: BigIntColumn;
-  display_name: string;
-  client_type: string;
-  redirect_uris: Generated<string[]>;
-  allowed_origins: Generated<string[]>;
-  audiences: Generated<string[]>;
-  policy_version: Generated<number>;
-  created_at: ColumnType<Date, Date | undefined, never>;
-  updated_at: ColumnType<Date, Date | undefined, Date>;
 }
 
 export interface UserApplicationGrantsTable {
@@ -161,46 +123,6 @@ export interface UserApplicationGrantsTable {
   allowed_scopes: Generated<string[]>;
   session_version: Generated<number>;
   issuance_fence: Generated<number>;
-}
-
-export interface SessionsTable {
-  id: Generated<string>;
-  user_id: string;
-  token_hash: Buffer;
-  csrf_token: string | null;
-  user_agent: string;
-  device: ColumnType<unknown, string | null, string | null>;
-  device_name: string | null;
-  ip: string;
-  is_valid: Generated<boolean>;
-  revoked_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
-  revoked_reason: ColumnType<
-    string | null,
-    string | null | undefined,
-    string | null
-  >;
-  client_id: string;
-  user_version: number;
-  client_version: number;
-  grant_version: number;
-  auth_epoch: number;
-  schema_version: number;
-  scopes: string[];
-  audience: string;
-  authentication_methods: string[];
-  credential_purpose: string;
-  browser_generation: number;
-  authenticated_at: Timestamp;
-  last_used_at: Timestamp;
-  last_activity_at: Timestamp;
-  expires_at: Timestamp;
-  idle_expires_at: Timestamp;
-  proof_key_thumbprint: ColumnType<
-    string | null,
-    string | null | undefined,
-    string | null
-  >;
-  created_at: ColumnType<Date, Date | undefined, never>;
 }
 
 export interface BrowserProofsTable {
@@ -290,6 +212,14 @@ export interface PostgresTables {
   native_dpop_proof_ids: NativeDpopProofIdsTable;
   native_attempts: NativeAttemptsTable;
   email_codes: EmailCodesTable; // feature:email-code
+  erasure_jobs: ErasureJobsTable;
+  account_deletion_receipts: AccountDeletionReceiptsTable;
+  provider_tokens: ProviderTokensTable; // feature:oauth-core
+  provider_revocations: ProviderRevocationsTable; // feature:oauth-core
+  provider_link_tickets: ProviderLinkTicketsTable; // feature:oauth-core
+  session_proofs: SessionProofsTable;
+  staff_idempotency_keys: StaffIdempotencyKeysTable;
+  invitations: InvitationsTable; // feature:invitations
 }
 
 /**

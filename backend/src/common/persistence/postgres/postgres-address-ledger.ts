@@ -1,4 +1,8 @@
-import { ADDRESS_CLAIM_RESULT, AddressLedger } from '../address-ledger';
+import {
+  ADDRESS_CLAIM_KIND,
+  ADDRESS_CLAIM_RESULT,
+  AddressLedger,
+} from '../address-ledger';
 import { storedAddress } from '../stored-address';
 import {
   AddressClaimInput,
@@ -37,6 +41,15 @@ export class PostgresAddressLedger extends AddressLedger {
             eb.or([
               eb('address_claims.lapses_at', '<=', input.now),
               eb('address_claims.owner', '=', input.owner),
+              ...(input.replaceOwnEmailChange
+                ? [
+                    eb(
+                      'address_claims.kind',
+                      '=',
+                      ADDRESS_CLAIM_KIND.OWN_EMAIL_CHANGE,
+                    ),
+                  ]
+                : []),
             ]),
           ),
       )
@@ -78,6 +91,7 @@ export class PostgresAddressLedger extends AddressLedger {
       .execute();
   }
 
+  /** Both reads run on every path, so a held address answers no sooner. */
   async isFree(uow: UnitOfWork, input: AddressAvailability): Promise<boolean> {
     const transaction = postgresTransactionOf(uow);
     const address = storedAddress(input.address);
@@ -86,16 +100,18 @@ export class PostgresAddressLedger extends AddressLedger {
       .select('id')
       .where('email', '=', address)
       .executeTakeFirst();
-    if (account) return false;
     let claims = transaction
       .selectFrom('address_claims')
       .select('owner')
       .where('address', '=', address)
       .where('lapses_at', '>', input.now);
+    if (input.forRegistration) {
+      claims = claims.where('kind', '!=', ADDRESS_CLAIM_KIND.OWN_EMAIL_CHANGE);
+    }
     if (input.owner !== undefined) {
       claims = claims.where('owner', '!=', input.owner);
     }
     const claim = await claims.executeTakeFirst();
-    return claim === undefined;
+    return account === undefined && claim === undefined;
   }
 }
