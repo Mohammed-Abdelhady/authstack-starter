@@ -14,6 +14,7 @@ import { UnitOfWork } from './unit-of-work';
 export const ADDRESS_CLAIM_KIND = {
   ACCOUNT: 'ACCOUNT',
   EMAIL_CHANGE: 'EMAIL_CHANGE',
+  OWN_EMAIL_CHANGE: 'OWN_EMAIL_CHANGE',
   INVITATION: 'INVITATION', // feature:invitations
 } as const;
 
@@ -51,6 +52,7 @@ export abstract class AddressLedger {
     const result = await this.claim(uow, {
       ...reservation,
       kind: ADDRESS_CLAIM_KIND.ACCOUNT,
+      replaceOwnEmailChange: true,
       // The row only serialises writers inside this transaction.
       lapsesAt: input.now,
       now: input.now,

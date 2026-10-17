@@ -15,6 +15,7 @@ export interface AddressLookup {
 }
 
 export interface AddressAvailability extends AddressLookup {
+  forRegistration?: boolean;
   /** Ignore this owner's claim, while current account addresses still block. */
   owner?: string;
 }
@@ -34,6 +35,7 @@ export interface StoredAddressClaim extends AddressRelease {
 }
 
 export interface AddressClaimInput extends StoredAddressClaim {
+  replaceOwnEmailChange?: boolean;
   now: Date;
 }
 
