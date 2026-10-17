@@ -1,10 +1,14 @@
+import type { ApplicationPolicyConfiguration } from '../../../../src/config/types/host-policy.type';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../../../src/session/constants/client-ids';
+import { AudiencePolicy } from '../../../../src/session/applications/audience-policy';
+import { AdminAudienceScopes } from '../../../../src/admin/services/users/admin-audience-scopes';
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AccountCreationPolicy } from '../../../../src/auth/services/registration/account-creation-policy';
-import {
-  PERMISSION_PERMISSIONS,
-  USER_PERMISSIONS,
-} from '../../../../src/common/constants/permissions';
 import { AdminPermissionsService } from '../../../../src/admin/services/roles/admin-permissions.service';
 import { AdminEmailChangeService } from '../../../../src/admin/services/users/admin-email-change.service';
 import { AdminUserAccessService } from '../../../../src/admin/services/users/admin-user-access.service';
@@ -24,8 +28,16 @@ import { MailService } from '../../../../src/mail/mail.service';
 import { RoleHierarchyService } from '../../../../src/role/services/role-hierarchy.service';
 import { UserPermissionsService } from '../../../../src/user/services/user-permissions.service';
 import { UserProfileService } from '../../../../src/user/services/user-profile.service';
+import { AccountDeletionService } from '../../../../src/user/erasure/services/account-deletion.service';
+import { ErasureSettings } from '../../../../src/user/erasure/services/erasure-settings';
+import { idleErasureWorker } from '../../account-deletion-fixture';
 import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { AccountsContractHarness } from './accounts-contract-harness';
+import {
+  NoErasureLock,
+  testLastAdminGuard,
+  testStaffMutationRules,
+} from '../../admin/staff-mutation-test-kit';
 
 export type AccountsHarnessSource = () => AccountsContractHarness;
 
@@ -63,18 +75,45 @@ export interface AccountServices {
   mail: MailOptions[];
 }
 
-/** The real services on this database's adapters and that runner. */
-export function servicesOn(
-  harness: AccountsContractHarness,
-  pause: RerunPause = rerunAtOnce,
-  policy: AccountCreationPolicy = new AccountCreationPolicy(),
-): AccountServices {
-  const config = new ConfigService({
+export function configurationForAccounts(
+  auth: Record<string, unknown> = {},
+  account: Record<string, unknown> = {},
+): ConfigService {
+  return new ConfigService({
     activation: { maxAttempts: 5, codeExpiresIn: 900_000 },
     bcrypt: { rounds: BCRYPT_ROUNDS },
     cors: { clientUrl: 'http://localhost:3000' },
     smtp: { from: 'contract@example.test' },
+    auth,
+    account,
   });
+}
+
+/** Persist configured policy before constructing a service that reads stored authority. */
+export async function configureCreationApplications(
+  harness: AccountsContractHarness,
+  config: ConfigService,
+): Promise<void> {
+  for (const clientId of [WEB_CLIENT_ID, ADMIN_CLIENT_ID]) {
+    await harness.configureCreationApplication(
+      clientId,
+      config.get<ApplicationPolicyConfiguration>(`auth.${clientId}.signIn`, {}),
+    );
+  }
+}
+
+/** The real services on this database's adapters and that runner. */
+export function servicesOn(
+  harness: AccountsContractHarness,
+  pause: RerunPause = rerunAtOnce,
+  policy: AccountCreationPolicy | undefined = undefined,
+  config: ConfigService = configurationForAccounts(),
+): AccountServices {
+  const creationPolicy =
+    policy ?? new AccountCreationPolicy(harness.issuanceApplications);
+  const audiences = new AudiencePolicy(config);
+  const scopes = new AdminAudienceScopes(audiences, harness.roleChanges);
+  const browserApplications = browserApplicationsForTest(config);
   const runner = harness.runner(pause);
   const mail: MailOptions[] = [];
   const mailService = new MailService(config);
@@ -82,9 +121,15 @@ export function servicesOn(
     mail.push(options);
     return Promise.resolve();
   };
-  const authMail = new AuthMailService(
+  const dispatcher = new MailDispatcherService(config, mailService);
+  const authMail = new AuthMailService(mailService, dispatcher);
+  const erasure = new ErasureSettings(config);
+  const deletion = new AccountDeletionService(
+    harness.deletion,
+    erasure,
+    idleErasureWorker(harness.clock, erasure),
     mailService,
-    new MailDispatcherService(config, mailService),
+    dispatcher,
   );
   const hash = new HashService(config);
   const mailCounter = new MailCounterService(
@@ -102,6 +147,7 @@ export function servicesOn(
   const access = new AdminUserAccessService(
     harness.admin,
     new RoleHierarchyService(harness.roleCatalog),
+    scopes,
   );
   const permissions = new UserPermissionsService(harness.permissions);
   const emailChanges = new AdminEmailChangeService(
@@ -112,6 +158,7 @@ export function servicesOn(
     harness.ledger,
     runner,
     harness.clock,
+    scopes,
   );
   return {
     profile: new UserProfileService(
@@ -120,6 +167,7 @@ export function servicesOn(
       runner,
       harness.clock,
       hash,
+      deletion,
     ),
     permissions,
     adminPermissions: new AdminPermissionsService(
@@ -128,6 +176,8 @@ export function servicesOn(
       permissions,
       runner,
       harness.roleChanges,
+      audiences,
+      testStaffMutationRules(),
     ),
     adminUsers: new AdminUsersService(
       harness.admin,
@@ -137,6 +187,10 @@ export function servicesOn(
       harness.roleSweeps,
       access,
       emailChanges,
+      audiences,
+      testStaffMutationRules(),
+      new NoErasureLock(),
+      testLastAdminGuard(),
     ),
     adminCreate: new AdminUserCreateService(
       harness.admin,
@@ -145,9 +199,11 @@ export function servicesOn(
       harness.roleSweeps,
       access,
       hash,
-      policy,
+      creationPolicy,
       harness.ledger,
       harness.clock,
+      audiences,
+      testStaffMutationRules(),
     ),
     adminQueries: new AdminUserQueriesService(harness.admin, access),
     registration: new RegistrationService(
@@ -158,9 +214,10 @@ export function servicesOn(
       verification,
       mailCounter,
       harness.signIn,
-      policy,
+      creationPolicy,
       harness.ledger,
       harness.clock,
+      browserApplications,
     ),
     emailChange: new EmailChangeConfirmationService(
       harness.activation,
@@ -187,86 +244,6 @@ export interface AccountsFixture {
 
 export function passwordHash(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_ROUNDS);
-}
-
-/**
- * The roles and accounts every case starts from: two admins, a manager, a
- * support agent and a plain account that has a password and one permission of
- * its own.
- */
-export async function seedAccountsFixture(
-  harness: AccountsContractHarness,
-): Promise<AccountsFixture> {
-  await harness.seedRole({
-    name: 'Admin',
-    slug: ADMIN_SLUG,
-    level: 4,
-    permissions: ['*'],
-  });
-  await harness.seedRole({
-    name: 'Manager',
-    slug: MANAGER_SLUG,
-    level: 3,
-    // What the admin services ask of an acting manager, and what it hands out.
-    permissions: [
-      READ_USERS,
-      READ_POSTS,
-      USER_PERMISSIONS.UPDATE_ALL,
-      PERMISSION_PERMISSIONS.GRANT_ALL,
-      PERMISSION_PERMISSIONS.REVOKE_ALL,
-    ],
-  });
-  await harness.seedRole({
-    name: 'Support',
-    slug: SUPPORT_SLUG,
-    level: 2,
-    permissions: [],
-  });
-  const defaultRoleId = await harness.seedRole({
-    name: 'User',
-    slug: DEFAULT_SLUG,
-    level: 1,
-    permissions: [READ_POSTS],
-  });
-  const editorRoleId = await harness.seedRole({
-    name: 'Content Editor',
-    slug: EDITOR_SLUG,
-    permissions: [READ_POSTS],
-  });
-  const at = (minute: number): Date =>
-    new Date(Date.UTC(2098, 0, 1, 0, minute));
-  return {
-    adminId: await harness.seedAccount({
-      email: 'admin@example.test',
-      role: ADMIN_SLUG,
-      createdAt: at(1),
-    }),
-    secondAdminId: await harness.seedAccount({
-      email: 'second-admin@example.test',
-      role: ADMIN_SLUG,
-      createdAt: at(2),
-    }),
-    managerId: await harness.seedAccount({
-      email: 'manager@example.test',
-      role: MANAGER_SLUG,
-      createdAt: at(3),
-    }),
-    supportId: await harness.seedAccount({
-      email: 'support@example.test',
-      role: SUPPORT_SLUG,
-      createdAt: at(4),
-    }),
-    userId: await harness.seedAccount({
-      email: 'person@example.test',
-      name: 'Plain Person',
-      role: DEFAULT_SLUG,
-      permissions: [READ_USERS],
-      passwordHash: await passwordHash(OLD_PASSWORD),
-      createdAt: at(5),
-    }),
-    editorRoleId,
-    defaultRoleId,
-  };
 }
 
 /** The code and status an application error carries, or the error's name. */

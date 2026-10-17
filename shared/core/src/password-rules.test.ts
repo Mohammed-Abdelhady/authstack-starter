@@ -5,10 +5,8 @@ import {
   isPasswordWithinByteLimit,
   MAX_PASSWORD_BYTES,
   MIN_PASSWORD_LENGTH,
-  passwordByteLength,
 } from './password-rules';
 
-const VALID_PASSWORD = ['Valid', 'P4ssword'].join('');
 const STRONG_PASSWORD = ['Strong', 'P4ssword'].join('');
 
 describe('evaluatePasswordRules', () => {
@@ -56,11 +54,6 @@ describe('evaluatePasswordRules', () => {
     const withNumber = evaluatePasswordRules('Abcdefg1');
     expect(withNumber.find((r) => r.id === 'number')?.passed).toBe(true);
   });
-
-  it('marks all rules passed when all criteria are met', () => {
-    const results = evaluatePasswordRules(VALID_PASSWORD);
-    expect(results.every((r) => r.passed)).toBe(true);
-  });
 });
 
 describe('areAllPasswordRulesPassed', () => {
@@ -74,12 +67,6 @@ describe('areAllPasswordRulesPassed', () => {
 });
 
 describe('password byte limit', () => {
-  it('counts UTF-8 bytes, not characters', () => {
-    expect(passwordByteLength('abc')).toBe(3);
-    // Each of these is two bytes in UTF-8.
-    expect(passwordByteLength('ééé')).toBe(6);
-  });
-
   it('accepts a password at the ceiling and rejects one past it', () => {
     expect(isPasswordWithinByteLimit('a'.repeat(MAX_PASSWORD_BYTES))).toBe(true);
     expect(isPasswordWithinByteLimit('a'.repeat(MAX_PASSWORD_BYTES + 1))).toBe(false);

@@ -1,3 +1,9 @@
+import crypto from 'crypto';
+import {
+  mongoActivationPolicy,
+  mongoActivationRegistry,
+} from '../../../../../../test/utils/auth/mongo-activation-policy';
+import { BROWSER_APPLICATIONS_TEST_PROVIDER } from '../../../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -100,6 +106,7 @@ describe('resend activation hash count', () => {
     await claims.init();
     await registrations.init();
     await counters.init();
+    await mongoActivationRegistry(connection).seedFirstPartyApplications();
 
     const config = {
       get: (key: string, fallback?: number) =>
@@ -113,7 +120,11 @@ describe('resend activation hash count', () => {
         { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
         { provide: AddressLedger, useClass: MongoAddressLedger },
         RegistrationService,
-        AccountCreationPolicy,
+        BROWSER_APPLICATIONS_TEST_PROVIDER,
+        {
+          provide: AccountCreationPolicy,
+          useValue: mongoActivationPolicy(connection),
+        },
         VerificationCodeService,
         HashService,
         { provide: ConfigService, useValue: config },
@@ -248,15 +259,23 @@ describe('resend activation hash count', () => {
       }),
     );
 
-    await registrationService.resendActivation(DTO, 'en');
+    const entropy: { randomInt(min: number, max: number): number } = crypto;
+    const codeEntropy = jest
+      .spyOn(entropy, 'randomInt')
+      .mockReturnValue(234567);
+    try {
+      await registrationService.resendActivation(DTO, 'en');
 
-    expect(hashSpy).toHaveBeenCalledTimes(1);
-    const record = await registrations
-      .findOne({ email: DTO.email })
-      .select('+hashedCode');
-    if (!record) throw new Error('expected a stored record');
-    expect(record.attempts).toBe(0);
-    expect(await bcrypt.compare('123456', record.hashedCode)).toBe(false);
+      expect(hashSpy).toHaveBeenCalledTimes(1);
+      const record = await registrations
+        .findOne({ email: DTO.email })
+        .select('+hashedCode');
+      if (!record) throw new Error('expected a stored record');
+      expect(record.attempts).toBe(0);
+      expect(await bcrypt.compare('123456', record.hashedCode)).toBe(false);
+    } finally {
+      codeEntropy.mockRestore();
+    }
   });
 
   it('keeps a record a register replaced before the resend delete ran', async () => {

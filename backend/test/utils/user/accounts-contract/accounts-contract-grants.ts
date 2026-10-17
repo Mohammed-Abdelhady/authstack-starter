@@ -27,7 +27,7 @@ export function accountGrantCases(
 ): void {
   it('creates a verified account with a hashed password', async () => {
     const { adminId } = fixture();
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate');
     const inserting = jest.spyOn(harness().admin, 'insertAccount');
 
@@ -71,7 +71,7 @@ export function accountGrantCases(
 
   it('refuses an actor whose stored authority no longer allows the role before asking the creation policy', async () => {
     const { userId } = fixture();
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate');
     const services = servicesOn(harness(), undefined, policy);
     const email = 'stale-authority-creation@example.test';
@@ -153,6 +153,7 @@ export function accountGrantCases(
     expect(granted.data).toEqual({
       userId,
       permissions: [READ_USERS, READ_POSTS],
+      version: 1,
     });
     expect(
       await refusalOf(
@@ -171,7 +172,11 @@ export function accountGrantCases(
       managerId,
       MANAGER_SLUG,
     );
-    expect(taken.data).toEqual({ userId, permissions: [READ_POSTS] });
+    expect(taken.data).toEqual({
+      userId,
+      permissions: [READ_POSTS],
+      version: 2,
+    });
     expect(
       await refusalOf(
         services.adminPermissions.removePermission(
@@ -188,7 +193,12 @@ export function accountGrantCases(
     expect(
       (await services.adminPermissions.getUserPermissions(userId, MANAGER_SLUG))
         .data,
-    ).toEqual({ userId, permissions: [READ_POSTS], role: DEFAULT_SLUG });
+    ).toEqual({
+      userId,
+      permissions: [READ_POSTS],
+      role: DEFAULT_SLUG,
+      version: 2,
+    });
   });
 
   it('still reads the grants of a deactivated account, as the read never asked', async () => {
@@ -202,6 +212,7 @@ export function accountGrantCases(
       userId,
       permissions: [READ_USERS],
       role: DEFAULT_SLUG,
+      version: 1,
     });
     expect(
       await refusalOf(services.permissions.addPermission(userId, READ_POSTS)),

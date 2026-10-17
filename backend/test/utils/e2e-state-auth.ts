@@ -119,6 +119,9 @@ export interface E2eAccountState {
 
 /** Mailed codes, their counters and mailed links. */
 export interface E2ePendingCodeState {
+  // feature:totp:start
+  countSecondFactorChallenges(): Promise<number>;
+  // feature:totp:end
   countAddressClaims(address: string): Promise<number>;
   storePendingRegistration(record: E2eNewPendingRegistration): Promise<void>;
   pendingRegistrationFor(email: string): Promise<E2ePendingRegistration | null>;

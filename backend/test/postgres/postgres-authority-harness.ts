@@ -1,3 +1,4 @@
+import { SessionExpiry } from '../../src/session/authority/session-expiry';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { AuthEpochService } from '../../src/common/services/auth-epoch.service';
@@ -17,6 +18,7 @@ import { PostgresApplicationRegistryStore } from '../../src/session/persistence/
 import { PostgresAuthorityApplications } from '../../src/session/persistence/postgres/postgres-authority-applications';
 import { PostgresIdFormat } from '../../src/common/persistence/postgres/postgres-id-format';
 import { PostgresSecurityEventStore } from '../../src/session/persistence/postgres/postgres-security-event.store';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import { PostgresSessionAuthorityStore } from '../../src/session/persistence/postgres/postgres-session-authority.store';
 import { PostgresSessionRevocationStore } from '../../src/session/persistence/postgres/postgres-session-revocation.store';
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
@@ -71,6 +73,13 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
         authorityApplications,
         clock,
         authEpoch,
+        new SessionExpiry(
+          new PostgresUnitOfWorkRunner(database),
+          new PostgresEnrolmentStore(),
+          issuance.applications,
+          revocationStore,
+          clock,
+        ),
       ),
     revoker: (pause) =>
       new SessionRevoker(
@@ -97,11 +106,22 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
           }
         : null;
     },
+    clearSessionEvidence: async (sessionId) => {
+      await database
+        .updateTable('sessions')
+        .set({ user_verified: false, policy_version: 0 })
+        .where('id', '=', sessionId)
+        .execute();
+    },
     patchSession: async (sessionId, patch) => {
       await database
         .updateTable('sessions')
         .set({
+          revoked_at: patch.revokedAt,
+          proof_key_thumbprint: patch.proofKeyThumbprint,
           credential_purpose: patch.credentialPurpose,
+          user_verified: patch.userVerified,
+          policy_version: patch.policyVersion,
           auth_epoch: patch.authEpoch,
           schema_version: patch.schemaVersion,
           user_version: patch.userVersion,
@@ -144,6 +164,7 @@ export async function bootPostgresAuthority(): Promise<PostgresAuthorityBoot> {
           email: identity.email,
           name: identity.name,
           role: identity.role,
+          audience: identity.audience,
           permissions: identity.permissions,
           is_verified: identity.verified,
         })

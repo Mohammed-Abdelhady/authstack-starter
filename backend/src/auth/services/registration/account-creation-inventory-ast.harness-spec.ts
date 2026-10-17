@@ -11,21 +11,35 @@ import {
   constantInitializers,
   indirectInsertReference,
   memberName,
+  memberReceiver,
   nearestFunction,
   ownerOf,
   walk,
 } from './account-creation-inventory-nodes.harness-spec';
 import { rawInsertMatcher } from './account-creation-inventory-raw.harness-spec';
 
+function policyStatement(
+  policy: ts.CallExpression,
+): ts.ExpressionStatement | ts.VariableStatement | undefined {
+  if (!ts.isAwaitExpression(policy.parent)) return undefined;
+  const parent = policy.parent.parent;
+  if (ts.isExpressionStatement(parent)) return parent;
+  if (
+    ts.isVariableDeclaration(parent) &&
+    ts.isVariableDeclarationList(parent.parent) &&
+    ts.isVariableStatement(parent.parent.parent)
+  ) {
+    return parent.parent.parent;
+  }
+  return undefined;
+}
+
 function dominatingPolicy(
   policy: ts.CallExpression,
   insert: ts.CallExpression,
 ): boolean {
-  if (!ts.isAwaitExpression(policy.parent)) return false;
-  const statement = policy.parent.parent;
-  if (!ts.isExpressionStatement(statement) || !ts.isBlock(statement.parent)) {
-    return false;
-  }
+  const statement = policyStatement(policy);
+  if (!statement || !ts.isBlock(statement.parent)) return false;
   const block = statement.parent;
   let insertStatement: ts.Node = insert;
   while (insertStatement.parent && insertStatement.parent !== block) {
@@ -195,11 +209,14 @@ export function replaceInventoryCall(
     }
   });
   if (!selected) throw new Error(`Missing fixture call ${file}#${method}`);
+  const changed = replacement(selected.getText());
+  if (changed === selected.getText())
+    throw new Error(`Fixture mutation did not change ${file}#${method}`);
   const mutated = new Map(documents);
   mutated.set(
     file,
     text.slice(0, selected.getStart()) +
-      replacement(selected.getText()) +
+      changed +
       text.slice(selected.getEnd()),
   );
   return mutated;
@@ -212,15 +229,13 @@ export function moveInventoryPolicyToEnd(
   const text = documents.get(file);
   if (text === undefined) throw new Error(`Missing fixture source ${file}`);
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-  let selected: ts.ExpressionStatement | undefined;
+  let selected: ts.ExpressionStatement | ts.VariableStatement | undefined;
   walk(source, (node) => {
     if (
       ts.isCallExpression(node) &&
-      memberName(node.expression) === 'assertMayCreate' &&
-      ts.isAwaitExpression(node.parent) &&
-      ts.isExpressionStatement(node.parent.parent)
+      memberName(node.expression) === 'assertMayCreate'
     ) {
-      selected ??= node.parent.parent;
+      selected ??= policyStatement(node);
     }
   });
   const body = selected && nearestFunction(selected);
@@ -235,4 +250,41 @@ export function moveInventoryPolicyToEnd(
       text.slice(insertion),
   );
   return mutated;
+}
+
+function mutationCall(call: string): ts.CallExpression {
+  const source = ts.createSourceFile(
+    'mutation.ts',
+    call,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const statement = source.statements[0];
+  if (
+    !statement ||
+    !ts.isExpressionStatement(statement) ||
+    !ts.isCallExpression(statement.expression)
+  )
+    throw new Error('Fixture mutation requires a direct call');
+  return statement.expression;
+}
+
+export function replaceInventoryArgument(index: number) {
+  return (call: string): string => {
+    const argument = mutationCall(call).arguments[index];
+    if (!argument) throw new Error(`Fixture call has no argument ${index}`);
+    return (
+      call.slice(0, argument.getStart()) +
+      'otherUnitOfWork' +
+      call.slice(argument.getEnd())
+    );
+  };
+}
+
+export function replaceInventoryReceiver(call: string): string {
+  const receiver = memberReceiver(mutationCall(call).expression);
+  if (!receiver) throw new Error('Fixture call has no receiver');
+  return (
+    call.slice(0, receiver.getStart()) + 'store' + call.slice(receiver.getEnd())
+  );
 }

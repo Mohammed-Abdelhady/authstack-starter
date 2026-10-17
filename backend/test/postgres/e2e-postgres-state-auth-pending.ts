@@ -52,6 +52,15 @@ export function postgresPendingCodeState(
   };
 
   return {
+    // feature:totp:start
+    countSecondFactorChallenges: async () => {
+      const row = await database
+        .selectFrom('two_factor_challenges')
+        .select((select) => select.fn.countAll<string>().as('count'))
+        .executeTakeFirstOrThrow();
+      return Number(row.count);
+    },
+    // feature:totp:end
     countAddressClaims: async (address) => {
       const row = await database
         .selectFrom('address_claims')

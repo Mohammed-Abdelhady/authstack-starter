@@ -1,5 +1,5 @@
 import { Kysely, PostgresDialect, PostgresPool, sql } from 'kysely';
-import { Client, Pool, PoolClient } from 'pg';
+import { Client, Pool, PoolClient, type PoolConfig } from 'pg';
 import { commitCheckedPool } from '../../src/common/persistence/postgres/postgres-commit-tag';
 import {
   openPostgresDatabase,
@@ -24,6 +24,8 @@ const END_SESSIONS = `
 const WITH_OPEN_WORK = ' AND xact_start IS NOT NULL';
 /** The server's own bound on waiting for one session to go. */
 const SESSION_END_WAIT_MS = 30_000;
+
+type TestPoolLimits = Pick<PoolConfig, 'max' | 'connectionTimeoutMillis'>;
 
 /**
  * Every table of the adapter. A reset empties all of them in one statement,
@@ -54,7 +56,15 @@ const EVERY_TABLE: Record<keyof PostgresTables, true> = {
   user_recovery_codes: true, // feature:totp
   user_two_factor: true, // feature:totp
   user_linked_accounts: true,
+  session_proofs: true,
+  staff_idempotency_keys: true,
+  invitations: true, // feature:invitations
   users: true,
+  erasure_jobs: true,
+  account_deletion_receipts: true,
+  provider_tokens: true, // feature:oauth-core
+  provider_revocations: true, // feature:oauth-core
+  provider_link_tickets: true, // feature:oauth-core
 };
 const [FIRST_TABLE, ...OTHER_TABLES] = Object.keys(EVERY_TABLE);
 /**
@@ -118,9 +128,12 @@ export function ignoreSessionEnd(error: unknown): void {
 }
 
 /** A harness on the adapter's own dialect. */
-export function openTestConnection(): Promise<TestConnection> {
+export function openTestConnection(
+  limits?: TestPoolLimits,
+): Promise<TestConnection> {
   return openTestConnectionOn(
     (pool) => new PostgresDialect({ pool: commitCheckedPool(pool) }),
+    limits,
   );
 }
 
@@ -131,9 +144,10 @@ export function openTestConnection(): Promise<TestConnection> {
  */
 export async function openTestConnectionOn<Dialect extends PostgresDialect>(
   makeDialect: (pool: PostgresPool) => Dialect,
+  limits?: TestPoolLimits,
 ): Promise<TestConnection<Dialect>> {
   const server = await startPostgresTestServer();
-  const pool = new Pool(server.connection);
+  const pool = new Pool({ ...server.connection, ...limits });
   const open = new Set<PoolClient>();
   let whenNoneOpen: (() => void) | undefined;
   // An idle connection the server drops must not take the test process down.

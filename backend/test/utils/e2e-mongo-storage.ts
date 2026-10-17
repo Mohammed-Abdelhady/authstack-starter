@@ -3,6 +3,7 @@ import { getConnectionToken } from '@nestjs/mongoose';
 import type { TestingModuleBuilder } from '@nestjs/testing';
 import mongoose, { Connection, STATES } from 'mongoose';
 import { mongoAuthState } from './e2e-mongo-state-auth';
+import { mongoEnrolmentState } from './e2e-mongo-state-enrolment'; // feature:passkeys
 import type {
   AttachedE2eStorage,
   E2eStorage,
@@ -66,10 +67,22 @@ function createMongoE2eStorage(
           auth: mongoAuthState(app),
           native: mongoNativeState(app),
           records: mongoRecordsState(app),
+          enrolment: mongoEnrolmentState(app), // feature:passkeys
         },
         empty: async () => {
-          for (const collection of Object.values(connection.collections))
-            await collection.deleteMany({});
+          if (!connection.db)
+            throw new Error('MongoDB connection is not ready');
+          const collections = await connection.db
+            .listCollections(
+              {
+                type: 'collection',
+                name: { $not: /^system\./u },
+              },
+              { nameOnly: true },
+            )
+            .toArray();
+          for (const collection of collections)
+            await connection.db.collection(collection.name).deleteMany({});
         },
         seedApplications: async () => {
           await applications.seedFirstPartyApplications();

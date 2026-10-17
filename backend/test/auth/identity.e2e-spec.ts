@@ -144,7 +144,7 @@ describe('public identity bootstrap (e2e)', () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const sessions = e2e.app.get(Sessions, { strict: false });
     const validate = jest
-      .spyOn(sessions, 'validateSession')
+      .spyOn(sessions, 'validateBrowserSession')
       .mockRejectedValueOnce(new PersistenceUnavailableError());
     try {
       const answer = await browser.get('/api/auth/identity').expect(503);
