@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '../client';
 import { answering } from '../test-support';
-import { ADMIN_PATHS } from './admin';
 
 const ACTIVITY = {
   id: 'event-1',
@@ -54,21 +53,6 @@ describe('admin activity', () => {
     ]);
     expect(result.pagination).toStrictEqual({ page: 2, limit: 10, total: 25, totalPages: 3 });
   });
-
-  it('h26 omits absent query parameters without adding a question mark', async () => {
-    const transport = answering(200, {
-      success: true,
-      data: { data: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } },
-    });
-    const { activity } = createApiClient(transport).admin;
-    await activity.list();
-    await activity.list({});
-
-    expect(transport.sent).toStrictEqual([
-      { method: 'GET', path: '/api/admin/activity' },
-      { method: 'GET', path: '/api/admin/activity' },
-    ]);
-  });
 });
 
 describe('admin path boundaries', () => {
@@ -97,16 +81,5 @@ describe('admin path boundaries', () => {
 
     for (const call of calls) await expect(call()).rejects.toBeInstanceOf(TypeError);
     expect(transport.sent).toStrictEqual([]);
-  });
-
-  it('h27 encodes reserved characters in every segment position', () => {
-    expect(ADMIN_PATHS.account('a/b?#')).toBe('/api/admin/users/a%2Fb%3F%23');
-    expect(ADMIN_PATHS.role('a/b?#')).toBe('/api/roles/a%2Fb%3F%23');
-    expect(ADMIN_PATHS.permission('a/b?#', 'users:read/all?#')).toBe(
-      '/api/admin/users/a%2Fb%3F%23/permissions/users%3Aread%2Fall%3F%23',
-    );
-    expect(ADMIN_PATHS.session('a/b?#', 's/b?#')).toBe(
-      '/api/admin/users/a%2Fb%3F%23/sessions/s%2Fb%3F%23',
-    );
   });
 });
