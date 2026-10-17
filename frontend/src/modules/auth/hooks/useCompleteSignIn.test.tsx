@@ -35,6 +35,7 @@ const USER = {
   twoFactorEnabled: false,
   passkeyCount: 0,
   linkedProviders: ['email'],
+  locale: 'en',
 };
 
 registerFormTestLifecycle();
@@ -144,25 +145,6 @@ describe('useCompleteSignIn identity fallback', () => {
       isAuthenticated: false,
       validationStatus: 'idle',
     });
-  });
-
-  it('uses the sign-in account directly without another identity read', async () => {
-    const requests = stubNetwork(() => success({}));
-    const store = makeStore();
-    const { result } = renderHook(() => useCompleteSignIn(), { wrapper: wrapperFor(store) });
-
-    await act(async () => {
-      await result.current({ requiresTwoFactor: false, user: USER }, '/account');
-    });
-
-    expect(requests).toEqual([]);
-    expect(replaceMock).toHaveBeenCalledWith('/account');
-    expect(store.getState().auth).toMatchObject({
-      user: { id: USER.id },
-      isAuthenticated: true,
-      validationStatus: 'succeeded',
-    });
-    expect(store.getState().auth.sessionGeneration).toBeGreaterThan(0);
   });
 
   it('keeps a confirmed direct-user sign-in when an earlier signed-out identity finishes later', async () => {

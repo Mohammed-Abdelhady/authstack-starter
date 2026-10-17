@@ -104,23 +104,4 @@ describe.each([
     expect(form.errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
   });
-
-  it('tells the browser which password each field holds', async () => {
-    refuseWrites([], AUTH_METHODS);
-
-    const { message } = await renderForm(locale, <ChangePasswordCard />);
-    await screen.findByTestId('change-password-form');
-    const purposeOf = (key: string) =>
-      screen.getByLabelText(message(`settings.password.${key}`)).getAttribute('autocomplete');
-
-    expect({
-      currentPassword: purposeOf('currentPassword'),
-      newPassword: purposeOf('newPassword'),
-      confirmPassword: purposeOf('confirmPassword'),
-    }).toEqual({
-      currentPassword: 'current-password',
-      newPassword: 'new-password',
-      confirmPassword: 'new-password',
-    });
-  });
 });

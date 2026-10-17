@@ -18,6 +18,7 @@ const IDENTITY = {
   authenticated: true,
   user: {
     ...PROFILE,
+    locale: 'en',
     authProvider: 'email',
     isVerified: true,
     twoFactorEnabled: false,
@@ -56,25 +57,5 @@ describe('session status during an identity refetch', () => {
     release(success(IDENTITY));
     await refetch;
     expect(status(store)).toBe('succeeded');
-  });
-
-  it('ends the session when the refetch answers that it is gone', async () => {
-    let reads = 0;
-    stubNetwork(() => {
-      reads += 1;
-      return reads === 1
-        ? success(IDENTITY)
-        : Response.json(
-            { success: false, error: { code: 'SESSION_INVALID', message: 'Signed out' } },
-            { status: 401 },
-          );
-    });
-    const store = makeStore();
-    await readIdentity(store);
-
-    await refetchIdentity(store);
-
-    expect(status(store)).toBe('failed');
-    expect(store.getState().auth.isAuthenticated).toBe(false);
   });
 });

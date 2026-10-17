@@ -24,6 +24,7 @@ vi.mock('sonner', () => ({
 }));
 
 export const SIGNED_IN_USER: User = {
+  locale: 'en',
   id: 'user-1',
   email: 'layla@example.com',
   name: 'Layla Haddad',

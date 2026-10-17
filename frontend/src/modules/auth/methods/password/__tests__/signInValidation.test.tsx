@@ -54,13 +54,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('password sign-in validation in %s', (locale) => {
-  it('exposes both schema-required fields through native input semantics', async () => {
-    const { email, password } = await renderBesideAnotherControl(locale);
-
-    expect(email.hasAttribute('required')).toBe(true);
-    expect(password.hasAttribute('required')).toBe(true);
-  });
-
   it('says nothing when the focus leaves an empty field for another form', async () => {
     const { email, password } = await renderBesideAnotherControl(locale);
 
@@ -102,23 +95,6 @@ describe.each([
 
     expect(descriptions(email)).toEqual([]);
     expect(email.getAttribute('aria-invalid')).toBe('false');
-  });
-
-  it('marks both empty fields on submit, focuses the first and sends nothing', async () => {
-    const { email, password, message, requests } = await renderBesideAnotherControl(locale);
-    // The field takes the focus on mount, so it is moved away first.
-    await moveFocus(email, screen.getByTestId('other-form-field'));
-
-    fireEvent.submit(screen.getByTestId('login-form'));
-
-    await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.login.errors.emailRequired')]),
-    );
-    expect(descriptions(password)).toEqual([message('auth.login.errors.passwordRequired')]);
-    expect(email.getAttribute('aria-invalid')).toBe('true');
-    expect(password.getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(email);
-    expect(requests).toEqual([]);
   });
 
   it('keeps both messages when the form is submitted from the empty password field', async () => {

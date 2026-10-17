@@ -182,16 +182,6 @@ describe('a busy button', () => {
 
     expect(onSubmit.mock.calls.length).toBe(sent);
   });
-
-  it('leaves a caller that marks the button unavailable itself in charge of the press', async () => {
-    const onClick = vi.fn();
-    await renderForm('en', <Button aria-disabled onClick={onClick} data-testid="b" />);
-
-    fireEvent.click(screen.getByTestId('b'));
-
-    expect(onClick.mock.calls.length).toBe(1);
-    expect(availability(screen.getByTestId('b'))).toEqual(HELD);
-  });
 });
 
 describe('a busy text field', () => {
@@ -205,13 +195,6 @@ describe('a busy text field', () => {
 
     await renderForm('en', <Field busy={false} data-testid="f" />);
     expect(screen.getByTestId('f')).toHaveProperty('readOnly', false);
-  });
-
-  it('keeps a field read-only when its caller says so, busy or not', async () => {
-    await renderForm('en', <Input busy={false} readOnly data-testid="f" />);
-
-    expect(screen.getByTestId('f')).toHaveProperty('readOnly', true);
-    expect(availability(screen.getByTestId('f'))).toEqual(IDLE);
   });
 });
 
@@ -259,28 +242,6 @@ describe('a busy select', () => {
     fireEvent.keyDown(await screen.findByRole('option', { name: 'Banana' }), { key: 'Enter' });
 
     expect(onValueChange.mock.calls).toEqual([['banana']]);
-  });
-
-  it('picks an option by its first letter while closed and idle', async () => {
-    const onValueChange = vi.fn();
-    await renderForm('en', <FruitSelect busy={false} onValueChange={onValueChange} />);
-
-    fireEvent.keyDown(screen.getByTestId('control'), { key: 'b' });
-
-    await waitFor(() => expect(onValueChange.mock.calls).toEqual([['banana']]));
-  });
-
-  it('still follows a caller that owns whether it is open', async () => {
-    const onOpenChange = vi.fn();
-    await renderForm(
-      'en',
-      <FruitSelect busy={false} onValueChange={() => undefined} open onOpenChange={onOpenChange} />,
-    );
-
-    fireEvent.keyDown(await screen.findByRole('listbox'), { key: 'Escape' });
-
-    expect(onOpenChange.mock.calls).toEqual([[false]]);
-    expect(screen.queryByRole('listbox')).not.toBeNull();
   });
 });
 

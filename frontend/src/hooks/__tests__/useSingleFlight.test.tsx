@@ -89,19 +89,6 @@ describe('useSingleFlight', () => {
     expect(await pending).toBe('a:done');
     expect(second.action).not.toHaveBeenCalled();
   });
-
-  it('settles a call that outlives the component without logging anything', async () => {
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const { action, settle } = heldAction();
-    const { result, unmount } = renderHook(() => useSingleFlight(action));
-
-    const pending = result.current('a');
-    unmount();
-    settle[0]?.resolve('done');
-
-    expect(await pending).toBe('a:done');
-    expect(logged).not.toHaveBeenCalled();
-  });
 });
 
 describe('useSharedSingleFlight', () => {

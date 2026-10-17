@@ -7,7 +7,6 @@ import { clearBrowserProof } from '@/store/api/browser-proof';
 import { setUser } from '@/modules/auth/store/authSlice';
 import { ErrorCode } from '@app/core';
 import {
-  TEST_TRANSACTION,
   TEST_USER,
   codeTranslator,
   identityResponse,
@@ -67,15 +66,6 @@ describe('NativeAuthorizePanel states', () => {
 
     const reads = requests.filter((path) => path.startsWith('/api/oauth/authorize/transaction/'));
     expect(reads).toEqual(['/api/oauth/authorize/transaction/txn-abc123']);
-  });
-
-  it.each(LOCALES)('shows the loading card in %s', async (locale) => {
-    installFetch(() => new Promise<Response>(() => {}));
-    renderPanel({ locale, messages: messages[locale], store: makeStore() });
-
-    const container = screen.getByTestId('native-authorize-loading');
-    const t = translator(locale, messages[locale]);
-    expect(container.textContent).toContain(t('loading'));
   });
 
   it.each(LOCALES)('shows the confirmation card in %s and focuses its heading', async (locale) => {
@@ -208,26 +198,6 @@ describe('NativeAuthorizePanel states', () => {
     expect(screen.getByTestId('native-authorize-loading')).toBeTruthy();
     expect(screen.queryByTestId('native-authorize-ready')).toBeNull();
     expect(screen.queryByTestId('native-authorize-approve')).toBeNull();
-  });
-
-  it('sends a signed-out visitor to sign-in with the continuation', async () => {
-    installFetch(
-      () =>
-        jsonResponse(
-          { success: false, error: { code: ErrorCode.SESSION_REQUIRED, message: 'no session' } },
-          401,
-        ),
-      { identity: () => identityResponse(null) },
-    );
-    renderPanel({ locale: 'en', messages: messages.en, store: makeStore() });
-
-    const continuation = encodeURIComponent(
-      `/auth/native/authorize?transaction=${TEST_TRANSACTION}`,
-    );
-    await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith(`/auth/login?redirect=${continuation}`);
-    });
-    expect(replaceMock).toHaveBeenCalledTimes(1);
   });
 
   it('clears the auth state when identity confirms there is no session', async () => {

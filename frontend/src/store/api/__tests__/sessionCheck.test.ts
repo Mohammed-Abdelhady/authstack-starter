@@ -26,6 +26,7 @@ const PROFILE = {
   twoFactorEnabled: false,
   passkeyCount: 0,
   linkedProviders: ['email'],
+  locale: 'en',
 };
 
 const SIGNED_IN = { authenticated: true, user: PROFILE } as const;

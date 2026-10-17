@@ -54,7 +54,7 @@ async function boot(storage: Storage) {
     reducer: persistReducer(authPersistence(storage), reducer),
     middleware: (getDefaultMiddleware) => getDefaultMiddleware({ serializableCheck: false }),
   });
-  let ready!: () => void;
+  let ready: () => void = () => undefined;
   const rehydrated = new Promise<void>((resolve) => {
     ready = resolve;
   });
@@ -70,7 +70,9 @@ describe('auth persistence', () => {
     first.store.dispatch({ type: 'login' });
     await first.persistor.flush();
     first.persistor.pause();
-    expect(Object.keys(JSON.parse(values.get('persist:auth')!) as object).sort()).toEqual([
+    const serialized = values.get('persist:auth');
+    if (serialized === undefined) throw new Error('Expected persisted auth snapshot');
+    expect(Object.keys(JSON.parse(serialized) as object).sort()).toEqual([
       '_persist',
       'isAuthenticated',
     ]);

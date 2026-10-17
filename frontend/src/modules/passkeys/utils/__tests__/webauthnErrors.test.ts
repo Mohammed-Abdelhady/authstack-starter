@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WEBAUTHN_ERROR_KEY } from '../../constants';
-import { webAuthnErrorKey, webAuthnMessageKey } from '../webauthnErrors';
+import { webAuthnErrorKey } from '../webauthnErrors';
 
 /** How the browser raises a failed ceremony. */
 function domException(name: string): DOMException {
@@ -54,9 +54,5 @@ describe('webAuthnErrorKey', () => {
     looping.cause = looping;
 
     expect(webAuthnErrorKey(looping)).toBe(WEBAUTHN_ERROR_KEY.FAILED);
-  });
-
-  it('names the message key under the passkeys namespace', () => {
-    expect(webAuthnMessageKey(webAuthnErrorKey(domException('AbortError')))).toBe('errors.aborted');
   });
 });

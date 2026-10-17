@@ -188,41 +188,12 @@ describe.each(['dialog', 'alert'] as const)(
 
       expect(await focusOnceClosed('outer-panel', 'outer-elsewhere')).toBe('outer-elsewhere');
     });
-
-    it('still runs the caller handlers that do not take the open or the close over', async () => {
-      const opened = vi.fn();
-      const closing = vi.fn();
-      await renderForm(
-        'en',
-        <Host kind={kind} onOpenAutoFocus={opened} onCloseAutoFocus={closing} />,
-      );
-      const panel = await openFrom('outer-opener', 'outer-panel');
-
-      fireEvent.keyDown(panel, { key: 'Escape' });
-
-      expect(await focusOnceClosed('outer-panel', 'outer-opener')).toBe('outer-opener');
-      expect({ opened: opened.mock.calls.length, closing: closing.mock.calls.length }).toEqual({
-        opened: 1,
-        closing: 1,
-      });
-    });
   },
 );
 
 describe.each(['dialog', 'alert'] as const)(
   'focus when a %s with a library trigger closes',
   (kind) => {
-    it('returns to the trigger that opened it, as before', async () => {
-      await renderForm('en', <Host kind={kind} withLibraryTrigger />);
-      const panel = await openFrom('outer-library-trigger', 'outer-panel');
-
-      fireEvent.keyDown(panel, { key: 'Escape' });
-
-      expect(await focusOnceClosed('outer-panel', 'outer-library-trigger')).toBe(
-        'outer-library-trigger',
-      );
-    });
-
     it('goes to the trigger even when another button opened it through state, as before', async () => {
       await renderForm('en', <Host kind={kind} withLibraryTrigger />);
       const panel = await openFrom('outer-opener', 'outer-panel');

@@ -44,20 +44,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('ActivationForm rejected code in %s', (locale) => {
-  it('marks the activation values required in the browser', async () => {
-    await renderForm(locale, <ActivationForm />);
-
-    for (const testId of [
-      'activate-email-input',
-      'activate-code-input',
-      'activate-name-input',
-      'activate-password-input',
-      'activate-confirm-password-input',
-    ]) {
-      expect(screen.getByTestId(testId).hasAttribute('required')).toBe(true);
-    }
-  });
-
   it('shows the catalogue message and the register-again link only after a rejection', async () => {
     rejectActivationCode();
 

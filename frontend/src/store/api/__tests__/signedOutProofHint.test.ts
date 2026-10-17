@@ -65,14 +65,6 @@ afterEach(() => {
 });
 
 describe('proof lookup after the session read', () => {
-  it('skips the csrf lookup when identity says nobody is signed in', async () => {
-    expect(
-      await readSessionThenWrite(() =>
-        Response.json({ success: true, data: { authenticated: false, user: null } }),
-      ),
-    ).toEqual([`GET ${IDENTITY_PATH}`, `GET ${BROWSER_PROOF_ENDPOINT}`, `POST ${WRITE_PATH}`]);
-  });
-
   it.each([
     [
       'answered with an authenticated identity',

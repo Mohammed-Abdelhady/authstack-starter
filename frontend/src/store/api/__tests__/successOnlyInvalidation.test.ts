@@ -39,6 +39,7 @@ registerFormTestLifecycle();
 
 const IDENTITY_PATH = '/api/auth/identity';
 const IDENTITY_USER: User = {
+  locale: 'en',
   ...PROFILE,
   authProvider: 'email',
   isVerified: true,
@@ -80,7 +81,7 @@ it('refetches a deleted user as 404 and reports the failed detail read', async (
   const store = makeStore();
   await readUsers(store);
   await readUser(store);
-  await store.dispatch(usersApi.endpoints.deleteUser.initiate('user-2'));
+  await store.dispatch(usersApi.endpoints.deleteUser.initiate({ userId: 'user-2', version: 0 }));
   await Promise.all(store.dispatch(baseApi.util.getRunningQueriesThunk()));
 
   expect(requests).toEqual([

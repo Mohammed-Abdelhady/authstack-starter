@@ -27,7 +27,10 @@ export const UNTAGGED: MutationCase[] = [
   {
     name: 'resendEmailChange',
     reads: READ_SET,
-    write: (store) => store.dispatch(usersApi.endpoints.resendEmailChange.initiate('user-2')),
+    write: (store) =>
+      store.dispatch(
+        usersApi.endpoints.resendEmailChange.initiate({ userId: 'user-2', version: 0 }),
+      ),
     accepted: { message: 'Confirmation sent' },
     requests: [
       GET_PROFILE,

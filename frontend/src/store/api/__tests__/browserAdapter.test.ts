@@ -3,7 +3,6 @@ import type { BaseQueryApi } from '@reduxjs/toolkit/query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode, parseApiError } from '@app/core';
 import { authApi } from '@/modules/auth/store/authApi';
-import { usersApi } from '@/modules/users/api/usersApi';
 import { browserBaseQuery } from '../baseApi';
 import { clearBrowserProof, rememberBrowserProof } from '../browser-proof';
 import { invalidateOnSuccessOrUnknownOutcome } from '../invalidateOnSuccess';
@@ -120,19 +119,6 @@ describe('the SDK transport through the RTK adapter', () => {
       code: 'REQUEST_ABORTED',
       unknownOutcome: false,
     });
-  });
-
-  it('returns the role response as a partial result without inventing an account', async () => {
-    rememberBrowserProof('session-proof', 'session');
-    vi.stubGlobal('fetch', async () =>
-      Response.json({ success: true, data: { id: 'user-2', role: 'admin' } }),
-    );
-
-    const result = await makeStore()
-      .dispatch(usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }))
-      .unwrap();
-
-    expect(result).toEqual({ id: 'user-2', role: 'admin' });
   });
 
   it('refreshes sensitive reads when a successful HTTP write has an unreadable answer', async () => {

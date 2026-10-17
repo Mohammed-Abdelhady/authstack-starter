@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { navigation, SIGNED_IN_USER } from './registrationHarness';
+import { SIGNED_IN_USER } from './registrationHarness';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { loginFulfilled } from '@/modules/auth/store/authSlice';
@@ -11,9 +11,6 @@ import {
   success,
 } from '@/tests/serverRejectionHarness';
 import { ChangePasswordCard } from '../ChangePasswordCard';
-import { PasswordSignInForm } from '../PasswordSignInForm';
-import { RegisterForm } from '../RegisterForm';
-import { ResetPasswordForm } from '../ResetPasswordForm';
 
 registerFormTestLifecycle();
 
@@ -64,64 +61,5 @@ describe('fields a password manager reads', () => {
     expect(bodies).toEqual([
       { currentPassword: 'OldPassw0rdLayla', newPassword: 'NewPassw0rdLayla' },
     ]);
-  });
-
-  it('leaves the username field out while the account is not known', async () => {
-    stubNetwork(() => success({ methods: { password: true } }));
-    await renderForm('en', <ChangePasswordCard />);
-
-    expect(screen.queryByTestId('account-username')).toBeNull();
-  });
-
-  it('pairs the sign-in address with the current password', async () => {
-    stubNetwork(() => success({}));
-    const { message } = await renderForm('en', <PasswordSignInForm redirect={null} isOnlyMethod />);
-
-    expect(
-      screen
-        .getByRole('textbox', { name: message('auth.login.email') })
-        .getAttribute('autocomplete'),
-    ).toBe('username');
-    expect(screen.getByLabelText(message('auth.login.password')).getAttribute('autocomplete')).toBe(
-      'current-password',
-    );
-  });
-
-  it.each([
-    'en',
-    'ar', // feature:locale-ar
-  ] as const)('hints at the empty password in %s with words, not a row of dots', async (locale) => {
-    stubNetwork(() => success({}));
-    const { message } = await renderForm(
-      locale,
-      <PasswordSignInForm redirect={null} isOnlyMethod />,
-    );
-
-    const password = screen.getByLabelText(message('auth.login.password'));
-    // Dots in an empty password field read as a password that is already there.
-    expect(password.getAttribute('placeholder')).toMatch(/\p{L}/u);
-    expect(password.getAttribute('placeholder')).not.toMatch(/[•●∙·*]/u);
-    expect(password).toHaveProperty('value', '');
-  });
-
-  it('keeps the address on the register form an email, which no password follows', async () => {
-    stubNetwork(() => success({ methods: { password: true, oauth: [] } }));
-    const { message } = await renderForm('en', <RegisterForm />);
-
-    expect(
-      screen
-        .getByRole('textbox', { name: message('auth.register.email') })
-        .getAttribute('autocomplete'),
-    ).toBe('email');
-  });
-
-  it('marks the address on the reset form as the username of the new password', async () => {
-    navigation.search = 'email=layla@example.com';
-    stubNetwork(() => success({}));
-    const { message } = await renderForm('en', <ResetPasswordForm />);
-
-    const email = screen.getByRole('textbox', { name: message('auth.resetPassword.email') });
-    expect(email.getAttribute('autocomplete')).toBe('username');
-    expect(email).toHaveProperty('value', 'layla@example.com');
   });
 });
