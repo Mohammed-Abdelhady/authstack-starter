@@ -1,3 +1,10 @@
+import {
+  nativePolicyChanged,
+  nativePolicySnapshot,
+} from './native-policy-snapshot';
+import { EventRecorder } from '../../auth/contracts/event-recorder';
+import { SECURITY_EVENT_ACTION } from '../constants/security-event-action';
+import { nativeSessionPolicy } from '../../config/utils/session-limit-config';
 import { Injectable } from '@nestjs/common';
 import {
   runLeavingFailuresAsRaised,
@@ -8,6 +15,7 @@ import {
   UnitOfWorkRunner,
 } from '../../common/persistence/unit-of-work';
 import { AuthEpochService } from '../../common/services/auth-epoch.service';
+import { SIGN_UP_POLICY } from '../../config/constants/host-contracts';
 import type { NativeApplicationConfiguration } from '../../config/types/native-application.type';
 import {
   ADMIN_CLIENT_ID,
@@ -20,8 +28,6 @@ import {
 import {
   ADMIN_ABSOLUTE_LIFETIME_MS,
   ADMIN_IDLE_LIFETIME_MS,
-  NATIVE_ABSOLUTE_LIFETIME_MS,
-  NATIVE_IDLE_LIFETIME_MS,
   WEB_ABSOLUTE_LIFETIME_MS,
   WEB_IDLE_LIFETIME_MS,
 } from '../constants/session-policy';
@@ -49,7 +55,15 @@ export class ApplicationRegistry {
     private readonly unitOfWork: UnitOfWorkRunner,
     private readonly store: ApplicationRegistryStore,
     private readonly authEpoch: AuthEpochService,
+    private readonly events?: EventRecorder,
   ) {}
+
+  hasAccountAudienceIn(unitOfWork: UnitOfWork): Promise<boolean> {
+    return this.store.hasAccountAudience(
+      unitOfWork,
+      this.authEpoch.environment(),
+    );
+  }
 
   /** Judged on a committed authority read. */
   async requireEnabled(clientId: string): Promise<RegisteredApplication> {
@@ -185,6 +199,13 @@ export class ApplicationRegistry {
     }
     const environment = this.authEpoch.environment();
     const configured = this.authEpoch.nativeApplications();
+    const configuredPolicies = configured.map((application) => ({
+      application,
+      policy: nativeSessionPolicy(
+        application.session,
+        `${NATIVE_APPLICATIONS_CONFIG_VARIABLE} entry ${JSON.stringify(application.clientId)}.session`,
+      ),
+    }));
     const clientIds = configured.map(({ clientId }) => clientId);
 
     await runLeavingFailuresAsRaised(this.unitOfWork, async (unitOfWork) => {
@@ -199,7 +220,9 @@ export class ApplicationRegistry {
           throw anotherKind(application.clientId);
         }
       }
-      for (const application of configured) {
+      for (const { application, policy } of configuredPolicies) {
+        const found = stored.get(application.clientId);
+        const changed = nativePolicyChanged(found, application);
         await this.store.storeNativeRegistration(unitOfWork, {
           clientId: application.clientId,
           environment,
@@ -207,15 +230,20 @@ export class ApplicationRegistry {
           redirectUris: application.redirectUris,
           allowedScopes: application.allowedScopes,
           audiences: [DEFAULT_API_AUDIENCE],
-          policy: {
-            absoluteLifetimeMs: NATIVE_ABSOLUTE_LIFETIME_MS,
-            idleLifetimeMs: NATIVE_IDLE_LIFETIME_MS,
-          },
-          endsSessions: endsSessions(
-            stored.get(application.clientId),
-            application,
-          ),
+          policy,
+          policyVersion: (found?.policyVersion ?? 0) + Number(changed),
+          signInMethods: nativePolicySnapshot(application),
+          signUp: application.signUp ?? SIGN_UP_POLICY.OPEN,
+          requirePasskey: application.requirePasskey ?? false,
+          accountAudience: application.audience ?? null,
+          endsSessions: changed || endsSessions(found, application),
         });
+        if (changed) {
+          await this.events?.record(unitOfWork, {
+            clientId: application.clientId,
+            action: SECURITY_EVENT_ACTION.POLICY_CHANGED,
+          });
+        }
       }
       await this.store.disableNativeApplicationsExcept(
         unitOfWork,

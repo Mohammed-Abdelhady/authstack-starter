@@ -30,6 +30,19 @@ export interface RevocationContext {
   roleAssignment?: RoleAssignmentEvent;
 }
 
+/** The role ids a staff role assignment adds to the log. */
+function roleAssignmentDetails(
+  assignment: RoleAssignmentEvent | undefined,
+): Record<string, string> | undefined {
+  if (!assignment) return undefined;
+  return {
+    assignedRoleId: assignment.assignedRoleId,
+    ...(assignment.previousRoleId === undefined
+      ? {}
+      : { previousRoleId: assignment.previousRoleId }),
+  };
+}
+
 /**
  * Ends sessions. One session ends by its own guarded write. Every session of an
  * account ends when the account's version moves past the one they carry, and
@@ -116,6 +129,7 @@ export class SessionRevoker {
       action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_ALL,
       reasonCode: context?.reasonCode ?? REVOKED_REASON.ALL_USER,
       roleAssignment: context?.roleAssignment,
+      details: roleAssignmentDetails(context?.roleAssignment),
     });
     return count;
   }
@@ -159,11 +173,15 @@ export class SessionRevoker {
     );
   }
 
-  /** The same, inside a unit of work the caller owns and commits. */
+  /**
+   * The same, inside a unit of work the caller owns and commits. A change that
+   * ends the other sessions for a reason of its own names it on the event.
+   */
   async revokeAllOthersExceptSessionIn(
     unitOfWork: UnitOfWork,
     userId: string,
     keptSessionId: string,
+    reasonCode: string = REVOKED_REASON.ALL_OTHER,
   ): Promise<number> {
     const account = await this.store.readAccountForRevocation(
       unitOfWork,
@@ -182,12 +200,7 @@ export class SessionRevoker {
       account.id,
     );
     const currentVersion = account.sessionVersion;
-    if (
-      !survivor ||
-      !survivor.isValid ||
-      survivor.revoked ||
-      survivor.userVersion !== currentVersion
-    ) {
+    if (!isLiveAt(survivor, currentVersion)) {
       throw sessionNoLongerActive();
     }
 
@@ -216,9 +229,33 @@ export class SessionRevoker {
       targetUserId: account.id,
       sessionId: survivor.id,
       action: SECURITY_EVENT_ACTION.SESSIONS_REVOKED_OTHERS,
-      reasonCode: REVOKED_REASON.ALL_OTHER,
+      reasonCode,
     });
     return Math.max(0, count - 1);
+  }
+
+  /**
+   * Refuses unless the session is a live session of the account. It reads the
+   * account and the session with the locks ending sessions takes, inside the
+   * caller's unit of work, so a sign-out cannot interleave with the change.
+   *
+   * @throws AppException SESSION_INVALID when the session has ended
+   */
+  async assertLiveSessionIn(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    sessionId: string,
+  ): Promise<void> {
+    const account = await this.store.readAccountForRevocation(
+      unitOfWork,
+      userId,
+    );
+    const session = account
+      ? await this.findSurvivor(unitOfWork, sessionId, account.id)
+      : null;
+    if (!account || !isLiveAt(session, account.sessionVersion)) {
+      throw sessionNoLongerActive();
+    }
   }
 
   /** An id no session could carry names no session to keep. */
@@ -277,6 +314,19 @@ export class SessionRevoker {
       asAuthorityUnavailable(error);
     }
   }
+}
+
+/** Valid, not revoked, and issued at the account's current session version. */
+function isLiveAt(
+  session: RevocableSession | null,
+  sessionVersion: number,
+): session is RevocableSession {
+  return (
+    session !== null &&
+    session.isValid &&
+    !session.revoked &&
+    session.userVersion === sessionVersion
+  );
 }
 
 function sessionNoLongerActive(): AppException {

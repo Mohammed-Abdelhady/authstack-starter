@@ -24,12 +24,15 @@ export const STORED_SESSION_COLUMNS = [
   'client_version',
   'grant_version',
   'authenticated_at',
+  'issued_at',
   'expires_at',
   'idle_expires_at',
   'last_activity_at',
   'proof_key_thumbprint',
   'csrf_token',
   'authentication_methods',
+  'user_verified',
+  'policy_version',
   'created_at',
 ] as const;
 
@@ -51,12 +54,15 @@ export interface StoredSessionRow {
   client_version: number;
   grant_version: number;
   authenticated_at: Date;
+  issued_at: Date | null;
   expires_at: Date;
   idle_expires_at: Date;
   last_activity_at: Date;
   proof_key_thumbprint: string | null;
   csrf_token: string | null;
   authentication_methods: string[];
+  user_verified: boolean;
+  policy_version: number;
   created_at: Date;
 }
 
@@ -127,6 +133,8 @@ export function toStoredSession(row: StoredSessionRow): StoredSession {
     proofKeyThumbprint: row.proof_key_thumbprint,
     csrfToken: row.csrf_token,
     authenticationMethods: [...row.authentication_methods],
+    userVerified: row.user_verified,
+    policyVersion: row.policy_version,
     createdAt: row.created_at,
     isValid: row.is_valid,
     revokedAt: row.revoked_at,
@@ -138,6 +146,7 @@ export function toStoredSession(row: StoredSessionRow): StoredSession {
     clientVersion: row.client_version,
     grantVersion: row.grant_version,
     authenticatedAt: row.authenticated_at,
+    issuedAt: row.issued_at,
     expiresAt: row.expires_at,
     idleExpiresAt: row.idle_expires_at,
     lastActivityAt: row.last_activity_at,

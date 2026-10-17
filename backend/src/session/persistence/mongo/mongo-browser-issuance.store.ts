@@ -188,7 +188,11 @@ export class MongoBrowserIssuanceStore extends BrowserIssuanceStore {
       grantByClientId.set(grant.clientId, toIssuanceGrant(grant));
     }
     return sessions.map((candidate) => ({
-      session: candidate,
+      session: {
+        ...candidate,
+        userVerified: candidate.userVerified ?? false,
+        policyVersion: candidate.policyVersion ?? 0,
+      },
       application: applicationByClientId.get(candidate.clientId) ?? null,
       grant: grantByClientId.get(candidate.clientId) ?? null,
     }));
@@ -203,6 +207,8 @@ export class MongoBrowserIssuanceStore extends BrowserIssuanceStore {
       [
         {
           ...fields,
+          userVerified: fields.userVerified ?? false,
+          policyVersion: fields.policyVersion ?? 0,
           device: deviceLabelOf(fields.device),
           user: toObjectId(userId),
           isValid: true,

@@ -31,7 +31,7 @@ import {
 } from './mongo-session-records';
 import { mongoSessionOf } from './mongo-unit-of-work';
 
-const LIVE = { isValid: true, revokedAt: { $exists: false } } as const;
+const LIVE = { isValid: true, revokedAt: null } as const;
 
 /**
  * Takes the account at the version write and a session at the write that ends

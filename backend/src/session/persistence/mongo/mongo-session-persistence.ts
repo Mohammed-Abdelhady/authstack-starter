@@ -1,3 +1,7 @@
+import { DeviceNoticeStore } from '../../notices/device-notice.store';
+import { MongoDeviceNoticeStore } from './mongo-device-notice.store';
+import { EnrolmentStore } from '../../enrolment/enrolment.store';
+import { MongoEnrolmentStore } from './mongo-enrolment.store';
 import { DynamicModule, Provider, Type } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MONGO_STORAGE_STARTUP } from '../../../common/persistence/mongo/mongo-storage-startup';
@@ -97,6 +101,8 @@ export const MONGO_SESSION_BRIDGES: Type[] = [
 ];
 
 export const MONGO_SESSION_PROVIDERS: Provider[] = [
+  { provide: DeviceNoticeStore, useClass: MongoDeviceNoticeStore },
+  { provide: EnrolmentStore, useClass: MongoEnrolmentStore },
   {
     provide: ApplicationRegistryStore,
     useClass: MongoApplicationRegistryStore,

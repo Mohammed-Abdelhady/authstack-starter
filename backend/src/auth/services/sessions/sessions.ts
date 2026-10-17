@@ -1,3 +1,9 @@
+import type {
+  BrowserApplicationAdmission,
+  AdmittedBrowserSessionRequest,
+} from '../../../session/types/browser-application-admission';
+import type { AccountCreationMethod } from '../../types/account-creation';
+import type { BrowserEvidence } from '../../../session/types/browser-evidence';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   AuthenticatedSession,
@@ -32,18 +38,86 @@ export class Sessions {
     private readonly nativeRevocation: NativeSessionRevocationService,
   ) {}
 
+  assertAdmission(userId: string, clientId: string): Promise<void> {
+    return this.issuance.assertAdmission(userId, clientId);
+  }
+
+  assertAdmissionIn(
+    work: UnitOfWork,
+    userId: string,
+    request: {
+      clientId: string;
+      admit?: BrowserApplicationAdmission | undefined;
+    },
+  ): Promise<number> {
+    return this.issuance.assertAdmissionIn(work, userId, request);
+  }
+
+  createSessionWithAdmission(
+    request: AdmittedBrowserSessionRequest,
+  ): Promise<IssuedBrowserSession> {
+    return this.issuance.createBrowserSessionWithAdmission(request);
+  }
+
+  createSessionIn(
+    work: UnitOfWork,
+    request: {
+      userId: string;
+      userAgent: string;
+      ip: string;
+      clientId: string;
+      evidence: BrowserEvidence;
+      admit?: BrowserApplicationAdmission | undefined;
+    },
+  ): Promise<IssuedBrowserSession> {
+    if (request.admit)
+      return this.issuance.createBrowserSessionWithAdmissionIn(work, {
+        ...request,
+        admit: request.admit,
+      });
+    return this.issuance.createBrowserSessionIn(
+      work,
+      request.userId,
+      request.userAgent,
+      request.ip,
+      request.clientId,
+      request.evidence,
+    );
+  }
+
+  recordCreationRefusal(
+    clientId: string,
+    method: AccountCreationMethod,
+  ): Promise<void> {
+    return this.issuance.recordCreationRefusal(clientId, method);
+  }
+
   async createSession(
     userId: string,
     userAgent: string,
     ip: string,
+    clientId: string,
+    evidence?: BrowserEvidence,
   ): Promise<IssuedBrowserSession> {
     const issued = await this.issuance.createBrowserSession(
       userId,
       userAgent,
       ip,
+      clientId,
+      evidence,
     );
     this.logger.log(`Session created for user ${userId}`);
     return issued;
+  }
+
+  /** Limited browser authority is accepted only by enrolment-aware callers. */
+  async validateBrowserSession(
+    token: string,
+    extendIdle = false,
+  ): Promise<AuthenticatedSession | null> {
+    return this.authenticated.of(
+      await this.validator.validateByToken(token, extendIdle, true),
+    );
   }
 
   async validateSession(token: string): Promise<AuthenticatedSession | null> {

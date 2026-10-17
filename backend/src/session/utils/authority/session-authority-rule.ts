@@ -1,23 +1,29 @@
 import { AUTH_SCHEMA_VERSION } from '../../constants/session-policy';
-import { CredentialPurpose } from '../../constants/credential-purpose';
+import type { CredentialPurpose } from '../../constants/credential-purpose';
 import {
-  addMs,
-  effectiveDeadline,
-  isDeadlinePassed,
-} from '../session/session-deadline';
+  effectiveSessionDeadlines,
+  sessionPastDeadline,
+} from '../session/session-deadlines';
+import type { EffectiveSessionDeadlines } from '../../types/session-deadlines';
 
 /** The stored session facts the authority rule reads, whatever stores them. */
 export interface SessionAuthorityFields {
   isValid: boolean;
   revokedAt?: Date | null;
+  proofKeyThumbprint?: string | null;
   credentialPurpose: CredentialPurpose;
   authEpoch: number;
   schemaVersion: number;
   clientId: string;
+  userVerified?: boolean;
+  policyVersion?: number;
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  /** How fresh the sign-in is. Lifetimes never count from it. */
   authenticatedAt: Date;
+  /** When a mobile session was issued; absent where `authenticatedAt` is that time. */
+  issuedAt?: Date | null;
   expiresAt: Date;
   idleExpiresAt: Date;
   lastActivityAt: Date;
@@ -29,19 +35,20 @@ export interface AccountAuthorityFields {
 }
 
 export interface ApplicationAuthorityFields {
+  platform: string;
   enabled: boolean;
   sessionVersion: number;
-  policy: { absoluteLifetimeMs: number; idleLifetimeMs: number };
+  policy: {
+    absoluteLifetimeMs: number;
+    idleLifetimeMs: number;
+    unboundAbsoluteLifetimeMs?: number;
+    unboundIdleLifetimeMs?: number;
+  };
 }
 
 export interface GrantAuthorityFields {
   allowed: boolean;
   sessionVersion: number;
-}
-
-export interface EffectiveSessionDeadlines {
-  absolute: Date;
-  idle: Date;
 }
 
 export function isValidDate(value: unknown): value is Date {
@@ -91,16 +98,6 @@ export function currentSessionDeadlines(
     return null;
   }
 
-  const absolute = effectiveDeadline(
-    session.expiresAt,
-    addMs(session.authenticatedAt, application.policy.absoluteLifetimeMs),
-  );
-  const idle = effectiveDeadline(
-    session.idleExpiresAt,
-    addMs(session.lastActivityAt, application.policy.idleLifetimeMs),
-  );
-  if (isDeadlinePassed(now, absolute) || isDeadlinePassed(now, idle)) {
-    return null;
-  }
-  return { absolute, idle };
+  const deadlines = effectiveSessionDeadlines(session, application);
+  return sessionPastDeadline(deadlines, now) ? null : deadlines;
 }

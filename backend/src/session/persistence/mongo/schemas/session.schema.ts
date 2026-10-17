@@ -88,8 +88,18 @@ export class Session {
   @Prop({ type: [String], default: [] })
   authenticationMethods!: string[];
 
+  @Prop({ type: Boolean, default: false })
+  userVerified!: boolean;
+
+  @Prop({ type: Number, default: 0, min: 0, validate: Number.isSafeInteger })
+  policyVersion!: number;
+
   @Prop({ required: true })
   authenticatedAt!: Date;
+
+  /** When a mobile session was issued; absent where `authenticatedAt` is that time. */
+  @Prop({ type: Date })
+  issuedAt?: Date;
 
   @Prop()
   stepUpAt?: Date;
