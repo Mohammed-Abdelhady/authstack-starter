@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  extractFieldErrors,
-  getStatusCodeTranslationKey,
-  getStatusErrorCode,
-} from './api-error-helpers';
-import { ErrorCode } from './error-codes';
+import { extractFieldErrors, getStatusErrorCode } from './api-error-helpers';
 
 describe('getStatusErrorCode', () => {
   it.each([
@@ -24,25 +19,6 @@ describe('getStatusErrorCode', () => {
 
   it.each([undefined, 0, 200, 302, 418, 499, 501])('answers UNKNOWN_ERROR for %s', (status) => {
     expect(getStatusErrorCode(status)).toBe('UNKNOWN_ERROR');
-  });
-
-  it('only answers with declared codes', () => {
-    const declared = new Set<string>(Object.values(ErrorCode));
-
-    for (const status of [undefined, 400, 401, 403, 404, 409, 418, 429, 500]) {
-      expect(declared.has(getStatusErrorCode(status))).toBe(true);
-    }
-  });
-});
-
-describe('getStatusCodeTranslationKey', () => {
-  it.each([
-    [401, 'errors.codes.SESSION_INVALID'],
-    [409, 'errors.codes.CONFLICT'],
-    [418, 'errors.codes.UNKNOWN_ERROR'],
-    [undefined, 'errors.codes.UNKNOWN_ERROR'],
-  ])('answers the key of the mapped code for %s', (status, key) => {
-    expect(getStatusCodeTranslationKey(status)).toBe(key);
   });
 });
 

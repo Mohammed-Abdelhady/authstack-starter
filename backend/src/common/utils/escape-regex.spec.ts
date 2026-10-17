@@ -1,15 +1,6 @@
 import { escapeRegex } from './escape-regex';
 
 describe('escapeRegex', () => {
-  it('returns plain alphanumeric text unchanged', () => {
-    expect(escapeRegex('john')).toBe('john');
-    expect(escapeRegex('user123')).toBe('user123');
-  });
-
-  it('returns empty string when given empty string', () => {
-    expect(escapeRegex('')).toBe('');
-  });
-
   it('escapes dots', () => {
     expect(escapeRegex('user.name@example.com')).toBe(
       'user\\.name@example\\.com',

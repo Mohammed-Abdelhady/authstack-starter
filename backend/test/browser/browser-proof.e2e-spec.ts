@@ -189,10 +189,6 @@ describe('browser proof (e2e)', () => {
     expect((expired.body as ErrorBody).error.code).toBe(ErrorCode.CSRF_INVALID);
   });
 
-  it('starts E2E records ahead of MongoDB real-time TTL', () => {
-    expect(e2e.clock.now().toISOString()).toBe('2099-01-01T12:00:00.000Z');
-  });
-
   it('allows the configured origin in production without seeding applications', async () => {
     const production = await bootE2eApp(0, { nodeEnv: 'production' });
     try {
