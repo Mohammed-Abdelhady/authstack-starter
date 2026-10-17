@@ -1,4 +1,6 @@
+import { HttpStatus } from '@nestjs/common';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
+import { AppException } from '../../../../src/common/exceptions/app.exception';
 import { TEST_NOW } from '../../frozen-clock';
 import { holdBefore } from '../../race-gate';
 import { rerunAtOnce } from '../issuance-contract/issuance-contract-support';
@@ -25,6 +27,79 @@ export function sessionRaceCases(harness: AuthorityHarnessSource): void {
     account,
     refusedOr,
   } = raceTools(harness);
+
+  it.each([false, true])(
+    'reconciles a promoted read without accepting revocation or churn: promoteAgain=%s',
+    async (promoteAgain) => {
+      const { userId, kept } = await account();
+      const accountRead = gate();
+      const sessionReread = gate();
+      restoreLater(
+        holdBefore(harness().authorityStore, 'readCommittedAccount', (call) =>
+          call === 0 ? accountRead : undefined,
+        ),
+      );
+      restoreLater(
+        holdBefore(
+          harness().authorityStore,
+          'readCommittedSessionByTokenHash',
+          (call) => (call === 1 ? sessionReread : undefined),
+        ),
+      );
+      const ongoing = harness()
+        .validator()
+        .validateByToken(kept.token, false)
+        .catch((error: unknown) => error);
+      try {
+        await accountRead.reached();
+        await harness()
+          .revoker(rerunAtOnce)
+          .revokeAllOthersExceptSession(userId, kept.sessionId);
+        accountRead.release();
+        await sessionReread.reached();
+        if (promoteAgain) {
+          await harness()
+            .revoker(rerunAtOnce)
+            .revokeAllOthersExceptSession(userId, kept.sessionId);
+        } else {
+          await harness().revoker(rerunAtOnce).revokeByToken(kept.token);
+        }
+        sessionReread.release();
+        const outcome = await ongoing;
+        const stored = await harness().session(kept.sessionId);
+        expect({
+          ongoing:
+            outcome instanceof AppException
+              ? { code: outcome.getCode(), status: outcome.getStatus() }
+              : outcome,
+          keptVersion: stored?.userVersion,
+          keptLive: stored?.isValid,
+          validAfter: await validates(harness(), kept.token),
+        }).toEqual(
+          promoteAgain
+            ? {
+                ongoing: {
+                  code: ErrorCode.AUTHORITY_UNAVAILABLE,
+                  status: HttpStatus.SERVICE_UNAVAILABLE,
+                },
+                keptVersion: 2,
+                keptLive: true,
+                validAfter: true,
+              }
+            : {
+                ongoing: null,
+                keptVersion: 1,
+                keptLive: false,
+                validAfter: false,
+              },
+        );
+      } finally {
+        accountRead.release();
+        sessionReread.release();
+        await ongoing.catch(() => undefined);
+      }
+    },
+  );
 
   it('does not revive a session whose revocation commits while the extension holds its read', async () => {
     const userId = await harness().issuance.seedAccount();
