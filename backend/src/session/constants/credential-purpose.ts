@@ -1,5 +1,6 @@
 export const CREDENTIAL_PURPOSE = {
   BROWSER_SESSION: 'browser_session',
+  ENROLMENT: 'enrolment',
   NATIVE_ACCESS: 'native_access',
   NATIVE_REFRESH: 'native_refresh',
   AUTHORIZATION_CODE: 'authorization_code',

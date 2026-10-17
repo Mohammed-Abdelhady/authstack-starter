@@ -1,4 +1,6 @@
 import { Kysely } from 'kysely';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+
 import {
   AccountIdentity,
   AccountNotHandedOutError,
@@ -41,6 +43,7 @@ const IDENTITY_COLUMNS = [
   'email',
   'name',
   'role',
+  'audience',
   'permissions',
   'is_verified',
 ] as const;
@@ -52,6 +55,7 @@ interface IdentityRow {
   email: string | null;
   name: string | null;
   role: string;
+  audience: RoleAudience | null;
   permissions: string[];
   is_verified: boolean;
 }
@@ -62,6 +66,7 @@ function toAccountIdentity(row: IdentityRow): AccountIdentity {
     email: row.email ?? '',
     name: row.name ?? '',
     role: row.role,
+    audience: row.audience ?? undefined,
     permissions: [...row.permissions],
     isVerified: row.is_verified,
     isDeleted: row.is_deleted,
@@ -124,6 +129,7 @@ export class PostgresSessionAuthorityStore extends SessionAuthorityStore {
     const account: AuthorityAccount = {
       id: row.id,
       isDeleted: row.is_deleted,
+      accountAudience: row.audience ?? undefined,
       sessionVersion: row.session_version,
     };
     this.identities.set(account, toAccountIdentity(row));

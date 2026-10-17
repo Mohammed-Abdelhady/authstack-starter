@@ -10,10 +10,16 @@ import { AUTH_SCHEMA_VERSION } from '../constants/session-policy';
 import { asAuthorityUnavailable } from '../utils/authority/authority-unavailable';
 import {
   currentSessionDeadlines,
-  EffectiveSessionDeadlines,
   isValidDate,
 } from '../utils/authority/session-authority-rule';
+import type { EffectiveSessionDeadlines } from '../types/session-deadlines';
+import { sessionLimitsFor } from '../utils/session/session-limits';
+import { SessionExpiry } from './session-expiry';
 import { hashToken } from '../utils/hashing/token-hash';
+import {
+  effectiveSessionDeadlines,
+  sessionPastDeadline,
+} from '../utils/session/session-deadlines';
 import { addMs, capIdleByAbsolute } from '../utils/session/session-deadline';
 import {
   AuthorityApplication,
@@ -37,8 +43,8 @@ export interface ValidatedSession {
 
 /**
  * Decides whether a session holds authority, from committed authority reads
- * alone. It opens no unit of work: each fact is read fresh, and the one write,
- * the idle extension, is guarded by the store.
+ * alone. Expiry is rechecked and persisted in a revocation unit of work; idle
+ * extension is guarded by the store.
  */
 @Injectable()
 export class SessionValidator {
@@ -47,11 +53,13 @@ export class SessionValidator {
     private readonly applications: AuthorityApplications,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly expiry: SessionExpiry,
   ) {}
 
   async validateByToken(
     token: string,
     extendIdle: boolean,
+    allowEnrolment = false,
   ): Promise<ValidatedSession | null> {
     try {
       const session = await this.store.readCommittedSessionByTokenHash(
@@ -60,7 +68,10 @@ export class SessionValidator {
       return await this.authorize(
         session,
         extendIdle,
-        CREDENTIAL_PURPOSE.BROWSER_SESSION,
+        allowEnrolment &&
+          session?.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT
+          ? CREDENTIAL_PURPOSE.ENROLMENT
+          : CREDENTIAL_PURPOSE.BROWSER_SESSION,
       );
     } catch (error) {
       asAuthorityUnavailable(error);
@@ -119,18 +130,38 @@ export class SessionValidator {
         grantByClientId.set(grant.clientId, grant);
       }
 
-      return candidates.filter(
-        (candidate) =>
-          currentSessionDeadlines(
-            candidate,
-            account,
-            applicationByClientId.get(candidate.clientId),
-            grantByClientId.get(candidate.clientId),
+      const active: StoredSession[] = [];
+      for (const candidate of candidates) {
+        const application = applicationByClientId.get(candidate.clientId);
+        const deadlines = currentSessionDeadlines(
+          candidate,
+          account,
+          application,
+          grantByClientId.get(candidate.clientId),
+          now,
+          authEpoch,
+          candidate.credentialPurpose,
+        );
+        if (
+          !deadlines &&
+          application &&
+          sessionPastDeadline(
+            effectiveSessionDeadlines(candidate, application),
             now,
-            authEpoch,
-            candidate.credentialPurpose,
-          ) !== null,
-      );
+          )
+        ) {
+          await this.expiry.expireIfStillPastLimit(
+            candidate.id,
+            candidate.userId,
+          );
+        } else if (
+          deadlines &&
+          candidate.policyVersion === (application?.policyVersion ?? 0)
+        ) {
+          active.push(candidate);
+        }
+      }
+      return active;
     } catch (error) {
       asAuthorityUnavailable(error);
     }
@@ -188,6 +219,9 @@ export class SessionValidator {
     if (!application || !application.enabled) {
       return null;
     }
+    if (session.policyVersion !== (application.policyVersion ?? 0)) {
+      return null;
+    }
     if (session.clientVersion !== application.sessionVersion) {
       return null;
     }
@@ -211,17 +245,27 @@ export class SessionValidator {
       purpose,
     );
     if (!deadlines) {
+      if (
+        sessionPastDeadline(
+          effectiveSessionDeadlines(session, application),
+          now,
+        )
+      ) {
+        await this.expiry.expireIfStillPastLimit(session.id, session.userId);
+      }
       return null;
     }
 
-    const extended = extendIdle
-      ? await this.maybeExtendIdle(
-          session,
-          now,
-          deadlines,
-          application.policy.idleLifetimeMs,
-        )
-      : false;
+    const extended =
+      extendIdle && purpose !== CREDENTIAL_PURPOSE.ENROLMENT
+        ? await this.maybeExtendIdle(
+            session,
+            now,
+            deadlines,
+            sessionLimitsFor(application, Boolean(session.proofKeyThumbprint))
+              .idleLifetimeMs,
+          )
+        : false;
     return { session, account, extended };
   }
 

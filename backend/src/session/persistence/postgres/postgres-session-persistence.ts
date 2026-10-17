@@ -1,3 +1,7 @@
+import { DeviceNoticeStore } from '../../notices/device-notice.store';
+import { PostgresDeviceNoticeStore } from './postgres-device-notice.store';
+import { EnrolmentStore } from '../../enrolment/enrolment.store';
+import { PostgresEnrolmentStore } from './postgres-enrolment.store';
 import { Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
@@ -43,6 +47,8 @@ import { PostgresSessionRevocationStore } from './postgres-session-revocation.st
 
 /** The session stores on PostgreSQL, each over the shared pool. */
 export const POSTGRES_SESSION_PROVIDERS: Provider[] = [
+  { provide: DeviceNoticeStore, useClass: PostgresDeviceNoticeStore },
+  { provide: EnrolmentStore, useClass: PostgresEnrolmentStore },
   onDatabase(
     ApplicationRegistryStore,
     (database) => new PostgresApplicationRegistryStore(database),

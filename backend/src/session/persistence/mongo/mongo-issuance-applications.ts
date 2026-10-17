@@ -12,6 +12,10 @@ export class MongoIssuanceApplications extends IssuanceApplications {
     super();
   }
 
+  hasAccountAudience(unitOfWork: UnitOfWork): Promise<boolean> {
+    return this.registry.hasAccountAudience(mongoSessionOf(unitOfWork));
+  }
+
   async requireEnabled(
     unitOfWork: UnitOfWork,
     clientId: string,

@@ -57,11 +57,17 @@ export class MongoUnitOfWorkRunner extends UnitOfWorkRunner {
     work: (unitOfWork: UnitOfWork) => Promise<Result>,
   ): Promise<Result> {
     try {
-      return await withMajorityTransaction(
+      let completed: UnitOfWork | undefined;
+      const result = await withMajorityTransaction(
         this.connection,
-        (session) => work(new MongoUnitOfWork(session)),
+        (session) => {
+          completed = new MongoUnitOfWork(session);
+          return work(completed);
+        },
         this.pause,
       );
+      completed?.committed();
+      return result;
     } catch (error) {
       throw mapMongoError(error);
     }
