@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -25,12 +26,17 @@ import {
 } from './mongo-role-mappers';
 
 interface LeanHolder {
+  audience?: RoleAudience | null;
   _id: { toString(): string };
   role: string;
 }
 
 function toStrandedHolder(holder: LeanHolder): StrandedHolder {
-  return { id: holder._id.toString(), role: holder.role };
+  return {
+    id: holder._id.toString(),
+    role: holder.role,
+    audience: holder.audience ?? undefined,
+  };
 }
 
 /**
@@ -62,7 +68,7 @@ export class MongoRoleSweepStore extends RoleSweepStore {
       .find({
         role: { $in: sources, $nin: live.map((role) => role.slug) },
       })
-      .select('_id role')
+      .select('_id role audience')
       .session(session)
       .lean<LeanHolder[]>()
       .exec();
@@ -140,7 +146,7 @@ export class MongoRoleSweepStore extends RoleSweepStore {
       .find({
         role: { $in: sources, $nin: live.map((role) => role.slug) },
       })
-      .select('_id role')
+      .select('_id role audience')
       .lean<LeanHolder[]>()
       .exec();
     return remaining.map(toStrandedHolder);

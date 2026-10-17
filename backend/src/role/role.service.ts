@@ -9,8 +9,6 @@ import {
   RoleListData,
   RoleUpdateResponseDto,
 } from './dto/role-response.dto';
-import { UserRole } from '../user/enums/user-role.enum';
-import { WILDCARD_PERMISSION } from '../common/constants/permissions';
 import {
   assertValidPermissions,
   generateSlug,
@@ -19,6 +17,9 @@ import {
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { AppException } from '../common/exceptions/app.exception';
 import { RoleEditService } from './services/edit/role-edit.service';
+import type { RoleCreateRequest } from './utils/role-create.util';
+import type { RoleMutation } from './services/edit/role-deletion';
+import { assertEditableRole } from './utils/role-actor.util';
 
 @Injectable()
 export class RoleService {
@@ -32,10 +33,18 @@ export class RoleService {
   /**
    * Create a new role with validation
    */
-  async create(dto: CreateRoleDto, actorId: string): Promise<RoleResponseDto> {
+  async create(
+    dto: CreateRoleDto,
+    actorId: string,
+    request: RoleCreateRequest = {},
+  ): Promise<RoleResponseDto> {
     const slug = generateSlug(dto.name);
 
-    const existing = await this.catalog.findRoleBySlug(slug);
+    // A keyed replay finds its own role here; the insert still refuses a taken slug.
+    const existing =
+      request.key === undefined
+        ? await this.catalog.findRoleBySlug(slug)
+        : null;
     if (existing) {
       throw new AppException(
         ErrorCode.ROLE_NAME_TAKEN,
@@ -46,7 +55,7 @@ export class RoleService {
 
     assertValidPermissions(dto.permissions);
 
-    const role = await this.roleEdit.create(dto, slug, actorId);
+    const role = await this.roleEdit.create(dto, slug, actorId, request);
 
     return this.mapToResponseDto(role);
   }
@@ -89,8 +98,10 @@ export class RoleService {
     idOrSlug: string,
     dto: UpdateRoleDto,
     actorId: string,
+    mutation: RoleMutation = {},
   ): Promise<RoleUpdateResponseDto> {
     const role = await this.findRoleByIdOrSlug(idOrSlug);
+    assertEditableRole(role);
     const previousSlug = role.slug;
     const nextSlug = dto.name ? generateSlug(dto.name) : previousSlug;
 
@@ -104,7 +115,6 @@ export class RoleService {
 
     if (dto.permissions) {
       assertValidPermissions(dto.permissions, role.permissions);
-      this.assertAdminKeepsWildcard(previousSlug, dto.permissions);
     }
 
     if (dto.name && nextSlug !== previousSlug) {
@@ -113,7 +123,12 @@ export class RoleService {
 
     // The previous slug and the rename flag are recomputed inside the work
     // function, so a rename that landed meanwhile is used, not the stale one.
-    const outcome = await this.roleEdit.commit(role.id, dto, actorId);
+    const outcome = await this.roleEdit.commit(
+      role.id,
+      dto,
+      actorId,
+      mutation.session,
+    );
 
     // The rename line is written only after the transaction commits, so an
     // aborted attempt cannot report a rename that never landed.
@@ -132,7 +147,11 @@ export class RoleService {
   /**
    * Delete a role with validation
    */
-  async delete(idOrSlug: string, actorId: string): Promise<void> {
+  async delete(
+    idOrSlug: string,
+    actorId: string,
+    mutation: RoleMutation = {},
+  ): Promise<void> {
     const role = await this.findRoleByIdOrSlug(idOrSlug);
 
     // System and protected roles are permanent
@@ -144,7 +163,7 @@ export class RoleService {
       );
     }
 
-    await this.roleEdit.delete(role.id, actorId);
+    await this.roleEdit.delete(role.id, actorId, mutation);
   }
 
   /**
@@ -200,24 +219,6 @@ export class RoleService {
         ErrorCode.ROLE_NAME_TAKEN,
         `Role with slug "${slug}" already exists`,
         HttpStatus.CONFLICT,
-      );
-    }
-  }
-
-  /**
-   * The admin role keeps the wildcard permission, otherwise the last
-   * account able to manage the system loses its access
-   */
-  private assertAdminKeepsWildcard(slug: string, permissions: string[]): void {
-    if (slug !== (UserRole.ADMIN as string)) {
-      return;
-    }
-
-    if (!permissions.includes(WILDCARD_PERMISSION)) {
-      throw new AppException(
-        ErrorCode.ADMIN_WILDCARD_REQUIRED,
-        `The "${WILDCARD_PERMISSION}" permission cannot be removed from the admin role`,
-        HttpStatus.FORBIDDEN,
       );
     }
   }

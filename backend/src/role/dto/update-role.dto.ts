@@ -1,6 +1,7 @@
 import { PartialType, OmitType } from '@nestjs/swagger';
 import { CreateRoleDto } from './create-role.dto';
 import { RoleLevelProperty } from './role-level.decorator';
+import { StaffVersion } from '../../admin/dto/staff-version.decorator';
 
 /**
  * DTO for updating an existing role.
@@ -8,8 +9,11 @@ import { RoleLevelProperty } from './role-level.decorator';
  * The level keeps its own rule, because PartialType would let `null` through.
  */
 export class UpdateRoleDto extends PartialType(
-  OmitType(CreateRoleDto, ['level'] as const),
+  OmitType(CreateRoleDto, ['level', 'audience'] as const),
 ) {
   @RoleLevelProperty()
   level?: number;
+
+  @StaffVersion()
+  version?: number;
 }

@@ -4,6 +4,7 @@ import { RoleChangeStore } from '../../stores/role-change.store';
 import {
   HolderMove,
   HolderRevocation,
+  HolderSessionBump,
   MovedHolders,
   NewCustomRole,
   PendingSweep,
@@ -19,10 +20,7 @@ import {
 import { SecurityEventStore } from '../../../session/events/security-event.store';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-mappers';
-import {
-  anyText,
-  anyUuid,
-} from '../../../session/persistence/postgres/postgres-bind-parameters';
+import { changeRoleHolderSessions } from './postgres-role-holders';
 import {
   ROLE_COLUMNS,
   storedName,
@@ -164,6 +162,7 @@ export class PostgresRoleChangeStore extends RoleChangeStore {
         is_protected: false,
         level: role.level,
         permissions: role.permissions,
+        audience: role.audience ?? null,
         created_at: now,
         updated_at: now,
       })
@@ -256,37 +255,15 @@ export class PostgresRoleChangeStore extends RoleChangeStore {
       .execute();
   }
 
-  async moveHolders(
+  moveHolders(unitOfWork: UnitOfWork, move: HolderMove): Promise<MovedHolders> {
+    return changeRoleHolderSessions(postgresTransactionOf(unitOfWork), move);
+  }
+
+  bumpHolderSessions(
     unitOfWork: UnitOfWork,
-    move: HolderMove,
+    bump: HolderSessionBump,
   ): Promise<MovedHolders> {
-    if (move.fromSlugs.length === 0 || move.holderIds?.length === 0) {
-      return { holderIds: [], moved: 0 };
-    }
-    const work = postgresTransactionOf(unitOfWork);
-    let holders = work
-      .selectFrom('users')
-      .select('id')
-      .where('role', '=', anyText([...new Set(move.fromSlugs)]));
-    if (move.holderIds) {
-      holders = holders.where('id', '=', anyUuid(move.holderIds.map(toUuid)));
-    }
-    const taken = await holders
-      .orderBy('id')
-      .forNoKeyUpdate()
-      .noWait()
-      .execute();
-    if (taken.length === 0) return { holderIds: [], moved: 0 };
-    const moved = await work
-      .updateTable('users')
-      .set((column) => ({
-        role: move.toSlug,
-        session_version: column('session_version', '+', 1),
-      }))
-      .where('id', '=', anyUuid(taken.map((holder) => holder.id)))
-      .returning('id')
-      .execute();
-    return { holderIds: moved.map((row) => row.id), moved: moved.length };
+    return changeRoleHolderSessions(postgresTransactionOf(unitOfWork), bump);
   }
 
   async appendHolderRevocations(
