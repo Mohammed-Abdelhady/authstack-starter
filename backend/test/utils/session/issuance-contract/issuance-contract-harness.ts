@@ -1,3 +1,6 @@
+import type { DeviceNoticeStore } from '../../../../src/session/notices/device-notice.store';
+import type { SignInNoticeService } from '../../../../src/session/notices/sign-in-notice.service';
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import {
   RerunPause,
   UnitOfWorkRunner,
@@ -15,6 +18,12 @@ export interface SeedApplication {
   platform: string;
   enabled: boolean;
   sessionVersion: number;
+  policyVersion?: number;
+  requirePasskey?: boolean;
+  sessionCap?: number;
+  unboundAbsoluteLifetimeMs?: number;
+  unboundIdleLifetimeMs?: number;
+  accountAudience?: RoleAudience;
   absoluteLifetimeMs: number;
   idleLifetimeMs: number;
 }
@@ -35,6 +44,9 @@ export interface StoredSession {
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  authenticationMethods: string[];
+  userVerified: boolean;
+  policyVersion: number;
   deviceName: string | null;
   /** The device label exactly as the database holds it, every stored field. */
   device: unknown;
@@ -52,6 +64,7 @@ export interface StoredGrant {
 
 export interface StoredEvent {
   action: string;
+  outcome: string;
   targetUserId: string | null;
   clientId: string | null;
   sessionId: string | null;
@@ -69,17 +82,26 @@ export interface LostCommitAnswers {
  */
 export interface IssuanceContractHarness {
   readonly clock: FrozenClock;
+  readonly devices: DeviceNoticeStore;
+  setNoticeRecipient(userId: string, email: string): Promise<void>;
   readonly store: BrowserIssuanceStore;
   readonly applications: IssuanceApplications;
   /** The adapter's runner, pausing before a rerun the way the case says. */
   runner(pause: RerunPause): UnitOfWorkRunner;
   /** The real sign-in service on this adapter and that runner. */
-  service(pause: RerunPause): SessionIssuanceService;
+  service(
+    pause: RerunPause,
+    notices?: SignInNoticeService,
+  ): SessionIssuanceService;
 
-  seedAccount(options?: { deleted?: boolean }): Promise<string>;
+  seedAccount(options?: {
+    deleted?: boolean;
+    audience?: RoleAudience;
+  }): Promise<string>;
   seedApplication(application: SeedApplication): Promise<void>;
   seedBlockedGrant(userId: string, clientId: string): Promise<void>;
   revokeOneSession(userId: string): Promise<void>;
+  setSessionProofKey(sessionId: string, thumbprint: string): Promise<void>;
   bumpAccountVersion(userId: string): Promise<void>;
 
   account(userId: string): Promise<StoredAccount | null>;

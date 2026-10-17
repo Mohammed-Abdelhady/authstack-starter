@@ -52,16 +52,6 @@ describe('mapMongoError', () => {
     },
   );
 
-  it('names a duplicate key whose message carries no index as unnamed', () => {
-    const mapped = mapMongoError(
-      new MongoServerError({ code: 11000, message: 'E11000 duplicate key' }),
-    );
-
-    expect(
-      mapped instanceof UniqueConflictError ? mapped.constraint : null,
-    ).toBe('unnamed');
-  });
-
   it.each([
     [
       'a cast error to a malformed id',

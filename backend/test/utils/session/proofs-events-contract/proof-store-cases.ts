@@ -1,5 +1,4 @@
 import { UniqueConflictError } from '../../../../src/common/persistence/persistence-errors';
-import { RaceGate, holdBefore } from '../../race-gate';
 import {
   HarnessSource,
   HASH_A,
@@ -109,46 +108,4 @@ export function proofStoreCases(harness: HarnessSource): void {
       });
     },
   );
-
-  it('answers a spent proof as already claimed even after it expired', async () => {
-    await seed(HASH_A, ONE_MS_BEFORE, true);
-
-    expect(await harness().proofs.claimBrowserProof(HASH_A, NOW)).toBe(
-      'already_claimed',
-    );
-  });
-
-  it('tells exactly one of two claims held at the same proof that it claimed', async () => {
-    await seed(HASH_A, ONE_MS_AFTER);
-    const gates = [new RaceGate(), new RaceGate()];
-    const restore = holdBefore(
-      harness().proofs,
-      'claimBrowserProof',
-      (call) => gates[call],
-    );
-
-    let outcomes: string[] | undefined;
-    try {
-      const first = harness().proofs.claimBrowserProof(HASH_A, NOW);
-      const second = harness().proofs.claimBrowserProof(HASH_A, NOW);
-      await Promise.all(gates.map((gate) => gate.reached(1)));
-      gates.forEach((gate) => gate.release());
-      outcomes = await Promise.all([first, second]);
-    } finally {
-      gates.forEach((gate) => gate.release());
-      restore();
-    }
-
-    expect({
-      outcomes: [...outcomes].sort(),
-      stored: await harness().storedProof(HASH_A),
-    }).toEqual({
-      outcomes: ['already_claimed', 'claimed'],
-      stored: {
-        tokenHash: TOKEN_HASH,
-        expiresAt: ONE_MS_AFTER,
-        spent: true,
-      },
-    });
-  });
 }

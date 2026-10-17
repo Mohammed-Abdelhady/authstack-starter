@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { getModelToken } from '@nestjs/mongoose';
 import { ClientSession, Model } from 'mongoose';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -166,6 +167,7 @@ describe('a commit whose answer was lost', () => {
         user._id,
         'Mozilla/5.0',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       ),
     ).rejects.toMatchObject({
       code: ErrorCode.TRANSACTION_OUTCOME_UNKNOWN,
@@ -191,6 +193,7 @@ describe('a commit whose answer was lost', () => {
       user._id,
       'Mozilla/5.0',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     lost.restore();
 

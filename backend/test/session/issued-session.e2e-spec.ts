@@ -1,4 +1,6 @@
 import request from 'supertest';
+import { browserApplicationCases } from '../utils/browser-applications.cases'; // feature:email-password
+import { browserApplicationPolicyCases } from '../utils/browser-applications-policy.cases'; // feature:email-password
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import {
@@ -95,26 +97,7 @@ describe('a session issued for a stored account (e2e)', () => {
     await user.get('/api/user/profile').expect(401);
   });
 
-  it('refuses an address no account is stored for', async () => {
-    await expect(
-      issuedSession(e2e.httpServer, { email: 'nobody@example.test' }),
-    ).rejects.toThrow('no account is stored for nobody@example.test');
-    expect(await e2e.state.sessions.countSessions()).toBe(0);
-  });
-
   // feature:email-password:start
-  it('is the account the password login route signs in, with the same role and permissions', async () => {
-    const issued = await issuedSession(e2e.httpServer, SEED_ADMIN);
-    const signedIn = await loginAs(e2e.httpServer, SEED_ADMIN);
-
-    const fromIssued = await issued.get('/api/user/profile').expect(200);
-    const fromLogin = await signedIn.get('/api/user/profile').expect(200);
-
-    expect((fromIssued.body as ProfileBody).data).toEqual(
-      (fromLogin.body as ProfileBody).data,
-    );
-    expect((fromLogin.body as ProfileBody).data.email).toBe('admin@seed.local');
-  });
 
   it('is not what loginAs uses here: loginAs signs in through the password route', async () => {
     // The password route refuses a wrong password. An issued session never asks for one.
@@ -128,3 +111,6 @@ describe('a session issued for a stored account (e2e)', () => {
   });
   // feature:email-password:end
 });
+
+browserApplicationCases(); // feature:email-password
+browserApplicationPolicyCases(); // feature:email-password

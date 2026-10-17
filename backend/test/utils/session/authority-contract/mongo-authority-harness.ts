@@ -1,8 +1,10 @@
+import { SessionExpiry } from '../../../../src/session/authority/session-expiry';
 import { Types } from 'mongoose';
 import { MongoIdFormat } from '../../../../src/common/persistence/mongo/mongo-id-format';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
 import { AuthorityApplications } from '../../../../src/session/authority/authority-applications';
 import { SessionAuthorityStore } from '../../../../src/session/authority/session-authority.store';
+import { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import { SessionValidator } from '../../../../src/session/authority/session-validator';
 import { MongoUnitOfWorkRunner } from '../../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { SessionRevocationStore } from '../../../../src/session/revocation/session-revocation.store';
@@ -53,6 +55,13 @@ export async function bootMongoAuthority(
         authorityApplications,
         issuance.clock,
         authEpoch,
+        new SessionExpiry(
+          new MongoUnitOfWorkRunner(connection),
+          app.get(EnrolmentStore),
+          issuance.applications,
+          revocationStore,
+          issuance.clock,
+        ),
       ),
     revoker: (pause) =>
       new SessionRevoker(
@@ -74,6 +83,15 @@ export async function bootMongoAuthority(
             lastUsedAt: stored.lastUsedAt ?? null,
           }
         : null;
+    },
+    clearSessionEvidence: async (sessionId) => {
+      const filter = { _id: new Types.ObjectId(sessionId) };
+      await sessions.collection.updateOne(filter, {
+        $unset: { userVerified: '', policyVersion: '' },
+      });
+      const raw = await sessions.collection.findOne(filter);
+      expect(raw).not.toHaveProperty('userVerified');
+      expect(raw).not.toHaveProperty('policyVersion');
     },
     patchSession: async (sessionId, patch) => {
       await sessions.updateOne({ _id: sessionId }, { $set: patch });
@@ -101,6 +119,7 @@ export async function bootMongoAuthority(
             email: identity.email,
             name: identity.name,
             role: identity.role,
+            audience: identity.audience,
             permissions: identity.permissions,
             isVerified: identity.verified,
           },

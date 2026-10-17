@@ -168,6 +168,7 @@ describe('idle extension against revocation race', () => {
       user._id,
       'Mozilla/5.0',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     return { token: issued.sessionToken };
   }

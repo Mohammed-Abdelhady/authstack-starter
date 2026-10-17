@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { UnknownTransactionOutcomeError } from '../../../../src/common/persistence/persistence-errors';
 import { UnitOfWork } from '../../../../src/common/persistence/unit-of-work';
@@ -22,7 +23,12 @@ export function issuanceAtomicityCases(harness: HarnessSource): void {
   const signIn = (userId: string) =>
     harness()
       .service(rerunAtOnce)
-      .createBrowserSession(userId, 'Contract/1', SIGN_IN_ADDRESS);
+      .createBrowserSession(
+        userId,
+        'Contract/1',
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT_ID,
+      );
 
   it.each([
     ['a first sign-in', 0],

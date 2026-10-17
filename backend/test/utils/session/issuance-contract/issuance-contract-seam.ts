@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import {
   MalformedIdError,
@@ -26,7 +27,12 @@ export function issuanceSeamCases(harness: HarnessSource): void {
   const signIn = (userId: string) =>
     harness()
       .service(rerunAtOnce)
-      .createBrowserSession(userId, 'Contract/1', SIGN_IN_ADDRESS);
+      .createBrowserSession(
+        userId,
+        'Contract/1',
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT_ID,
+      );
 
   it('hands ids out as strings and takes the same strings back', async () => {
     const userId = await harness().seedAccount();
@@ -41,10 +47,11 @@ export function issuanceSeamCases(harness: HarnessSource): void {
       });
       const found = await store.findGrant(unitOfWork, userId, WEB_CLIENT);
       await store.markGrantIssuance(unitOfWork, created.id);
-      const sessionId = await store.insertBrowserSession(
-        unitOfWork,
-        contractSession(userId, HASH_A),
-      );
+      const sessionId = await store.insertBrowserSession(unitOfWork, {
+        ...contractSession(userId, HASH_A),
+        userVerified: true,
+        policyVersion: 4,
+      });
       return {
         account: account?.id,
         createdGrant: created.id,
@@ -59,6 +66,8 @@ export function issuanceSeamCases(harness: HarnessSource): void {
       ...ids,
       idTypes: [typeof ids.createdGrant, typeof ids.sessionId],
       storedGrantFence: grant.issuanceFence,
+      userVerified: session.userVerified,
+      policyVersion: session.policyVersion,
     }).toEqual({
       account: userId,
       createdGrant: grant.id,
@@ -66,6 +75,8 @@ export function issuanceSeamCases(harness: HarnessSource): void {
       sessionId: session.id,
       idTypes: ['string', 'string'],
       storedGrantFence: 1,
+      userVerified: true,
+      policyVersion: 4,
     });
   });
 

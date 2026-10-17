@@ -67,6 +67,12 @@ export function reconciliationCases(harness: ApplicationsHarnessSource): void {
     {
       change: 'only the scopes',
       next: { ...MOBILE, allowedScopes: ['api', 'profile:read'] },
+      version: 1,
+    },
+    {
+      change: 'only scope order',
+      next: { ...MOBILE, allowedScopes: ['profile:read', 'api'] },
+      scopes: ['api', 'profile:read'],
       version: 0,
     },
     {
@@ -90,9 +96,13 @@ export function reconciliationCases(harness: ApplicationsHarnessSource): void {
     },
   ])(
     'leaves the version at $version for a change of $change',
-    async ({ next, version, from }) => {
+    async ({ next, version, from, scopes }) => {
       await reconcile(harness(), [
-        { ...MOBILE, redirectUris: from ?? MOBILE.redirectUris },
+        {
+          ...MOBILE,
+          redirectUris: from ?? MOBILE.redirectUris,
+          allowedScopes: scopes ?? MOBILE.allowedScopes,
+        },
       ]);
 
       await reconcile(harness(), [next]);
