@@ -1,6 +1,10 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RoleResponseDto {
+  @ApiPropertyOptional()
+  audience?: RoleAudience;
+
   @ApiProperty({
     description: 'Role ID',
     example: '507f1f77bcf86cd799439011',
@@ -62,6 +66,13 @@ export class RoleResponseDto {
     example: '2024-01-20T14:20:00Z',
   })
   updatedAt!: Date;
+
+  @ApiProperty({
+    description:
+      'Raised by every write to the role. Send it back with an edit so a stale form is refused',
+    example: 2,
+  })
+  version!: number;
 }
 
 export class RoleUpdateResponseDto extends RoleResponseDto {

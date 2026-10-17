@@ -1,3 +1,4 @@
+import type { AudiencePolicy } from '../../session/applications/audience-policy';
 import { HttpStatus } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
@@ -16,10 +17,24 @@ import {
 } from './role-actor.util';
 import { isStoreOutage } from './role-failure.util';
 import { dedupePermissions } from './role.util';
+import type { StaffMutationRules } from '../../admin/services/staff-mutations/staff-mutation-rules';
+import type { ActingSession } from '../../auth/proof/types/acting-session';
+import { idempotencyKeyReused } from '../../admin/utils/request-fingerprint';
+import { STAFF_OPERATION } from '../../admin/constants/staff-operations';
+import { SECURITY_EVENT_ACTION } from '../../session/constants/security-event-action';
+
+/** The session and idempotency key a staff create arrived with. */
+export interface RoleCreateRequest {
+  session?: ActingSession;
+  key?: string;
+}
 
 interface RoleCreation {
   runner: UnitOfWorkRunner;
   store: RoleChangeStore;
+  audiencePolicy?: AudiencePolicy;
+  rules: StaffMutationRules;
+  request: RoleCreateRequest;
 }
 
 /**
@@ -27,28 +42,66 @@ interface RoleCreation {
  * permission it lost after the request was admitted cannot be handed out.
  */
 export function createRoleWithinCeiling(
-  { runner, store }: RoleCreation,
+  { runner, store, audiencePolicy, rules, request }: RoleCreation,
   dto: CreateRoleDto,
   slug: string,
   actorId: string,
 ): Promise<StoredRole> {
+  rules.policy.assertKey(request.key);
+  const create = {
+    key: request.key,
+    actorId,
+    clientId: request.session?.clientId ?? '',
+    operation: STAFF_OPERATION.ROLE_CREATE,
+    body: dto,
+  };
   return runner.runForAuthority(actorId, async (unitOfWork) => {
+    await rules.policy.assertRouteProof(unitOfWork, request.session);
     const actor = await assertFreshRolePermission(
       store,
       unitOfWork,
       actorId,
       ROLE_PERMISSIONS.CREATE_ALL,
     );
+    const start = await rules.idempotency.start(unitOfWork, create);
+    if (start.replayed) {
+      if (!('role' in start.result)) throw idempotencyKeyReused();
+      assertCanGrant(actor, start.result.role.permissions);
+      assertLevelBelowActor(
+        actor,
+        start.result.role.level ?? CUSTOM_ROLE_LEVEL,
+      );
+      return start.result.role;
+    }
+    if (audiencePolicy?.enabled()) {
+      if (dto.audience === undefined) {
+        throw new AppException(
+          ErrorCode.VALIDATION_ERROR,
+          'A role audience is required while audience policy is enabled',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      audiencePolicy.assertDirectPermissions(dto.audience, dto.permissions);
+    }
     assertCanGrant(actor, dto.permissions);
     const level = dto.level ?? CUSTOM_ROLE_LEVEL;
     assertLevelBelowActor(actor, level);
-    return store.insertCustomRole(unitOfWork, {
+    const role = await store.insertCustomRole(unitOfWork, {
       name: dto.name,
       slug,
       description: dto.description,
+      audience: dto.audience,
       level,
       permissions: dedupePermissions(dto.permissions),
     });
+    await rules.idempotency.finish(unitOfWork, create, role.id, { role });
+    await rules.events.record(unitOfWork, {
+      action: SECURITY_EVENT_ACTION.ROLE_CREATED,
+      actorId,
+      clientId: request.session?.clientId,
+      details: { roleId: role.id, slug: role.slug },
+    });
+    return role;
   });
 }
 

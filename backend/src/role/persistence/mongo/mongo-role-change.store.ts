@@ -14,6 +14,7 @@ import { RoleChangeStore } from '../../stores/role-change.store';
 import {
   HolderMove,
   HolderRevocation,
+  HolderSessionBump,
   MovedHolders,
   NewCustomRole,
   PendingSweep,
@@ -123,6 +124,7 @@ export class MongoRoleChangeStore extends RoleChangeStore {
       isProtected: false,
       level: role.level,
       permissions: role.permissions,
+      audience: role.audience,
     });
     await save(created, mongoSessionOf(unitOfWork));
     return toStoredRole(created);
@@ -182,6 +184,13 @@ export class MongoRoleChangeStore extends RoleChangeStore {
 
   moveHolders(unitOfWork: UnitOfWork, move: HolderMove): Promise<MovedHolders> {
     return this.holders.moveHolders(unitOfWork, move);
+  }
+
+  bumpHolderSessions(
+    unitOfWork: UnitOfWork,
+    bump: HolderSessionBump,
+  ): Promise<MovedHolders> {
+    return this.holders.bumpHolderSessions(unitOfWork, bump);
   }
 
   appendHolderRevocations(

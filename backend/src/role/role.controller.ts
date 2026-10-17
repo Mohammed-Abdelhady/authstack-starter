@@ -1,3 +1,4 @@
+import { StaffGuard } from '../auth/guards/staff.guard';
 import {
   Controller,
   Get,
@@ -34,6 +35,10 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { ROLE_PERMISSIONS } from '../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../common/constants/session';
 import { ApiResponse as ApiResponseDto } from '../common/dto/api-response.dto';
+import { ActingSessionOf } from '../auth/proof/decorators/acting-session.decorator';
+import type { ActingSession } from '../auth/proof/types/acting-session';
+import { IdempotencyKey } from '../admin/decorators/idempotency-key.decorator';
+import { StaffVersionQueryDto } from '../admin/dto/staff-version.decorator';
 
 /**
  * Role management controller.
@@ -42,7 +47,7 @@ import { ApiResponse as ApiResponseDto } from '../common/dto/api-response.dto';
 @ApiTags('roles')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('roles')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
@@ -139,8 +144,10 @@ export class RoleController {
   async create(
     @Body() dto: CreateRoleDto,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
+    @IdempotencyKey() key: string | undefined,
   ): Promise<ApiResponseDto<RoleResponseDto>> {
-    const data = await this.roleService.create(dto, actorId);
+    const data = await this.roleService.create(dto, actorId, { session, key });
     return {
       success: true,
       message: 'Role created successfully',
@@ -172,7 +179,7 @@ export class RoleController {
   @ApiResponse({
     status: 403,
     description:
-      'Cannot rename a system role, strip the admin wildcard, edit a role at ' +
+      'Cannot edit the admin role, rename a system role, edit a role at ' +
       'or above your own level, or add a permission you do not hold',
   })
   @ApiResponse({
@@ -183,8 +190,11 @@ export class RoleController {
     @Param('idOrSlug') idOrSlug: string,
     @Body() dto: UpdateRoleDto,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
   ): Promise<ApiResponseDto<RoleUpdateResponseDto>> {
-    const data = await this.roleService.update(idOrSlug, dto, actorId);
+    const data = await this.roleService.update(idOrSlug, dto, actorId, {
+      session,
+    });
     return {
       success: true,
       message: 'Role updated successfully',
@@ -226,8 +236,13 @@ export class RoleController {
   })
   async delete(
     @Param('idOrSlug') idOrSlug: string,
+    @Query() query: StaffVersionQueryDto,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
   ): Promise<void> {
-    await this.roleService.delete(idOrSlug, actorId);
+    await this.roleService.delete(idOrSlug, actorId, {
+      session,
+      version: query.version,
+    });
   }
 }
