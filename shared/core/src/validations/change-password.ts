@@ -7,7 +7,7 @@
  * - Confirm password (must match new password)
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { zodPassword } from './string';
 
 export const createChangePasswordSchema = (t: (key: string) => string) =>

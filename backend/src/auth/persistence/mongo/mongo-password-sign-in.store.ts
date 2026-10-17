@@ -32,7 +32,7 @@ export class MongoPasswordSignInStore extends PasswordSignInStore {
 
   async findForPasswordCheck(email: string): Promise<PasswordCandidate | null> {
     const user = await this.userModel
-      .findOne({ email: { $eq: email }, isDeleted: { $ne: true } })
+      .findOne({ email: { $eq: email } })
       .select('+password');
     if (!user) return null;
     return { account: this.read.remember(user), passwordHash: user.password };

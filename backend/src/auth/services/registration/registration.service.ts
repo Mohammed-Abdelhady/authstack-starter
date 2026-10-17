@@ -1,5 +1,8 @@
+import { SelfSignUpRefusedError } from './self-sign-up-refused.error';
+import { finishUnknownActivation } from './finish-unknown-activation';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
 import { Injectable, Logger, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AddressLedger } from '../../../common/persistence/address-ledger';
 import { Clock } from '../../../common/services/clock';
 import { RegisterDto } from '../../dto/register.dto';
@@ -34,8 +37,6 @@ import {
   MAIL_COUNTER_PURPOSE,
 } from '../../constants/registration';
 import { REGISTRATION_CONTRACT_OUTDATED_MESSAGE } from '../../constants/auth-messages';
-import { logUnknownCommit } from '../../utils/unknown-commit.util';
-import { asAuthorityUnavailable } from '../../../session/utils/authority/authority-unavailable';
 import type { SupportedLocale } from '../../../common/constants/locales';
 import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { AccountCreationPolicy } from './account-creation-policy';
@@ -61,6 +62,7 @@ export class RegistrationService {
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
     private readonly clock: Clock,
+    private readonly applications: BrowserApplications,
   ) {}
 
   /**
@@ -74,6 +76,7 @@ export class RegistrationService {
   async register(
     dto: RegisterDto,
     locale: SupportedLocale,
+    request?: Request,
   ): Promise<ApiResponse<RegisterResponseDto>> {
     if (dto.password !== undefined || dto.name !== undefined) {
       throw new AppException(
@@ -83,7 +86,13 @@ export class RegistrationService {
       );
     }
 
-    await this.requestRegistrationCode(dto.email, false, locale);
+    const application = await this.applications.resolve(request);
+    await this.requestRegistrationCode(
+      dto.email,
+      false,
+      locale,
+      application.clientId,
+    );
     return RegisterResponseDto.success(dto.email);
   }
 
@@ -92,8 +101,15 @@ export class RegistrationService {
     email: string,
     locale: SupportedLocale,
     clientId: string,
+    bindCodeToApplication = false,
   ): Promise<string | null> {
-    return this.requestRegistrationCode(email, true, locale, clientId);
+    return this.requestRegistrationCode(
+      email,
+      true,
+      locale,
+      clientId,
+      bindCodeToApplication,
+    );
   }
 
   private async requestRegistrationCode(
@@ -101,10 +117,18 @@ export class RegistrationService {
     includeGeneration: boolean,
     locale: SupportedLocale,
     application = WEB_CLIENT_ID,
+    bindNativeCode = false,
   ): Promise<string | null> {
-    await this.assertMayIssueRegistrationCode(application);
+    if (!(await this.mayIssueRegistrationCode(application))) {
+      await this.spendCodeHashingTime();
+      return null;
+    }
     const free = await this.runner.run((uow) =>
-      this.ledger.isFree(uow, { address: email, now: this.clock.now() }),
+      this.ledger.isFree(uow, {
+        address: email,
+        now: this.clock.now(),
+        forRegistration: true,
+      }),
     );
     const existingUser = free
       ? null
@@ -138,6 +162,7 @@ export class RegistrationService {
         await this.verificationCodeService.createOrUpdatePendingRegistrationWithGeneration(
           email,
           PENDING_PURPOSE.SIGNUP,
+          bindNativeCode ? { application } : {},
         );
       if (issued) {
         this.authMailService.deferActivationCode(
@@ -152,6 +177,7 @@ export class RegistrationService {
       await this.verificationCodeService.createOrUpdatePendingRegistration(
         email,
         PENDING_PURPOSE.SIGNUP,
+        { application },
       );
     if (issued) {
       this.authMailService.deferActivationCode({ email, locale }, issued.code);
@@ -171,10 +197,13 @@ export class RegistrationService {
     response: Response,
     locale: SupportedLocale,
   ): Promise<ApiResponse<ActivateResponseDto>> {
+    const application = (await this.applications.resolve(response.req))
+      .clientId;
     const reserved = await this.verificationCodeService.verifyCode(
       dto.email,
       dto.code,
       PENDING_PURPOSE.SIGNUP,
+      application,
     );
     const passwordHash = await this.hashService.hash(dto.password);
     // Generate the id before the unit of work, so an unknown commit can be
@@ -195,18 +224,33 @@ export class RegistrationService {
           this.accounts,
           unitOfWork,
           reserved,
-          { id: accountId, passwordHash, name: dto.name, locale },
+          {
+            id: accountId,
+            passwordHash,
+            name: dto.name,
+            locale,
+          },
           this.policy,
-          WEB_CLIENT_ID,
+          application,
           this.ledger,
           this.clock.now(),
         );
       });
     } catch (error) {
       if (isUnknownTransactionOutcome(error)) {
-        return this.finishUnknownCommit(accountId, error);
+        return finishUnknownActivation(
+          this.accounts,
+          this.logger,
+          accountId,
+          error,
+        );
       }
-      throw storeFailureCause(error);
+      const cause = storeFailureCause(error);
+      if (cause instanceof SelfSignUpRefusedError) {
+        await this.signIn.recordCreationRefusal(application);
+        throw activationCodeInvalid();
+      }
+      throw cause;
     }
 
     this.logger.log(`Account activated: user ${user.id}`);
@@ -221,10 +265,19 @@ export class RegistrationService {
   async resendActivation(
     dto: ResendActivationDto,
     locale: SupportedLocale,
+    request?: Request,
   ): Promise<ApiResponse<ResendActivationResponseDto>> {
-    await this.assertMayIssueRegistrationCode(WEB_CLIENT_ID);
+    const application = (await this.applications.resolve(request)).clientId;
+    if (!(await this.mayIssueRegistrationCode(application))) {
+      await this.spendCodeHashingTime();
+      return ResendActivationResponseDto.success(dto.email);
+    }
     const free = await this.runner.run((uow) =>
-      this.ledger.isFree(uow, { address: dto.email, now: this.clock.now() }),
+      this.ledger.isFree(uow, {
+        address: dto.email,
+        now: this.clock.now(),
+        forRegistration: true,
+      }),
     );
     const existingUser = free
       ? null
@@ -238,6 +291,7 @@ export class RegistrationService {
     const issued = await this.verificationCodeService.resendActivationCode(
       dto.email,
       PENDING_PURPOSE.SIGNUP,
+      { application },
     );
 
     if (issued) {
@@ -250,41 +304,25 @@ export class RegistrationService {
     return ResendActivationResponseDto.success(dto.email);
   }
 
-  /** Pending writes remain independent; refusal precedes any code or mail. */
-  private assertMayIssueRegistrationCode(application: string): Promise<void> {
-    return this.runner.run((unitOfWork) =>
-      this.policy.assertMayCreate(
-        { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
-        unitOfWork,
-      ),
-    );
-  }
-
-  /**
-   * A commit whose result is unknown may or may not have landed. Only answer
-   * "sign in" when this caller's own account — the id generated before the
-   * unit of work — is really there. An absent or unreadable row remains an
-   * unknown outcome and answers with its 503 code. Looking up by address alone
-   * could match an account a concurrent sign-in method created and tell this
-   * caller to sign in to a password they never set.
-   */
-  private async finishUnknownCommit(
-    accountId: string,
-    error: unknown,
-  ): Promise<ApiResponse<ActivateResponseDto>> {
-    let committed = false;
+  /** Closed registration has the same reply and mail behavior for every address. */
+  private async mayIssueRegistrationCode(
+    application: string,
+  ): Promise<boolean> {
     try {
-      committed = await this.accounts.isStored(accountId);
-    } catch {
-      logUnknownCommit(this.logger, 'Activation', error);
-      asAuthorityUnavailable(error);
+      await this.runner.run((unitOfWork) =>
+        this.policy.assertMayCreate(
+          { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
+          unitOfWork,
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (!(storeFailureCause(error) instanceof SelfSignUpRefusedError)) {
+        throw error;
+      }
+      await this.signIn.recordCreationRefusal(application);
+      return false;
     }
-
-    if (committed) {
-      logUnknownCommit(this.logger, 'Activation', error);
-      return ActivateResponseDto.signInRequired();
-    }
-    asAuthorityUnavailable(error);
   }
 
   /**

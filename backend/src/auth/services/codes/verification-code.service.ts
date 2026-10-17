@@ -1,3 +1,5 @@
+import { applicationSecret } from '../../../session/utils/hashing/application-secret';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -19,6 +21,7 @@ import {
 import { MailCounterService } from '../mail/mail-counter.service';
 import {
   CODE_GUESS_RULE,
+  EmailChangePurpose,
   PENDING_PURPOSE,
   PendingPurpose,
 } from '../../constants/registration';
@@ -61,19 +64,22 @@ export class VerificationCodeService {
     return this.issuer.codeExpiresAt(now);
   }
 
+  /**
+   * A code for a new address, counted against that address's cap for the
+   * purpose. Staff changes keep the email-change purpose; a change the account
+   * holder asked for is stored and confirmed under its own.
+   */
   async prepareEmailChange(
     email: string,
     details: EmailChangeCodeTarget,
+    purpose: EmailChangePurpose = PENDING_PURPOSE.EMAIL_CHANGE,
   ): Promise<PreparedEmailChange | null> {
-    const underCap = await this.mailCounterService.tryRecord(
-      email,
-      PENDING_PURPOSE.EMAIL_CHANGE,
-    );
+    const underCap = await this.mailCounterService.tryRecord(email, purpose);
     if (!underCap) {
       await this.spendCodeHashingTime();
       return null;
     }
-    return this.issuer.prepareEmailChange(email, details);
+    return this.issuer.prepareEmailChange(email, details, purpose);
   }
 
   storeEmailChangeIn(
@@ -84,6 +90,7 @@ export class VerificationCodeService {
       uow,
       prepared.email,
       prepared.generation,
+      prepared.purpose,
     );
   }
 
@@ -171,6 +178,7 @@ export class VerificationCodeService {
     email: string,
     code: string,
     purpose: PendingPurpose,
+    application = WEB_CLIENT_ID,
   ): Promise<ReservedCode> {
     const now = this.clock.now();
     const reserved = await this.store.reserveAttempt(
@@ -185,7 +193,7 @@ export class VerificationCodeService {
     }
 
     const isCodeValid = await this.hashService.compare(
-      code,
+      applicationSecret(code, application),
       reserved.hashedCode,
     );
     if (!isCodeValid) {

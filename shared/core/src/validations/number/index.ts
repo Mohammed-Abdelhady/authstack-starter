@@ -7,7 +7,7 @@
  * @module validations/number
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { makeOptional, createNumberValidator, createNumberInRange } from '../utils';
 
 interface RangeMessages {

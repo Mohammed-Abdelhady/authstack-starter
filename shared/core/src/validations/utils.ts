@@ -10,7 +10,7 @@
  * @module validations/utils
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Make a schema optional based on the required flag

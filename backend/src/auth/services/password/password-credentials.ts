@@ -9,7 +9,14 @@ import { PasswordSignInStore } from '../../stores/password-sign-in.store';
 export async function verifyPasswordCredentials(
   accounts: PasswordSignInStore,
   hashService: HashService,
-  input: { email: string; password: string },
+  input: {
+    email: string;
+    password: string;
+    refuseDeactivated?: (
+      userId: string,
+      failure: AppException,
+    ) => Promise<AppException>;
+  },
 ): Promise<StoredAccount> {
   const candidate = await accounts.findForPasswordCheck(input.email);
 
@@ -22,10 +29,17 @@ export async function verifyPasswordCredentials(
     throw invalidCredentials();
   }
 
+  if (candidate.account.isDeleted) {
+    const failure = invalidCredentials();
+    throw (
+      (await input.refuseDeactivated?.(candidate.account.id, failure)) ??
+      failure
+    );
+  }
   return candidate.account;
 }
 
-function invalidCredentials(): AppException {
+export function invalidCredentials(): AppException {
   return new AppException(
     ErrorCode.INVALID_CREDENTIALS,
     'Invalid email or password',

@@ -6,7 +6,7 @@
  * @module validations/special
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Enum validator factory
