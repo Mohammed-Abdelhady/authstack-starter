@@ -49,9 +49,11 @@ describe('Arabic accounts and mail (e2e)', () => {
     admin = await loginAs(e2e.httpServer, SEED_ADMIN);
   });
 
+  // feature:email-password,magic-link:start
   async function storedLocaleOf(email: string): Promise<string | undefined> {
     return (await e2e.state.accounts.accountWithAddress(email))?.locale;
   }
+  // feature:email-password,magic-link:end
 
   async function lastMailTo(email: string): Promise<MailOptions | undefined> {
     return (await e2e.captureMail()).filter((mail) => mail.to === email).at(-1);

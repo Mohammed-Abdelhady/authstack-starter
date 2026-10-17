@@ -3,10 +3,21 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EMAIL_STEP } from '../../src/constants/email-change';
 import { useEmailChange } from '../../src/hooks/use-email-change';
-import { deferred, signedInAs, SIGNED_OUT } from '../support/fake-engine';
-import { ok, refusal } from '../support/fake-server';
+import {
+  deferred, // feature:passkeys
+  signedInAs,
+  SIGNED_OUT,
+} from '../support/fake-engine';
+import {
+  ok,
+  refusal, // feature:passkeys
+} from '../support/fake-server';
 import { renderUiHook, type UiHookSubject } from '../support/hook';
-import { cleanup, flush, unmountAll } from '../support/render';
+import {
+  cleanup,
+  flush,
+  unmountAll, // feature:passkeys
+} from '../support/render';
 
 vi.mock('react-native', () => import('../support/react-native'));
 
