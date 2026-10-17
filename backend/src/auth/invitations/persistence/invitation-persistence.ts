@@ -1,6 +1,6 @@
 import type { DynamicModule, Provider } from '@nestjs/common';
 import { forStorage } from '../../../common/persistence/storage-choice';
-import { InvitationStore } from '../stores/invitation.store';
+import { InvitationStore } from '../stores/invitation.store'; // feature:postgres
 // feature:mongodb:start
 import {
   MONGO_INVITATION_MODELS,
