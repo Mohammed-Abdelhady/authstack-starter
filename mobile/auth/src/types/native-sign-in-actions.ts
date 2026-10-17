@@ -62,7 +62,7 @@ export type NativeSignInOutcome =
   | { kind: 'codeAttemptEnded' }
   // feature:email-code:end
   | { kind: 'storageFailure' }
-  | { kind: 'apiFailure' }
+  | { kind: 'apiFailure'; eraseAfter?: string }
   | { kind: 'transportFailure' }
   | { kind: 'disabled' }
   | { kind: 'disposed' }
