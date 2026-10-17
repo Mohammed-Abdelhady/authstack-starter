@@ -1,5 +1,6 @@
 import type { CallOptions } from '../client';
-import { HTTP_METHOD } from '../constants';
+import { HTTP_METHOD, HTTP_STATUS_OK } from '../constants';
+import { assertProfileVersion } from '../identity';
 import { unwrapSessionList } from '../sessions';
 import type { TransportSignal } from '../transport';
 import type {
@@ -48,9 +49,17 @@ export function createUserArea<TSignal extends TransportSignal>({
 }: AreaSenders<TSignal>): ApiClientUser<TSignal> {
   return {
     profile: {
-      get: (options) => sendObject({ method: HTTP_METHOD.GET, path: USER_PATHS.profile }, options),
-      update: (changes, options) =>
-        sendObject({ method: HTTP_METHOD.PATCH, path: USER_PATHS.profile, body: changes }, options),
+      get: async (options) =>
+        checkedProfile(
+          await sendObject<User>({ method: HTTP_METHOD.GET, path: USER_PATHS.profile }, options),
+        ),
+      update: async (changes, options) =>
+        checkedProfile(
+          await sendObject<User>(
+            { method: HTTP_METHOD.PATCH, path: USER_PATHS.profile, body: changes },
+            options,
+          ),
+        ),
     },
     sessions: {
       list: async (options) =>
@@ -67,3 +76,8 @@ export function createUserArea<TSignal extends TransportSignal>({
 }
 
 export { pathSegment };
+
+function checkedProfile(user: User): User {
+  assertProfileVersion(user.version, HTTP_STATUS_OK);
+  return user;
+}
