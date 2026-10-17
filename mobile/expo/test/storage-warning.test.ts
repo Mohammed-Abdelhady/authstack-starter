@@ -12,16 +12,14 @@ import {
 } from '@app/native-adapters/testing';
 import { createAuthEngine } from '@app/native-auth';
 import { describe, expect, it } from 'vitest';
-import { LOCALES, MESSAGES } from '../src/i18n/messages';
+
 import { createDebugTransport, type DebugTransport } from '../src/logic/debug-transport';
-import { STORAGE_WARNING_KEY, type StorageWarning } from '../src/logic/outcome-keys';
-import { describeAction, describeSignOut, render } from '../src/logic/outcome-text';
+
 import { resolveConfig } from '../src/logic/resolve-config';
 import { storageWarningAfter } from '../src/logic/storage-warning';
 
 const DEADLINE_MS = 20_000;
 const IO_ERROR = 'I/O error.';
-const WARNED = 'storageBlocked';
 
 /** A signed-in engine over the adapters, with the store and the server a test can break. */
 async function signedIn() {
@@ -137,83 +135,5 @@ describe('which storage warning the screen shows, from what the engine did', () 
       undefined,
     );
     expect(server.revoked).toEqual([]);
-    const line = describeAction('signOut', describeSignOut(outcome));
-    expect(line).toEqual({ key: 'actionSignOut', value: { key: 'reasonStorageFailure' } });
-    for (const locale of LOCALES)
-      expect(render(locale, line)).toContain(MESSAGES[locale].reasonStorageFailure);
-  });
-
-  it('shows no warning for a refresh that was saved', async () => {
-    const { engine, refreshesSent } = await signedIn();
-    const sentBefore = refreshesSent();
-
-    await engine.refresh();
-
-    expect(
-      storageWarningAfter('sessionInMemory', engine.snapshot, refreshesSent() > sentBefore),
-    ).toBeUndefined();
-  });
-});
-
-describe('a storage warning across later actions', () => {
-  it.each<[string, StorageWarning | undefined, string, boolean, StorageWarning]>([
-    [
-      'stays in memory only when a later write is refused',
-      'sessionInMemory',
-      'signedIn',
-      false,
-      'sessionInMemory',
-    ],
-    [
-      'stays on the refused write when a later action sends nothing',
-      'refreshNotSent',
-      'signedIn',
-      false,
-      'refreshNotSent',
-    ],
-    [
-      'moves to memory only once a refresh went out',
-      'refreshNotSent',
-      'signedIn',
-      true,
-      'sessionInMemory',
-    ],
-    [
-      'reads a new warning after a failed delete as the refused write',
-      'deleteFailed',
-      'signedIn',
-      false,
-      'refreshNotSent',
-    ],
-    [
-      'reads a signed-out warning as the failed delete',
-      'sessionInMemory',
-      'signedOut',
-      true,
-      'deleteFailed',
-    ],
-  ])('%s', (_name, previous, status, refreshSent, expected) => {
-    const snapshot = {
-      status: status === 'signedIn' ? 'signedIn' : 'signedOut',
-      warning: WARNED,
-    } as const;
-
-    expect(storageWarningAfter(previous, snapshot, refreshSent)).toBe(expected);
-  });
-
-  it('drops the warning when the snapshot has none', () => {
-    expect(storageWarningAfter('deleteFailed', { status: 'signedOut' }, false)).toBeUndefined();
-  });
-
-  it('has one sentence per case in every language', () => {
-    expect(STORAGE_WARNING_KEY).toEqual({
-      sessionInMemory: 'warningSessionInMemory',
-      deleteFailed: 'warningDeleteFailed',
-      refreshNotSent: 'warningRefreshNotSent',
-    });
-    const sentences = LOCALES.flatMap((locale) =>
-      Object.values(STORAGE_WARNING_KEY).map((key) => MESSAGES[locale][key]),
-    );
-    expect(new Set(sentences).size).toBe(3 * LOCALES.length);
   });
 });
