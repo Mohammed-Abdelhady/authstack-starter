@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { onTestFinished } from 'vitest';
 import { isolatedGit } from '../support/answers-helpers.js';
 import {
+  COMMAND_PIPE_ENV,
   createDescendantPipe,
   DESCENDANT_PIPE_ENV,
   WORKER_PIPE_ENV,
@@ -69,16 +70,29 @@ export async function startWorkspaceFixture(
   pid: number;
   descendantPid: number;
   descendantEnded: Promise<string>;
+  commandEnded: Promise<string>;
   stderr: () => string;
 }> {
   const root = mkdtempSync(join(tmpdir(), 'cna-signal-test-'));
   const death = createDescendantPipe(root);
+  let commandDeath: ReturnType<typeof createDescendantPipe>;
+  try {
+    commandDeath = createDescendantPipe(root, 'command-death.pipe');
+  } catch (error) {
+    try {
+      death.close();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+    throw error;
+  }
   const child = spawn(process.execPath, ['--loader', LOADER, FIXTURE, root, mode, psMode], {
     cwd: fileURLToPath(new URL('../..', import.meta.url)),
     env: {
       ...isolatedGit(root).env,
       TS_NODE_EXPERIMENTAL_RESOLVER: 'true',
       [DESCENDANT_PIPE_ENV]: death.path,
+      [COMMAND_PIPE_ENV]: commandDeath.path,
     },
     stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
   });
@@ -93,6 +107,7 @@ export async function startWorkspaceFixture(
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
     await closed;
     death.close();
+    commandDeath.close();
     rmSync(root, { recursive: true, force: true });
   });
   const ready = await new Promise<WorkspaceHandshake>((resolve, reject) => {
@@ -107,8 +122,15 @@ export async function startWorkspaceFixture(
     child.once('exit', () => reject(new Error(`Fixture exited before handshake: ${stderr}`)));
   });
   pids.push(ready.pid, ready.descendantPid);
-  await death.ready;
-  return { child, closed, ...ready, descendantEnded: death.ended, stderr: () => stderr };
+  await Promise.all([death.ready, commandDeath.ready]);
+  return {
+    child,
+    closed,
+    ...ready,
+    descendantEnded: death.ended,
+    commandEnded: commandDeath.ended,
+    stderr: () => stderr,
+  };
 }
 
 function readVitestWorkspace(
