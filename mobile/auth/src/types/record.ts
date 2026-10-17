@@ -90,10 +90,3 @@ export interface PendingRevocation {
   /** The server sends no refresh lifetime, so it is never known here. */
   refreshExpiresAt: null;
 }
-
-/** What one secure-storage value holds. */
-export interface CredentialEnvelope {
-  version: number;
-  session: StoredAuthRecord | null;
-  pendingRevocations: PendingRevocation[];
-}
