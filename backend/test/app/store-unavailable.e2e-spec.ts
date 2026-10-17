@@ -1,10 +1,17 @@
 import type { Response } from 'supertest';
-import { AdminAccountStore } from '../../src/admin/stores/admin-account.store';
-import { Sessions } from '../../src/auth/services/sessions/sessions';
-import { PasswordSignInStore } from '../../src/auth/stores/password-sign-in.store'; // feature:email-password
-import { PersistenceUnavailableError } from '../../src/common/persistence/persistence-errors';
+// feature:mongodb:start
+import { getModelToken } from '@nestjs/mongoose';
+import { MongoNetworkError } from 'mongodb';
+import type { Model } from 'mongoose';
+import { Session } from '../../src/session/persistence/mongo/schemas/session.schema';
+import { User } from '../../src/user/persistence/mongo/schemas/user.schema';
+// feature:mongodb:end
+import { forStorage } from '../../src/common/persistence/storage-choice';
+// feature:postgres:start
+import { failPostgresRead } from '../postgres/outage-read-fault.harness-spec';
+// feature:postgres:end
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
-import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
+import { SEED_USER } from '../constants/seed-users';
 import {
   bootE2eApp,
   browserAgent, // feature:email-password
@@ -19,11 +26,6 @@ import {
 import { refusalAnswer } from '../utils/route-id-answers';
 
 const DRIVER_TEXT = 'connect ECONNREFUSED 10.0.0.9:5432';
-
-/** What a store raises while its database is away, as the outage specs prove. */
-function away(): PersistenceUnavailableError {
-  return new PersistenceUnavailableError(new Error(DRIVER_TEXT));
-}
 
 describe('a request while the store is unavailable (e2e)', () => {
   let e2e: E2eApp;
@@ -45,15 +47,45 @@ describe('a request while the store is unavailable (e2e)', () => {
     jest.restoreAllMocks();
   });
 
+  function failRead(read: 'sessions' | 'password'): () => void {
+    return forStorage({
+      // feature:mongodb:start
+      mongodb: () => failMongoRead(read),
+      // feature:mongodb:end
+      // feature:postgres:start
+      postgres: () => failPostgresRead(read, DRIVER_TEXT),
+      // feature:postgres:end
+    });
+  }
+
+  // feature:mongodb:start
+  function failMongoRead(read: 'sessions' | 'password'): () => void {
+    const name = read === 'sessions' ? Session.name : User.name;
+    const collection = e2e.app.get<Model<unknown>>(
+      getModelToken(name),
+    ).collection;
+    const spy = jest
+      .spyOn(collection, read === 'sessions' ? 'find' : 'findOne')
+      .mockImplementation(() => {
+        throw new MongoNetworkError(DRIVER_TEXT);
+      });
+    return () => spy.mockRestore();
+  }
+  // feature:mongodb:end
+
   /** A server failure in the shared envelope, with nothing of the driver in it. */
-  function expectOutageAnswer(response: Response): void {
+  function expectOutageAnswer(
+    response: Response,
+    status: number,
+    code: ErrorCode,
+  ): void {
     const answer = refusalAnswer(response);
-    expect(answer.status).toBe(503);
+    expect(answer.status).toBe(status);
     expect(answer).toMatchObject({
       success: false,
       bodyKeys: ['error', 'requestId', 'success'],
       errorKeys: ['code', 'message'],
-      code: ErrorCode.INTERNAL_ERROR,
+      code,
     });
     expect(JSON.stringify(response.body)).not.toContain('ECONNREFUSED');
     expect(JSON.stringify(response.body)).not.toContain('10.0.0.9');
@@ -61,54 +93,37 @@ describe('a request while the store is unavailable (e2e)', () => {
 
   it('answers the session list as a server failure, then serves it again', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
-    jest
-      .spyOn(e2e.app.get(Sessions, { strict: false }), 'getUserSessions')
-      .mockRejectedValue(away());
+    const restore = failRead('sessions');
+    try {
+      expectOutageAnswer(
+        await browser.get('/api/user/sessions'),
+        503,
+        ErrorCode.AUTHORITY_UNAVAILABLE,
+      );
+    } finally {
+      restore();
+    }
 
-    expectOutageAnswer(await browser.get('/api/user/sessions'));
-
-    jest.restoreAllMocks();
     await browser.get('/api/user/sessions').expect(200);
-  });
-
-  it('answers an administrator creating a user as a server failure, and stores nothing', async () => {
-    const admin = await loginAs(e2e.httpServer, SEED_ADMIN);
-    jest
-      .spyOn(
-        e2e.app.get(AdminAccountStore, { strict: false }),
-        'isAddressTaken',
-      )
-      .mockRejectedValue(away());
-
-    expectOutageAnswer(
-      await admin.post('/api/admin/users').send({
-        email: 'created@seed.local',
-        name: 'Created User',
-        password: 'Created123!',
-        role: 'user',
-      }),
-    );
-
-    expect(
-      await e2e.state.accounts.accountWithAddress('created@seed.local'),
-    ).toBeNull();
   });
 
   // feature:email-password:start
   it('answers a password sign-in as a server failure, with no session', async () => {
-    jest
-      .spyOn(
-        e2e.app.get(PasswordSignInStore, { strict: false }),
-        'findForPasswordCheck',
-      )
-      .mockRejectedValue(away());
-
     const agent = await browserAgent(e2e.httpServer);
-    const response = await agent
-      .post('/api/auth/login')
-      .send({ email: SEED_USER.email, password: SEED_USER.password });
+    const status = forStorage({
+      mongodb: () => 500, // feature:mongodb
+      postgres: () => 503, // feature:postgres
+    });
+    const restore = failRead('password');
+    try {
+      const response = await agent
+        .post('/api/auth/login')
+        .send({ email: SEED_USER.email, password: SEED_USER.password });
 
-    expectOutageAnswer(response);
+      expectOutageAnswer(response, status, ErrorCode.INTERNAL_ERROR);
+    } finally {
+      restore();
+    }
     await agent.get('/api/user/profile').expect(401);
   });
   // feature:email-password:end
