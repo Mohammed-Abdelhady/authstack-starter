@@ -1,18 +1,23 @@
 # AuthStack Starter
 
-Authentication starter with a NestJS 11 backend, a Next.js 16 frontend and React Native apps. Uses cookie-based sessions, dynamic role-based access control, and multiple authentication options.
+AuthStack Starter provides a TypeScript NestJS 11 API and Next.js 16 web app for authentication, account settings, sessions, roles and permissions.
+
+Choose MongoDB or PostgreSQL before configuring the backend. <!-- feature:database-choice -->
+
+The web app uses cookie sessions. React Native clients use rotating access and refresh tokens, with optional device binding. The generator offers an Expo client. <!-- feature:native-core -->
+The bare React Native shell requires manual setup from the source repository and remains a planned generator target. <!-- feature:native-cli -->
 
 ## Features
 
-- Email and password registration with a 6-digit verification code sent by email
+- Email and password registration with a 6-digit verification code sent by email <!-- feature:email-password -->
 - Magic link sign-in sent by email <!-- feature:magic-link -->
 - Sign-in codes sent by email to native apps <!-- feature:email-code -->
 - Two-factor authentication (TOTP) with single-use recovery codes <!-- feature:totp -->
 - Passkey (WebAuthn) registration and authentication <!-- feature:passkeys -->
-- 12 OAuth providers plus generic OIDC
+- OAuth and OIDC providers discovered from backend configuration <!-- feature:oauth-core -->
 - Dynamic role-based access control with role hierarchy, custom permissions, and direct user overrides
 - Multi-session management with device, browser, OS, and IP tracking
-- Account linking across multiple OAuth providers
+- Account linking across configured OAuth providers <!-- feature:oauth-core -->
 - Dynamic runtime auth method discovery via `GET /api/auth/methods`
 
 ## Tech stack
@@ -25,13 +30,13 @@ Authentication starter with a NestJS 11 backend, a Next.js 16 frontend and React
 | State    | Redux Toolkit (RTK Query)                         |
 | UI       | shadcn/ui, Radix UI, Lucide Icons                 |
 | i18n     | next-intl                                         |
-| Tests    | Jest, Playwright                                  |
+| Tests    | Jest, Vitest                                      |
 
 <!-- repository-only:start -->
 
 ## Scaffold a new project
 
-The CLI is now `create-authstack-starter`. See [CLI setup and options](packages/create-authstack-starter/README.md) for source-build commands and npm release availability. Run those commands from the source repository; generated projects omit the CLI workspace.
+Use `create-authstack-starter` to select clients, a database, sign-in methods, languages and deployment files. The renamed npm package has not been published yet. Follow [CLI setup and options](packages/create-authstack-starter/README.md) to build and run it from this source repository. Generated projects omit the CLI workspace.
 
 <!-- repository-only:end -->
 
@@ -192,6 +197,7 @@ Endpoints:
 | `OAUTH_FACEBOOK_CLIENT_ID`, `OAUTH_FACEBOOK_CLIENT_SECRET`, `OAUTH_FACEBOOK_CALLBACK_URL`, `NEXT_PUBLIC_FACEBOOK_APP_ID`                                                                                                                                                               | Facebook configuration. See its setup guide.             | `backend/.env.example` and `frontend/.env.example` | <!-- feature:facebook -->                  |
 | `MAGIC_LINK_ENABLED`, `MAGIC_LINK_EXPIRES_IN`, `MAGIC_LINK_MAX_PER_HOUR`                                                                                                                                                                                                               | Magic link configuration. See its setup guide.           | `backend/.env.example` and `frontend/.env.example` | <!-- feature:magic-link -->                |
 | `EMAIL_CODE_ENABLED`, `EMAIL_CODE_EXPIRES_IN`, `EMAIL_CODE_REVIEW_ACCOUNT_ID`, `EMAIL_CODE_REVIEW_CLIENT_ID`, `EMAIL_CODE_REVIEW_CODE_HASH`, `EMAIL_CODE_REVIEW_UNTIL`                                                                                                                 | Email code configuration. See its setup guide.           | `backend/.env.example`                             | <!-- feature:email-code -->                |
+| `INVITATION_EXPIRES_IN`                                                                                                                                                                                                                                                                | Invitation lifetime in milliseconds.                     | `backend/.env.example`                             | <!-- feature:invitations -->               |
 | `TWO_FACTOR_ENABLED`                                                                                                                                                                                                                                                                   | TOTP two-factor configuration. See its setup guide.      | `backend/.env.example` and `frontend/.env.example` | <!-- feature:totp -->                      |
 | `PASSKEYS_ENABLED`, `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGIN`                                                                                                                                                                                                            | Passkeys configuration. See its setup guide.             | `backend/.env.example` and `frontend/.env.example` | <!-- feature:passkeys -->                  |
 | `OAUTH_MICROSOFT_CLIENT_ID`, `OAUTH_MICROSOFT_CLIENT_SECRET`, `OAUTH_MICROSOFT_CALLBACK_URL`, `OAUTH_MICROSOFT_TENANT`                                                                                                                                                                 | Microsoft configuration. See its setup guide.            | `backend/.env.example` and `frontend/.env.example` | <!-- feature:microsoft -->                 |
@@ -234,9 +240,9 @@ For a host-run backend with PostgreSQL in Docker Compose, use `POSTGRES_URL=post
 
 ## Mobile app
 
-The Expo app lives in `mobile/expo`. It signs in on the web sign-in page in the system browser, then shows the profile and the sessions.
+The Expo app in `mobile/expo` shares a sign-in engine and screens with the bare React Native shell. It supports password, email links, signup, recovery, passkeys and MFA when enabled by the backend and registered application. Configured providers use native SDKs or system OAuth. The app also offers web sign-in, profile display and session controls. See [mobile sign-in setup](docs/setup/setup-mobile-sign-in.md) for provider registration, callbacks and app links.
 
-The template's Expo app, under its example name and ids, has been built and run on an iOS simulator. A generated app with its own name and ids has been linted, type checked, unit tested and bundled, but not launched. Android has not been built or run, so treat it as unverified.
+The template's Expo app, under its example name and ids, has been built and run on an iOS simulator. A generated app with its own name and ids has been linted, type checked, unit tested and bundled, but not launched. Android has not been built or run as a native app; device behavior remains unverified. Provider credentials, passkeys and app links need verification on your registered devices.
 
 ### What the server needs
 
@@ -245,13 +251,13 @@ Set these in `backend/.env` before you start the backend:
 - `AUTH_NATIVE_ENABLED=true`
 - `AUTH_NATIVE_DPOP_NONCE_SECRET` with a random value of at least 32 characters. `openssl rand -hex 32` makes one.
 - `API_URL` with the address the app uses to reach the API. On a simulator that is `http://localhost:5001`.
-- `AUTH_NATIVE_APPLICATIONS` as `backend/.env.example` writes it. Its client id and return address come from the `scheme` in `mobile/expo/app.json`. If you change the scheme, change this line to match.
+- `AUTH_NATIVE_APPLICATIONS` with the client ID and callback matching the `scheme` in `mobile/expo/app.json`. Add the application's `signIn` permissions for native methods as described in the mobile setup guide; the generated example registers its identity and callback only.
 
 If you start the server with Docker, set the same four in `.env.docker` instead. Docker serves the API on port 5000, so `API_URL` is `http://localhost:5000` there. <!-- feature:docker -->
 
 The backend does not start with `AUTH_NATIVE_ENABLED=true` until the secret and `API_URL` are set.
 
-The web app must be running too, because sign-in happens on its pages. You also need an account to sign in with. [Seed data](#seed-data) makes two.
+Keep the web app running for the web sign-in option. Native credential and configured SDK flows talk to the API directly. You need an existing account or an enabled registration method; [seed data](#seed-data) creates two development accounts.
 
 ### Run it on an iOS simulator
 
@@ -293,17 +299,16 @@ EXPO_PUBLIC_API_ORIGIN=http://localhost:5000 pnpm --filter @app/mobile-expo run 
 
 <!-- feature:docker:end -->
 
-The app name, slug, application id and scheme live in `mobile/expo/app.json` and nowhere else. Signing a build for a device or a store is yours to set up.
+The app name, slug, application ID and scheme come from `mobile/expo/app.json`. Rebuild after changing native provider settings or capabilities. Device signing and store registration require your own configuration.
 
 <!-- feature:native-expo:end -->
 
 ## Seed data
 
-Run the database seed script from the backend directory:
+Run the database seed script from the project root:
 
 ```bash
-cd backend
-pnpm run seed
+pnpm --filter backend run seed
 ```
 
 The script runs only when `NODE_ENV` is `development` or `test`. It creates four system roles (`user`, `support`, `manager`, `admin`) and two seed accounts:
@@ -325,8 +330,9 @@ pnpm --filter backend run seed:reset
 
 | Guide                                                   | Description                                                            |
 | ------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Documentation index](docs/README.md)                   | Setup guides, workspace docs and operations references                 |
 | [Architecture](docs/reference/ARCHITECTURE.md)          | Request lifecycle, session storage, OAuth registry, and security model |
-| [Database schema](docs/reference/DATABASE_SCHEMA.md)    | MongoDB collections, indexes, and migrations                           |
+| [Database schema](docs/reference/DATABASE_SCHEMA.md)    | MongoDB collections, indexes, and migrations                           | <!-- feature:mongodb -->    |
 | [PostgreSQL](backend/docs/database-postgres.md)         | Version, settings, migrations, retention, and how the tests run        | <!-- feature:postgres -->   |
 | [RBAC system](docs/access-control/RBAC-SYSTEM.md)       | Role levels, permission inheritance, and enforcement guards            |
 | [Migration guide](docs/operations/MIGRATION-GUIDE.md)   | Database migration scripts and versioning                              |
@@ -340,7 +346,7 @@ pnpm --filter backend run seed:reset
 
 1. Create a feature branch: `git checkout -b feat/feature-name`
 2. Follow [Conventional Commits](https://conventionalcommits.org) format for commit messages.
-3. Verify that tests and lint checks pass: `pnpm run lint && pnpm run test`
+3. Run `pnpm run lint`, `pnpm run typecheck`, `pnpm run test` and `pnpm run build` with the supported Node version.
 4. Submit a pull request.
 
 ## License

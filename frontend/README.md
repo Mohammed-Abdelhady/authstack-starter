@@ -1,176 +1,137 @@
-# Frontend
+# AuthStack Starter frontend
 
-Next.js 16 application with React 19, TypeScript, and Tailwind CSS.
+The Next.js 16 web app uses React 19 and the App Router. It provides sign-in,
+account settings, session controls, and administration for users, roles and
+permissions. Locale routing and translations use next-intl.
 
-## Quick Start
+Arabic catalogues and right-to-left layouts are included when the Arabic locale is selected. <!-- feature:locale-ar -->
+
+## Quick start
+
+Use Node 22.12 through 22.x and pnpm 12.6.0. Run these commands from the
+project root after the [backend setup](../backend/README.md#quick-start):
 
 ```bash
 pnpm install
-pnpm run dev          # Development (http://localhost:3000)
-pnpm run build        # Production build
-pnpm run lint         # ESLint check
-pnpm test             # Product unit tests
+cp frontend/.env.example frontend/.env.local
+pnpm --filter frontend run dev
 ```
 
-## Tech Stack
+Open `http://localhost:3000`. Set `NEXT_PUBLIC_API_URL` to the backend origin
+without `/api`. The host setup uses `http://localhost:5001`. If unset, the
+frontend's API fallback is `http://localhost:5000`.
 
-- **Next.js 16** - App Router, Server Components
-- **React 19** - UI library
-- **TypeScript 5** - Type safety
-- **Tailwind CSS 4** - Styling
-- **RTK Query** - API state management
-- **shadcn/ui** - UI components
-- **next-intl** - Internationalization (i18n)
+Docker Compose publishes the API on `http://localhost:5000`. <!-- feature:docker -->
 
-## Project Structure
+The backend and frontend need matching origins and cookie settings.
 
-```
+Follow [production security settings](../docs/operations/production-security.md) before configuring a deployed environment. <!-- feature:production -->
+
+## Tech stack
+
+| Purpose                | Library                         |
+| ---------------------- | ------------------------------- |
+| Routing and rendering  | Next.js 16 App Router, React 19 |
+| API requests and cache | Redux Toolkit and RTK Query     |
+| Components             | shadcn/ui and Radix UI          |
+| Styling                | Tailwind CSS 4                  |
+| Translations           | next-intl                       |
+| Product tests          | Vitest and Testing Library      |
+
+## Project structure
+
+```text
 src/
-├── app/[locale]/           # App Router pages (i18n)
-│   ├── (auth)/             # Auth pages (login, register, etc.)
-│   ├── (dashboard)/        # Protected dashboard pages
-│   └── layout.tsx          # Root layout
-├── components/             # Shared components
-│   ├── ui/                 # shadcn/ui components
-│   ├── forms/              # Form components
-│   └── navigation/         # Nav components
-├── modules/                # Feature modules
-│   ├── auth/               # Core auth (login, register, password reset)
-│   ├── oauth/              # OAuth (buttons, API, utils)
-│   ├── account/            # Account settings (profile, linked accounts)
-│   ├── roles/              # Role management (CRUD, API)
-│   ├── users/              # User management (admin)
-│   ├── permissions/        # Permission guards & utilities
-│   └── sessions/           # Session management
-├── store/                  # Redux store
-│   └── api/                # RTK Query APIs
-├── hooks/                  # Custom hooks
-├── lib/                    # Utilities
-├── i18n/                   # Translations (JSON catalogues)
-└── types/                  # TypeScript types
+├── app/[locale]/           # Localized routes and layouts
+├── components/             # Shared UI, forms and navigation
+├── modules/                # Authentication and account/admin features
+├── store/                  # Redux store and API configuration
+├── hooks/                  # Shared hooks
+├── lib/                    # Application helpers
+├── i18n/                   # Locale configuration and catalogues
+└── types/                  # Shared frontend types
 ```
 
-## Environment Variables
+## Environment variables
 
-Create `frontend/.env.local`:
+Configure the API origin in `frontend/.env.local`:
 
 ```bash
-# Backend origin without /api suffix
-NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_API_URL=http://localhost:5001
 ```
 
-The frontend discovers enabled OAuth providers and active auth options dynamically from the backend via `GET /api/auth/methods` and `GET /api/auth/oauth/providers`.
+The app reads `GET /api/auth/methods` and `GET /api/auth/oauth/providers`
+to discover enabled sign-in methods and configured providers. Backend settings
+determine which forms and buttons are available; installing a provider's code
+does not register its credentials.
 
-## Key Features
+## Key features
 
-### Auth Module (`src/modules/auth/`)
+| Module                     | What it does                                           |
+| -------------------------- | ------------------------------------------------------ |
+| `src/modules/auth/`        | Enabled sign-in and credential journeys                |
+| `src/modules/oauth/`       | Discovered OAuth/OIDC providers and account linking    | <!-- feature:oauth-core --> |
+| `src/modules/account/`     | Profile, password and linked-account settings          |
+| `src/modules/roles/`       | Role creation, editing and hierarchy                   |
+| `src/modules/users/`       | User administration and role assignment                |
+| `src/modules/sessions/`    | Session details, individual revocation and bulk logout |
+| `src/modules/permissions/` | Permission checks and selectors                        |
 
-- Login/Register forms with validation
-- Password reset flow
-- Core authentication logic
-
-### OAuth Module (`src/modules/oauth/`)
-
-- OAuth buttons (Google, Facebook, GitHub)
-- OAuth API and utilities
-- Provider icons and styles
-
-### Account Module (`src/modules/account/`)
-
-- Profile management (update name)
-- Change password
-- Linked accounts management
-- Profile sync status
-
-### Roles Module (`src/modules/roles/`)
-
-- Role CRUD operations
-- Role detail panel
-- Role sidebar navigation
-
-### Users Module (`src/modules/users/`)
-
-- User management (admin)
-- User cards and lists
-- User role selector
-
-### Sessions Module (`src/modules/sessions/`)
-
-- Active sessions list
-- Device info parsing
-- Session termination
-- Bulk logout
-
-### Permissions Module (`src/modules/permissions/`)
-
-- Permission guards
-- Permission utilities
-- Permission selector components
+Available sign-in options follow the methods enabled by the backend.
+The [authentication setup guides](../docs/README.md#authentication-setup-guides)
+explain their required credentials and settings.
 
 ## Development
 
-### Path Aliases
+Use the `@/` import alias for `src/`. Reuse the existing UI components and
+feature hooks before adding another implementation. Pages and layouts remain
+Server Components unless they need hooks, event handlers or browser APIs.
+Put `'use client'` on the smallest component that needs those capabilities.
 
-Use `@/` for imports from `src/`:
-
-```typescript
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/modules/auth/hooks';
-```
-
-### Server vs Client Components
-
-```typescript
-// Server Component (default)
-export default function Page() {
-  return <div>Server rendered</div>;
-}
-
-// Client Component (when needed)
-'use client';
-export default function Form() {
-  const [state, setState] = useState();
-  return <form>...</form>;
-}
-```
-
-Use `'use client'` only when using hooks, event handlers, or browser APIs.
-
-### Adding UI Components
+Run the workspace checks from the project root:
 
 ```bash
-pnpm dlx shadcn@latest add button dialog
+pnpm --filter frontend run lint
+pnpm --filter frontend run typecheck
+pnpm --filter frontend run test
+pnpm --filter frontend run build
 ```
+
+The direction check runs as part of lint. Keep locale keys consistent across
+supported languages and verify interactive changes in both text directions.
 
 ## Testing
 
-Run `pnpm test` for product unit tests. Generated projects retain the backend functional API suite (`pnpm --filter backend run test:e2e` from the project root).
+`pnpm --filter frontend run test` runs product unit tests. Generated projects
+also retain the backend functional API suite through
+`pnpm --filter backend run test:e2e`.
 
 - [Source repository browser tests](README.maintainer.md)
 
 ## Deployment
 
-### Vercel
-
-```bash
-vercel login
-vercel           # Preview
-vercel --prod    # Production
-```
-
-Set environment variables in Vercel dashboard.
+Run `pnpm --filter frontend run build`, then
+`pnpm --filter frontend run start` to serve the production build. Set the public
+API origin before building and configure the backend's matching client origin.
 
 <!-- feature:docker:start -->
 
 ### Docker
 
-Use `docker compose up` from root directory.
+From the project root, copy the Docker example configuration and start Compose:
+
+```bash
+cp .env.docker.example .env.docker
+docker compose --env-file .env.docker up --build
+```
+
 <!-- feature:docker:end -->
 
 ## Resources
 
-- [Next.js Docs](https://nextjs.org/docs)
-- [Tailwind CSS](https://tailwindcss.com/docs)
+- [Documentation index](../docs/README.md)
+- [Backend API](../backend/README.md)
+- [Next.js documentation](https://nextjs.org/docs)
+- [Tailwind CSS documentation](https://tailwindcss.com/docs)
 - [shadcn/ui](https://ui.shadcn.com)
 - [RTK Query](https://redux-toolkit.js.org/rtk-query/overview)
-- [Backend API](../backend/README.md)
