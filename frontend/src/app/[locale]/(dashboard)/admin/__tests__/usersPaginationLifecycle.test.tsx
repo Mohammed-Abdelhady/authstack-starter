@@ -2,6 +2,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { USER_PERMISSIONS } from '@app/core';
+import { API_PATHS } from '@app/sdk';
 import UsersPage from '@/app/[locale]/(dashboard)/admin/users/page';
 import { baseApi } from '@/store/api/baseApi';
 import type { AppLocale } from '@/i18n/load-messages';
@@ -17,6 +18,18 @@ vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
 }));
 vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+
+const AUTH_DISCOVERY = {
+  methods: {
+    password: false,
+    magicLink: false,
+    emailCode: false,
+    twoFactor: false,
+    passkeys: false,
+    oauth: [],
+  },
+  audiencesEnabled: false,
+};
 
 const PAGE_INFO = 'pagination.pageInfo';
 
@@ -56,6 +69,7 @@ DESCRIBE_BY_LOCALE('user pagination after the result count changes in %s', (loca
   it('does not keep previous page rows interactive while the new page is pending', async () => {
     let releasePageTwo: ((response: Response) => void) | undefined;
     stubNetwork((request, path) => {
+      if (path === API_PATHS.auth.methods) return success(AUTH_DISCOVERY);
       if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
       if (path !== '/api/admin/users') return success({});
       const requestedPage = Number(new URL(request.url).searchParams.get('page') ?? '1');
@@ -90,6 +104,7 @@ DESCRIBE_BY_LOCALE('user pagination after the result count changes in %s', (loca
   it('hides previous rows as search input moves ahead of its debounced request', async () => {
     let releaseSearch: ((response: Response) => void) | undefined;
     stubNetwork((request, path) => {
+      if (path === API_PATHS.auth.methods) return success(AUTH_DISCOVERY);
       if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
       if (path !== '/api/admin/users') return success({});
       if (new URL(request.url).searchParams.get('search') === 'new') {
@@ -130,6 +145,7 @@ DESCRIBE_BY_LOCALE('user pagination after the result count changes in %s', (loca
     let pageThreeGrowthReads = 0;
     const askedPages: number[] = [];
     stubNetwork((request, path) => {
+      if (path === API_PATHS.auth.methods) return success(AUTH_DISCOVERY);
       if (path === '/api/roles') return success({ roles: [], total: 0, page: 1, pages: 1 });
       if (path !== '/api/admin/users') return success({});
       const requestedPage = pageFrom(request);

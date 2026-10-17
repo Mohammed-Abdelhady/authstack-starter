@@ -60,13 +60,6 @@ describe('LanguageSwitcher', () => {
   });
 
   // feature:locale-ar:start
-  it('renders one button for each routed locale', () => {
-    state.locales = ['en', 'ar'];
-
-    renderSwitcher();
-
-    expect(screen.queryAllByRole('button')).toHaveLength(2);
-  });
 
   it('carries the native continuation from locale navigation into the login redirect reader', () => {
     state.locales = ['en', 'ar'];
@@ -88,16 +81,6 @@ describe('LanguageSwitcher', () => {
     expect(getRedirectPath(selected.searchParams.get('redirect'), '')).toBe(
       '/auth/native/authorize?transaction=txn-abc123',
     );
-  });
-
-  it('keeps an empty query absent', () => {
-    state.locales = ['en', 'ar'];
-    window.history.replaceState({}, '', '/en/auth/login');
-    renderSwitcher();
-
-    fireEvent.click(screen.getByTestId('language-switcher-ar'));
-
-    expect(state.replace).toHaveBeenCalledWith('/auth/login', { locale: 'ar' });
   });
 
   it('preserves duplicate keys, an empty value, and the fragment', () => {

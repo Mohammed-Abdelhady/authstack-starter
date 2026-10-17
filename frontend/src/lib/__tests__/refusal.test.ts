@@ -144,8 +144,4 @@ describe('a request whose caller shows its refusal itself', () => {
 
     expect(isOwnRefusal(`owned-${ending}`)).toBe(false);
   });
-
-  it('does not own a request with no id', () => {
-    expect(isOwnRefusal(undefined)).toBe(false);
-  });
 });

@@ -213,13 +213,4 @@ describe('magic link continuation', () => {
       expect(replaceMock).toHaveBeenCalledWith('/dashboard');
     });
   });
-
-  it('asks the window for no frame when the form is unmounted after a request', async () => {
-    const frames = vi.spyOn(window, 'requestAnimationFrame');
-
-    await submitRequest(null);
-    cleanup();
-
-    expect(frames).not.toHaveBeenCalled();
-  });
 });

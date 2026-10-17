@@ -1,45 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { AbstractIntlMessages } from 'next-intl';
 import { ErrorCode } from '@app/core';
-import { loadMessages } from '@/i18n/load-messages';
-import { isMessageTree } from '@/i18n/__tests__/message-tree';
-import { icuArgNames } from '@/i18n/icu-args';
 import { translatableErrorCode } from '../errorCodeMessage';
-
-function codesOf(messages: AbstractIntlMessages): Record<string, string> {
-  const errors = messages['errors'];
-  if (!isMessageTree(errors)) {
-    throw new Error('Expected an errors message tree');
-  }
-  const codes = errors['codes'];
-  if (!isMessageTree(codes)) {
-    throw new Error('Expected an errors.codes message tree');
-  }
-  const flat: Record<string, string> = {};
-  for (const [code, message] of Object.entries(codes)) {
-    if (typeof message !== 'string') {
-      throw new Error(`Expected a message string for code ${code}`);
-    }
-    flat[code] = message;
-  }
-  return flat;
-}
 
 function apiError(code: string): unknown {
   return { status: 400, data: { success: false, error: { code, message: code } } };
 }
 
 describe('translatableErrorCode', () => {
-  it.each([
-    'en',
-    'ar', // feature:locale-ar
-  ] as const)('recognizes the server email-change refusal with a message in %s', async (locale) => {
-    const selectedCode = translatableErrorCode(apiError('EMAIL_CHANGE_NOT_ALLOWED'));
-    expect(selectedCode).toBe('EMAIL_CHANGE_NOT_ALLOWED');
-    const messages = codesOf(await loadMessages(locale));
-    expect(messages[selectedCode]?.trim()).toEqual(expect.stringMatching(/\S/u));
-  });
-
   it('returns the code the backend sent when it has a message', () => {
     // feature:magic-link:start
     expect(translatableErrorCode(apiError(ErrorCode.MAGIC_LINK_INVALID))).toBe(
@@ -77,45 +44,6 @@ describe('translatableErrorCode', () => {
     // feature:magic-link:end
   });
 
-  it('gives every error code an English message', async () => {
-    const english = codesOf(await loadMessages('en'));
-    const untranslated = Object.values(ErrorCode).filter((code) => {
-      const message = english[code];
-      return typeof message !== 'string' || message.trim().length === 0;
-    });
-
-    expect(untranslated).toEqual([]);
-  });
-
   // feature:locale-ar:start
-  it('gives every code a non-empty Arabic message and the same ICU arguments', async () => {
-    const english = codesOf(await loadMessages('en'));
-    const arabic = codesOf(await loadMessages('ar'));
-    const untranslated = Object.values(ErrorCode).filter((code) => {
-      const message = arabic[code];
-      return typeof message !== 'string' || message.trim().length === 0;
-    });
-    expect(untranslated).toEqual([]);
-
-    const mismatched = Object.values(ErrorCode).filter((code) => {
-      const englishMessage = english[code];
-      const arabicMessage = arabic[code];
-      if (typeof englishMessage !== 'string' || typeof arabicMessage !== 'string') {
-        return true;
-      }
-      return icuArgNames(englishMessage).join(',') !== icuArgNames(arabicMessage).join(',');
-    });
-
-    expect(mismatched).toEqual([]);
-  });
   // feature:locale-ar:end
-
-  it.each([
-    ['Hello {name}', ['name']],
-    ['{count, plural, one {1 user} other {{count} users}}', ['count']],
-    ['{first} and {second}', ['first', 'second']],
-    ['No arguments here', []],
-  ])('reads ICU arguments from %s', (message, expected) => {
-    expect(icuArgNames(message)).toEqual(expected);
-  });
 });

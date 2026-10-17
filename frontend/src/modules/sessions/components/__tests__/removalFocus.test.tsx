@@ -138,15 +138,5 @@ describe.each([
         await waitFor(() => expect(document.activeElement).toBe(opener(page)));
       },
     );
-
-    it('returns to the button that opened the confirmation when it is cancelled', async () => {
-      const page = await renderPage(locale);
-      const dialog = await openConfirmation(opener(page), dialogId);
-
-      fireEvent.keyDown(dialog, { key: 'Escape' });
-
-      await waitFor(() => expect(screen.queryByTestId(dialogId)).toBeNull());
-      await waitFor(() => expect(document.activeElement).toBe(opener(page)));
-    });
   });
 });

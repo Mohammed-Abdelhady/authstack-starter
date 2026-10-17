@@ -30,6 +30,7 @@ const USER = {
   twoFactorEnabled: false,
   passkeyCount: 0,
   linkedProviders: ['email'],
+  locale: 'en',
 };
 
 const lifecycle = registerFormTestLifecycle();

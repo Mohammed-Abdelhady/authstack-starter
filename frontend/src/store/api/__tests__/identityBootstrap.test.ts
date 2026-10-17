@@ -34,6 +34,7 @@ const PROFILE = {
   passkeyCount: 0,
   // feature:passkeys:end
   linkedProviders: ['email'],
+  locale: 'en',
 };
 const SIGNED_IN = { authenticated: true, user: PROFILE } as const;
 const SIGNED_OUT = { authenticated: false, user: null } as const;

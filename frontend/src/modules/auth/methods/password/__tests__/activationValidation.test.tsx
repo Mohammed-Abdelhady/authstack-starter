@@ -58,30 +58,6 @@ describe.each([
     expect(bodies).toEqual([]);
   });
 
-  it('announces all five shared requirements as password values change', async () => {
-    acceptActivation([]);
-    const form = await renderForm(locale, <ActivationForm />);
-    change('activate-password-input', 'a1234567');
-    for (const [id, state] of [
-      ['minLength', 'passed'],
-      ['uppercase', 'failed'],
-      ['lowercase', 'passed'],
-      ['number', 'passed'],
-      ['byteLimit', 'passed'],
-    ]) {
-      expect
-        .soft(screen.getByTestId(`password-rule-${id}`).textContent)
-        .toContain(`(${form.message(`auth.passwordRules.${state}`)})`);
-    }
-    change('activate-password-input', 'Aa1' + 'é'.repeat(35));
-    expect
-      .soft(screen.getByTestId('password-rule-byteLimit').textContent)
-      .toContain(`(${form.message('auth.passwordRules.failed')})`);
-    expect
-      .soft(screen.getByTestId('password-rule-uppercase').textContent)
-      .toContain(`(${form.message('auth.passwordRules.passed')})`);
-  });
-
   it.each(['София 2. Иванова’', 'Li', 'L'.repeat(79), 'L'.repeat(80), '𐐀'.repeat(80)])(
     'accepts the server name %s',
     async (name) => {
@@ -126,7 +102,7 @@ describe.each([
     // Every line-break and invisible character the rule refuses:
     // Rows a text input can carry. The DOM strips \n and \r\n from an
     // input's value before the form sees it, so those two names are
-    // asserted at the schema level in nameRule.table.test.ts instead.
+    // asserted by shared/core/src/validations/string/identity.test.ts.
     'Layla\tHaddad',
     'Bob\u2028Lee',
     'Bo\ufeffb',

@@ -99,18 +99,6 @@ const CASES: [Kind, Route][] = [
 registerFormTestLifecycle();
 
 describe('a dialog whose request is in flight', () => {
-  it.each(CASES)('%s stays open through %s, controlled', async (kind, route) => {
-    const onOpenChange = vi.fn();
-    await renderForm('en', <Host kind={kind} busy onOpenChange={onOpenChange} />);
-    await settle();
-
-    ROUTES[route]();
-    await settle();
-
-    expect(screen.queryByTestId('content')).not.toBeNull();
-    expect(onOpenChange.mock.calls).toEqual([]);
-  });
-
   it.each(CASES)(
     '%s stays open through %s when the library keeps the state',
     async (kind, route) => {

@@ -29,6 +29,7 @@ const PROFILE = {
   twoFactorEnabled: false,
   passkeyCount: 0,
   linkedProviders: ['email'],
+  locale: 'en',
 };
 
 interface CapturedRequest {

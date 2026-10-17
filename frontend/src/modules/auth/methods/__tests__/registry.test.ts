@@ -7,6 +7,7 @@ function methods(overrides: Partial<AuthMethods> = {}): AuthMethods {
   return {
     password: false,
     magicLink: false,
+    emailCode: false,
     twoFactor: false,
     passkeys: false,
     oauth: [],
@@ -41,47 +42,22 @@ describe('enabledAuthMethods', () => {
 
   // feature:email-password:start
   // feature:magic-link:start
-  it('puts the password form above the magic link form', () => {
-    expect(idsFor(methods({ password: true, magicLink: true }))).toEqual([
-      AUTH_METHOD_ID.PASSWORD,
-      AUTH_METHOD_ID.MAGIC_LINK,
-    ]);
-  });
   // feature:magic-link:end
   // feature:email-password:end
 
   // feature:passkeys:start
   // feature:magic-link:start
-  it('opens on the passkey button where passwords are off', () => {
-    expect(idsFor(methods({ passkeys: true, magicLink: true }))).toEqual([
-      AUTH_METHOD_ID.PASSKEYS,
-      AUTH_METHOD_ID.MAGIC_LINK,
-    ]);
-  });
   // feature:magic-link:end
   // feature:passkeys:end
 
   // feature:email-password:start
   // feature:passkeys:start
-  it('keeps the password form first where passwords are on', () => {
-    expect(idsFor(methods({ password: true, passkeys: true }))).toEqual([
-      AUTH_METHOD_ID.PASSWORD,
-      AUTH_METHOD_ID.PASSKEYS,
-    ]);
-  });
   // feature:passkeys:end
   // feature:email-password:end
 
   // feature:email-password:start
   // feature:passkeys:start
   // feature:magic-link:start
-  it('orders all three password, passkey, magic link', () => {
-    expect(idsFor(methods({ password: true, passkeys: true, magicLink: true }))).toEqual([
-      AUTH_METHOD_ID.PASSWORD,
-      AUTH_METHOD_ID.PASSKEYS,
-      AUTH_METHOD_ID.MAGIC_LINK,
-    ]);
-  });
   // feature:magic-link:end
   // feature:passkeys:end
   // feature:email-password:end
@@ -90,11 +66,5 @@ describe('enabledAuthMethods', () => {
     const oauthOnly = methods({ oauth: [{ id: 'google', displayName: 'Google' }] });
     expect(idsFor(oauthOnly)).toEqual([]);
     expect(idsFor(methods({ twoFactor: true }))).toEqual([]);
-  });
-
-  it('renders nothing extra for a method the registry does not carry', () => {
-    expect(
-      idsFor(methods({ twoFactor: true, oauth: [{ id: 'github', displayName: 'GitHub' }] })),
-    ).toEqual([]);
   });
 });

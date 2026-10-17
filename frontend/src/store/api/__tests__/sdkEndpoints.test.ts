@@ -153,6 +153,7 @@ describe('endpoints that read through @app/sdk', () => {
     expect(methods.data).toEqual({
       password: true,
       magicLink: false,
+      emailCode: false,
       twoFactor: false,
       passkeys: true,
       oauth: [],

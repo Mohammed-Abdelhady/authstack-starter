@@ -86,7 +86,10 @@ export const CONVERTED: MutationCase[] = [
     reads: [readRoles],
     write: (store) =>
       store.dispatch(
-        rolesApi.endpoints.createRole.initiate({ name: 'Editor', permissions: ['users.write'] }),
+        rolesApi.endpoints.createRole.initiate({
+          data: { name: 'Editor', permissions: ['users.write'] },
+          idempotencyKey: 'cache-role-create-operation',
+        }),
       ),
     accepted: ROLE,
     requests: [GET_ROLES, 'POST /api/roles'],
@@ -97,7 +100,10 @@ export const CONVERTED: MutationCase[] = [
     reads: [readRoles, readRole, readUsers, readUser, readPermissions],
     write: (store) =>
       store.dispatch(
-        rolesApi.endpoints.updateRole.initiate({ idOrSlug: 'editor', data: { name: 'Editor' } }),
+        rolesApi.endpoints.updateRole.initiate({
+          idOrSlug: 'editor',
+          data: { version: 0, name: 'Editor' },
+        }),
       ),
     accepted: ROLE,
     // The server saves the rename first and moves users second: a failure
@@ -118,7 +124,8 @@ export const CONVERTED: MutationCase[] = [
   {
     name: 'deleteRole',
     reads: [readRoles],
-    write: (store) => store.dispatch(rolesApi.endpoints.deleteRole.initiate('editor')),
+    write: (store) =>
+      store.dispatch(rolesApi.endpoints.deleteRole.initiate({ idOrSlug: 'editor', version: 0 })),
     accepted: { message: 'Role deleted' },
     requests: [GET_ROLES, 'DELETE /api/roles/editor'],
     refetched: [GET_ROLES],
@@ -129,6 +136,7 @@ export const CONVERTED: MutationCase[] = [
     write: (store) =>
       store.dispatch(
         permissionsApi.endpoints.addPermission.initiate({
+          version: 0,
           userId: 'user-2',
           permission: 'users.write',
         }),
@@ -143,6 +151,7 @@ export const CONVERTED: MutationCase[] = [
     write: (store) =>
       store.dispatch(
         permissionsApi.endpoints.removePermission.initiate({
+          version: 0,
           userId: 'user-2',
           permission: 'users.write',
         }),
@@ -161,10 +170,13 @@ export const CONVERTED: MutationCase[] = [
     write: (store) =>
       store.dispatch(
         usersApi.endpoints.createUser.initiate({
-          email: 'omar@example.com',
-          name: 'Omar Nasser',
-          password: 'Passw0rd!Omar',
-          role: 'user',
+          body: {
+            email: 'omar@example.com',
+            name: 'Omar Nasser',
+            password: 'Passw0rd!Omar',
+            role: 'user',
+          },
+          idempotencyKey: 'cache-user-create-operation',
         }),
       ),
     accepted: ADMIN_USER,
@@ -177,6 +189,7 @@ export const CONVERTED: MutationCase[] = [
     write: (store) =>
       store.dispatch(
         usersApi.endpoints.updateUser.initiate({
+          version: 0,
           userId: 'user-2',
           name: 'Omar N',
           email: 'omar@example.com',
@@ -191,9 +204,13 @@ export const CONVERTED: MutationCase[] = [
     reads: [readUsers, readUser],
     write: (store) =>
       store.dispatch(
-        usersApi.endpoints.updateUserStatus.initiate({ userId: 'user-2', isActive: false }),
+        usersApi.endpoints.updateUserStatus.initiate({
+          version: 0,
+          userId: 'user-2',
+          isActive: false,
+        }),
       ),
-    accepted: { id: 'user-2', isDeleted: true, deletedAt: '2026-10-02T00:00:00.000Z' },
+    accepted: { version: 1, id: 'user-2', isDeleted: true, deletedAt: '2026-10-02T00:00:00.000Z' },
     // The server saves the status first and revokes the sessions second: a
     // failed revocation answers 503 against an account already deactivated.
     outcomeUnknown: true,
@@ -205,7 +222,7 @@ export const CONVERTED: MutationCase[] = [
     reads: [readUsers, readUser, readPermissions],
     write: (store) =>
       store.dispatch(
-        usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }),
+        usersApi.endpoints.updateUserRole.initiate({ version: 0, userId: 'user-2', role: 'admin' }),
       ),
     accepted: ADMIN_USER,
     // Same server shape: the role is saved, then sessions are revoked.
@@ -217,7 +234,8 @@ export const CONVERTED: MutationCase[] = [
   {
     name: 'deleteUser',
     reads: [readUsers, readUser],
-    write: (store) => store.dispatch(usersApi.endpoints.deleteUser.initiate('user-2')),
+    write: (store) =>
+      store.dispatch(usersApi.endpoints.deleteUser.initiate({ userId: 'user-2', version: 0 })),
     accepted: { message: 'User deleted' },
     // Same server shape: the delete saves first, the revocation can answer 503
     // after the account is already gone (a retry answers "already deleted").

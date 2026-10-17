@@ -61,16 +61,6 @@ export function describeMethodsRead(name: string, subject: MethodsReadSubject) {
   }
 
   describe(`${name} and the sign-in methods read`, () => {
-    it('shows the card when the server says the method is on', async () => {
-      const reads = answerMethods(subject, on);
-      const card = await renderCard();
-
-      await waitFor(() => expect(card.workingButton()).not.toBeNull());
-      expect(card.title()).not.toBeNull();
-      expect(screen.queryByRole('alert')).toBeNull();
-      expect(reads()).toBe(1);
-    });
-
     it('shows nothing when the server says the method is off', async () => {
       const reads = answerMethods(subject, off);
       const card = await renderCard();

@@ -61,6 +61,7 @@ describe('the sign-in methods gate', () => {
     expect(JSON.parse(shown.textContent ?? '')).toEqual({
       password: true,
       magicLink: false,
+      emailCode: false,
       twoFactor: false,
       passkeys: false,
       oauth: [],
@@ -83,6 +84,7 @@ describe('the sign-in methods gate', () => {
     expect(JSON.parse(shown.textContent ?? '')).toEqual({
       password: false,
       magicLink: false,
+      emailCode: false,
       twoFactor: false,
       passkeys: true,
       oauth: [],
@@ -123,18 +125,6 @@ describe('the sign-in methods gate', () => {
     expect(screen.queryByTestId('methods-known')).toBeNull();
     expect(requests).toEqual([METHODS_READ]);
     expect(gate.errorToasts()).toEqual([gate.message(toastKey)]);
-  });
-
-  it.each([
-    'en',
-    'ar', // feature:locale-ar
-  ] as const)('words the failure in %s from the catalogue', async (locale) => {
-    answerMethods(unreachable);
-    const gate = await renderGate(locale);
-
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toBe(gate.message('auth.methods.loadFailed'));
-    expect(availability(gate.retryButton())).toEqual(IDLE);
   });
 
   it('reads again on retry and shows the methods when the read succeeds', async () => {

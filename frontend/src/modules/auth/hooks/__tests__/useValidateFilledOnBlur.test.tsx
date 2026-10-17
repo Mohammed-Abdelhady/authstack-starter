@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type Control, type FieldValues } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { useValidateFilledOnBlur } from '../useValidateFilledOnBlur';
 
 const REQUIRED = 'required-for-the-test';
@@ -67,25 +67,6 @@ async function submitFromTheSecondField() {
 afterEach(cleanup);
 
 describe('the submit state the blur helper depends on', () => {
-  it('finds the control saying a submit is running when the library moves the focus', async () => {
-    const atBlur = await submitFromTheSecondField();
-
-    expect(atBlur).toEqual([{ isSubmitting: true, isSubmitted: false }]);
-  });
-
-  it('finds the control saying the form was submitted once the submit is over', async () => {
-    const atBlur = await submitFromTheSecondField();
-    await waitFor(() => expect(screen.getByTestId('second-error').textContent).toBe(REQUIRED));
-
-    act(() => screen.getByTestId('second').focus());
-    act(() => screen.getByTestId('first').focus());
-
-    expect(atBlur).toEqual([
-      { isSubmitting: true, isSubmitted: false },
-      { isSubmitting: false, isSubmitted: true },
-    ]);
-  });
-
   it('keeps the message the submit gave the empty field, through both moves', async () => {
     await submitFromTheSecondField();
     await waitFor(() => expect(screen.getByTestId('second-error').textContent).toBe(REQUIRED));

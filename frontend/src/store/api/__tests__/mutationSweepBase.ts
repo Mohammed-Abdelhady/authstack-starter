@@ -53,6 +53,7 @@ export const PROFILE = {
 export const LOGIN_RESPONSE = { requiresTwoFactor: false, user: PROFILE };
 
 export const ADMIN_USER = {
+  version: 0,
   id: 'user-2',
   email: 'omar@example.com',
   name: 'Omar Nasser',
@@ -65,9 +66,14 @@ export const ADMIN_USER = {
   updatedAt: '2026-10-01T12:00:00.000Z',
 };
 
-export const ROLE = { id: 'editor', name: 'Editor', slug: 'editor' };
+export const ROLE = { version: 0, id: 'editor', name: 'Editor', slug: 'editor' };
 
-export const PERMISSIONS = { userId: 'user-2', permissions: ['roles.read'], role: 'user' };
+export const PERMISSIONS = {
+  version: 0,
+  userId: 'user-2',
+  permissions: ['roles.read'],
+  role: 'user',
+};
 
 /**
  * What every read answers, by path: the reads of the core slices. Feature

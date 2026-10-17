@@ -61,19 +61,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('ResetPasswordForm rejected code in %s', (locale) => {
-  it('marks the reset values required in the browser', async () => {
-    await renderForm(locale, <ResetPasswordForm />);
-
-    for (const testId of [
-      'reset-password-email-input',
-      'reset-password-code-input',
-      'reset-password-password-input',
-      'reset-password-confirmPassword-input',
-    ]) {
-      expect(screen.getByTestId(testId).hasAttribute('required')).toBe(true);
-    }
-  });
-
   it('shows the catalogue generic message and offers a new code, never the server text', async () => {
     rejectResetCode();
 

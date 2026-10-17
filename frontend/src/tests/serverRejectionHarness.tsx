@@ -148,17 +148,19 @@ export function formatter(locale: AppLocale, messages: AbstractIntlMessages): Me
 /** Renders a form in the app's store and a catalogue, and resolves what it should show. */
 export async function renderForm(locale: AppLocale, form: ReactElement, store = makeStore()) {
   const messages = await loadMessages(locale);
-  const view = render(
+  const wrap = (element: ReactElement) => (
     <Provider store={store}>
       <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
-        {form}
+        {element}
       </NextIntlClientProvider>
-    </Provider>,
+    </Provider>
   );
+  const view = render(wrap(form));
   const shown = (calls: unknown[][]) =>
     calls.map(([message]) => toastText(message, locale, messages));
   return {
     unmount: view.unmount,
+    rerender: (element: ReactElement) => view.rerender(wrap(element)),
     store,
     message: (key: string) => lookupMessage(messages, key),
     /** A catalogue message with its arguments filled in. */
