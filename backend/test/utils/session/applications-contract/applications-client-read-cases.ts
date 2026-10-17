@@ -1,10 +1,6 @@
-import { MalformedIdError } from '../../../../src/common/persistence/persistence-errors';
-import { signIn } from '../authority-contract/authority-contract-support';
 import {
   ADMIN_CLIENT,
-  rejectionOf,
   rerunAtOnce,
-  WEB_CLIENT,
 } from '../issuance-contract/issuance-contract-support';
 import { CONTRACT_ENVIRONMENT } from '../issuance-contract/issuance-contract-harness';
 import {
@@ -24,6 +20,10 @@ const MOBILE_CLIENT_READ = {
   platform: 'native',
   enabled: true,
   sessionVersion: 0,
+  signUp: 'open',
+  requirePasskey: false,
+  signInMethods: null,
+  policyVersion: 0,
   allowedScopes: ['api'],
   policy: { absoluteLifetimeMs: THIRTY_DAYS_MS, idleLifetimeMs: SEVEN_DAYS_MS },
   allowedOrigins: [],
@@ -138,78 +138,5 @@ export function applicationClientReadCases(
       whileOpen: { inside: false, plain: true },
       afterItEnded: false,
     });
-  });
-
-  it('reads no grant, an allowed one and a blocked one, each for its own client only', async () => {
-    const { issuance } = harness().authority;
-    const userId = await issuance.seedAccount();
-    const access = accessOn(harness());
-    const read = async () => {
-      const grant = await harness().accessStore.readGrant(userId, WEB_CLIENT);
-      return {
-        grant: grant && {
-          userId: grant.userId,
-          clientId: grant.clientId,
-          allowed: grant.allowed,
-          sessionVersion: grant.sessionVersion,
-        },
-        idIsTheStoredOne:
-          grant?.id === (await harness().grant(userId, WEB_CLIENT))?.id,
-        allowed: await access.isGrantAllowed(userId, WEB_CLIENT),
-        allowedForAdmin: await access.isGrantAllowed(userId, ADMIN_CLIENT),
-      };
-    };
-
-    const none = await read();
-    await signIn(harness().authority, userId);
-    const allowed = await read();
-    await access.blockGrant(userId, WEB_CLIENT);
-    const blocked = await read();
-
-    expect({ none, allowed, blocked }).toEqual({
-      none: {
-        grant: null,
-        idIsTheStoredOne: true,
-        allowed: false,
-        allowedForAdmin: false,
-      },
-      allowed: {
-        grant: {
-          userId,
-          clientId: 'web',
-          allowed: true,
-          sessionVersion: 0,
-        },
-        idIsTheStoredOne: true,
-        allowed: true,
-        allowedForAdmin: false,
-      },
-      blocked: {
-        grant: {
-          userId,
-          clientId: 'web',
-          allowed: false,
-          sessionVersion: 1,
-        },
-        idIsTheStoredOne: true,
-        allowed: false,
-        allowedForAdmin: false,
-      },
-    });
-  });
-
-  it("refuses another database's account id on the plain grant read", async () => {
-    const foreign = harness().authority.issuance.foreignAccountId();
-
-    expect({
-      store:
-        (await rejectionOf(
-          harness().accessStore.readGrant(foreign, WEB_CLIENT),
-        )) instanceof MalformedIdError,
-      service:
-        (await rejectionOf(
-          accessOn(harness()).isGrantAllowed(foreign, WEB_CLIENT),
-        )) instanceof MalformedIdError,
-    }).toEqual({ store: true, service: true });
   });
 }

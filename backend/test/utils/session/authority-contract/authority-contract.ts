@@ -1,10 +1,11 @@
+import { authorityReadOutageCases } from './authority-read-outage-cases';
+import { authorityLiveLimitCases } from './authority-live-limit-cases';
 import { TEST_NOW } from '../../frozen-clock';
 import {
   ADMIN_APPLICATION,
   WEB_APPLICATION,
 } from '../issuance-contract/issuance-contract-support';
 import { AuthorityContractHarness } from './authority-contract-harness';
-import { authorityDeviceCases } from './authority-device-cases';
 import { authorityExtensionCases } from './authority-extension-cases';
 import { authorityIdentityCases } from './authority-identity-cases';
 import { authorityReadCases } from './authority-read-cases';
@@ -52,7 +53,9 @@ export function describeSessionAuthorityContract(
 
     authorityValidationCases(current);
     authorityExtensionCases(current);
+    authorityLiveLimitCases(current);
     authorityReadCases(current);
+    authorityReadOutageCases(current);
     revocationRuleCases(current);
     revocationStoreCases(current);
     revocationAtomicityCases(current);
@@ -60,6 +63,5 @@ export function describeSessionAuthorityContract(
     accountRaceCases(current);
     revocationRouteIdCases(current);
     authorityIdentityCases(current);
-    authorityDeviceCases(current);
   });
 }

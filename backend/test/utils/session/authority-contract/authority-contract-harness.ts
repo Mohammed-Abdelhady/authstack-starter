@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import { IdFormat } from '../../../../src/common/persistence/id-format';
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import { AuthorityApplications } from '../../../../src/session/authority/authority-applications';
@@ -31,6 +32,10 @@ export interface SessionState {
 }
 
 export interface SessionPatch {
+  revokedAt?: Date | null;
+  proofKeyThumbprint?: string | null;
+  userVerified?: boolean;
+  policyVersion?: number;
   credentialPurpose?: string;
   authEpoch?: number;
   schemaVersion?: number;
@@ -49,6 +54,7 @@ export interface GrantPatch {
 }
 
 export interface AccountIdentitySeed {
+  audience?: RoleAudience;
   email: string;
   name: string;
   role: string;
@@ -84,6 +90,7 @@ export interface AuthorityContractHarness {
   revoker(pause: RerunPause): SessionRevoker;
   session(sessionId: string): Promise<SessionState | null>;
   patchSession(sessionId: string, patch: SessionPatch): Promise<void>;
+  clearSessionEvidence(sessionId: string): Promise<void>;
   patchGrant(
     userId: string,
     clientId: string,

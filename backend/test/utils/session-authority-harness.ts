@@ -1,3 +1,4 @@
+import { API_GLOBAL_PREFIX } from '../../src/common/constants/http-routes';
 import { INestApplication } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import {
@@ -99,7 +100,7 @@ export async function bootSessionAuthority(
   const app = module.createNestApplication();
   if (options?.withNativeHttp) {
     app.use(cookieParser());
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix(API_GLOBAL_PREFIX);
   }
   await app.init();
 

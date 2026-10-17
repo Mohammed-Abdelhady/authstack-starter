@@ -1,3 +1,4 @@
+import { ROLE_AUDIENCE } from '../../../../src/host/types/host-role.type';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { holdBefore, RaceGate } from '../../race-gate';
 import { outcomeOf } from '../authority-contract/authority-contract-support';
@@ -23,6 +24,10 @@ const WEB_REGISTERED = {
   platform: 'web',
   enabled: true,
   sessionVersion: 0,
+  signUp: 'open',
+  requirePasskey: false,
+  signInMethods: null,
+  policyVersion: 0,
   allowedScopes: ['api'],
   policy: { absoluteLifetimeMs: TWO_HOURS_MS, idleLifetimeMs: TEN_MINUTES_MS },
   allowedOrigins: [],
@@ -55,10 +60,34 @@ export function applicationRegistryCases(
   }
 
   it('answers a registered and enabled application, on a committed read and inside a unit of work', async () => {
+    await harness().clearApplicationPolicy(WEB_CLIENT);
     expect(await requireBothWays(WEB_CLIENT)).toEqual({
       committed: WEB_REGISTERED,
       inUnitOfWork: WEB_REGISTERED,
     });
+  });
+
+  // Failure: another environment changes this environment's creation audience.
+  it('limits named audience detection to the creating environment', async () => {
+    const h = harness();
+    const issuance = h.authority.issuance;
+    const hasAudience = () =>
+      issuance
+        .runner(rerunAtOnce)
+        .run((work) => issuance.applications.hasAccountAudience(work));
+    expect(await hasAudience()).toBe(false);
+    await h.seedStoredApplication(
+      nativeApplication({
+        clientId: 'foreign-audience',
+        environment: OTHER_ENVIRONMENT,
+        accountAudience: ROLE_AUDIENCE.STAFF,
+      }),
+    );
+    expect(await hasAudience()).toBe(false);
+    await h.seedStoredApplication(
+      nativeApplication({ accountAudience: ROLE_AUDIENCE.STAFF }),
+    );
+    expect(await hasAudience()).toBe(true);
   });
 
   it('refuses a client that is not registered', async () => {

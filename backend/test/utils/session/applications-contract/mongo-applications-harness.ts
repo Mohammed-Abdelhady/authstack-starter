@@ -1,3 +1,4 @@
+import { EventRecorder } from '../../../../src/auth/contracts/event-recorder';
 import { Types } from 'mongoose';
 import { ApplicationAccessStore } from '../../../../src/session/applications/application-access.store';
 import { ApplicationRegistryStore } from '../../../../src/session/applications/application-registry.store';
@@ -14,6 +15,7 @@ export async function bootMongoApplicationsHarness(): Promise<ApplicationsContra
 
   return {
     authority,
+    recorder: app.get(EventRecorder),
     registryStore: app.get(ApplicationRegistryStore),
     accessStore: app.get(ApplicationAccessStore),
 
@@ -39,11 +41,39 @@ export async function bootMongoApplicationsHarness(): Promise<ApplicationsContra
         sessionVersion: application.sessionVersion,
       }));
     },
+    clearApplicationPolicy: async (clientId) => {
+      await applications.collection.updateOne(
+        { clientId, environment: 'test' },
+        {
+          $unset: {
+            signUp: '',
+            signInMethods: '',
+            requirePasskey: '',
+            accountAudience: '',
+            policyVersion: '',
+            sessionCap: '',
+            'policy.unboundAbsoluteLifetimeMs': '',
+            'policy.unboundIdleLifetimeMs': '',
+          },
+        },
+      );
+    },
     seedStoredApplication: async (application) => {
-      const { absoluteLifetimeMs, idleLifetimeMs, ...fields } = application;
+      const {
+        absoluteLifetimeMs,
+        idleLifetimeMs,
+        unboundAbsoluteLifetimeMs,
+        unboundIdleLifetimeMs,
+        ...fields
+      } = application;
       await applications.create({
         ...fields,
-        policy: { absoluteLifetimeMs, idleLifetimeMs },
+        policy: {
+          absoluteLifetimeMs,
+          idleLifetimeMs,
+          unboundAbsoluteLifetimeMs,
+          unboundIdleLifetimeMs,
+        },
       });
     },
     grant: async (userId, clientId) => {
