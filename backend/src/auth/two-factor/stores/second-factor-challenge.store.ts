@@ -1,3 +1,4 @@
+import type { UnitOfWork } from '../../../common/persistence/unit-of-work';
 /** Shared names of the unique rules a challenge can run into. */
 export const SECOND_FACTOR_CHALLENGE_CONSTRAINT = {
   NONCE: 'two_factor_challenge.nonce_hash',
@@ -42,6 +43,10 @@ export abstract class SecondFactorChallengeStore {
 
   /** A nonce that is already stored is a `UniqueConflictError`. */
   abstract open(challenge: NewSecondFactorChallenge): Promise<void>;
+  abstract openIn(
+    work: UnitOfWork,
+    challenge: NewSecondFactorChallenge,
+  ): Promise<void>;
   /** The stored challenge, whatever its state. */
   abstract find(
     key: SecondFactorChallengeKey,

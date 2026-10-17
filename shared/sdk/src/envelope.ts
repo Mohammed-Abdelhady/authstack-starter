@@ -76,6 +76,7 @@ function toApiError(body: unknown, status: number): ApiError {
     message: nonEmptyString(error?.message) ?? describeFailure(body, status),
     fields: code === ErrorCode.VALIDATION_ERROR ? extractFieldErrors(error?.details) : undefined,
     requestId: nonEmptyString(envelope?.requestId),
+    details: isJsonObject(error?.details) ? error.details : undefined,
   });
 }
 

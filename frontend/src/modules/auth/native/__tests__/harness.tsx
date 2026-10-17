@@ -15,6 +15,7 @@ import type { Identity, User } from '@app/sdk';
 export const TEST_TRANSACTION = 'txn-abc123';
 
 export const TEST_USER: User = {
+  locale: 'en',
   id: 'user-1',
   email: 'layla@example.com',
   name: 'Layla Haddad',

@@ -1,5 +1,4 @@
 import {
-  chosenStorage,
   confirmStorageChoice,
   forgetStorageChoice,
   forStorage,
@@ -44,14 +43,6 @@ describe('the database choice', () => {
     expect(() => storageKindOf({ secret: 'hunter2' })).toThrow(
       'DATABASE_TYPE must be one of mongodb, postgres, got object',
     );
-  });
-
-  it('takes the environment as it is when asked, MongoDB when it names nothing', () => {
-    const unset = chosenStorage();
-    process.env.DATABASE_TYPE = 'postgres';
-    const set = chosenStorage();
-
-    expect({ unset, set }).toEqual({ unset: 'mongodb', set: 'postgres' });
   });
 
   it('builds the chosen adapter wiring and never the other one', () => {

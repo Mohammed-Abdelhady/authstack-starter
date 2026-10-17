@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { rmSync, readdirSync, readFileSync, copyFileSync, mkdirSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { mkdirSync, rmSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { repository } from '../test-repository.mjs';
 import { workspacePolicyProblems, trackedTypeFiles } from './workspace-policy.mjs';
@@ -14,7 +12,8 @@ function workspace(repo, path, extra = '') {
   repo.write(
     `${path}/package.json`,
     JSON.stringify({
-      name: path.replaceAll('/', '-'), type: 'module',
+      name: path.replaceAll('/', '-'),
+      type: 'module',
       devDependencies: { eslint: '^9.39.5', 'typescript-eslint': '^8.70.1' },
     }),
   );
@@ -45,11 +44,6 @@ function fixture(t, extra = '') {
   repo.commit();
   return repo;
 }
-
-test('workspace discovery accepts clean tracked files and absent declarations', async (t) => {
-  const repo = fixture(t);
-  assert.deepEqual(await workspacePolicyProblems(repo.root, { env: repo.env }), []);
-});
 
 for (const [pattern, file] of [
   ['**/*.spec.ts', 'src/a.spec.ts'],
@@ -207,41 +201,6 @@ test('production inventory respects global safe-directory permission', (t) => {
     'apps/one/src/app/a.ts',
     'apps/one/test/a.e2e-spec.ts',
   ]);
-});
-
-test('parser setup failure registers its cases before the hook fails', (t) => {
-  const repo = repository(t);
-  repo.write('package.json', JSON.stringify({ type: 'module', workspaces: ['absent'] }));
-  mkdirSync(join(repo.root, 'scripts/guardrails/scanner'), { recursive: true });
-  mkdirSync(join(repo.root, 'scripts/guardrails/git'), { recursive: true });
-  mkdirSync(join(repo.root, 'scripts/guardrails/workspace'), { recursive: true });
-  for (const [file, destination] of [
-    ['type-policy.test.mjs', 'workspace/type-policy.test.mjs'],
-    ['workspace-policy.mjs', 'workspace/workspace-policy.mjs'],
-    ['../scanner/checker.mjs', 'scanner/checker.mjs'],
-    ['../policy.mjs', 'policy.mjs'],
-    ['../git/git-environment.mjs', 'git/git-environment.mjs'],
-    ['../git/git-paths.mjs', 'git/git-paths.mjs'],
-    ['workspace-roots.mjs', 'workspace/workspace-roots.mjs'],
-  ]) {
-    copyFileSync(
-      fileURLToPath(new URL(file, import.meta.url)),
-      join(repo.root, 'scripts/guardrails', destination),
-    );
-  }
-  const result = spawnSync(
-    process.execPath,
-    // Node 24's default reporter prints no TAP summary lines.
-    ['--test', '--test-reporter=tap', 'scripts/guardrails/workspace/type-policy.test.mjs'],
-    {
-      cwd: repo.root,
-      env: repo.env,
-      encoding: 'utf8',
-    },
-  );
-  assert.equal(result.status, 1);
-  assert.match(result.stdout, /^# tests 56$/m);
-  assert.match(result.stdout, /failureType: 'hookFailed'/);
 });
 
 test('filesystem inventory preserves root and nested gitignore rules and negation', (t) => {

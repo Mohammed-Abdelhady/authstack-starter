@@ -1,3 +1,4 @@
+import { IssuanceApplications } from '../../../session/issuance/issuance-applications';
 import { AddressLedger } from '../../../common/persistence/address-ledger';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
@@ -15,6 +16,7 @@ export interface RequestWorkProbe {
   readonly accounts: MagicLinkAccounts;
   readonly runner: UnitOfWorkRunner;
   readonly ledger: AddressLedger;
+  readonly issuanceApplications: IssuanceApplications;
   /** Statements sent since the last time this was asked. */
   takeStatements(): number;
   seedAccount(account: { email: string; isDeleted: boolean }): Promise<void>;
@@ -49,6 +51,7 @@ export function describeRequestWork(
         accounts: probe.accounts,
         runner: probe.runner,
         ledger: probe.ledger,
+        issuanceApplications: probe.issuanceApplications,
       });
       await probe.seedAccount({
         email: 'known@example.test',

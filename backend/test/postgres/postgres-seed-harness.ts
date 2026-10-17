@@ -50,6 +50,7 @@ export async function bootPostgresSeedHarness(): Promise<SeedContractHarness> {
         .orderBy('slug', 'asc')
         .execute();
       return rows.map((row) => ({
+        ...(row.audience === null ? {} : { audience: row.audience }),
         name: row.name,
         slug: row.slug,
         description: row.description,
@@ -66,6 +67,7 @@ export async function bootPostgresSeedHarness(): Promise<SeedContractHarness> {
         .orderBy('email', 'asc')
         .execute();
       return rows.map((row) => ({
+        ...(row.audience === null ? {} : { audience: row.audience }),
         id: row.id,
         email: row.email ?? '',
         name: row.name ?? '',
@@ -81,6 +83,7 @@ export async function bootPostgresSeedHarness(): Promise<SeedContractHarness> {
       await database
         .insertInto('roles')
         .values({
+          audience: role.audience ?? null,
           name: role.name,
           slug: role.slug,
           description: role.description,
@@ -97,6 +100,7 @@ export async function bootPostgresSeedHarness(): Promise<SeedContractHarness> {
       const row = await database
         .insertInto('users')
         .values({
+          audience: account.audience ?? null,
           email: account.email,
           name: account.name,
           role: account.role,

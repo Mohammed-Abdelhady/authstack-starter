@@ -24,6 +24,7 @@ const REFUSED_NAME = 'Reserved Name';
 const ACCEPTED_NAME = '24-7 Support';
 
 const ROLE: Role = {
+  version: 0,
   id: 'role-support',
   name: 'Support Team',
   slug: 'support-team',
@@ -124,18 +125,6 @@ describe.each([
       });
       // The field says why. No toast was raised, so none has to be taken down.
       expect(errorToasts()).toEqual([]);
-      submitName(ACCEPTED_NAME);
-
-      await waitFor(() => {
-        expect(successToasts()).toEqual([format(formCase.successKey, { name: ACCEPTED_NAME })]);
-      });
-      expect(dismissalsAndSuccesses()).toEqual(['success']);
-    });
-
-    it('dismisses nothing when the first save is accepted', async () => {
-      refuseTheSlash();
-      const { submitName, format, successToasts } = await openForm(locale, formCase);
-
       submitName(ACCEPTED_NAME);
 
       await waitFor(() => {

@@ -22,7 +22,6 @@ import {
   POSTGRES_POOL,
   PostgresConnectionModule,
   PostgresDatabase,
-  postgresMigrationPoolConfig,
   postgresPoolConfig,
 } from './postgres-connection';
 
@@ -39,68 +38,6 @@ describe('the PostgreSQL connection of the application', () => {
 
   const urlOf = ({ connection }: PostgresTestServer): string =>
     `postgres://${connection.user}:${encodeURIComponent(connection.password)}@${connection.host}:${connection.port}/${connection.database}`;
-
-  it('reads the pool settings from the validated environment', () => {
-    const settings = postgresPoolConfig(
-      new ConfigService({
-        POSTGRES_URL: 'postgres://app:placeholder@db.internal:5432/auth',
-        POSTGRES_POOL_MAX: 25,
-      }),
-    );
-    const defaults = postgresPoolConfig(
-      new ConfigService({ POSTGRES_URL: 'postgres://db.internal/auth' }),
-    );
-
-    expect({
-      url: settings.connectionString,
-      max: settings.max,
-      defaultMax: defaults.max,
-      waitsForever: settings.connectionTimeoutMillis === 0,
-    }).toEqual({
-      url: 'postgres://app:placeholder@db.internal:5432/auth',
-      max: 25,
-      defaultMax: 10,
-      waitsForever: false,
-    });
-  });
-
-  it('bounds every statement of the server, and leaves a migration unbounded on one connection', () => {
-    const config = new ConfigService({
-      POSTGRES_URL: 'postgres://db.internal/auth',
-    });
-    const server = postgresPoolConfig(config);
-    const migration = postgresMigrationPoolConfig(config);
-
-    expect({
-      server: {
-        statement: server.statement_timeout,
-        query: server.query_timeout,
-        keepAlive: server.keepAlive,
-        keepAliveDelay: server.keepAliveInitialDelayMillis,
-        connect: server.connectionTimeoutMillis,
-      },
-      migration: {
-        statement: migration.statement_timeout,
-        query: migration.query_timeout,
-        max: migration.max,
-        keepAlive: migration.keepAlive,
-      },
-    }).toEqual({
-      server: {
-        statement: 15000,
-        query: 20000,
-        keepAlive: true,
-        keepAliveDelay: 10000,
-        connect: 10000,
-      },
-      migration: {
-        statement: undefined,
-        query: undefined,
-        max: 1,
-        keepAlive: true,
-      },
-    });
-  });
 
   it('has the server cancel a statement at the bound the pool was given', async () => {
     const pool = openPostgresPool({

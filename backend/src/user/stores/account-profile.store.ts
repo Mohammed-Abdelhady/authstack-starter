@@ -38,6 +38,7 @@ export abstract class AccountProfileStore {
   abstract findAccount(userId: string): Promise<StoredAccount | null>;
   /** Stores the account again, with each change that is given. */
   abstract saveProfile(
+    unitOfWork: UnitOfWork,
     account: StoredAccount,
     changes: ProfileChanges,
   ): Promise<StoredAccount>;

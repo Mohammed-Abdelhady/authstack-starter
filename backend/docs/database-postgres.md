@@ -56,6 +56,8 @@ A rollback to a build lacking an applied file is refused by `up` and by server s
 
 Run `0021_address_claims.sql` with writes paused, or rerun the upgrade if PostgreSQL aborts it as a deadlock victim, since the whole migration rolls back and is safe to rerun.
 
+`0023_account_audience.sql` and `0024_session_evidence.sql` add their checks as `NOT VALID`. The new columns hold only empty values or their defaults, which pass, so neither file scans `users`, `roles` or `sessions` while it holds the table lock. New and changed rows are checked as usual. To have PostgreSQL record the checks as validated, run `ALTER TABLE ... VALIDATE CONSTRAINT ...` later; it does not block reads or writes.
+
 Each optional sign-in method that has tables of its own brings a migration file of its own. A project made without that method does not carry the file, so the numbers in the folder can have gaps. The order is the order of the names.
 
 ### Adopting existing host records
@@ -74,7 +76,9 @@ Every name must be in the host folder and absent from the core build. A row alre
 
 ## Expired rows
 
-PostgreSQL has no index that expires rows, so the server runs a retention job every five minutes. It removes rows past their expiry, at most 500 rows a statement and 20 statements a table in one run. What is left waits for the next run. When the statement for one table fails, the job logs the table and goes on to the next.
+PostgreSQL has no index that expires rows, so the server runs a retention job every five minutes. It removes rows past their expiry, at most 500 rows a statement and 20 statements a table in one run. What is left waits for the next run. When the statement for one table fails, the job logs the table and goes on to the next. Cleanup is eventual and has no fixed maximum delay.
+
+The job includes temporary address claims at `lapses_at` with no extra retention interval. Migration `0034_address_claim_retention.sql` indexes existing claims for this cleanup. A renewed or replacement row is left alone when cleanup had selected an earlier expired row version. Account addresses remain protected by the users table.
 
 No check of a code, a proof, a token or a session waits for this job. Each one compares the expiry itself, so an expired row the job has not reached yet is refused like one it has removed.
 

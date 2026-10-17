@@ -101,7 +101,7 @@ describe('browser adapter failure handoffs', () => {
     await store.dispatch(usersApi.endpoints.getUserById.initiate('user-2'));
 
     const result = await store.dispatch(
-      usersApi.endpoints.updateUserRole.initiate({ userId: 'user-2', role: 'admin' }),
+      usersApi.endpoints.updateUserRole.initiate({ version: 0, userId: 'user-2', role: 'admin' }),
     );
     await Promise.all(store.dispatch(usersApi.util.getRunningQueriesThunk()));
 

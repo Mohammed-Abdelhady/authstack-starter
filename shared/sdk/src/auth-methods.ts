@@ -5,7 +5,7 @@ import type { TransportResponse } from './transport';
 import type { AuthMethods } from './types';
 
 /** Switches a server built without the method leaves out. */
-const OPTIONAL_SWITCHES = ['magicLink', 'twoFactor', 'passkeys'] as const;
+const OPTIONAL_SWITCHES = ['magicLink', 'emailCode', 'twoFactor', 'passkeys'] as const;
 
 const PROVIDERS_KEY = 'oauth';
 
@@ -38,6 +38,7 @@ function toAuthMethods(data: unknown, status: number): AuthMethods {
 
   return {
     magicLink: false,
+    emailCode: false,
     twoFactor: false,
     passkeys: false,
     oauth: [],

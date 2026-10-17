@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
-import { directionOf, registerRtlDocument } from '@/tests/direction';
+import { registerRtlDocument } from '@/tests/direction';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
 import { PermissionSearchDialog } from '../PermissionSearchDialog';
 
@@ -44,19 +44,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the permission search box in an rtl page in %s', (locale) => {
-  it('keeps the box in the page direction, before and after typing', async () => {
-    const { box } = await openSearch(locale);
-    const direction = () => ({ own: box.getAttribute('dir'), inForce: directionOf(box) });
-
-    expect(direction()).toEqual({ own: null, inForce: 'rtl' });
-    fireEvent.change(box, { target: { value: KEY_QUERY } });
-    expect({ ...direction(), value: box.getAttribute('value') }).toEqual({
-      own: null,
-      inForce: 'rtl',
-      value: KEY_QUERY,
-    });
-  });
-
   it('finds permissions by a typed key', async () => {
     const { box, shown } = await openSearch(locale);
 

@@ -4,11 +4,22 @@ import { API_PATHS } from './paths';
 import { unwrapObject } from './shapes';
 import { unwrapTokenSet } from './tokens';
 import { createNativeAuthClient } from './native-auth/client';
+// feature:email-code:start
+import {
+  createBrowserEmailCodeArea,
+  type ApiClientBrowserEmailCode,
+} from './areas/browser-email-code';
+// feature:email-code:end
 import { createAuthArea, type ApiClientAuth } from './areas/auth';
 import { createOAuthArea, type ApiClientOAuth } from './areas/oauth';
+import { createInvitationsArea, type ApiClientInvitations } from './areas/invitations'; // feature:invitations
+import { createProofArea, type ApiClientProof } from './areas/proof';
 import { createUserArea, type ApiClientUser } from './areas/user';
 import { createPasskeysArea, type ApiClientPasskeys } from './areas/passkeys';
 import { createAdminArea, type ApiClientAdmin } from './areas/admin';
+import { createAccountArea, type ApiClientAccount } from './areas/account';
+import { createProvidersArea, type ApiClientProviders } from './areas/providers';
+import { createAccountDeletionArea, type ApiClientAccountDeletion } from './areas/account-deletion';
 import {
   TransportError,
   isTransportError,
@@ -34,11 +45,17 @@ export interface CallOptions<TSignal extends TransportSignal = TransportSignal> 
  */
 export interface ApiClient<TSignal extends TransportSignal = TransportSignal>
   extends
+    ApiClientBrowserEmailCode<TSignal>, // feature:email-code
+    ApiClientInvitations<TSignal>, // feature:invitations
+    ApiClientProof<TSignal>,
     ApiClientUser<TSignal>,
     ApiClientAuth<TSignal>,
     ApiClientOAuth<TSignal>,
     ApiClientPasskeys<TSignal>,
-    ApiClientAdmin<TSignal> {
+    ApiClientAdmin<TSignal>,
+    ApiClientAccount<TSignal>,
+    ApiClientProviders<TSignal>,
+    ApiClientAccountDeletion<TSignal> {
   nativeAuth: NativeAuthClient<TSignal>;
 }
 
@@ -80,10 +97,16 @@ export function createApiClient<TSignal extends TransportSignal = TransportSigna
 
   return {
     nativeAuth: createNativeAuthClient(send),
+    ...createInvitationsArea<TSignal>(senders), // feature:invitations
+    ...createProofArea<TSignal>(senders),
+    ...createBrowserEmailCodeArea<TSignal>(senders), // feature:email-code
     ...createUserArea<TSignal>(senders),
     ...createAuthArea<TSignal>(senders),
     ...createOAuthArea<TSignal>(senders),
     ...createPasskeysArea<TSignal>(senders),
     ...createAdminArea<TSignal>(senders),
+    ...createAccountArea<TSignal>(senders),
+    ...createProvidersArea<TSignal>(senders),
+    ...createAccountDeletionArea<TSignal>(senders),
   };
 }

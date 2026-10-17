@@ -1,5 +1,9 @@
 'use client';
 
+import { useStaffOperation } from '@/modules/auth/hooks/useStaffOperation';
+import { useStaffDialogIntent } from '@/modules/auth/hooks/useStaffDialogIntent';
+import { FreshProofDialog } from '@/modules/auth/components/FreshProofDialog';
+
 import { useRef, useState } from 'react';
 import { useRetryHandOff } from '@/hooks/useFocusHandOff';
 import { useTranslations } from 'next-intl';
@@ -60,7 +64,9 @@ export function UserRoleSelector({
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   // The role picked in the list. It becomes `pendingRole` once the list has closed.
   const chosenRole = useRef<string | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const operation = useStaffOperation();
+  const intent = useStaffDialogIntent(pendingRole !== null, `${userId}:${pendingRole ?? ''}`);
+  const isUpdating = operation.busy;
   const guardKeyUntilReleased = useKeyReleaseGuard();
   const {
     roles,
@@ -91,27 +97,28 @@ export function UserRoleSelector({
   };
 
   const handleConfirmRoleChange = async () => {
-    if (!pendingRole || !onRoleChange) {
-      return;
-    }
-
-    setIsUpdating(true);
+    if (!pendingRole || !onRoleChange || rolesFailed || operation.busy) return;
+    const role = pendingRole;
+    const change = onRoleChange;
     setChangeRefusal(null);
-    try {
-      await onRoleChange(pendingRole);
-      const roleName = roles.find((r) => r.slug === pendingRole)?.name || pendingRole;
-      toast.success(t('changeSuccess', { role: roleName }));
-      setPendingRole(null);
-    } catch (error) {
-      setChangeRefusal(refusalText(error));
-      reportUnlessHandled(error);
-    } finally {
-      setIsUpdating(false);
-    }
+    await operation.start({
+      isCurrent: intent.capture(),
+      run: () => change(role),
+      onSuccess: () => {
+        const roleName = roles.find((r) => r.slug === role)?.name || role;
+        toast.success(t('changeSuccess', { role: roleName }));
+        setPendingRole(null);
+      },
+      onError: (error) => {
+        setChangeRefusal(refusalText(error));
+        reportUnlessHandled(error);
+      },
+    });
   };
 
-  // The dialog holds itself open until the request has an answer.
   const handleCancelRoleChange = () => {
+    intent.invalidate();
+    operation.cancelProof();
     setPendingRole(null);
     setChangeRefusal(null);
   };
@@ -137,6 +144,13 @@ export function UserRoleSelector({
 
   return (
     <>
+      {operation.methods && (
+        <FreshProofDialog
+          methods={operation.methods}
+          onProved={operation.proved}
+          onCancel={operation.cancelProof}
+        />
+      )}
       <Select
         value={currentRole}
         onValueChange={handleRoleSelect}

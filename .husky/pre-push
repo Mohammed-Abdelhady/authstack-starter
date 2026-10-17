@@ -2,4 +2,5 @@
 set -e
 sh scripts/lib/require-package-manager.sh pnpm
 node scripts/check-hard-bans.mjs --push --hook "$1" "$2"
+node scripts/check-workspace-dependencies.mjs
 pnpm run lint && pnpm run typecheck && pnpm run test

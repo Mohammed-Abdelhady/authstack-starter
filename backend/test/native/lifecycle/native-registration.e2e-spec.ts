@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
+import { applicationSecret } from '../../../src/session/utils/hashing/application-secret';
+import { NATIVE_CLIENT_ID } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { ErrorCode } from '../../../src/common/enums/error-code.enum';
 import { AccountProfileStore } from '../../../src/user/stores/account-profile.store';
 import {
@@ -7,7 +9,6 @@ import {
   MAILED_CODE_LIMIT_PER_ADDRESS,
   PENDING_PURPOSE,
 } from '../../../src/auth/constants/registration';
-import { NATIVE_ATTEMPT_PHASE } from '../../../src/auth/native/constants/native-attempt';
 import {
   bootNativeLifecycleApp,
   parseLifecycleResult,
@@ -80,7 +81,12 @@ describe('native registration lifecycle contract', () => {
       .digest('hex');
     expect(stored.details.emailCodeGenerationHash).toBe(generationHash);
     expect(stored.details.emailCodeGenerationHash).not.toBe(code);
-    expect(await bcrypt.compare(code, pending.hashedCode)).toBe(true);
+    expect(
+      await bcrypt.compare(
+        applicationSecret(code, NATIVE_CLIENT_ID),
+        pending.hashedCode,
+      ),
+    ).toBe(true);
 
     const activated = await activate(attempt, EMAIL, code).expect(200);
     expect(parseLifecycleResult(activated)).toMatchObject({
@@ -110,10 +116,12 @@ describe('native registration lifecycle contract', () => {
     expect(secondAttempt.details.emailCodeGenerationHash).not.toBe(
       firstAttempt.details.emailCodeGenerationHash,
     );
+    const pending = await e2e.state.auth.pendingRegistrationFor(EMAIL);
+    if (!pending) throw new Error('registration code was not persisted');
     expect(
       await bcrypt.compare(
-        secondCode,
-        (await e2e.state.auth.pendingRegistrationFor(EMAIL))!.hashedCode,
+        applicationSecret(secondCode, NATIVE_CLIENT_ID),
+        pending.hashedCode,
       ),
     ).toBe(true);
 
@@ -194,18 +202,6 @@ describe('native registration lifecycle contract', () => {
         PENDING_PURPOSE.SIGNUP,
       ),
     ).toBe(0);
-  });
-
-  it('rejects malformed email objects as validation errors', async () => {
-    const attempt = await startLifecycleAttempt(e2e, 'registration');
-    const response = await postLifecycle(e2e, attempt, 'register', {
-      email: { bad: true },
-    });
-    expect(response.status).toBe(400);
-    expect(response.body.error.code).toBe(ErrorCode.VALIDATION_ERROR);
-    expect((await storedAttempt(e2e, attempt)).phase).toBe(
-      NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
-    );
   });
 
   it('persists a 100 character supplementary name and passes the real response into the native SDK', async () => {

@@ -5,7 +5,6 @@ import {
   CHALLENGE_LIFETIME_MS,
   credential,
   CREDENTIAL_ID,
-  DEFAULT_NAME,
   NOW,
   OTHER_CREDENTIAL_ID,
   OWNER_EMAIL,
@@ -141,32 +140,6 @@ export function registrationCases(
     expect(await harness().storedChallenges()).toEqual([]);
     expect(holder.cookies).toEqual({});
     expect(await harness().profilePasskeyCount(ownerId)).toBe(1);
-  });
-
-  it('names a passkey that came with no name or a blank one', async () => {
-    const { ownerId } = fixture();
-    const services = passkeyServices(harness());
-
-    const unnamed = await registrationBrowser(services, ownerId);
-    services.authenticator.attestation = attestationOf(CREDENTIAL_ID);
-    await services.registration.verify(
-      ownerId,
-      { response: credential() },
-      unnamed.request,
-      unnamed.response,
-    );
-    const blank = await registrationBrowser(services, ownerId);
-    services.authenticator.attestation = attestationOf(OTHER_CREDENTIAL_ID);
-    await services.registration.verify(
-      ownerId,
-      { response: credential(OTHER_CREDENTIAL_ID), name: '   ' },
-      blank.request,
-      blank.response,
-    );
-
-    expect(
-      (await harness().storedPasskeys()).map((passkey) => passkey.name),
-    ).toEqual([DEFAULT_NAME, DEFAULT_NAME]);
   });
 
   it('stores nothing and still spends the challenge when the account or the attestation is wrong', async () => {

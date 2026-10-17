@@ -53,6 +53,10 @@ class RecordedAccountSessions extends AccountSessions {
       unitOfWork,
     );
   }
+
+  assertLive(): Promise<void> {
+    throw new Error('this spec records no session check');
+  }
 }
 
 export function recordedAccountSessions(recorded: RecordedSignOuts): Provider {

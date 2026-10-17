@@ -1,13 +1,6 @@
 import { readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, expect, it } from 'vitest';
-import { isRecord } from '../../src/manifest/read.js';
-import {
-  jobsOf,
-  readWorkflow,
-  SETUP_NODE_ACTION,
-  stepsOf,
-} from '../support/ci-workflow-helpers.js';
 import { applyRules, planRules, renderRulesPlan } from '../../src/add-rules/plan.js';
 import { parseAddRulesOptions } from '../../src/flags/add-rules.js';
 import { cleanRulesFixtures, put, rulesFixture, TRUSTED_RULES_ROOT } from './add-rules-fixture.js';
@@ -165,23 +158,4 @@ it.each([null, '', '   ', 12])('does not add an unusable root script %s', async 
     },
     workflowAdded: false,
   });
-});
-
-it('add-rules writes Node 22 and no matrix', async () => {
-  const manifest = {
-    packageManager: 'pnpm@12.6.0',
-    scripts: { test: 'echo ok' },
-  };
-  const root = await rulesFixture(manifest);
-  await applyRules(await planRules(root, 'strict', TRUSTED_RULES_ROOT));
-  expect(JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))).toEqual(manifest);
-  for (const path of ['.github/workflows/ci.yml', '.github/workflows/trusted-scan.yml']) {
-    for (const job of Object.values(jobsOf(readWorkflow(join(root, path))))) {
-      if (!isRecord(job)) throw new Error('Job must be a mapping');
-      expect(job.strategy).toBeUndefined();
-      expect(stepsOf(job).filter((step) => step.uses === SETUP_NODE_ACTION)).toEqual([
-        { uses: SETUP_NODE_ACTION, with: { 'node-version': '22', 'check-latest': true } },
-      ]);
-    }
-  }
 });

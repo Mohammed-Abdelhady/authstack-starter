@@ -62,6 +62,7 @@ export function trackEngine(
     signOut: () => track(engine.signOut()),
     refresh: () => track(engine.refresh()),
     passkeys: {
+      ...(engine.passkeys.prove ? { prove: engine.passkeys.prove } : {}),
       available: () => track(engine.passkeys.available()),
       register: (name) => track(engine.passkeys.register(name)),
       list: () => track(engine.passkeys.list()),

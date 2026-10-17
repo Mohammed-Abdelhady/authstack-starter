@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import {
   MAIL_COUNTER_PURPOSE,
   PENDING_PURPOSE,
@@ -94,26 +95,34 @@ export function registrationIssueCases(harness: HarnessSource): void {
   it('gives a live record a new code and zero attempts, and the old code stops matching', async () => {
     const id = await seed(new Date(TEST_NOW.getTime() + 1), 3);
 
-    const issued = await open();
-    const record = await stored();
+    const entropy: { randomInt(min: number, max: number): number } = crypto;
+    const codeEntropy = jest
+      .spyOn(entropy, 'randomInt')
+      .mockReturnValue(234567);
+    try {
+      const issued = await open();
+      const record = await stored();
 
-    expect({
-      sameRow: record.id === id,
-      newCodeIsStored: await matches(issued?.code ?? '', record.hashedCode),
-      oldCodeIsStored: await matches(CODE, record.hashedCode),
-      attempts: record.attempts,
-      expiresAt: record.expiresAt,
-      calls: services.storeCalls,
-      work: services.hashWork(),
-    }).toEqual({
-      sameRow: true,
-      newCodeIsStored: true,
-      oldCodeIsStored: false,
-      attempts: 0,
-      expiresAt: NEW_EXPIRY,
-      calls: [...UNDER_CAP_MAIL, 'registration.rotateLiveCode'],
-      work: { hashes: 1, comparisons: 0 },
-    });
+      expect({
+        sameRow: record.id === id,
+        newCodeIsStored: await matches(issued?.code ?? '', record.hashedCode),
+        oldCodeIsStored: await matches(CODE, record.hashedCode),
+        attempts: record.attempts,
+        expiresAt: record.expiresAt,
+        calls: services.storeCalls,
+        work: services.hashWork(),
+      }).toEqual({
+        sameRow: true,
+        newCodeIsStored: true,
+        oldCodeIsStored: false,
+        attempts: 0,
+        expiresAt: NEW_EXPIRY,
+        calls: [...UNDER_CAP_MAIL, 'registration.rotateLiveCode'],
+        work: { hashes: 1, comparisons: 0 },
+      });
+    } finally {
+      codeEntropy.mockRestore();
+    }
   });
 
   it('replaces a record that expired at this instant and is still stored', async () => {

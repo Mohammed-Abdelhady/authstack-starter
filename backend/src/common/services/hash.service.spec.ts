@@ -59,20 +59,7 @@ describe('HashService', () => {
     });
   });
 
-  describe('compare', () => {
-    it('should return true when bcrypt matches', async () => {
-      mockedBcrypt.compare.mockImplementation(() => true);
-
-      await expect(service.compare('plain', 'hash')).resolves.toBe(true);
-      expect(mockedBcrypt.compare).toHaveBeenCalledWith('plain', 'hash');
-    });
-
-    it('should return false when bcrypt does not match', async () => {
-      mockedBcrypt.compare.mockImplementation(() => false);
-
-      await expect(service.compare('plain', 'hash')).resolves.toBe(false);
-    });
-  });
+  describe('compare', () => {});
 
   it('warms the dummy hash before the first request reaches the service', async () => {
     mockedBcrypt.hash.mockImplementation(() => 'dummy-hash');

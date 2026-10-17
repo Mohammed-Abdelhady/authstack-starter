@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { ErrorCode } from '../../../common/enums/error-code.enum';
 
 /** One passkey as the account settings show it. No key material leaves here. */
 export class PasskeySummaryDto {
@@ -31,6 +32,12 @@ export class PasskeySummaryDto {
     nullable: true,
   })
   lastUsedAt!: Date | null;
+
+  @ApiProperty({ required: false })
+  canRemove?: boolean;
+
+  @ApiProperty({ required: false })
+  removalBlockedCode?: ErrorCode;
 }
 
 /** Payload of GET /auth/passkeys. */

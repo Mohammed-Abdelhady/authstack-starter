@@ -1,8 +1,10 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RetryableAbortError } from '../../../../src/common/persistence/persistence-errors';
 import { IssuedBrowserSession } from '../../../../src/session/services/session-issuance.service';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
+  WEB_APPLICATION,
   HarnessSource,
   holdReruns,
   rejectionOf,
@@ -71,11 +73,21 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     holdInserts(firstCounted, secondCounted);
 
     const first = outcomeOf(
-      service.createBrowserSession(userId, 'first/1', SIGN_IN_ADDRESS),
+      service.createBrowserSession(
+        userId,
+        'first/1',
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT_ID,
+      ),
     );
     await firstCounted.reached(1);
     const second = outcomeOf(
-      service.createBrowserSession(userId, 'second/1', SIGN_IN_ADDRESS),
+      service.createBrowserSession(
+        userId,
+        'second/1',
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT_ID,
+      ),
     );
     const secondWas = await Promise.race([
       reruns.refused.reached(1).then(() => REFUSED_AT_ACCOUNT),
@@ -126,6 +138,25 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     });
   });
 
+  it('admits only one concurrent sign-in at a configured per-application cap', async () => {
+    await harness().seedApplication({ ...WEB_APPLICATION, sessionCap: 1 });
+    const userId = await harness().seedAccount();
+
+    const race = await raceTwoSignIns(userId);
+
+    expect({
+      first: race.first,
+      second: race.second,
+      pauses: race.pauses,
+      sessions: (await harness().sessions(userId)).length,
+    }).toEqual({
+      first: SIGNED_IN,
+      second: ErrorCode.SESSION_LIMIT_REACHED,
+      pauses: [1],
+      sessions: 1,
+    });
+  });
+
   it('admits the refused sign-in on its rerun when a slot is still free', async () => {
     const userId = await harness().seedAccount();
 
@@ -162,7 +193,12 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     const first = outcomeOf(
       harness()
         .service(rerunAtOnce)
-        .createBrowserSession(userId, 'first/1', SIGN_IN_ADDRESS),
+        .createBrowserSession(
+          userId,
+          'first/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        ),
     );
     await firstCounted.reached(1);
 
@@ -183,7 +219,12 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     const second = await outcomeOf(
       harness()
         .service(rerunAtOnce)
-        .createBrowserSession(userId, 'second/1', SIGN_IN_ADDRESS),
+        .createBrowserSession(
+          userId,
+          'second/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        ),
     );
     const whileHeld = await storedCounts(harness(), userId);
     firstCounted.release();
@@ -227,14 +268,24 @@ export function issuanceRaceCases(harness: HarnessSource): void {
     const first = outcomeOf(
       harness()
         .service(rerunAtOnce)
-        .createBrowserSession(heldUser, 'first/1', SIGN_IN_ADDRESS),
+        .createBrowserSession(
+          heldUser,
+          'first/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        ),
     );
     await firstCounted.reached(1);
 
     const other = await outcomeOf(
       harness()
         .service(rerunAtOnce)
-        .createBrowserSession(otherUser, 'other/1', SIGN_IN_ADDRESS),
+        .createBrowserSession(
+          otherUser,
+          'other/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        ),
     );
     const heldWhileOtherSignedIn = (await harness().sessions(heldUser)).length;
     firstCounted.release();

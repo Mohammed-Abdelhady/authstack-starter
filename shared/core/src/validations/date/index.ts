@@ -7,7 +7,7 @@
  * @module validations/date
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { makeOptional, createDateValidator, createStringValidator } from '../utils';
 
 /**

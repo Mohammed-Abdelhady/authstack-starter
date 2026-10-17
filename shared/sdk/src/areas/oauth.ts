@@ -51,6 +51,7 @@ export function createOAuthArea<TSignal extends TransportSignal>({
             redirect_uri: input.redirectUri,
             client_id: input.clientId,
             code_verifier: input.codeVerifier,
+            ...(input.installId === undefined ? {} : { install_id: input.installId }),
           },
           options,
         ),

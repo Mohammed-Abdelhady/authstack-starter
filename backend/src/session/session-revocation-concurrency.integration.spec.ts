@@ -80,6 +80,7 @@ describe('browser sign-in against revoke-all race', () => {
         user._id,
         'race/1',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       await limit.reached(1);
       const revokeAll = harness.revocation.revokeAllForUser(user._id);
@@ -123,6 +124,7 @@ describe('browser sign-in against revoke-all race', () => {
       user._id,
       'after/1',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const stored = await harness.sessions.findOne({
       tokenHash: hashToken(issued.sessionToken),

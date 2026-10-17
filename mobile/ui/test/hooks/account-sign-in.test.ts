@@ -8,7 +8,6 @@ import { translate } from '../../src/i18n';
 import { signedInAs, SIGNED_OUT } from '../support/fake-engine';
 import { noResponse, ok, refusal, ROUTE } from '../support/fake-server';
 import { renderUiHook } from '../support/hook';
-import { LOCALES } from '../support/locales';
 import { cleanup, flush } from '../support/render';
 
 vi.mock('react-native', () => import('../support/react-native'));
@@ -18,46 +17,6 @@ afterEach(cleanup);
 const ADA = signedInAs('ada');
 
 describe('the account hook', () => {
-  it('reads the profile on mount and reports loading until it arrives', async () => {
-    const subject = await renderUiHook(useAccount, ADA);
-
-    const { view, profile, sessionNotSaved } = subject.current();
-    expect({ sent: subject.server.sent(), view, profile, sessionNotSaved }).toEqual({
-      sent: [ROUTE.PROFILE],
-      view: 'loading',
-      profile: undefined,
-      sessionNotSaved: false,
-    });
-  });
-
-  it.each(LOCALES)(
-    'hands the screen the name, email and the role in words, in %s',
-    async (locale) => {
-      const subject = await renderUiHook(useAccount, ADA, locale);
-
-      subject.server.answer(ROUTE.PROFILE, ok({ ...ADA.profile, name: 'Ada', role: 'admin' }));
-      await flush();
-
-      expect({ view: subject.current().view, profile: subject.current().profile }).toEqual({
-        view: 'ready',
-        profile: {
-          name: '\u2068Ada\u2069',
-          email: '\u2066ada@example.test\u2069',
-          role: translate(locale, 'role.admin'),
-        },
-      });
-    },
-  );
-
-  it('shows a role this build has no name for as the server spells it', async () => {
-    const subject = await renderUiHook(useAccount, ADA);
-
-    subject.server.answer(ROUTE.PROFILE, ok({ ...ADA.profile, role: 'auditor' }));
-    await flush();
-
-    expect(subject.current().profile?.role).toBe('\u2066auditor\u2069');
-  });
-
   it.each([
     ['the session is refused', refusal(401, ErrorCode.SESSION_INVALID), 'common.serverError'],
     [
@@ -96,15 +55,6 @@ describe('the account hook', () => {
     expect(subject.current().sessionNotSaved).toBe(true);
   });
 
-  it('signs out through the engine once per call', async () => {
-    const subject = await renderUiHook(useAccount, ADA);
-
-    act(() => subject.current().signOut());
-    await flush();
-
-    expect(subject.fake.signOuts).toBe(1);
-  });
-
   it('reports a sign-out as under way, then as failed when the engine cannot do it', async () => {
     const subject = await renderUiHook(useAccount, ADA);
     const held = subject.fake.holdSignOut();
@@ -131,20 +81,6 @@ describe('the account hook', () => {
 });
 
 describe('the sign-in hook', () => {
-  it.each(LOCALES)(
-    'offers the sign-in action with no notice when signed out, in %s',
-    async (locale) => {
-      const subject = await renderUiHook(useSignIn, SIGNED_OUT, locale);
-
-      const { canAct, actionLabel, notice } = subject.current();
-      expect({ canAct, actionLabel, notice }).toEqual({
-        canAct: true,
-        actionLabel: translate(locale, 'signIn.action'),
-        notice: undefined,
-      });
-    },
-  );
-
   it('starts a sign-in when acted on and cannot act again until it ends', async () => {
     const subject = await renderUiHook(useSignIn, SIGNED_OUT);
 

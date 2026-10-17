@@ -1,8 +1,10 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import { StoredAccount } from '../../user/stores/stored-account';
 import type { SupportedLocale } from '../../common/constants/locales';
 
 export interface AdminAccountQuery {
+  audiences?: readonly RoleAudience[];
   /** Matched against name and address, ignoring case, taken literally. */
   search?: string;
   role?: string;
@@ -22,15 +24,18 @@ export interface AdminAccountPage {
 }
 
 export interface NewAdminAccount {
+  audience?: RoleAudience;
   email: string;
   name: string;
-  passwordHash: string;
+  /** Absent for an account made from an invitation, which signs in without one. */
+  passwordHash?: string;
   role: string;
   locale: SupportedLocale;
 }
 
 /** A role as an assignment refers to it. */
 export interface AssignableRole {
+  audience?: RoleAudience;
   id: string;
   slug: string;
 }
@@ -45,7 +50,7 @@ export interface CreatedAccountMark {
 
 /** The pending address a code is allowed to confirm. */
 export interface PendingAddress {
-  email: string;
+  email: string | null;
   addressGeneration: number;
 }
 
@@ -68,6 +73,10 @@ export interface AccountIdentityEdit {
  * again. The actor is read with `readAccount` and is not taken.
  */
 export abstract class AdminAccountStore {
+  abstract lastActiveFor(
+    userIds: readonly string[],
+    unitOfWork?: UnitOfWork,
+  ): Promise<Map<string, Date | null>>;
   abstract findAccount(userId: string): Promise<StoredAccount | null>;
   /** The account without its secrets, for answering a read. */
   abstract findAccountView(userId: string): Promise<StoredAccount | null>;

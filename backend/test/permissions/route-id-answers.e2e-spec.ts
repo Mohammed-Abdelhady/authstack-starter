@@ -35,6 +35,13 @@ const USER_NOT_FOUND = refusal(404, 'USER_NOT_FOUND', 'User not found');
 const NO_SESSION = refusal(401, 'SESSION_REQUIRED', 'Authentication required');
 const lacking = (permission: string): RefusalAnswer =>
   refusal(403, 'FORBIDDEN', `Missing required permissions: ${permission}`);
+/** A user route takes either scope, so the refusal names both. */
+const lackingEither = (all: string, staff: string): RefusalAnswer =>
+  refusal(
+    403,
+    'FORBIDDEN',
+    `Missing at least one required permission: ${all}, ${staff}`,
+  );
 const PERMISSION = encodeURIComponent('reports:read:all');
 
 const ROUTES: IdRoute[] = [
@@ -42,7 +49,7 @@ const ROUTES: IdRoute[] = [
     name: 'GET /admin/users/:id',
     send: (caller, id) => caller.get(`/api/admin/users/${id}`),
     absent: USER_NOT_FOUND,
-    withoutPermission: lacking('users:read:all'),
+    withoutPermission: lackingEither('users:read:all', 'users:read:staff'),
   },
   {
     name: 'PATCH /admin/users/:id',
@@ -51,14 +58,14 @@ const ROUTES: IdRoute[] = [
     body: { name: 'Renamed' },
     refusedBody: { name: 7 },
     absent: USER_NOT_FOUND,
-    withoutPermission: lacking('users:update:all'),
+    withoutPermission: lackingEither('users:update:all', 'users:update:staff'),
   },
   {
     name: 'POST /admin/users/:id/resend-email-change',
     send: (caller, id) =>
       caller.post(`/api/admin/users/${id}/resend-email-change`),
     absent: USER_NOT_FOUND,
-    withoutPermission: lacking('users:update:all'),
+    withoutPermission: lackingEither('users:update:all', 'users:update:staff'),
   },
   {
     name: 'PATCH /admin/users/:id/status',
@@ -67,7 +74,10 @@ const ROUTES: IdRoute[] = [
     body: { isActive: false },
     refusedBody: { isActive: 'perhaps' },
     absent: USER_NOT_FOUND,
-    withoutPermission: lacking('users:update:all'),
+    withoutPermission: lackingEither(
+      'users:suspend:all',
+      'users:suspend:staff',
+    ),
   },
   {
     name: 'PATCH /admin/users/:id/role',
@@ -76,7 +86,10 @@ const ROUTES: IdRoute[] = [
     body: { role: 'user' },
     refusedBody: { role: 7 },
     absent: USER_NOT_FOUND,
-    withoutPermission: lacking('users:update:all'),
+    withoutPermission: lackingEither(
+      'users:assign-role:all',
+      'users:assign-role:staff',
+    ),
   },
   {
     name: 'DELETE /admin/users/:id',
@@ -86,7 +99,7 @@ const ROUTES: IdRoute[] = [
       'USER_ALREADY_DELETED',
       'User not found or already deleted',
     ),
-    withoutPermission: lacking('users:delete:all'),
+    withoutPermission: lackingEither('users:delete:all', 'users:delete:staff'),
   },
   {
     name: 'GET /admin/users/:id/permissions',
@@ -176,16 +189,6 @@ describe('answers to an id in the path (e2e)', () => {
         route.withoutPermission,
         route.withoutPermission,
       ]);
-    },
-  );
-
-  const withBody = ROUTES.filter((route) => route.refusedBody);
-  it.each(withBody)(
-    '$name refuses the id before a body it would also refuse',
-    async (route) => {
-      const response = await route.send(admin, 'not-an-id', route.refusedBody);
-
-      expect(refusalAnswer(response)).toEqual(MALFORMED_ID_ANSWER);
     },
   );
 

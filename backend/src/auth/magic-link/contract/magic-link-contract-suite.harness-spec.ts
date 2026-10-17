@@ -1,3 +1,4 @@
+import { magicLinkAudienceCases } from './magic-link-contract-audience.harness-spec';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { magicLinkBrowserCases } from './magic-link-contract-browser.harness-spec';
 import { magicLinkCapCases } from './magic-link-contract-cap.harness-spec';
@@ -43,6 +44,7 @@ export function describeMagicLinkContract(
     describe('requesting a link', () => magicLinkCases(current));
     describe('the hourly cap', () => magicLinkCapCases(current));
     describe('the browser that asked', () => magicLinkBrowserCases(current));
+    describe('account audience', () => magicLinkAudienceCases(current));
     describe('spending a link', () => magicLinkVerifyCases(current));
     describe('the seam', () => magicLinkSeamCases(current));
   });

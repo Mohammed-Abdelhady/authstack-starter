@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { StaffGuard } from '../../auth/guards/staff.guard';
 import { SESSION_PERMISSIONS } from '../../common/constants/permissions';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -17,11 +18,13 @@ import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RouteIdPipe } from '../../common/pipes/route-id.pipe';
 import { AdminSessionsService } from './admin-sessions.service';
 import { AdminSessionListResponseDto } from './dto/admin-session-response.dto';
+import { ActingSessionOf } from '../../auth/proof/decorators/acting-session.decorator';
+import type { ActingSession } from '../../auth/proof/types/acting-session';
 
 @ApiTags('admin')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('admin/users/:id/sessions')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class AdminSessionsController {
   constructor(private readonly sessions: AdminSessionsService) {}
 
@@ -31,8 +34,9 @@ export class AdminSessionsController {
   list(
     @Param('id', RouteIdPipe) id: string,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
   ) {
-    return this.sessions.list(id, actorId);
+    return this.sessions.list(id, actorId, session);
   }
 
   @Delete(':sessionId')
@@ -41,8 +45,9 @@ export class AdminSessionsController {
     @Param('id', RouteIdPipe) id: string,
     @Param('sessionId', RouteIdPipe) sessionId: string,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
   ) {
-    return this.sessions.revokeOne(id, sessionId, actorId);
+    return this.sessions.revokeOne(id, sessionId, actorId, session);
   }
 
   @Post('revoke-all')
@@ -51,7 +56,8 @@ export class AdminSessionsController {
   revokeAll(
     @Param('id', RouteIdPipe) id: string,
     @CurrentUser('id') actorId: string,
+    @ActingSessionOf() session: ActingSession,
   ) {
-    return this.sessions.revokeAll(id, actorId);
+    return this.sessions.revokeAll(id, actorId, session);
   }
 }

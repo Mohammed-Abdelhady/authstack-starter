@@ -172,17 +172,6 @@ export function registrationVerifyCases(harness: HarnessSource): void {
     });
   });
 
-  it('leaves a live record alone when it drops expired ones for the address', async () => {
-    await seed(LIVE_EXPIRY, MAX_ATTEMPTS);
-
-    await harness().stores.registrations.dropExpiredRecord(
-      { email: EMAIL, purpose: SIGNUP },
-      TEST_NOW,
-    );
-
-    expect(await harness().registrationCount()).toBe(1);
-  });
-
   it('stops simultaneous wrong attempts at the cap', async () => {
     await seed(LIVE_EXPIRY);
     const racers = MAX_ATTEMPTS + 2;

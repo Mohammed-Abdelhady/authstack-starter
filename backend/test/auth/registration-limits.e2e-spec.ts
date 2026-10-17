@@ -9,17 +9,36 @@ import {
 } from '../../src/auth/constants/registration';
 import { bootE2eApp, browserAgent, type E2eApp } from '../utils/e2e-app';
 import { REGISTRATION_NOTICE_EMAIL_SUBJECT } from '../../src/mail/constants/mail.constants';
+import type { NativeApplicationConfiguration } from '../../src/config/types/native-application.type';
+import { DEFAULT_API_AUDIENCE } from '../../src/session/constants/client-ids';
+import {
+  NATIVE_CLIENT_ID,
+  NATIVE_REDIRECT,
+} from '../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { TEST_NOW } from '../utils/frozen-clock';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 
+// Native registration asks the creation policy of a registered client.
+const NATIVE_APPLICATION = {
+  clientId: NATIVE_CLIENT_ID,
+  displayName: 'Registration limits native client',
+  redirectUris: [NATIVE_REDIRECT],
+  allowedScopes: [DEFAULT_API_AUDIENCE],
+  signIn: { registration: true },
+} satisfies NativeApplicationConfiguration;
+
 describe('Registration limits (e2e)', () => {
   let e2e: E2eApp;
 
   beforeAll(async () => {
-    e2e = await bootE2eApp();
+    e2e = await bootE2eApp(0, {
+      nativeEnabled: true,
+      nativeCustomSchemeAllowed: true,
+      nativeApplications: [NATIVE_APPLICATION],
+    });
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   beforeEach(async () => {
@@ -67,7 +86,7 @@ describe('Registration limits (e2e)', () => {
       const resent = await post('/api/auth/resend-activation', { email });
       const nativeGeneration = await e2e.app
         .get(RegistrationService)
-        .registerForNative(email, 'en', 'native-test-client');
+        .registerForNative(email, 'en', NATIVE_CLIENT_ID);
       expect(nativeGeneration).toBeNull();
       await e2e.captureMail();
 

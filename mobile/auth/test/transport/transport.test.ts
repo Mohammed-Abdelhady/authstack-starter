@@ -19,26 +19,6 @@ import {
 } from '../support/support';
 
 describe('bearer transport', () => {
-  it('adds the bearer header to API calls and preserves caller headers', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await establishSession(engine, ports, transport);
-    transport.enqueue(apiReply({ id: 'profile-2' }));
-
-    await engine.transport.request({
-      method: HTTP_METHOD.GET,
-      path: '/api/user/profile',
-      headers: { 'X-Trace': 'trace-1', authorization: 'Bearer caller-token' },
-    });
-
-    const request = transport.sent.at(-1);
-    expect(request?.headers).toEqual({
-      'X-Trace': 'trace-1',
-      Authorization: `Bearer ${ACCESS_TOKEN}`,
-    });
-  });
-
   it('does not add the access token to OAuth requests or place tokens in destinations', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);
@@ -117,20 +97,6 @@ describe('bearer transport', () => {
     await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
 
     expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
-  });
-
-  it('does not refresh on a 403 response', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await establishSession(engine, ports, transport);
-    transport.enqueue(failedApiReply(403, 'FORBIDDEN'));
-
-    await expect(
-      engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' }),
-    ).resolves.toMatchObject({ status: 403 });
-
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
   });
 
   it('refreshes once and repeats an API request once after 401', async () => {

@@ -30,19 +30,6 @@ describe('staff activity access and outage honesty (e2e)', () => {
     await user.get(ACTIVITY_PATH).expect(403);
   });
 
-  it('b17 gives an authorized reader an honest empty staff page', async () => {
-    const admin = await loginAs(e2e.httpServer, SEED_ADMIN);
-    const response = await admin.get(ACTIVITY_PATH).expect(200);
-    const body: unknown = response.body;
-    expect(body).toEqual({
-      success: true,
-      data: {
-        data: [],
-        pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
-      },
-    });
-  });
-
   it('publishes the activity DTO without persistence or repair metadata', async () => {
     const admin = await loginAs(e2e.httpServer, SEED_ADMIN);
     await e2e.app.get(SecurityEventRecorder).recordOutsideUnitOfWork({

@@ -1,4 +1,6 @@
 import { Kysely, Transaction } from 'kysely';
+import type { RoleAudience } from '../../../host/types/host-role.type';
+
 import {
   MalformedIdError,
   UniqueConflictError,
@@ -25,6 +27,7 @@ export const ACCOUNT_COLUMNS = [
   'name',
   'avatar_url',
   'role',
+  'audience',
   'permissions',
   'auth_provider',
   'is_verified',
@@ -38,6 +41,7 @@ export const ACCOUNT_COLUMNS = [
   'locale',
   'created_at',
   'updated_at',
+  'version',
 ] as const;
 
 export interface AccountRow {
@@ -47,6 +51,7 @@ export interface AccountRow {
   name: string | null;
   avatar_url: string | null;
   role: string;
+  audience: RoleAudience | null;
   permissions: string[];
   auth_provider: string | null;
   is_verified: boolean;
@@ -60,6 +65,7 @@ export interface AccountRow {
   locale: string;
   created_at: Date;
   updated_at: Date;
+  version: number;
 }
 
 /** Constraint names on an account to the rules' shared names. */
@@ -139,6 +145,7 @@ export function toStoredAccount(
     name: row.name ?? '',
     avatarUrl: row.avatar_url ?? undefined,
     role: row.role,
+    audience: row.audience ?? undefined,
     permissions: row.permissions,
     authProvider,
     linkedAccounts,
@@ -155,6 +162,7 @@ export function toStoredAccount(
     twoFactorEnabled, // feature:totp
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    version: row.version,
   };
 }
 

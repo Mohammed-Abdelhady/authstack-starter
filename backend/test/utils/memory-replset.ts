@@ -22,6 +22,8 @@ const SUITE_HASH_LENGTH = 16;
 const DATABASE_HASH_LENGTH = 12;
 const DATABASE_LABEL_LENGTH = 20;
 const SERVER_SELECTION_TIMEOUT_MS = 5000;
+// Flush test journals promptly without weakening majority acknowledgements.
+const TEST_JOURNAL_COMMIT_INTERVAL_MS = 1;
 
 let fixtureSequence = 0;
 
@@ -90,6 +92,7 @@ export function startMemoryReplSet(): Promise<MemoryReplSet> {
 
 export async function startSharedMongoServer(
   instanceIndex = 0,
+  options: { port?: number; ttlMonitorSleepSecs?: number } = {},
 ): Promise<SharedMongoServer> {
   const dataPath = await mkdtemp(
     join(tmpdir(), `${BACKEND_TEST_MONGO_DATA_PREFIX}${process.pid}-`),
@@ -102,11 +105,24 @@ export async function startSharedMongoServer(
     mongo = await MongoMemoryServer.create({
       instance: {
         ip: '127.0.0.1',
-        port: preferredPort,
+        port: options.port ?? preferredPort,
         portGeneration: true,
         storageEngine: 'wiredTiger',
         dbPath: dataPath,
-        args: ['--replSet', REPLICA_SET_NAME],
+        args: [
+          '--replSet',
+          REPLICA_SET_NAME,
+          '--setParameter',
+          `journalCommitInterval=${TEST_JOURNAL_COMMIT_INTERVAL_MS}`,
+          ...(options.ttlMonitorSleepSecs === undefined
+            ? []
+            : [
+                '--setParameter',
+                'ttlMonitorEnabled=true',
+                '--setParameter',
+                `ttlMonitorSleepSecs=${options.ttlMonitorSleepSecs}`,
+              ]),
+        ],
       },
     });
 

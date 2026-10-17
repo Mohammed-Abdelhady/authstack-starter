@@ -3,7 +3,7 @@
 import { Description } from '@/components/design-system';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { FormProvider } from 'react-hook-form';
 import { FORM_STYLES } from '@/lib/config/form-styles';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';

@@ -27,3 +27,5 @@ export class AddressClaim {
 
 export type AddressClaimDocument = HydratedDocument<AddressClaim>;
 export const AddressClaimSchema = SchemaFactory.createForClass(AddressClaim);
+
+AddressClaimSchema.index({ lapsesAt: 1 }, { expireAfterSeconds: 0 });

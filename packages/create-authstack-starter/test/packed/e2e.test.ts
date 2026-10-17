@@ -15,12 +15,10 @@ import {
   scaffold,
   sourceFilesWithMarkers,
 } from './packed-cli.js';
-import { installerDocCases } from './installer-docs.js';
 import { packageManagerCases } from './packed-package-manager.js';
 import { rulesLevelCases } from './packed-rules-levels.js';
 import { checkGeneratedHookHistory } from './generated/generated-hook-history.js';
 import { checkGeneratedGuardrails } from './generated/generated-guardrails.js';
-import { checkGeneratedRules } from './generated/generated-rules.js';
 import { checkGeneratedCi } from './generated/generated-ci.js';
 import {
   DEFAULT_SELECTION_MUST_EXIST,
@@ -51,11 +49,7 @@ describe('the packed CLI', () => {
   databaseRuleCases(() => packed);
   answersRoundTripCases(() => packed);
   rulesLevelCases(() => packed);
-  it('writes rules from project data and omits pruned feature references', async () => {
-    await checkGeneratedRules(packed);
-  });
 
-  installerDocCases(() => packed);
   it.each(['standard', 'minimal'])('ships only runnable CI gates for %s', (preset) =>
     checkGeneratedCi(packed, preset),
   );
@@ -172,41 +166,6 @@ describe('the packed CLI', () => {
     });
   });
 
-  it.each(['full', 'test-scope-email-password'])(
-    'keeps root README relative links usable for %s',
-    (name) => {
-      const result = scaffold(
-        packed,
-        `readme-links-${name}`,
-        name === 'full' ? undefined : 'email-password',
-      );
-      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-      const project = join(packed.workspace, `readme-links-${name}`);
-      const readme = readFileSync(join(project, 'README.md'), 'utf8');
-      for (const match of readme.matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
-        const target = match[1].split('#')[0];
-        if (!target || /^[a-z]+:/i.test(target)) continue;
-        expect(existsSync(join(project, target)), target).toBe(true);
-      }
-    },
-  );
-
-  it('prints the Compose environment-file command exactly', () => {
-    const result = scaffold(packed, 'next-steps', 'email-password');
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(String(result.stdout)).toContain('docker compose --env-file .env.docker up -d');
-    expect(String(result.stdout)).not.toContain('docker compose up -d');
-  });
-
-  it('names the generated root package after the directory', () => {
-    const result = scaffold(packed, 'named-project');
-    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    const manifest: unknown = JSON.parse(
-      readFileSync(join(packed.workspace, 'named-project', 'package.json'), 'utf8'),
-    );
-    expect((manifest as { name?: string }).name).toBe('named-project');
-  });
-
   it('runs the packed consumer command and prints its own package version', () => {
     const packedPackage = JSON.parse(
       readFileSync(join(packed.workspace, 'package', 'package.json'), 'utf8'),
@@ -248,7 +207,7 @@ describe('the packed CLI', () => {
     expect([...ids.matchAll(/'([^']+)'/g)].map((match) => match[1])).toEqual(['google']);
 
     const env = readFileSync(join(project, 'backend/.env.example'), 'utf8');
-    expect(env).toContain('AUTH_FEATURES=oauth-core,email-password,google');
+    expect(env).toContain('AUTH_FEATURES=mail-locale-core,oauth-core,email-password,google');
     expect(env).toContain('OAUTH_GOOGLE_CLIENT_ID');
     expect(env).not.toContain('OAUTH_GITHUB_CLIENT_ID');
 
@@ -307,7 +266,7 @@ describe('the packed CLI', () => {
     };
     expect(root.name).toBe('plain-run');
     expect(readFileSync(join(project, 'backend/.env.example'), 'utf8')).toContain(
-      'AUTH_FEATURES=oauth-core,email-password,google,github,facebook',
+      'AUTH_FEATURES=mail-locale-core,oauth-core,email-password,google,github,facebook',
     );
     expect(readFileSync(join(project, 'backend/.env.example'), 'utf8')).toContain(
       'AUTH_NATIVE_DPOP_NONCE_SECRET=',

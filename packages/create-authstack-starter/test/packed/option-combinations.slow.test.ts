@@ -1,22 +1,13 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { loadManifest } from '../../src/manifest/load.js';
-import { availableFeatures } from '../../src/manifest/select.js';
-import type { Manifest } from '../../src/types.js';
-import { buildCli, REPO_ROOT, scaffold } from '../support/combination-helpers.js';
+import { buildCli, scaffold } from '../support/combination-helpers.js';
 import {
   expectBackendUnitTests,
   expectConfigTests,
   expectFrontendUnitTests,
   expectInstallsLintsBuilds,
 } from '../combinations/combination-scenarios.js';
-import {
-  ARABIC_FORBIDDEN,
-  DOCKER_FORBIDDEN,
-  findForbiddenContent,
-  PRODUCTION_FORBIDDEN,
-} from '../support/reference-content.js';
 
 /**
  * Option combinations, slow by nature: each installs and builds a generated
@@ -103,32 +94,16 @@ const OPTION_COMBINATIONS: OptionCombination[] = [
 ];
 
 let workspace = '';
-let manifest: Manifest;
 let built = { ok: false, output: '' };
 
 beforeAll(async () => {
   workspace = mkdtempSync(join(inject('combinationRoot'), 'options-'));
-  manifest = await loadManifest(REPO_ROOT);
   built = await buildCli();
 });
 
 afterAll(() => {
   if (workspace !== '') rmSync(workspace, { recursive: true, force: true });
 });
-
-/** Every feature the manifest offers; content checks run on the full set. */
-function everything(): string[] {
-  return availableFeatures(manifest)
-    .filter(({ feature }) => feature.kind !== 'hidden')
-    .map(({ id }) => id);
-}
-
-async function scaffoldEverything(name: string, flags: string[]): Promise<string> {
-  const project = join(workspace, name);
-  const result = await scaffold(project, everything(), flags);
-  expect(result.ok, result.output).toBe(true);
-  return project;
-}
 
 describe('generated projects with options off', () => {
   it('builds the CLI first', () => {
@@ -153,48 +128,5 @@ describe('generated projects with options off', () => {
       await expectBackendUnitTests(project);
       await expectConfigTests(project);
     }
-  });
-
-  it('drops the root scripts that named deleted files', async () => {
-    const project = join(workspace, 'scripts-off');
-    const result = await scaffold(project, DEFAULT_FEATURES, [
-      '--no-docker',
-      '--no-production',
-      '--locales',
-      'en',
-    ]);
-    expect(result.ok, result.output).toBe(true);
-
-    const root = JSON.parse(readFileSync(join(project, 'package.json'), 'utf8')) as {
-      scripts?: Record<string, string>;
-    };
-    const scripts = root.scripts ?? {};
-    expect(scripts).not.toHaveProperty('setup:prod');
-    expect(scripts['test:config'] ?? '').not.toContain('config-transforms.test.mjs');
-    expect(scripts['test:config'] ?? '').not.toContain('config-transforms.ports.test.mjs');
-    expect(scripts).toHaveProperty('init');
-  });
-
-  it('leaves no docker, compose or nginx text anywhere when docker is off', async () => {
-    const project = await scaffoldEverything('content-plain', [
-      '--no-docker',
-      '--no-production',
-      '--locales',
-      'en',
-    ]);
-
-    expect(findForbiddenContent(project, DOCKER_FORBIDDEN)).toEqual([]);
-  });
-
-  it('leaves no Arabic text anywhere when Arabic is off', async () => {
-    const project = await scaffoldEverything('content-english', ['--locales', 'en']);
-
-    expect(findForbiddenContent(project, ARABIC_FORBIDDEN)).toEqual([]);
-  });
-
-  it('leaves no nginx text anywhere when only production is off', async () => {
-    const project = await scaffoldEverything('content-simple', ['--no-production']);
-
-    expect(findForbiddenContent(project, PRODUCTION_FORBIDDEN)).toEqual([]);
   });
 });

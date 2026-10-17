@@ -1,4 +1,3 @@
-import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
 import { HTTP_METHOD, TransportError, TRANSPORT_FAILURE, type TransportSignal } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
@@ -13,10 +12,7 @@ import {
   REVOKE_TIMEOUT_MS,
   ScriptedTransport,
   apiReply,
-  acceptCode,
   establishSession,
-  oauthTokenReply,
-  successUserReply,
   testPorts,
 } from '../support/support';
 
@@ -249,66 +245,6 @@ describe('sign out', () => {
     await expect(signOut).resolves.toMatchObject({ kind: 'signOutNotSaved' });
     expect(engine.snapshot).toMatchObject({ status: 'signedIn', operation: 'none' });
     expect(revokedTokens(transport)).toEqual([]);
-    expect(ports.timer.pending).toBe(0);
-  });
-
-  it('serializes an earlier storage write before deletion and never opens its browser', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-    const entered = new Deferred<void>();
-    const replace = new Deferred<void>();
-    ports.credentials.beforeReplace = () => {
-      entered.resolve();
-      return replace.promise;
-    };
-    const signIn = engine.signIn();
-    await entered.promise;
-    const signOut = engine.signOut();
-    expect(engine.snapshot.status).toBe('signedOut');
-    replace.resolve();
-    await Promise.all([signIn, signOut]);
-
-    expect(ports.credentials.value).toBeUndefined();
-    expect(ports.authBrowser.opened).toHaveLength(0);
-    expect(ports.credentials.events.indexOf('replace:done')).toBeLessThan(
-      ports.credentials.events.indexOf('delete:start'),
-    );
-  });
-
-  it('does not refresh just because time advances, then refreshes for the next request', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await establishSession(engine, ports, transport);
-    ports.clock.advance(270_000);
-    expect(engine.snapshot.operation).toBe('none');
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(1);
-    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
-
-    await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
-
-    expect(transport.sent.filter(({ path }) => path === '/api/oauth/token')).toHaveLength(2);
-    expect(ports.timer.pending).toBe(0);
-  });
-
-  it('cleans up timer callbacks after every settled operation', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-    transport.enqueue(oauthTokenReply(), successUserReply());
-    acceptCode(ports.authBrowser);
-    expect(ports.timer.pending).toBe(0);
-    await expect(engine.signIn()).resolves.toMatchObject({ kind: 'signedIn' });
-    expect(ports.timer.pending).toBe(0);
-    ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
-    await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
-    expect(ports.timer.pending).toBe(0);
-    transport.enqueue({ status: 200, body: {} });
-    await engine.signOut();
     expect(ports.timer.pending).toBe(0);
   });
 

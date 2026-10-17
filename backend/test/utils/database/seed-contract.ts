@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { seedAudienceCases } from './seed-audience-cases';
 import * as bcrypt from 'bcrypt';
 import { TEST_NOW } from '../frozen-clock';
 import { CLAIM_OWNER, holdAddress } from '../address-claim';
@@ -325,5 +326,6 @@ export function describeSeedContract(
     });
 
     seedHostRoleCases(current);
+    seedAudienceCases(current);
   });
 }

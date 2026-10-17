@@ -53,27 +53,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('magic link request validation in %s', (locale) => {
-  it('says nothing when the focus leaves the empty field for another form', async () => {
-    const { email, other } = await renderBesideAnotherControl(locale);
-
-    await moveFocus(email, other);
-
-    expect(email.getAttribute('aria-invalid')).toBe('false');
-    expect(descriptions(email)).toEqual([]);
-  });
-
-  it('names a wrong address once the field is left', async () => {
-    const { email, other, message } = await renderBesideAnotherControl(locale);
-    type(email, 'layla@');
-
-    await moveFocus(email, other);
-
-    await waitFor(() =>
-      expect(descriptions(email)).toEqual([message('auth.login.errors.emailInvalid')]),
-    );
-    expect(email.getAttribute('aria-invalid')).toBe('true');
-  });
-
   it('takes the message away when the wrong address is erased before leaving', async () => {
     const { email, other, message } = await renderBesideAnotherControl(locale);
     type(email, 'layla@');

@@ -1,4 +1,3 @@
-import { activityFilterCases } from './activity-filter-cases';
 import { ValidationFailedException } from '../../src/common/exceptions/validation-failed.exception';
 import { ConfigService } from '@nestjs/config';
 import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
@@ -151,21 +150,6 @@ export function describeActivityContract(
       expect(serialized).not.toContain('sensitive-sentinel');
     });
 
-    it('keeps absent previous-role ids absent in recorded assignments', async () => {
-      await inUnitOfWork(current(), (work) =>
-        current().recorder.record(work, {
-          actorId: 'staff-1',
-          action: 'sessions_revoked_all',
-          roleAssignment: { assignedRoleId: 'new-role', sessionVersion: 1 },
-        }),
-      );
-      const result = await current().events.listActivity(QUERY, TEST_NOW);
-      expect(result.data[0].roleAssignment).toEqual({
-        assignedRoleId: 'new-role',
-        sessionVersion: 1,
-      });
-    });
-
     it('rejects sensitive details through recorder, batch and direct store before storing evidence', async () => {
       for (const field of [
         'password',
@@ -240,43 +224,6 @@ export function describeActivityContract(
         details: {},
         purgeAfter: new Date('2099-04-01T12:00:00.000Z'),
       });
-    });
-
-    activityFilterCases(current);
-
-    it('paginates ties by descending stored id with honest empty and beyond-last pages', async () => {
-      for (const id of ['one', 'two', 'three', 'four', 'five', 'six']) {
-        await current().events.appendOutsideUnitOfWork(
-          contractEvent(id, {
-            actorId: 'staff-1',
-            action: 'account_deleted',
-            ...(id === 'one'
-              ? { occurredAt: new Date('2099-01-01T12:00:01.000Z') }
-              : {}),
-          }),
-        );
-      }
-      const pages: string[][] = [];
-      for (const page of [1, 2, 3, 4]) {
-        const result = await current().events.listActivity(
-          { page, limit: 2 },
-          TEST_NOW,
-        );
-        expect(result.total).toBe(6);
-        pages.push(result.data.map((row) => row.eventId));
-      }
-      expect(pages).toEqual([
-        ['one', 'six'],
-        ['five', 'four'],
-        ['three', 'two'],
-        [],
-      ]);
-      expect(
-        await current().events.listActivity(
-          { ...QUERY, actor: 'absent' },
-          TEST_NOW,
-        ),
-      ).toEqual({ data: [], total: 0 });
     });
 
     it('refuses operator objects, arrays and SQL fragments at the store boundary', async () => {

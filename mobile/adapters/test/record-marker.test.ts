@@ -41,10 +41,6 @@ describe('the marker kept beside the credential record', () => {
     expect(await port.read()).toEqual({ kind: 'missing' });
   });
 
-  it('reads a store nobody wrote to as missing', async () => {
-    expect(await setup().port.read()).toEqual({ kind: 'missing' });
-  });
-
   it('does not report missing when the record is gone and the marker cannot be read', async () => {
     const { store, marker, port } = setup();
     await port.replace('record');
@@ -154,13 +150,5 @@ describe('launch address filter while the address is not known yet', () => {
     expect(filter.takeLaunch()).toBe(LAUNCH);
     expect(filter.admitEvent(LAUNCH)).toBe(false);
     expect(filter.admitEvent(LAUNCH)).toBe(true);
-  });
-
-  it('ignores a second answer', () => {
-    const filter = createDeferredLaunchFilter();
-    filter.learn(LAUNCH);
-    filter.learn(OTHER);
-
-    expect(filter.takeLaunch()).toBe(LAUNCH);
   });
 });

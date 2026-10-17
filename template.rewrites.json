@@ -1,6 +1,12 @@
 {
   "$comment": "Texts replaced in a generated project of one database, keyed by database id and read with template.manifest.json. Each entry replaces a literal text in the files it names. An entry whose text is in none of its files fails the template tests.",
-  "mongodb": [],
+  "mongodb": [
+    {
+      "files": ["backend/package.json", "backend/test/jest-e2e.json"],
+      "from": "|kysely",
+      "to": ""
+    }
+  ],
   "postgres": [
     {
       "files": ["**/*.md"],
@@ -157,7 +163,7 @@
     },
     {
       "files": [".github/workflows/ci.yml"],
-      "from": "      - name: Resolve Mongo binary cache\n        id: mongo\n        run: node scripts/ci.mjs --cache\n      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3\n        with:\n          path: ${{ steps.mongo.outputs.path }}\n          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}\n",
+      "from": "      - name: Resolve Mongo binary cache\n        id: mongo\n        run: node scripts/ci.mjs --cache\n      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0\n        with:\n          path: ${{ steps.mongo.outputs.path }}\n          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}\n",
       "to": ""
     },
     {
@@ -396,11 +402,6 @@
       "to": ""
     },
     {
-      "files": ["scripts/config-transforms-tests/config-transforms.docker.test.mjs"],
-      "from": "    assert.equal(lines.includes('ENV MONGOMS_DISABLE_POSTINSTALL=1'), true);\n",
-      "to": ""
-    },
-    {
       "files": ["backend/test/utils/e2e-storage.ts"],
       "from": "import {\n  startMongoE2eStorage,\n  watchMongoFixtureConnections,\n} from './e2e-mongo-storage';",
       "to": "import { startPostgresE2eStorage } from '../postgres/e2e/e2e-postgres-storage';\nimport { watchPostgresFixtureConnections } from '../postgres/e2e/postgres-fixture-connections';"
@@ -479,11 +480,6 @@
       "files": ["backend/test/utils/frozen-clock.ts"],
       "from": "// Keep session expirations ahead of MongoDB's real-time TTL monitor.",
       "to": "// Keep session expirations ahead of real time."
-    },
-    {
-      "files": ["backend/test/browser/browser-proof.e2e-spec.ts"],
-      "from": "'starts E2E records ahead of MongoDB real-time TTL'",
-      "to": "'starts E2E records ahead of real time'"
     },
     {
       "files": ["backend/src/common/testing/test-doubles.harness-spec.ts"],

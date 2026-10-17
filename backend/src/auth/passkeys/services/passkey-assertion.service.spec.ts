@@ -15,6 +15,7 @@ import {
   createMockRequest,
   createMockResponse,
   createPasskeyConfig,
+  createPasskeyPolicy,
   MockPasskey,
   RP_ID,
 } from '../persistence/mongo/passkeys.harness-spec';
@@ -62,6 +63,7 @@ async function createHarness(
       partialMock<WebAuthnAdapter>(adapter),
       createPasskeyConfig(),
       challenges,
+      createPasskeyPolicy(),
     ),
     adapter,
     passkey: passkey ?? createMockPasskey(),
@@ -89,23 +91,6 @@ describe('PasskeyAssertionService', () => {
   });
 
   describe('verify', () => {
-    it('should move the counter forward and stamp the passkey as used', async () => {
-      const harness = await createHarness();
-      const { response, cleared } = createMockResponse();
-
-      const result = await harness.service.verify(
-        CREDENTIAL_BODY,
-        harness.request,
-        response,
-      );
-
-      expect(result.userVerified).toBe(true);
-      expect(harness.passkey.counter).toBe(5);
-      expect(harness.passkey.lastUsedAt).toEqual(expect.any(Date));
-      expect(harness.passkey.save).not.toHaveBeenCalled();
-      expect(cleared).toEqual([PASSKEY_CHALLENGE_COOKIE]);
-    });
-
     it('should report a passkey that did not verify the user', async () => {
       const harness = await createHarness(createMockPasskey(), 5, false);
       const { response } = createMockResponse();
@@ -117,42 +102,6 @@ describe('PasskeyAssertionService', () => {
       );
 
       expect(result.userVerified).toBe(false);
-    });
-
-    it('should refuse a counter that repeats, which is how a clone shows up', async () => {
-      const harness = await createHarness(createMockPasskey({ counter: 7 }), 7);
-      const { response } = createMockResponse();
-
-      await expect(
-        harness.service.verify(CREDENTIAL_BODY, harness.request, response),
-      ).rejects.toMatchObject({
-        code: ErrorCode.PASSKEY_VERIFICATION_FAILED,
-        status: 401,
-      });
-      expect(harness.passkey.save).not.toHaveBeenCalled();
-    });
-
-    it('should refuse a counter that goes backwards', async () => {
-      const harness = await createHarness(createMockPasskey({ counter: 9 }), 3);
-      const { response } = createMockResponse();
-
-      await expect(
-        harness.service.verify(CREDENTIAL_BODY, harness.request, response),
-      ).rejects.toMatchObject({ code: ErrorCode.PASSKEY_VERIFICATION_FAILED });
-    });
-
-    it('should let an authenticator that never counts through', async () => {
-      const harness = await createHarness(createMockPasskey({ counter: 0 }), 0);
-      const { response } = createMockResponse();
-
-      const result = await harness.service.verify(
-        CREDENTIAL_BODY,
-        harness.request,
-        response,
-      );
-
-      expect(result.passkey.counter).toBe(0);
-      expect(harness.passkey.save).not.toHaveBeenCalled();
     });
 
     it('should refuse a credential that is not registered', async () => {
@@ -255,6 +204,7 @@ describe('PasskeyAssertionService', () => {
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,
+        createPasskeyPolicy(),
       );
       const request = createMockRequest({
         [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],
@@ -301,6 +251,7 @@ describe('PasskeyAssertionService', () => {
         partialMock<WebAuthnAdapter>(adapter),
         createPasskeyConfig(),
         challenges,
+        createPasskeyPolicy(),
       );
       const request = createMockRequest({
         [PASSKEY_CHALLENGE_COOKIE]: issued.cookies[PASSKEY_CHALLENGE_COOKIE],

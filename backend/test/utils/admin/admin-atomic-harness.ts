@@ -10,7 +10,10 @@ import { AdminPermissionsService } from '../../../src/admin/services/roles/admin
 import { UserPermissionsService } from '../../../src/user/services/user-permissions.service';
 import { HashService } from '../../../src/common/services/hash.service';
 import { AdminUserAccessService } from '../../../src/admin/services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../src/admin/services/users/admin-audience-scopes';
 import { AdminEmailChangeService } from '../../../src/admin/services/users/admin-email-change.service';
+import { AudiencePolicy } from '../../../src/session/applications/audience-policy';
+import { IssuanceApplications } from '../../../src/session/issuance/issuance-applications';
 import { RoleHierarchyService } from '../../../src/role/services/role-hierarchy.service';
 import { RoleService } from '../../../src/role/role.service';
 import { RoleEditService } from '../../../src/role/services/edit/role-edit.service';
@@ -35,6 +38,7 @@ import { RoleChangeStore } from '../../../src/role/stores/role-change.store';
 import { RoleSweepStore } from '../../../src/role/stores/role-sweep.store';
 import { MongoUnitOfWorkRunner } from '../../../src/session/persistence/mongo/mongo-unit-of-work';
 import { MONGO_ADMIN_ACCOUNT_STORE } from '../../../src/admin/persistence/mongo/mongo-admin-stores';
+import { MONGO_PASSWORD_SIGN_IN_STORE } from '../../../src/auth/persistence/mongo/mongo-password-sign-in.store';
 import {
   MONGO_ACCOUNT_PERMISSION_STORE,
   MONGO_ACCOUNT_SESSIONS,
@@ -44,6 +48,14 @@ import {
   bootSessionAuthority,
   type SessionAuthorityHarness,
 } from '../session-authority-harness';
+import { StaffMutationRules } from '../../../src/admin/services/staff-mutations/staff-mutation-rules';
+import {
+  NoErasureLock,
+  testLastAdminGuard,
+  testStaffMutationRules,
+} from './staff-mutation-test-kit';
+import { ErasureLock } from '../../../src/auth/contracts/erasure-lock';
+import { LastAdminGuard } from '../../../src/admin/services/staff-mutations/last-admin-guard';
 
 export interface AdminAtomicHarness extends SessionAuthorityHarness {
   service: AdminUsersService;
@@ -64,15 +76,24 @@ export async function bootAdminAtomic(
   );
   const module: TestingModule = await Test.createTestingModule({
     providers: [
+      { provide: StaffMutationRules, useValue: testStaffMutationRules() },
+      { provide: ErasureLock, useClass: NoErasureLock },
+      { provide: LastAdminGuard, useValue: testLastAdminGuard() },
       AdminUsersService,
       AdminUserCreateService,
       AccountCreationPolicy,
+      {
+        provide: IssuanceApplications,
+        useValue: harness.app.get(IssuanceApplications),
+      },
+      { provide: AudiencePolicy, useValue: harness.app.get(AudiencePolicy) },
       { provide: AddressLedger, useValue: harness.app.get(AddressLedger) },
       { provide: Clock, useValue: harness.clock },
       AdminPermissionsService,
       UserPermissionsService,
       { provide: HashService, useValue: harness.app.get(HashService) },
       AdminUserAccessService,
+      AdminAudienceScopes,
       RoleHierarchyService,
       RoleService,
       RoleEditService,
@@ -81,6 +102,7 @@ export async function bootAdminAtomic(
       { provide: RoleSweepStore, useClass: MongoRoleSweepStore },
       { provide: UnitOfWorkRunner, useClass: MongoUnitOfWorkRunner },
       MONGO_ADMIN_ACCOUNT_STORE,
+      MONGO_PASSWORD_SIGN_IN_STORE,
       MONGO_ACCOUNT_SESSIONS,
       MONGO_ACCOUNT_PERMISSION_STORE,
       { provide: getModelToken(User.name), useValue: harness.users },

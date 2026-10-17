@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import type { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { AUTH_FEATURE_KEY } from '../decorators/requires-feature.decorator';
 import { AuthFeature } from '../enums/auth-feature.enum';
@@ -15,7 +16,7 @@ export class FeatureEnabledGuard implements CanActivate {
     private readonly authFeaturesService: AuthFeaturesService,
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const feature = this.reflector.getAllAndOverride<AuthFeature | undefined>(
       AUTH_FEATURE_KEY,
       [context.getHandler(), context.getClass()],
@@ -25,7 +26,10 @@ export class FeatureEnabledGuard implements CanActivate {
       return true;
     }
 
-    this.authFeaturesService.assertEnabled(feature);
+    await this.authFeaturesService.assertForRequest(
+      feature,
+      context.switchToHttp().getRequest<Request>(),
+    );
     return true;
   }
 }

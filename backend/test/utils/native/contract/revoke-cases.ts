@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { AppException } from '../../../../src/common/exceptions/app.exception';
 import { signNativeDpopProof } from '../../../../src/session/native/harness/native-dpop-test-vectors.harness-spec';
 import { failAfter } from '../../session/authority-contract/authority-contract-support';
@@ -243,7 +244,12 @@ export function revokeCases(harness: NativeHarnessSource): void {
     const signOut = harness().services().signOut;
     await harness()
       .issuance.service(rerunAtOnce)
-      .createBrowserSession(signedIn.userId, 'Browser/1', SIGN_IN_ADDRESS);
+      .createBrowserSession(
+        signedIn.userId,
+        'Browser/1',
+        SIGN_IN_ADDRESS,
+        WEB_CLIENT_ID,
+      );
     const browser = (await harness().issuance.sessions(signedIn.userId)).find(
       ({ clientId }) => clientId !== NATIVE_CLIENT,
     );

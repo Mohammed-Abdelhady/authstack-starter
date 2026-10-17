@@ -1,4 +1,5 @@
 import { ApiError, type ApiClient, type PasskeyAttestation } from '@app/sdk';
+import { createNativeProofAction } from './native-proof';
 import { PASSKEY_REAUTH_CODE, PASSKEY_REGISTER_OUTCOME } from '../constants/passkeys';
 import { PortAbortController } from '../runtime/abort-controller';
 import type { AbortSignalPort, Unsubscribe } from '../types/auth';
@@ -113,6 +114,7 @@ export function createPasskeyActions({
   };
 
   return {
+    prove: createNativeProofAction({ client, port, session }),
     available,
     register(name) {
       if (inFlight) return inFlight;

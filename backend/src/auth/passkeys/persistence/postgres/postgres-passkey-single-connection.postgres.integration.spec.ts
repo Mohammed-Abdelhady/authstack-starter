@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
@@ -21,6 +22,7 @@ import { SignInMethodRule } from '../../../../user/services/sign-in-method.rule'
 import { AuthFeaturesService } from '../../../services/features/auth-features.service';
 import { PasskeyManagementService } from '../../services/passkey-management.service';
 import { PasskeyConfigService } from '../../services/passkey-config.service';
+import { noRequiredRelyingParties } from '../../services/browser-passkey-policy.harness-spec';
 import { PostgresPasskeyStore } from './postgres-passkey.store';
 
 /** `POSTGRES_POOL_MAX=1`, the smallest pool the settings accept. */
@@ -97,21 +99,23 @@ describe('passkey removal on a PostgreSQL pool of one connection', () => {
       .executeTakeFirstOrThrow();
     const removedId = await seedPasskey(account.id, 'Y3JlZGVudGlhbC1vbmU');
     const keptId = await seedPasskey(account.id, 'Y3JlZGVudGlhbC10d28');
+    const config = new ConfigService({
+      auth: { passwordEnabled: false },
+      magicLink: { enabled: false },
+    });
+    const browserApplications = browserApplicationsForTest(config);
     const management = new PasskeyManagementService(
       new PostgresPasskeyStore(database, new FrozenClock(TEST_NOW)),
       new SignInMethodRule(
         new PostgresSignInMethodStore(database),
-        new AuthFeaturesService(
-          new ConfigService({
-            auth: { passwordEnabled: false },
-            magicLink: { enabled: false },
-          }),
-        ),
+        new AuthFeaturesService(config, browserApplications),
       ),
       new PostgresUnitOfWorkRunner(database),
       new PasskeyConfigService(
         new ConfigService({ passkeys: { rpId: 'localhost' } }),
       ),
+      browserApplications,
+      noRequiredRelyingParties(),
     );
 
     const answer = await management.remove(account.id, removedId);

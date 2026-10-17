@@ -11,13 +11,14 @@ export interface PasswordCandidate {
 /**
  * What password sign-in and the password reset need of accounts. Every method
  * is one statement that commits by itself: none of these routes runs an atomic
- * workflow on the account. A deactivated account is never found.
+ * workflow on the account. Password verification includes deactivated accounts
+ * so only a correct credential can reveal their erasure date.
  *
  * Each method costs the same whether or not the address has an account, which
  * the routes rely on to answer both alike.
  */
 export abstract class PasswordSignInStore {
-  /** The active account with this address, and its password hash. */
+  /** The account with this address, including deactivated ones, and its hash. */
   abstract findForPasswordCheck(
     email: string,
   ): Promise<PasswordCandidate | null>;

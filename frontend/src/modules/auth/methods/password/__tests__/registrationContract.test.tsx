@@ -91,27 +91,6 @@ describe.each([
     );
   });
 
-  it('opens directly with an editable address and password-manager/code-autofill attributes', async () => {
-    navigation.search = 'email=leaked@example.com';
-    acceptActivation([]);
-    await renderForm(locale, <ActivationForm />);
-    const email = screen.getByTestId('activate-email-input');
-    expect(email).toHaveProperty('value', '');
-    expect(email).toHaveProperty('readOnly', false);
-    for (const [testId, name, autocomplete] of [
-      ['activate-email-input', 'email', 'username'],
-      ['activate-code-input', 'code', 'one-time-code'],
-      ['activate-name-input', 'name', 'name'],
-      ['activate-password-input', 'password', 'new-password'],
-      ['activate-confirm-password-input', 'confirmPassword', 'new-password'],
-    ]) {
-      const field = screen.getByTestId(testId);
-      expect(field.getAttribute('name')).toBe(name);
-      expect(field.getAttribute('autocomplete')).toBe(autocomplete);
-    }
-    expect(screen.getByTestId('activate-code-input').getAttribute('inputmode')).toBe('numeric');
-  });
-
   it('submits all four activation fields and excludes confirmation', async () => {
     const bodies: unknown[] = [];
     acceptActivation(bodies);

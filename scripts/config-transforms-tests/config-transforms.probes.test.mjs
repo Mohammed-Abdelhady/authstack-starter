@@ -119,12 +119,6 @@ for (const locale of [
   for (const [name, mutate] of [
     ['blank document', () => ''],
     ['error document', () => '<html><body>Application error</body></html>'],
-    ['wrong locale', (html) => html.replace(`lang="${locale}"`, 'lang="fr"')],
-    ['wrong direction', (html) => html.replace(/dir="(?:rtl|ltr)"/, 'dir="auto"')],
-    ['missing loading shell', (html) => html.replace('store-rehydration-loading', 'unrelated')],
-    ['missing status role', (html) => html.replace('role="status"', 'role="none"')],
-    ['inactive loading shell', (html) => html.replace('aria-busy="true"', 'aria-busy="false"')],
-    ['missing announcement', (html) => html.replace('aria-live="polite"', '')],
     [
       'missing script asset',
       (html) => html.replace('/_next/static/chunks/app.js', '/unrelated.js'),

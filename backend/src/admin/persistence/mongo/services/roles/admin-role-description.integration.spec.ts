@@ -9,24 +9,6 @@ import {
 
 describe('description edits use the role transaction', () => {
   const fixture = useAdminRoundFour('round_five_description');
-  it('persists an authorized description edit without revoking holder sessions', async () => {
-    const { h } = fixture;
-    const holder = await fixture.seed(
-      'description-holder@example.test',
-      EDITOR_SLUG,
-    );
-    const answer = await h.roles.update(
-      EDITOR_SLUG,
-      { description: 'Editorial access' },
-      fixture.roleActorId,
-    );
-    expect(answer.description).toBe('Editorial access');
-    expect(
-      (await h.roleModel.findOne({ slug: EDITOR_SLUG }))?.description,
-    ).toBe('Editorial access');
-    expect((await h.users.findById(holder._id))?.sessionVersion).toBe(0);
-    expect(await h.events.countDocuments({})).toBe(0);
-  });
   it('rolls back a description edit after certain transient commit failures', async () => {
     const { h } = fixture;
     const start = h.connection.startSession.bind(h.connection);

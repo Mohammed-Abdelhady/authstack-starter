@@ -4,6 +4,10 @@ export const MAIL_NAME = {
   EMAIL_CHANGE_NOTICE: 'emailChangeNotice',
   PASSWORD_RESET_CODE: 'passwordResetCode',
   PROOF_CODE: 'proofCode',
+  // feature:invitations:start
+  INVITATION: 'invitation',
+  ENROLMENT: 'enrolment',
+  // feature:invitations:end
   MAGIC_LINK: 'magicLink',
   REGISTRATION_NOTICE: 'registrationNotice',
   SECURITY_NOTICE: 'securityNotice',
@@ -28,7 +32,16 @@ export const MAGIC_LINK_PATH = '/auth/magic-link/verify';
 export const MAIL_LINK_PATHS = {
   [MAIL_NAME.EMAIL_CHANGE_CODE]: EMAIL_CHANGE_CONFIRM_PATH,
   [MAIL_NAME.MAGIC_LINK]: MAGIC_LINK_PATH,
+  // feature:invitations:start
+  [MAIL_NAME.INVITATION]: '/auth/invitation',
+  [MAIL_NAME.ENROLMENT]: '/auth/invitation',
+  // feature:invitations:end
 } as const;
+
+export const REQUIRED_MAIL_LINK_NAMES = [
+  MAIL_NAME.EMAIL_CHANGE_CODE,
+  MAIL_NAME.MAGIC_LINK,
+] as const;
 
 export type LinkedMailName = keyof typeof MAIL_LINK_PATHS;
 

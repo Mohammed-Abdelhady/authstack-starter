@@ -11,7 +11,7 @@ import { readNativeBrowserGuestFlow } from '@/modules/auth/utils/nativeBrowserSe
 import { Description, Heading } from '@/components/design-system';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { FormProvider } from 'react-hook-form';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
 import {

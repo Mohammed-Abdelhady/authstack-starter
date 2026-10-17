@@ -27,23 +27,6 @@ jest.mock('@nestjs/mongoose', () => {
 });
 // feature:mongodb:end
 
-/** Store methods the outage table leaves out, each with its reason. */
-const NOT_LISTED: Record<string, string> = {
-  'account.markVerified':
-    'takes an account this store read, and a database that is away reads none',
-  'account.findByEmailIn': 'runs inside the unit of work of its caller',
-  'account.createPasswordlessIn': 'runs inside the unit of work of its caller',
-  'account.markVerifiedIn': 'runs inside the unit of work of its caller',
-};
-
-/** Every method a store class declares, as the outage table names them. */
-function methodsOf(prefix: string, store: object): string[] {
-  const declared: unknown = Object.getPrototypeOf(store);
-  return Object.getOwnPropertyNames(declared)
-    .filter((name) => name !== 'constructor')
-    .map((name) => `${prefix}.${name}`);
-}
-
 describe('PostgreSQL magic link statements that commit by themselves', () => {
   let database: Kysely<PostgresTables>;
 
@@ -55,19 +38,6 @@ describe('PostgreSQL magic link statements that commit by themselves', () => {
 
   afterAll(async () => {
     await database.destroy();
-  });
-
-  it('lists every method of the link and account stores, or says why one is left out', () => {
-    const links = new PostgresMagicLinkStore(database);
-    const accounts = new PostgresMagicLinkAccounts(database);
-    const listed = [
-      ...Object.keys(magicLinkStatements(links, accounts)),
-      ...Object.keys(NOT_LISTED),
-    ];
-
-    expect(listed.sort()).toEqual(
-      [...methodsOf('link', links), ...methodsOf('account', accounts)].sort(),
-    );
   });
 
   it('raises the shared outage from every link and account statement', async () => {

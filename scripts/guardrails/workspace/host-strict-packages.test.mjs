@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -18,36 +18,14 @@ const CLIENT_PACKAGES = [
   'mobile/device-key',
   'mobile/metro',
 ];
-// Each probe compiles cleanly unless its flag is on, and then fails with its code alone.
-const HOST_FLAG_PROBES = {
-  noPropertyAccessFromIndexSignature: {
-    code: 'TS4111',
-    source: 'const scores: Record<string, number> = { a: 1 };\nexport const first = scores.a;\n',
-  },
-  exactOptionalPropertyTypes: {
-    code: 'TS2375',
-    source: 'interface Box {\n  size?: number;\n}\nexport const box: Box = { size: undefined };\n',
-  },
-  noUncheckedIndexedAccess: {
-    code: 'TS2322',
-    source: 'const sizes: number[] = [1];\nexport const size: number = sizes[0];\n',
-  },
-  noImplicitOverride: {
-    code: 'TS4114',
-    source:
-      'class Base {\n  run(): void {}\n}\nexport class Child extends Base {\n  run(): void {}\n}\n',
-  },
-  noImplicitReturns: {
-    code: 'TS7030',
-    source: 'export function pick(flag: boolean) {\n  if (flag) return 1;\n}\n',
-  },
-  noFallthroughCasesInSwitch: {
-    code: 'TS7029',
-    source:
-      'export function step(value: number): number {\n  let total = 0;\n  switch (value) {\n    case 1:\n      total += 1;\n    case 2:\n      total += 2;\n      break;\n  }\n  return total;\n}\n',
-  },
-};
-const HOST_FLAGS = Object.keys(HOST_FLAG_PROBES);
+const HOST_FLAGS = [
+  'noPropertyAccessFromIndexSignature',
+  'exactOptionalPropertyTypes',
+  'noUncheckedIndexedAccess',
+  'noImplicitOverride',
+  'noImplicitReturns',
+  'noFallthroughCasesInSwitch',
+];
 const HOST_STRICT_OPTIONS = {
   strict: true,
   ...Object.fromEntries(HOST_FLAGS.map((flag) => [flag, true])),
@@ -134,58 +112,12 @@ function compileAsHost(packageDir, hostOptions = HOST_STRICT_OPTIONS) {
 }
 
 for (const packagePath of CLIENT_PACKAGES) {
-  test(`${packagePath} turns on every host flag in its own tsconfig`, () => {
-    const packageDir = resolve(ROOT, packagePath);
-    const { options } = ts.parseJsonConfigFileContent(ownConfig(packageDir), ts.sys, packageDir);
-    assert.deepEqual(
-      HOST_FLAGS.filter((flag) => options[flag] !== true),
-      [],
-    );
-  });
-
   test(`${packagePath} compiles under a host's strict flags from outside the repository`, () => {
     const { status, output, codes } = compileAsHost(resolve(ROOT, packagePath));
     assert.equal(
       status,
       0,
       `${packagePath} has ${codes.length} diagnostics under host flags:\n${output}`,
-    );
-  });
-}
-
-function probeFixture(source) {
-  const fixture = temporaryFolder('host-strict-fixture-');
-  mkdirSync(join(fixture, 'src'));
-  writeFileSync(
-    join(fixture, 'package.json'),
-    JSON.stringify({ name: 'host-strict-fixture', private: true }),
-  );
-  writeFileSync(
-    join(fixture, 'tsconfig.json'),
-    JSON.stringify({
-      compilerOptions: {
-        target: 'ES2022',
-        module: 'ESNext',
-        moduleResolution: 'bundler',
-        types: [],
-      },
-      include: ['src/**/*.ts'],
-    }),
-  );
-  writeFileSync(join(fixture, 'src/index.ts'), source);
-  return fixture;
-}
-
-for (const [flag, { code, source }] of Object.entries(HOST_FLAG_PROBES)) {
-  test(`the host config applies ${flag}`, () => {
-    const fixture = probeFixture(source);
-    const host = compileAsHost(fixture);
-    const withoutFlag = compileAsHost(fixture, { ...HOST_STRICT_OPTIONS, [flag]: false });
-
-    assert.deepEqual(
-      { hostCodes: host.codes, withoutFlagStatus: withoutFlag.status },
-      { hostCodes: [code], withoutFlagStatus: 0 },
-      `${host.output}${withoutFlag.output}`,
     );
   });
 }

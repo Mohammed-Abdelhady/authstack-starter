@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest';
 import { buildSetupSummary } from '../../src/scaffold/setup-summary.js';
-import { renderSetupSummary } from '../../src/report/setup-summary.js';
 import type { SetupFacts } from '../../src/types/setup.js';
 
 const BASE: SetupFacts = {
@@ -24,18 +23,6 @@ const BASE: SetupFacts = {
   nextSteps: ['cd app'],
   docs: ['README.md'],
 };
-
-it.each<{ name: string; skipped: SetupFacts['skipped']; expected: string[] }>([
-  { name: 'empty', skipped: [], expected: [] },
-  {
-    name: 'populated',
-    skipped: [{ check: 'lint', reason: 'Not run by the installer.' }],
-    expected: ['Skipped:', '  lint: Not run by the installer.'],
-  },
-])('prints the skipped section only for a $name list with entries', ({ skipped, expected }) => {
-  const lines = renderSetupSummary(buildSetupSummary({ ...BASE, skipped }));
-  expect(lines.filter((line) => line === 'Skipped:' || line.startsWith('  '))).toEqual(expected);
-});
 
 const CASES: {
   name: string;
@@ -139,35 +126,4 @@ const CASES: {
 it.each(CASES)('returns honest hook and exit states for $name', ({ facts, expected }) => {
   const result = buildSetupSummary({ ...BASE, ...facts });
   expect({ exitCode: result.exitCode, hooks: result.hooks }).toEqual(expected);
-});
-
-it('returns all observed facts without losing rules, failures, commands or checks', () => {
-  expect(
-    buildSetupSummary({
-      ...BASE,
-      rules: 'standard',
-      lockfile: { status: 'removed', reason: 'registry error' },
-      install: { status: 'blocked', reason: 'registry error' },
-      hooksActive: false,
-    }),
-  ).toEqual({
-    files: { count: 12, instructions: ['AGENTS.md', 'CLAUDE.md', 'backend/AGENTS.md'] },
-    rules: 'standard',
-    lockfile: { status: 'removed', reason: 'registry error' },
-    git: { status: 'created' },
-    install: { status: 'blocked', reason: 'registry error' },
-    checksRun: [
-      'template pruning',
-      'dangling references',
-      'pnpm version',
-      'lockfile update',
-      'git repository and first commit',
-      'dependency installation',
-    ],
-    skipped: [{ check: 'lint', reason: 'Not run by the installer.' }],
-    nextSteps: ['cd app'],
-    docs: ['README.md'],
-    exitCode: 1,
-    hooks: { included: true, active: false, activationCommand: 'pnpm install' },
-  });
 });

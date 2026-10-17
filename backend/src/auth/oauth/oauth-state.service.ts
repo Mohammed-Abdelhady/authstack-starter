@@ -1,3 +1,11 @@
+import {
+  APPLICATION_COOKIE_PLACEHOLDER,
+  applicationCookieName,
+} from '../../session/utils/request/application-cookie-name';
+import {
+  WEB_CLIENT_ID,
+  ADMIN_CLIENT_ID,
+} from '../../session/constants/client-ids';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
@@ -5,90 +13,90 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { hostCookieName } from '../utils/cookie-name.util';
+import type { BrowserApplicationId } from '../../session/applications/types/browser-application';
+import type {
+  OAuthStateCreation,
+  OAuthStatePayload,
+  OAuthStateRequest,
+} from './types/oauth-state.types';
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   OAUTH_STATE_TTL_MS,
 } from './oauth.constants';
+import {
+  isFilled,
+  readOAuthStatePayload,
+} from './utils/oauth-state-payload.util';
 
-export interface OAuthStatePayload {
-  /** Random value echoed by the provider as the `state` query parameter. */
-  state: string;
-  /** PKCE verifier, present when the provider supports PKCE. */
-  codeVerifier?: string;
-  /** OIDC nonce, present when the provider issues an id_token. */
-  nonce?: string;
-  /** Sanitised relative path the client returns to after login. */
-  redirect: string;
-  /** Epoch milliseconds after which the cookie is refused. */
-  expiresAt: number;
-  /** Login issues a session; link attaches the provider to the current user. */
-  intent: 'login' | 'link';
-  /** Session user id stored when `intent` is `link`. */
-  linkUserId?: string;
-  /** The session that asked for the link. It must still be live at the callback. */
-  linkSessionId?: string;
-}
-
-export interface OAuthStateRequest {
-  redirect: string;
-  supportsPkce: boolean;
-  usesOidc: boolean;
-  intent?: 'login' | 'link';
-  linkUserId?: string;
-  linkSessionId?: string;
-}
-
-export interface OAuthStateCreation {
-  payload: OAuthStatePayload;
-  codeChallenge?: string;
-}
+export type {
+  OAuthStateCreation,
+  OAuthStatePayload,
+  OAuthStateRequest,
+} from './types/oauth-state.types';
 
 const RANDOM_BYTES = 32;
+const BROWSER_APPLICATIONS: readonly BrowserApplicationId[] = [
+  WEB_CLIENT_ID,
+  ADMIN_CLIENT_ID,
+];
+const DEFAULT_CLIENT_URL = 'http://localhost:3000';
 
-function isFilled(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0;
+interface StateCookieCandidate {
+  name: string;
+  clientId: BrowserApplicationId;
+  legacy: boolean;
 }
 
-/**
- * Issues and verifies the short lived signed cookie that carries OAuth state,
- * the PKCE verifier and the OIDC nonce between the start and callback routes.
- * Cookie value is `<base64url payload>.<base64url HMAC-SHA256>`.
- */
 @Injectable()
 export class OAuthStateService {
+  private readonly selectedCookies = new WeakMap<OAuthStatePayload, string>();
+
   constructor(private readonly configService: ConfigService) {}
 
-  cookieName(provider: string): string {
-    return hostCookieName(
-      this.configService.get<string>('NODE_ENV'),
-      `${OAUTH_STATE_COOKIE_PREFIX}${provider}`,
+  cookieName(
+    provider: string,
+    clientId: BrowserApplicationId = WEB_CLIENT_ID,
+  ): string {
+    return this.namedCookie(
+      applicationCookieName(
+        `${OAUTH_STATE_COOKIE_PREFIX}${APPLICATION_COOKIE_PLACEHOLDER}_${provider}`,
+        clientId,
+      ),
     );
   }
 
+  legacyCookieName(provider: string): string {
+    return this.namedCookie(`${OAUTH_STATE_COOKIE_PREFIX}${provider}`);
+  }
+
   create(request: OAuthStateRequest): OAuthStateCreation {
+    const clientId = request.clientId ?? WEB_CLIENT_ID;
+    const configuredBase = this.returnBaseFor(clientId);
+    const returnBase = request.returnBase ?? configuredBase;
+    if (!isFilled(returnBase) || returnBase !== configuredBase) {
+      throw this.invalidState(
+        clientId,
+        'application return base is not configured',
+      );
+    }
     const payload: OAuthStatePayload = {
       state: randomBytes(RANDOM_BYTES).toString('base64url'),
       redirect: request.redirect,
       expiresAt: Date.now() + OAUTH_STATE_TTL_MS,
       intent: request.intent === 'link' ? 'link' : 'login',
+      clientId,
+      returnBase,
     };
-
     if (payload.intent === 'link') {
       payload.linkUserId = request.linkUserId;
       payload.linkSessionId = request.linkSessionId;
     }
-
     if (request.usesOidc) {
       payload.nonce = randomBytes(RANDOM_BYTES).toString('base64url');
     }
-
-    if (!request.supportsPkce) {
-      return { payload };
-    }
-
+    if (!request.supportsPkce) return { payload };
     const codeVerifier = randomBytes(RANDOM_BYTES).toString('base64url');
     payload.codeVerifier = codeVerifier;
-
     return {
       payload,
       codeChallenge: createHash('sha256')
@@ -97,65 +105,91 @@ export class OAuthStateService {
     };
   }
 
-  /**
-   * @param crossSite true for providers whose callback arrives as a cross site
-   * POST, which a SameSite=Lax cookie would not be sent with
-   */
   write(
     res: Response,
     provider: string,
     payload: OAuthStatePayload,
     crossSite = false,
   ): void {
-    res.cookie(this.cookieName(provider), this.encode(payload), {
+    const name = this.cookieName(provider, payload.clientId);
+    res.cookie(name, this.encode(payload), {
       ...this.cookieOptions(crossSite),
       maxAge: OAUTH_STATE_TTL_MS,
     });
+    this.selectedCookies.set(payload, name);
   }
 
-  clear(res: Response, provider: string): void {
-    res.clearCookie(this.cookieName(provider), this.cookieOptions());
+  clear(res: Response, _provider: string, payload?: OAuthStatePayload): void {
+    const name = payload && this.selectedCookies.get(payload);
+    if (name) res.clearCookie(name, this.cookieOptions());
   }
 
-  /**
-   * Reads and verifies the state cookie.
-   *
-   * @throws AppException OAUTH_STATE_INVALID when it is missing, tampered with or expired
-   */
-  read(req: Request, provider: string): OAuthStatePayload {
-    const cookies = req.cookies as Record<string, string> | undefined;
-    const raw = cookies?.[this.cookieName(provider)];
-
-    if (typeof raw !== 'string' || raw.length === 0) {
-      throw this.invalidState(provider, 'missing state cookie');
+  readForStart(req: Request, provider: string): OAuthStatePayload {
+    const name = this.cookieName(provider);
+    const cookies = req.cookies as Record<string, unknown> | undefined;
+    const raw = cookies?.[name];
+    if (!isFilled(raw)) {
+      throw this.invalidState(provider, 'no matching valid state cookie');
     }
-
-    const separator = raw.lastIndexOf('.');
-    if (separator <= 0) {
-      throw this.invalidState(provider, 'malformed state cookie');
-    }
-
-    const encodedPayload = raw.slice(0, separator);
-    const signature = raw.slice(separator + 1);
-
-    if (!this.constantTimeEquals(signature, this.sign(encodedPayload))) {
-      throw this.invalidState(provider, 'state cookie signature mismatch');
-    }
-
-    const payload = this.decode(encodedPayload, provider);
-
-    if (payload.expiresAt <= Date.now()) {
-      throw this.invalidState(provider, 'state cookie expired');
-    }
-
+    const payload = this.verifiedPayload(raw, provider, WEB_CLIENT_ID, false);
+    this.selectedCookies.set(payload, name);
     return payload;
   }
 
-  /**
-   * Compares the state echoed by the provider with the signed cookie value.
-   *
-   * @throws AppException OAUTH_STATE_INVALID on mismatch
-   */
+  readCallback(
+    req: Request,
+    provider: string,
+    receivedState: unknown,
+  ): OAuthStatePayload {
+    if (!isFilled(receivedState)) {
+      throw this.invalidState(provider, 'missing state parameter');
+    }
+    const candidates: StateCookieCandidate[] = [
+      ...BROWSER_APPLICATIONS.map((clientId) => ({
+        name: this.cookieName(provider, clientId),
+        clientId,
+        legacy: false,
+      })),
+      {
+        name: this.legacyCookieName(provider),
+        clientId: WEB_CLIENT_ID,
+        legacy: true,
+      },
+    ];
+    const cookies = req.cookies as Record<string, unknown> | undefined;
+    let selected: OAuthStatePayload | undefined;
+    for (const candidate of candidates) {
+      const raw = cookies?.[candidate.name];
+      if (!isFilled(raw)) continue;
+      let payload: OAuthStatePayload;
+      try {
+        payload = this.verifiedPayload(
+          raw,
+          provider,
+          candidate.clientId,
+          candidate.legacy,
+        );
+        this.assertStateMatches(payload, receivedState, provider);
+      } catch (error) {
+        if (
+          !(error instanceof AppException) ||
+          error.getCode() !== ErrorCode.OAUTH_STATE_INVALID
+        ) {
+          throw error;
+        }
+        continue;
+      }
+      if (selected)
+        throw this.invalidState(provider, 'ambiguous state cookies');
+      selected = payload;
+      this.selectedCookies.set(payload, candidate.name);
+    }
+    if (!selected) {
+      throw this.invalidState(provider, 'no matching valid state cookie');
+    }
+    return selected;
+  }
+
   assertStateMatches(
     payload: OAuthStatePayload,
     received: unknown,
@@ -169,38 +203,73 @@ export class OAuthStateService {
     }
   }
 
-  /**
-   * SameSite=None only holds up with Secure, so it is limited to production.
-   * A cross site provider therefore needs an HTTPS callback URL; in development
-   * the cookie stays Lax and the POST callback drops it.
-   */
-  private cookieOptions(crossSite = false): CookieOptions {
-    const isProduction = this.isProduction();
+  private verifiedPayload(
+    raw: string,
+    provider: string,
+    clientId: BrowserApplicationId,
+    legacy: boolean,
+  ): OAuthStatePayload {
+    const separator = raw.lastIndexOf('.');
+    if (separator <= 0) {
+      throw this.invalidState(provider, 'malformed state cookie');
+    }
+    const encoded = raw.slice(0, separator);
+    if (
+      !this.constantTimeEquals(raw.slice(separator + 1), this.sign(encoded))
+    ) {
+      throw this.invalidState(provider, 'state cookie signature mismatch');
+    }
+    const payload = this.decode(encoded, provider, clientId, legacy);
+    if (payload.expiresAt <= Date.now()) {
+      throw this.invalidState(provider, 'state cookie expired');
+    }
+    return payload;
+  }
 
+  private decode(
+    encoded: string,
+    provider: string,
+    clientId: BrowserApplicationId,
+    legacy: boolean,
+  ): OAuthStatePayload {
+    try {
+      const returnBase = this.returnBaseFor(clientId);
+      if (!isFilled(returnBase)) {
+        throw new Error('application is not configured');
+      }
+      const parsed: unknown = JSON.parse(
+        Buffer.from(encoded, 'base64url').toString('utf8'),
+      );
+      return readOAuthStatePayload(parsed, { clientId, returnBase, legacy });
+    } catch {
+      throw this.invalidState(provider, 'unreadable state cookie');
+    }
+  }
+
+  private returnBaseFor(clientId: BrowserApplicationId): string | undefined {
+    return clientId === ADMIN_CLIENT_ID
+      ? this.configService.get<string>('cors.adminUrl')
+      : this.configService.get<string>('cors.clientUrl', DEFAULT_CLIENT_URL);
+  }
+
+  private namedCookie(name: string): string {
+    return hostCookieName(this.configService.get<string>('NODE_ENV'), name);
+  }
+
+  private cookieOptions(crossSite = false): CookieOptions {
+    const production =
+      this.configService.get<string>('NODE_ENV') === 'production';
     return {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: crossSite && isProduction ? 'none' : 'lax',
-      path: this.cookiePath(),
+      secure: production,
+      sameSite: crossSite && production ? 'none' : 'lax',
+      path: production ? '/' : this.cookiePath(),
     };
   }
 
-  private isProduction(): boolean {
-    return this.configService.get<string>('NODE_ENV') === 'production';
-  }
-
-  /**
-   * The production name carries `__Host-`, which a browser only accepts on
-   * path `/`. Elsewhere the cookie stays on the callback path.
-   */
   private cookiePath(): string {
-    if (this.isProduction()) {
-      return '/';
-    }
     const baseUrl = this.configService.get<string>('oauth.callbackBaseUrl');
-    if (!baseUrl) {
-      return '/';
-    }
+    if (!baseUrl) return '/';
     try {
       return new URL(baseUrl).pathname || '/';
     } catch {
@@ -213,36 +282,7 @@ export class OAuthStateService {
     return `${encoded}.${this.sign(encoded)}`;
   }
 
-  private decode(encoded: string, provider: string): OAuthStatePayload {
-    try {
-      const json = Buffer.from(encoded, 'base64url').toString('utf8');
-      const payload = JSON.parse(json) as OAuthStatePayload;
-      if (
-        typeof payload.state !== 'string' ||
-        typeof payload.expiresAt !== 'number'
-      ) {
-        throw new Error('missing fields');
-      }
-      if (payload.intent === 'link') {
-        if (!isFilled(payload.linkUserId) || !isFilled(payload.linkSessionId)) {
-          throw new Error('missing link user or session');
-        }
-      } else {
-        payload.intent = 'login';
-      }
-      return payload;
-    } catch {
-      throw this.invalidState(provider, 'unreadable state cookie');
-    }
-  }
-
-  private sign(encodedPayload: string): string {
-    return createHmac('sha256', this.secret())
-      .update(encodedPayload)
-      .digest('base64url');
-  }
-
-  private secret(): string {
+  private sign(encoded: string): string {
     const secret = this.configService.get<string>('oauth.stateSecret');
     if (!secret) {
       throw new AppException(
@@ -251,16 +291,13 @@ export class OAuthStateService {
         HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
-    return secret;
+    return createHmac('sha256', secret).update(encoded).digest('base64url');
   }
 
   private constantTimeEquals(left: string, right: string): boolean {
-    const leftBytes = Buffer.from(left);
-    const rightBytes = Buffer.from(right);
-    if (leftBytes.length !== rightBytes.length) {
-      return false;
-    }
-    return timingSafeEqual(leftBytes, rightBytes);
+    const a = Buffer.from(left);
+    const b = Buffer.from(right);
+    return a.length === b.length && timingSafeEqual(a, b);
   }
 
   private invalidState(provider: string, reason: string): AppException {

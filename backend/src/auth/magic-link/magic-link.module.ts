@@ -1,3 +1,4 @@
+import { ErasureModule } from '../../user/erasure/erasure.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from '../auth.module';
@@ -21,6 +22,7 @@ import {
  */
 @Module({
   imports: [
+    ErasureModule,
     CommonModule,
     ConfigModule,
     ...MAGIC_LINK_PERSISTENCE_IMPORTS,

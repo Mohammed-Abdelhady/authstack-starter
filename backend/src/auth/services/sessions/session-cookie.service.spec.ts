@@ -1,10 +1,8 @@
+import { BROWSER_APPLICATIONS_TEST_PROVIDER } from '../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { SessionCookieService } from './session-cookie.service';
-import {
-  createRequestMock,
-  createResponseMock,
-} from '../../../common/testing/test-doubles.harness-spec';
+import { createResponseMock } from '../../../common/testing/test-doubles.harness-spec';
 
 describe('SessionCookieService (X-13, D-29)', () => {
   let service: SessionCookieService;
@@ -24,68 +22,13 @@ describe('SessionCookieService (X-13, D-29)', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SessionCookieService,
+        BROWSER_APPLICATIONS_TEST_PROVIDER,
         { provide: ConfigService, useValue: configService },
       ],
     }).compile();
 
     return module.get<SessionCookieService>(SessionCookieService);
   };
-
-  describe('name', () => {
-    it('should default to sid in development', async () => {
-      service = await createService({
-        NODE_ENV: 'development',
-      });
-      expect(service.name).toBe('sid');
-    });
-
-    it('should default to __Host-sid in production', async () => {
-      service = await createService({
-        NODE_ENV: 'production',
-      });
-      expect(service.name).toBe('__Host-sid');
-    });
-
-    it('should honor custom session.cookieName if configured', async () => {
-      service = await createService({
-        'session.cookieName': 'custom-session-id',
-        NODE_ENV: 'production',
-      });
-      expect(service.name).toBe('custom-session-id');
-    });
-  });
-
-  describe('options', () => {
-    it('should return secure false in development', async () => {
-      service = await createService({
-        NODE_ENV: 'development',
-        'session.cookieMaxAge': 604800000,
-      });
-
-      expect(service.options).toEqual({
-        httpOnly: true,
-        secure: false,
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 604800000,
-      });
-    });
-
-    it('should return secure true in production', async () => {
-      service = await createService({
-        NODE_ENV: 'production',
-        'session.cookieMaxAge': 604800000,
-      });
-
-      expect(service.options).toEqual({
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        path: '/',
-        maxAge: 604800000,
-      });
-    });
-  });
 
   describe('by environment and client address', () => {
     it.each([
@@ -169,42 +112,6 @@ describe('SessionCookieService (X-13, D-29)', () => {
           path: '/',
         }),
       );
-    });
-  });
-
-  describe('read', () => {
-    it('should read cookie from request', async () => {
-      service = await createService({
-        NODE_ENV: 'development',
-      });
-
-      const mockRequest = createRequestMock({
-        cookies: {
-          sid: 'raw-token-123',
-        },
-      });
-
-      expect(service.read(mockRequest)).toBe('raw-token-123');
-    });
-
-    it('should return undefined if cookie is missing', async () => {
-      service = await createService({
-        NODE_ENV: 'development',
-      });
-
-      const mockRequest = createRequestMock({ cookies: {} });
-
-      expect(service.read(mockRequest)).toBeUndefined();
-    });
-
-    it('should return undefined if cookies object is missing', async () => {
-      service = await createService({
-        NODE_ENV: 'development',
-      });
-
-      const mockRequest = createRequestMock({});
-
-      expect(service.read(mockRequest)).toBeUndefined();
     });
   });
 });

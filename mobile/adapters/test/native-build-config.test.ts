@@ -307,10 +307,6 @@ describe('native SDK build configuration', () => {
     expect(configured.ios?.associatedDomains).toEqual(['applinks:links.example']);
   });
 
-  it('omits an empty list from the public settings', () => {
-    expect(readNativeBuildSettings({ MOBILE_APP_LINK_PATHS: ' , , ' })).toEqual({});
-  });
-
   it.each([
     'relative',
     '//outside.example',

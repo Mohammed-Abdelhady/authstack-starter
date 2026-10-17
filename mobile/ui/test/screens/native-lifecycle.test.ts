@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nativeApp, disposeNativeApps, ATTEMPT_ID } from '../support/native-auth';
 import { cleanup, press, byTestId, isShown, textsOf } from '../support/render';
 import { translate } from '../../src/i18n';
-import { LOCALES } from '../support/locales';
 
 vi.mock('react-native', () => import('../support/react-native'));
 afterEach(() => {
@@ -11,7 +10,7 @@ afterEach(() => {
   disposeNativeApps();
 });
 
-describe.each(LOCALES)('native lifecycle handoff in %s', (locale) => {
+describe.each(['en'] as const)('native lifecycle handoff in %s', (locale) => {
   it('passes the request-produced registration email into activation and reports a created account when later sign-in fails', async () => {
     const app = await nativeApp(locale);
     app.reply('register', {

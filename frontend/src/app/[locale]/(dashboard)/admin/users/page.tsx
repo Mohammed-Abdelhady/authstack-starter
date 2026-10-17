@@ -2,6 +2,7 @@
 
 import { Description, Heading } from '@/components/design-system';
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense, Activity } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useReturnFocus } from '@/hooks/useReturnFocus';
 import { useAppDispatch } from '@/store/hooks';
 import { baseApi } from '@/store/api/baseApi';
+import { UsersInvitationTabs } from '@/modules/invitations'; // feature:invitations
 
 const UserPermissionsDialog = lazy(() =>
   import('@/modules/permissions/components/users/UserPermissionsDialog').then((mod) => ({
@@ -25,7 +27,16 @@ const UserPermissionsDialog = lazy(() =>
   })),
 );
 
+/** Views an optional feature wraps around the user list, outermost first. */
+const USERS_FRAMES: ComponentType<{ children: ReactNode }>[] = [
+  UsersInvitationTabs, // feature:invitations
+];
+
 export default function AdminUsersPage() {
+  return USERS_FRAMES.reduceRight<ReactNode>((view, Frame) => <Frame>{view}</Frame>, <UsersView />);
+}
+
+function UsersView() {
   const t = useTranslations('users');
   const tCommon = useTranslations('common');
   const dispatch = useAppDispatch();
@@ -119,7 +130,7 @@ export default function AdminUsersPage() {
   const isFiltered = Boolean(debouncedSearch.trim()) || roleFilter !== 'all';
 
   return (
-    <RoutePermissionGuard permission={USER_PERMISSIONS.LIST_ALL}>
+    <RoutePermissionGuard anyPermissions={[USER_PERMISSIONS.LIST_ALL, USER_PERMISSIONS.LIST_STAFF]}>
       <div className="container max-w-7xl py-8 px-4" data-testid="admin-users-page">
         {/* Header */}
         <div className="my-8">

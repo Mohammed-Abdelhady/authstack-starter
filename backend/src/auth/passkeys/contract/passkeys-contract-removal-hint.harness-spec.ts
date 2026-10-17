@@ -10,6 +10,7 @@ import {
   PASSWORD,
   refusalOf,
 } from './passkeys-contract.harness-spec';
+import { APP_RP_ID } from './passkeys-contract-native.harness-spec';
 
 const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
 
@@ -17,6 +18,8 @@ interface HintedAccount {
   password?: boolean;
   linked?: boolean;
   secondPasskey?: boolean;
+  /** A second passkey, made in an app for the app's relying party. */
+  appPasskey?: boolean;
   features: FeatureSwitches;
   /** Written out by hand: the page is told so, and the removal agrees. */
   removable: boolean;
@@ -46,10 +49,64 @@ const ACCOUNTS: Record<string, HintedAccount> = {
     features: { password: false },
     removable: true,
   },
+  'a linked provider, where a passkey is required': {
+    linked: true,
+    features: { password: false, requirePasskey: true },
+    removable: false,
+  },
+  'a second passkey, where a passkey is required': {
+    secondPasskey: true,
+    features: { password: false, requirePasskey: true },
+    removable: true,
+  },
+  // Neither can go: the web one is required, the app one has no other way in.
+  'an app passkey, where a passkey is required': {
+    appPasskey: true,
+    features: { password: false, requirePasskey: true },
+    removable: false,
+  },
 };
 
 /** The hint the passkey list carries says what the removal would answer. */
 export function removalHintCases(harness: PasskeysHarnessSource): void {
+  it('marks each relying-party row before offering a mixed-list removal', async () => {
+    const userId = await harness().seedAccount({
+      email: 'mixed@example.test',
+      linked: true,
+    });
+    const web = await harness().seedPasskey({
+      userId,
+      credentialId: CREDENTIAL_ID,
+      createdAt: NOW,
+    });
+    const native = await harness().seedPasskey({
+      userId,
+      credentialId: OTHER_CREDENTIAL_ID,
+      createdAt: NOW,
+      rpId: APP_RP_ID,
+    });
+    const { management } = passkeyServices(harness(), {
+      password: false,
+      requirePasskey: true,
+    });
+    const listed = (await management.list(userId)).data;
+    expect(listed.passkeys.find((row) => row.id === web)).toMatchObject({
+      canRemove: false,
+      removalBlockedCode: 'PASSKEY_REQUIRED_LAST',
+    });
+    expect(listed.passkeys.find((row) => row.id === native)).toMatchObject({
+      canRemove: true,
+    });
+    expect(await refusalOf(management.remove(userId, web))).toEqual({
+      code: 'PASSKEY_REQUIRED_LAST',
+      status: 409,
+    });
+    await management.remove(userId, native);
+    expect((await harness().storedPasskeys()).map((row) => row.id)).toEqual([
+      web,
+    ]);
+  });
+
   it('tells the page a passkey can go exactly when its removal would go through', async () => {
     const passwordHash = await bcrypt.hash(PASSWORD, BCRYPT_ROUNDS);
     const hinted: Record<string, boolean | undefined> = {};
@@ -66,11 +123,12 @@ export function removalHintCases(harness: PasskeysHarnessSource): void {
         credentialId: CREDENTIAL_ID,
         createdAt: NOW,
       });
-      if (account.secondPasskey) {
+      if (account.secondPasskey || account.appPasskey) {
         await harness().seedPasskey({
           userId,
           credentialId: OTHER_CREDENTIAL_ID,
           createdAt: NOW,
+          ...(account.appPasskey ? { rpId: APP_RP_ID } : {}),
         });
       }
       const { management } = passkeyServices(harness(), account.features);
@@ -81,7 +139,11 @@ export function removalHintCases(harness: PasskeysHarnessSource): void {
       if (account.removable) {
         await attempt;
       } else {
-        expect(await refusalOf(attempt)).toEqual(LAST_WAY_IN);
+        expect(await refusalOf(attempt)).toEqual(
+          account.features.requirePasskey
+            ? { code: 'PASSKEY_REQUIRED_LAST', status: 409 }
+            : LAST_WAY_IN,
+        );
       }
       removed[name] = !(await harness().storedPasskeys()).some(
         (passkey) => passkey.id === passkeyId,
@@ -96,6 +158,9 @@ export function removalHintCases(harness: PasskeysHarnessSource): void {
       'a linked provider': true,
       'magic links': true, // feature:magic-link
       'a second passkey': true,
+      'a linked provider, where a passkey is required': false,
+      'a second passkey, where a passkey is required': true,
+      'an app passkey, where a passkey is required': false,
     });
   });
 }

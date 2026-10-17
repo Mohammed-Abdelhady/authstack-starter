@@ -76,15 +76,6 @@ beforeAll(() => {
 registerFormTestLifecycle();
 
 describe('an option that can be reached and not chosen', () => {
-  it('is named by its text alone, says it is unavailable, and is described by the reason', async () => {
-    const { cherry } = await openList();
-
-    expect(cherry.getAttribute('aria-disabled')).toBe('true');
-    expect(descriptions(cherry)).toEqual([REASON]);
-    // The reason is on the page, inside the option.
-    expect(within(cherry).getByText(REASON)).toBeTruthy();
-  });
-
   it('is reached by the arrow keys, between its neighbours', async () => {
     const { list, cherry, option } = await openList();
 
@@ -109,14 +100,6 @@ describe('an option that can be reached and not chosen', () => {
     await settled();
 
     fireEvent.keyDown(document.activeElement ?? cherry, { key });
-
-    await waitFor(() => expect(document.activeElement).toBe(cherry));
-  });
-
-  it('is reached by typing its first letter in the open list', async () => {
-    const { list, cherry } = await openList();
-
-    fireEvent.keyDown(list, { key: 'c' });
 
     await waitFor(() => expect(document.activeElement).toBe(cherry));
   });

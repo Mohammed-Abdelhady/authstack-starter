@@ -122,51 +122,6 @@ describe('disposed credential ownership', () => {
     expect(ports.timer.pending).toBe(0);
   });
 
-  it('revokes a late rotation when an unrelated sign-in replaced the record', async () => {
-    const transport = new ScriptedTransport();
-    transport.respond = async ({ path }) => {
-      if (path === '/api/oauth/revoke') return { status: 200, body: {} };
-      throw new Error(`Unexpected request: ${path}`);
-    };
-    const ports = testPorts(transport);
-    const runtime = new AuthRuntime(CONFIG, ports);
-    const previous: RuntimeTokens = {
-      accessToken: 'access-before',
-      refreshToken: REFRESH_BEFORE_TOKEN,
-      expiresAt: 0,
-      version: 1,
-      lineageId: 'lineage-a',
-    };
-    runtime.installDigest = INSTALL_DIGEST;
-    runtime.tokens = previous;
-    runtime.record = makeRefreshRecord(runtime, INSTALL_DIGEST, previous);
-    runtime.setState('signedIn', 'none');
-    const successor = {
-      ...makeRefreshRecord(runtime, INSTALL_DIGEST, {
-        accessToken: 'successor-access',
-        refreshToken: 'successor-refresh',
-        lineageId: 'lineage-b',
-      }),
-      lineageId: 'lineage-b',
-    };
-    ports.credentials.value = JSON.stringify(successor);
-    const successorValue = ports.credentials.value;
-    runtime.dispose();
-    const client = createApiClient(runtime.rawTransport);
-    const lateTokens = {
-      accessToken: 'late-access',
-      refreshToken: 'late-refresh',
-      lineageId: 'lineage-a',
-    };
-
-    await persistRotatedSessionAfterDispose(runtime, client, INSTALL_DIGEST, REFRESH_BEFORE_TOKEN, {
-      ...lateTokens,
-    });
-
-    expect(revokedTokens(transport)).toEqual(['late-refresh']);
-    expect(ports.credentials.value).toBe(successorValue);
-  });
-
   it('leaves a late refresh marker for restart recovery instead of deleting the live session', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);

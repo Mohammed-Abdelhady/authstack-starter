@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { useTranslations } from 'next-intl';
 import { toast } from '@/lib/toast';
 import { reportUnlessHandled } from '@/lib/requestFailure';

@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Types } from 'mongoose';
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
@@ -47,7 +48,10 @@ function createHarness(twoFactorFeatureOn = true): Harness {
     sessionToken: 'session-token-123',
     csrfToken: 'csrf-token-123',
   });
-  const sessionService = partialMock<Sessions>({ createSession });
+  const sessionService = partialMock<Sessions>({
+    createSession,
+    assertAdmission: () => Promise.resolve(),
+  });
   const set = jest.fn();
   const sessionCookieService = partialMock<SessionCookieService>({ set });
   const issue = jest.fn().mockResolvedValue(undefined);
@@ -56,6 +60,7 @@ function createHarness(twoFactorFeatureOn = true): Harness {
   const configService = new ConfigService({
     'twoFactor.enabled': twoFactorFeatureOn,
   });
+  const browserApplications = browserApplicationsForTest(configService);
 
   return {
     service: new SignInService(
@@ -67,8 +72,9 @@ function createHarness(twoFactorFeatureOn = true): Harness {
         ),
         sessionService,
         sessionCookieService,
-        new AuthFeaturesService(configService),
+        new AuthFeaturesService(configService, browserApplications),
         challengeService,
+        browserApplications,
       ),
     ),
     sessionService: { createSession },

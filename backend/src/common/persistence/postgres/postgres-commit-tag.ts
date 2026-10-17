@@ -30,7 +30,7 @@ export interface DroppablePoolClient extends PostgresPoolClient {
   release(drop?: boolean): void;
 }
 
-export interface DroppingPool {
+export interface DroppingPool extends Pick<PostgresPool, 'options' | 'Client'> {
   connect(): Promise<DroppablePoolClient>;
   end(): Promise<void>;
 }
@@ -44,6 +44,10 @@ class CommitCheckedClient implements PostgresPoolClient {
   private spent = false;
 
   constructor(private readonly client: DroppablePoolClient) {}
+
+  get processID(): PostgresPoolClient['processID'] {
+    return this.client.processID;
+  }
 
   query<R>(
     sql: string,
@@ -106,6 +110,8 @@ export function commitCheckedPool(pool: DroppingPool): PostgresPool {
   // The query builder keys its own connection state by client object.
   const checked = new WeakMap<DroppablePoolClient, CommitCheckedClient>();
   return {
+    options: pool.options,
+    ...(pool.Client === undefined ? {} : { Client: pool.Client }),
     connect: async () => {
       const client = await pool.connect();
       const known = checked.get(client);

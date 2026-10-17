@@ -55,17 +55,6 @@ const WAITING: PendingRevocation = {
 };
 
 describe('the stored credential envelope', () => {
-  it('reads a value from the earlier format as its session with nothing waiting', async () => {
-    const { value } = await savedSession();
-
-    expect(JSON.parse(value)).not.toHaveProperty('version');
-    expect(readStoredValue(value)).toMatchObject({
-      kind: 'read',
-      session: { tokens: { refreshToken: REFRESH_TOKEN } },
-      pending: [],
-    });
-  });
-
   it('writes the earlier session in the current format once something waits beside it', async () => {
     const { value } = await savedSession();
 

@@ -20,6 +20,7 @@ const REFUSED_NAME = 'Reserved Name';
 const NAME_LENGTHS = { min: 2, max: 50 };
 
 const ROLE: Role = {
+  version: 0,
   id: 'role-support',
   name: 'Support Team',
   slug: 'support-team',

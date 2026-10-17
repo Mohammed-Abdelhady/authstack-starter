@@ -105,7 +105,7 @@ When the server starts it compares both sources with their ledgers. It refuses t
 
 ### Expired rows
 
-MongoDB removes expired rows with TTL indexes. PostgreSQL has none, so the server runs a retention job every five minutes. It removes rows past their expiry from the twelve tables MongoDB expires, at most 500 rows a statement and 20 statements a table in one run. What is left waits for the next run. A magic link is kept for an hour after it stops working, as on MongoDB, because the hourly request count reads it.
+MongoDB removes expired rows with TTL indexes. PostgreSQL has none, so the server runs a retention job every five minutes. It removes rows past their expiry from the configured expiry tables, at most 500 rows a statement and 20 statements a table in one run. What is left waits for the next run. A magic link is kept for an hour after it stops working, as on MongoDB, because the hourly request count reads it.
 
 Each table is cleaned by itself. When the statement for one table fails, the job logs the table and goes on to the next.
 
@@ -230,7 +230,9 @@ On PostgreSQL the indexes and unique rules are part of the migrations. The serve
 
 ### How expired rows leave
 
-MongoDB removes an expired row within about a minute of its expiry. PostgreSQL removes it at the next run of the retention job, up to five minutes later, and later still when a table holds more expired rows than one run takes. The row is refused from the moment it expires on both.
+MongoDB TTL and the bounded PostgreSQL retention job remove expired rows eventually. Neither establishes a fixed maximum deletion time. A backlog or unavailable cleanup can delay physical deletion. The row is refused from the moment it expires on both.
+
+Address claims are temporary reservations. Both adapters remove dated claims after `lapsesAt`, with no additional retention interval. Mongo migration `20261017000001-address-claim-expiry.js` and PostgreSQL migration `0034_address_claim_retention.sql` add the expiry indexes to existing storage. Resend can recreate a removed invitation claim; a renewed or replacement live claim keeps its new expiry. Account insertion releases its transaction-scoped `ACCOUNT` reservation before commit. Removing claims never removes accounts or their email uniqueness. Legacy Mongo claims with no dated expiry need explicit repair because TTL cannot infer a deadline.
 
 ### What is tested on MongoDB only
 

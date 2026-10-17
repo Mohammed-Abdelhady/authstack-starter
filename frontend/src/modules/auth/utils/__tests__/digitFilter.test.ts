@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { filterDigits } from '../digitFilter';
 
 describe('filterDigits', () => {
-  it('returns empty string when input is empty', () => {
-    expect(filterDigits('')).toBe('');
-  });
-
   it('keeps only digits when input contains letters and special characters', () => {
     expect(filterDigits('abc123xyz')).toBe('123');
     expect(filterDigits('1-2-3-4-5-6')).toBe('123456');

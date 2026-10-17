@@ -9,7 +9,9 @@ import { ActivationAccounts } from '../../pending-codes/activation-accounts';
 import { AccountSessions } from '../../../user/stores/account-sessions';
 import { REVOKED_REASON } from '../../../session/constants/revoked-reason';
 import { VerificationCodeService } from '../codes/verification-code.service';
-import { confirmEmailChange } from '../../utils/activation.util';
+import { ConfirmedMove, confirmEmailMove } from '../../utils/activation.util';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { ReservedCode } from '../../interfaces/pending-code.interface';
@@ -23,7 +25,7 @@ import { asAuthorityUnavailable } from '../../../session/utils/authority/authori
  * password is involved, no session is issued, and the record must still match
  * the user and the address generation it was issued under. A move ends the
  * account's sessions, because whoever confirms from the new mailbox need not
- * be whoever was signed in.
+ * be whoever was signed in, and the address the account left is told.
  */
 @Injectable()
 export class EmailChangeConfirmationService {
@@ -36,6 +38,7 @@ export class EmailChangeConfirmationService {
     private readonly sessions: AccountSessions,
     private readonly ledger: AddressLedger,
     private readonly clock: Clock,
+    private readonly notices?: SecurityNoticeService,
   ) {}
 
   async confirm(
@@ -47,8 +50,10 @@ export class EmailChangeConfirmationService {
       PENDING_PURPOSE.EMAIL_CHANGE,
     );
 
+    const at = this.clock.now();
+    let left: ConfirmedMove | null = null;
     try {
-      await this.runner.run(async (unitOfWork) => {
+      left = await this.runner.run(async (unitOfWork) => {
         const consumed = await this.verificationCodeService.consumeCode(
           reserved,
           unitOfWork,
@@ -56,20 +61,22 @@ export class EmailChangeConfirmationService {
         if (!consumed) {
           throw activationCodeInvalid();
         }
-        const left = await confirmEmailChange(
+        const moved = await confirmEmailMove(
           this.accounts,
           unitOfWork,
           reserved,
           this.ledger,
           this.clock.now(),
         );
-        if (left !== null && reserved.userId) {
+        // The move ends the sessions; no staff member acts at this point.
+        if (moved !== null && reserved.userId) {
           await this.sessions.revokeAll(
             unitOfWork,
             reserved.userId.toString(),
-            { reasonCode: REVOKED_REASON.ADMIN_FORCED },
+            { reasonCode: REVOKED_REASON.EMAIL_CHANGED },
           );
         }
+        return moved;
       });
     } catch (error) {
       if (!isUnknownTransactionOutcome(error)) {
@@ -87,9 +94,17 @@ export class EmailChangeConfirmationService {
       if (!confirmed) {
         asAuthorityUnavailable(error);
       }
+      // The address it left can no longer be read, so no notice goes out.
       logUnknownCommit(this.logger, 'Email change', error);
     }
 
+    if (left !== null) {
+      this.notices?.deferTo(
+        { email: left.previousEmail, locale: left.locale },
+        SECURITY_NOTICE.EMAIL_CHANGED,
+        { at },
+      );
+    }
     return ApiResponse.success({
       message: 'Email address confirmed. Sign in to continue.',
     });

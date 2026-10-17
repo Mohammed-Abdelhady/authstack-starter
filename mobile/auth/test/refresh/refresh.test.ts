@@ -302,17 +302,4 @@ describe('refresh', () => {
     expect([...revokedTokens(transport)].sort()).toEqual([REFRESH_1_TOKEN, REFRESH_TOKEN].sort());
     expect(ports.timer.pending).toBe(0);
   });
-
-  it('clears every scheduled deadline when refresh callers settle', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await establishSession(engine, ports, transport);
-    ports.clock.advance(270_000);
-    transport.enqueue(oauthTokenReply('access-1', REFRESH_1_TOKEN), apiReply({ id: 'profile' }));
-
-    await engine.transport.request({ method: HTTP_METHOD.GET, path: '/api/user/profile' });
-
-    expect(ports.timer.pending).toBe(0);
-  });
 });

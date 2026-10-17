@@ -1,17 +1,56 @@
-# Backend
+# AuthStack Starter backend
 
-NestJS 11 API with MongoDB, cookie-based sessions, dynamic RBAC, two-factor authentication, passkeys, and OAuth.
+NestJS 11 API with MongoDB, browser cookie sessions and dynamic roles and permissions. Configure the sign-in methods included in your project through the backend settings.
+
+Native applications use rotating token sessions with optional device binding. <!-- feature:native-core -->
+
+PostgreSQL 18 uses the Kysely persistence adapter. Select the database before configuring migrations or starting the API. <!-- feature:postgres -->
 
 ## Quick start
 
+Use Node 22.12 through 22.x and pnpm 12.6.0. Run these commands from the
+project root after following the [root setup guide](../README.md#quick-start)
+and configuring `backend/.env`.
+
 ```bash
 pnpm install
-pnpm run migration:up     # Apply migrations
-pnpm run seed             # Seed roles and test accounts
-pnpm run start:dev        # Development server (http://localhost:5000)
-pnpm run build            # Production build
-pnpm run start:prod       # Production server
 ```
+
+<!-- feature:mongodb:start -->
+
+Start a MongoDB replica set, then apply its migrations:
+
+```bash
+pnpm --filter backend run migration:up
+```
+
+<!-- feature:mongodb:end -->
+<!-- feature:postgres:start -->
+
+For PostgreSQL 18, set `POSTGRES_URL` and apply its migrations:
+
+```bash
+pnpm --filter backend run migration:postgres:up
+```
+
+Set `DATABASE_TYPE=postgres` when both database adapters are present. <!-- feature:database-choice -->
+
+<!-- feature:postgres:end -->
+
+Start the API after the selected database is ready:
+
+```bash
+pnpm --filter backend run seed       # Development/test accounts only
+pnpm --filter backend run start:dev
+```
+
+The example host configuration uses port 5001. The API is under `/api`, health
+is at `/health`, and Swagger is at `/api/docs` with `SWAGGER_ENABLED=true`.
+An unset `PORT` defaults to 3000.
+Docker Compose publishes the API on 5000. <!-- feature:docker -->
+
+For a production build, run `pnpm --filter backend run build` and
+`pnpm --filter backend run start:prod` after completing the deployment setup.
 
 ## Testing
 
@@ -76,7 +115,7 @@ src/
 Configure these in `backend/.env`:
 
 ```bash
-PORT=5000
+PORT=5001
 NODE_ENV=development
 MONGO_URI=mongodb://localhost:27017/authboiler?replicaSet=rs0
 CLIENT_URL=http://localhost:3000
@@ -96,7 +135,7 @@ EMAIL_FROM=noreply@yourapp.com
 # OAuth providers (optional)
 OAUTH_GOOGLE_CLIENT_ID=your-client-id
 OAUTH_GOOGLE_CLIENT_SECRET=your-client-secret
-OAUTH_GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/oauth/google/callback
+OAUTH_GOOGLE_CALLBACK_URL=http://localhost:5001/api/auth/oauth/google/callback
 
 # Swagger API docs
 SWAGGER_ENABLED=true
@@ -145,6 +184,8 @@ from the store populated by `pnpm fetch`.
 <!-- feature:docker:end -->
 
 ## Native applications
+
+See [mobile sign-in setup](../docs/setup/setup-mobile-sign-in.md) for method permissions, provider SDKs, passkeys and callback registration. <!-- feature:native-core -->
 
 Set `AUTH_NATIVE_ENABLED=true` to enable native sign-in. Declare clients in
 `AUTH_NATIVE_APPLICATIONS` as a JSON array with `clientId`, `displayName`, and
@@ -249,6 +290,10 @@ With `SWAGGER_ENABLED=true` the same routes are browsable at `/api/docs`, with t
 
 ## Database management
 
+Run these commands from `backend/`.
+
+[PostgreSQL](docs/database-postgres.md) uses its own migration runner. <!-- feature:postgres -->
+
 ```bash
 pnpm run migration:create <name>  # Create migration script
 pnpm run migration:up             # Apply pending migrations
@@ -262,7 +307,8 @@ Run this release's ObjectId reference migration before deploying the code that u
 
 ### Seed accounts
 
-The seed script creates two test users in development environments:
+The seed script runs only in development or test. It creates the system roles
+`user`, `support`, `manager` and `admin`, plus two accounts:
 
 | Account            | Role    | Password                                                          |
 | ------------------ | ------- | ----------------------------------------------------------------- |
@@ -274,7 +320,7 @@ The seed script creates two test users in development environments:
 - [Authentication flow](docs/authentication-flow.md)
 - [OAuth authentication](docs/oauth-authentication.md)
 - [User roles and permissions](docs/user-roles-permissions.md)
-- [Database management](docs/database-management.md)
+- [Database management](docs/database-management.md) <!-- feature:mongodb -->
 - [PostgreSQL](docs/database-postgres.md) <!-- feature:postgres -->
 - [API routes](docs/api-routes.md)
 - [API responses](docs/api-responses.md)

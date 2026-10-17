@@ -1,9 +1,18 @@
 # Mobile sign-in setup
 
-Expo and bare React Native share the same native authentication engine and screens.
-They support password, email links, signup, password recovery, passkeys and MFA.
-Configured providers use their native SDK when available or a system authorization
-sheet. Each journey also offers the web option.
+AuthStack Starter's Expo and bare React Native shells share a native sign-in
+engine and screens. They support password, email links, signup, recovery,
+passkeys and MFA when both the backend and registered application enable them.
+Providers use a configured native SDK or system OAuth. Each journey also offers
+web sign-in.
+
+Start the API and configure the application below before building the app. Keep
+the web app available for the web option. Native credential and configured SDK
+flows use the API directly; they do not need a browser cookie session.
+
+The generator offers the Expo target.
+
+The bare React Native target remains planned and requires manual native project setup from the source repository. <!-- feature:native-cli -->
 
 ## Register the application
 
@@ -51,8 +60,8 @@ The bare shell's client ID and callback are defined in
 ```
 
 Replace the example identifiers with registered public identifiers. A custom
-scheme requires the backend's explicit development custom-scheme policy.
-Production deployments should use the project's validated HTTPS app-link setup.
+scheme works in development. Production rejects custom schemes unless
+`AUTH_NATIVE_ALLOW_CUSTOM_SCHEME=true`; prefer validated HTTPS app links.
 Keep the registered callback and the engine's `redirectUri` identical.
 
 Native relying party IDs have a limit of 160 UTF-16 units. Provider SDK client
@@ -240,12 +249,17 @@ permission for that method.
   invalidates the account's sessions and returns to sign-in. Recovery does not
   silently create a new session.
 
-The server stores hashes of attempt secrets and email proofs. The app stores only
-the pending attempt and PKCE context in secure storage. Passwords, verification
+The server stores hashes of attempt secrets and email proofs. Secure storage
+holds the pending attempt and PKCE context, then the refresh credential after
+sign-in. Access tokens stay in memory. Passwords, verification
 codes and provider artifacts are not saved in engine snapshots or credential
 records. The attempt expires after 15 minutes; resending does not extend it.
 
 ## Build and verify
+
+The source Expo app has run on an iOS simulator. Generated apps have passed
+static checks, unit tests and bundling, but have not been launched. Android
+native builds and physical-device behavior remain unverified.
 
 Provider SDKs need a native development build. Use the repository's pinned
 Expo and React Native versions, Node 22 and pnpm 12.6.0. Rebuild the native app

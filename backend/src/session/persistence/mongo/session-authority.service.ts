@@ -1,30 +1,12 @@
-import { Injectable, Optional } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Clock } from '../../../common/services/clock';
-import { AuthEpochService } from '../../../common/services/auth-epoch.service';
-import {
-  User,
-  UserDocument,
-} from '../../../user/persistence/mongo/schemas/user.schema';
+import { Injectable } from '@nestjs/common';
+import { Types } from 'mongoose';
 import { StoredSession } from '../../authority/session-authority.store';
 import {
   SessionValidator,
   ValidatedSession,
 } from '../../authority/session-validator';
-import { MongoAuthorityApplications } from './mongo-authority-applications';
-import { MongoSessionAuthorityStore } from './mongo-session-authority.store';
 import { leanSessionOf, leanUserOf } from './mongo-session-records';
-import {
-  LeanSession,
-  Session,
-  SessionDocument,
-} from './schemas/session.schema';
-import {
-  UserApplicationGrant,
-  UserApplicationGrantDocument,
-} from './schemas/user-application-grant.schema';
-import { ApplicationRegistryService } from './application-registry.service';
+import { LeanSession } from './schemas/session.schema';
 
 export interface ValidateSessionOptions {
   extendIdle?: boolean;
@@ -38,28 +20,7 @@ export interface ValidateSessionOptions {
  */
 @Injectable()
 export class SessionAuthorityService {
-  private readonly validator: SessionValidator;
-
-  constructor(
-    @InjectModel(Session.name)
-    sessionModel: Model<SessionDocument>,
-    @InjectModel(User.name) userModel: Model<UserDocument>,
-    @InjectModel(UserApplicationGrant.name)
-    grantModel: Model<UserApplicationGrantDocument>,
-    applications: ApplicationRegistryService,
-    clock: Clock,
-    authEpoch: AuthEpochService,
-    @Optional() validator?: SessionValidator,
-  ) {
-    this.validator =
-      validator ??
-      new SessionValidator(
-        new MongoSessionAuthorityStore(sessionModel, userModel, grantModel),
-        new MongoAuthorityApplications(applications),
-        clock,
-        authEpoch,
-      );
-  }
+  constructor(private readonly validator: SessionValidator) {}
 
   async validate(
     token: string,

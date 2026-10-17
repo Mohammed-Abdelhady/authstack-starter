@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Document, MongoClient, ObjectId } from 'mongodb';
 import {
@@ -40,7 +41,12 @@ import {
 } from '../../services/passkey-registration.service';
 import { partialMock } from '../../../../common/testing/test-doubles.harness-spec';
 import { PasskeyRecorder } from '../../services/passkey-recorder.service';
-import { NoEnrolmentPromotion } from '../../services/enrolment-promotion';
+import { NoopEnrolmentPromotion } from '../../../contracts/defaults/noop-enrolment-promotion';
+import { SessionCookieService } from '../../../services/sessions/session-cookie.service';
+import {
+  noRequiredRelyingParties,
+  webPasskeyPolicy,
+} from '../../services/browser-passkey-policy.harness-spec';
 import {
   AttestationVerification,
   WebAuthnAdapter,
@@ -137,9 +143,11 @@ describe('passkey ObjectId round trip', () => {
         ]);
 
         const config = new ConfigService(TEST_CONFIGURATION);
+        const browserApplications = browserApplicationsForTest(config);
         const challengeService = new PasskeyChallengeService(
           new MongoPasskeyChallengeStore(challenges),
           config,
+          browserApplications,
         );
         const adapter = new WebAuthnAdapter();
         jest.spyOn(adapter, 'verifyAttestation').mockResolvedValue(ATTESTATION);
@@ -155,17 +163,24 @@ describe('passkey ObjectId round trip', () => {
             new MongoPasskeyStore(passkeys),
             new MongoPasskeyAccounts(users),
             new MongoUnitOfWorkRunner(connection),
-            new NoEnrolmentPromotion(),
+            new NoopEnrolmentPromotion(),
           ),
+          webPasskeyPolicy({
+            rpId: TEST_CONFIGURATION.passkeys.rpId,
+            origins: [TEST_CONFIGURATION.passkeys.origin],
+          }),
+          new SessionCookieService(config, browserApplications),
         );
         const management = new PasskeyManagementService(
           new MongoPasskeyStore(passkeys),
           new SignInMethodRule(
             new MongoSignInMethodStore(users, passkeys),
-            new AuthFeaturesService(config),
+            new AuthFeaturesService(config, browserApplications),
           ),
           new MongoUnitOfWorkRunner(connection),
           new PasskeyConfigService(config),
+          browserApplications,
+          noRequiredRelyingParties(),
         );
 
         await users.create({

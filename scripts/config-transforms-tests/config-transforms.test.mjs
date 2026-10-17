@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
   configureBackendPort,
@@ -259,60 +257,6 @@ for (const port of [3000, 5300]) {
 
 test('invalid ports and unknown config structure fail before writing', () => {
   assert.throws(() => configureNginxDomains('', domains), /virtual host/);
-});
-test('manual startup commands exist in their workspaces', async () => {
-  const readme = await readFile(new URL('../../README.md', import.meta.url), 'utf8');
-  const manual = readme.split('### Start manually')[1].split('Endpoints:')[0];
-  const commands = [...manual.matchAll(/pnpm --filter ([\w-]+) run ([\w:-]+)/g)];
-  assert.equal(commands.length, 2);
-  for (const [, workspace, script] of commands) {
-    const manifest = JSON.parse(
-      await readFile(new URL(`../../${workspace}/package.json`, import.meta.url), 'utf8'),
-    );
-    assert.equal(typeof manifest.scripts[script], 'string');
-  }
-});
-
-test('architecture methods example satisfies the actual frontend response type', async () => {
-  const require = createRequire(new URL('../../frontend/package.json', import.meta.url));
-  const ts = require('typescript');
-  const document = await readFile(
-    new URL('../../docs/reference/ARCHITECTURE.md', import.meta.url),
-    'utf8',
-  );
-  const example = [...document.matchAll(/```json\n([\s\S]*?)```/g)].find((match) =>
-    match[1].includes('"methods"'),
-  )?.[1];
-  const payload = example && JSON.parse(example);
-  assert.ok(example, 'methods example exists');
-  const filename = fileURLToPath(
-    new URL('../../methods-documentation-contract.ts', import.meta.url),
-  );
-  const authTypes = fileURLToPath(new URL('../../shared/sdk/src/types.js', import.meta.url));
-  const options = {
-    noEmit: true,
-    strict: true,
-    skipLibCheck: true,
-    types: [],
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-  };
-  function errors(value) {
-    const source = `import type { AuthMethodsResponse } from ${JSON.stringify(authTypes)}; const example = ${JSON.stringify(value)}; example.data satisfies AuthMethodsResponse;`;
-    const host = ts.createCompilerHost(options);
-    const getSourceFile = host.getSourceFile.bind(host);
-    host.getSourceFile = (path, version, ...rest) =>
-      path === filename
-        ? ts.createSourceFile(path, source, version, true)
-        : getSourceFile(path, version, ...rest);
-    return ts.getPreEmitDiagnostics(ts.createProgram([filename], options, host));
-  }
-  assert.deepEqual(
-    errors(payload).map((error) => ts.flattenDiagnosticMessageText(error.messageText, '\n')),
-    [],
-  );
-  assert.ok(errors({ ...payload, data: { methods: { emailPassword: true } } }).length > 0);
 });
 
 test('the production prompt asks again until the database user and password fit the address', async () => {

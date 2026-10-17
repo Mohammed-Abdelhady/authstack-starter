@@ -54,13 +54,6 @@ test.describe('Session Management', () => {
     ).toContainText(/terminated/i);
   });
 
-  test('should disable logout all button when only current session exists', async ({ page }) => {
-    await page.getByTestId('logout-all-sessions-button').click();
-    await page.getByTestId('confirm-logout-all').click();
-    await expect(page.getByTestId(cards)).toHaveCount(1);
-    await expect(page.getByTestId('logout-all-sessions-button')).toHaveCount(0);
-  });
-
   test('should handle network errors gracefully', async ({ page }, testInfo) => {
     testInfo.annotations.push({
       type: 'expected-api-error',

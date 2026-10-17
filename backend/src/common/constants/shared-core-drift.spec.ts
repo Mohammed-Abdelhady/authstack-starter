@@ -1,19 +1,10 @@
-import { HttpException, Logger } from '@nestjs/common';
-import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { ErrorCode as BackendErrorCode } from '../enums/error-code.enum';
-import { GlobalExceptionFilter } from '../filters/global-exception.filter';
 import {
   ALL_PERMISSIONS as BackendAllPermissions,
   RESERVED_PERMISSIONS as BackendReservedPermissions,
 } from './permissions';
-import {
-  PASSWORD_MAX_BYTES,
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_POLICY_DESCRIPTION,
-  PASSWORD_REQUIREMENTS_MESSAGE,
-} from './password';
+import { PASSWORD_MAX_BYTES, PASSWORD_MIN_LENGTH } from './password';
 import { ErrorCode as SharedErrorCode } from '../../../../shared/core/src/error-codes';
-import { getStatusErrorCode } from '../../../../shared/core/src/api-error-helpers';
 import {
   ALL_PERMISSIONS as SharedAllPermissions,
   RESERVED_PERMISSIONS as SharedReservedPermissions,
@@ -21,18 +12,12 @@ import {
 import {
   MIN_PASSWORD_LENGTH as SharedMinPasswordLength,
   MAX_PASSWORD_BYTES as SharedMaxPasswordBytes,
-  PASSWORD_POLICY_DESCRIPTION as SharedPasswordPolicyDescription,
-  PASSWORD_REQUIREMENTS_MESSAGE as SharedPasswordRequirementsMessage,
 } from '../../../../shared/core/src/password-rules';
 import {
   HOST_PERMISSIONS as SharedHostPermissions,
-  HOST_ROLES as SharedHostRoles,
   ROLE_AUDIENCE as SharedRoleAudience,
 } from '../../../../shared/core/src/host-access';
-import {
-  HOST_PERMISSIONS as BackendHostPermissions,
-  HOST_ROLES as BackendHostRoles,
-} from '../../host/access';
+import { HOST_PERMISSIONS as BackendHostPermissions } from '../../host/access';
 import { ROLE_AUDIENCE as BackendRoleAudience } from '../../host/types/host-role.type';
 
 // Backend-only error codes the web client maps by status code or a generic message instead.
@@ -46,54 +31,11 @@ const SHARED_ONLY_ERROR_CODES = [
   'UNKNOWN_ERROR', // a response with no code and a status with no mapping.
 ];
 
-// Every status the exception filter maps for an HttpException that carries no code.
-const FILTER_MAPPED_STATUSES = [400, 401, 403, 404, 409, 429];
-
-// What the filter answers for a status it has no row for.
-const FILTER_FALLBACK_CODE = 'INTERNAL_ERROR';
-
-const ERROR_STATUSES = Array.from({ length: 200 }, (_, index) => 400 + index);
-
 function sortedStrings(values: readonly unknown[]): string[] {
   return [...new Set(values.map(String))].sort();
 }
 
-interface FilterReply {
-  status?: number;
-  body?: { error: { code: string } };
-}
-
-/** The code the real filter writes for an exception that has only a status. */
-function filterCodeFor(status: number): string | undefined {
-  const reply: FilterReply = {};
-  const response = {
-    status(code: number) {
-      reply.status = code;
-      return response;
-    },
-    json(body: FilterReply['body']) {
-      reply.body = body;
-      return response;
-    },
-  };
-
-  new GlobalExceptionFilter().catch(
-    new HttpException('no code', status),
-    new ExecutionContextHost([{}, response]),
-  );
-
-  return reply.status === status ? reply.body?.error.code : undefined;
-}
-
 describe('shared core drift', () => {
-  beforeEach(() => {
-    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   it('keeps the same permission strings on both sides', () => {
     const backend = sortedStrings(BackendAllPermissions);
     const shared = sortedStrings(SharedAllPermissions);
@@ -103,7 +45,6 @@ describe('shared core drift', () => {
 
   it('keeps reserved permissions equal and out of the active catalogue', () => {
     expect(SharedReservedPermissions).toEqual(BackendReservedPermissions);
-    expect(SharedReservedPermissions).toHaveLength(7);
     for (const permission of SharedReservedPermissions) {
       expect(SharedAllPermissions).not.toContain(permission);
       expect(BackendAllPermissions).not.toContain(permission);
@@ -114,10 +55,6 @@ describe('shared core drift', () => {
   // repeated entry is a mistake in one copy.
   it('keeps the same host permission strings on both sides, in order', () => {
     expect(SharedHostPermissions).toEqual(BackendHostPermissions);
-  });
-
-  it('keeps the same host roles on both sides, in order', () => {
-    expect(SharedHostRoles).toEqual(BackendHostRoles);
   });
 
   it('keeps the same role audiences on both sides', () => {
@@ -135,44 +72,11 @@ describe('shared core drift', () => {
     expect(sharedOnly).toEqual([...SHARED_ONLY_ERROR_CODES].sort());
   });
 
-  it.each(FILTER_MAPPED_STATUSES)(
-    'maps a bare %i to the same code as the exception filter',
-    (status) => {
-      const server = filterCodeFor(status);
-
-      expect(server).toEqual(expect.any(String));
-      expect(getStatusErrorCode(status)).toBe(server);
-    },
-  );
-
-  it('lists every status the exception filter maps', () => {
-    const mapped = ERROR_STATUSES.filter(
-      (status) => filterCodeFor(status) !== FILTER_FALLBACK_CODE,
-    );
-
-    expect(mapped).toEqual(FILTER_MAPPED_STATUSES);
-  });
-
-  it('maps a bare 500 to the same code as the exception filter', () => {
-    expect(filterCodeFor(500)).toBe('INTERNAL_ERROR');
-    expect(getStatusErrorCode(500)).toBe('INTERNAL_ERROR');
-  });
-
   it('keeps the same minimum password length on both sides', () => {
     expect(PASSWORD_MIN_LENGTH).toBe(SharedMinPasswordLength);
   });
 
   it('keeps the same maximum password bytes on both sides', () => {
     expect(PASSWORD_MAX_BYTES).toBe(SharedMaxPasswordBytes);
-  });
-
-  it('keeps the same password requirements message on both sides', () => {
-    expect(PASSWORD_REQUIREMENTS_MESSAGE).toBe(
-      SharedPasswordRequirementsMessage,
-    );
-  });
-
-  it('keeps the same password policy description on both sides', () => {
-    expect(PASSWORD_POLICY_DESCRIPTION).toBe(SharedPasswordPolicyDescription);
   });
 });

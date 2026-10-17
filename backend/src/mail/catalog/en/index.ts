@@ -1,3 +1,5 @@
+import { PASSKEY_RESET_EN } from './passkey-reset'; // feature:invitations
+import { INVITATION_EN } from './invitation'; // feature:invitations
 import type { MailCatalogue } from '../mail-catalogue';
 import { ACTIVATION_CODE_EN } from './activation-code';
 import { COMMON_EN } from './common';
@@ -9,6 +11,8 @@ import { PROOF_CODE_EN } from './proof-code';
 import { REGISTRATION_NOTICE_EN } from './registration-notice';
 import { SECURITY_NOTICE_EN } from './security-notice';
 import { SIGN_IN_CODE_EN } from './sign-in-code'; // feature:email-code
+import { OWN_EMAIL_CHANGE_CODE_EN } from './own-email-change-code';
+import { ACCOUNT_ERASURE_EN } from './account-erasure';
 
 export const EN_MAIL_CATALOGUE: MailCatalogue = {
   common: COMMON_EN,
@@ -21,4 +25,8 @@ export const EN_MAIL_CATALOGUE: MailCatalogue = {
   registrationNotice: REGISTRATION_NOTICE_EN,
   securityNotice: SECURITY_NOTICE_EN,
   signInCode: SIGN_IN_CODE_EN, // feature:email-code
+  ownEmailChangeCode: OWN_EMAIL_CHANGE_CODE_EN,
+  accountErasure: ACCOUNT_ERASURE_EN,
+  invitation: INVITATION_EN, // feature:invitations
+  passkeyReset: PASSKEY_RESET_EN, // feature:invitations
 };

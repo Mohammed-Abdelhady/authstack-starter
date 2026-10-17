@@ -1,3 +1,12 @@
+import { AudiencePolicy } from '../../../../../session/applications/audience-policy';
+import { AdminAudienceScopes } from '../../../../services/users/admin-audience-scopes';
+import { MongoRoleChangeStore } from '../../../../../role/persistence/mongo/mongo-role-change.store';
+import { SecurityEventService } from '../../../../../session/persistence/mongo/security-event.service';
+import {
+  SecurityEvent,
+  SecurityEventDocument,
+  SecurityEventSchema,
+} from '../../../../../session/persistence/mongo/schemas/security-event.schema';
 import { ConfigService } from '@nestjs/config';
 import { Connection, Model, createConnection } from 'mongoose';
 import {
@@ -81,6 +90,7 @@ describe('AdminEmailChangeService', () => {
     connection.model(PendingRegistration.name, PendingRegistrationSchema);
     connection.model(MailCounter.name, MailCounterSchema);
     connection.model(AddressClaim.name, AddressClaimSchema);
+    connection.model(SecurityEvent.name, SecurityEventSchema);
     users = connection.model<UserDocument>(User.name);
     codes = connection.model<PendingRegistrationDocument>(
       PendingRegistration.name,
@@ -116,6 +126,17 @@ describe('AdminEmailChangeService', () => {
       new MongoAddressLedger(claims, users),
       new MongoUnitOfWorkRunner(connection),
       clock,
+      new AdminAudienceScopes(
+        new AudiencePolicy(config),
+        new MongoRoleChangeStore(
+          connection.model<RoleDocument>(Role.name),
+          users,
+          new SecurityEventService(
+            connection.model<SecurityEventDocument>(SecurityEvent.name),
+            clock,
+          ),
+        ),
+      ),
     );
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 

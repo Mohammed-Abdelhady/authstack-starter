@@ -13,18 +13,8 @@ import {
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { hashToken } from '../../../session/utils/hashing/token-hash';
-import { ApplicationRegistry } from '../../../session/applications/application-registry';
-import { ApplicationAccessStore } from '../../../session/applications/application-access.store';
-import { BrowserIssuanceStore } from '../../../session/issuance/browser-issuance.store';
 import { NativeAuthorizeService } from '../../../session/native/authorize/native-authorize.service';
-import { AccountProfileStore } from '../../../user/stores/account-profile.store';
-import { AuthFeature } from '../../enums/auth-feature.enum'; // feature:totp
-import { PasskeyStore } from '../../passkeys/stores/passkey.store'; // feature:passkeys
-import { AuthFeaturesService } from '../../services/features/auth-features.service'; // feature:totp
-import {
-  NATIVE_ATTEMPT_FIRST_FACTOR, // feature:totp,passkeys
-  NATIVE_ATTEMPT_PHASE,
-} from '../constants/native-attempt';
+import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
 import { NativeAttemptStore } from '../stores/native-attempt.store';
 import type {
   NativeAttempt,
@@ -32,7 +22,6 @@ import type {
 } from '../types/native-attempt';
 import { NativeMethodsService } from './native-methods.service';
 import { NativeAttemptViewService } from './native-attempt-view.service';
-import { isFirstFactorClaim } from '../utils/native-first-factor-claim';
 import { nativeFirstFactors } from '../utils/native-first-factors';
 import {
   assertNativeEnabled,
@@ -51,6 +40,9 @@ import {
   expiredAttempt,
   wrongStage,
 } from '../utils/native-attempt-errors';
+import { NativeAttemptCompletionService } from './native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 
 const ATTEMPT_LIFETIME_MS = 15 * 60 * 1000;
 
@@ -60,16 +52,12 @@ export class NativeAttemptService {
     private readonly attempts: NativeAttemptStore,
     private readonly methods: NativeMethodsService,
     private readonly authorize: NativeAuthorizeService,
-    private readonly registry: ApplicationRegistry,
-    private readonly grants: ApplicationAccessStore,
-    private readonly issuance: BrowserIssuanceStore,
-    private readonly accounts: AccountProfileStore,
-    private readonly features: AuthFeaturesService, // feature:totp
     private readonly clock: Clock,
     private readonly epoch: AuthEpochService,
     private readonly runner: UnitOfWorkRunner,
     private readonly views: NativeAttemptViewService,
-    private readonly passkeys: PasskeyStore, // feature:passkeys
+    private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
   ) {}
 
   async start(input: NativeAttemptStart): Promise<NativeAttemptStartResult> {
@@ -211,125 +199,54 @@ export class NativeAttemptService {
     secret: string,
     principal: VerifiedNativePrincipal,
   ): Promise<NativeAttemptView> {
-    const completed = await runLeavingFailuresAsRaised(
-      this.runner,
-      async (unitOfWork) => {
-        const current = await this.authenticate(attemptId, secret);
-        const claimed = await this.claimIn(
-          unitOfWork,
-          attemptId,
-          secret,
-          current.phase,
-        );
-        return this.completeFactorIn(unitOfWork, claimed, principal);
-      },
-    );
-    return this.view(completed);
+    const current = await this.authenticate(attemptId, secret);
+    try {
+      const completed = await runLeavingFailuresAsRaised(
+        this.runner,
+        async (work) => {
+          const claimed = await this.claimIn(
+            work,
+            attemptId,
+            secret,
+            current.phase,
+          );
+          return this.completeFactorIn(work, claimed, principal, secret);
+        },
+      );
+      return this.viewAfter(completed, secret);
+    } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        current.clientId,
+        wrongStage,
+        principal.userId,
+      );
+      throw refusal ?? error;
+    }
   }
 
   async completeFactorIn(
     unitOfWork: UnitOfWork,
     claimed: NativeAttempt,
     principal: VerifiedNativePrincipal,
+    secret: string,
   ): Promise<NativeAttempt> {
-    assertNativePolicy(
+    return this.completion.afterFirstFactorIn(
+      unitOfWork,
       claimed,
-      this.methods.policyHash(claimed.clientId),
-      this.epoch.current(),
+      principal,
+      secret,
     );
-    if (
-      !isFirstFactorClaim(claimed, principal) ||
-      !claimed.activeOperationId ||
-      !principal.userId ||
-      !Array.isArray(principal.authenticationMethods) ||
-      principal.authenticationMethods.length === 0
-    )
-      throw wrongStage();
-    const authority = await this.issuance.readAccountForIssuance(
-      unitOfWork,
-      principal.userId,
-    );
-    if (
-      !authority ||
-      authority.isDeleted ||
-      authority.sessionVersion !== principal.userVersion
-    )
-      throw wrongStage();
-    const account = await this.accounts.readAccount(
-      unitOfWork,
-      principal.userId,
-    );
-    const client = await this.registry.findClientIn(
-      unitOfWork,
-      claimed.clientId,
-    );
-    if (
-      !account ||
-      account.isDeleted ||
-      account.sessionVersion !== principal.userVersion ||
-      !client ||
-      !client.enabled
-    )
-      throw wrongStage();
-    const grant = await this.grants.takeGrantForChange(
-      unitOfWork,
-      account.id,
-      claimed.clientId,
-    );
-    if (grant && !grant.allowed) throw wrongStage();
-    const owesMfa = Boolean(
-      // feature:totp:start
-      account.twoFactorEnabled &&
-      this.features.isEnabled(AuthFeature.TWO_FACTOR) &&
-      !(
-        principal.firstFactor === NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
-        principal.passkeyUserVerified === true
-      ),
-      // feature:totp:end
-    );
-    const phase = owesMfa
-      ? NATIVE_ATTEMPT_PHASE.SECOND_FACTOR_REQUIRED
-      : NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED;
-    // feature:passkeys:start
-    const methods = owesMfa
-      ? await this.methods.forClient(claimed.clientId)
-      : null;
-    // feature:passkeys:end
-    const passkeyEligible = Boolean(
-      // feature:passkeys:start
-      owesMfa &&
-      principal.firstFactor !== NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY &&
-      methods?.capabilities.passkeys === true &&
-      (await this.passkeys.listDescriptors(account.id, unitOfWork)).length > 0,
-      // feature:passkeys:end
-    );
-    const completed = await this.attempts.transitionIn(
-      unitOfWork,
-      operationGuardOf(claimed),
-      {
-        phase,
-        expiresAt: claimed.expiresAt,
-        details: {
-          ...claimed.details,
-          verifiedAccount: {
-            userId: account.id,
-            userVersion: principal.userVersion,
-            clientVersion: client.sessionVersion,
-            grantVersion: grant?.sessionVersion ?? null,
-            authenticationMethods: principal.authenticationMethods.slice(0, 10),
-            firstFactor: principal.firstFactor,
-            verifiedAt: this.clock.now(),
-          },
-          secondFactors: owesMfa
-            ? passkeyEligible
-              ? ['totp', 'recoveryCode', 'passkey']
-              : ['totp', 'recoveryCode']
-            : undefined,
-        },
-      },
-    );
-    if (!completed) throw wrongStage();
-    return completed;
+  }
+
+  async viewAfter(
+    attempt: NativeAttempt,
+    secret: string,
+  ): Promise<NativeAttemptView> {
+    return attempt.phase === NATIVE_ATTEMPT_PHASE.CODE_READY
+      ? this.completion.codeReadyView(attempt, secret)
+      : this.view(attempt);
   }
   async view(attempt: NativeAttempt): Promise<NativeAttemptView> {
     return this.views.view(attempt);

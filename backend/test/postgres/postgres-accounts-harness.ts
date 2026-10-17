@@ -1,13 +1,14 @@
+import {
+  postgresAccountsIssuance,
+  SummarySignIn,
+} from './postgres-accounts-issuance';
+import { PostgresSessionProofStore } from '../../src/auth/proof/persistence/postgres/postgres-session-proof.store';
+import { postgresAccountsApplications } from './postgres-accounts-applications';
 import { randomUUID } from 'node:crypto';
-import { Kysely } from 'kysely';
+import { Kysely, sql } from 'kysely';
 import { PENDING_PURPOSE } from '../../src/auth/constants/registration';
 import { PostgresAddressLedger } from '../../src/common/persistence/postgres/postgres-address-ledger';
 import { ADDRESS_CLAIM_KIND } from '../../src/common/persistence/address-ledger';
-import {
-  ActivatedAccount,
-  ActivationSignIn,
-  ActivationSignInOutcome,
-} from '../../src/auth/pending-codes/activation-accounts';
 import { SessionRevoker } from '../../src/session/revocation/session-revoker';
 import { RevokerAccountSessions } from '../../src/user/stores/revoker-account-sessions';
 import { FrozenClock, TEST_NOW } from '../utils/frozen-clock';
@@ -20,10 +21,8 @@ import {
 import { AccountsContractHarness } from '../utils/user/accounts-contract/accounts-contract-harness';
 import { PostgresAccountPermissionStore } from '../../src/user/persistence/postgres/postgres-account-permission.store';
 import { PostgresAccountProfileStore } from '../../src/user/persistence/postgres/postgres-account-profile.store';
-import {
-  activatedSignInAccountOf,
-  PostgresActivationAccounts,
-} from '../../src/auth/persistence/postgres/postgres-activation-accounts';
+import { PostgresAccountDeletionStore } from '../../src/user/erasure/persistence/postgres/postgres-account-deletion.store';
+import { PostgresActivationAccounts } from '../../src/auth/persistence/postgres/postgres-activation-accounts';
 import { PostgresIdFormat } from '../../src/common/persistence/postgres/postgres-id-format';
 import { PostgresAdminAccountStore } from '../../src/admin/persistence/postgres/postgres-admin-account.store';
 import { PostgresTables } from '../../src/common/persistence/postgres/postgres-database';
@@ -39,28 +38,6 @@ import { PostgresSessionRevocationStore } from '../../src/session/persistence/po
 import { PostgresUnitOfWorkRunner } from '../../src/common/persistence/postgres/postgres-unit-of-work';
 import { openTestConnection } from './postgres-connection';
 
-/**
- * Answers with the account the activation stored and issues nothing, the way
- * the stand-in on the other database does, so both run the same cases.
- */
-class SummarySignIn extends ActivationSignIn {
-  complete(account: ActivatedAccount): Promise<ActivationSignInOutcome> {
-    const stored = activatedSignInAccountOf(account);
-    return Promise.resolve({
-      requiresTwoFactor: false,
-      user: {
-        id: stored.id,
-        email: stored.email,
-        name: stored.name,
-        role: stored.role,
-        authProvider: stored.authProvider,
-        isVerified: stored.isVerified,
-        permissions: [],
-      },
-    });
-  }
-}
-
 const AN_OBJECT_ID = '65f000000000000000000001';
 const TWO_HOURS_MS = 7_200_000;
 const TEN_MINUTES_MS = 600_000;
@@ -69,15 +46,27 @@ export interface PostgresAccountsHarness extends AccountsContractHarness {
   readonly database: Kysely<PostgresTables>;
 }
 
-export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHarness> {
-  const connection = await openTestConnection();
+export async function bootPostgresAccountsHarness(
+  boot = openTestConnection,
+): Promise<PostgresAccountsHarness> {
+  const connection = await boot();
   const { database } = connection;
   const clock = new FrozenClock(TEST_NOW);
   const events = new PostgresSecurityEventStore(database);
+  const creation = postgresAccountsApplications(database);
 
   return {
     database,
     clock,
+    proofs: new PostgresSessionProofStore(),
+    issuanceApplications: creation.issuanceApplications,
+    sessionIssuance: postgresAccountsIssuance({
+      database,
+      clock,
+      events,
+      creation,
+    }),
+    configureCreationApplication: creation.configureCreationApplication,
     ledger: new PostgresAddressLedger(),
     claims: async () =>
       (
@@ -116,6 +105,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         clock,
       ),
     ),
+    deletion: new PostgresAccountDeletionStore(database),
     admin: new PostgresAdminAccountStore(database, clock),
     activation: new PostgresActivationAccounts(database, clock),
     signIn: new SummarySignIn(),
@@ -128,6 +118,11 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
     rolePermissions: new PostgresRolePermissions(database),
     runner: (pause) => new PostgresUnitOfWorkRunner(database, pause),
 
+    alterRoleAudience: async (slug, audience) => {
+      await sql`
+        UPDATE roles SET audience = ${audience} WHERE slug = ${slug}
+      `.execute(database);
+    },
     seedRole: async (role) => {
       const at = clock.now();
       const row = await database
@@ -135,6 +130,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         .values({
           name: role.name,
           slug: role.slug,
+          audience: role.audience ?? null,
           level: role.level ?? null,
           permissions: role.permissions,
           created_at: at,
@@ -152,6 +148,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
           pending_email: account.pendingEmail ?? null,
           name: account.name ?? 'Contract Tester',
           role: account.role,
+          audience: account.audience ?? null,
           permissions: account.permissions ?? [],
           password_hash: account.passwordHash ?? null,
           is_verified: account.verified ?? true,
@@ -206,6 +203,9 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         .updateTable('users')
         .set({
           ...(change.role === undefined ? {} : { role: change.role }),
+          ...(change.audience === undefined
+            ? {}
+            : { audience: change.audience }),
           ...(change.deleted === undefined
             ? {}
             : { is_deleted: change.deleted }),
@@ -236,6 +236,7 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
         pendingEmail: row.pending_email,
         name: row.name ?? '',
         role: row.role,
+        ...(row.audience ? { audience: row.audience } : {}),
         permissions: row.permissions,
         passwordHash: row.password_hash,
         isVerified: row.is_verified,
@@ -311,7 +312,10 @@ export async function bootPostgresAccountsHarness(): Promise<PostgresAccountsHar
       return issueOnlyTheRefusedEventId();
     },
 
-    reset: connection.reset,
+    reset: async () => {
+      await connection.reset();
+      await creation.seedCreationApplications();
+    },
     close: connection.close,
   };
 }

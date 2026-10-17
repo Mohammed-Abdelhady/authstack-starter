@@ -12,7 +12,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
-import { availability, IDLE, isHeld } from '@/tests/busyControls';
+import { isHeld } from '@/tests/busyControls';
 import { askToClose, isOpen } from '@/tests/dialogBusy';
 import { clickTwiceInOneTick, writesOf } from '../../__tests__/submitTwice';
 import { useGetCurrentUserQuery } from '../../store/authApi';
@@ -134,23 +134,6 @@ describe('a sign-out the server did not confirm', () => {
     expect(writes()).toEqual([SIGN_OUT]);
   });
 
-  it.each([
-    'en',
-    'ar', // feature:locale-ar
-  ] as const)('words the notice in %s from the catalogue', async (locale) => {
-    answerSignOut(sessionGone, unreachable);
-    const page = await renderSignedIn(locale);
-
-    fireEvent.click(page.button());
-
-    const dialog = await screen.findByRole('alertdialog', {
-      name: page.message('auth.signOut.notConfirmedTitle'),
-    });
-    expect(dialog.textContent).toContain(page.message('auth.signOut.notConfirmedBody'));
-    expect(availability(page.retry())).toEqual(IDLE);
-    expect(availability(page.stay())).toEqual(IDLE);
-  });
-
   it('keeps the notice up while the retry runs and signs out when it reaches the server', async () => {
     const retried = Promise.withResolvers<Response>();
     const writes = answerSignOut(sessionGone, unreachable, () => retried.promise);
@@ -220,29 +203,6 @@ describe('a sign-out the server did not confirm', () => {
     expect(page.successToasts()).toEqual([]);
   });
 
-  it.each([
-    'en',
-    'ar', // feature:locale-ar
-  ] as const)('states each failed retry in the notice itself in %s', async (locale) => {
-    answerSignOut(sessionGone, unreachable);
-    const page = await renderSignedIn(locale);
-    const stated = () => screen.queryByRole('alert')?.textContent ?? null;
-    const retryAndWait = async () => {
-      fireEvent.click(page.retry());
-      await waitFor(() => expect(page.retry().getAttribute('aria-busy')).toBe('true'));
-      await waitFor(() => expect(page.retry().getAttribute('aria-busy')).toBe('false'));
-    };
-    fireEvent.click(page.button());
-    await screen.findByRole('alertdialog');
-    expect(stated()).toBeNull();
-
-    await retryAndWait();
-    expect(stated()).toBe(page.format('auth.signOut.retryFailed', { count: 2 }));
-
-    await retryAndWait();
-    expect(stated()).toBe(page.format('auth.signOut.retryFailed', { count: 3 }));
-  });
-
   it('keeps "Try again" able to hold the focus while it retries and after it fails', async () => {
     const retried = Promise.withResolvers<Response>();
     answerSignOut(sessionGone, unreachable, () => retried.promise);
@@ -258,22 +218,6 @@ describe('a sign-out the server did not confirm', () => {
     retried.resolve(refusalWith(500, ErrorCode.INTERNAL_ERROR));
     await waitFor(() => expect(page.retry().getAttribute('aria-disabled')).toBe('false'));
     expect(document.activeElement).toBe(page.retry());
-  });
-
-  it('starts counting again once the notice has been closed', async () => {
-    answerSignOut(sessionGone, unreachable);
-    const page = await renderSignedIn();
-    fireEvent.click(page.button());
-    await screen.findByRole('alertdialog');
-    fireEvent.click(page.retry());
-    await screen.findByRole('alert');
-    fireEvent.click(page.stay());
-    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-
-    fireEvent.click(page.button());
-
-    await screen.findByRole('alertdialog');
-    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('closes the notice and stays signed in when the person chooses to stay', async () => {

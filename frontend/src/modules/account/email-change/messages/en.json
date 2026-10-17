@@ -1,0 +1,30 @@
+{
+  "emailChange": {
+    "title": "Email address",
+    "description": "Codes and security notices about your account go to this address.",
+    "current": "Current address",
+    "pending": "Waiting to be confirmed",
+    "loading": "Loading your email address",
+    "loadError": "Your email address could not be loaded.",
+    "retry": "Try again",
+    "change": "Change email address",
+    "newAddress": "New email address",
+    "newAddressPlaceholder": "name@example.com",
+    "newAddressHint": "A code goes to this address, and a notice to your current one.",
+    "addressRequired": "Enter the new email address.",
+    "addressInvalid": "Enter a full email address.",
+    "sameAddress": "Enter an address that is not the one you have now.",
+    "send": "Send code",
+    "cancel": "Cancel",
+    "code": "Code from the email",
+    "codePlaceholder": "123456",
+    "codeHint": "The six digits sent to ⁨{address}⁩.",
+    "codeInvalid": "Enter the six digits from the email.",
+    "confirm": "Confirm new address",
+    "otherAddress": "Use another address",
+    "keepCurrent": "Keep current address",
+    "sent": "If ⁨{address}⁩ can be used, a code is on its way to it.",
+    "changed": "Email address changed. Other devices were signed out.",
+    "cancelled": "Your address stays the same."
+  }
+}

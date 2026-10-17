@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { startMemoryReplSet } from '../../../test/utils/memory-replset';
 import { FrozenClock, TEST_NOW } from '../../../test/utils/frozen-clock';
 import {
@@ -42,11 +43,13 @@ describe('session listing device parts', () => {
       user._id,
       'okhttp/4.12.0',
       '203.0.113.10',
+      WEB_CLIENT_ID,
     );
     await harness.sessionService.createSession(
       other._id,
       'Firefox/140.0',
       '203.0.113.20',
+      WEB_CLIENT_ID,
     );
     await harness.sessions.updateOne(
       { user: user._id },

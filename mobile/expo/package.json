@@ -11,7 +11,7 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && node --test test/scene-lifecycle.test.cjs"
+    "test": "vitest run && node --test test/*.test.cjs"
   },
   "dependencies": {
     "@app/device-key": "workspace:*",

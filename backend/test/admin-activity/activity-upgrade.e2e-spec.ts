@@ -137,9 +137,7 @@ describe('activity log populated PostgreSQL upgrade', () => {
       expect(columns.rows).toEqual([]);
 
       await pool.query(`DROP INDEX ${ACTIVITY_KIND_INDEX}`);
-      expect(await applyPostgresMigrations(pool)).toEqual([
-        '0027_activity_log.sql',
-      ]);
+      expect(await applyPostgresMigrations(pool)).toEqual([ACTIVITY_MIGRATION]);
       expect((await recorded(pool)).includes(ACTIVITY_MIGRATION)).toBe(true);
     },
     MIGRATE_CASE_TIMEOUT_MS,

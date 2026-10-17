@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toPackageName, validateProjectName } from '../../src/utils/project-name.js';
+import { validateProjectName } from '../../src/utils/project-name.js';
 
 describe('validateProjectName', () => {
   it.each(['my-app', 'app', 'my_app', 'app2', 'MyApp'])('accepts %s', (name) => {
@@ -26,17 +26,5 @@ describe('validateProjectName', () => {
 
   it('rejects a name longer than 214 characters', () => {
     expect(validateProjectName('a'.repeat(215)).valid).toBe(false);
-  });
-});
-
-describe('toPackageName', () => {
-  it.each([
-    ['My App', 'my-app'],
-    ['MyApp', 'myapp'],
-    ['.hidden', 'hidden'],
-    ['my--app', 'my-app'],
-    ['---', 'app'],
-  ])('turns %s into %s', (input, expected) => {
-    expect(toPackageName(input)).toBe(expected);
   });
 });

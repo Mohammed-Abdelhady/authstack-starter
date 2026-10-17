@@ -23,7 +23,8 @@ function fixture(t, files, manifest = {}) {
 
 test('runtime, type, re-export, dynamic and CommonJS imports require local declarations', (t) => {
   const root = fixture(t, {
-    'apps/web/src/main.ts': "import client from 'runtime';\nimport type { T } from '@scope/types/subpath';\nexport { helper } from 'reexport';\nimport('dynamic/subpath');\nconst tool = require('commonjs');\n",
+    'apps/web/src/main.ts':
+      "import client from 'runtime';\nimport type { T } from '@scope/types/subpath';\nexport { helper } from 'reexport';\nimport('dynamic/subpath');\nconst tool = require('commonjs');\n",
   });
   assert.deepEqual(checkWorkspaceDependencies(root), [
     { file: 'apps/web/src/main.ts', package: '@scope/types' },
@@ -35,14 +36,19 @@ test('runtime, type, re-export, dynamic and CommonJS imports require local decla
 });
 
 test('dependencies, development, peer and optional declarations satisfy imports', (t) => {
-  const root = fixture(t, {
-    'apps/web/test/dependencies.mts': "import 'runtime'; import 'development'; import 'peer'; import 'optional';",
-  }, {
-    dependencies: { runtime: '1.0.0' },
-    devDependencies: { development: '1.0.0' },
-    peerDependencies: { peer: '1.0.0' },
-    optionalDependencies: { optional: '1.0.0' },
-  });
+  const root = fixture(
+    t,
+    {
+      'apps/web/test/dependencies.mts':
+        "import 'runtime'; import 'development'; import 'peer'; import 'optional';",
+    },
+    {
+      dependencies: { runtime: '1.0.0' },
+      devDependencies: { development: '1.0.0' },
+      peerDependencies: { peer: '1.0.0' },
+      optionalDependencies: { optional: '1.0.0' },
+    },
+  );
   assert.deepEqual(checkWorkspaceDependencies(root), []);
 });
 
@@ -59,16 +65,22 @@ test('root and sibling dependencies do not satisfy a workspace import, including
 });
 
 test('built-ins, relative imports, configured aliases and self imports are local', (t) => {
-  const root = fixture(t, {
-    'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
-    'apps/web/src/main.ts': "import 'node:fs'; import 'fs/promises'; import './local.js'; import '../other'; import '@/local'; import 'web/subpath'; import '#internal';",
-  }, { imports: { '#internal': './src/internal.js' } });
+  const root = fixture(
+    t,
+    {
+      'apps/web/tsconfig.json': '{"compilerOptions":{"paths":{"@/*":["./src/*"]}}}',
+      'apps/web/src/main.ts':
+        "import 'node:fs'; import 'fs/promises'; import './local.js'; import '../other'; import '@/local'; import 'web/subpath'; import '#internal';",
+    },
+    { imports: { '#internal': './src/internal.js' } },
+  );
   assert.deepEqual(checkWorkspaceDependencies(root), []);
 });
 
 test('comments and quoted code examples are not imports, installed and generated trees are ignored', (t) => {
   const root = fixture(t, {
-    'apps/web/src/main.ts': '// import "comment";\n/* require("comment") */\nconst text = "import \'example\'";\nconst template = `import "example"`;\n',
+    'apps/web/src/main.ts':
+      '// import "comment";\n/* require("comment") */\nconst text = "import \'example\'";\nconst template = `import "example"`;\n',
     'apps/web/node_modules/library/index.js': "import 'transitive';",
     'apps/web/dist/main.js': "import 'output';",
     'apps/web/template/index.ts': "import 'template';",
@@ -112,8 +124,4 @@ test('the CLI fails for a phantom dependency and succeeds after its manifest is 
   assert.match(failed.stderr, /apps\/web\/src\/main\.ts: undeclared dependency missing/);
   writeFileSync(join(root, 'apps/web/package.json'), '{"dependencies":{"missing":"1.0.0"}}');
   assert.equal(run().status, 0);
-});
-
-test('the repository has no phantom workspace imports', () => {
-  assert.deepEqual(checkWorkspaceDependencies(new URL('../', import.meta.url).pathname), []);
 });

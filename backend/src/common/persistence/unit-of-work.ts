@@ -4,6 +4,15 @@
  */
 export abstract class UnitOfWork {
   protected readonly kind = 'unit-of-work';
+  private readonly committedActions: Array<() => void> = [];
+
+  afterCommit(action: () => void): void {
+    this.committedActions.push(action);
+  }
+
+  committed(): void {
+    for (const action of this.committedActions.splice(0)) action();
+  }
 }
 
 /** How many times a unit of work runs before a retryable abort is final. */

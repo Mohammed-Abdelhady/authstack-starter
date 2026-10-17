@@ -1,8 +1,10 @@
+import type { AccountCreationMethod } from '../../types/account-creation';
+import type { BrowserEvidence } from '../../../session/types/browser-evidence';
 import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { toStoredAccount } from '../../../user/persistence/mongo/mongo-account-records';
 import { UserDocument } from '../../../user/persistence/mongo/schemas/user.schema';
-import { FirstFactor } from '../../services/sessions/first-factor'; // feature:totp
+import { FirstFactor } from '../../services/sessions/first-factor';
 import {
   SignInCompletion,
   SignInOutcome,
@@ -20,22 +22,38 @@ export type { SignInOutcome };
 export class SignInService {
   constructor(private readonly completion: SignInCompletion) {}
 
+  assertAdmission(userId: string, response: Response): Promise<void> {
+    return this.completion.assertAdmission(userId, response);
+  }
+
+  recordCreationRefusal(
+    clientId: string,
+    method: AccountCreationMethod,
+  ): Promise<void> {
+    return this.completion.recordCreationRefusal(clientId, method);
+  }
+
   completeSignIn(
     user: UserDocument,
     response: Response,
-    firstFactor: FirstFactor, // feature:totp
+    firstFactor?: FirstFactor,
   ): Promise<SignInOutcome> {
     return this.completion.completeSignIn(
       toStoredAccount(user),
       response,
-      firstFactor, // feature:totp
+      firstFactor,
     );
   }
 
   issueSession(
     user: UserDocument,
     response: Response,
+    evidence?: BrowserEvidence,
   ): Promise<AuthenticatedUserSummary> {
-    return this.completion.issueSession(toStoredAccount(user), response);
+    return this.completion.issueSession(
+      toStoredAccount(user),
+      response,
+      evidence,
+    );
   }
 }

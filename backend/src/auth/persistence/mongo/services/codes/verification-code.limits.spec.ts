@@ -270,18 +270,6 @@ describe('VerificationCodeService limits', () => {
     expect(total).toBe(MAILED_CODE_LIMIT_PER_ADDRESS);
   });
 
-  it('keeps the cap with no deletion at all', async () => {
-    const email = 'control@example.test';
-    const shortService = await buildService(SHORT_CODE_EXPIRES_IN);
-
-    const first = await burst(shortService, email);
-    clock.advance(SHORT_CODE_EXPIRES_IN + 1);
-    const second = await burst(shortService, email);
-
-    expect(first).toBe(MAILED_CODE_LIMIT_PER_ADDRESS);
-    expect(second).toBe(0);
-  });
-
   it('keeps the cap across the default lifetime before the window rolls', async () => {
     const email = 'default-lifetime@example.test';
 

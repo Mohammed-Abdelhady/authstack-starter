@@ -132,7 +132,17 @@ export function createNativeController(
       }
       if (!runtime.isEpochCurrent(operationEpoch)) return { kind: 'signedOut' };
       if (error instanceof TransportError) return { kind: 'transportFailure' };
-      if (error instanceof ApiError) return { kind: 'apiFailure' };
+      if (error instanceof ApiError) {
+        const at = error.details?.['eraseAfter'];
+        return {
+          kind: 'apiFailure',
+          ...(error.code === 'ACCOUNT_ERASURE_PENDING' &&
+          typeof at === 'string' &&
+          Number.isFinite(Date.parse(at))
+            ? { eraseAfter: at }
+            : {}),
+        };
+      }
       if (error instanceof TypeError) return { kind: 'invalidInput' };
       return { kind: 'apiFailure' };
     } finally {

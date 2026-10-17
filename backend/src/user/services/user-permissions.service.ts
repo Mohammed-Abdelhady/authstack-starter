@@ -14,6 +14,7 @@ interface UserPermissionsData {
 }
 
 interface UserPermissionsWithRole extends UserPermissionsData {
+  version: number;
   role: string;
 }
 
@@ -47,6 +48,7 @@ export class UserPermissionsService {
 
     return ApiResponse.success({
       userId: grants.id,
+      version: grants.version,
       permissions: grants.permissions,
       role: grants.role,
     });

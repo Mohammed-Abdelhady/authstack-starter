@@ -6,20 +6,27 @@ import { Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Button } from '@/components/ui/button';
 
+function subscribeClientRender() {
+  return () => undefined;
+}
+
+function clientRendered() {
+  return true;
+}
+
+function serverRendered() {
+  return false;
+}
+
 export function ThemeSwitcher() {
   const t = useTranslations('common');
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
+  const mounted = React.useSyncExternalStore(subscribeClientRender, clientRendered, serverRendered);
   const isLight = resolvedTheme === 'light';
   const handleToggle = React.useCallback(
     () => setTheme(isLight ? 'dark' : 'light'),
     [isLight, setTheme],
   );
-
-  // Avoid hydration mismatch
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return <div className="h-9 w-9" />; // Skeleton to prevent layout shift

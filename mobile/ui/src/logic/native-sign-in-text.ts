@@ -21,5 +21,6 @@ const OUTCOME_MESSAGE: Record<NativeSignInOutcome['kind'], MessageKey | undefine
   signedOut: 'native.startAgain',
 };
 export function nativeOutcomeMessage(outcome: NativeSignInOutcome): MessageKey | undefined {
+  if (outcome.kind === 'apiFailure' && outcome.eraseAfter) return 'native.erasurePending';
   return OUTCOME_MESSAGE[outcome.kind];
 }

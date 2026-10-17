@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { AudiencePolicy } from '../../../src/session/applications/audience-policy';
 import { Connection, Model } from 'mongoose';
 import { Clock } from '../../../src/common/services/clock';
 import { mongoRoleStores } from '../../../src/role/persistence/mongo/mongo-role-stores';
@@ -6,6 +8,7 @@ import { RoleSweepBootstrapService } from '../../../src/role/services/bootstrap/
 import { RoleEditService } from '../../../src/role/services/edit/role-edit.service';
 import { SecurityEventService } from '../../../src/session/persistence/mongo/security-event.service';
 import { UserDocument } from '../../../src/user/persistence/mongo/schemas/user.schema';
+import { testStaffMutationRules } from '../admin/staff-mutation-test-kit';
 
 /** The startup repair on the MongoDB adapter over the given models. */
 export function mongoRoleSweepBootstrap(
@@ -21,6 +24,7 @@ export function mongoRoleSweepBootstrap(
     stores.changes,
     stores.sweeps,
     clock,
+    new AudiencePolicy(new ConfigService({})),
   );
 }
 
@@ -32,5 +36,11 @@ export function mongoRoleEdit(
   events: SecurityEventService,
 ): RoleEditService {
   const stores = mongoRoleStores({ roleModel, userModel, connection, events });
-  return new RoleEditService(stores.runner, stores.changes, stores.sweeps);
+  return new RoleEditService(
+    stores.runner,
+    stores.changes,
+    stores.sweeps,
+    new AudiencePolicy(new ConfigService({})),
+    testStaffMutationRules(),
+  );
 }

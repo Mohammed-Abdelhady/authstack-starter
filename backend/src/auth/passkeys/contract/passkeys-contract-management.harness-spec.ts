@@ -41,6 +41,7 @@ export function managementCases(
       {
         id: newerId,
         name: 'Newer key',
+        canRemove: true,
         deviceType: 'singleDevice',
         backedUp: false,
         createdAt: NOW,
@@ -49,6 +50,7 @@ export function managementCases(
       {
         id: olderId,
         name: 'Older key',
+        canRemove: true,
         deviceType: 'singleDevice',
         backedUp: false,
         createdAt: EARLIER,

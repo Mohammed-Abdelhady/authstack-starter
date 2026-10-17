@@ -1,3 +1,4 @@
+import { AudienceAdmissionRefused } from '../../session/utils/authority/audience-admission';
 import { Logger } from '@nestjs/common';
 import { Response } from 'express';
 import {
@@ -55,7 +56,7 @@ export async function createActivatedAccount(
     throw activationCodeInvalid();
   }
 
-  await policy.assertMayCreate(
+  const audience = await policy.assertMayCreate(
     { application, method: ACCOUNT_CREATION_METHOD.PASSWORD },
     unitOfWork,
   );
@@ -73,6 +74,7 @@ export async function createActivatedAccount(
       passwordHash: account.passwordHash,
       name: account.name,
       locale: account.locale,
+      audience,
     });
     await ledger.finishAccountReservation(unitOfWork, reservation.reservation);
     return created;
@@ -109,6 +111,36 @@ export async function confirmEmailChange(
   ledger: AddressLedger,
   now: Date,
 ): Promise<string | null> {
+  const moved = await confirmEmailMove(
+    accounts,
+    unitOfWork,
+    reserved,
+    ledger,
+    now,
+  );
+  return moved?.previousEmail ?? null;
+}
+
+/** The address an account left, read in the unit of work that moved it. */
+export interface ConfirmedMove {
+  previousEmail: string;
+  locale: SupportedLocale;
+}
+
+/**
+ * The same move, answering with who the old address belonged to as the move
+ * committed, so a notice reaches it and not the address the account has now.
+ *
+ * @returns The address the account left and its language, or null when it was
+ *   already on the confirmed one
+ */
+export async function confirmEmailMove(
+  accounts: ActivationAccounts,
+  unitOfWork: UnitOfWork,
+  reserved: ReservedCode,
+  ledger: AddressLedger,
+  now: Date,
+): Promise<ConfirmedMove | null> {
   if (!reserved.userId) {
     throw activationCodeInvalid();
   }
@@ -145,7 +177,9 @@ export async function confirmEmailChange(
     }
     throw error;
   }
-  return previous === reserved.email ? null : previous;
+  return previous === reserved.email
+    ? null
+    : { previousEmail: previous, locale: user.locale };
 }
 
 /**
@@ -170,6 +204,8 @@ export async function finishActivation(
     }
     return ActivateResponseDto.success(outcome.user);
   } catch (error) {
+    if (error instanceof AudienceAdmissionRefused)
+      throw activationCodeInvalid();
     const cause = error instanceof Error ? error.name : typeof error;
     logger.error(
       `Sign-in after activation failed for user ${account.id} cause=${cause}`,

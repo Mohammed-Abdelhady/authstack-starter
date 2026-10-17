@@ -92,21 +92,28 @@ export class PostgresUnitOfWorkRunner extends UnitOfWorkRunner {
     work: (unitOfWork: UnitOfWork) => Promise<Result>,
   ): Promise<Result> {
     let ended: Ended<Result>;
+    let completed: UnitOfWork | undefined;
     try {
-      ended = await this.database
-        .connection()
-        .execute((connection) => inTransaction(connection, work));
+      ended = await this.database.connection().execute((connection) =>
+        inTransaction(connection, (unit) => {
+          completed = unit;
+          return work(unit);
+        }),
+      );
     } catch (error) {
       throw mapPostgresError(error);
     }
     if (ended.lost === undefined) {
+      completed?.committed();
       return ended.result;
     }
-    return this.afterLostAnswer(
+    const result = await this.afterLostAnswer(
       ended.lost.failure,
       ended.transactionId,
       ended.result,
     );
+    completed?.committed();
+    return result;
   }
 
   /**

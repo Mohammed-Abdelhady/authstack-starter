@@ -178,6 +178,7 @@ The response returns:
     "methods": {
       "password": true,
       "magicLink": true,
+      "emailCode": false,
       "passkeys": true,
       "twoFactor": true,
       "oauth": [

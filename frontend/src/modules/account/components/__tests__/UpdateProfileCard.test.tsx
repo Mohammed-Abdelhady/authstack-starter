@@ -33,6 +33,7 @@ const PROFILE_PATH = '/api/user/profile';
 
 function user(name: string) {
   return {
+    locale: 'en',
     id: 'user-1',
     email: 'layla@example.com',
     name,

@@ -74,15 +74,17 @@ export const test = base.extend<
     authenticate: boolean;
     fixtureMail: () => Promise<FixtureMail[]>;
     expireMagicLinks: () => Promise<void>;
+    expireStaffProof: () => Promise<void>;
     apiAvailability: (enabled: boolean) => Promise<void>;
     browserAudit: (page: Page) => void;
     appLocale: 'en' | 'ar';
     actor: { email: string; password: string };
     returnPath: string;
   },
-  { backend: ChildProcess }
+  { backend: ChildProcess; staffStrict: boolean }
 >({
   authenticate: [true, { option: true }],
+  staffStrict: [false, { option: true, scope: 'worker' }],
   apiAvailability: async ({ backend }, run) => {
     await run(async (enabled) => {
       const acknowledged = receive(backend, enabled ? 'http-resumed' : 'http-paused');
@@ -98,6 +100,13 @@ export const test = base.extend<
       const expired = receive(backend, 'expired-magic-links');
       backend.send('expire-magic-links');
       await expired;
+    });
+  },
+  expireStaffProof: async ({ backend }, run) => {
+    await run(async () => {
+      const acknowledged = receive(backend, 'staff-proof-expired');
+      backend.send('expire-staff-proof');
+      await acknowledged;
     });
   },
   appLocale: ['en', { option: true }],
@@ -177,11 +186,12 @@ export const test = base.extend<
     { auto: true },
   ],
   backend: [
-    async ({}, run, workerInfo) => {
+    async ({ staffStrict }, run, workerInfo) => {
       const child = fork(resolve(backendDirectory, 'test/utils/browser/browser-server.ts'), [], {
         cwd: backendDirectory,
         execArgv: ['--require', 'ts-node/register'],
         env: {
+          STARTER_E2E_STRICT_MUTATIONS: String(staffStrict),
           NODE_ENV: 'test',
           PATH: process.env.PATH,
           HOME: process.env.HOME,
@@ -249,7 +259,10 @@ export const test = base.extend<
       await expect(page.getByTestId('dashboard-main')).toBeVisible();
       if (actor.email === admin.email) {
         const role = await page.request.post(`${API}/roles`, {
-          headers: { [CSRF_HEADER]: await sessionBrowserProof(page.request, API) },
+          headers: {
+            [CSRF_HEADER]: await sessionBrowserProof(page.request, API),
+            'Idempotency-Key': '00000000-0000-4000-8000-000000000001',
+          },
           data: {
             name: 'Fixture Editor',
             permissions: ['users:read:all'],

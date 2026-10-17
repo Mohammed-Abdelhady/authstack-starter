@@ -1,3 +1,4 @@
+import { assertMongoAccountAudience } from '../../../../user/persistence/mongo/mongo-account-audience';
 import { Injectable, Provider } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -78,6 +79,12 @@ export class MongoProviderSignInStore extends ProviderSignInStore {
     unitOfWork: UnitOfWork,
     account: NewProviderAccount,
   ): Promise<StoredAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      account.role,
+      account.audience,
+    );
     try {
       const users = await this.userModel.create(
         [
@@ -97,6 +104,7 @@ export class MongoProviderSignInStore extends ProviderSignInStore {
             ],
             role: account.role,
             locale: account.locale,
+            audience: account.audience,
           },
         ],
         { session: mongoSessionOf(unitOfWork) },

@@ -7,7 +7,7 @@
  * @module validations/composed
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { zodPassword, type PasswordMessages } from '../string';
 
 /**

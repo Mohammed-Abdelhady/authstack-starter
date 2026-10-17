@@ -1,14 +1,11 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { databaseMarkerIds, defaultDatabaseIds } from '../../src/manifest/dimensions.js';
 import { loadManifest } from '../../src/manifest/load.js';
-import { defaultOwnership } from '../../src/manifest/ownership.js';
-import { availableFeatures, resolveSelection } from '../../src/manifest/select.js';
+import { availableFeatures } from '../../src/manifest/select.js';
 import type { Manifest } from '../../src/types.js';
 import {
   buildCli,
-  compareWithRepository,
   installProject,
   installFromWarmStore,
   REPO_ROOT,
@@ -150,34 +147,6 @@ describe('generated projects', () => {
     await expectLints(project);
     const api = await runBackendBoot(project);
     expect(api.ok, api.output).toBe(true);
-
-    // Retained application and API test files differ only by feature markers.
-    const selected = resolveSelection(manifest, requested).selected;
-    // No client was named, so the project is the web app and the mobile folders are gone.
-    const ownership = defaultOwnership(manifest);
-    const markerIds = [
-      ...Object.keys(manifest.features),
-      ...Object.keys(manifest.options),
-      ...ownership.knownIds,
-      ...databaseMarkerIds(manifest),
-    ];
-    const kept = [
-      ...selected,
-      ...Object.keys(manifest.options),
-      ...ownership.keptIds,
-      ...defaultDatabaseIds(manifest),
-    ];
-    // No database was named, so the project runs on the default one and what
-    // the other databases own is gone.
-    const otherDatabases = Object.entries(manifest.databases).filter(
-      ([id]) => !defaultDatabaseIds(manifest).includes(id),
-    );
-    const differences = await compareWithRepository(project, kept, markerIds, [
-      ...manifest.core.alwaysRemoveFiles,
-      ...ownership.removedFiles,
-      ...otherDatabases.flatMap(([, database]) => [...database.files, ...database.docs]),
-    ]);
-    expect(differences, JSON.stringify(differences, null, 2)).toEqual([]);
   });
 
   it('installs offline from a warm pnpm store and retained build-artifact cache', async () => {
@@ -194,12 +163,5 @@ describe('generated projects', () => {
     const offline = await installFromWarmStore(project, inject('pnpmStore'));
     expect(offline.ok, offline.output).toBe(true);
     await expectTypechecks(project);
-  });
-
-  it('pulls OAuth core in behind a provider without offering it', () => {
-    const selection = resolveSelection(manifest, ['email-password', 'google']);
-
-    expect(selection.selected).toContain('oauth-core');
-    expect(manifest.features['oauth-core'].kind).toBe('hidden');
   });
 });

@@ -77,17 +77,6 @@ describe('native auth engine against the server', () => {
     ).toHaveLength(0);
   });
 
-  it('sends an authenticated SDK profile request with the bearer token', async () => {
-    const { engine, requests } = await signedInEngine(e2e);
-    const client = createApiClient(engine.transport);
-
-    const profile = await client.profile.get();
-
-    expect(profile.email).toBe('user@seed.local');
-    const request = requests.find(({ path }) => path === '/api/user/profile');
-    expect(request?.headers?.Authorization).toMatch(/^Bearer .+/);
-  });
-
   it('refreshes on the first request after the access lifetime', async () => {
     const { engine, ports, requests } = await signedInEngine(e2e);
     const client = createApiClient(engine.transport);

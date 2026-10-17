@@ -1,4 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {
+  assertPasskeySignIn,
+  NATIVE_PASSKEY_AUTHENTICATION_METHOD,
+} from '../../utils/authority/passkey-sign-in';
+import { SignInNoticeService } from '../../notices/sign-in-notice.service';
+import { sessionLimitsFor } from '../../utils/session/session-limits';
+import { effectiveSessionDeadlines } from '../../utils/session/session-deadlines';
+import { Injectable, Optional } from '@nestjs/common';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { parseUserAgent } from '../../../common/utils/parse-user-agent';
@@ -10,7 +17,6 @@ import {
   DEVICE_NAME_MAX_LENGTH,
   NATIVE_ACCESS_LIFETIME_MS,
   NATIVE_ACCESS_TOKEN_TYPE,
-  NATIVE_INITIAL_IDLE_MS,
   USER_AGENT_MAX_LENGTH,
 } from '../../constants/session-policy';
 import {
@@ -18,6 +24,7 @@ import {
   IssuanceApplication,
   IssuanceGrant,
 } from '../../issuance/browser-issuance.store';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { boundLabel } from '../../utils/session/bound-label';
 import { addMs, capIdleByAbsolute } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
@@ -33,6 +40,10 @@ export interface NativeGrantContext {
   requestedScopes: string[];
   audience?: string | null;
   authenticationMethods?: string[];
+  /** Stored on a new session only; refresh and retry keep the session's own. */
+  userVerified?: boolean;
+  /** An earlier sign-in a new session takes as its own; without one, its issue time. */
+  authenticatedAt?: Date | null;
 }
 
 export interface NativePairRequest {
@@ -43,6 +54,7 @@ export interface NativePairRequest {
   meta: ClientMeta;
   now: Date;
   generation: number;
+  policyVersion: number;
   /** The family's session when the pair replaces an older one. */
   existing?: NativeFamilySession;
   familyId?: string;
@@ -55,6 +67,7 @@ export class NativeCredentialIssuer {
     private readonly credentials: NativeCredentialStore,
     private readonly events: NativeSecurityEvents,
     private readonly authEpoch: AuthEpochService,
+    @Optional() private readonly notices?: SignInNoticeService,
   ) {}
 
   async issuePair(
@@ -63,17 +76,35 @@ export class NativeCredentialIssuer {
   ): Promise<TokenSuccess> {
     const { account, application, grant, context, meta, now, existing } =
       request;
+    assertAudienceAdmission(
+      account.accountAudience,
+      application.accountAudience,
+    );
+    assertPasskeySignIn(
+      application.requirePasskey,
+      {
+        authenticationMethods:
+          existing?.authenticationMethods ??
+          context.authenticationMethods ??
+          [],
+        userVerified: existing?.userVerified ?? context.userVerified === true,
+      },
+      NATIVE_PASSKEY_AUTHENTICATION_METHOD,
+    );
     const familyId = request.familyId ?? randomSecret();
     const proofKeyThumbprint = request.proofKeyThumbprint;
-    const absoluteExpiresAt = existing
-      ? existing.expiresAt
-      : addMs(now, application.policy.absoluteLifetimeMs);
-    const idleExpiresAt = existing
-      ? existing.idleExpiresAt
-      : capIdleByAbsolute(
-          addMs(now, NATIVE_INITIAL_IDLE_MS),
-          absoluteExpiresAt,
-        );
+    const limits = sessionLimitsFor(application, Boolean(proofKeyThumbprint));
+    const deadlines = existing
+      ? effectiveSessionDeadlines(existing, application)
+      : undefined;
+    const absoluteExpiresAt =
+      deadlines?.absolute ?? addMs(now, limits.absoluteLifetimeMs);
+    const idleExpiresAt =
+      deadlines?.idle ??
+      capIdleByAbsolute(
+        addMs(now, limits.initialIdleLifetimeMs),
+        absoluteExpiresAt,
+      );
     let sessionId = existing?.id;
     if (!sessionId) {
       const device = parseUserAgent(meta.userAgent);
@@ -94,14 +125,25 @@ export class NativeCredentialIssuer {
         userVersion: account.sessionVersion,
         clientVersion: application.sessionVersion,
         grantVersion: grant.sessionVersion,
+        policyVersion: request.policyVersion,
         scopes: context.requestedScopes,
         audience: context.audience || DEFAULT_API_AUDIENCE,
         authenticationMethods: context.authenticationMethods ?? [],
-        authenticatedAt: now,
+        userVerified: context.userVerified === true,
+        authenticatedAt: context.authenticatedAt ?? now,
+        issuedAt: now,
         idleExpiresAt,
         lastActivityAt: now,
         credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
         ...(proofKeyThumbprint ? { proofKeyThumbprint } : {}),
+      });
+      await this.notices?.record(unitOfWork, {
+        userId: account.id,
+        userAgent: meta.userAgent,
+        installId: meta.installId,
+        native: true,
+        at: now,
+        authenticatedAt: context.authenticatedAt ?? now,
       });
       await this.events.record(unitOfWork, {
         targetUserId: account.id,
@@ -114,7 +156,7 @@ export class NativeCredentialIssuer {
     const refreshToken = randomSecret();
     const accessExpiresAt = capIdleByAbsolute(
       addMs(now, NATIVE_ACCESS_LIFETIME_MS),
-      absoluteExpiresAt,
+      capIdleByAbsolute(idleExpiresAt, absoluteExpiresAt),
     );
     await this.credentials.insertCredentialPair(unitOfWork, {
       sessionId,

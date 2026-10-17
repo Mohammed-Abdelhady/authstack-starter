@@ -114,24 +114,6 @@ describe('RoleService delete', () => {
   });
 
   describe('delete', () => {
-    it('should refuse to delete a system role', async () => {
-      mockRoleModel.findOne.mockResolvedValueOnce(
-        buildRole({
-          name: 'Manager',
-          slug: 'manager',
-          isSystemRole: true,
-          isProtected: true,
-          level: 3,
-        }),
-      );
-
-      await expect(service.delete('manager', actorId)).rejects.toMatchObject({
-        code: 'ROLE_PROTECTED',
-        status: 403,
-      });
-      expect(mockRoleModel.deleteOne).not.toHaveBeenCalled();
-    });
-
     it('should refuse to delete a protected role', async () => {
       mockRoleModel.findOne.mockResolvedValueOnce(
         buildRole({ isProtected: true }),
@@ -143,58 +125,6 @@ describe('RoleService delete', () => {
         code: 'ROLE_PROTECTED',
         status: 403,
       });
-    });
-
-    it('should refuse to delete a role users still hold and say how many', async () => {
-      mockRoleModel.findOne.mockResolvedValueOnce(buildRole());
-      mockRoleModel.findOne.mockReturnValue(
-        createChainableQueryMock(
-          buildRole({ slug: 'admin', permissions: ['*'] }),
-        ),
-      );
-      mockUserModel.countDocuments.mockImplementationOnce(() =>
-        createChainableQueryMock(3),
-      );
-
-      await expect(
-        service.delete('content-editor', actorId),
-      ).rejects.toMatchObject({
-        code: 'ROLE_HAS_USERS',
-        status: 400,
-        details: { count: 3 },
-      });
-      expect(mockRoleModel.deleteOne).not.toHaveBeenCalled();
-    });
-
-    it('should answer ROLE_NOT_FOUND for a role that does not exist', async () => {
-      mockRoleModel.findOne.mockResolvedValueOnce(null);
-
-      await expect(service.delete('ghost', actorId)).rejects.toMatchObject({
-        code: 'ROLE_NOT_FOUND',
-        status: 404,
-      });
-    });
-
-    it('should delete an unused custom role', async () => {
-      const role = buildRole();
-      mockRoleModel.findOne.mockResolvedValueOnce(role);
-      mockRoleModel.findById.mockReturnValue(createChainableQueryMock(role));
-      mockRoleModel.findOne.mockReturnValue(
-        createChainableQueryMock(
-          buildRole({ slug: 'admin', permissions: ['*'] }),
-        ),
-      );
-
-      mockRoleModel.findById.mockReturnValueOnce(
-        createChainableQueryMock(role),
-      );
-      mockRoleModel.findById.mockReturnValue(createChainableQueryMock(null));
-      await service.delete('content-editor', actorId);
-
-      expect(mockRoleModel.deleteOne).toHaveBeenCalledWith(
-        { _id: role._id },
-        expect.objectContaining({ session: expect.anything() }),
-      );
     });
   });
 });

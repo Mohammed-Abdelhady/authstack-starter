@@ -1,3 +1,6 @@
+import { applicationSessionLimitCases } from './applications-session-limit-cases';
+import { browserPolicyReconcileCases } from './browser-policy-reconcile-cases';
+import { applicationPolicyCases } from './applications-policy-cases';
 import { TEST_NOW } from '../../frozen-clock';
 import {
   ADMIN_APPLICATION,
@@ -49,6 +52,9 @@ export function describeApplicationsContract(
     }, budgets.resetMs);
 
     applicationRegistryCases(current);
+    applicationPolicyCases(current);
+    applicationSessionLimitCases(current);
+    browserPolicyReconcileCases(current);
     reconciliationCases(current);
     applicationAccessCases(current);
     applicationStoreCases(current);

@@ -4,6 +4,7 @@ import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 /** The relying party an application's passkeys belong to. */
 export interface PasskeyRelyingParty {
   rpId: string;
+  requireUserVerification?: boolean;
   /** Exact origins its ceremonies may come from, never matched by suffix. */
   origins: readonly string[];
 }
@@ -18,12 +19,17 @@ export class NativeRelyingParties {
   constructor(private readonly epoch: AuthEpochService) {}
 
   of(clientId: string): PasskeyRelyingParty | null {
-    const signIn = this.epoch
+    const application = this.epoch
       .nativeApplications()
-      .find((application) => application.clientId === clientId)?.signIn;
+      .find((entry) => entry.clientId === clientId);
+    const signIn = application?.signIn;
     if (!signIn?.rpId || !signIn.origins?.length) {
       return null;
     }
-    return { rpId: signIn.rpId, origins: [...signIn.origins] };
+    return {
+      rpId: signIn.rpId,
+      origins: [...signIn.origins],
+      requireUserVerification: application?.requirePasskey === true,
+    };
   }
 }

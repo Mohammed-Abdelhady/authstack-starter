@@ -171,7 +171,7 @@ export function describePasswordCreationGate(): void {
       jest
         .spyOn(policy, 'assertMayCreate')
         .mockImplementation(async (request, work) => {
-          await assertMayCreate(request, work);
+          const audience = await assertMayCreate(request, work);
           if (!aborted) {
             aborted = true;
             throw Object.assign(new Error('Retryable creation check abort'), {
@@ -179,6 +179,7 @@ export function describePasswordCreationGate(): void {
               errorLabels: ['TransientTransactionError'],
             });
           }
+          return audience;
         });
 
       expect((await activate(code)).status).toBe(200);

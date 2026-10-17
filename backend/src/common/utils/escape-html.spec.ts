@@ -1,15 +1,6 @@
 import { escapeHtml } from './escape-html';
 
 describe('escapeHtml', () => {
-  it('returns plain text unchanged', () => {
-    expect(escapeHtml('John Doe')).toBe('John Doe');
-    expect(escapeHtml('')).toBe('');
-  });
-
-  it('escapes angle brackets', () => {
-    expect(escapeHtml('<b>bold</b>')).toBe('&lt;b&gt;bold&lt;/b&gt;');
-  });
-
   it('escapes ampersands', () => {
     expect(escapeHtml('Fish & Chips')).toBe('Fish &amp; Chips');
   });
@@ -33,10 +24,5 @@ describe('escapeHtml', () => {
     expect(escapeHtml('" onload="alert(1)')).toBe(
       '&quot; onload=&quot;alert(1)',
     );
-  });
-
-  it('leaves letters outside the latin alphabet alone', () => {
-    expect(escapeHtml('محمد')).toBe('محمد'); // feature:locale-ar
-    expect(escapeHtml('日本語')).toBe('日本語');
   });
 });

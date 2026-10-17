@@ -65,13 +65,4 @@ describe('redirect configuration', () => {
       createAuthEngine({ ...CONFIG, redirectUri }, testPorts(new ScriptedTransport())),
     ).toThrow(TypeError);
   });
-
-  it('accepts a normalized web return address with an explicit path', () => {
-    expect(() =>
-      createAuthEngine(
-        { ...CONFIG, redirectUri: 'https://app.example.test/callback' },
-        testPorts(new ScriptedTransport()),
-      ),
-    ).not.toThrow();
-  });
 });

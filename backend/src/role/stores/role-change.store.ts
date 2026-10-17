@@ -2,6 +2,7 @@ import { UnitOfWork } from '../../common/persistence/unit-of-work';
 import {
   HolderMove,
   HolderRevocation,
+  HolderSessionBump,
   MovedHolders,
   NewCustomRole,
   PendingSweep,
@@ -80,6 +81,11 @@ export abstract class RoleChangeStore {
   abstract moveHolders(
     unitOfWork: UnitOfWork,
     move: HolderMove,
+  ): Promise<MovedHolders>;
+  /** Adds one session version to the selected holders without moving roles. */
+  abstract bumpHolderSessions(
+    unitOfWork: UnitOfWork,
+    bump: HolderSessionBump,
   ): Promise<MovedHolders>;
   abstract appendHolderRevocations(
     unitOfWork: UnitOfWork,

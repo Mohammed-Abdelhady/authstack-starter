@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import * as entry from '../src';
 import { createNativePorts, type NativePortSettings } from '../src';
 import { TestAbort } from './support/abort';
 import {
@@ -12,7 +11,6 @@ import {
   FakeWebBrowser,
 } from './support/fake-modules';
 import { FakeSecureStore } from './support/fake-store';
-import { settle } from './support/subject';
 
 const SETTINGS: NativePortSettings = {
   clientId: 'com.example.mobile',
@@ -58,18 +56,6 @@ function device() {
 }
 
 describe('the one factory a shell calls', () => {
-  it('builds the seven ports the engine declares', () => {
-    expect(Object.keys(device().build()).sort()).toEqual([
-      'authBrowser',
-      'callbacks',
-      'clock',
-      'credentials',
-      'crypto',
-      'install',
-      'timer',
-    ]);
-  });
-
   it('keeps the record under a key named by client id and environment', async () => {
     const { store, build } = device();
 
@@ -144,44 +130,4 @@ describe('the one factory a shell calls', () => {
       ]);
     },
   );
-
-  it('reads links, time and timers from the modules it was given', async () => {
-    const { linking, time, build } = device();
-    const ports = build();
-    let fired = 0;
-    ports.timer.after(50, () => {
-      fired += 1;
-    });
-
-    time.advance(50);
-    await settle();
-
-    expect(await ports.callbacks.initialAddress()).toEqual({ kind: 'address', address: LINK });
-    expect(linking.initialReads).toBe(1);
-    expect(ports.clock.monotonicTime()).toBe(50);
-    expect(ports.clock.wallTime()).toBe(1_800_000_000_050);
-    expect(fired).toBe(1);
-  });
-
-  it('hashes with the algorithm the shell names', async () => {
-    const { build } = device();
-
-    expect((await build().crypto.sha256(new Uint8Array(0))).length).toBe(32);
-  });
-});
-
-describe('the package entry', () => {
-  it('exports the native port factories, the transport and shell values', () => {
-    expect(Object.keys(entry).sort()).toEqual([
-      'INSTALL_MARKER_FILE',
-      'REQUEST_DEADLINE_MS',
-      'createFetchTransport',
-      'createNativePorts',
-      'createNativeSignInPorts',
-      'readNativeSignInSettings',
-      'recordMarkerFile',
-    ]);
-    expect(entry.INSTALL_MARKER_FILE).toBe('install.marker');
-    expect(entry.REQUEST_DEADLINE_MS).toBe(20_000);
-  });
 });

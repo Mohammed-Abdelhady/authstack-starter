@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { MailDispatcherService } from '../../../../mail/mail-dispatcher.service';
@@ -103,6 +104,7 @@ export async function createHarness(): Promise<AccountLinkingHarness> {
     smtp: { from: 'security-notice@example.test' },
     mail: { maxPendingSends: 4, drainDeadlineMs: 250 },
   });
+  const browserApplications = browserApplicationsForTest(config);
   const userModel = {
     findById: jest.fn(),
     // The fence every unlink passes.
@@ -142,7 +144,7 @@ export async function createHarness(): Promise<AccountLinkingHarness> {
       // The switches at their defaults: password sign-in on, magic links off.
       {
         provide: AuthFeaturesService,
-        useValue: new AuthFeaturesService(config),
+        useValue: new AuthFeaturesService(config, browserApplications),
       },
       { provide: ConfigService, useValue: config },
       {

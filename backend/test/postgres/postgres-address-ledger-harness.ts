@@ -94,7 +94,7 @@ export async function bootPostgresAddressLedgerHarness(): Promise<AddressLedgerH
                WHERE datname = current_database()
                  AND pid <> pg_backend_pid()
                  AND wait_event_type = 'Lock'
-                 AND query LIKE '%insert into "address_claims"%'
+                 AND query LIKE '%"address_claims"%'
                  AND cardinality(pg_blocking_pids(pid)) > 0
             ) AS blocked
           `.execute(database);

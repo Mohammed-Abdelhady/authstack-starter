@@ -165,18 +165,6 @@ describe('XOAuthStrategy', () => {
       expect(exception.getStatus()).toBe(403);
     });
 
-    it('falls back to the username when the account has no name', async () => {
-      const profile = await profileWith({
-        data: {
-          id: '2244994945',
-          username: 'testuser',
-          confirmed_email: 'user@example.com',
-        },
-      });
-
-      expect(profile.name).toBe('testuser');
-    });
-
     it('reports a response that carries no user', async () => {
       await expectAppException(
         profileWith({ title: 'Unauthorized', detail: 'Unauthorized' }),

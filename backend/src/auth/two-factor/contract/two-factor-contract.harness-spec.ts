@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { generateSync } from 'otplib';
@@ -75,6 +76,10 @@ export class RecordingSignIn extends SecondFactorSignIn {
   /** When set, the next session issue fails with it. */
   failure: Error | undefined;
 
+  assertAdmission(_userId: string, _response: Response): Promise<void> {
+    return Promise.resolve();
+  }
+
   issueSession(
     account: SecondFactorAccount,
   ): Promise<AuthenticatedUserSummary> {
@@ -87,6 +92,7 @@ export class RecordingSignIn extends SecondFactorSignIn {
 }
 
 export interface TwoFactorServices {
+  browserApplications: ReturnType<typeof browserApplicationsForTest>;
   settings: TwoFactorService;
   login: TwoFactorLoginService;
   verification: TwoFactorVerificationService;
@@ -121,6 +127,7 @@ export function twoFactorServices(
   harness: TwoFactorContractHarness,
   verifiers: SecondFactorVerifier[] = [],
   keys: { current?: string; previous?: string } = {},
+  applications?: ReturnType<typeof browserApplicationsForTest>,
 ): TwoFactorServices {
   const config = new ConfigService({
     twoFactor: {
@@ -130,15 +137,23 @@ export function twoFactorServices(
     bcrypt: { rounds: BCRYPT_ROUNDS },
     NODE_ENV: 'test',
   });
+  const browserApplications =
+    applications ?? browserApplicationsForTest(config);
   const storeCalls: string[] = [];
   const accounts = recorded(harness.accounts, 'accounts', storeCalls);
   const challenges = recorded(harness.challenges, 'challenges', storeCalls);
   const crypto = new TotpSecretCryptoService(config);
   const verification = new TwoFactorVerificationService(accounts, crypto);
-  const challenge = new TwoFactorChallengeService(challenges, config, crypto);
+  const challenge = new TwoFactorChallengeService(
+    challenges,
+    config,
+    crypto,
+    browserApplications,
+  );
   const signIn = new RecordingSignIn();
 
   return {
+    browserApplications,
     settings: new TwoFactorService(
       accounts,
       crypto,
@@ -151,6 +166,7 @@ export function twoFactorServices(
       verification,
       signIn,
       verifiers,
+      browserApplications,
     ),
     verification,
     challenge,

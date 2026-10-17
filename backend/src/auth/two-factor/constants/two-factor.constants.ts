@@ -59,3 +59,8 @@ export const TWO_FACTOR_CHALLENGE_HKDF_INFO = 'mfa-challenge';
 
 /** Label the short name of an encryption key is derived under. */
 export const TWO_FACTOR_KEY_ID_HKDF_INFO = 'totp-key-id';
+
+export const SECOND_FACTOR_AUTHENTICATION_METHOD = {
+  TOTP: 'totp',
+  RECOVERY_CODE: 'recovery_code',
+} as const;

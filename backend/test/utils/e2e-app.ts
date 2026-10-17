@@ -1,3 +1,4 @@
+import { configureHttpApplication } from '../../src/common/security/configure-http-application';
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Server } from 'node:http';
@@ -7,13 +8,8 @@ import { join } from 'node:path';
 import { Test } from '@nestjs/testing';
 import { getStorageToken, ThrottlerStorageService } from '@nestjs/throttler';
 import { useContainer } from 'class-validator';
-import cookieParser from 'cookie-parser';
-import helmet from 'helmet';
 import * as bcrypt from 'bcrypt';
 import type request from 'supertest';
-import { browserCors } from '../../src/common/security/browser-cors';
-import { DEVELOPMENT_CONTENT_SECURITY_POLICY } from '../../src/common/security/content-security-policy';
-import { createValidationPipe } from '../../src/common/pipes/validation-pipe.factory';
 import { Clock } from '../../src/common/services/clock';
 import {
   SEED_ADMIN,
@@ -35,6 +31,25 @@ export { browserAgent, loginAs } from './e2e-sign-in';
 export type HttpServer = Server;
 export type TestAgent = ReturnType<typeof request.agent>;
 export const E2E_CLIENT_URL = 'http://127.0.0.1:3107';
+const SEED_CREDENTIALS = [SEED_ADMIN, SEED_MANAGER, SEED_SUPPORT, SEED_USER];
+
+function fixturePassword(email: string): string {
+  const credential = SEED_CREDENTIALS.find((item) => item.email === email);
+  if (!credential) {
+    throw new Error('Seeded E2E accounts require an explicit test credential.');
+  }
+  return credential.password;
+}
+
+const BROWSER_POLICY_ENV_KEYS = [
+  'ADMIN_URL',
+  'AUTH_NATIVE_LINK_HOST',
+  'AUTH_WEB_ENABLED',
+  'AUTH_WEB_SIGN_IN',
+  'AUTH_ADMIN_SIGN_IN',
+  'AUTH_WEB_SESSION',
+  'AUTH_ADMIN_SESSION',
+];
 
 export interface E2eApp {
   app: INestApplication;
@@ -67,6 +82,8 @@ export interface BootE2eAppOptions {
   throttleTtl?: number;
   /** Called with the application once it is built and before it starts. */
   beforeStart?: (app: INestApplication) => void;
+  /** Mount routes after the real HTTP boundary and before application startup. */
+  afterHttpSetup?: (app: INestApplication) => void;
 }
 
 /** Owns its database and starts configuration outside the developer's env directory. */
@@ -158,6 +175,7 @@ export async function bootE2eApp(
   };
 
   try {
+    for (const key of BROWSER_POLICY_ENV_KEYS) delete process.env[key];
     Object.assign(process.env, environment);
     const { AppModule } = await withTemporaryWorkingDirectory(
       fixtureDirectory,
@@ -205,34 +223,25 @@ export async function bootE2eApp(
     app = nestApp;
     options.beforeStart?.(nestApp);
     useContainer(nestApp.select(AppModule), { fallbackOnErrors: true });
-    nestApp.setGlobalPrefix('api', { exclude: ['health'] });
-    nestApp.use(
-      helmet({
-        contentSecurityPolicy: DEVELOPMENT_CONTENT_SECURITY_POLICY,
-        crossOriginEmbedderPolicy: false,
-      }),
-    );
-    nestApp.use(cookieParser());
-    nestApp.enableCors(browserCors(environment.CLIENT_URL));
-    nestApp.useGlobalPipes(createValidationPipe());
+    configureHttpApplication(nestApp);
+    options.afterHttpSetup?.(nestApp);
     await nestApp.init();
     await reconcileStartupApplications(nestApp);
     await nestApp.listen(port, '127.0.0.1');
     const stored = await storage.attach(nestApp);
     const roleSeed =
       nestApp.get<InstanceType<typeof RoleSeedService>>(RoleSeedService);
-    const credentials = [SEED_ADMIN, SEED_MANAGER, SEED_SUPPORT, SEED_USER];
-    const fixtures = await Promise.all(
-      SEED_USER_DEFINITIONS.map(async (user) => ({
-        ...user,
-        permissions: [...user.permissions],
-        isVerified: true,
-        password: await bcrypt.hash(
-          credentials.find((item) => item.email === user.email)!.password,
-          4,
-        ),
-      })),
-    );
+    const fixtures =
+      options.seedUsers === false
+        ? []
+        : await Promise.all(
+            SEED_USER_DEFINITIONS.map(async (user) => ({
+              ...user,
+              permissions: [...user.permissions],
+              isVerified: true,
+              password: await bcrypt.hash(fixturePassword(user.email), 4),
+            })),
+          );
     const throttleStorage =
       nestApp.get<ThrottlerStorageService>(getStorageToken());
     const { MailDispatcherService } =

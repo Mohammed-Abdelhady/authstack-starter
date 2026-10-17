@@ -54,6 +54,13 @@ export class AuthorizationTransaction {
   @Prop({ type: [String], default: [] })
   authenticationMethods!: string[];
 
+  @Prop({ type: Boolean })
+  userVerified?: boolean;
+
+  /** When the approving browser session signed in. Absent for an approval in the app. */
+  @Prop({ type: Date })
+  authenticatedAt?: Date;
+
   @Prop()
   codeHash?: string;
 

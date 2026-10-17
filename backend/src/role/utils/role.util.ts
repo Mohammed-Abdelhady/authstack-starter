@@ -119,6 +119,7 @@ export function resolveRoleLevel(role: RoleLevelSource): number {
 export function mapRoleToResponseDto(role: StoredRole): RoleResponseDto {
   return {
     id: role.id,
+    audience: role.audience,
     name: role.name,
     slug: role.slug,
     description: role.description,
@@ -128,5 +129,6 @@ export function mapRoleToResponseDto(role: StoredRole): RoleResponseDto {
     permissions: role.permissions,
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
+    version: role.version ?? 0,
   };
 }

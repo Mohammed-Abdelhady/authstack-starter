@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { Model, Types } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -56,6 +57,7 @@ describe('revoke all other sessions (plan S1)', () => {
         user._id,
         'Mozilla/5.0',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       return { userId: user._id, token: issued.sessionToken };
     } catch (error) {
@@ -85,6 +87,7 @@ describe('revoke all other sessions (plan S1)', () => {
       first.userId,
       'second',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const secondToken = second.sessionToken;
     expect(await harness.sessionService.invalidateSession(first.token)).toBe(
@@ -116,6 +119,7 @@ describe('revoke all other sessions (plan S1)', () => {
           kept.userId,
           agent,
           '127.0.0.1',
+          WEB_CLIENT_ID,
         );
         return issued.sessionToken;
       }),
@@ -180,6 +184,7 @@ describe('revoke all other sessions (plan S1)', () => {
       first.userId,
       'other',
       '127.0.0.1',
+      WEB_CLIENT_ID,
     );
     const other = otherIssued.sessionToken;
     await harness.sessionService.invalidateAllSessionsExceptSession(

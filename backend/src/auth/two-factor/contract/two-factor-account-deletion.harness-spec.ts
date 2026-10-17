@@ -1,9 +1,7 @@
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { AccountsContractHarness } from '../../../../test/utils/user/accounts-contract/accounts-contract-harness';
-import {
-  seedAccountsFixture,
-  servicesOn,
-} from '../../../../test/utils/user/accounts-contract/accounts-contract-support';
+import { seedAccountsFixture } from '../../../../test/utils/user/accounts-contract/accounts-contract-fixture';
+import { servicesOn } from '../../../../test/utils/user/accounts-contract/accounts-contract-support';
 import { SecondFactorStore } from '../stores/second-factor.store';
 
 /** The account stores of one database, and its second factor store beside them. */

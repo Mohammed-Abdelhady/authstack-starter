@@ -23,11 +23,23 @@ export abstract class AccountSessions {
 
   /**
    * Ends every session but one. Refuses with SESSION_INVALID when the session
-   * to keep is not a live session of this account.
+   * to keep is not a live session of this account. Without a reason the event
+   * carries `all_other`, as when the person signs out everywhere else.
    */
   abstract revokeAllExcept(
     unitOfWork: UnitOfWork,
     userId: string,
     keptSessionId: string,
+    reasonCode?: string,
   ): Promise<number>;
+
+  /**
+   * Refuses with SESSION_INVALID unless the session is a live session of the
+   * account, read in the caller's unit of work.
+   */
+  abstract assertLive(
+    unitOfWork: UnitOfWork,
+    userId: string,
+    sessionId: string,
+  ): Promise<void>;
 }

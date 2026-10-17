@@ -5,7 +5,6 @@ import { firstProviderSignInCases } from './linked-accounts-contract-first-sign-
 import { providerSignInServiceCases } from './linked-accounts-contract-provider-sign-in.harness-spec';
 import { unlinkHintCases } from './linked-accounts-contract-hints.harness-spec';
 import { lastWayInCases } from './linked-accounts-contract-last-way.harness-spec';
-import { primaryHintCases } from './linked-accounts-contract-primary.harness-spec';
 import { profileSyncCases } from './linked-accounts-contract-sync.harness-spec';
 import {
   LinkedAccountsContractHarness,
@@ -58,7 +57,6 @@ export function describeLinkedAccountsContract(
     linkedAccountCases(current, seeded);
     lastWayInCases(current, seeded);
     unlinkHintCases(current);
-    primaryHintCases(current);
     emailSignInHintCases(current);
     profileSyncCases(current, seeded);
     firstProviderSignInCases(current, seeded);

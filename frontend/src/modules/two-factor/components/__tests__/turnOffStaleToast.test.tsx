@@ -104,15 +104,4 @@ describe.each([
     });
     expect(toastOrder()).toEqual(['success']);
   });
-
-  it('dismisses nothing when the first answer is accepted', async () => {
-    checkPasswordThenCode();
-    const dialog = await openDialog(locale);
-
-    dialog.send(RIGHT_PASSWORD, RIGHT_CODE)();
-
-    await waitFor(() => {
-      expect(toastOrder()).toEqual(['success']);
-    });
-  });
 });

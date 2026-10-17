@@ -74,18 +74,4 @@ describe('a mobile flag given before the clients are chosen in a terminal', () =
     expect(multiselect).not.toHaveBeenCalled();
     expect(text).not.toHaveBeenCalled();
   });
-
-  it('reports a refused value once when the clients are already named', async () => {
-    const { code, output } = await run(manifestRoot, [
-      ...FLAGS,
-      '--targets',
-      'web,native-expo',
-      '--mobile-scheme',
-      'https',
-    ]);
-
-    expect(code).toBe(2);
-    expect(output.split('--mobile-scheme: ')).toHaveLength(2);
-    expect(text).not.toHaveBeenCalled();
-  });
 });

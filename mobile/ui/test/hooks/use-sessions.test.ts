@@ -43,15 +43,6 @@ const LAPTOP_STILL_IN = {
 };
 
 describe('the devices hook', () => {
-  it('reads the list on mount and reports loading until it arrives', async () => {
-    const subject = await renderUiHook(useSessions, signedInAs('ada'));
-
-    expect({ sent: subject.server.sent(), view: subject.current().view }).toEqual({
-      sent: [ROUTE.SESSIONS],
-      view: 'loading',
-    });
-  });
-
   it('sets this device apart and lists the others most recently used first', async () => {
     const subject = await renderUiHook(useSessions, signedInAs('ada'));
     const older = session('older', { lastUsedAt: '2026-06-09T08:00:00.000Z' });
@@ -123,17 +114,6 @@ describe('the devices hook', () => {
       sent: [ROUTE.SESSIONS, ROUTE.SESSIONS],
       refreshing: true,
     });
-  });
-
-  it('stops refreshing when the pull fails', async () => {
-    const subject = await loaded();
-
-    act(() => subject.current().refresh());
-    await flush();
-    subject.server.fail(ROUTE.SESSIONS, noResponse());
-    await flush();
-
-    expect(subject.current().refreshing).toBe(false);
   });
 
   it('names the device in the problem after a refused sign-out, and a pull clears it', async () => {

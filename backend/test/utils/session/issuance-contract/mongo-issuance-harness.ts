@@ -1,3 +1,6 @@
+import { MongoDeviceNoticeStore } from '../../../../src/session/persistence/mongo/mongo-device-notice.store';
+import { EventRecorder } from '../../../../src/auth/contracts/event-recorder';
+import { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AuthEpochService } from '../../../../src/common/services/auth-epoch.service';
@@ -61,16 +64,26 @@ export async function bootMongoIssuance(
 
   const harness: IssuanceContractHarness = {
     clock,
+    devices: new MongoDeviceNoticeStore(users),
+    setNoticeRecipient: async (userId, email) => {
+      await users.updateOne(
+        { _id: userId },
+        { $set: { email, isVerified: true } },
+      );
+    },
     store,
     applications: issuanceApplications,
     runner,
-    service: (pause) =>
+    service: (pause, notices) =>
       new SessionIssuanceService(
         runner(pause),
         store,
         issuanceApplications,
         clock,
         authEpoch,
+        app.get(EventRecorder),
+        app.get(EnrolmentStore),
+        notices,
       ),
 
     seedAccount: async (options) => {
@@ -82,6 +95,7 @@ export async function bootMongoIssuance(
         isVerified: true,
         sessionVersion: 0,
         isDeleted: options?.deleted ?? false,
+        audience: options?.audience,
       });
       return user._id.toString();
     },
@@ -95,10 +109,16 @@ export async function bootMongoIssuance(
             clientType: CLIENT_TYPES[application.clientId] ?? 'public',
             enabled: application.enabled,
             sessionVersion: application.sessionVersion,
+            policyVersion: application.policyVersion ?? 0,
+            requirePasskey: application.requirePasskey ?? false,
+            sessionCap: application.sessionCap ?? null,
+            accountAudience: application.accountAudience ?? null,
             allowedScopes: ['api'],
             policy: {
               absoluteLifetimeMs: application.absoluteLifetimeMs,
               idleLifetimeMs: application.idleLifetimeMs,
+              unboundAbsoluteLifetimeMs: application.unboundAbsoluteLifetimeMs,
+              unboundIdleLifetimeMs: application.unboundIdleLifetimeMs,
             },
           },
         },
@@ -113,6 +133,12 @@ export async function bootMongoIssuance(
         sessionVersion: 1,
         issuanceFence: 0,
       });
+    },
+    setSessionProofKey: async (sessionId, thumbprint) => {
+      await sessions.updateOne(
+        { _id: new Types.ObjectId(sessionId) },
+        { $set: { proofKeyThumbprint: thumbprint } },
+      );
     },
     revokeOneSession: async (userId) => {
       await sessions.updateOne(
@@ -151,6 +177,9 @@ export async function bootMongoIssuance(
         userVersion: session.userVersion,
         clientVersion: session.clientVersion,
         grantVersion: session.grantVersion,
+        authenticationMethods: session.authenticationMethods,
+        userVerified: session.userVerified,
+        policyVersion: session.policyVersion,
         deviceName: session.deviceName ?? null,
         device: session.device ?? null,
         authenticatedAt: session.authenticatedAt,
@@ -176,6 +205,7 @@ export async function bootMongoIssuance(
         .exec();
       return stored.map((event) => ({
         action: event.action,
+        outcome: event.outcome,
         targetUserId: event.targetUserId ?? null,
         clientId: event.clientId ?? null,
         sessionId: event.sessionId ?? null,

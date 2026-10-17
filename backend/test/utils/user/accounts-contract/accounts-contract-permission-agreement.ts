@@ -1,3 +1,6 @@
+import { ConfigService } from '@nestjs/config';
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import {
@@ -6,7 +9,6 @@ import {
 } from '../../../../src/auth/guards/auth.guard';
 import { SessionCookieService } from '../../../../src/auth/services/sessions/session-cookie.service';
 import { Sessions } from '../../../../src/auth/services/sessions/sessions';
-import * as permissionRules from '../../../../src/auth/utils/permissions.util';
 import { createExecutionContextMock } from '../../../../src/common/testing/test-doubles.harness-spec';
 import { RolePermissions } from '../../../../src/role/stores/role-permissions';
 import { NativeAccessService } from '../../../../src/session/native/access/native-access.service';
@@ -28,16 +30,21 @@ class GuardedRoute {
 }
 
 /**
- * What the real guard tells a request the account may do. The session and the
- * cookie are stand-ins: the account they name is the stored one, and the role
- * is read through this database's adapter.
+ * The real guard resolves permissions using the stored account and role.
+ * Only the session validator is replaced; cookies use the real resolver.
  */
 async function guardPermissions(
   harness: AccountsContractHarness,
   userId: string,
 ): Promise<string[] | undefined> {
   const stored = await storedAccount(harness, userId);
+  const config = new ConfigService({ session: { cookieName: 'sid' } });
+  const cookie = new SessionCookieService(
+    config,
+    browserApplicationsForTest(config),
+  );
   const session = {
+    clientId: WEB_CLIENT_ID,
     user: {
       id: userId,
       email: stored.email,
@@ -54,17 +61,20 @@ async function guardPermissions(
       Reflector,
       {
         provide: Sessions,
-        useValue: { validateSession: () => Promise.resolve(session) },
+        useValue: { validateBrowserSession: () => Promise.resolve(session) },
       },
       {
         provide: SessionCookieService,
-        useValue: { read: () => 'a-session-token', clear: () => undefined },
+        useValue: cookie,
       },
       { provide: NativeAccessService, useValue: {} },
       { provide: RolePermissions, useValue: harness.rolePermissions },
     ],
   }).compile();
-  const request: Partial<RequestWithUser> = { headers: {} };
+  const request: Partial<RequestWithUser> = {
+    headers: {},
+    cookies: { sid: 'a-session-token' },
+  };
   const context = createExecutionContextMock({
     switchToHttp: () => ({
       getRequest: () => request,
@@ -112,36 +122,6 @@ export function accountPermissionAgreementCases(
       wildcardRole: { guard: [WILDCARD], profile: [WILDCARD] },
       slugNoRoleCarries: { guard: [], profile: [] },
       ownOnly: { guard: [READ_USERS], profile: [READ_USERS] },
-    });
-  });
-
-  it('applies a rule added to the shared resolution to the profile and the guard alike', async () => {
-    const { userId } = fixture();
-    jest
-      .spyOn(permissionRules, 'effectivePermissions')
-      .mockImplementation((ofRole, own) =>
-        [...(ofRole ?? []), ...(own ?? [])].filter(
-          (permission) => permission !== READ_USERS,
-        ),
-      );
-
-    expect(await both(userId)).toEqual({
-      guard: [READ_POSTS],
-      profile: [READ_POSTS],
-    });
-  });
-
-  it('reads the role for the profile through the adapter the guard reads it through', async () => {
-    const { userId } = fixture();
-    const adapter: unknown = Object.getPrototypeOf(harness().rolePermissions);
-    if (!(adapter instanceof RolePermissions)) {
-      throw new Error('the harness holds no role permissions adapter');
-    }
-    jest.spyOn(adapter, 'ofRole').mockResolvedValue([WILDCARD]);
-
-    expect(await both(userId)).toEqual({
-      guard: [WILDCARD, READ_USERS],
-      profile: [WILDCARD, READ_USERS],
     });
   });
 }

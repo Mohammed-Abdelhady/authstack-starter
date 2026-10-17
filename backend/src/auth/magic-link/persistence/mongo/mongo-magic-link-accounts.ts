@@ -1,3 +1,5 @@
+import { assertMongoAccountAudience } from '../../../../user/persistence/mongo/mongo-account-audience';
+import { UserRole } from '../../../../user/enums/user-role.enum';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Response } from 'express';
@@ -13,7 +15,8 @@ import {
   UserDocument,
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { singleStatement } from '../../../../common/persistence/mongo/mongo-unique-conflict';
-import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
+import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor';
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
   LinkRecipient,
@@ -112,6 +115,12 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
     unitOfWork: UnitOfWork,
     account: NewPasswordlessAccount,
   ): Promise<MagicLinkAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     try {
       const user = await this.userModel.create(
         [
@@ -122,6 +131,7 @@ export class MongoMagicLinkAccounts extends MagicLinkAccounts {
             authProvider: AuthProvider.EMAIL,
             primaryProvider: AuthProvider.EMAIL,
             locale: account.locale,
+            audience: account.audience,
           },
         ],
         { session: mongoSessionOf(unitOfWork) },
@@ -148,6 +158,20 @@ export class MongoMagicLinkSignIn extends MagicLinkSignIn {
     super();
   }
 
+  assertAdmission(
+    account: MagicLinkAccount,
+    response: Response,
+  ): Promise<void> {
+    return this.signInService.assertAdmission(account.id, response);
+  }
+
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.signInService.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    );
+  }
+
   complete(
     account: MagicLinkAccount,
     response: Response,
@@ -155,7 +179,7 @@ export class MongoMagicLinkSignIn extends MagicLinkSignIn {
     return this.signInService.completeSignIn(
       documentOf(account),
       response,
-      FIRST_FACTOR.MAGIC_LINK, // feature:totp
+      FIRST_FACTOR.MAGIC_LINK,
     );
   }
 }

@@ -68,11 +68,28 @@ describe('native email-link lifecycle contract', () => {
     return { token, attemptId, state };
   }
 
+  function assertNativeCreationPolicy(
+    calls: SwitchableAccountCreationPolicy['calls'],
+  ): void {
+    const observed = calls.find(
+      ({ request }) =>
+        request.application === NATIVE_CLIENT_ID &&
+        request.method === ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    );
+    expect(observed?.request).toEqual({
+      application: NATIVE_CLIENT_ID,
+      method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    });
+    expect(observed?.unitOfWork).toBeInstanceOf(UnitOfWork);
+  }
+
   it('hands the mailed URI through its attempt and verifies the exact token and state', async () => {
     const attempt = await startLifecycleAttempt(e2e, 'signIn');
     const email = 'native-link@example.test';
     const requested = await requestLink(attempt, email).expect(200);
     expect(parseLifecycleResult(requested).stage).toBe('emailLinkSent');
+    assertNativeCreationPolicy(policy.calls);
+    const requestPolicyCalls = policy.calls.length;
     await e2e.captureMail();
 
     const mailed = nativeTokenFromMail();
@@ -94,12 +111,7 @@ describe('native email-link lifecycle contract', () => {
     expect(consumed.details.emailTokenHash).toBeNull();
     expect(consumed.details.verifiedAccount?.firstFactor).toBe('emailLink');
     expect(await e2e.state.accounts.accountIdFor(email)).not.toBeNull();
-    expect(policy.calls).toHaveLength(1);
-    expect(policy.calls[0].request).toEqual({
-      application: NATIVE_CLIENT_ID,
-      method: ACCOUNT_CREATION_METHOD.MAGIC_LINK,
-    });
-    expect(policy.calls[0].unitOfWork).toBeInstanceOf(UnitOfWork);
+    assertNativeCreationPolicy(policy.calls.slice(requestPolicyCalls));
   });
 
   it.each(['policy', 'live-claim'])(
@@ -108,6 +120,8 @@ describe('native email-link lifecycle contract', () => {
       const attempt = await startLifecycleAttempt(e2e, 'signIn');
       const email = 'native-link-policy-refused@example.test';
       await requestLink(attempt, email).expect(200);
+      assertNativeCreationPolicy(policy.calls);
+      const requestPolicyCalls = policy.calls.length;
       await e2e.captureMail();
       const mailed = nativeTokenFromMail();
       const before = await storedAttempt(e2e, attempt);
@@ -131,7 +145,7 @@ describe('native email-link lifecycle contract', () => {
           ? ErrorCode.ACCOUNT_CREATION_REFUSED
           : ErrorCode.MAGIC_LINK_INVALID,
       );
-      expect(policy.calls).toHaveLength(1);
+      assertNativeCreationPolicy(policy.calls.slice(requestPolicyCalls));
       expect(await e2e.state.accounts.accountIdFor(email)).toBeNull();
       expect(await e2e.state.auth.countAddressClaims(email)).toBe(
         mode === 'policy' ? 0 : 1,
@@ -144,7 +158,7 @@ describe('native email-link lifecycle contract', () => {
     },
   );
 
-  it('signs an existing account in while account creation is refused without asking the policy', async () => {
+  it('signs an existing account in while creation is refused without applying it to verification', async () => {
     const email = 'native-link-existing@example.test';
     const account = await e2e.state.accounts.createAccount({
       email,
@@ -154,6 +168,8 @@ describe('native email-link lifecycle contract', () => {
     policy.refused = true;
     const attempt = await startLifecycleAttempt(e2e, 'signIn');
     await requestLink(attempt, email).expect(200);
+    assertNativeCreationPolicy(policy.calls);
+    const requestPolicyCalls = policy.calls.length;
     await e2e.captureMail();
     const mailed = nativeTokenFromMail();
 
@@ -166,7 +182,7 @@ describe('native email-link lifecycle contract', () => {
       stage: 'consentRequired',
       account: { id: account._id },
     });
-    expect(policy.calls).toEqual([]);
+    expect(policy.calls.slice(requestPolicyCalls)).toEqual([]);
     expect(await e2e.state.auth.countAccountsWithAddress(email)).toBe(1);
   });
 

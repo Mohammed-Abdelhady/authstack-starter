@@ -1,11 +1,14 @@
 /**
  * Why a pending code record exists. A sign-up record builds an account when
  * its code is used; an email-change record only verifies a new address on an
- * account that already exists. The two never share a record or a code.
+ * account that already exists. The two never share a record or a code. A
+ * change the account holder asked for has a purpose of its own, so only the
+ * holder's session confirms it and the routes for staff changes never do.
  */
 export const PENDING_PURPOSE = {
   SIGNUP: 'signup',
   EMAIL_CHANGE: 'email-change',
+  OWN_EMAIL_CHANGE: 'own-email-change',
 } as const;
 
 export type PendingPurpose =
@@ -13,6 +16,15 @@ export type PendingPurpose =
 
 export const PENDING_PURPOSES: PendingPurpose[] =
   Object.values(PENDING_PURPOSE);
+
+/** The purposes whose code moves an account to the address it was mailed to. */
+export type EmailChangePurpose =
+  typeof PENDING_PURPOSE.EMAIL_CHANGE | typeof PENDING_PURPOSE.OWN_EMAIL_CHANGE;
+
+export const EMAIL_CHANGE_PURPOSES: ReadonlySet<PendingPurpose> = new Set([
+  PENDING_PURPOSE.EMAIL_CHANGE,
+  PENDING_PURPOSE.OWN_EMAIL_CHANGE,
+]);
 
 /**
  * Every kind of mail one address may receive that carries a per-address cap.
@@ -22,6 +34,7 @@ export const PENDING_PURPOSES: PendingPurpose[] =
 export const MAIL_COUNTER_PURPOSE = {
   SIGNUP: PENDING_PURPOSE.SIGNUP,
   EMAIL_CHANGE: PENDING_PURPOSE.EMAIL_CHANGE,
+  OWN_EMAIL_CHANGE: PENDING_PURPOSE.OWN_EMAIL_CHANGE,
   NOTICE: 'notice',
   PASSWORD_RESET: 'password-reset',
   MAGIC_LINK: 'magic-link', // feature:magic-link

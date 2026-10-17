@@ -6,7 +6,11 @@ import {
   UserDocument,
 } from '../../../user/persistence/mongo/schemas/user.schema';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
-import { ADDRESS_CLAIM_RESULT, AddressLedger } from '../address-ledger';
+import {
+  ADDRESS_CLAIM_KIND,
+  ADDRESS_CLAIM_RESULT,
+  AddressLedger,
+} from '../address-ledger';
 import { storedAddress } from '../stored-address';
 import {
   AddressClaimInput,
@@ -43,7 +47,13 @@ export class MongoAddressLedger extends AddressLedger {
         .findOneAndUpdate(
           {
             _id: address,
-            $or: [{ lapsesAt: { $lte: input.now } }, { owner: input.owner }],
+            $or: [
+              { lapsesAt: { $lte: input.now } },
+              { owner: input.owner },
+              ...(input.replaceOwnEmailChange
+                ? [{ kind: ADDRESS_CLAIM_KIND.OWN_EMAIL_CHANGE }]
+                : []),
+            ],
           },
           {
             $set: {
@@ -102,6 +112,7 @@ export class MongoAddressLedger extends AddressLedger {
       .exec();
   }
 
+  /** Both reads run on every path, so a held address answers no sooner. */
   async isFree(uow: UnitOfWork, input: AddressAvailability): Promise<boolean> {
     const session = mongoSessionOf(uow);
     const address = storedAddress(input.address);
@@ -111,16 +122,18 @@ export class MongoAddressLedger extends AddressLedger {
       .session(session)
       .lean()
       .exec();
-    if (account) return false;
     const claim = await this.claims
       .findOne({
         _id: address,
         lapsesAt: { $gt: input.now },
+        ...(input.forRegistration
+          ? { kind: { $ne: ADDRESS_CLAIM_KIND.OWN_EMAIL_CHANGE } }
+          : {}),
         ...(input.owner === undefined ? {} : { owner: { $ne: input.owner } }),
       })
       .session(session)
       .lean()
       .exec();
-    return claim === null;
+    return account === null && claim === null;
   }
 }

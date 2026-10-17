@@ -1,3 +1,7 @@
+import { issuanceDeviceNoticeCases } from './issuance-device-notice-cases';
+import { issuanceSessionLimitCases } from './issuance-contract-session-limits';
+import { issuancePasskeyCases } from './issuance-contract-passkeys';
+import { issuanceAudienceCases } from './issuance-contract-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { issuanceAccountReadCases } from './issuance-contract-account-read';
 import { issuanceAtomicityCases } from './issuance-contract-atomicity';
@@ -44,6 +48,10 @@ export function describeBrowserIssuanceContract(
       await current().seedApplication(ADMIN_APPLICATION);
     }, budgets.resetMs);
 
+    issuanceDeviceNoticeCases(current);
+    issuanceAudienceCases(current);
+    issuancePasskeyCases(current);
+    issuanceSessionLimitCases(current);
     issuanceRuleCases(current);
     issuanceSeamCases(current);
     issuanceAtomicityCases(current);

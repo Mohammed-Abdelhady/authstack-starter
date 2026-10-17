@@ -1,3 +1,5 @@
+import { NATIVE_PASSKEY_AUTHENTICATION_METHOD } from '../../../session/utils/authority/passkey-sign-in';
+import { USER_VERIFICATION } from '../../passkeys/constants/passkeys.constants';
 import { Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import type {
@@ -24,11 +26,10 @@ import {
   NativeRelyingParties,
   PasskeyRelyingParty,
 } from '../../passkeys/native/native-relying-parties';
-import { NativeAttemptStore } from '../stores/native-attempt.store';
-import {
-  NativeAttemptService,
-  operationGuardOf,
-} from '../services/native-attempt.service';
+import { NativeAttemptService } from '../services/native-attempt.service';
+import { NativeAttemptCompletionService } from '../services/native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -53,7 +54,8 @@ import { assertNativePolicy } from '../utils/native-policy.util';
 export class NativePasskeyService {
   constructor(
     private readonly attempts: NativeAttemptService,
-    private readonly store: NativeAttemptStore,
+    private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
     private readonly methods: NativeMethodsService,
     private readonly credentials: PasskeyStore,
     private readonly adapter: WebAuthnAdapter,
@@ -91,6 +93,9 @@ export class NativePasskeyService {
       const challenge = randomBytes(32).toString('base64url');
       const options = await this.adapter.createAuthenticationOptions({
         rpId: config.rpId,
+        ...(config.requireUserVerification || purpose === 'secondFactor'
+          ? { userVerification: USER_VERIFICATION.REQUIRED }
+          : {}),
         allowCredentials: descriptors.map((item) => ({
           id: item.credentialId,
           transports: item.transports,
@@ -108,7 +113,9 @@ export class NativePasskeyService {
         rpId: config.rpId,
         timeout: options.timeout,
         userVerification:
-          purpose === 'secondFactor' ? 'required' : options.userVerification,
+          config.requireUserVerification || purpose === 'secondFactor'
+            ? USER_VERIFICATION.REQUIRED
+            : options.userVerification,
         allowCredentials: descriptors.map((item) => ({
           type: 'public-key',
           id: item.credentialId,
@@ -131,6 +138,7 @@ export class NativePasskeyService {
     const purpose = this.purpose(current);
     const config = await this.config(current);
     const claimed = await this.attempts.claim(attemptId, secret, current.phase);
+    let targetUserId = claimed.details.verifiedAccount?.userId;
     try {
       const userId =
         purpose === 'secondFactor'
@@ -145,8 +153,9 @@ export class NativePasskeyService {
         throw wrongStage();
       if (!assertHandle(assertion.response.userHandle, passkey.userId, purpose))
         throw wrongStage();
+      targetUserId = passkey.userId;
       const account = await this.accounts.findProfile(passkey.userId);
-      if (!account || account.isDeleted) throw wrongStage();
+      if (!account) throw wrongStage();
       const verification = await this.adapter.verifyNativeAssertion(
         assertion,
         {
@@ -161,9 +170,13 @@ export class NativePasskeyService {
           origin: config.origins,
           rpId: config.rpId,
         },
+        config.requireUserVerification || purpose === 'secondFactor'
+          ? USER_VERIFICATION.REQUIRED
+          : undefined,
       );
       if (
         !verification ||
+        (config.requireUserVerification && !verification.userVerified) ||
         (passkey.counter > 0 && verification.newCounter <= passkey.counter)
       )
         throw wrongStage();
@@ -197,13 +210,18 @@ export class NativePasskeyService {
             await this.credentials.markUsed(live, at, work);
           }
           if (purpose === 'firstFactor') {
-            return this.attempts.completeFactorIn(work, claimed, {
-              userId: account.id,
-              userVersion: account.sessionVersion,
-              firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY,
-              authenticationMethods: ['hwk'],
-              passkeyUserVerified: verification.userVerified,
-            });
+            return this.attempts.completeFactorIn(
+              work,
+              claimed,
+              {
+                userId: account.id,
+                userVersion: account.sessionVersion,
+                firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSKEY,
+                authenticationMethods: [NATIVE_PASSKEY_AUTHENTICATION_METHOD],
+                passkeyUserVerified: verification.userVerified,
+              },
+              secret,
+            );
           }
           if (
             !verification.userVerified ||
@@ -221,35 +239,24 @@ export class NativePasskeyService {
             current.sessionVersion !== account.sessionVersion
           )
             throw wrongStage();
-          const transitioned = await this.store.transitionIn(
-            work,
-            operationGuardOf(claimed),
-            {
-              phase: NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED,
-              expiresAt: claimed.expiresAt,
-              details: {
-                ...claimed.details,
-                secondFactors: undefined,
-                passkeyChallengeHash: null,
-                passkeyPurpose: null,
-                verifiedAccount: {
-                  ...claimed.details.verifiedAccount,
-                  authenticationMethods: [
-                    ...claimed.details.verifiedAccount.authenticationMethods,
-                    'hwk',
-                  ],
-                },
-              },
-            },
-          );
-          if (!transitioned) throw wrongStage();
-          return transitioned;
+          return this.completion.afterLastFactorIn(work, claimed, {
+            method: NATIVE_PASSKEY_AUTHENTICATION_METHOD,
+            userVerified: true,
+            secret,
+          });
         },
       );
-      return this.attempts.view(result);
+      return this.attempts.viewAfter(result, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        wrongStage,
+        targetUserId,
+      );
+      throw refusal ?? error;
     }
   }
 

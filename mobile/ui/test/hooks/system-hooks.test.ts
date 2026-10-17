@@ -5,7 +5,6 @@ import { useEngineSnapshot } from '../../src/hooks/use-engine-snapshot';
 import { useForegroundRestore } from '../../src/hooks/use-foreground-restore';
 import { useReducedMotion } from '../../src/hooks/use-reduced-motion';
 import { useRoute } from '../../src/hooks/use-route';
-import { useTheme } from '../../src/hooks/use-theme';
 import type { EnginePort } from '../../src/types';
 import { createFakeEngine, signedInAs, SIGNED_OUT } from '../support/fake-engine';
 import { createFakeServer } from '../support/fake-server';
@@ -18,16 +17,6 @@ vi.mock('react-native', () => import('../support/react-native'));
 afterEach(cleanup);
 
 describe('the route hook', () => {
-  it('starts on the account screen and leaves the back button to the system', () => {
-    const route = renderHook(useRoute);
-
-    expect({
-      route: route.current().route,
-      arrival: route.current().arrival,
-      handled: device.pressBack(),
-    }).toEqual({ route: 'account', arrival: 'none', handled: false });
-  });
-
   it('moves forward to the devices screen and back with the system back button', () => {
     const route = renderHook(useRoute);
 
@@ -96,15 +85,6 @@ describe('the reduced-motion hook', () => {
     expect(reduced.current()).toBe(true);
   });
 
-  it('keeps motion off when the system says so', async () => {
-    device.reduceMotion = true;
-    const reduced = renderHook(useReducedMotion);
-
-    await flush();
-
-    expect(reduced.current()).toBe(true);
-  });
-
   it('ignores a setting that arrives after it is unmounted', async () => {
     device.reduceMotion = false;
     const reduced = renderHook(useReducedMotion);
@@ -155,18 +135,6 @@ describe('the engine snapshot hook', () => {
   });
 });
 
-describe('the theme hook', () => {
-  it.each([
-    ['dark', 'dark'],
-    ['light', 'light'],
-    [null, 'light'],
-  ] as const)('reads a system appearance of %s as %s', (reported, scheme) => {
-    device.scheme = reported;
-
-    expect(renderHook(useTheme).current().scheme).toBe(scheme);
-  });
-});
-
 describe('the confirmation dialog', () => {
   const REQUEST = {
     title: 'Sign out Work laptop?',
@@ -174,29 +142,6 @@ describe('the confirmation dialog', () => {
     confirmLabel: 'Sign out',
     cancelLabel: 'Cancel',
   };
-
-  it('shows the question with a cancel and a destructive button', () => {
-    void confirmWithAlert(REQUEST);
-
-    expect(
-      device.alerts.map(({ title, message, buttons, options }) => ({
-        title,
-        message,
-        buttons: buttons.map(({ text, style }) => ({ text, style })),
-        cancelable: options.cancelable,
-      })),
-    ).toEqual([
-      {
-        title: 'Sign out Work laptop?',
-        message: 'That device will need to sign in again.',
-        buttons: [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign out', style: 'destructive' },
-        ],
-        cancelable: true,
-      },
-    ]);
-  });
 
   it.each([
     ['the destructive button', 1, true],

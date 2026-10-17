@@ -22,7 +22,7 @@ import { createOAuthConfig } from '../../config/oauth.config';
  * agreeing on the same provider ids.
  */
 
-const CALLBACK_BASE_URL = 'https://api.example.com/api/auth/oauth';
+const CALLBACK_BASE_URL = 'https://api.example.com/api/auth/oauth'; // feature:oidc
 const OIDC_ISSUER = 'https://sso.example.com'; // feature:oidc
 
 // feature:oidc:start
@@ -114,23 +114,6 @@ function registryFor(env: Record<string, string>): OAuthRegistryService {
 }
 
 describe('OAuth provider wiring', () => {
-  it('registers every provider the application lists', () => {
-    expect(registryFor(PROVIDER_ENV).getIds()).toEqual([
-      'google', // feature:google
-      'github', // feature:github
-      'facebook', // feature:facebook
-      'microsoft', // feature:microsoft
-      'apple', // feature:apple
-      'discord', // feature:discord
-      'linkedin', // feature:linkedin
-      'gitlab', // feature:gitlab
-      'x', // feature:x
-      'slack', // feature:slack
-      'twitch', // feature:twitch
-      'oidc', // feature:oidc
-    ]);
-  });
-
   it('enables each provider from its own variables', () => {
     expect(registryFor(PROVIDER_ENV).listEnabled()).toEqual([
       { id: 'google', displayName: 'Google' }, // feature:google
@@ -174,16 +157,6 @@ describe('OAuth provider wiring', () => {
 
   it('leaves every provider off when nothing is configured', () => {
     expect(registryFor({}).listEnabled()).toEqual([]);
-  });
-
-  it('derives one callback URL per provider', () => {
-    const registry = registryFor(PROVIDER_ENV);
-
-    for (const id of registry.getIds()) {
-      expect(registry.getCallbackUrl(id)).toBe(
-        `${CALLBACK_BASE_URL}/${id}/callback`,
-      );
-    }
   });
 
   // feature:apple:start

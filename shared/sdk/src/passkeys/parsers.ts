@@ -71,6 +71,19 @@ function readSummary(value: unknown, field: string, status: number): PasskeySumm
   return {
     id: boundedString(summary.id, `${field}.id`, NATIVE_AUTH_LIMITS.ATTEMPT_ID, status),
     name: boundedLabel(summary.name, `${field}.name`, PASSKEY_NAME_MAX_UNITS, status),
+    ...(summary.canRemove === undefined
+      ? {}
+      : { canRemove: booleanValue(summary.canRemove, `${field}.canRemove`, status) }),
+    ...(summary.removalBlockedCode === undefined
+      ? {}
+      : {
+          removalBlockedCode: boundedString(
+            summary.removalBlockedCode,
+            `${field}.removalBlockedCode`,
+            NATIVE_AUTH_LIMITS.NAME,
+            status,
+          ),
+        }),
     ...(deviceType === undefined ? {} : { deviceType }),
     backedUp: booleanValue(summary.backedUp, `${field}.backedUp`, status),
     createdAt: isoDate(summary.createdAt, `${field}.createdAt`, status),

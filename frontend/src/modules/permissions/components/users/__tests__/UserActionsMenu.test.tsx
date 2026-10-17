@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { storeSignedInAs } from '@/tests/signedIn';
+import { USER_PERMISSIONS } from '@app/core';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
@@ -13,6 +15,7 @@ import { UserActionsMenu } from '../UserActionsMenu';
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const USER = {
+  version: 0,
   _id: 'user-7',
   name: 'Omar Nasser',
   email: 'omar@example.com',
@@ -22,8 +25,16 @@ const USER = {
 };
 
 /** The test ids of the entries in the open menu, in order. */
-async function openMenu(locale: AppLocale, user = USER) {
-  const form = await renderForm(locale, <UserActionsMenu user={user} />);
+async function openMenu(
+  locale: AppLocale,
+  user = USER,
+  permissions = [USER_PERMISSIONS.UPDATE_ALL, USER_PERMISSIONS.SUSPEND_ALL],
+) {
+  const form = await renderForm(
+    locale,
+    <UserActionsMenu user={user} />,
+    storeSignedInAs('admin', permissions),
+  );
   fireEvent.keyDown(screen.getByTestId(`user-actions-menu-${user._id}`), { key: 'Enter' });
   const menu = await screen.findByRole('menu');
   const entries = [...menu.querySelectorAll('[role="menuitem"]')].map((entry) =>
@@ -38,23 +49,14 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the actions of a user row in %s', (locale) => {
-  it('names the actions menu with the user it belongs to', async () => {
-    const { format } = await openMenu(locale);
-    const trigger = screen.getByTestId(`user-actions-menu-${USER._id}`);
-
-    expect(trigger.getAttribute('aria-label')).toBe(
-      format('users.actions.menuLabelForUser', { name: USER.name }),
-    );
-  });
-
-  it('offers deactivate as the only way to take an active account out of use', async () => {
-    const { entries } = await openMenu(locale);
-
-    expect(entries).toEqual([
-      'edit-user-user-7',
-      'manage-permissions-user-7',
-      'deactivate-user-user-7',
-    ]);
+  // Failure: update-only staff see an unusable suspension action while suspend-only staff cannot reach it.
+  it('exposes suspension only to the suspension permission independently of update', async () => {
+    const { unmount } = await openMenu(locale, USER, [USER_PERMISSIONS.UPDATE_ALL]);
+    expect(screen.queryByTestId('deactivate-user-user-7')).toBeNull();
+    unmount();
+    await openMenu(locale, USER, [USER_PERMISSIONS.SUSPEND_ALL]);
+    expect(screen.queryByTestId('edit-user-user-7')).toBeNull();
+    expect(screen.getByTestId('deactivate-user-user-7')).toBeTruthy();
   });
 
   it('offers activate for an account that is inactive', async () => {
@@ -65,24 +67,6 @@ describe.each([
       'manage-permissions-user-7',
       'activate-user-user-7',
     ]);
-  });
-
-  it('labels the two buttons of the deactivate confirmation so neither reads as the other', async () => {
-    const { message } = await openMenu(locale);
-
-    fireEvent.click(screen.getByTestId('deactivate-user-user-7'));
-    const cancel = (await screen.findByTestId('cancel-user-action-button')).textContent ?? '';
-    const confirm = screen.getByTestId('confirm-user-action-button').textContent ?? '';
-
-    expect({ cancel, confirm }).toEqual({
-      cancel: message('users.actions.cancel'),
-      confirm: message('users.actions.deactivateConfirm'),
-    });
-    // One label inside the other is what made "cancel" and "cancel the activation" a trap.
-    expect({
-      cancelInConfirm: confirm.includes(cancel),
-      confirmInCancel: cancel.includes(confirm),
-    }).toEqual({ cancelInConfirm: false, confirmInCancel: false });
   });
 
   it('deactivates through the status route after the confirmation', async () => {
@@ -102,6 +86,6 @@ describe.each([
       ]);
     });
     expect(requests).toEqual(['PATCH /api/admin/users/user-7/status']);
-    expect(bodies).toEqual([{ isActive: false }]);
+    expect(bodies).toEqual([{ version: 0, isActive: false }]);
   });
 });

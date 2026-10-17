@@ -18,6 +18,7 @@ export function createHostAuthConfig(): HostAuthConfiguration {
   return {
     web: {
       enabled: process.env.AUTH_WEB_ENABLED !== 'false',
+      enabledExplicit: process.env.AUTH_WEB_ENABLED !== undefined,
       signIn: parseBrowserSignIn(
         process.env.AUTH_WEB_SIGN_IN,
         'AUTH_WEB_SIGN_IN',

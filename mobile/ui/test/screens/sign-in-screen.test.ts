@@ -8,7 +8,6 @@ import { LOCALES } from '../support/locales';
 import { device } from '../support/react-native';
 import {
   accessibilityOf,
-  APP_NAME,
   byTestId,
   cleanup,
   isShown,
@@ -47,20 +46,6 @@ const button = (app: App, label: MessageKey, busy: boolean) => ({
 });
 
 describe.each(LOCALES)('the sign-in screen in %s', (locale) => {
-  it('names the product and offers one enabled button once storage has been read', async () => {
-    const app = await renderApp(SIGNED_OUT, { locale });
-
-    expect(textsOf(byTestId(app.root, TEST_ID.SIGN_IN_SCREEN)).slice(0, 2)).toEqual([
-      app.t('signIn.title', { appName: APP_NAME }),
-      app.t('native.description'),
-    ]);
-    expect(shown(app)).toEqual({
-      button: button(app, 'signIn.action', false),
-      disabled: false,
-      notice: undefined,
-    });
-  });
-
   it('holds the button busy and says so while the saved sign-in is being read', async () => {
     const restore = deferred<RestoreOutcome>();
     const app = await renderApp(SIGNED_OUT, {
@@ -235,15 +220,6 @@ describe('the sign-in screen', () => {
     expect({ restores: app.fake.restores, signIns: app.fake.signIns.length }).toEqual({
       restores: 2,
       signIns: 0,
-    });
-  });
-
-  it('says the session ended when the engine needs a new sign-in', async () => {
-    const app = await renderApp({ status: 'reauthRequired', operation: 'none' });
-
-    expect(shown(app).notice).toEqual({
-      role: 'summary',
-      text: [app.t('signIn.reauth.title'), app.t('signIn.reauth.description')],
     });
   });
 

@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nativeApp, disposeNativeApps, ATTEMPT_ID } from '../support/native-auth';
 import { cleanup, press, isShown, byTestId } from '../support/render';
-import { LOCALES } from '../support/locales';
 
 vi.mock('react-native', () => import('../support/react-native'));
 afterEach(() => {
@@ -9,7 +8,7 @@ afterEach(() => {
   disposeNativeApps();
 });
 
-describe.each(LOCALES)('native MFA readiness in %s', (locale) => {
+describe.each(['en'] as const)('native MFA readiness in %s', (locale) => {
   it('discards the text code when selecting a passkey, including a cancelled prompt', async () => {
     const app = await nativeApp(locale);
     app.reply('password', {

@@ -1,5 +1,10 @@
+import { storePostgresNativeRegistration } from './postgres-native-registration';
+import { readPostgresNativeRequiredPasskey } from './postgres-native-required-passkey';
+import { hasPostgresAccountAudience } from './postgres-application-audience';
+import { storePostgresBrowserRegistration } from './postgres-browser-registration';
+import type { BrowserRegistration } from '../../applications/types/browser-registration';
 import { Kysely, sql } from 'kysely';
-import { RetryableAbortError } from '../../../common/persistence/persistence-errors';
+import { postgresApplicationPolicyFields } from './postgres-application-policy-fields';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import {
   ApplicationRegistryStore,
@@ -10,10 +15,7 @@ import {
   RegisteredClient,
   StoredRegistration,
 } from '../../applications/application-registry.store';
-import {
-  APPLICATION_CLIENT_TYPE,
-  APPLICATION_PLATFORM,
-} from '../../constants/client-ids';
+import { APPLICATION_PLATFORM } from '../../constants/client-ids';
 import { PostgresTables } from '../../../common/persistence/postgres/postgres-database';
 import {
   APPLICATION_COLUMNS,
@@ -69,6 +71,16 @@ function toRegisteredClient(
 export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
   constructor(private readonly database: Kysely<PostgresTables>) {
     super();
+  }
+
+  findNativeRequiredPasskey = (environment: string) =>
+    readPostgresNativeRequiredPasskey(this.database, environment);
+
+  hasAccountAudience(
+    unitOfWork: UnitOfWork,
+    environment: string,
+  ): Promise<boolean> {
+    return hasPostgresAccountAudience(unitOfWork, environment);
   }
 
   async readCommittedApplication(
@@ -162,6 +174,7 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
     registration: FirstPartyRegistration,
   ): Promise<void> {
     const configured = {
+      ...postgresApplicationPolicyFields(registration),
       display_name: registration.displayName,
       platform: registration.platform,
       client_type: registration.clientType,
@@ -232,73 +245,42 @@ export class PostgresApplicationRegistryStore extends ApplicationRegistryStore {
     );
     const rows = await transaction
       .selectFrom('applications')
-      .select([
-        'client_id',
-        'platform',
-        'client_type',
-        'enabled',
-        'redirect_uris',
-      ])
+      .select([...APPLICATION_COLUMNS, 'client_type', 'redirect_uris'])
       .where('client_id', '=', sql<string>`ANY(${clientIds})`)
       .where('environment', '=', environment)
       .execute();
-    return rows.map((row) => ({
-      clientId: row.client_id,
-      platform: row.platform,
-      clientType: row.client_type,
-      enabled: row.enabled,
-      redirectUris: row.redirect_uris,
-    }));
+    return rows.map((row) => {
+      const policy = toIssuanceApplication(row);
+      return {
+        clientId: row.client_id,
+        platform: row.platform,
+        clientType: row.client_type,
+        enabled: row.enabled,
+        redirectUris: row.redirect_uris,
+        allowedScopes: policy.allowedScopes,
+        signUp: policy.signUp,
+        requirePasskey: policy.requirePasskey,
+        signInMethods: policy.signInMethods,
+        accountAudience: policy.accountAudience,
+        policyVersion: policy.policyVersion,
+        sessionCap: policy.sessionCap,
+        policy: policy.policy,
+      };
+    });
   }
 
-  async storeNativeRegistration(
+  storeBrowserRegistration(
+    unitOfWork: UnitOfWork,
+    registration: BrowserRegistration,
+  ): Promise<void> {
+    return storePostgresBrowserRegistration(unitOfWork, registration);
+  }
+
+  storeNativeRegistration(
     unitOfWork: UnitOfWork,
     registration: NativeRegistration,
   ): Promise<void> {
-    const configured = {
-      display_name: registration.displayName,
-      enabled: true,
-      redirect_uris: registration.redirectUris,
-      allowed_origins: [],
-      audiences: registration.audiences,
-      allowed_scopes: registration.allowedScopes,
-      absolute_lifetime_ms: registration.policy.absoluteLifetimeMs,
-      idle_lifetime_ms: registration.policy.idleLifetimeMs,
-    };
-    const advance = registration.endsSessions ? 1 : 0;
-    const stored = await postgresTransactionOf(unitOfWork)
-      .insertInto('applications')
-      .values({
-        client_id: registration.clientId,
-        environment: registration.environment,
-        platform: APPLICATION_PLATFORM.NATIVE,
-        client_type: APPLICATION_CLIENT_TYPE.PUBLIC,
-        ...configured,
-      })
-      .onConflict((conflict) =>
-        conflict
-          .columns(['client_id', 'environment'])
-          .doUpdateSet((column) => ({
-            ...configured,
-            session_version: column(
-              'applications.session_version',
-              '+',
-              advance,
-            ),
-            updated_at: sql<Date>`now()`,
-          }))
-          .where('applications.platform', '=', APPLICATION_PLATFORM.NATIVE)
-          .where(
-            'applications.client_type',
-            '=',
-            APPLICATION_CLIENT_TYPE.PUBLIC,
-          ),
-      )
-      .returning('client_id')
-      .execute();
-    if (stored.length !== 1) {
-      throw new RetryableAbortError();
-    }
+    return storePostgresNativeRegistration(unitOfWork, registration);
   }
 
   async disableNativeApplicationsExcept(

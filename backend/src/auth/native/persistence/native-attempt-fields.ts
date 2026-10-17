@@ -18,6 +18,9 @@ export function nativeAttemptDetails(
           clientVersion: account.clientVersion,
           grantVersion: account.grantVersion,
           authenticationMethods: [...account.authenticationMethods],
+          ...(account.userVerified !== undefined
+            ? { userVerified: account.userVerified }
+            : {}),
           verifiedAt: account.verifiedAt,
           firstFactor: account.firstFactor,
         }

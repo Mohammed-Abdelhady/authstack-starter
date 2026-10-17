@@ -2,14 +2,35 @@ import ts from 'typescript';
 import { walk } from './account-creation-inventory-nodes.harness-spec';
 import {
   replaceInventoryCall,
+  replaceInventoryArgument,
+  replaceInventoryReceiver,
   scanAccountCreation,
 } from './account-creation-inventory-ast.harness-spec';
 import { expectedInventory } from './account-creation-inventory-expectations.harness-spec';
 
-export function ledgerInventoryCases(
+function parameterInventoryCases(documents: ReadonlyMap<string, string>): void {
+  it.each(
+    expectedInventory(new Set(documents.keys())).callers.filter(
+      (entry) => entry.boundary === 'parameter',
+    ),
+  )('requires a parameter-owned insert UOW in $file', ({ file, method }) => {
+    const mutated = replaceInventoryCall(
+      documents,
+      file,
+      method,
+      replaceInventoryArgument(0),
+    );
+    expect(scanAccountCreation(mutated).errors).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('insert UOW is not a function parameter'),
+      ]),
+    );
+  });
+}
+
+function reservationInventoryCases(
   documents: ReadonlyMap<string, string>,
 ): void {
-  // These mutations catch creators bypassing the address conflict point or leaking it.
   it.each([
     {
       method: 'reserveForAccount',
@@ -18,7 +39,7 @@ export function ledgerInventoryCases(
     },
     {
       method: 'reserveForAccount',
-      replace: (call: string) => call.replace(/unitOfWork/, 'otherUnitOfWork'),
+      replace: replaceInventoryArgument(0),
       diagnostic: 'earlier awaited reserve',
     },
     {
@@ -34,7 +55,7 @@ export function ledgerInventoryCases(
     },
     ...['reserveForAccount', 'finishAccountReservation'].map((method) => ({
       method,
-      replace: (call: string) => call.replace(/^(?:this\.)?ledger\./, 'store.'),
+      replace: replaceInventoryReceiver,
       diagnostic: 'require a ledger receiver',
     })),
     ...['return', 'throw new Error()'].map((exit) => ({
@@ -54,6 +75,9 @@ export function ledgerInventoryCases(
       }
     },
   );
+}
+
+function skippedLedgerCases(documents: ReadonlyMap<string, string>): void {
   it.each(['refusal', 'cleanup'] as const)(
     'rejects a skipped ledger %s',
     (piece) => {
@@ -114,4 +138,12 @@ export function ledgerInventoryCases(
       }
     },
   );
+}
+
+export function ledgerInventoryCases(
+  documents: ReadonlyMap<string, string>,
+): void {
+  parameterInventoryCases(documents);
+  reservationInventoryCases(documents);
+  skippedLedgerCases(documents);
 }

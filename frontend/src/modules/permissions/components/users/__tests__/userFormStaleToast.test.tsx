@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
+import { availability, heldAnswer, HELD, IDLE } from '@/tests/busyControls';
 import {
   refusalWith,
   registerFormTestLifecycle,
@@ -40,6 +41,9 @@ describe('a refused user form says so in the form and raises no toast', () => {
     const send = () =>
       fireEvent.click(screen.getByRole('button', { name: message('users.createUser.submit') }));
 
+    await waitFor(() =>
+      expect(screen.getByTestId('create-user-role-select').matches(':disabled')).toBe(false),
+    );
     fillCreateForm();
     send();
     const reason = await screen.findByTestId('create-user-error');
@@ -59,6 +63,7 @@ describe('a refused user form says so in the form and raises no toast', () => {
     const { message } = await renderForm(
       'en',
       <EditUserDialog
+        currentVersion={0}
         userId="user-1"
         currentName="Layla Haddad"
         currentEmail="layla@example.com"
@@ -88,6 +93,9 @@ describe('a refused user form says so in the form and raises no toast', () => {
     const { message } = await renderForm('en', <CreateUserButton />, storeSignedInAs('admin'));
     fireEvent.click(screen.getByTestId('create-user-button'));
     await screen.findByTestId('create-user-dialog');
+    await waitFor(() =>
+      expect(screen.getByTestId('create-user-role-select').matches(':disabled')).toBe(false),
+    );
     fillCreateForm();
     fireEvent.click(screen.getByRole('button', { name: message('users.createUser.submit') }));
     await waitFor(() =>
@@ -107,4 +115,31 @@ describe('a refused user form says so in the form and raises no toast', () => {
     expect(screen.queryByTestId('email-error')).toBeNull();
     expect(screen.getByTestId('create-user-email-input')).toHaveProperty('value', '');
   });
+});
+
+it('holds account creation until the role catalogue settles', async () => {
+  const catalogue = heldAnswer();
+  let writes = 0;
+  stubNetwork((request) => {
+    if (request.method === 'GET') return catalogue.answer;
+    writes += 1;
+    return refusalWith(400, ErrorCode.VALIDATION_ERROR);
+  });
+  const { message } = await renderForm('en', <CreateUserDialog open onOpenChange={vi.fn()} />);
+  const submit = screen.getByRole('button', { name: message('users.createUser.submit') });
+  fillCreateForm();
+  submit.focus();
+  try {
+    expect(availability(submit)).toEqual(HELD);
+    expect(document.activeElement).toBe(submit);
+    fireEvent.click(submit);
+    fireEvent.submit(submit);
+    expect(writes).toBe(0);
+  } finally {
+    catalogue.settle(() => success({ roles: [], total: 0, page: 1 }));
+  }
+  await waitFor(() => expect(availability(submit)).toEqual(IDLE));
+  fireEvent.click(submit);
+  await screen.findByTestId('create-user-error');
+  expect(writes).toBe(1);
 });

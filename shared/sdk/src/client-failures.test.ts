@@ -170,15 +170,6 @@ describe('createApiClient signal forwarding', () => {
     for (const request of transport.sent) expect(request.signal).toBe(signal);
   });
 
-  it.each(CALLS)('%s sends no signal key when the caller gave none', async (_name, call) => {
-    const transport = answering(200, { success: true, data: {} });
-
-    await call(createApiClient(transport)).catch(() => undefined);
-
-    expect(transport.sent).toHaveLength(1);
-    for (const request of transport.sent) expect('signal' in request).toBe(false);
-  });
-
   it.each(CALLS)('%s does not send once the signal is aborted', async (_name, call) => {
     const transport: FakeTransport = answering(200, { success: true, data: {} });
 

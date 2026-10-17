@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service';
@@ -68,7 +69,7 @@ export async function issuedSession(
   if (!accountId) throw new Error(`no account is stored for ${user.email}`);
   const issued = await fixture.app
     .get(Sessions, { strict: false })
-    .createSession(accountId, FIXTURE_USER_AGENT, FIXTURE_HOST);
+    .createSession(accountId, FIXTURE_USER_AGENT, FIXTURE_HOST, WEB_CLIENT_ID);
   const cookieName = fixture.app.get(SessionCookieService, {
     strict: false,
   }).name;

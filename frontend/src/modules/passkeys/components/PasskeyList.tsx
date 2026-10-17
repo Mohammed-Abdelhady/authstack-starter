@@ -42,7 +42,7 @@ export function PasskeyList({
         <PasskeyRow
           key={passkey.id}
           passkey={passkey}
-          canRemove={canRemove}
+          canRemove={passkey.canRemove ?? canRemove}
           onRename={onRename}
           onDelete={onDelete}
         />

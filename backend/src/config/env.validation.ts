@@ -1,6 +1,8 @@
+import { parseServerCommit } from './utils/server-commit.util';
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
 import { EnvironmentVariables } from './env.schema';
+import { validateHostApplications } from './utils/host-application-validation';
 import { PASSKEY_CHALLENGE_TTL_MS } from '../auth/passkeys/constants/passkeys.constants'; // feature:passkeys
 
 function formatValidationErrors(errors: ValidationError[]): string[] {
@@ -22,6 +24,14 @@ function formatValidationErrors(errors: ValidationError[]): string[] {
 export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
+  if (
+    config.SERVER_COMMIT_SHA !== undefined &&
+    parseServerCommit(config.SERVER_COMMIT_SHA) === null
+  ) {
+    throw new Error(
+      'SERVER_COMMIT_SHA must be a complete 40-character hexadecimal Git commit.',
+    );
+  }
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {
     enableImplicitConversion: false,
   });
@@ -87,5 +97,12 @@ export function validateEnvironment(
   }
 
   // feature:passkeys:end
+  validateHostApplications(validatedConfig);
+  if (config.AUTH_WEB_ENABLED === undefined) {
+    // Nest copies enumerable validated defaults into process.env. Keep absence.
+    Object.defineProperty(validatedConfig, 'AUTH_WEB_ENABLED', {
+      enumerable: false,
+    });
+  }
   return validatedConfig;
 }

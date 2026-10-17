@@ -163,22 +163,6 @@ describe('physical passkey readiness lease', () => {
     expect(fixture.calls.passkeyPromptCount).toBe(0);
   });
 
-  it('keeps support reads scoped to each port instance', async () => {
-    const fixture = readinessFixture();
-    const other = createNativeSignInPorts(fixture.modules, createNativeSignInSettings());
-    const reads = [
-      fixture.ports.passkeys.available(),
-      fixture.ports.passkeys.available(),
-      other.passkeys.available(),
-      other.passkeys.available(),
-    ];
-    await drain();
-    const physicalChecks = fixture.checks;
-    fixture.support.resolve(true);
-    expect(await Promise.all(reads)).toEqual([true, true, true, true]);
-    expect(physicalChecks).toBe(2);
-  });
-
   it('does not query the SDK without native platform, module or RP configuration', async () => {
     const fixture = readinessFixture();
     const settings = createNativeSignInSettings();

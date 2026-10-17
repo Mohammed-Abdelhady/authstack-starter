@@ -17,6 +17,8 @@ export type PasskeyRegisterOutcome =
  * `list`, `rename` and `remove` reject with the SDK's errors.
  */
 export interface PasskeyActions {
+  /** Proves the current native session. False leaves the original action pending. */
+  prove?(): Promise<boolean>;
   available(): Promise<boolean>;
   /**
    * Options, the system prompt, then verify. A call while one is running

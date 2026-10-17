@@ -10,6 +10,10 @@ export class PostgresIssuanceApplications extends IssuanceApplications {
     super();
   }
 
+  hasAccountAudience(unitOfWork: UnitOfWork): Promise<boolean> {
+    return this.registry.hasAccountAudienceIn(unitOfWork);
+  }
+
   async requireEnabled(
     unitOfWork: UnitOfWork,
     clientId: string,

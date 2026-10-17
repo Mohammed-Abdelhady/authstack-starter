@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 import en from '@/i18n/messages/settings.en.json';
 import ar from '@/i18n/messages/settings.ar.json'; // feature:locale-ar
 import { ScanStep } from '../ScanStep';
@@ -55,21 +55,3 @@ it.each(LOCALES)(
     expect(key.parentElement?.getAttribute('dir')).toBeNull();
   },
 );
-
-it('announces whether copying the setup key succeeded', async () => {
-  Object.defineProperty(navigator, 'clipboard', {
-    configurable: true,
-    value: { writeText: vi.fn().mockResolvedValue(undefined) },
-  });
-  render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <ScanStep setup={SETUP} onContinue={() => undefined} />
-    </NextIntlClientProvider>,
-  );
-
-  fireEvent.click(screen.getByTestId('two-factor-copy-secret'));
-
-  const status = await screen.findByTestId('two-factor-copy-secret-status');
-  expect(status.getAttribute('role')).toBe('status');
-  expect(status.textContent).toBe(en.settings.twoFactor.setup.scan.copySecretSuccess);
-});

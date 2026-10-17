@@ -30,6 +30,7 @@ export interface RetentionRule {
  * is refused exactly as one it has removed.
  */
 export const RETENTION_RULES: readonly RetentionRule[] = [
+  { table: 'address_claims', column: 'lapses_at', keepForMs: 0 },
   { table: 'mail_counters', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_registrations', column: 'expires_at', keepForMs: 0 },
   { table: 'pending_password_resets', column: 'expires_at', keepForMs: 0 },
@@ -51,6 +52,13 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'native_dpop_proof_ids', column: 'expires_at', keepForMs: 0 },
   { table: 'sessions', column: 'expires_at', keepForMs: 0 },
   { table: 'security_events', column: 'purge_after', keepForMs: 0 },
+  { table: 'erasure_jobs', column: 'purge_after', keepForMs: 0 },
+  { table: 'account_deletion_receipts', column: 'purge_after', keepForMs: 0 },
+  { table: 'provider_revocations', column: 'purge_after', keepForMs: 0 }, // feature:oauth-core
+  { table: 'provider_link_tickets', column: 'expires_at', keepForMs: 0 }, // feature:oauth-core
+  { table: 'session_proofs', column: 'purge_after', keepForMs: 0 },
+  { table: 'staff_idempotency_keys', column: 'expires_at', keepForMs: 0 },
+  { table: 'invitations', column: 'purge_after', keepForMs: 0 }, // feature:invitations
 ];
 
 /** Rows one statement removes at most. */

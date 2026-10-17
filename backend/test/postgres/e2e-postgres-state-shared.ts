@@ -29,6 +29,7 @@ function storedAccount(
     email: row.email ?? '',
     name: row.name ?? '',
     role: row.role,
+    ...(row.audience ? { audience: row.audience } : {}),
     permissions: row.permissions,
     isVerified: row.is_verified,
     isDeleted: row.is_deleted,
@@ -46,6 +47,7 @@ function storedApplication(
   if (!row) return null;
   return {
     clientId: row.client_id,
+    ...(row.account_audience ? { accountAudience: row.account_audience } : {}),
     displayName: row.display_name,
     platform: row.platform,
     clientType: row.client_type,
@@ -173,6 +175,7 @@ export function postgresApplicationsState(
         .insertInto('applications')
         .values({
           client_id: application.clientId,
+          account_audience: application.accountAudience ?? null,
           display_name: application.displayName,
           platform: application.platform,
           environment: application.environment,
@@ -243,6 +246,9 @@ export function postgresApplicationsState(
         .updateTable('applications')
         .set({
           ...(change.enabled === undefined ? {} : { enabled: change.enabled }),
+          ...(change.accountAudience === undefined
+            ? {}
+            : { account_audience: change.accountAudience }),
           ...(change.redirectUris === undefined
             ? {}
             : { redirect_uris: change.redirectUris }),

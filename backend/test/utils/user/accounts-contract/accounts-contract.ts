@@ -1,3 +1,6 @@
+import { seedAccountsFixture } from './accounts-contract-fixture';
+import { accountAudienceCases } from './accounts-contract-audience';
+import { accountActivationAudienceCases } from './accounts-contract-activation-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { accountAbortCases } from './accounts-contract-abort';
 import { accountActivationCases } from './accounts-contract-activation';
@@ -10,16 +13,15 @@ import { accountPermissionRaceCases } from './accounts-contract-permission-races
 import { accountPendingEmailCases } from './accounts-contract-pending-email';
 import { AccountsContractHarness } from './accounts-contract-harness';
 import { accountLeavingCases } from './accounts-contract-leaving';
+import { accountOwnEmailCases } from './accounts-contract-own-email';
+import { accountDeletionReceiptCases } from './accounts-contract-deletion';
 import { accountPasswordCases } from './accounts-contract-password';
 import { accountPermissionAgreementCases } from './accounts-contract-permission-agreement';
 import { accountProfileCases } from './accounts-contract-profile';
 import { accountRaceCases } from './accounts-contract-races';
 import { accountRouteIdCases } from './accounts-contract-route-ids';
 import { accountSeamCases } from './accounts-contract-seam';
-import {
-  AccountsFixture,
-  seedAccountsFixture,
-} from './accounts-contract-support';
+import { AccountsFixture } from './accounts-contract-support';
 
 /**
  * The account stores' contract. Every database runs these same cases through
@@ -63,13 +65,17 @@ export function describeAccountStoresContract(
 
     afterEach(() => jest.restoreAllMocks());
 
+    accountAudienceCases(current, seeded);
+    accountActivationAudienceCases(current);
     accountProfileCases(current, seeded);
     accountLeavingCases(current, seeded);
+    accountDeletionReceiptCases(current, seeded);
     accountAdminCases(current, seeded);
     accountAdminRoleCases(current, seeded);
     accountGrantCases(current, seeded);
     accountPermissionRaceCases(current, seeded);
     accountPendingEmailCases(current, seeded);
+    accountOwnEmailCases(current, seeded);
     accountFreshnessCases(current, seeded);
     accountRaceCases(current, seeded);
     accountActivationCases(current, seeded);

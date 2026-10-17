@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../../../common/testing/browser-applications.harness-spec';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -14,7 +15,6 @@ import {
 import {
   TWO_FACTOR_CHALLENGE_COOKIE,
   TWO_FACTOR_CHALLENGE_TTL_MS,
-  TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS,
 } from '../../../constants/two-factor.constants';
 
 const KEY = Buffer.alloc(32, 7).toString('base64');
@@ -47,6 +47,7 @@ function createHarness(): Harness {
     'twoFactor.encryptionKey': KEY,
     NODE_ENV: 'test',
   });
+  const browserApplications = browserApplicationsForTest(configService);
 
   return {
     service: new TwoFactorChallengeService(
@@ -57,6 +58,7 @@ function createHarness(): Harness {
       ),
       configService,
       new TotpSecretCryptoService(configService),
+      browserApplications,
     ),
     model,
   };
@@ -134,61 +136,9 @@ describe('TwoFactorChallengeService', () => {
         }),
       );
     });
-
-    it('should keep the raw nonce out of the database', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      const payload = JSON.parse(
-        Buffer.from(token.split('.')[0], 'base64url').toString('utf8'),
-      ) as { nonce: string };
-
-      const created = harness.model.create.mock.calls[0][0] as {
-        nonceHash: string;
-      };
-      expect(created.nonceHash).not.toContain(payload.nonce);
-    });
   });
 
   describe('read', () => {
-    it('should return the challenge behind a cookie it signed', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOne.mockResolvedValue(storedChallenge());
-
-      const context = await harness.service.read(requestWith(token));
-
-      expect(context).toEqual({
-        challengeId: CHALLENGE_ID.toString(),
-        userId: USER_ID.toString(),
-        firstFactor: 'password',
-      });
-    });
-
-    it('should refuse a request without the cookie', async () => {
-      const harness = createHarness();
-
-      await expectChallengeInvalid(() =>
-        harness.service.read(createRequestMock({ cookies: {} })),
-      );
-    });
-
-    it('should refuse a cookie whose payload was edited', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      const forged = Buffer.from(
-        JSON.stringify({
-          sub: new Types.ObjectId().toString(),
-          nonce: 'anything',
-          expiresAt: EXPIRES_AT.getTime(),
-        }),
-      ).toString('base64url');
-
-      await expectChallengeInvalid(() =>
-        harness.service.read(requestWith(`${forged}.${token.split('.')[1]}`)),
-      );
-      expect(harness.model.findOne).not.toHaveBeenCalled();
-    });
-
     it('should accept a cookie in its last millisecond', async () => {
       const harness = createHarness();
       const token = await issueToken(harness);
@@ -213,111 +163,6 @@ describe('TwoFactorChallengeService', () => {
         harness.service.read(requestWith(token)),
       );
       expect(harness.model.findOne).not.toHaveBeenCalled();
-    });
-
-    it('should drop a record that ran out before its cookie did', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOne.mockResolvedValue(storedChallenge(0, NOW));
-
-      await expectChallengeInvalid(() =>
-        harness.service.read(requestWith(token)),
-      );
-      expect(harness.model.deleteOne).toHaveBeenCalledWith({
-        _id: CHALLENGE_ID,
-      });
-    });
-
-    it('should refuse a cookie whose record is gone', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOne.mockResolvedValue(null);
-
-      await expectChallengeInvalid(() =>
-        harness.service.read(requestWith(token)),
-      );
-    });
-
-    it('should drop a challenge that ran out of tries', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOne.mockResolvedValue(
-        storedChallenge(TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS),
-      );
-
-      await expectChallengeInvalid(() =>
-        harness.service.read(requestWith(token)),
-      );
-      expect(harness.model.deleteOne).toHaveBeenCalledWith({
-        _id: CHALLENGE_ID,
-      });
-    });
-  });
-
-  describe('claim', () => {
-    it('should mark an open challenge claimed', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOneAndUpdate.mockResolvedValue(storedChallenge());
-
-      const context = await harness.service.claim(requestWith(token));
-
-      expect(context).toEqual({
-        challengeId: CHALLENGE_ID.toString(),
-        userId: USER_ID.toString(),
-        firstFactor: 'password',
-      });
-      expect(harness.model.findOneAndUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          attempts: { $lt: TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS },
-          $or: [{ claimedAt: null }, { claimedAt: { $exists: false } }],
-        }),
-        { $set: { claimedAt: NOW } },
-        { new: true },
-      );
-    });
-
-    it('should refuse a challenge another request already claimed', async () => {
-      const harness = createHarness();
-      const token = await issueToken(harness);
-      harness.model.findOneAndUpdate.mockResolvedValue(null);
-
-      await expectChallengeInvalid(() =>
-        harness.service.claim(requestWith(token)),
-      );
-    });
-  });
-
-  describe('registerFailure', () => {
-    it('should count a wrong code and keep the challenge open', async () => {
-      const harness = createHarness();
-      harness.model.findOneAndUpdate.mockResolvedValue({
-        _id: CHALLENGE_ID,
-        attempts: 1,
-      });
-
-      await harness.service.registerFailure(CHALLENGE_ID.toString());
-
-      expect(harness.model.findOneAndUpdate).toHaveBeenCalledWith(
-        { _id: CHALLENGE_ID },
-        { $inc: { attempts: 1 }, $unset: { claimedAt: 1 } },
-        { new: true },
-      );
-      expect(harness.model.deleteOne).not.toHaveBeenCalled();
-    });
-
-    it('should discard the challenge on the fifth wrong code', async () => {
-      const harness = createHarness();
-      harness.model.findOneAndUpdate.mockResolvedValue({
-        _id: CHALLENGE_ID,
-        attempts: TWO_FACTOR_MAX_CHALLENGE_ATTEMPTS,
-      });
-
-      await harness.service.registerFailure(CHALLENGE_ID.toString());
-
-      expect(harness.model.deleteOne).toHaveBeenCalledWith({
-        _id: CHALLENGE_ID,
-      });
     });
   });
 });

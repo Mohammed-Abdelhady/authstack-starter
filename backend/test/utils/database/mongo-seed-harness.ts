@@ -47,6 +47,7 @@ export async function bootMongoSeedHarness(): Promise<SeedContractHarness> {
     storedRoles: async () => {
       const stored = await roles.find({}).sort({ slug: 1 }).lean().exec();
       return stored.map((role) => ({
+        ...(role.audience === undefined ? {} : { audience: role.audience }),
         name: role.name,
         slug: role.slug,
         description: role.description ?? null,
@@ -64,6 +65,7 @@ export async function bootMongoSeedHarness(): Promise<SeedContractHarness> {
         .lean()
         .exec();
       return stored.map((user) => ({
+        ...(user.audience === undefined ? {} : { audience: user.audience }),
         id: user._id.toString(),
         email: user.email,
         name: user.name,
@@ -77,6 +79,7 @@ export async function bootMongoSeedHarness(): Promise<SeedContractHarness> {
     },
     plantRole: async (role) => {
       await roles.collection.insertOne({
+        ...(role.audience === undefined ? {} : { audience: role.audience }),
         name: role.name,
         slug: role.slug,
         ...(role.description === null ? {} : { description: role.description }),
@@ -91,6 +94,7 @@ export async function bootMongoSeedHarness(): Promise<SeedContractHarness> {
     },
     plantAccount: async (account) => {
       const created = await users.create({
+        audience: account.audience,
         email: account.email,
         name: account.name,
         role: account.role,

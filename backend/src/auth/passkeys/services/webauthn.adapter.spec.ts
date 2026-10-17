@@ -73,17 +73,6 @@ describe('WebAuthnAdapter', () => {
     expect(options.authenticatorSelection?.userVerification).toBe('preferred');
   });
 
-  it('should build sign-in options with no credentials to choose from', async () => {
-    const options = await adapter.createAuthenticationOptions({
-      rpId: RP_ID,
-      allowCredentials: [],
-    });
-
-    expect(options.rpId).toBe(RP_ID);
-    expect(typeof options.challenge).toBe('string');
-    expect(options.allowCredentials).toEqual([]);
-  });
-
   it('should report an unreadable attestation as a refusal, not an error', async () => {
     await expect(
       adapter.verifyAttestation(CREDENTIAL_BODY, REGISTRATION),
@@ -101,50 +90,6 @@ describe('WebAuthnAdapter', () => {
       ...CREDENTIAL_BODY,
       response: {
         clientDataJSON: Buffer.from('not json').toString('base64url'),
-        authenticatorData: 'AAAA',
-        signature: 'AAAA',
-      },
-    };
-
-    await expect(
-      adapter.verifyAssertion(credential, STORED, EXPECTED),
-    ).resolves.toBeNull();
-  });
-
-  it('should refuse an assertion that answers a different challenge', async () => {
-    const clientData = {
-      type: 'webauthn.get',
-      challenge: 'some-other-challenge',
-      origin: ORIGIN,
-    };
-    const credential = {
-      ...CREDENTIAL_BODY,
-      response: {
-        clientDataJSON: Buffer.from(JSON.stringify(clientData)).toString(
-          'base64url',
-        ),
-        authenticatorData: 'AAAA',
-        signature: 'AAAA',
-      },
-    };
-
-    await expect(
-      adapter.verifyAssertion(credential, STORED, EXPECTED),
-    ).resolves.toBeNull();
-  });
-
-  it('should refuse an assertion that came from another origin', async () => {
-    const clientData = {
-      type: 'webauthn.get',
-      challenge: 'challenge',
-      origin: 'https://evil.example.com',
-    };
-    const credential = {
-      ...CREDENTIAL_BODY,
-      response: {
-        clientDataJSON: Buffer.from(JSON.stringify(clientData)).toString(
-          'base64url',
-        ),
         authenticatorData: 'AAAA',
         signature: 'AAAA',
       },

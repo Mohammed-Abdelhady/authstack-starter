@@ -37,6 +37,9 @@ function Hosted({ auth }: { auth: StartedShellAuth }) {
         {...hostProps(auth, APP_NAME, LOCALE)}
         insets={logicalInsets(insets, LOCALE)}
         {...PROVIDER_BUTTON_PROPS}
+        accountDeletion={auth.accountDeletion}
+        emailConfirmation={auth.emailConfirmation}
+        providerSignIn={auth.providerSignIn}
       />
     </DebugGate>
   );

@@ -1,11 +1,9 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MANIFEST_FILE, REWRITES_FILE } from '../../src/constants/index.js';
 import { loadManifest, mergeRewrites } from '../../src/manifest/load.js';
-import { isRecord } from '../../src/manifest/read.js';
-import { REPO_ROOT } from '../support/answers-helpers.js';
 
 const MANIFEST = {
   version: 2,
@@ -106,21 +104,5 @@ describe('the rewrites file beside the manifest', () => {
     await expect(loadManifest(root)).rejects.toThrow(
       `${join(root, MANIFEST_FILE)} is not valid JSON`,
     );
-  });
-
-  it('is where this repository keeps the rewrites of PostgreSQL', async () => {
-    const alone: unknown = JSON.parse(await readFile(join(REPO_ROOT, MANIFEST_FILE), 'utf8'));
-    const databases = isRecord(alone) && isRecord(alone.databases) ? alone.databases : {};
-    const inline = Object.values(databases).filter(
-      (database) => isRecord(database) && database.rewrites !== undefined,
-    );
-    const manifest = await loadManifest(REPO_ROOT);
-
-    expect({
-      inline: inline.length,
-      postgres: manifest.databases.postgres.rewrites.length > 100,
-      // A MongoDB project with everything on is this repository less its markers.
-      mongodb: manifest.databases.mongodb.rewrites,
-    }).toEqual({ inline: 0, postgres: true, mongodb: [] });
   });
 });

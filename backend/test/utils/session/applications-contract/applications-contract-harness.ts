@@ -1,8 +1,20 @@
+import type { EventRecorder } from '../../../../src/auth/contracts/event-recorder';
+import type { ApplicationSignInMethods } from '../../../../src/session/applications/types/application-sign-in-methods';
+import type { ApplicationPolicyConfiguration } from '../../../../src/config/types/host-policy.type';
+import type { RoleAudience } from '../../../../src/host/types/host-role.type';
 import { ApplicationAccessStore } from '../../../../src/session/applications/application-access.store';
 import { ApplicationRegistryStore } from '../../../../src/session/applications/application-registry.store';
 import { AuthorityContractHarness } from '../authority-contract/authority-contract-harness';
 
 export interface StoredApplication {
+  signUp?: ApplicationPolicyConfiguration['signUp'];
+  requirePasskey?: boolean;
+  signInMethods?: ApplicationSignInMethods | null;
+  accountAudience?: RoleAudience;
+  policyVersion?: number;
+  sessionCap?: number;
+  unboundAbsoluteLifetimeMs?: number;
+  unboundIdleLifetimeMs?: number;
   clientId: string;
   environment: string;
   displayName: string;
@@ -32,11 +44,13 @@ export interface StoredAccessGrant {
  */
 export interface ApplicationsContractHarness {
   readonly authority: AuthorityContractHarness;
+  readonly recorder: EventRecorder;
   readonly registryStore: ApplicationRegistryStore;
   readonly accessStore: ApplicationAccessStore;
   /** Every stored application, by environment and then client id. */
   storedApplications(): Promise<StoredApplication[]>;
   seedStoredApplication(application: StoredApplication): Promise<void>;
+  clearApplicationPolicy(clientId: string): Promise<void>;
   grant(userId: string, clientId: string): Promise<StoredAccessGrant | null>;
   /** A well-formed id that names no grant. */
   absentGrantId(): string;

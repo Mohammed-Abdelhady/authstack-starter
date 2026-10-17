@@ -1,10 +1,12 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 
 class PasswordSwitch extends AuthFeaturesService {
   constructor(private readonly passwordOn: boolean) {
-    super(new ConfigService());
+    const config = new ConfigService({});
+    super(config, browserApplicationsForTest(config));
   }
 
   override isEnabled(feature: AuthFeature): boolean {

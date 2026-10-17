@@ -21,14 +21,9 @@ export const MAIL_LINK_SETTING: Readonly<Record<MailAudience, string>> = {
 /** `mail.links` in the configuration: an audience without templates uses `CLIENT_URL`. */
 export type MailLinkSettings = Partial<Record<MailAudience, MailLinkTemplates>>;
 
-/**
- * The audience whose links a recipient gets. Accounts carry no audience yet,
- * so every recipient is a customer, which with both settings absent is the
- * link every mail had before templates existed. This is the one place the
- * choice is made.
- */
-export function mailAudienceOf(_recipient: MailRecipient): MailAudience {
-  return MAIL_AUDIENCE.CUSTOMER;
+/** Accounts without a stored audience retain customer links. */
+export function mailAudienceOf(recipient: MailRecipient): MailAudience {
+  return recipient.audience ?? MAIL_AUDIENCE.CUSTOMER;
 }
 
 /**
@@ -45,7 +40,7 @@ export function mailLinkFor(
 ): string {
   const templates = config.get<MailLinkSettings>('mail.links')?.[audience];
   const path = MAIL_LINK_PATHS[mail];
-  if (templates === undefined) {
+  if (templates?.[mail] === undefined) {
     return buildClientUrl(config, path, { ...params });
   }
   return fillMailLink(templates[mail], path, recipient.locale, params);

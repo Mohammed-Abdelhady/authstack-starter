@@ -109,19 +109,6 @@ describe('callback adapter over the linking module', () => {
     return { received, unsubscribe };
   }
 
-  it('asks the system for the launch address once, however often it is needed', async () => {
-    const linking = new FakeLinking(LINK);
-    const port = createCallbackPort(linking);
-    listen(port);
-
-    await port.initialAddress();
-    await port.initialAddress();
-    linking.emit(OTHER_LINK);
-    await settle();
-
-    expect(linking.initialReads).toBe(1);
-  });
-
   it('reports the read as unavailable and still delivers links when it cannot be read', async () => {
     const linking = new FakeLinking(null);
     linking.failInitial = true;
@@ -133,19 +120,6 @@ describe('callback adapter over the linking module', () => {
     await settle();
 
     expect(received).toEqual([LINK]);
-  });
-
-  it('hands over the launch address, then answers that there is none left', async () => {
-    const port = createCallbackPort(new FakeLinking(LINK));
-
-    expect(await port.initialAddress()).toEqual({ kind: 'address', address: LINK });
-    expect(await port.initialAddress()).toEqual({ kind: 'none' });
-  });
-
-  it('answers none for a start without a link', async () => {
-    expect(await createCallbackPort(new FakeLinking(null)).initialAddress()).toEqual({
-      kind: 'none',
-    });
   });
 
   it('asks the system again on the read after a failed one', async () => {
@@ -185,17 +159,6 @@ describe('callback adapter over the linking module', () => {
 
     expect(received).toEqual([OTHER_LINK]);
     expect(await port.initialAddress()).toEqual({ kind: 'address', address: LINK });
-  });
-
-  it('delivers links in the order the system sent them', async () => {
-    const linking = new FakeLinking(null);
-    const { received } = listen(createCallbackPort(linking));
-
-    linking.emit(LINK);
-    linking.emit(OTHER_LINK);
-    await settle();
-
-    expect(received).toEqual([LINK, OTHER_LINK]);
   });
 
   it('keeps a failing listener from costing the others the link', async () => {

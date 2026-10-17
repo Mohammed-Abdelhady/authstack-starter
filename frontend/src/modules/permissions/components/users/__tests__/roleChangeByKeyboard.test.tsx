@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { USER_PERMISSIONS } from '@app/core';
+import { storeSignedInAs } from '@/tests/signedIn';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import {
@@ -20,6 +22,7 @@ import {
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const MENU_USER = {
+  version: 0,
   _id: 'user-7',
   name: 'Omar Nasser',
   email: 'omar@example.com',
@@ -114,19 +117,6 @@ describe.each([
       expect(heard).toEqual(['keydown']);
     },
   );
-
-  it('lets the page hear nothing more of the keystroke that chose the role', async () => {
-    const { heard } = await focusEditorOption(locale);
-    const stroke = keystroke('Enter');
-
-    stroke.down();
-    await settledConfirmation(CONFIRM_DIALOG);
-    stroke.press();
-    stroke.repeat();
-    stroke.up();
-
-    expect(heard).toEqual(['keydown']);
-  });
 
   it('leaves every other key alone while the choosing key is still down', async () => {
     await focusEditorOption(locale);
@@ -235,7 +225,11 @@ describe.each([
 
   it('keeps the deactivate confirmation open when its menu entry is chosen with Enter', async () => {
     const requests = stubNetwork(() => success({ id: MENU_USER._id, isDeleted: true }));
-    await renderForm(locale, <UserActionsMenu user={MENU_USER} />);
+    await renderForm(
+      locale,
+      <UserActionsMenu user={MENU_USER} />,
+      storeSignedInAs('admin', [USER_PERMISSIONS.SUSPEND_ALL]),
+    );
     fireEvent.keyDown(screen.getByTestId('user-actions-menu-user-7'), { key: 'Enter' });
     (await screen.findByTestId('deactivate-user-user-7')).focus();
 

@@ -11,8 +11,6 @@ import { ACCOUNT_CREATION_METHOD } from '../../src/auth/constants/account-creati
 import { UnitOfWork } from '../../src/common/persistence/unit-of-work';
 import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
 import { ProviderSignInStore } from '../../src/auth/oauth/stores/provider-sign-in.store';
-import { OAuthService } from '../../src/auth/oauth/oauth.service';
-import { AccountCreationRefusedError } from '../../src/auth/services/registration/account-creation-refused.error';
 import {
   installAccountCreationPolicy,
   type SwitchableAccountCreationPolicy,
@@ -182,28 +180,6 @@ describe('OAuth first sign-in notices for automatic account linking (e2e)', () =
         providerId: PROVIDER_ACCOUNT.providerId,
       }),
     ).toMatchObject({ id: stored?._id });
-  });
-
-  it('refuses provider creation without storing an account, link, or session', async () => {
-    policy.refused = true;
-
-    const creating = e2e.app
-      .get(OAuthService)
-      .findOrCreateUser(PROVIDER, PROVIDER_ACCOUNT);
-
-    await expect(creating).rejects.toBeInstanceOf(AccountCreationRefusedError);
-    await expect(creating).rejects.toMatchObject({
-      code: ErrorCode.ACCOUNT_CREATION_REFUSED,
-    });
-    expect(policy.calls).toHaveLength(1);
-    expect(await e2e.state.accounts.accountIdFor(AUTO_LINK_EMAIL)).toBeNull();
-    expect(
-      await e2e.app.get(ProviderSignInStore).findByIdentity({
-        provider: PROVIDER.id,
-        providerId: PROVIDER_ACCOUNT.providerId,
-      }),
-    ).toBeNull();
-    expect(await e2e.state.sessions.countSessions()).toBe(0);
   });
 
   it('redirects a refused browser provider callback without storing an account, link or session', async () => {

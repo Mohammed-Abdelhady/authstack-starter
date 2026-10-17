@@ -49,6 +49,8 @@ export function toStoredSession(record: SessionRecord): StoredSession {
     proofKeyThumbprint: record.proofKeyThumbprint ?? null,
     csrfToken: record.csrfToken ?? null,
     authenticationMethods: [...(record.authenticationMethods ?? [])],
+    userVerified: record.userVerified ?? false,
+    policyVersion: record.policyVersion ?? 0,
     createdAt: record.createdAt,
     isValid: record.isValid,
     revokedAt: record.revokedAt ?? null,
@@ -60,6 +62,7 @@ export function toStoredSession(record: SessionRecord): StoredSession {
     clientVersion: record.clientVersion,
     grantVersion: record.grantVersion,
     authenticatedAt: record.authenticatedAt,
+    issuedAt: record.issuedAt ?? null,
     expiresAt: record.expiresAt,
     idleExpiresAt: record.idleExpiresAt,
     lastActivityAt: record.lastActivityAt,
@@ -80,6 +83,7 @@ export function toAccountIdentity(user: UserDocument): AccountIdentity {
     email: user.email,
     name: user.name,
     role: user.role,
+    audience: user.audience ?? undefined,
     permissions: [...(user.permissions ?? [])],
     isVerified: Boolean(user.isVerified),
     isDeleted: Boolean(user.isDeleted),
@@ -110,7 +114,12 @@ export function leanSessionOf(stored: StoredSession): LeanSession {
   if (!record) {
     throw new Error('This session was not read by the MongoDB adapter');
   }
-  return isHydrated(record) ? record.toObject<LeanSession>() : record;
+  const lean = isHydrated(record) ? record.toObject<LeanSession>() : record;
+  return {
+    ...lean,
+    userVerified: stored.userVerified,
+    policyVersion: stored.policyVersion,
+  };
 }
 
 export function leanUserOf(account: AuthorityAccount): LeanUser {

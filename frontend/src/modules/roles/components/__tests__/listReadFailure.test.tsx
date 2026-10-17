@@ -24,8 +24,8 @@ vi.mock('sonner', () => ({
 vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
 const ROLES = [
-  { ...listedRole('editor', 'Editor'), permissions: ['users:read:all'] },
-  { ...listedRole('writer', 'Writer'), permissions: ['users:read:all'] },
+  { ...listedRole('editor', 'Editor'), version: 0, permissions: ['users:read:all'] },
+  { ...listedRole('writer', 'Writer'), version: 0, permissions: ['users:read:all'] },
 ];
 
 type Answer = (request?: Request) => Response | Promise<Response>;
@@ -92,6 +92,7 @@ describe.each([
   it('moves back from a now-empty last page when the list count shrinks', async () => {
     const allRoles = Array.from({ length: 45 }, (_, index) => ({
       ...listedRole(`role-${index + 1}`, `Role ${index + 1}`),
+      version: 0,
       permissions: ['users:read:all'],
     }));
     const readPage = (request?: Request, total = 45, totalPages = 3) => {

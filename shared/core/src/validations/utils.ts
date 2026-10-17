@@ -10,7 +10,7 @@
  * @module validations/utils
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Make a schema optional based on the required flag
@@ -34,36 +34,6 @@ export const createStringValidator = (
   options: { required?: boolean; message: string },
 ) => {
   const schema = z.string().regex(pattern, options.message);
-  return makeOptional(schema, options.required);
-};
-
-/**
- * Create a string validator with min/max and optional regex
- */
-export const createBoundedString = (
-  defaultMin: number,
-  defaultMax: number,
-  options: {
-    required?: boolean;
-    min?: number;
-    max?: number;
-    pattern?: RegExp;
-    messages: {
-      min: string;
-      max: string;
-      pattern: string;
-    };
-  },
-) => {
-  const min = options.min ?? defaultMin;
-  const max = options.max ?? defaultMax;
-
-  let schema = z.string().trim().min(min, options.messages.min).max(max, options.messages.max);
-
-  if (options.pattern) {
-    schema = schema.regex(options.pattern, options.messages.pattern);
-  }
-
   return makeOptional(schema, options.required);
 };
 

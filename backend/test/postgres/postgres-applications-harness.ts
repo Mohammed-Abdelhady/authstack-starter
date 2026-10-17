@@ -1,3 +1,4 @@
+import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
 import { randomUUID } from 'node:crypto';
 import {
   ApplicationsContractHarness,
@@ -16,6 +17,10 @@ export async function bootPostgresApplicationsHarness(): Promise<ApplicationsCon
 
   return {
     authority,
+    recorder: new SecurityEventRecorder(
+      new PostgresSecurityEventStore(database),
+      clock,
+    ),
     registryStore: new PostgresApplicationRegistryStore(database),
     accessStore: new PostgresApplicationAccessStore(
       database,
@@ -46,6 +51,23 @@ export async function bootPostgresApplicationsHarness(): Promise<ApplicationsCon
         sessionVersion: row.session_version,
       }));
     },
+    clearApplicationPolicy: async (clientId) => {
+      await database
+        .updateTable('applications')
+        .set({
+          sign_up: 'open',
+          sign_in_methods: null,
+          require_passkey: false,
+          account_audience: null,
+          policy_version: 0,
+          session_cap: null,
+          unbound_absolute_lifetime_ms: null,
+          unbound_idle_lifetime_ms: null,
+        })
+        .where('client_id', '=', clientId)
+        .where('environment', '=', 'test')
+        .execute();
+    },
     seedStoredApplication: async (application) => {
       await database
         .insertInto('applications')
@@ -63,6 +85,17 @@ export async function bootPostgresApplicationsHarness(): Promise<ApplicationsCon
           absolute_lifetime_ms: application.absoluteLifetimeMs,
           idle_lifetime_ms: application.idleLifetimeMs,
           session_version: application.sessionVersion,
+          sign_up: application.signUp,
+          require_passkey: application.requirePasskey,
+          sign_in_methods:
+            application.signInMethods == null
+              ? application.signInMethods
+              : JSON.stringify(application.signInMethods),
+          account_audience: application.accountAudience,
+          policy_version: application.policyVersion,
+          session_cap: application.sessionCap,
+          unbound_absolute_lifetime_ms: application.unboundAbsoluteLifetimeMs,
+          unbound_idle_lifetime_ms: application.unboundIdleLifetimeMs,
         })
         .execute();
     },

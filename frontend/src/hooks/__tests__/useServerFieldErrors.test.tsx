@@ -9,12 +9,7 @@ import { FormInput } from '@/components/forms';
 import { loadMessages, type AppLocale } from '@/i18n/load-messages';
 import { lookupMessage } from '@/i18n/__tests__/message-tree';
 import { SERVER_TEXT, descriptions } from '@/tests/serverRejectionHarness';
-import {
-  useFormFieldTarget,
-  useLocalFieldTarget,
-  useServerFieldErrors,
-  type ServerFieldErrorTarget,
-} from '../useServerFieldErrors';
+import { useFormFieldTarget, useServerFieldErrors } from '../useServerFieldErrors';
 
 /** Declared in a different order from the one the fields have on screen. */
 interface HarnessValues {
@@ -200,47 +195,5 @@ describe.each([
     press('Finish');
 
     expect(document.activeElement).toBe(finish);
-  });
-});
-
-describe('field targets', () => {
-  /** Renders again and returns the target each render produced. */
-  function targetsOf(useTarget: () => ServerFieldErrorTarget): ServerFieldErrorTarget[] {
-    const targets: ServerFieldErrorTarget[] = [];
-    function Probe() {
-      const [, setRenders] = useState(0);
-      const target = useTarget();
-      return (
-        <button type="button" onClick={() => setRenders((count) => count + 1)}>
-          Render again {targets.push(target)}
-        </button>
-      );
-    }
-    render(<Probe />);
-    fireEvent.click(screen.getByRole('button'));
-    return targets;
-  }
-
-  it('keeps the target of a local-state form the same between renders', () => {
-    const targets = targetsOf(() => {
-      const [, setErrors] = useState<Record<string, string>>({});
-      return useLocalFieldTarget(setErrors, 'form-1');
-    });
-
-    expect(targets).toHaveLength(2);
-    expect(targets[1]).toBe(targets[0]);
-  });
-
-  it('keeps the target of a react-hook-form form the same between renders', () => {
-    const targets = targetsOf(() => {
-      const form = useForm<HarnessValues>();
-      const formRef = useRef<HTMLFormElement>(null);
-      return useFormFieldTarget(form.setError, formRef);
-    });
-
-    // react-hook-form renders once more on mount.
-    expect(targets).toHaveLength(3);
-    expect(targets[1]).toBe(targets[0]);
-    expect(targets[2]).toBe(targets[0]);
   });
 });

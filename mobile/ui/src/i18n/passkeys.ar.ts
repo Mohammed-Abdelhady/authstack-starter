@@ -1,6 +1,8 @@
 import type { PASSKEYS_EN } from './passkeys.en';
 
 export const PASSKEYS_AR: Record<keyof typeof PASSKEYS_EN, string> = {
+  'passkeys.removeFailed.required':
+    'احتفظ بمفتاح المرور هذا حتى تضيف مفتاح مرور آخر للتطبيق الذي يشترطه.',
   'passkeys.title': 'مفاتيح المرور',
   'passkeys.description': 'سجِّل الدخول ببصمة الوجه أو الإصبع أو قفل الشاشة بدلًا من كلمة المرور.',
   'passkeys.loading': 'جارٍ تحميل مفاتيح المرور',

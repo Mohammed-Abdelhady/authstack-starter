@@ -14,6 +14,7 @@ import { AdminSessionAccessService } from './admin-session-access.service';
 import { AdminSessionListData } from './dto/admin-session-response.dto';
 import { toAdminSessionDto } from './mappers/admin-session.mapper';
 import { sessionTargetClass } from './utils/admin-session-scope';
+import type { ActingSession } from '../../auth/proof/types/acting-session';
 
 @Injectable()
 export class AdminSessionsService {
@@ -28,14 +29,21 @@ export class AdminSessionsService {
   async list(
     targetId: string,
     actorId: string,
+    session?: ActingSession,
   ): Promise<ApiResponse<AdminSessionListData>> {
     assertValidId(this.ids, targetId, 'Invalid user ID format');
     try {
       const target = await this.runner.run((unitOfWork) =>
-        this.access.authorizeIn(unitOfWork, targetId, actorId, {
-          route: SESSION_PERMISSIONS.READ_ALL,
-          staff: SESSION_PERMISSIONS.READ_STAFF,
-        }),
+        this.access.authorizeIn(
+          unitOfWork,
+          targetId,
+          actorId,
+          {
+            route: SESSION_PERMISSIONS.READ_ALL,
+            staff: SESSION_PERMISSIONS.READ_STAFF,
+          },
+          session,
+        ),
       );
       // The list shows only sessions whose application and grant are active.
       const sessions = (await this.validator.listActive(target.id)).map(
@@ -55,6 +63,7 @@ export class AdminSessionsService {
     targetId: string,
     sessionId: string,
     actorId: string,
+    session?: ActingSession,
   ): Promise<ApiResponse<{ revoked: true }>> {
     assertValidId(this.ids, targetId, 'Invalid user ID format');
     assertValidId(this.ids, sessionId, 'Invalid session ID format');
@@ -68,6 +77,7 @@ export class AdminSessionsService {
             route: SESSION_PERMISSIONS.DELETE_ALL,
             staff: SESSION_PERMISSIONS.DELETE_STAFF,
           },
+          session,
         );
         const revoked = await this.revoker.revokeByIdIn(
           unitOfWork,
@@ -86,6 +96,7 @@ export class AdminSessionsService {
   async revokeAll(
     targetId: string,
     actorId: string,
+    session?: ActingSession,
   ): Promise<ApiResponse<{ revokedCount: number }>> {
     assertValidId(this.ids, targetId, 'Invalid user ID format');
     try {
@@ -98,6 +109,7 @@ export class AdminSessionsService {
             route: SESSION_PERMISSIONS.DELETE_ALL,
             staff: SESSION_PERMISSIONS.DELETE_STAFF,
           },
+          session,
         );
         return this.revoker.revokeAllForUserIn(unitOfWork, target.id, {
           actorId,

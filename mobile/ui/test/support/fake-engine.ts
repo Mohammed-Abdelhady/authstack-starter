@@ -31,6 +31,7 @@ export function signedInAs(id: string): AuthSnapshot {
     status: 'signedIn',
     operation: 'none',
     profile: {
+      locale: 'en',
       id,
       email: `${id}@example.test`,
       name: id,

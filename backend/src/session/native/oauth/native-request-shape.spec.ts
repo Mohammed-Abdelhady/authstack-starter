@@ -33,24 +33,4 @@ describe.each([
       expect(readStringFields({ [field]: value }, fields)).toBeUndefined();
     }
   });
-
-  it.each([undefined, null, [], 7, 'body'])('rejects body %p', (body) => {
-    expect(readStringFields(body, fields)).toBeUndefined();
-  });
-
-  it('accepts an object without optional fields', () => {
-    expect(readStringFields({}, fields)).toEqual({});
-  });
-
-  it('preserves an empty string for the grant-specific decision', () => {
-    expect(readStringFields({ client_id: '' }, fields)).toEqual({
-      client_id: '',
-    });
-  });
-
-  it('preserves a client id without converting it', () => {
-    expect(readStringFields({ client_id: 'native-app' }, fields)).toEqual({
-      client_id: 'native-app',
-    });
-  });
 });

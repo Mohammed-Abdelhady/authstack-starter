@@ -1,16 +1,24 @@
 import { pathSegment } from '../user';
 
 const ACCOUNTS_PATH = '/api/admin/users';
+const INVITATIONS_PATH = '/api/admin/invitations'; // feature:invitations
 const ROLES_PATH = '/api/roles';
 const account = (id: string) => `${ACCOUNTS_PATH}/${pathSegment(id, 'Account id')}`;
 const permissions = (id: string) => `${account(id)}/permissions`;
 const sessions = (id: string) => `${account(id)}/sessions`;
 
 export const ADMIN_PATHS = {
+  // feature:invitations:start
+  invitations: INVITATIONS_PATH,
+  invitation: (id: string) => `${INVITATIONS_PATH}/${pathSegment(id, 'Invitation id')}`,
+  resendInvitation: (id: string) =>
+    `${INVITATIONS_PATH}/${pathSegment(id, 'Invitation id')}/resend`,
+  // feature:invitations:end
   accounts: ACCOUNTS_PATH,
   account,
   accountStatus: (id: string) => `${account(id)}/status`,
   accountRole: (id: string) => `${account(id)}/role`,
+  cancelEmailChange: (id: string) => `${account(id)}/email-change`,
   resendEmailChange: (id: string) => `${account(id)}/resend-email-change`,
   permissions,
   permission: (id: string, permission: string) =>

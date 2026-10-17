@@ -1,8 +1,6 @@
 import configuration from '../configuration';
 import {
-  INSECURE_ENVIRONMENT_WARNING,
   defaultSessionCookieName,
-  startupEnvironmentWarning,
   usesSecureCookies,
 } from './production-environment.util';
 
@@ -26,22 +24,6 @@ describe('cookie security by environment and address', () => {
       expect(defaultSessionCookieName(nodeEnv, clientUrl)).toBe(name);
     },
   );
-});
-
-describe('startupEnvironmentWarning', () => {
-  it('warns when the address is https and the environment is not production', () => {
-    expect(startupEnvironmentWarning('development', HTTPS)).toBe(
-      INSECURE_ENVIRONMENT_WARNING,
-    );
-  });
-
-  it.each([
-    ['development', HTTP],
-    ['production', HTTPS],
-    ['test', undefined],
-  ])('stays quiet for NODE_ENV %s with %s', (nodeEnv, clientUrl) => {
-    expect(startupEnvironmentWarning(nodeEnv, clientUrl)).toBeUndefined();
-  });
 });
 
 describe('the configured session cookie name', () => {

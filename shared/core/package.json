@@ -24,10 +24,11 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "auth:access": "node scripts/auth-access.mjs"
   },
   "peerDependencies": {
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -37,7 +38,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.3",
-    "zod": "^3.25.76"
+    "zod": "^4.6.5"
   },
   "engines": {
     "node": "^22.12.0 || ^24.22.0",

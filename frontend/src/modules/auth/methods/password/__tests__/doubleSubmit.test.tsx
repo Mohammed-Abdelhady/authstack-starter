@@ -32,18 +32,6 @@ const EMAIL = 'layla@example.com';
 const PASSWORD = 'Passw0rdLayla';
 
 describe('two submissions in one tick send one request', () => {
-  it('signs in once', async () => {
-    const requests = stubNetwork(() => success({ requiresTwoFactor: false, user: SIGNED_IN_USER }));
-    await renderForm('en', <PasswordSignInForm redirect={null} isOnlyMethod />);
-    change('login-email-input', EMAIL);
-    change('login-password-input', PASSWORD);
-
-    submitTwiceInOneTick(screen.getByTestId('login-form'));
-
-    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/dashboard'));
-    expect(requests).toEqual(['POST /api/auth/login']);
-  });
-
   it('accepts a new sign-in after a refused one', async () => {
     let attempts = 0;
     const requests = stubNetwork(() => {

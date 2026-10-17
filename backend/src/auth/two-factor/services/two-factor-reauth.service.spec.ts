@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { HashService } from '../../../common/services/hash.service';
@@ -14,9 +15,10 @@ function reauthWith(passwordEnabled: boolean): TwoFactorReauthService {
     auth: { passwordEnabled },
     bcrypt: { rounds: 4 },
   });
+  const browserApplications = browserApplicationsForTest(config);
   return new TwoFactorReauthService(
     new HashService(config),
-    new AuthFeaturesService(config),
+    new AuthFeaturesService(config, browserApplications),
   );
 }
 

@@ -8,6 +8,11 @@ export class AuthMethodsDto {
   })
   password!: boolean;
 
+  // feature:email-code:start
+  @ApiProperty({ description: 'Sign-in codes can be requested' })
+  emailCode: boolean = false;
+  // feature:email-code:end
+
   // feature:magic-link:start
   @ApiProperty({
     description: 'Sign-in links can be requested',
@@ -43,6 +48,11 @@ export class AuthMethodsDto {
 
 /** Payload of GET /auth/methods, read by the client to pick what to render. */
 export class AuthMethodsResponseDto {
+  @ApiProperty({
+    description: 'Whether account audience separation is enforced',
+  })
+  audiencesEnabled: boolean = false;
+
   @ApiProperty({ type: AuthMethodsDto })
   methods!: AuthMethodsDto;
 }

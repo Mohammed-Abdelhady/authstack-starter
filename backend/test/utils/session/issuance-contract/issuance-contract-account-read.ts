@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { MalformedIdError } from '../../../../src/common/persistence/persistence-errors';
 import { RerunPause } from '../../../../src/common/persistence/unit-of-work';
 import { RaceGate } from '../../race-gate';
@@ -59,7 +60,12 @@ export function issuanceAccountReadCases(harness: HarnessSource): void {
     try {
       await harness()
         .service(recording)
-        .createBrowserSession(userId, 'Contract/1', SIGN_IN_ADDRESS);
+        .createBrowserSession(
+          userId,
+          'Contract/1',
+          SIGN_IN_ADDRESS,
+          WEB_CLIENT_ID,
+        );
       signedIn = 'signed in';
     } catch (error) {
       signedIn = error;

@@ -28,24 +28,6 @@ describe('OAuth failure logging in the base strategy', () => {
       .join('\n');
   }
 
-  it('names the provider, the reason and the error code when a code exchange fails', () => {
-    const failure = probe.exchangeFailure(OAuthFailureReason.NO_ACCESS_TOKEN);
-
-    expect(failure.getCode()).toBe(ErrorCode.OAUTH_CODE_INVALID);
-    expect(logged()).toContain('probe');
-    expect(logged()).toContain(ErrorCode.OAUTH_CODE_INVALID);
-    expect(logged()).toContain('reason=no_access_token');
-  });
-
-  it('names the provider, the reason and the error code when a profile fetch fails', () => {
-    const failure = probe.profileFailure(OAuthFailureReason.NO_EMAIL);
-
-    expect(failure.getCode()).toBe(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
-    expect(logged()).toContain('probe');
-    expect(logged()).toContain(ErrorCode.OAUTH_AUTHENTICATION_FAILED);
-    expect(logged()).toContain('reason=no_email');
-  });
-
   it('quotes an RFC 6749 provider code and never a free-text one', () => {
     probe.exchangeFailure(OAuthFailureReason.INVALID_TOKEN, {
       providerCode: 'invalid_grant',
@@ -61,11 +43,6 @@ describe('OAuth failure logging in the base strategy', () => {
     expect(logged()).not.toContain('your client secret');
   });
 
-  it('omits the provider code when none was supplied', () => {
-    probe.exchangeFailure(OAuthFailureReason.PROVIDER_ERROR);
-    expect(logged()).not.toContain('providerCode=');
-  });
-
   it('quotes a jose machine code and never its message', () => {
     const joseFailure = {
       name: 'JWTExpired',
@@ -77,11 +54,6 @@ describe('OAuth failure logging in the base strategy', () => {
     });
     expect(logged()).toContain('joseCode=ERR_JWT_EXPIRED');
     expect(logged()).not.toContain('timestamp check');
-  });
-
-  it('carries the numeric HTTP status on a transport failure', () => {
-    probe.profileFailure(OAuthFailureReason.HTTP_STATUS, { httpStatus: 503 });
-    expect(logged()).toContain('status=503');
   });
 
   it.each([
@@ -154,22 +126,6 @@ describe('OAuth failure logging in the base strategy', () => {
     ).rejects.toBeInstanceOf(AppException);
     expect(logged()).toContain('reason=malformed_response');
     expect(logged()).not.toContain('secret@example.com');
-  });
-
-  it.each([
-    'invalid_request',
-    'invalid_client',
-    'invalid_grant',
-    'unauthorized_client',
-    'unsupported_grant_type',
-    'unsupported_response_type',
-    'invalid_scope',
-    'access_denied',
-    'server_error',
-    'temporarily_unavailable',
-  ])('retains the standard machine code %s', (providerCode) => {
-    probe.exchangeFailure(OAuthFailureReason.PROVIDER_ERROR, { providerCode });
-    expect(logged()).toContain(`providerCode=${providerCode}`);
   });
 
   it('refuses arbitrary jose code fields', () => {

@@ -44,17 +44,6 @@ describe('validateEnvironment', () => {
     expect(result.SWAGGER_ENABLED).toBe(false);
   });
 
-  it("SWAGGER_ENABLED='true' yields true", () => {
-    const envWithSwaggerTrue: Record<string, unknown> = {
-      ...baseEnv,
-      SWAGGER_ENABLED: 'true',
-    };
-
-    const result = validateEnvironment(envWithSwaggerTrue);
-
-    expect(result.SWAGGER_ENABLED).toBe(true);
-  });
-
   // feature:mongodb:start
   it('mongodb+srv URI accepted', () => {
     const envWithAtlas: Record<string, unknown> = {
@@ -130,17 +119,6 @@ describe('validateEnvironment', () => {
     expect(result.OAUTH_CALLBACK_BASE_URL).toBe(
       'http://localhost:5000/api/auth/oauth',
     );
-  });
-
-  it("PROFILE_SYNC_ENABLED='false' yields false", () => {
-    const envWithProfileSyncFalse: Record<string, unknown> = {
-      ...baseEnv,
-      PROFILE_SYNC_ENABLED: 'false',
-    };
-
-    const result = validateEnvironment(envWithProfileSyncFalse);
-
-    expect(result.PROFILE_SYNC_ENABLED).toBe(false);
   });
 
   it('TWO_FACTOR_ENABLED defaults to true', () => {

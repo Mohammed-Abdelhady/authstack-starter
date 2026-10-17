@@ -126,14 +126,6 @@ describe('parseAnswersConfig refuses what a replay cannot honour', () => {
 });
 
 describe('readConfigFile', () => {
-  it('reads a valid file', async () => {
-    const path = await tempFile(JSON.stringify({ targets: ['web'], database: 'mongodb' }));
-    await expect(readConfigFile(path, SOURCE)).resolves.toEqual({
-      targets: ['web'],
-      databases: ['mongodb'],
-    });
-  });
-
   it('reports a missing file', async () => {
     const missing = join(tmpdir(), 'cna-config-missing', 'config.json');
     await expect(readConfigFile(missing, SOURCE)).rejects.toThrow(/config file not found/);

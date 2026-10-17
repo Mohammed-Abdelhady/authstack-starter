@@ -1,3 +1,10 @@
+import type { PasskeyActions } from '@app/native-auth'; // feature:passkeys
+import type { ProviderSignInPort } from '@app/native-auth'; // feature:oauth-core
+import type { AccountDeletionProps } from '../types/account-deletion';
+import { PasskeysSection } from '../components/PasskeysSection'; // feature:passkeys
+import { ProvidersSection } from '../components/ProvidersSection'; // feature:oauth-core
+import { DeleteSection } from '../components/DeleteSection';
+import { EmailSection } from '../components/EmailSection';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, BUTTON_VARIANT } from '../components/Button';
 import { Field } from '../components/Field';
@@ -21,6 +28,10 @@ const styles = StyleSheet.create({
 });
 
 interface AccountScreenProps {
+  passkeys?: PasskeyActions; // feature:passkeys
+  providerSignIn?: ProviderSignInPort; // feature:oauth-core
+  accountDeletion?: AccountDeletionProps;
+  onSignInAgain?: () => void;
   arrival: Arrival;
   onOpenSessions: () => void;
 }
@@ -35,7 +46,14 @@ function AccountSkeleton({ label }: { label: string }) {
   );
 }
 
-export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
+export function AccountScreen({
+  arrival,
+  onOpenSessions,
+  accountDeletion,
+  onSignInAgain, // feature:passkeys,oauth-core
+  passkeys, // feature:passkeys
+  providerSignIn, // feature:oauth-core
+}: AccountScreenProps) {
   const { t } = useUi();
   const titleRef = useScreenTitleFocus();
   const { view, profile, failureText, sessionNotSaved, retry, signOut, signOutState } =
@@ -85,6 +103,20 @@ export function AccountScreen({ arrival, onOpenSessions }: AccountScreenProps) {
             onPress={onOpenSessions}
           />
         </Surface>
+        {profile === undefined ? null : (
+          <>
+            <EmailSection />
+            {/* feature:passkeys:start */}
+            {passkeys ? (
+              <PasskeysSection passkeys={passkeys} onSignInAgain={onSignInAgain} />
+            ) : null}
+            {/* feature:passkeys:end */}
+            {/* feature:oauth-core:start */}
+            <ProvidersSection providerSignIn={providerSignIn} onSignInAgain={onSignInAgain} />
+            {/* feature:oauth-core:end */}
+            {accountDeletion ? <DeleteSection {...accountDeletion} /> : null}
+          </>
+        )}
         <View style={styles.foot}>
           {signOutState === SIGN_OUT_STATE.FAILED ? (
             <View style={styles.group}>

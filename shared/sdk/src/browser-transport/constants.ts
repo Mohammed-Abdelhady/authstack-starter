@@ -1,6 +1,7 @@
 import { ErrorCode } from '@app/core/errors';
 import { AUTH_PATHS } from '../areas/auth';
 
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
 export const CSRF_HEADER = 'x-csrf-token';
 export const HTTP_STATUS_NO_CONTENT = 204;
 export const HTTP_STATUS_UNAUTHORIZED = 401;

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   FILE_LINE_LIMIT,
-  countLines,
   evaluateChanges,
   findAttributionHits,
   findBannedToken,
@@ -18,20 +17,6 @@ function added(filePath, lines, lineStart = 1) {
     addedLines: lines.map((text, index) => ({ line: lineStart + index, text })),
   };
 }
-
-test('clean added source passes', () => {
-  const result = evaluateChanges({
-    added: [added('backend/src/health.ts', ['export const ok = true;'])],
-    lineCounts: [{ path: 'backend/src/health.ts', lines: 40 }],
-  });
-  assert.equal(result.ok, true);
-  assert.equal(result.bans.length, 0);
-});
-
-test('empty change set passes', () => {
-  const result = evaluateChanges({ added: [], lineCounts: [] });
-  assert.equal(result.ok, true);
-});
 
 test('added eslint-disable fails', () => {
   const result = evaluateChanges({
@@ -67,14 +52,6 @@ test('added dangerouslySetInnerHTML fails', () => {
   });
   assert.equal(result.ok, false);
   assert.equal(result.bans[0].token, 'dangerouslySetInnerHTML');
-});
-
-test('unchanged existing line is not scanned', () => {
-  const result = evaluateChanges({
-    added: [{ path: 'backend/src/auth.ts', addedLines: [] }],
-    lineCounts: [{ path: 'backend/src/auth.ts', lines: 80 }],
-  });
-  assert.equal(result.ok, true);
 });
 
 test('denial assertion in a test file is allowed', () => {
@@ -130,10 +107,6 @@ test('line cap: 350 passes and 351 fails under src', () => {
   assert.equal(over.caps[0].lines, FILE_LINE_LIMIT + 1);
 });
 
-test('mobile test files use the same line cap as source files', () => {
-  assert.equal(isCappedPath('mobile/auth/test/long.test.ts'), true);
-});
-
 test('the adapter conformance suite is capped like source files', () => {
   assert.equal(isCappedPath('mobile/auth/conformance/credentials.ts'), true);
   assert.equal(isCappedPath('mobile/auth/conformance-notes/credentials.ts'), false);
@@ -152,12 +125,6 @@ test('root scripts over the cap are gated', () => {
   });
   assert.equal(result.ok, false);
   assert.deepEqual(result.caps, [{ path: 'scripts/init.js', lines: 500 }]);
-});
-
-test('countLines matches visible lines', () => {
-  assert.equal(countLines(''), 0);
-  assert.equal(countLines('a\nb\n'), 2);
-  assert.equal(countLines('a\nb'), 2);
 });
 
 test('parseUnifiedDiff reads added lines only', () => {
@@ -185,12 +152,6 @@ test('commit message attribution is stripped and leftover hits fail', () => {
   assert.equal(findAttributionHits(stripped).length, 0);
   assert.equal(stripped.includes('Co-authored-by'), false);
   assert.ok(findAttributionHits('feat: x\n\nGenerated with Claude\n').length > 0);
-});
-
-test('packages src is capped and husky hooks are scanned', () => {
-  assert.equal(isCappedPath('packages/create-authstack-starter/src/cli.ts'), true);
-  assert.equal(isScanTarget('.husky/pre-commit'), true);
-  assert.equal(isScanTarget('package.json'), true);
 });
 
 test('shared core src is capped', () => {

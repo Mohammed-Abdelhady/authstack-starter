@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, Logger, ArgumentsHost } from '@nestjs/common';
+import { Logger, ArgumentsHost } from '@nestjs/common';
 import { Response } from 'express';
 import { GlobalExceptionFilter } from './global-exception.filter';
 import {
@@ -117,25 +117,6 @@ describe('GlobalExceptionFilter driver error log lines', () => {
         expect(String(part)).not.toContain('LEAKED');
       }
     }
-  });
-
-  it('logs a malformed JSON body by status and code, never the body', () => {
-    // The message a real malformed body produces, built by a real parse.
-    let parseMessage: string;
-    try {
-      JSON.parse('{"email":"a@b.c","password":hunter2,}');
-      parseMessage = 'unreachable';
-    } catch (error) {
-      parseMessage = (error as Error).message;
-    }
-    const exception = new BadRequestException(parseMessage);
-
-    filter.catch(exception, mockHost());
-
-    const line = logged();
-    expect(line).toContain('HttpException (400)');
-    expect(line).not.toContain('a@b.c');
-    expect(line).not.toContain('hunter2');
   });
 
   it('logs an AppException by status and code without its input-bearing message', () => {

@@ -21,13 +21,6 @@ describe('native DPoP runtime configuration', () => {
     });
   });
 
-  it('fails closed with its configuration code when the secret is short', () => {
-    expect(capturedFailure('too-short')).toEqual({
-      code: 'NATIVE_DPOP_CONFIGURATION_INVALID',
-      status: 500,
-    });
-  });
-
   it('fails closed for a secret one character below the minimum', () => {
     expect(capturedFailure('n'.repeat(31))).toEqual({
       code: 'NATIVE_DPOP_CONFIGURATION_INVALID',

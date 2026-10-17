@@ -1,10 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
+import type { Request } from 'express';
+import { Controller, Get, Req } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
 import { AuthFeature } from './enums/auth-feature.enum';
 import { AuthFeaturesService } from './services/features/auth-features.service';
 import { AuthMethodsResponseDto } from './dto/auth-methods-response.dto';
 import { OAuthRegistryService } from './oauth/oauth-registry.service'; // feature:oauth-core
+import { AudiencePolicy } from '../session/applications/audience-policy';
 import { ApiResponse } from '../common/dto/api-response.dto';
 
 /**
@@ -16,6 +18,7 @@ import { ApiResponse } from '../common/dto/api-response.dto';
 export class AuthMethodsController {
   constructor(
     private readonly authFeaturesService: AuthFeaturesService,
+    private readonly audiencePolicy: AudiencePolicy,
     private readonly oauthRegistry: OAuthRegistryService, // feature:oauth-core
   ) {}
 
@@ -32,14 +35,45 @@ export class AuthMethodsController {
       'together with the OAuth providers that have credentials, so a client ' +
       'renders only what works.',
   })
-  getMethods(): ApiResponse<AuthMethodsResponseDto> {
+  getMethods(@Req() request?: Request): ApiResponse<AuthMethodsResponseDto> {
     return ApiResponse.success({
+      audiencesEnabled: this.audiencePolicy.enabled(),
       methods: {
-        password: this.authFeaturesService.isEnabled(AuthFeature.PASSWORD),
-        magicLink: this.authFeaturesService.isEnabled(AuthFeature.MAGIC_LINK), // feature:magic-link
-        twoFactor: this.authFeaturesService.isEnabled(AuthFeature.TWO_FACTOR), // feature:totp
-        passkeys: this.authFeaturesService.isEnabled(AuthFeature.PASSKEYS), // feature:passkeys
-        oauth: this.oauthRegistry.listEnabled(), // feature:oauth-core
+        password: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.PASSWORD,
+          request,
+        ),
+        // feature:email-code:start
+        emailCode: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.EMAIL_CODE,
+          request,
+        ),
+        // feature:email-code:end
+        // feature:magic-link:start
+        magicLink: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.MAGIC_LINK,
+          request,
+        ),
+        // feature:magic-link:end
+        // feature:totp:start
+        twoFactor: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.TWO_FACTOR,
+          request,
+        ),
+        // feature:totp:end
+        // feature:passkeys:start
+        passkeys: this.authFeaturesService.isEnabledForRequest(
+          AuthFeature.PASSKEYS,
+          request,
+        ),
+        // feature:passkeys:end
+        // feature:oauth-core:start
+        oauth: this.authFeaturesService.isProviderSignInEnabledForRequest(
+          request,
+        )
+          ? this.oauthRegistry.listEnabled()
+          : [],
+        // feature:oauth-core:end
       },
     });
   }

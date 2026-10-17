@@ -164,7 +164,8 @@
         "label": "Remove {name}",
         "submit": "Remove",
         "success": "The passkey was removed",
-        "blockedLastSignInMethod": "This is the only way to sign in to your account, so it cannot be removed."
+        "blockedLastSignInMethod": "This is the only way to sign in to your account, so it cannot be removed.",
+        "blockedRequiredPasskey": "An application requires a passkey for this relying party. Add another passkey for that application before removing this one."
       },
       "errors": {
         "nameRequired": "Enter a name",

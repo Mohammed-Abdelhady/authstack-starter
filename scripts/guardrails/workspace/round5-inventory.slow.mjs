@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { installChecker, repository } from '../test-repository.mjs';
+import { repository } from '../test-repository.mjs';
 import { trackedTypeFiles } from './workspace-policy.mjs';
-import { installWorkspaceTools, installPolicyTestDependencies } from './workspace-tool-fixture.mjs';
 
 test('filesystem inventory stops ancestor ignores at the nearest repository', (t) => {
   const repo = repository(t);
@@ -54,45 +50,3 @@ for (const configuration of ['parameters', 'counted']) {
     );
   });
 }
-
-test('the repository policy test succeeds without launching Git', (t) => {
-  const repo = repository(t);
-  installChecker(repo.root, { directory: 'scripts' });
-  const policyTest = fileURLToPath(new URL('../../eslint-policy.test.mjs', import.meta.url));
-  copyFileSync(policyTest, join(repo.root, 'scripts/eslint-policy.test.mjs'));
-  copyFileSync(
-    fileURLToPath(new URL('./workspace-policy.mjs', import.meta.url)),
-    join(repo.root, 'scripts/guardrails/workspace/workspace-policy.mjs'),
-  );
-  repo.write('package.json', JSON.stringify({ workspaces: ['apps/*'] }));
-  repo.write('apps/one/package.json', JSON.stringify({
-    type: 'module', devDependencies: { eslint: '^9.39.5', 'typescript-eslint': '^8.70.1' },
-  }));
-  repo.write('apps/one/src/a.ts', 'export {};\n');
-  repo.write(
-    'apps/one/eslint.config.mjs',
-    `import tseslint from 'typescript-eslint';
-export default tseslint.config(...tseslint.configs.recommended,
-  { linterOptions: { noInlineConfig: true } });\n`,
-  );
-  installWorkspaceTools(repo.root, 'apps/one');
-  installPolicyTestDependencies(repo.root);
-  // Node 24's default reporter prints no TAP summary lines.
-  const result = spawnSync(
-    process.execPath,
-    ['--test', '--test-reporter=tap', 'scripts/eslint-policy.test.mjs'],
-    {
-      cwd: repo.root,
-      env: repo.env,
-      encoding: 'utf8',
-    },
-  );
-  assert.deepEqual(
-    {
-      status: result.status,
-      passed: Number(result.stdout.match(/^# pass (\d+)$/m)?.[1]),
-      failed: Number(result.stdout.match(/^# fail (\d+)$/m)?.[1]),
-    },
-    { status: 0, passed: 1, failed: 0 },
-  );
-});

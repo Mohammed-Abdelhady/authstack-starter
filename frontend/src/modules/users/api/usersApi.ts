@@ -1,3 +1,5 @@
+import { staffRequest } from '@/modules/auth/api/staffRequest';
+import { IDEMPOTENCY_HEADER } from '@/modules/auth/constants/staff-operation';
 import { baseApi } from '@/store/api/baseApi';
 import { unwrapObjectBody, type MessageResult } from '@app/sdk';
 import {
@@ -9,6 +11,8 @@ import type {
   GetUsersParams,
   GetUsersResponse,
   CreateUserRequest,
+  DeleteUserRequest,
+  ResendEmailChangeRequest,
   UpdateUserRequest,
   UpdateUserRoleRequest,
   UpdateUserStatusRequest,
@@ -77,19 +81,22 @@ export const usersApi = baseApi.injectEndpoints({
      * Create new user (admin)
      */
     createUser: builder.mutation<AdminUser, CreateUserRequest>({
-      query: (data) => ({
-        url: '/api/admin/users',
-        method: 'POST',
-        body: data,
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: Omit<AdminUser, '_id'> & { id: string };
-        message: string;
-      }) => {
-        const { id, ...rest } = response.data;
-        return { ...rest, _id: id };
-      },
+      queryFn: (...[{ body, idempotencyKey }, , , fetch]) =>
+        staffRequest(
+          {
+            url: '/api/admin/users',
+            method: 'POST',
+            body,
+            headers: { [IDEMPOTENCY_HEADER]: idempotencyKey },
+          },
+          fetch,
+          (response) => {
+            const { id, ...rest } = unwrapObjectBody<Omit<AdminUser, '_id'> & { id: string }>(
+              response,
+            );
+            return { ...rest, _id: id };
+          },
+        ),
       invalidatesTags: invalidateOnSuccess([{ type: 'User', id: 'LIST' }]),
     }),
 
@@ -112,50 +119,56 @@ export const usersApi = baseApi.injectEndpoints({
      * Update user information (admin)
      */
     updateUser: builder.mutation<AdminUser, UpdateUserRequest>({
-      query: ({ userId, name, email }) => ({
-        url: `/api/admin/users/${userId}`,
-        method: 'PATCH',
-        body: { ...(name === undefined ? {} : { name }), email },
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: Omit<AdminUser, '_id'> & { id: string };
-        message: string;
-      }) => {
-        const { id, ...rest } = response.data;
-        return { ...rest, _id: id };
-      },
+      queryFn: (...[{ userId, name, email, version }, , , fetch]) =>
+        staffRequest(
+          {
+            url: `/api/admin/users/${userId}`,
+            method: 'PATCH',
+            body: { ...(name === undefined ? {} : { name }), email, version },
+          },
+          fetch,
+          (response) => {
+            const { id, ...rest } = unwrapObjectBody<Omit<AdminUser, '_id'> & { id: string }>(
+              response,
+            );
+            return { ...rest, _id: id };
+          },
+        ),
       invalidatesTags: invalidateOnSuccess(({ userId }: UpdateUserRequest) => [
         { type: 'User', id: userId },
         { type: 'User', id: 'LIST' },
       ]),
     }),
 
-    resendEmailChange: builder.mutation<MessageResult, string>({
-      query: (userId) => ({
-        url: `/api/admin/users/${userId}/resend-email-change`,
-        method: 'POST',
-      }),
-      transformResponse: (response: unknown) => unwrapObjectBody<MessageResult>(response),
+    resendEmailChange: builder.mutation<MessageResult, ResendEmailChangeRequest>({
+      queryFn: (...[{ userId, version }, , , fetch]) =>
+        staffRequest<MessageResult>(
+          {
+            url: `/api/admin/users/${userId}/resend-email-change`,
+            method: 'POST',
+            body: { version },
+          },
+          fetch,
+          unwrapObjectBody<MessageResult>,
+        ),
     }),
 
     /**
      * Update user status (admin)
      */
     updateUserStatus: builder.mutation<
-      { id: string; isDeleted: boolean; deletedAt?: string },
+      { id: string; isDeleted: boolean; deletedAt?: string; version: number },
       UpdateUserStatusRequest
     >({
-      query: ({ userId, isActive }) => ({
-        url: `/api/admin/users/${userId}/status`,
-        method: 'PATCH',
-        body: { isActive },
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: { id: string; isDeleted: boolean; deletedAt?: string };
-        message: string;
-      }) => response.data,
+      queryFn: (...[{ userId, isActive, version }, , , fetch]) =>
+        staffRequest<{ id: string; isDeleted: boolean; deletedAt?: string; version: number }>(
+          {
+            url: `/api/admin/users/${userId}/status`,
+            method: 'PATCH',
+            body: { isActive, version },
+          },
+          fetch,
+        ),
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(
         ({ userId }: UpdateUserStatusRequest) => [
           { type: 'User', id: userId },
@@ -167,17 +180,15 @@ export const usersApi = baseApi.injectEndpoints({
     /**
      * Update user role (admin)
      */
-    updateUserRole: builder.mutation<{ id: string; role: string }, UpdateUserRoleRequest>({
-      query: ({ userId, role }) => ({
-        url: `/api/admin/users/${userId}/role`,
-        method: 'PATCH',
-        body: { role },
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: { id: string; role: string };
-        message: string;
-      }) => response.data,
+    updateUserRole: builder.mutation<
+      { id: string; role: string; version: number },
+      UpdateUserRoleRequest
+    >({
+      queryFn: (...[{ userId, role, version }, , , fetch]) =>
+        staffRequest<{ id: string; role: string; version: number }>(
+          { url: `/api/admin/users/${userId}/role`, method: 'PATCH', body: { role, version } },
+          fetch,
+        ),
       // The permissions read of a user carries the role and what it grants.
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ userId }: UpdateUserRoleRequest) => [
         { type: 'User', id: userId },
@@ -189,12 +200,16 @@ export const usersApi = baseApi.injectEndpoints({
     /**
      * Delete user (admin)
      */
-    deleteUser: builder.mutation<void, string>({
-      query: (userId) => ({
-        url: `/api/admin/users/${userId}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: invalidateOnSuccessOrUnknownOutcome((userId: string) => [
+    deleteUser: builder.mutation<null, DeleteUserRequest>({
+      queryFn: async (...[{ userId, version }, , , fetch]) => {
+        const result = await staffRequest(
+          { url: `/api/admin/users/${userId}`, method: 'DELETE', params: { version } },
+          fetch,
+          () => ({}),
+        );
+        return result.error ? { error: result.error } : { data: null };
+      },
+      invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ userId }: DeleteUserRequest) => [
         { type: 'User', id: userId },
         { type: 'User', id: 'LIST' },
       ]),

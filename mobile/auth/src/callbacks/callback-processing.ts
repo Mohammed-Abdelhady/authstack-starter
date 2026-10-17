@@ -183,6 +183,7 @@ export function createCallbackProcessor(
             codeVerifier: transaction.verifier,
             redirectUri: transaction.returnAddress,
             clientId: runtime.config.clientId,
+            installId: consumed.installDigest,
           };
           if (!runtime.dependencies.deviceKey) {
             return {

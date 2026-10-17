@@ -129,6 +129,7 @@ export function accountSeamCases(
     const activated = await rejectionOf(
       inWork((work) =>
         stores.activation.insertActivated(work, {
+          audience: undefined,
           id: stores.activation.newAccountId(),
           email: 'person@example.test',
           passwordHash: 'hash',

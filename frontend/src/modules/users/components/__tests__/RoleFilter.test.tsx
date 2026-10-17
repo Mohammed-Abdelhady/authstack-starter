@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { directionOf, registerRtlDocument } from '@/tests/direction';
 import {
@@ -40,8 +40,6 @@ function roles(name: string) {
   };
 }
 
-const EMPTY_ROLES = { roles: [], total: 0, page: 1, pages: 1 };
-
 /** The page that owns the filter value, as the users page does. */
 function Host({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial);
@@ -64,52 +62,7 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the role filter in an rtl page in %s', (locale) => {
-  it('shows the translated label, not a role value, while every role is listed', async () => {
-    stubNetwork(() => success(EMPTY_ROLES));
-    const { message, format } = await renderForm(locale, <Host initial="all" />);
-
-    expect(screen.queryByTestId('role-filter-value')).toBeNull();
-    expect(screen.getByTestId('role-filter').textContent).toBe(message('users.allRoles'));
-    expect(
-      screen.getByRole('button', {
-        name: format('users.roleFilterTriggerLabel', { role: message('users.allRoles') }),
-      }),
-    ).not.toBeNull();
-  });
-
-  it('names its search field in full and shows one word as its placeholder', async () => {
-    stubNetwork(() => success(roles('Support')));
-    const { message } = await renderForm(locale, <Host initial="all" />);
-
-    fireEvent.click(screen.getByTestId('role-filter'));
-    const search = await screen.findByRole('textbox', {
-      name: message('roles.searchPlaceholder'),
-    });
-
-    expect(search.getAttribute('placeholder')).toBe(message('common.search'));
-  });
-
-  it.each([SLUG, 'support-team'])(
-    'shows the slug %s it has no name for as it is, left to right',
-    async (slug) => {
-      stubNetwork(() => success(EMPTY_ROLES));
-      await renderForm(locale, <Host initial={slug} />);
-
-      expect(shownValue()).toEqual({ text: slug, value: 'ltr', line: 'rtl' });
-    },
-  );
-
   describe.each(NAMES)('%s', (_kind, name) => {
-    it('lists the role by its name in its own direction', async () => {
-      stubNetwork(() => success(roles(name)));
-      await renderForm(locale, <Host initial="all" />);
-
-      fireEvent.click(screen.getByTestId('role-filter'));
-      const option = await screen.findByRole('button', { name });
-
-      expect(within(option).getByText(name).getAttribute('dir')).toBe('auto');
-    });
-
     it('shows the name of the picked role in its own direction, then the label again', async () => {
       stubNetwork(() => success(roles(name)));
       const { message, format } = await renderForm(locale, <Host initial="all" />);

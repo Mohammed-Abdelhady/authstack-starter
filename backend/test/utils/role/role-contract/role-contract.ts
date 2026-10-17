@@ -1,3 +1,5 @@
+import { roleAudienceEditCases } from './role-contract-audience-edits';
+import { roleAudienceRepairCases } from './role-contract-audience';
 import { TEST_NOW } from '../../frozen-clock';
 import { roleAtomicityCases } from './role-contract-atomicity';
 import { roleEditCases } from './role-contract-edits';
@@ -19,7 +21,12 @@ import { roleSweepStoreCases } from './role-contract-sweeps';
 export function describeRoleStoresContract(
   database: string,
   boot: () => Promise<RoleContractHarness>,
-  budgets: { bootMs: number; teardownMs: number; resetMs: number },
+  options: {
+    bootMs: number;
+    teardownMs: number;
+    resetMs: number;
+    bindParameterBoundary?: boolean;
+  },
 ): void {
   describe(`role stores contract on ${database}`, () => {
     let harness: RoleContractHarness | undefined;
@@ -40,20 +47,22 @@ export function describeRoleStoresContract(
 
     beforeAll(async () => {
       harness = await boot();
-    }, budgets.bootMs);
+    }, options.bootMs);
 
     afterAll(async () => {
       await harness?.close();
-    }, budgets.teardownMs);
+    }, options.teardownMs);
 
     beforeEach(async () => {
       current().clock.set(TEST_NOW);
       await current().reset();
       fixture = await seedRoleFixture(current());
-    }, budgets.resetMs);
+    }, options.resetMs);
 
     afterEach(() => jest.restoreAllMocks());
 
+    roleAudienceRepairCases(current, seeded);
+    roleAudienceEditCases(current, seeded);
     roleRuleCases(current, seeded);
     roleEditCases(current, seeded);
     roleLevelCases(current, seeded);
@@ -63,6 +72,6 @@ export function describeRoleStoresContract(
     roleRaceCases(current, seeded);
     roleRepairCases(current, seeded);
     roleSweepStoreCases(current, seeded);
-    roleLargeMoveCases(current, seeded);
+    if (options.bindParameterBoundary) roleLargeMoveCases(current, seeded);
   });
 }

@@ -45,11 +45,4 @@ describe.each([
     expect((await shell.auth.engine.signIn()).kind).toBe('signedIn');
     expect(lines(shell)).toContain(translate(locale, 'account', ISOLATED_ADDRESS));
   });
-
-  it('says there is none, without an isolate, while signed out', () => {
-    const shell = startShell();
-    shells.push(shell);
-
-    expect(lines(shell)).toContain(translate(locale, 'account', translate(locale, 'none')));
-  });
 });

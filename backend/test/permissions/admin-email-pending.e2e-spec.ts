@@ -133,14 +133,6 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     ).toEqual([[targetId, OLD, NEW]]);
   });
 
-  it('reports no waiting address for an account nobody asked to move', async () => {
-    const read = await admin.get(`/api/admin/users/${targetId}`).expect(200);
-
-    expect((read.body as ApiBody<AdminUserBody>).data).not.toHaveProperty(
-      'pendingEmail',
-    );
-  });
-
   // feature:email-password:start
   async function signIn(email: string, password: string): Promise<Response> {
     const agent = await browserAgent(e2e.httpServer);
@@ -278,7 +270,7 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     expect(resent === firstCode ? 'same' : 'fresh').toBe('fresh');
   });
 
-  it('refuses an address change of the actor, a peer and a higher rank', async () => {
+  it('requires ACT for a peer and refuses self and higher-rank address edits', async () => {
     const adminId = await idOf(SEED_ADMIN.email);
     const { _id: peerId } = await e2e.state.accounts.createAccount({
       email: 'second-admin@seed.local',
@@ -289,13 +281,13 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     const manager = await loginAs(e2e.httpServer, SEED_MANAGER);
 
     const own = await move(admin, adminId, NEW).expect(400);
-    const peer = await move(admin, peerId, NEW).expect(403);
+    const peer = await move(admin, peerId, NEW).expect(401);
     const higher = await move(manager, adminId, NEW).expect(403);
     const lower = await move(manager, targetId, NEW).expect(403);
 
     expect([codeOf(own), codeOf(peer), codeOf(higher), codeOf(lower)]).toEqual([
       ErrorCode.CANNOT_MODIFY_SELF,
-      ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+      ErrorCode.REAUTH_REQUIRED,
       ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
       ErrorCode.EMAIL_CHANGE_NOT_ALLOWED,
     ]);

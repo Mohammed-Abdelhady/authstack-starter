@@ -68,6 +68,7 @@ describe('session authority (plan 02)', () => {
         user._id,
         'Mozilla/5.0',
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       return { userId: user._id, token: issued.sessionToken };
     } catch (error) {
@@ -101,7 +102,7 @@ describe('session authority (plan 02)', () => {
     expect(await harness.sessionService.validateSession(token)).toBeNull();
   });
 
-  it('fails at the idle deadline while the document still exists', async () => {
+  it('persists expiry at the idle deadline through the Mongo facade', async () => {
     const { token } = await login('idle@example.test');
     const stored = await harness.sessions.findOne({
       tokenHash: hashToken(token),
@@ -119,7 +120,7 @@ describe('session authority (plan 02)', () => {
     ).toBeNull();
     expect(
       await harness.sessions.findById(stored._id).then((row) => row?.isValid),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('fails at the absolute deadline', async () => {
@@ -183,11 +184,22 @@ describe('session authority (plan 02)', () => {
         user._id,
         `agent-${index}`,
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
     }
     const attempts = await Promise.allSettled([
-      harness.sessionService.createSession(user._id, 'race-a', '127.0.0.1'),
-      harness.sessionService.createSession(user._id, 'race-b', '127.0.0.1'),
+      harness.sessionService.createSession(
+        user._id,
+        'race-a',
+        '127.0.0.1',
+        WEB_CLIENT_ID,
+      ),
+      harness.sessionService.createSession(
+        user._id,
+        'race-b',
+        '127.0.0.1',
+        WEB_CLIENT_ID,
+      ),
     ]);
     const accepted = attempts.filter((result) => result.status === 'fulfilled');
     const rejected = attempts.filter((result) => result.status === 'rejected');
@@ -223,7 +235,12 @@ describe('session authority (plan 02)', () => {
     await harness.applicationAccess.blockGrant(userId, WEB_CLIENT_ID);
     expect(await harness.sessionService.validateSession(token)).toBeNull();
     await expect(
-      harness.sessionService.createSession(userId, 'retry', '127.0.0.1'),
+      harness.sessionService.createSession(
+        userId,
+        'retry',
+        '127.0.0.1',
+        WEB_CLIENT_ID,
+      ),
     ).rejects.toMatchObject({ code: ErrorCode.GRANT_BLOCKED });
   });
 });

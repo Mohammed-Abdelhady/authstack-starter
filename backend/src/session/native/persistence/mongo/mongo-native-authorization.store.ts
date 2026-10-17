@@ -60,6 +60,8 @@ function toCode(stored: AuthorizationTransactionDocument): AuthorizationCode {
     requestedScopes: [...stored.requestedScopes],
     audience: stored.audience ?? null,
     authenticationMethods: [...stored.authenticationMethods],
+    userVerified: stored.userVerified === true,
+    authenticatedAt: stored.authenticatedAt ?? null,
     capturedUserVersion: stored.capturedUserVersion ?? null,
     capturedClientVersion: stored.capturedClientVersion ?? null,
     capturedGrantVersion: stored.capturedGrantVersion ?? null,
@@ -157,6 +159,10 @@ export class MongoNativeAuthorizationStore extends NativeAuthorizationStore {
             capturedUserVersion: approval.capturedUserVersion,
             capturedClientVersion: approval.capturedClientVersion,
             authenticationMethods: approval.authenticationMethods,
+            userVerified: approval.userVerified,
+            ...(approval.authenticatedAt
+              ? { authenticatedAt: approval.authenticatedAt }
+              : {}),
           },
         },
       )

@@ -1,3 +1,5 @@
+import { IssuanceApplications } from '../../../../session/issuance/issuance-applications';
+import { BROWSER_APPLICATIONS_TEST_PROVIDER } from '../../../../common/testing/browser-applications.harness-spec';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -52,12 +54,22 @@ export interface MagicLinkHarness {
   service: MagicLinkService;
   clock: FrozenClock;
   policy: AccountCreationPolicy;
-  pendingModel: { create: jest.Mock; findOneAndUpdate: jest.Mock };
+  pendingModel: {
+    create: jest.Mock;
+    findOne: jest.Mock;
+    findOneAndUpdate: jest.Mock;
+    updateOne: jest.Mock;
+  };
   /** The cap's counter. Its answer is the count after this request. */
   counterModel: { findOneAndUpdate: jest.Mock };
   userModel: { findOne: jest.Mock; exists: jest.Mock; create: jest.Mock };
   authMailService: { sendMagicLink: jest.Mock };
-  signInService: { completeSignIn: jest.Mock; issueSession: jest.Mock };
+  signInService: {
+    assertAdmission: jest.Mock;
+    recordCreationRefusal: jest.Mock;
+    completeSignIn: jest.Mock;
+    issueSession: jest.Mock;
+  };
 }
 
 export { MAGIC_LINK_EXPIRES_IN, MAGIC_LINK_MAX_PER_HOUR };
@@ -107,9 +119,15 @@ const CONFIG_VALUES: Record<string, string | number> = {
 
 export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const clock = new FrozenClock(TEST_NOW);
-  const policy = new AccountCreationPolicy();
+  const policy = new AccountCreationPolicy(
+    partialMock<IssuanceApplications>({}),
+  );
   const pendingModel = {
     create: jest.fn().mockResolvedValue(undefined),
+    findOne: jest.fn().mockReturnValue({
+      select: () => ({ lean: () => Promise.resolve(null) }),
+    }),
+    updateOne: jest.fn().mockResolvedValue({ matchedCount: 0 }),
     findOneAndUpdate: jest.fn(),
   };
   const counterModel = {
@@ -129,6 +147,8 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   };
 
   const signInService = {
+    assertAdmission: jest.fn().mockResolvedValue(undefined),
+    recordCreationRefusal: jest.fn().mockResolvedValue(undefined),
     completeSignIn: jest
       .fn()
       .mockResolvedValue({ requiresTwoFactor: false, user: MOCK_USER_SUMMARY }),
@@ -138,6 +158,7 @@ export async function createMagicLinkHarness(): Promise<MagicLinkHarness> {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       MagicLinkService,
+      BROWSER_APPLICATIONS_TEST_PROVIDER,
       { provide: AddressLedger, useValue: partialMock<AddressLedger>({}) },
       { provide: AccountCreationPolicy, useValue: policy },
       {

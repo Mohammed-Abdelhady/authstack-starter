@@ -1,3 +1,6 @@
+import type { ApplicationSignInMethods } from '../../applications/types/application-sign-in-methods';
+import { SIGN_UP_POLICY } from '../../../config/constants/host-contracts';
+import type { RoleAudience } from '../../../host/types/host-role.type';
 import {
   CREDENTIAL_PURPOSE,
   CredentialPurpose,
@@ -7,6 +10,17 @@ import { SessionCapCandidate } from '../../issuance/browser-issuance.store';
 /** One session joined to its application and grant. A missing side is all null. */
 export interface SessionCapRow {
   is_valid: boolean;
+  proof_key_thumbprint: string | null;
+  user_verified: boolean;
+  session_policy_version: number;
+  sign_up: (typeof SIGN_UP_POLICY)[keyof typeof SIGN_UP_POLICY] | null;
+  require_passkey: boolean | null;
+  sign_in_methods: ApplicationSignInMethods | null;
+  account_audience: RoleAudience | null;
+  policy_version: number | null;
+  session_cap: number | null;
+  unbound_absolute_lifetime_ms: string | null;
+  unbound_idle_lifetime_ms: string | null;
   revoked_at: Date | null;
   credential_purpose: string;
   auth_epoch: number;
@@ -16,6 +30,7 @@ export interface SessionCapRow {
   client_version: number;
   grant_version: number;
   authenticated_at: Date;
+  issued_at: Date | null;
   expires_at: Date;
   idle_expires_at: Date;
   last_activity_at: Date;
@@ -57,9 +72,23 @@ function applicationOf(row: SessionCapRow): SessionCapCandidate['application'] {
     enabled: row.application_enabled,
     sessionVersion: row.application_session_version,
     allowedScopes: row.application_allowed_scopes ?? [],
+    signUp: row.sign_up ?? SIGN_UP_POLICY.OPEN,
+    requirePasskey: row.require_passkey ?? false,
+    signInMethods: row.sign_in_methods ?? null,
+    accountAudience: row.account_audience ?? undefined,
+    policyVersion: row.policy_version ?? 0,
+    sessionCap: row.session_cap ?? undefined,
     policy: {
       absoluteLifetimeMs: Number.parseInt(row.absolute_lifetime_ms, 10),
       idleLifetimeMs: Number.parseInt(row.idle_lifetime_ms, 10),
+      unboundAbsoluteLifetimeMs:
+        row.unbound_absolute_lifetime_ms === null
+          ? undefined
+          : Number.parseInt(row.unbound_absolute_lifetime_ms, 10),
+      unboundIdleLifetimeMs:
+        row.unbound_idle_lifetime_ms === null
+          ? undefined
+          : Number.parseInt(row.unbound_idle_lifetime_ms, 10),
     },
   };
 }
@@ -84,6 +113,9 @@ export function toSessionCapCandidate(row: SessionCapRow): SessionCapCandidate {
   return {
     session: {
       isValid: row.is_valid,
+      proofKeyThumbprint: row.proof_key_thumbprint,
+      userVerified: row.user_verified,
+      policyVersion: row.session_policy_version,
       revokedAt: row.revoked_at,
       credentialPurpose: toCredentialPurpose(row.credential_purpose),
       authEpoch: row.auth_epoch,
@@ -93,6 +125,7 @@ export function toSessionCapCandidate(row: SessionCapRow): SessionCapCandidate {
       clientVersion: row.client_version,
       grantVersion: row.grant_version,
       authenticatedAt: row.authenticated_at,
+      issuedAt: row.issued_at,
       expiresAt: row.expires_at,
       idleExpiresAt: row.idle_expires_at,
       lastActivityAt: row.last_activity_at,

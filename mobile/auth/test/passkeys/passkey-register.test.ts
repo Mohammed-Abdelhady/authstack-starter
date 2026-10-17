@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  API_PATHS,
   TransportError,
   createApiClient,
   type PasskeyAttestation,
@@ -89,7 +90,7 @@ async function signedIn(prompt: ScriptedPrompt) {
   await establishSession(engine, ports, transport);
   transport.sent.length = 0;
   const paths = () => transport.sent.map((request) => request.path);
-  return { engine, transport, paths };
+  return { engine, transport, paths, ports };
 }
 
 describe('engine.passkeys.register', () => {
@@ -130,15 +131,30 @@ describe('engine.passkeys.register', () => {
   it('answers sign in again when the server asks for a fresh sign-in, and opens no prompt', async () => {
     const prompt = new ScriptedPrompt();
     const { engine, transport } = await signedIn(prompt);
-    // The bearer transport refreshes once on any 401 and repeats the call.
-    transport.enqueue(
-      failedApiReply(401, 'REAUTH_REQUIRED'),
-      oauthTokenReply('access-secret-1', refreshToken('secret-1')),
-      failedApiReply(401, 'REAUTH_REQUIRED'),
-    );
+    transport.enqueue(failedApiReply(401, 'REAUTH_REQUIRED'));
 
     expect(await engine.passkeys.register()).toEqual({ kind: 'signInAgain' });
     expect(prompt.asked).toEqual([]);
+    expect(transport.sent.map(({ path }) => path)).toEqual([OPTIONS_PATH]);
+  });
+
+  it('returns a refused registration challenge after one verify without refreshing the session', async () => {
+    const prompt = new ScriptedPrompt();
+    const { engine, transport, paths, ports } = await signedIn(prompt);
+    const stored = ports.credentials.value;
+    transport.respond = async ({ path }) => {
+      if (path === OPTIONS_PATH) return apiReply(SERVER_OPTIONS);
+      if (path === VERIFY_PATH) return failedApiReply(401, 'PASSKEY_CHALLENGE_INVALID');
+      if (path === API_PATHS.oauth.token)
+        return oauthTokenReply('refreshed-access', refreshToken('refreshed'));
+      throw new Error(`Unexpected registration request: ${path}`);
+    };
+
+    expect(await engine.passkeys.register()).toEqual({ kind: 'failed' });
+    expect(paths()).toEqual([OPTIONS_PATH, VERIFY_PATH]);
+    expect(prompt.asked).toEqual([PROMPT_OPTIONS]);
+    expect(engine.snapshot.status).toBe('signedIn');
+    expect(ports.credentials.value).toBe(stored);
   });
 
   it('tells an authenticator that already holds the account`s passkey apart from a failure', async () => {

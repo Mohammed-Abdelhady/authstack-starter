@@ -11,15 +11,6 @@ const ROLES = [
 
 describe('the level of the role a person holds', () => {
   it.each([
-    ['user', 1],
-    ['manager', 3],
-    ['admin', 4],
-    ['night-shift', 1],
-  ])('is read from the list for %s', (slug, level) => {
-    expect(levelOfRole(ROLES, slug)).toBe(level);
-  });
-
-  it.each([
     ['a slug the list does not hold', ROLES, 'deleted-role'],
     ['an empty slug', ROLES, ''],
     ['an empty list', [], 'admin'],

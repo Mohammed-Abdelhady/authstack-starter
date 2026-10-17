@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { createPasswordSchema } from '@/modules/auth/utils/passwordSchema';
 
 // The shared change schema does not accept a localized byte-limit message yet.

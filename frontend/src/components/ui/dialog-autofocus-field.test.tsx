@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { createRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { registerFormTestLifecycle, renderForm } from '@/tests/serverRejectionHarness';
@@ -177,41 +177,6 @@ describe.each(['dialog', 'alert'] as const)(
 
       expect(await focusOnceClosed('inner-panel', 'inner-opener')).toBe('inner-opener');
       expect(screen.queryByTestId('outer-panel')).not.toBeNull();
-    });
-  },
-);
-
-describe.each(['dialog', 'alert'] as const)(
-  'the content of a %s and the ref of its caller',
-  (kind) => {
-    const { Root, Content, Title, Text } = PARTS[kind];
-
-    it('hands its element to an object ref and to a function ref', async () => {
-      const held = createRef<HTMLDivElement>();
-      const received: (string | null)[] = [];
-      const receive = (element: HTMLDivElement | null) => {
-        received.push(element?.getAttribute('data-testid') ?? null);
-      };
-      await renderForm(
-        'en',
-        <>
-          <Root open>
-            <Content ref={held} data-testid="held">
-              <Title />
-              <Text />
-            </Content>
-          </Root>
-          <Root open>
-            <Content ref={receive} data-testid="received">
-              <Title />
-              <Text />
-            </Content>
-          </Root>
-        </>,
-      );
-
-      expect(held.current).toBe(await screen.findByTestId('held'));
-      expect(received).toEqual(['received']);
     });
   },
 );

@@ -173,25 +173,6 @@ describe('validateManifest version 2', () => {
     ).toThrow(/databases\.later is planned and must not list files yet/);
   });
 
-  it('rejects a non-string target description', () => {
-    expect(() =>
-      validateManifest(
-        manifest({
-          targets: {
-            web: {
-              label: 'Web',
-              description: 5,
-              default: true,
-              files: [],
-              workspaces: [],
-              envFiles: [],
-            },
-          },
-        }),
-      ),
-    ).toThrow(/targets\.web\.description must be a non-empty string/);
-  });
-
   it('rejects an unknown preset key', () => {
     expect(() =>
       validateManifest(

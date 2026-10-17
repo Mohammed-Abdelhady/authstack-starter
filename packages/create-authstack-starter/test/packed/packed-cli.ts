@@ -9,6 +9,8 @@ import { BUILD_TIMEOUT } from '../support/run-tool.js';
 
 export { PACKAGE_DIR, BUILD_TIMEOUT };
 
+const PACKED_PACKAGE_FILE = 'create-authstack-starter.tgz';
+
 export interface Packed {
   ok: boolean;
   reason?: string;
@@ -33,7 +35,8 @@ async function buildAndPack(
   const { workspace } = packed;
   try {
     // Pack in the stage so concurrent tests do not see generated files rewritten.
-    const result = await runCommand('npm', ['pack', '--pack-destination', workspace], {
+    const tarball = join(workspace, PACKED_PACKAGE_FILE);
+    const result = await runCommand('pnpm', ['pack', '--out', tarball], {
       cwd: stagePackage(workspace),
       timeout: BUILD_TIMEOUT,
       env: {
@@ -45,8 +48,7 @@ async function buildAndPack(
       packed.reason = result.output;
       return;
     }
-    const tarball = (result.stdout ?? '').trim().split('\n').pop() ?? '';
-    const unpacked = await runCommand('tar', ['-xzf', join(workspace, tarball), '-C', workspace], {
+    const unpacked = await runCommand('tar', ['-xzf', tarball, '-C', workspace], {
       timeout: BUILD_TIMEOUT,
     });
     if (!unpacked.ok) {

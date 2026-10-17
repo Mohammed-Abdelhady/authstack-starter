@@ -8,3 +8,10 @@ export type { Confirm, ConfirmRequest, EdgeInsets, NativeAppProps } from './type
 
 export type { NativeProviderButtonProps } from './types/native-sign-in';
 export { SIZE, RADIUS } from './theme/tokens';
+
+export type { AccountDeletionProps, DeletionReceiptStorage } from './types/account-deletion';
+export type { EmailConfirmationProps } from './types/email-confirmation';
+export { EmailSection } from './components/EmailSection';
+export { DeleteSection } from './components/DeleteSection';
+export { PasskeysSection } from './components/PasskeysSection'; // feature:passkeys
+export { ProvidersSection } from './components/ProvidersSection'; // feature:oauth-core

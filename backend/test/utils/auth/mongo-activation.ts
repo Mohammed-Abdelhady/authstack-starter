@@ -1,3 +1,6 @@
+import { mongoActivationPolicy } from './mongo-activation-policy';
+import { ConfigService } from '@nestjs/config';
+import { browserApplicationsForTest } from '../../../src/common/testing/browser-applications.harness-spec';
 import { ClientSession, Connection, Model, Types } from 'mongoose';
 import { AddressLedger } from '../../../src/common/persistence/address-ledger';
 import { MongoAddressLedger } from '../../../src/common/persistence/mongo/mongo-address-ledger';
@@ -51,8 +54,10 @@ export function mongoRegistrationService(
   verificationCodeService: VerificationCodeService,
   mailCounterService: MailCounterService,
   signInService: SignInService,
-  policy: AccountCreationPolicy = new AccountCreationPolicy(),
+  policy: AccountCreationPolicy = mongoActivationPolicy(userModel.db),
 ): RegistrationService {
+  const config = new ConfigService({});
+  const browserApplications = browserApplicationsForTest(config);
   return new RegistrationService(
     new MongoActivationAccounts(userModel),
     new MongoUnitOfWorkRunner(connection),
@@ -64,6 +69,7 @@ export function mongoRegistrationService(
     policy,
     ledgerOn(userModel),
     new FrozenClock(TEST_NOW),
+    browserApplications,
   );
 }
 
@@ -92,7 +98,7 @@ export async function createActivatedAccount(
   userModel: Model<UserDocument>,
   session: ClientSession,
   accountId: Types.ObjectId,
-  policy: AccountCreationPolicy = new AccountCreationPolicy(),
+  policy: AccountCreationPolicy = mongoActivationPolicy(userModel.db),
   application: string = WEB_CLIENT_ID,
 ): Promise<{ _id: Types.ObjectId }> {
   const account = await createInWork(

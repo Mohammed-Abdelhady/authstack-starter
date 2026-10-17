@@ -1,3 +1,4 @@
+import { WEB_CLIENT_ID } from '../../constants/client-ids';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -75,7 +76,12 @@ describe('sign-in against "sign out everywhere else" race', () => {
   });
 
   function signIn(userId: Types.ObjectId, agent: string) {
-    return harness.sessionService.createSession(userId, agent, '127.0.0.1');
+    return harness.sessionService.createSession(
+      userId,
+      agent,
+      '127.0.0.1',
+      WEB_CLIENT_ID,
+    );
   }
 
   async function twoSessions(email: string): Promise<SignedInUser> {

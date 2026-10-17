@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join, posix, relative } from 'node:path';
 import { PACKAGE_DEPENDENCY_GROUPS, ROOT_PACKAGE_JSON } from '../constants/index.js';
 import TEMPLATE_TEST_POLICY from '../constants/template-tests.json' with { type: 'json' };
 import { isRecord } from '../manifest/read.js';
@@ -160,8 +160,18 @@ export async function pruneRootPackage(
     if (nestedRaw === undefined) continue;
     const nested = parseJson(nestedRaw, file);
     if (!isRecord(nested)) continue;
-    const pruned = prunePackageDependencies(nested, unavailableWorkspaceNames);
-    if (pruned === nested) continue;
+    const directory = dirname(file);
+    const deleted = deletedFiles.map((path) => relative(directory, path).split('\\').join('/'));
+    const paths = [
+      ...deleted,
+      ...deleted.map((path) => path.replace(/^src\/(.+)\.tsx?$/, 'dist/$1.js')),
+    ];
+    const withScripts = prunePackageScripts(
+      nested,
+      paths.map((path) => posix.normalize(path)),
+    );
+    const pruned = prunePackageDependencies(withScripts, unavailableWorkspaceNames);
+    if (JSON.stringify(pruned) === JSON.stringify(nested)) continue;
     await writeFile(nestedPath, `${JSON.stringify(pruned, null, 2)}\n`, 'utf8');
     changed = true;
   }

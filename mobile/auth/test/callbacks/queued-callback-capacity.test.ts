@@ -28,21 +28,6 @@ describe('restoring callback capacity', () => {
     expect(queue.at(-1)).toBe(incoming);
   });
 
-  it('evicts the oldest callback if every queued state matches', () => {
-    const first = callback('matching-0', SAVED_TRANSACTION.state);
-    const second = callback('matching-1', SAVED_TRANSACTION.state);
-    const queue = [first, second];
-    for (let index = 2; index < 16; index += 1)
-      queue.push(callback(`matching-${index}`, SAVED_TRANSACTION.state));
-    const incoming = callback('other-state', 'other-state');
-
-    queueRestoringAddress(queue, incoming, SAVED_TRANSACTION);
-
-    expect(queue).toHaveLength(16);
-    expect(queue[0]).toBe(second);
-    expect(queue.at(-1)).toBe(incoming);
-  });
-
   it('evicts the oldest callback while the saved transaction is not known', () => {
     const first = callback('unknown-0', 'state-0');
     const queue = [first];

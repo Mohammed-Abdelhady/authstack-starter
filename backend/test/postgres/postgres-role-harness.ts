@@ -34,6 +34,11 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
     sweeps: new PostgresRoleSweepStore(database, clock),
     runner: (pause) => new PostgresUnitOfWorkRunner(database, pause),
 
+    alterRoleAudience: async (slug, audience) => {
+      await sql`
+        UPDATE roles SET audience = ${audience} WHERE slug = ${slug}
+      `.execute(database);
+    },
     seedRole: async (role) => {
       const at = role.createdAt ?? clock.now();
       const row = await database
@@ -41,6 +46,7 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
         .values({
           name: role.name,
           slug: role.slug,
+          audience: role.audience ?? null,
           permissions: role.permissions,
           level: role.level ?? null,
           is_system_role: role.isSystemRole ?? false,
@@ -57,6 +63,7 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
         .insertInto('users')
         .values({
           role: account.role,
+          audience: account.audience ?? null,
           permissions: account.permissions ?? [],
           is_deleted: account.deleted ?? false,
         })
@@ -141,6 +148,7 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
         id: row.id,
         name: row.name,
         slug: row.slug,
+        ...(row.audience ? { audience: row.audience } : {}),
         description: row.description,
         level: row.level,
         permissions: row.permissions,
@@ -154,11 +162,15 @@ export async function bootPostgresRoleHarness(): Promise<RoleContractHarness> {
     account: async (userId) => {
       const row = await database
         .selectFrom('users')
-        .select(['role', 'session_version'])
+        .select(['role', 'session_version', 'audience'])
         .where('id', '=', userId)
         .executeTakeFirst();
       return row
-        ? { role: row.role, sessionVersion: row.session_version }
+        ? {
+            role: row.role,
+            sessionVersion: row.session_version,
+            ...(row.audience ? { audience: row.audience } : {}),
+          }
         : null;
     },
     events: async () => {

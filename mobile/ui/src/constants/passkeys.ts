@@ -26,3 +26,5 @@ export const PASSKEY_NAME_MAX_LENGTH = 64;
 
 /** The server's answer when a removal would leave the account no way in. */
 export const PASSKEY_LAST_WAY_IN_CODE = 'PASSKEY_LAST_SIGN_IN_METHOD';
+
+export const PASSKEY_REQUIRED_LAST_CODE = 'PASSKEY_REQUIRED_LAST';

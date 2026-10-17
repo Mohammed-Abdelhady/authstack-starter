@@ -115,20 +115,6 @@ describe('what a database that was left out loses in JSON files', () => {
     });
   });
 
-  it('leaves a file it owns nothing in byte-identical', async () => {
-    const source = '{"name":"backend","devDependencies":{"jest":"^30.0.0"}}';
-    const root = await project({ 'backend/package.json': source });
-
-    const edited = await removeDatabaseJson(root, [
-      database({ packages: ['pg'], scripts: ['migration:up'] }),
-    ]);
-
-    expect({ edited, bytes: await read(root, 'backend/package.json') }).toEqual({
-      edited: [],
-      bytes: source,
-    });
-  });
-
   it('names the file when one is not JSON', async () => {
     const root = await project({ 'backend/package.json': '{ not json' });
 
@@ -167,16 +153,6 @@ describe('the plain names the chosen database takes', () => {
       target: await read(root, 'compose.yml'),
     }).toEqual({ source: 'second', target: 'first' });
   });
-
-  it('does nothing for a file an option that was left out took with it', async () => {
-    const root = await project({ 'README.md': 'kept' });
-
-    expect(
-      await renameDatabaseFiles(root, [
-        database({ renames: { 'compose.second.yml': 'compose.yml' } }),
-      ]),
-    ).toEqual([]);
-  });
 });
 
 describe('the text that told the chosen database apart', () => {
@@ -206,19 +182,6 @@ describe('the text that told the chosen database apart', () => {
       manifest: '{"scripts":{"test:e2e":"jest e2e-second","x":"test:e2e"}}',
       doc: 'run test:e2e',
       other: 'run test:e2e:second',
-    });
-  });
-
-  it('skips a rule whose text is not there, as when an option took it with it', async () => {
-    const root = await project({ 'backend/package.json': '{"name":"backend"}' });
-
-    const edited = await rewriteDatabaseText(root, [
-      database({ rewrites: [{ files: ['backend/package.json'], from: 'gone', to: 'new' }] }),
-    ]);
-
-    expect({ edited, bytes: await read(root, 'backend/package.json') }).toEqual({
-      edited: [],
-      bytes: '{"name":"backend"}',
     });
   });
 

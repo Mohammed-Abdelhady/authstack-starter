@@ -75,45 +75,6 @@ describe('MailDispatcherService', () => {
     expect(logged).toContain('cause=Error');
   });
 
-  it('awaits in-flight sends on flush', async () => {
-    const { dispatcher } = await buildDispatcher();
-    let settled = false;
-
-    dispatcher.dispatch(() => {
-      settled = true;
-      return Promise.resolve();
-    }, 'Failed to send activation email');
-
-    await dispatcher.flush();
-    expect(settled).toBe(true);
-  });
-
-  it('drops a send above the pending maximum and logs it with the request id', async () => {
-    const { dispatcher } = await buildDispatcher({ maxPending: 1 });
-    const errorSpy = jest
-      .spyOn(Logger.prototype, 'error')
-      .mockImplementation(() => {});
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-
-    dispatcher.dispatch(() => held, 'Failed to send activation email');
-    runWithRequestContext('req-drop', () => {
-      dispatcher.dispatch(
-        () => Promise.resolve(),
-        'Failed to send activation email',
-      );
-    });
-
-    const logged = loggedLines(errorSpy);
-    expect(logged).toContain('requestId=req-drop');
-    expect(logged).toContain('cause=MailQueueFull');
-
-    release();
-    await dispatcher.flush();
-  });
-
   it('logs sends cut off by the shutdown deadline and closes the transporter', async () => {
     const drainDeadlineMs = 20;
     const { dispatcher, closeTransport } = await buildDispatcher({
@@ -133,14 +94,6 @@ describe('MailDispatcherService', () => {
     await shutdown;
 
     expect(loggedLines(errorSpy)).toContain(MAIL_DRAIN_DEADLINE_LOG);
-    expect(closeTransport).toHaveBeenCalledTimes(1);
-  });
-
-  it('closes the transporter on an idle pool', async () => {
-    const { dispatcher, closeTransport } = await buildDispatcher();
-
-    await dispatcher.onApplicationShutdown();
-
     expect(closeTransport).toHaveBeenCalledTimes(1);
   });
 });

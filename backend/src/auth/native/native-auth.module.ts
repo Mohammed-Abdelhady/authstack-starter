@@ -1,3 +1,4 @@
+import { ErasureModule } from '../../user/erasure/erasure.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth.module';
 import { UserModule } from '../../user/user.module';
@@ -8,12 +9,14 @@ import { NATIVE_AUTH_PERSISTENCE_PROVIDERS } from './persistence/native-auth-per
 import { NativeAttemptStore } from './stores/native-attempt.store';
 import { NativeAttemptService } from './services/native-attempt.service';
 import { NativeAttemptViewService } from './services/native-attempt-view.service';
+import { NativeAttemptCompletionService } from './services/native-attempt-completion.service';
 import { NativeConsentService } from './services/native-consent.service';
 import { NativeMethodsService } from './services/native-methods.service';
 import { PasskeysModule } from '../passkeys/passkeys.module'; // feature:passkeys
 
 @Module({
   imports: [
+    ErasureModule,
     AuthModule,
     UserModule,
     SessionModule,
@@ -27,12 +30,14 @@ import { PasskeysModule } from '../passkeys/passkeys.module'; // feature:passkey
     NativeAttemptViewService,
     NativeAttemptService,
     NativeConsentService,
+    NativeAttemptCompletionService,
   ],
   exports: [
     NativeAttemptStore,
     NativeMethodsService,
     NativeAttemptService,
     NativeConsentService,
+    NativeAttemptCompletionService,
   ],
 })
 export class NativeAuthModule {}

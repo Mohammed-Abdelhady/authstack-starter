@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { zodName } from '@app/core';
 import { createEmailCodeSchema } from './emailCodeSchema';
 import { createPasswordSchema } from './passwordSchema';

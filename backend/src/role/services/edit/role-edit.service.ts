@@ -1,3 +1,4 @@
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { randomUUID } from 'crypto';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../../../common/exceptions/app.exception';
@@ -11,22 +12,28 @@ import { ROLE_PENDING_SWEEP_LIMIT } from '../../../common/constants/roles';
 import { ROLE_PERMISSIONS } from '../../../common/constants/permissions';
 import {
   assertCanGrant,
+  assertEditableRole,
   assertFreshRolePermission,
   assertOutranksRole,
   levelEdit,
 } from '../../utils/role-actor.util';
 import { isStoreOutage } from '../../utils/role-failure.util';
-import { moveRoleHolders } from '../../sweeps/role-holder-sweep';
+import { revokeEditedRoleHolders } from './role-edit-holders';
+import { deleteRoleInWork, type RoleMutation } from './role-deletion';
 import { repairPendingRoleSweeps } from '../../sweeps/role-pending-repair';
-import { UserRole } from '../../../user/enums/user-role.enum';
 import { RoleChangeStore } from '../../stores/role-change.store';
 import { PendingSweep, RoleEdit, StoredRole } from '../../stores/role-records';
 import { RoleSweepStore } from '../../stores/role-sweep.store';
 import { UpdateRoleDto } from '../../dto/update-role.dto';
 import {
   createRoleWithinCeiling,
+  RoleCreateRequest,
   rethrowRoleWriteError,
 } from '../../utils/role-create.util';
+import { StaffMutationRules } from '../../../admin/services/staff-mutations/staff-mutation-rules';
+import type { ActingSession } from '../../../auth/proof/types/acting-session';
+import { SECURITY_EVENT_ACTION } from '../../../session/constants/security-event-action';
+import { ACTIVITY_MAX_LIST_LENGTH } from '../../../session/events/constants/activity-details';
 import { CreateRoleDto } from '../../dto/create-role.dto';
 import {
   assertValidPermissions,
@@ -46,12 +53,6 @@ export interface RoleEditOutcome {
 /** A stored id. Callers that still hold a database id object pass it as is. */
 type RoleIdInput = string | { toString(): string };
 
-interface RoleDeletionRepair {
-  ownerId: string;
-  refs: PendingSweep[];
-  recorded: boolean;
-}
-
 /**
  * The transactional half of a role rename or permission edit: the role and
  * every holder's sessions move together, and one security event is recorded
@@ -64,6 +65,8 @@ export class RoleEditService {
     private readonly runner: UnitOfWorkRunner,
     private readonly changes: RoleChangeStore,
     private readonly sweeps: RoleSweepStore,
+    private readonly audiences: AudiencePolicy,
+    private readonly rules: StaffMutationRules,
   ) {}
 
   /**
@@ -73,10 +76,17 @@ export class RoleEditService {
     dto: CreateRoleDto,
     slug: string,
     actorId: string,
+    request: RoleCreateRequest = {},
   ): Promise<StoredRole> {
     try {
       return await createRoleWithinCeiling(
-        { runner: this.runner, store: this.changes },
+        {
+          runner: this.runner,
+          store: this.changes,
+          audiencePolicy: this.audiences,
+          rules: this.rules,
+          request,
+        },
         dto,
         slug,
         actorId,
@@ -96,12 +106,13 @@ export class RoleEditService {
     roleId: RoleIdInput,
     dto: UpdateRoleDto,
     actorId: string,
+    session?: ActingSession,
   ): Promise<RoleEditOutcome> {
     const id = roleId.toString();
     const requestedSlug = dto.name ? generateSlug(dto.name) : undefined;
     try {
       const outcome = await this.runner.runForAuthority(actorId, (unitOfWork) =>
-        this.editInWork(unitOfWork, id, dto, actorId),
+        this.editInWork(unitOfWork, id, dto, { actorId, session }),
       );
       outcome.usersMoved += await this.repair(
         id,
@@ -113,11 +124,19 @@ export class RoleEditService {
     }
   }
 
-  async delete(roleId: RoleIdInput, actorId: string): Promise<void> {
+  async delete(
+    roleId: RoleIdInput,
+    actorId: string,
+    mutation: RoleMutation = {},
+  ): Promise<void> {
     const id = roleId.toString();
     try {
       const owed = await this.runner.runForAuthority(actorId, (unitOfWork) =>
-        this.deleteInWork(unitOfWork, id, actorId),
+        deleteRoleInWork(
+          { changes: this.changes, rules: this.rules },
+          unitOfWork,
+          { roleId: id, actorId, mutation },
+        ),
       );
       await this.repair(owed.ownerId, owed.refs, owed.recorded);
     } catch (error) {
@@ -132,8 +151,10 @@ export class RoleEditService {
     unitOfWork: UnitOfWork,
     roleId: string,
     dto: UpdateRoleDto,
-    actorId: string,
+    by: { actorId: string; session?: ActingSession },
   ): Promise<RoleEditOutcome> {
+    const { actorId } = by;
+    await this.rules.policy.assertRouteProof(unitOfWork, by.session);
     const actor = await assertFreshRolePermission(
       this.changes,
       unitOfWork,
@@ -148,10 +169,20 @@ export class RoleEditService {
         HttpStatus.NOT_FOUND,
       );
     }
+    assertEditableRole(current);
+    if (this.audiences.enabled() && current.audience === undefined) {
+      throw new AppException(
+        ErrorCode.FORBIDDEN,
+        'Map the role audience before editing it',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    this.rules.policy.assertVersion(dto.version, current.version);
     assertOutranksRole(actor, current);
     if (dto.permissions) {
       // A stale edit must not restore a reserved grant removed meanwhile.
       assertValidPermissions(dto.permissions, current.permissions);
+      this.audiences.assertDirectPermissions(current.audience, dto.permissions);
     }
     const addedPermissions = (dto.permissions ?? []).filter(
       (permission) => !current.permissions.includes(permission),
@@ -194,6 +225,20 @@ export class RoleEditService {
       ];
     }
     const role = await this.changes.saveRoleEdit(unitOfWork, roleId, edit);
+    await this.rules.events.record(unitOfWork, {
+      action: SECURITY_EVENT_ACTION.ROLE_UPDATED,
+      actorId,
+      clientId: by.session?.clientId,
+      details: {
+        roleId: role.id,
+        slug: role.slug,
+        // A list longer than the log keeps is left out rather than refusing the edit.
+        ...(permissionsChanged &&
+        role.permissions.length <= ACTIVITY_MAX_LIST_LENGTH
+          ? { permissions: role.permissions }
+          : {}),
+      },
+    });
 
     // A new level changes what holders may do, so it ends their sessions as a
     // permission change does.
@@ -202,10 +247,13 @@ export class RoleEditService {
       return { role, usersMoved: 0, previousSlug, nextSlug, renamed };
     }
 
-    const usersMoved = await moveRoleHolders(this.changes, unitOfWork, {
-      fromSlugs: [previousSlug],
-      toSlug: nextSlug,
+    const usersMoved = await revokeEditedRoleHolders(this.changes, unitOfWork, {
+      previousSlug,
+      nextSlug,
       actorId,
+      renamed,
+      audience: current.audience,
+      audiencePolicyEnabled: this.audiences.enabled(),
     });
     return {
       role,
@@ -216,94 +264,18 @@ export class RoleEditService {
     };
   }
 
-  private async deleteInWork(
-    unitOfWork: UnitOfWork,
-    roleId: string,
-    actorId: string,
-  ): Promise<RoleDeletionRepair> {
-    await assertFreshRolePermission(
-      this.changes,
-      unitOfWork,
-      actorId,
-      ROLE_PERMISSIONS.DELETE_ALL,
-    );
-    const current = await this.changes.takeRoleForChange(unitOfWork, roleId);
-    if (!current) {
-      throw new AppException(
-        ErrorCode.ROLE_NOT_FOUND,
-        'Role no longer exists',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-    if (current.isSystemRole || current.isProtected) {
-      throw new AppException(
-        ErrorCode.ROLE_PROTECTED,
-        'Role is protected',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-    const count = await this.changes.countHoldersInWork(
-      unitOfWork,
-      current.slug,
-    );
-    if (count > 0) {
-      throw new AppException(
-        ErrorCode.ROLE_HAS_USERS,
-        'Reassign role holders before deleting',
-        HttpStatus.BAD_REQUEST,
-        { count },
-      );
-    }
-    const fallback = await this.changes.readRoleBySlug(
-      unitOfWork,
-      UserRole.USER,
-    );
-    if (!fallback) {
-      throw new AppException(
-        ErrorCode.ROLE_NOT_FOUND,
-        'Default role does not exist',
-        HttpStatus.NOT_FOUND,
-      );
-    }
-    const ref = {
-      roleId: current.id,
-      previousSlug: current.slug,
-      actorId,
-      sweepId: randomUUID(),
-    };
-    const transferred = current.pendingHolderSweeps ?? [];
-    const recorded = transferred.length > 0;
-    if (recorded) {
-      const refs = [
-        ...(fallback.pendingHolderSweeps ?? []),
-        ref,
-        ...transferred,
-      ];
-      if (refs.length > ROLE_PENDING_SWEEP_LIMIT) {
-        throw new AppException(
-          ErrorCode.AUTHORITY_UNAVAILABLE,
-          'Pending role repairs must finish before deleting',
-          HttpStatus.SERVICE_UNAVAILABLE,
-        );
-      }
-      await this.changes.savePendingSweeps(unitOfWork, fallback.id, refs);
-    }
-    await this.changes.appendRoleDeletion(unitOfWork, ref);
-    await this.changes.removeRole(unitOfWork, current.id);
-    return {
-      ownerId: fallback.id,
-      refs: [ref, ...transferred],
-      recorded,
-    };
-  }
-
   private repair(
     ownerId: string,
     refs: PendingSweep[],
     recorded = true,
   ): Promise<number> {
     return repairPendingRoleSweeps(
-      { runner: this.runner, changes: this.changes, sweeps: this.sweeps },
+      {
+        runner: this.runner,
+        changes: this.changes,
+        sweeps: this.sweeps,
+        audiencePolicy: this.audiences,
+      },
       { ownerId, refs, recorded, logger: this.logger },
     );
   }

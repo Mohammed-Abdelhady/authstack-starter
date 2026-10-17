@@ -1,3 +1,11 @@
+import { browserApplicationsForTest } from '../../../../src/common/testing/browser-applications.harness-spec';
+import { BROWSER_PROOF_COOKIE } from '../../../../src/session/constants/browser-proof';
+import {
+  WEB_CLIENT_ID,
+  ADMIN_CLIENT_ID,
+} from '../../../../src/session/constants/client-ids';
+import { ConfigService } from '@nestjs/config';
+import { BrowserProofService } from '../../../../src/session/services/browser-proof.service';
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
 import { RaceGate, holdBefore } from '../../race-gate';
 import {
@@ -119,6 +127,50 @@ export function proofServiceCases(harness: HarnessSource): void {
       theirsStillUsable: true,
     });
   });
+
+  // Failure: copying a proof cookie and header authorizes another application.
+  it.each([WEB_CLIENT_ID, ADMIN_CLIENT_ID] as const)(
+    'refuses a renamed %s proof without spending the original',
+    async (clientId) => {
+      const config = new ConfigService({
+        NODE_ENV: 'test',
+        cors: { adminUrl: 'http://admin.example.test' },
+      });
+      const browserApplications = browserApplicationsForTest(config);
+      const service = new BrowserProofService(
+        harness().proofs,
+        config,
+        harness().clock,
+        browserApplications,
+      );
+      const request = requestWith(undefined);
+      request.headers =
+        clientId === ADMIN_CLIENT_ID
+          ? { origin: 'http://admin.example.test' }
+          : {};
+      const cookies: CapturedCookie[] = [];
+      const token = await service.issue(responseCapturing(cookies, request));
+      const proofId = cookies[0].value;
+      const crossed = requestWith(undefined);
+      crossed.headers =
+        clientId === WEB_CLIENT_ID
+          ? { origin: 'http://admin.example.test' }
+          : {};
+      crossed.cookies = {
+        [clientId === WEB_CLIENT_ID
+          ? `${BROWSER_PROOF_COOKIE}-${ADMIN_CLIENT_ID}`
+          : BROWSER_PROOF_COOKIE]: proofId,
+      };
+      await expect(service.consume(crossed, token)).rejects.toMatchObject({
+        code: ErrorCode.CSRF_INVALID,
+      });
+      request.cookies = { [cookies[0].name]: proofId };
+      await service.consume(request, token);
+      await expect(service.consume(request, token)).rejects.toMatchObject({
+        code: ErrorCode.CSRF_INVALID,
+      });
+    },
+  );
 
   it('accepts exactly one of two uses that both read the proof before either claims it', async () => {
     const proof = await issue();

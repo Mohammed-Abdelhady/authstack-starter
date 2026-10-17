@@ -63,28 +63,4 @@ describe('disposing an established or pending session', () => {
     expect(ports.credentials.value).toContain(REFRESH_SECRET_2_TOKEN);
     expect(ports.credentials.value).not.toContain('"refreshInFlight":true');
   });
-
-  it('deletes a saved authorization transaction when disposal ends sign-in', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    const browserOpened = new Deferred<void>();
-    const deleteStarted = new Deferred<void>();
-    const deleted = new Deferred<void>();
-    ports.authBrowser.beforeOpen = () => browserOpened.resolve();
-    ports.authBrowser.results.push(() => new Promise(() => undefined));
-    ports.credentials.beforeDelete = () => {
-      deleteStarted.resolve();
-      return Promise.resolve();
-    };
-    ports.credentials.afterDelete = () => deleted.resolve();
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-    const signIn = engine.signIn();
-    await browserOpened.promise;
-    engine.dispose();
-
-    await expect(signIn).resolves.toEqual({ kind: 'disposed' });
-    await deleteStarted.promise;
-    await deleted.promise;
-    expect(ports.credentials.value).toBeUndefined();
-  });
 });

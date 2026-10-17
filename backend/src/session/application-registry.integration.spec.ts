@@ -202,23 +202,24 @@ describe('ApplicationRegistryService native configuration reconciliation', () =>
     expect(twice).toMatchObject({ enabled: false, sessionVersion: 3 });
   });
 
-  it.each([
-    ['a display name', { ...BASE_APPLICATION, displayName: 'Renamed Mobile' }],
-    ['scopes', { ...BASE_APPLICATION, allowedScopes: ['api', 'profile:read'] }],
-  ])('keeps the version for a change to only %s', async (_label, changed) => {
-    await reconcile([BASE_APPLICATION]);
-
-    await reconcile([changed]);
-
-    const application = await harness.applications
-      .findOne({
-        clientId: BASE_APPLICATION.clientId,
-        environment: TEST_ENVIRONMENT,
-      })
-      .lean()
-      .exec();
-    expect(application).toMatchObject({ sessionVersion: 0 });
-  });
+  it.each<[string, Partial<NativeApplicationConfiguration>, number]>([
+    ['a display name', { displayName: 'Renamed Mobile' }, 0],
+    ['scopes', { allowedScopes: ['api', 'profile:read'] }, 1],
+  ])(
+    'sets the policy version after changing %s',
+    async (_label, changed, version) => {
+      await reconcile([BASE_APPLICATION]);
+      await reconcile([{ ...BASE_APPLICATION, ...changed }]);
+      const application = await harness.applications
+        .findOne({
+          clientId: BASE_APPLICATION.clientId,
+          environment: TEST_ENVIRONMENT,
+        })
+        .lean()
+        .exec();
+      expect(application).toMatchObject({ sessionVersion: version });
+    },
+  );
 
   it.each([
     { field: 'displayName', restored: { displayName: 'Configured Mobile' } },

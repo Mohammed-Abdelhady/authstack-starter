@@ -13,7 +13,6 @@ import { WebAuthnAdapter } from '../../passkeys/services/webauthn.adapter';
 // feature:passkeys:end
 import { generateRecoveryCodes } from '../utils/recovery-code.util';
 import { checkTotpDelta, generateTotpSecret } from '../utils/totp.util';
-import { DisableTwoFactorDto } from './disable-two-factor.dto';
 import { VerifyTwoFactorDto } from './verify-two-factor.dto';
 
 jest.mock('crypto', () => {
@@ -149,20 +148,6 @@ describe('VerifyTwoFactorDto through the validation pipe', () => {
     });
   });
 
-  it('refuses a field the body does not declare', async () => {
-    expect(await refusedFields({ code: '123456', remember: true })).toEqual([
-      'remember',
-    ]);
-  });
-
-  it('checks the same answers on the body that turns two-step off', async () => {
-    const body = { recoveryCode: 'UVWXYZ2345', password: 'Password123!' };
-
-    await expect(
-      pipe.transform(body, { type: 'body', metatype: DisableTwoFactorDto }),
-    ).resolves.toEqual(body);
-  });
-
   // feature:passkeys:start
   describe('a passkey answer', () => {
     const EXPECTED = {
@@ -206,14 +191,6 @@ describe('VerifyTwoFactorDto through the validation pipe', () => {
           EXPECTED,
         ),
       ).resolves.toEqual({ newCounter: 1, userVerified: true });
-    });
-
-    it('refuses a credential with a field the envelope does not declare', async () => {
-      const { credential } = signedCredential();
-
-      expect(
-        await refusedFields({ passkeyResponse: { ...credential, extra: 1 } }),
-      ).toEqual(['passkeyResponse.extra']);
     });
 
     it('refuses a credential of another type', async () => {

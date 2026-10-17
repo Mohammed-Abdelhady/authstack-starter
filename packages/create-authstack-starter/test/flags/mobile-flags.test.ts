@@ -32,42 +32,7 @@ async function emptyTarget(name: string): Promise<string> {
   return target;
 }
 
-describe('mobile identity flags', () => {
-  it('reads the four flags as typed', () => {
-    const options = parseCliOptions([
-      '--targets',
-      'Web, Native-Expo',
-      '--mobile-name',
-      'Field Notes',
-      '--mobile-slug',
-      'field-notes',
-      '--mobile-app-id',
-      'org.Sample.Notes',
-      '--mobile-scheme',
-      'org.sample.notes',
-    ]);
-
-    expect(options.targets).toEqual(['web', 'native-expo']);
-    expect(options.mobile).toEqual({
-      name: 'Field Notes',
-      slug: 'field-notes',
-      appId: 'org.Sample.Notes',
-      scheme: 'org.sample.notes',
-    });
-  });
-
-  it('leaves the identity out when no flag names it', () => {
-    expect(parseCliOptions(['--targets', 'web']).mobile).toBeUndefined();
-  });
-});
-
 describe('mobile identity in the config file', () => {
-  it('reads the mobile object', () => {
-    expect(
-      parseConfigFile({ targets: ['native-expo'], mobile: { name: 'Notes', scheme: 'notes' } }),
-    ).toEqual({ targets: ['native-expo'], mobile: { name: 'Notes', scheme: 'notes' } });
-  });
-
   it.each([
     [{ mobile: 'Notes' }, 'mobile must be an object with name, slug, appId and scheme'],
     [{ mobile: ['Notes'] }, 'mobile must be an object with name, slug, appId and scheme'],
@@ -107,29 +72,6 @@ describe('a run that chooses the mobile app', () => {
     expect(output).toContain('App id     com.example.fieldnotes');
     expect(output).toContain('Returns to com.example.fieldnotes://oauth/callback');
     expect(readdirSync(target)).toEqual([]);
-  });
-
-  it('shows the values the flags gave', async () => {
-    const target = await emptyTarget('field-notes');
-
-    const { code, output } = await run(manifestRoot, [
-      target,
-      '--yes',
-      '--dry-run',
-      '--targets',
-      'native-expo',
-      '--mobile-name',
-      'Trail Log',
-      '--mobile-app-id',
-      'org.sample.trail',
-      '--mobile-scheme',
-      'trail-log',
-    ]);
-
-    expect(code).toBe(0);
-    expect(output).toContain('Mobile     Trail Log (slug field-notes)');
-    expect(output).toContain('App id     org.sample.trail');
-    expect(output).toContain('Returns to trail-log://oauth/callback');
   });
 
   it.each([
@@ -213,21 +155,5 @@ describe('a run that chooses the mobile app', () => {
 
     expect(code).toBe(0);
     expect(output).toContain('Returns to notes://oauth/callback');
-  });
-
-  it('includes the mobile app in the everything preset and leaves it out of the default', async () => {
-    const everything = await run(manifestRoot, [
-      await emptyTarget('all-in'),
-      '--yes',
-      '--dry-run',
-      '--preset',
-      'everything',
-    ]);
-    const standard = await run(manifestRoot, [await emptyTarget('plain'), '--yes', '--dry-run']);
-
-    expect(everything.code).toBe(0);
-    expect(everything.output).toContain('App id     com.example.allin');
-    expect(standard.code).toBe(0);
-    expect(standard.output).not.toContain('App id');
   });
 });

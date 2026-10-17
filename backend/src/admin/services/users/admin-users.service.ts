@@ -1,31 +1,31 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  resendAdminEmailChange,
+  type AdminEmailResend,
+} from './admin-user-resend';
+import { deleteAdminUser } from './admin-user-delete';
+import { changeAdminUserStatus, StatusResult } from './admin-user-status';
+import { assignAdminUserRole } from './admin-user-role';
+import { updateAdminUser } from './admin-user-update';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { RoleChangeStore } from '../../../role/stores/role-change.store';
 import { RoleSweepStore } from '../../../role/stores/role-sweep.store';
 import { AccountSessions } from '../../../user/stores/account-sessions';
 import { RoleSweepStores } from '../../../role/sweeps/role-holder-sweep';
 import { AdminAccountStore } from '../../stores/admin-account.store';
-import {
-  loadAuthorizedUser,
-  logSessionRevocation,
-  rethrowOrUnavailable,
-  saveUserUpdate,
-} from '../../utils/admin-transaction.util';
-import { reconcileAssignedRole } from '../../utils/admin-role-reconcile.util';
-import { REVOKED_REASON } from '../../../session/constants/revoked-reason';
 import { AdminUserDto } from '../../dto/admin-user-response.dto';
 import { UpdateUserStatusDto } from '../../dto/update-user-status.dto';
 import { UpdateUserRoleDto } from '../../dto/update-user-role.dto';
 import { UpdateUserDto } from '../../dto/update-user.dto';
-import { AppException } from '../../../common/exceptions/app.exception';
-import { ErrorCode } from '../../../common/enums/error-code.enum';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
-import { ADMIN_ROLE_CHANGED } from '../../constants/admin-user.constants';
-import { mapToAdminUserDto } from '../../mappers/admin-user.mapper';
+import { ErasureLock } from '../../../auth/contracts/erasure-lock';
+import type { ActingSession } from '../../../auth/proof/types/acting-session';
+import { StaffMutationRules } from '../staff-mutations/staff-mutation-rules';
+import { LastAdminGuard } from '../staff-mutations/last-admin-guard';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { AdminEmailChangeService } from './admin-email-change.service';
-import { USER_PERMISSIONS } from '../../../common/constants/permissions';
-import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 
 /** Admin mutations require the actor's level to exceed the target's. */
 @Injectable()
@@ -40,303 +40,135 @@ export class AdminUsersService {
     private readonly roleSweeps: RoleSweepStore,
     private readonly accessService: AdminUserAccessService,
     private readonly emailChangeService: AdminEmailChangeService,
+    private readonly audiences: AudiencePolicy,
+    private readonly rules: StaffMutationRules,
+    private readonly erasure: ErasureLock,
+    private readonly lastAdmin: LastAdminGuard,
+    @Optional() private readonly notices?: SecurityNoticeService,
   ) {}
 
   /** Update the name, or ask for an address the new mailbox must confirm. */
-  async updateUser(
+  updateUser(
     id: string,
     dto: UpdateUserDto,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
+    session?: ActingSession,
   ): Promise<ApiResponse<AdminUserDto>> {
-    const { name, email } = dto;
-    const targetUser = await this.accessService.loadActiveUser(id);
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot modify your own account through admin panel',
+    return updateAdminUser(
+      {
+        accounts: this.accounts,
+        access: this.accessService,
+        emailChange: this.emailChangeService,
+        runner: this.runner,
+        policy: this.rules.policy,
+        events: this.rules.events,
+        lastAdmin: this.lastAdmin,
+        logger: this.logger,
+      },
+      { id, dto, actorId, session, actorRole, actorPermissions },
     );
-    await this.accessService.assertCanModify(actorRole, targetUser.role);
-
-    const previousEmail = targetUser.email;
-    const previousGeneration = targetUser.addressGeneration;
-    const pendingEmail =
-      email && email !== targetUser.email ? email : undefined;
-    if (pendingEmail !== undefined) {
-      await this.emailChangeService.assertAddressAvailable(
-        pendingEmail,
-        actorRole,
-        targetUser.id,
-      );
-    }
-
-    try {
-      const saved = await saveUserUpdate(
-        this.runner,
-        this.accounts,
-        this.accessService,
-        {
-          id,
-          actorId,
-          name,
-          pendingEmail,
-          previousEmail,
-          previousGeneration,
-        },
-        this.emailChangeService,
-      );
-      if (pendingEmail !== undefined) {
-        this.emailChangeService.notifyPreviousAddress({
-          email: previousEmail,
-          locale: saved.locale,
-        });
-        await this.emailChangeService.sendConfirmation(saved, actorRole);
-      }
-
-      this.logger.log(`User ${id} updated by ${actorId}`);
-      return ApiResponse.success(
-        mapToAdminUserDto(saved),
-        'User updated successfully',
-      );
-    } catch (error) {
-      rethrowOrUnavailable(error);
-    }
   }
 
-  /**
-   * Re-send the confirmation code for the account's current unverified
-   * address, without changing the address or its generation.
-   */
-  async resendEmailChange(
+  resendEmailChange(
+    id: string,
+    command: Omit<AdminEmailResend, 'id'>,
+  ): Promise<ApiResponse<{ message: string }>>;
+  resendEmailChange(
     id: string,
     actorId: string,
     actorRole: string,
+  ): Promise<ApiResponse<{ message: string }>>;
+  resendEmailChange(
+    id: string,
+    actor: string | Omit<AdminEmailResend, 'id'>,
+    legacyRole = '',
   ): Promise<ApiResponse<{ message: string }>> {
-    const targetUser = await this.accessService.loadActiveUser(id);
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot modify your own account through admin panel',
+    const command =
+      typeof actor === 'string'
+        ? { actorId: actor, actorRole: legacyRole }
+        : actor;
+    return resendAdminEmailChange(
+      {
+        access: this.accessService,
+        emailChange: this.emailChangeService,
+        policy: this.rules.policy,
+        roleChanges: this.roleChanges,
+        logger: this.logger,
+      },
+      { id, ...command },
     );
-    await this.accessService.assertCanModify(actorRole, targetUser.role);
-
-    await this.emailChangeService.resend(targetUser, actorRole);
-
-    this.logger.log(`Email change confirmation resent for ${id} by ${actorId}`);
-    return ApiResponse.success({ message: 'Confirmation email sent' });
   }
 
-  /** Activate or deactivate an account. */
-  async updateUserStatus(
+  /** Suspend or restore an account. */
+  updateUserStatus(
     id: string,
     dto: UpdateUserStatusDto,
     actorId: string,
-  ): Promise<
-    ApiResponse<{ id: string; isDeleted: boolean; deletedAt?: Date }>
-  > {
-    const { isActive } = dto;
-    // Only a deactivation needs the target to be active beforehand.
-    if (!isActive) {
-      await this.accessService.loadActiveUser(id);
-    }
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot modify your own account',
+    actorPermissions?: readonly string[],
+    session?: ActingSession,
+  ): Promise<ApiResponse<StatusResult>> {
+    return changeAdminUserStatus(
+      {
+        accounts: this.accounts,
+        sessions: this.sessions,
+        runner: this.runner,
+        access: this.accessService,
+        policy: this.rules.policy,
+        events: this.rules.events,
+        erasure: this.erasure,
+        notices: this.notices,
+        logger: this.logger,
+      },
+      { id, dto, actorId, session, actorPermissions },
     );
-
-    try {
-      const outcome = await this.runner.run(async (unitOfWork) => {
-        const target = await loadAuthorizedUser(
-          this.accounts,
-          this.accessService,
-          unitOfWork,
-          id,
-          actorId,
-          undefined,
-          { includeDeleted: isActive },
-        );
-
-        const current = await this.accounts.saveActivation(
-          unitOfWork,
-          target,
-          isActive ? undefined : new Date(),
-        );
-
-        const revoked = isActive
-          ? 0
-          : await this.sessions.revokeAll(unitOfWork, id, {
-              actorId,
-              reasonCode: REVOKED_REASON.ADMIN_FORCED,
-            });
-        return { current, revoked };
-      });
-
-      if (!isActive) {
-        logSessionRevocation(this.logger, id, outcome.revoked);
-      }
-      this.logger.log(
-        `User ${id} set ${isActive ? 'active' : 'inactive'} by ${actorId}`,
-      );
-
-      return ApiResponse.success({
-        id: outcome.current.id,
-        isDeleted: outcome.current.isDeleted,
-        deletedAt: outcome.current.deletedAt,
-      });
-    } catch (error) {
-      rethrowOrUnavailable(error);
-    }
   }
 
-  async updateUserRole(
+  updateUserRole(
     id: string,
     dto: UpdateUserRoleDto,
     actorId: string,
     actorRole: string,
-  ): Promise<ApiResponse<{ id: string; role: string }>> {
-    const { role: newRole } = dto;
-    await this.accessService.loadActiveUser(id);
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot modify your own role',
-    );
-    await this.accessService.assertCanAssignRole(actorRole, newRole);
-
-    try {
-      const outcome = await this.runner.runForAuthority(
-        actorId,
-        async (unitOfWork) => {
-          const current = await loadAuthorizedUser(
-            this.accounts,
-            this.accessService,
-            unitOfWork,
-            id,
-            actorId,
-          );
-
-          const assignedRole = await this.accounts.readRoleBySlug(
-            unitOfWork,
-            newRole,
-          );
-          if (!assignedRole) {
-            throw new AppException(
-              ErrorCode.ROLE_NOT_FOUND,
-              `Role "${newRole}" does not exist`,
-              HttpStatus.NOT_FOUND,
-            );
-          }
-
-          await this.accessService.assertFreshActorCanModify(
-            actorId,
-            assignedRole.slug,
-            unitOfWork,
-          );
-          await assertActorHoldsRole(
-            this.roleChanges,
-            unitOfWork,
-            actorId,
-            USER_PERMISSIONS.UPDATE_ALL,
-            assignedRole.slug,
-          );
-          const previousRole = await this.accounts.readRoleBySlug(
-            unitOfWork,
-            current.role,
-          );
-          await this.accounts.saveRole(unitOfWork, current, newRole);
-
-          const revoked = await this.sessions.revokeAll(unitOfWork, id, {
-            actorId,
-            reasonCode: REVOKED_REASON.ADMIN_FORCED,
-            roleAssignment: {
-              assignedRoleId: assignedRole.id,
-              sessionVersion: current.sessionVersion + 1,
-              previousRoleId: previousRole?.id,
-            },
-          });
-          return {
-            revoked,
-            roleId: assignedRole.id,
-            previousRoleId: previousRole?.id,
-          };
-        },
-      );
-
-      const liveSlug = await reconcileAssignedRole({
+    actorPermissions?: readonly string[],
+    session?: ActingSession,
+  ): Promise<ApiResponse<{ id: string; role: string; version: number }>> {
+    return assignAdminUserRole(
+      {
         accounts: this.accounts,
+        sessions: this.sessions,
+        runner: this.runner,
+        roleChanges: this.roleChanges,
+        access: this.accessService,
+        audiences: this.audiences,
+        policy: this.rules.policy,
         roles: this.roleStores(),
         logger: this.logger,
-        actorId,
-        userId: id,
-        ref: {
-          roleId: outcome.roleId,
-          assignedSlug: newRole,
-          previousRoleId: outcome.previousRoleId,
-        },
-      });
-
-      logSessionRevocation(this.logger, id, outcome.revoked);
-      this.logger.log({
-        event: ADMIN_ROLE_CHANGED,
-        userId: id,
-        role: liveSlug,
-        actorId,
-      });
-
-      return ApiResponse.success({ id, role: liveSlug });
-    } catch (error) {
-      rethrowOrUnavailable(error);
-    }
+      },
+      { id, dto, actorId, session, actorRole, actorPermissions },
+    );
   }
 
-  /**
-   * Soft delete a user.
-   */
-  async deleteUser(id: string, actorId: string): Promise<void> {
-    const existing = await this.accounts.findAccount(id);
-
-    if (!existing || existing.isDeleted) {
-      throw new AppException(
-        ErrorCode.USER_ALREADY_DELETED,
-        'User not found or already deleted',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    this.accessService.assertNotSelf(
-      id,
-      actorId,
-      'Cannot delete your own account',
+  deleteUser(
+    id: string,
+    actorId: string,
+    actorPermissions?: readonly string[],
+    session?: ActingSession,
+    version?: number,
+  ): Promise<void> {
+    return deleteAdminUser(
+      {
+        accounts: this.accounts,
+        sessions: this.sessions,
+        runner: this.runner,
+        access: this.accessService,
+        policy: this.rules.policy,
+        events: this.rules.events,
+        notices: this.notices,
+        logger: this.logger,
+      },
+      { id, actorId, session, actorPermissions, version },
     );
-
-    try {
-      const revoked = await this.runner.run(async (unitOfWork) => {
-        const current = await loadAuthorizedUser(
-          this.accounts,
-          this.accessService,
-          unitOfWork,
-          id,
-          actorId,
-          'Cannot delete user with higher or equal role',
-        );
-
-        await this.accounts.saveActivation(unitOfWork, current, new Date());
-        return this.sessions.revokeAll(unitOfWork, id, {
-          actorId,
-          reasonCode: REVOKED_REASON.ADMIN_FORCED,
-        });
-      });
-
-      logSessionRevocation(this.logger, id, revoked);
-      this.logger.log(`User ${id} deleted by ${actorId}`);
-    } catch (error) {
-      rethrowOrUnavailable(error);
-    }
   }
 
   private roleStores(): RoleSweepStores {
@@ -344,6 +176,7 @@ export class AdminUsersService {
       runner: this.runner,
       changes: this.roleChanges,
       sweeps: this.roleSweeps,
+      audiencePolicy: this.audiences,
     };
   }
 }

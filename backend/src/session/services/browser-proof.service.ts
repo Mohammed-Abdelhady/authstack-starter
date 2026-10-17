@@ -1,3 +1,5 @@
+import { applicationSecret } from '../utils/hashing/application-secret';
+import { BrowserApplications } from '../applications/browser-applications';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
@@ -24,6 +26,7 @@ export class BrowserProofService {
     private readonly store: BrowserProofStore,
     private readonly configService: ConfigService,
     private readonly clock: Clock,
+    private readonly applications: BrowserApplications,
   ) {}
 
   async issue(response: Response): Promise<string> {
@@ -31,11 +34,15 @@ export class BrowserProofService {
     const token = randomSecret();
     const now = this.clock.now();
     await this.store.issueBrowserProof({
-      proofIdHash: hashToken(proofId),
+      proofIdHash: this.proofHash(proofId, response.req),
       tokenHash: hashToken(token),
       expiresAt: new Date(now.getTime() + BROWSER_PROOF_TTL_MS),
     });
-    response.cookie(this.cookieName(), proofId, this.cookieOptions());
+    response.cookie(
+      this.cookieName(response.req),
+      proofId,
+      this.cookieOptions(),
+    );
     return token;
   }
 
@@ -49,7 +56,7 @@ export class BrowserProofService {
       );
     }
 
-    const proofIdHash = hashToken(proofId);
+    const proofIdHash = this.proofHash(proofId, request);
     const proof = await this.store.findIssuedBrowserProof(proofIdHash);
     if (!proof || !hashEquals(presented, proof.tokenHash)) {
       throw invalidProof();
@@ -64,8 +71,17 @@ export class BrowserProofService {
     }
   }
 
-  private cookieName(): string {
-    return browserProofCookieName(this.configService.get<string>('NODE_ENV'));
+  private proofHash(proofId: string, request?: Request): string {
+    return hashToken(
+      applicationSecret(proofId, this.applications.current(request).clientId),
+    );
+  }
+
+  private cookieName(request: Request): string {
+    return browserProofCookieName(
+      this.configService.get<string>('NODE_ENV'),
+      this.applications.current(request).clientId,
+    );
   }
 
   private cookieOptions(): CookieOptions {
@@ -82,7 +98,7 @@ export class BrowserProofService {
 
   private readCookie(request: Request): string | undefined {
     const cookies = request.cookies as Record<string, string> | undefined;
-    const value = cookies?.[this.cookieName()];
+    const value = cookies?.[this.cookieName(request)];
     if (typeof value === 'string' && value.length > 0) {
       return value;
     }

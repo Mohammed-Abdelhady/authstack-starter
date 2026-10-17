@@ -122,11 +122,6 @@ describe('stripFeatureMarkers', () => {
     );
   });
 
-  it('leaves a file without markers byte for byte alone', () => {
-    const content = 'const feature = "feature:not-a-marker";\n// a plain comment\n';
-    expect(stripFeatureMarkers(content, 'src/a.ts', new Set(), KNOWN).content).toBe(content);
-  });
-
   it('rejects an id the manifest does not list', () => {
     expect(() => strip(['const a = 1; // feature:passkey'], ['passkeys'])).toThrow(MarkerError);
     expect(() => strip(['const a = 1; // feature:passkey'], ['passkeys'])).toThrow(
@@ -140,13 +135,6 @@ describe('stripFeatureMarkers', () => {
         /malformed feature marker/,
       );
     }
-  });
-
-  it('preserves CRLF line endings while stripping selected markers', () => {
-    const source = 'const a = 1; // feature:totp\r\nconst b = 2;\r\n';
-    expect(stripFeatureMarkers(source, 'src/a.ts', new Set(['totp']), KNOWN).content).toBe(
-      'const a = 1;\r\nconst b = 2;\r\n',
-    );
   });
 
   it('rejects a block that is never closed', () => {

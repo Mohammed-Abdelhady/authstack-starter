@@ -39,7 +39,7 @@ export function accountActivationCases(
   fixture: () => AccountsFixture,
 ): void {
   it('activates a sign-up into a verified account and spends the code', async () => {
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate');
     const inserting = jest.spyOn(harness().activation, 'insertActivated');
     const services = servicesOn(harness(), undefined, policy);

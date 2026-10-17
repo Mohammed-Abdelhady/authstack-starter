@@ -7,7 +7,7 @@
  * @module validations/string/text
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { makeOptional } from '../utils';
 
 /**

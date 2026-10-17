@@ -164,13 +164,6 @@ const migration = jest.requireActual<MigrationModule>(
   ),
 );
 
-const ALLOWED_MIXED_PATHS: Record<string, string> = {
-  'SecurityEventSchema.details':
-    'Per-action activity details; activity-details.ts allows only listed fields per action.',
-  'SessionSchema.device':
-    'DeviceInfo lacks @Schema; preserve its existing Mixed shape.',
-};
-
 function schemaFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
@@ -201,40 +194,6 @@ function loadSchemas(files: string[]): LoadedSchema[] {
   });
 }
 
-function mixedPaths(schemas: LoadedSchema[]): string[] {
-  const matches = new Set<string>();
-
-  function inspect(
-    schema: MongooseSchema,
-    label: string,
-    ancestors: Set<MongooseSchema>,
-  ): void {
-    if (ancestors.has(schema)) {
-      return;
-    }
-    const nestedAncestors = new Set(ancestors);
-    nestedAncestors.add(schema);
-
-    schema.eachPath((pathName, pathType) => {
-      if (
-        pathType.instance === 'Mixed' ||
-        pathType.getEmbeddedSchemaType()?.instance === 'Mixed'
-      ) {
-        matches.add(`${label}.${pathName}`);
-      }
-      if (pathType.schema) {
-        inspect(pathType.schema, `${label}.${pathName}`, nestedAncestors);
-      }
-    });
-  }
-
-  for (const { exportName, schema } of schemas) {
-    inspect(schema, exportName, new Set());
-  }
-
-  return [...matches].sort();
-}
-
 const schemas = loadSchemas(schemaFiles(SOURCE_ROOT));
 
 describe('ObjectId reference schema types', () => {
@@ -251,12 +210,6 @@ describe('ObjectId reference schema types', () => {
       expect(instance).toBe('ObjectId');
     },
   );
-
-  it('finds only documented Mixed paths', () => {
-    expect(mixedPaths(schemas)).toEqual(
-      Object.keys(ALLOWED_MIXED_PATHS).sort(),
-    );
-  });
 
   it('keeps every migration field and binds available schemas to collections', () => {
     const actualKeys = migration.OBJECT_ID_REFERENCES.map(

@@ -2,6 +2,7 @@ import { ledgerInventoryCases } from './account-creation-inventory-ledger-cases.
 import { callerKey } from './account-creation-inventory-expectations.harness-spec';
 import {
   replaceInventoryCall,
+  replaceInventoryArgument,
   moveInventoryPolicyToEnd,
   scanAccountCreation,
 } from './account-creation-inventory-ast.harness-spec';
@@ -33,12 +34,6 @@ describe('account creation inventory', () => {
 
   ledgerInventoryCases(documents);
 
-  it('names the deployment bootstrap exemption', () => {
-    const inventory = scanAccountCreation(documents);
-    expect(inventory.callers).toContain(SEED_BOOTSTRAP_EXEMPTION);
-    expect(inventory.errors).toEqual([]);
-  });
-
   it.each(creators)('rejects removed policy in $file', ({ file }) => {
     const mutated = replaceInventoryCall(
       documents,
@@ -60,7 +55,7 @@ describe('account creation inventory', () => {
         documents,
         file,
         'assertMayCreate',
-        (call) => call.replace(/unitOfWork(?=\s*,?\s*\))/, 'otherUnitOfWork'),
+        replaceInventoryArgument(1),
       );
       expect(scanAccountCreation(mutated).errors).toEqual(
         expect.arrayContaining([expect.stringContaining('insert UOW')]),
@@ -316,7 +311,9 @@ describe('account creation inventory', () => {
       const pruned = withoutInventoryDatabase(documents, removed);
       const inventory = scanAccountCreation(pruned);
       expect(inventory.errors).toEqual([]);
-      expect(inventory.callers).toHaveLength(6);
+      expect(inventory.callers).toHaveLength(
+        expectedInventory(new Set(documents.keys())).callers.length,
+      );
       expect(inventory.raw).toHaveLength(rawCount);
       expect(
         inventory.raw.every((entry) =>

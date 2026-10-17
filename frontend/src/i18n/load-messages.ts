@@ -48,6 +48,19 @@ export async function loadMessages(locale: AppLocale): Promise<AbstractIntlMessa
       'validation',
     ].map(async (topic) => (await import(`./messages/${topic}.${locale}.json`)).default),
   );
+  topics.push(
+    ...(await Promise.all([
+      import(`../modules/admin-sessions/messages/${locale}.json`).then((module) => module.default),
+      import(`../modules/activity/messages/${locale}.json`).then((module) => module.default),
+      import(`../modules/account/email-change/messages/${locale}.json`).then(
+        (module) => module.default,
+      ),
+      import(`../modules/account/deletion/messages/${locale}.json`).then(
+        (module) => module.default,
+      ),
+    ])),
+  );
+  topics.push((await import(`../modules/invitations/messages/${locale}.json`)).default); // feature:invitations
   const base = topics.reduce<AbstractIntlMessages>((messages, topic: unknown) => {
     if (!isMessageTree(topic)) throw new Error(`Locale messages for ${locale} are not objects`);
     return mergeMessageTrees(messages, topic);

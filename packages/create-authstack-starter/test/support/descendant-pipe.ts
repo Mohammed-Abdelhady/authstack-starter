@@ -3,6 +3,7 @@ import { closeSync, createReadStream, openSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const DESCENDANT_PIPE_ENV = 'AUTHSTACK_DESCENDANT_PIPE';
+export const COMMAND_PIPE_ENV = 'AUTHSTACK_COMMAND_PIPE';
 export const WORKER_PIPE_ENV = 'AUTHSTACK_WORKER_PIPE';
 
 export function createDescendantPipe(

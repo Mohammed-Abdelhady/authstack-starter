@@ -20,7 +20,9 @@ export default tseslint.config(
             'metro.config.js',
             'app.config.js',
             'plugins/with-scene-lifecycle.js',
+            'plugins/with-google-modules.js', // feature:google
             'test/scene-lifecycle.test.cjs',
+            'test/google-modules.test.cjs', // feature:google
           ],
         },
         tsconfigRootDir: import.meta.dirname,

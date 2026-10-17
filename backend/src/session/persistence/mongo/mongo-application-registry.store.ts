@@ -1,4 +1,9 @@
+import { readMongoNativeRequiredPasskey } from './mongo-native-required-passkey';
+import { storeMongoBrowserRegistration } from './mongo-browser-registration';
+import type { BrowserRegistration } from '../../applications/types/browser-registration';
 import { Injectable } from '@nestjs/common';
+import { toIssuanceApplication } from './mongo-issuance-mappers';
+import { mongoApplicationPolicyFields } from './mongo-application-policy-fields';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { singleStatement } from '../../../common/persistence/mongo/mongo-unique-conflict';
@@ -46,6 +51,23 @@ export class MongoApplicationRegistryStore extends ApplicationRegistryStore {
     private readonly applicationModel: Model<ApplicationDocument>,
   ) {
     super();
+  }
+
+  findNativeRequiredPasskey = (environment: string) =>
+    readMongoNativeRequiredPasskey(this.applicationModel, environment);
+
+  async hasAccountAudience(
+    unitOfWork: UnitOfWork,
+    environment: string,
+  ): Promise<boolean> {
+    const application = await this.applicationModel
+      .exists({
+        environment,
+        accountAudience: { $exists: true, $ne: null },
+      })
+      .session(mongoSessionOf(unitOfWork))
+      .exec();
+    return application !== null;
   }
 
   async readCommittedApplication(
@@ -136,17 +158,21 @@ export class MongoApplicationRegistryStore extends ApplicationRegistryStore {
             environment: registration.environment,
             enabled: true,
             sessionVersion: 0,
-            policyVersion: 0,
+            ...(registration.policyVersion === undefined
+              ? { policyVersion: 0 }
+              : {}),
             redirectUris: [],
             audiences: registration.initialAudiences,
             allowedScopes: registration.initialScopes,
           },
           $set: {
+            ...mongoApplicationPolicyFields(registration),
             displayName: registration.displayName,
             platform: registration.platform,
             clientType: registration.clientType,
             allowedOrigins: registration.allowedOrigins,
-            policy: registration.policy,
+            'policy.absoluteLifetimeMs': registration.policy.absoluteLifetimeMs,
+            'policy.idleLifetimeMs': registration.policy.idleLifetimeMs,
           },
         },
         { upsert: true },
@@ -187,13 +213,35 @@ export class MongoApplicationRegistryStore extends ApplicationRegistryStore {
       .find({ clientId: { $in: clientIds }, environment })
       .session(mongoSessionOf(unitOfWork))
       .exec();
-    return stored.map((application) => ({
-      clientId: application.clientId,
-      platform: application.platform,
-      clientType: application.clientType,
-      enabled: application.enabled,
-      redirectUris: [...application.redirectUris],
-    }));
+    return stored.map((application) => {
+      const policy = toIssuanceApplication(application);
+      return {
+        clientId: application.clientId,
+        platform: application.platform,
+        clientType: application.clientType,
+        enabled: application.enabled,
+        redirectUris: [...application.redirectUris],
+        allowedScopes: policy.allowedScopes,
+        signUp: policy.signUp,
+        requirePasskey: policy.requirePasskey,
+        signInMethods: policy.signInMethods,
+        accountAudience: policy.accountAudience,
+        policyVersion: policy.policyVersion,
+        sessionCap: policy.sessionCap,
+        policy: policy.policy,
+      };
+    });
+  }
+
+  storeBrowserRegistration(
+    unitOfWork: UnitOfWork,
+    registration: BrowserRegistration,
+  ): Promise<void> {
+    return storeMongoBrowserRegistration(
+      this.applicationModel,
+      unitOfWork,
+      registration,
+    );
   }
 
   async storeNativeRegistration(
@@ -262,17 +310,31 @@ function nativeRegistrationUpdate(registration: NativeRegistration) {
         audiences: { $literal: registration.audiences },
         allowedScopes: { $literal: registration.allowedScopes },
         createdAt: { $ifNull: ['$createdAt', '$$NOW'] },
-        policy: {
-          absoluteLifetimeMs: registration.policy.absoluteLifetimeMs,
-          idleLifetimeMs: registration.policy.idleLifetimeMs,
-        },
+        policy: { $literal: registration.policy },
         sessionVersion: {
           $add: [
             { $ifNull: ['$sessionVersion', 0] },
             registration.endsSessions ? 1 : 0,
           ],
         },
-        policyVersion: { $ifNull: ['$policyVersion', 0] },
+        policyVersion: registration.policyVersion ?? {
+          $ifNull: ['$policyVersion', 0],
+        },
+        ...(registration.signUp === undefined
+          ? {}
+          : { signUp: registration.signUp }),
+        ...(registration.signInMethods === undefined
+          ? {}
+          : { signInMethods: { $literal: registration.signInMethods } }),
+        ...(registration.requirePasskey === undefined
+          ? {}
+          : { requirePasskey: registration.requirePasskey }),
+        ...(registration.accountAudience === undefined
+          ? {}
+          : { accountAudience: registration.accountAudience }),
+        ...(registration.sessionCap === undefined
+          ? {}
+          : { sessionCap: registration.sessionCap }),
       },
     },
   ];

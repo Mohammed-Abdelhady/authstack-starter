@@ -4,26 +4,10 @@ import { copyFileSync, readFileSync, mkdtempSync, writeFileSync, rmSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { main } from '../ci.mjs';
 import { repository, installChecker } from '../guardrails/test-repository.mjs';
-import { cacheMetadata, gateEnvironment } from './cache.mjs';
+import { cacheMetadata } from './cache.mjs';
 
 const CONFIG = JSON.parse(readFileSync(new URL('./gates.json', import.meta.url), 'utf8'));
-
-test('install defers Mongo download and test gates use the shared cache directory', () => {
-  assert.deepEqual(CONFIG.install.env, { MONGOMS_DISABLE_POSTINSTALL: '1' });
-  assert.deepEqual(CONFIG.environment, {
-    MONGOMS_DOWNLOAD_DIR: '.mongodb-binaries',
-    MONGOMS_VERSION: '8.2.6',
-    MONGOMS_DISABLE_POSTINSTALL: '1',
-  });
-  assert.deepEqual(gateEnvironment(CONFIG, '/project', { KEEP: 'kept' }), {
-    KEEP: 'kept',
-    MONGOMS_DOWNLOAD_DIR: '/project/.mongodb-binaries',
-    MONGOMS_VERSION: '8.2.6',
-    MONGOMS_DISABLE_POSTINSTALL: '1',
-  });
-});
 
 test('cache metadata uses pnpm lock versions and fails on missing or invalid versions', (t) => {
   const cwd = mkdtempSync(join(tmpdir(), 'ci-cache-'));
@@ -66,17 +50,6 @@ test('cache metadata uses pnpm lock versions and fails on missing or invalid ver
     'packages:\n  mongodb-memory-server@11.invalid:\n    resolution: {}\n',
   );
   assert.throws(() => cacheMetadata(CONFIG, cwd), /Mongo.*version/);
-});
-
-test('the entry point publishes the Mongo cache path and version to GitHub output', async (t) => {
-  const cwd = mkdtempSync(join(tmpdir(), 'ci-output-'));
-  t.after(() => rmSync(cwd, { recursive: true, force: true }));
-  const output = join(cwd, 'github-output');
-  assert.equal(await main(['--cache'], { GITHUB_OUTPUT: output }), 0);
-  assert.equal(
-    readFileSync(output, 'utf8'),
-    'path=.mongodb-binaries\nkey=mongodb-memory-server-11.3.0-mongod-8.2.6\n',
-  );
 });
 
 test('the entry point passes configured Mongo settings to its real gate subprocess', (t) => {

@@ -2,7 +2,11 @@ import type { PasskeySummary } from '@app/sdk';
 import { memo, useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BUTTON_VARIANT } from '../constants/button';
-import { PASSKEY_NAME_MAX_LENGTH, PASSKEYS_TEST_ID } from '../constants/passkeys';
+import {
+  PASSKEY_NAME_MAX_LENGTH,
+  PASSKEYS_TEST_ID,
+  PASSKEY_REQUIRED_LAST_CODE,
+} from '../constants/passkeys';
 import { useUi } from '../context/ui-context';
 import { passkeyDates, passkeyName } from '../logic/passkey-text';
 import { SPACE } from '../theme/tokens';
@@ -53,6 +57,15 @@ export const PasskeyRow = memo(function PasskeyRow({
           <Description key={line}>{line}</Description>
         ))}
       </View>
+      {passkey.canRemove === false ? (
+        <Description>
+          {t(
+            passkey.removalBlockedCode === PASSKEY_REQUIRED_LAST_CODE
+              ? 'passkeys.removeFailed.required'
+              : 'passkeys.removeFailed.lastWayIn',
+          )}
+        </Description>
+      ) : null}
       {draft === undefined ? (
         <View style={styles.actions}>
           <Button
@@ -68,6 +81,7 @@ export const PasskeyRow = memo(function PasskeyRow({
             label={t('passkeys.remove')}
             accessibilityLabel={t('passkeys.removeLabel', { name })}
             busy={busy}
+            disabled={passkey.canRemove === false}
             onPress={remove}
           />
         </View>

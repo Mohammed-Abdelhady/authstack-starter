@@ -20,7 +20,7 @@ import { ErrorCode, parseApiError } from '@app/core';
 import { translatableErrorCode } from '../utils/errorCodeMessage';
 import { filterDigits } from '../utils/digitFilter';
 import { createActivationSchema } from '../utils/activationSchema';
-import type { z } from 'zod';
+import type { z } from 'zod/v3';
 import { useSharedSingleFlight } from '@/hooks/useSingleFlight';
 
 type ActivationFormData = z.infer<ReturnType<typeof createActivationSchema>>;
