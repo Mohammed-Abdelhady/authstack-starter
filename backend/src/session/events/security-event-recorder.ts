@@ -71,7 +71,11 @@ export function roleDeletionEvent(
 ): NewSecurityEvent {
   return {
     ...newSecurityEvent(
-      { action: SECURITY_EVENT_ACTION.ROLE_DELETED, actorId: ref.actorId },
+      {
+        action: SECURITY_EVENT_ACTION.ROLE_DELETED,
+        actorId: ref.actorId,
+        details: { roleId: ref.roleId, slug: ref.previousSlug },
+      },
       occurredAt,
     ),
     eventId: `${ROLE_DELETION_EVENT_PREFIX}${ref.roleId}`,
