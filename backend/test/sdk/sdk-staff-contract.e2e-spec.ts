@@ -201,9 +201,12 @@ describe('SDK staff writes over real cookie HTTP', () => {
       issued: await issueAudienceBrowser(e2e, fixture.adminId),
       loseReplyAt: '/api/admin/invitations',
     });
+    const invitationRole = await client.admin.roles.get('user');
     const body = {
       email: 'sdk-invited@example.test',
-      role: 'user',
+      role: invitationRole.slug,
+      expectedRoleId: invitationRole.id,
+      expectedAudience: invitationRole.audience ?? null,
       name: 'SDK invitee',
       locale: SELECTED_LOCALE,
     };
