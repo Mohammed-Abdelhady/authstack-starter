@@ -1,5 +1,7 @@
 import {
   API_PATHS,
+  ApiError,
+  unwrapEnvelope,
   isSdkError,
   isTransportError,
   TRANSPORT_FAILURE,
@@ -11,8 +13,16 @@ import type { AuthRuntime } from '../runtime/runtime';
 import type { RuntimeTokens } from '../types/record';
 import { AuthDisposedError, AuthSessionError, UnsafeRequestPathError } from '../errors/errors';
 import { SESSION_STATUS } from '../constants';
+import { PASSKEY_REAUTH_CODE } from '../constants/passkeys';
 import { abortedError, raceWithAbort } from '../runtime/abortable';
 import { endSwitchedOffSession, isKillSwitchResponse } from './kill-switch';
+
+const ACTION_REFUSAL_CODES: ReadonlySet<string> = new Set([
+  PASSKEY_REAUTH_CODE,
+  'ACTIVATION_CODE_INVALID',
+  'PASSKEY_VERIFICATION_FAILED',
+  'PASSKEY_CHALLENGE_INVALID',
+]);
 
 export type EnsureCurrentTokens = (signal?: AbortSignalPort) => Promise<RuntimeTokens>;
 export type RefreshTokens = (signal?: AbortSignalPort) => Promise<RuntimeTokens>;
@@ -49,7 +59,7 @@ export function createBearerTransport(
     assertCurrentEpoch(runtime, epoch);
     const first = await sendWithToken(runtime, input, token, epoch);
     assertCurrentEpoch(runtime, epoch);
-    if (first.status !== 401) return afterKillSwitch(first);
+    if (first.status !== 401 || isActionRefusal(first)) return afterKillSwitch(first);
 
     const current = runtime.tokens;
     const retryToken =
@@ -70,6 +80,15 @@ export function createBearerTransport(
     return response;
   };
   return { request };
+}
+
+function isActionRefusal(response: TransportResponse): boolean {
+  try {
+    unwrapEnvelope<unknown>(response);
+    return false;
+  } catch (failure) {
+    return failure instanceof ApiError && ACTION_REFUSAL_CODES.has(failure.code);
+  }
 }
 
 async function sendWithToken(
