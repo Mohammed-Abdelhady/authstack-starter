@@ -9,6 +9,8 @@ export interface PasskeySummary {
   createdAt: string;
   /** ISO 8601, null until the passkey first signs in. */
   lastUsedAt: string | null;
+  canRemove?: boolean;
+  removalBlockedCode?: string;
 }
 
 export interface PasskeyList {

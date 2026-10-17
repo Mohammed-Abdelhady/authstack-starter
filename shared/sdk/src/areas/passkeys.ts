@@ -1,4 +1,6 @@
 import type { CallOptions } from '../client';
+import { unwrapNativePasskeyOptions } from '../native-auth/parsers';
+import type { NativePasskeyOptions, NativePasskeyAssertion } from '../types/native-auth';
 import { HTTP_METHOD } from '../constants';
 import {
   unwrapPasskeyCreationOptions,
@@ -25,6 +27,8 @@ export const PASSKEY_PATHS = {
   passkey: (passkeyId: string) => `/api/auth/passkeys/${pathSegment(passkeyId, 'passkey id')}`,
   nativeRegistrationOptions: '/api/auth/native/passkeys/register/options',
   nativeRegistrationVerify: '/api/auth/native/passkeys/register/verify',
+  nativeProofOptions: '/api/auth/native/proof/options',
+  nativeProofVerify: '/api/auth/native/proof/verify',
 } as const;
 
 export interface ApiClientPasskeys<TSignal extends TransportSignal = TransportSignal> {
@@ -33,6 +37,11 @@ export interface ApiClientPasskeys<TSignal extends TransportSignal = TransportSi
    * session or a mobile access token; registration below takes the token only.
    */
   passkeys: {
+    nativeProofOptions(options?: CallOptions<TSignal>): Promise<NativePasskeyOptions>;
+    nativeProofVerify(
+      assertion: NativePasskeyAssertion,
+      options?: CallOptions<TSignal>,
+    ): Promise<{ provedAt: string }>;
     list(options?: CallOptions<TSignal>): Promise<PasskeyList>;
     /** Refused with `VALIDATION_ERROR` for an empty or blank name, or one over 64 characters. */
     rename(
@@ -60,6 +69,15 @@ export function createPasskeysArea<TSignal extends TransportSignal>({
 }: AreaSenders<TSignal>): ApiClientPasskeys<TSignal> {
   return {
     passkeys: {
+      nativeProofOptions: async (options) =>
+        unwrapNativePasskeyOptions(
+          await send({ method: HTTP_METHOD.POST, path: PASSKEY_PATHS.nativeProofOptions }, options),
+        ),
+      nativeProofVerify: (body, options) =>
+        sendObject(
+          { method: HTTP_METHOD.POST, path: PASSKEY_PATHS.nativeProofVerify, body },
+          options,
+        ),
       list: async (options) =>
         unwrapPasskeyList(
           await send({ method: HTTP_METHOD.GET, path: PASSKEY_PATHS.list }, options),
