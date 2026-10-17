@@ -24,7 +24,8 @@
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "auth:access": "node scripts/auth-access.mjs"
   },
   "peerDependencies": {
     "zod": "^3.25.76"

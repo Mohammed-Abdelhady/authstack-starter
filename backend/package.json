@@ -38,7 +38,8 @@
     "admin:recover": "node dist/cli/admin-recover.js",
     "audience:apply:dev": "ts-node -r tsconfig-paths/register src/cli/audience-apply.ts",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
-    "seed:reset": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts --reset"
+    "seed:reset": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts --reset",
+    "auth:access": "node ../shared/core/scripts/auth-access.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.2.3",
