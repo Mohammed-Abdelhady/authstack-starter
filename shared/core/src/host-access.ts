@@ -1,16 +1,4 @@
-import {
-  PROFILE_PERMISSIONS,
-  ROLE_PERMISSIONS,
-  SESSION_PERMISSIONS,
-  USER_PERMISSIONS,
-} from './permissions';
-
-/**
- * The host product's permissions and roles. The server's copy is
- * `backend/src/host/access.ts`, and a test fails when the two drift apart.
- */
-
-/** Who a role is for. */
+/** Who a role is for. Stored with the role once `0023_account_audience.sql` lands. */
 export const ROLE_AUDIENCE = {
   CUSTOMER: 'customer',
   STAFF: 'staff',
@@ -29,36 +17,31 @@ export interface HostRole {
   description: string;
 }
 
-/** Permissions the host product adds to the core ones, as `resource:action[:scope]`. */
 export const HOST_PERMISSIONS: readonly string[] = [];
 
-/** Roles the host product seeds beside the core `user` and `admin` roles. */
 export const HOST_ROLES: readonly HostRole[] = [
   {
     name: 'Support',
     slug: 'support',
     level: 2,
-    audience: ROLE_AUDIENCE.STAFF,
-    permissions: [
-      PROFILE_PERMISSIONS.READ_OWN,
-      PROFILE_PERMISSIONS.UPDATE_OWN,
-      USER_PERMISSIONS.READ_ALL,
-      SESSION_PERMISSIONS.READ_ALL,
-    ],
+    audience: 'staff',
+    permissions: ['profile:read:own', 'profile:update:own', 'users:read:all', 'sessions:read:all'],
     description: 'Customer support staff',
   },
   {
     name: 'Manager',
     slug: 'manager',
     level: 3,
-    audience: ROLE_AUDIENCE.STAFF,
+    audience: 'staff',
     permissions: [
-      PROFILE_PERMISSIONS.READ_OWN,
-      PROFILE_PERMISSIONS.UPDATE_OWN,
-      USER_PERMISSIONS.READ_ALL,
-      USER_PERMISSIONS.UPDATE_ALL,
-      SESSION_PERMISSIONS.READ_ALL,
-      ROLE_PERMISSIONS.READ_ALL,
+      'profile:read:own',
+      'profile:update:own',
+      'users:read:all',
+      'users:update:all',
+      'users:assign-role:all',
+      'users:suspend:all',
+      'sessions:read:all',
+      'roles:read:all',
     ],
     description: 'Management staff',
   },
