@@ -38,9 +38,11 @@ function checkDirectory(directory, prefix = '') {
 }
 
 try {
-  const main = join(DIST, 'main.js');
-  if (!existsSync(main) || !statSync(main).isFile()) {
-    throw new Error('dist/main.js is missing or is not a file');
+  for (const entry of ['main.js', 'cli/audience-apply.js', 'cli/native-link-host.js']) {
+    const artifact = join(DIST, entry);
+    if (!existsSync(artifact) || !statSync(artifact).isFile()) {
+      throw new Error(`dist/${entry} is missing or is not a file`);
+    }
   }
   checkDirectory(DIST);
 } catch (error) {
