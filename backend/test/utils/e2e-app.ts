@@ -31,6 +31,16 @@ export { browserAgent, loginAs } from './e2e-sign-in';
 export type HttpServer = Server;
 export type TestAgent = ReturnType<typeof request.agent>;
 export const E2E_CLIENT_URL = 'http://127.0.0.1:3107';
+const SEED_CREDENTIALS = [SEED_ADMIN, SEED_MANAGER, SEED_SUPPORT, SEED_USER];
+
+function fixturePassword(email: string): string {
+  const credential = SEED_CREDENTIALS.find((item) => item.email === email);
+  if (!credential) {
+    throw new Error('Seeded E2E accounts require an explicit test credential.');
+  }
+  return credential.password;
+}
+
 const BROWSER_POLICY_ENV_KEYS = [
   'ADMIN_URL',
   'AUTH_NATIVE_LINK_HOST',
@@ -221,18 +231,17 @@ export async function bootE2eApp(
     const stored = await storage.attach(nestApp);
     const roleSeed =
       nestApp.get<InstanceType<typeof RoleSeedService>>(RoleSeedService);
-    const credentials = [SEED_ADMIN, SEED_MANAGER, SEED_SUPPORT, SEED_USER];
-    const fixtures = await Promise.all(
-      SEED_USER_DEFINITIONS.map(async (user) => ({
-        ...user,
-        permissions: [...user.permissions],
-        isVerified: true,
-        password: await bcrypt.hash(
-          credentials.find((item) => item.email === user.email)!.password,
-          4,
-        ),
-      })),
-    );
+    const fixtures =
+      options.seedUsers === false
+        ? []
+        : await Promise.all(
+            SEED_USER_DEFINITIONS.map(async (user) => ({
+              ...user,
+              permissions: [...user.permissions],
+              isVerified: true,
+              password: await bcrypt.hash(fixturePassword(user.email), 4),
+            })),
+          );
     const throttleStorage =
       nestApp.get<ThrottlerStorageService>(getStorageToken());
     const { MailDispatcherService } =
