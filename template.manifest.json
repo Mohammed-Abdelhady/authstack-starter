@@ -115,7 +115,6 @@
         "backend/src/auth/passkeys/services/passkey-registration.service.spec.ts",
         "backend/src/auth/passkeys/services/webauthn.adapter.spec.ts",
         "backend/src/auth/two-factor/services/two-factor-verification.service.spec.ts",
-        "backend/src/auth/two-factor/two-factor.service.spec.ts",
         "backend/src/common/pipes/route-id.pipe.spec.ts",
         "backend/src/role/role-edit-hierarchy.integration.spec.ts",
         "backend/src/role/role-grant-ceiling.integration.spec.ts",
@@ -128,7 +127,6 @@
         "backend/src/session/native/retry/native-dpop-retry-race.integration.spec.ts",
         "backend/src/session/native/token/native-session-limit.integration.spec.ts",
         "backend/src/session/session-idle-extension-revocation.integration.spec.ts",
-        "backend/src/user/services/account-linking.queries.spec.ts",
         "backend/src/user/services/account-linking.service.spec.ts",
         "backend/src/user/services/user-profile.service.logging.spec.ts",
         "backend/src/user/services/user-sessions.service.spec.ts",
@@ -271,7 +269,6 @@
         "frontend/.dockerignore",
         ".env.docker.example",
         "scripts/config-transforms-tests/config-transforms.ports.test.mjs",
-        "scripts/config-transforms-tests/config-transforms.docker.test.mjs",
         "scripts/lib/config-transforms.js",
         "docker-compose.postgres.yml"
       ],
@@ -291,20 +288,22 @@
         "scripts/lib/production-summary.js",
         "scripts/config-transforms-tests/config-transforms.test.mjs",
         "scripts/config-transforms-tests/config-transforms.probes.test.mjs",
-        "scripts/config-transforms-tests/config-transforms.diagnostics.test.mjs",
-        "scripts/lib/failure-diagnostics.mjs",
         "scripts/verify-docker.mjs",
         "scripts/lib/docker-http-probes.mjs",
         "scripts/lib/docker-command.mjs",
         "scripts/lib/docker-smoke-model.mjs",
         "scripts/lib/docker-source-export.mjs",
-        "docker-compose.postgres.prod.yml"
+        "docker-compose.postgres.prod.yml",
+        "scripts/verify-native-link-proxy.mjs",
+        "scripts/lib/native-link-proxy-fixtures.mjs",
+        "scripts/lib/native-link-proxy-probes.mjs"
       ],
       "docs": [
         "docs/operations/deployment.md",
         "docs/operations/deployment-custom-domain.md",
         "docs/operations/PRODUCTION-SETUP.md",
-        "docs/operations/production-security.md"
+        "docs/operations/production-security.md",
+        "docs/operations/native-link-proxy-gate.md"
       ],
       "catalogueKeys": []
     },
@@ -328,7 +327,9 @@
         "backend/src/mail/catalog/ar/**",
         "backend/test/mail/mail-locale-ar.e2e-spec.ts",
         "frontend/src/modules/activity/messages/ar.json",
-        "frontend/src/modules/admin-sessions/messages/ar.json"
+        "frontend/src/modules/admin-sessions/messages/ar.json",
+        "frontend/src/modules/account/email-change/messages/ar.json",
+        "frontend/src/modules/account/deletion/messages/ar.json"
       ],
       "docs": [],
       "catalogueKeys": [
@@ -361,6 +362,16 @@
     }
   },
   "features": {
+    "mail-locale-core": {
+      "label": "Mail locale test ownership",
+      "description": "Shared by email-password and magic-link mail locale checks.",
+      "kind": "hidden",
+      "default": false,
+      "files": ["backend/test/mail/mail-locale.e2e-spec.ts"],
+      "envVars": [],
+      "requires": [],
+      "docs": []
+    },
     "oauth-core": {
       "label": "OAuth core",
       "description": "Provider registry, start and callback routes, account linking, profile sync. Shared by every OAuth provider.",
@@ -369,6 +380,8 @@
       "files": [
         "backend/src/auth/oauth/**",
         "backend/src/user/user-providers.controller.ts",
+        "backend/src/user/provider-link/**",
+        "backend/src/common/persistence/postgres/migrations/0032_provider_revocations.sql",
         "backend/src/user/persistence/mongo/linked-accounts-contract/mongo-linked-accounts.harness-spec.ts",
         "backend/src/user/linked-accounts-contract/**",
         "backend/src/user/stores/linked-account.store.ts",
@@ -379,7 +392,6 @@
         "backend/src/user/services/account-linking.service.ts",
         "backend/src/user/services/account-linking.answers.ts",
         "backend/src/user/services/account-linking.service.spec.ts",
-        "backend/src/user/services/account-linking.queries.spec.ts",
         "backend/src/user/persistence/mongo/services/account-linking.harness-spec.ts",
         "backend/src/user/services/profile-sync.service.ts",
         "backend/src/user/persistence/mongo/services/profile-sync.service.spec.ts",
@@ -405,8 +417,22 @@
         "backend/test/native/providers/**",
         "frontend/src/modules/auth/native/__tests__/NativeAuthorizeSelection.test.tsx",
         "backend/test/native/authorize/native-browser-selectors.e2e-spec.ts",
+        "backend/test/native/first-factors/native-system-provider.e2e-spec.ts",
         "backend/src/auth/oauth/strategies/native-provider-proof.harness-spec.ts",
-        "backend/test/native/attempts/native-attempt-sdk-providers.ts"
+        "backend/test/native/attempts/native-attempt-sdk-providers.ts",
+        "backend/test/auth/audience-provider.e2e-spec.ts",
+        "backend/test/auth/audience-provider-effects.e2e-spec.ts",
+        "mobile/ui/src/components/ProvidersSection.tsx",
+        "mobile/ui/src/components/ProviderRow.tsx",
+        "mobile/ui/src/hooks/use-providers.ts",
+        "mobile/ui/src/logic/provider-text.ts",
+        "mobile/ui/src/logic/provider-link.ts",
+        "mobile/ui/src/constants/providers.ts",
+        "mobile/ui/src/i18n/providers.en.ts",
+        "mobile/ui/src/i18n/providers.ar.ts",
+        "mobile/ui/test/hooks/providers.test.ts",
+        "backend/test/auth/browser-provider-policy.e2e-spec.ts",
+        "backend/test/auth/browser-provider-policy.fixture.ts"
       ],
       "envVars": ["OAUTH_STATE_SECRET"],
       "requires": [],
@@ -447,14 +473,19 @@
         "backend/src/auth/native/lifecycle/native-recovery.controller.ts",
         "backend/src/auth/native/lifecycle/native-recovery.service.ts",
         "backend/test/native/lifecycle/native-registration.e2e-spec.ts",
+        "backend/test/native/lifecycle/native-registration-binding.e2e-spec.ts",
+        "backend/test/native/attempts/native-first-party-policy.e2e-spec.ts",
+        "backend/test/utils/native/store-native-policy.ts",
         "backend/test/native/lifecycle/native-recovery.e2e-spec.ts",
         "backend/test/native/lifecycle/native-recovery-legacy.mongo.e2e-spec.ts",
         "frontend/src/modules/auth/store/authIdentityRace.test.tsx",
         "frontend/src/store/api/__tests__/identityProofHintRace.test.ts",
-        "mobile/ui/test/native-name.test.ts"
+        "mobile/ui/test/native-name.test.ts",
+        "backend/test/auth/audience-password.e2e-spec.ts",
+        "backend/test/auth/erasure-password.e2e-spec.ts"
       ],
       "envVars": ["SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASS", "EMAIL_FROM"],
-      "requires": [],
+      "requires": ["mail-locale-core"],
       "docs": [
         "docs/setup/setup-smtp.md",
         "docs/setup/setup-smtp-mail-service.md",
@@ -472,7 +503,9 @@
         "backend/test/native/providers/native-provider-google.e2e-spec.ts",
         "mobile/expo/test/native-sign-in-readiness.test.ts",
         "mobile/cli/test/native-sign-in-readiness.test.ts",
-        "backend/test/native/attempts/native-account-email.e2e-spec.ts"
+        "backend/test/native/attempts/native-account-email.e2e-spec.ts",
+        "mobile/expo/plugins/with-google-modules.js",
+        "mobile/expo/test/google-modules.test.cjs"
       ],
       "packages": ["react-native-nitro-google-signin", "react-native-nitro-modules"],
       "envVars": [
@@ -536,7 +569,7 @@
     "email-code": {
       "status": "available",
       "label": "Email code",
-      "description": "Sign in from a native app with a six-digit code mailed to the address. Needs magic link.",
+      "description": "Sign in from a browser or native app with a six-digit code mailed to the address. Needs magic link helpers.",
       "kind": "passwordless",
       "default": false,
       "files": [
@@ -544,10 +577,10 @@
         "backend/src/auth/native/lifecycle/native-email-code.service.ts",
         "backend/src/auth/native/lifecycle/native-email-code-mail.service.ts",
         "backend/src/auth/native/lifecycle/native-email-code-review.service.ts",
+        "backend/src/auth/native/lifecycle/native-email-code-ceiling.service.ts",
         "backend/src/auth/native/lifecycle/email-code-review.ts",
         "backend/src/auth/native/lifecycle/email-code-review.spec.ts",
         "backend/src/auth/native/lifecycle/email-code-minutes.ts",
-        "backend/src/auth/native/lifecycle/email-code-minutes.spec.ts",
         "backend/src/auth/native/lifecycle/dto/native-email-code-verify.dto.ts",
         "backend/src/auth/native/lifecycle/dto/native-email-code-verify.dto.spec.ts",
         "backend/src/auth/pending-codes/email-code.store.ts",
@@ -569,8 +602,14 @@
         "backend/src/mail/catalog/ar/sign-in-code.ts",
         "backend/test/native/email-code/**",
         "mobile/auth/test/native/native-email-code.test.ts",
-        "mobile/ui/src/logic/western-digits.ts",
-        "mobile/ui/test/screens/native-email-code.test.ts"
+        "mobile/ui/test/screens/native-email-code.test.ts",
+        "backend/src/auth/email-code/**",
+        "backend/src/auth/pending-codes/email-code-delivery.harness-spec.ts",
+        "backend/test/email-code/**",
+        "shared/sdk/src/areas/browser-email-code.ts",
+        "shared/sdk/src/areas/browser-email-code.test.ts",
+        "shared/sdk/src/email-code/**",
+        "shared/sdk/src/types/browser-email-code.ts"
       ],
       "envVars": [
         "EMAIL_CODE_ENABLED",
@@ -584,12 +623,41 @@
       "docs": ["docs/setup/setup-email-code.md"]
     },
     "invitations": {
-      "status": "planned",
+      "status": "available",
       "label": "Invitations",
-      "description": "Reserved for plan 4. Account invitations are not implemented yet.",
+      "description": "Invite accounts and recover staff access with single-use enrollment links.",
       "kind": "administration",
       "default": false,
-      "files": [],
+      "files": [
+        "backend/src/auth/invitations/**",
+        "backend/src/admin/invitations/**",
+        "backend/src/admin/passkey-reset/**",
+        "backend/src/admin/persistence/mongo/mongo-passkey-reset.store.ts",
+        "backend/src/admin/persistence/postgres/postgres-passkey-reset.store.ts",
+        "backend/src/cli/admin-invite*",
+        "backend/src/cli/admin-recover*",
+        "backend/src/cli/admin-command*",
+        "backend/src/cli/types/admin-command.ts",
+        "backend/src/mail/builders/invitation*",
+        "backend/src/mail/builders/passkey-reset*",
+        "backend/src/mail/catalog/en/invitation.ts",
+        "backend/src/mail/catalog/ar/invitation.ts",
+        "backend/src/mail/catalog/en/passkey-reset.ts",
+        "backend/src/mail/catalog/ar/passkey-reset.ts",
+        "backend/src/mail/links/invitation-links.ts",
+        "frontend/src/modules/invitations/**",
+        "frontend/src/app/[locale]/(auth)/auth/invitation/**",
+        "backend/test/staff-invitations/**",
+        "backend/test/invitations/**",
+        "backend/test/postgres/postgres-invitation-harness.ts",
+        "backend/test/utils/invitation-contract/**",
+        "backend/test/utils/address-retention/invitation-retention-cases.ts",
+        "shared/sdk/src/areas/invitations.ts",
+        "shared/sdk/src/areas/invitations.test.ts",
+        "shared/sdk/src/invitations/**",
+        "shared/sdk/src/types/invitations.ts",
+        "backend/test/permissions/staff-confirmation-links.e2e-spec.ts"
+      ],
       "envVars": ["INVITATION_EXPIRES_IN"],
       "requires": [],
       "docs": ["docs/setup/setup-invitations.md"]
@@ -605,6 +673,7 @@
         "backend/src/auth/native/lifecycle/native-email-link.controller.ts",
         "backend/src/auth/native/lifecycle/native-email-link.service.ts",
         "backend/src/auth/native/lifecycle/native-email-link-mail.service.ts",
+        "backend/src/auth/native/lifecycle/native-sign-up-open.ts",
         "backend/src/auth/native/lifecycle/dto/native-email-link-verify.dto.ts",
         "backend/test/native/lifecycle/native-email-link.e2e-spec.ts",
         "backend/test/auth/magic-link-browser.e2e-spec.ts",
@@ -615,7 +684,8 @@
         "backend/src/common/persistence/postgres/migrations/0015_magic_link_request_nonce.sql",
         "frontend/src/modules/auth/methods/magic-link/**",
         "frontend/src/app/[locale]/(auth)/auth/magic-link/**",
-        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts"
+        "backend/test/permissions/admin-email-pending-magic-link.e2e-spec.ts",
+        "backend/test/auth/audience-magic-link.e2e-spec.ts"
       ],
       "envVars": [
         "MAGIC_LINK_ENABLED",
@@ -628,7 +698,7 @@
         "SMTP_PASS",
         "EMAIL_FROM"
       ],
-      "requires": [],
+      "requires": ["mail-locale-core"],
       "docs": ["docs/setup/setup-magic-link.md"]
     },
     "totp": {
@@ -656,7 +726,8 @@
         "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.test.tsx",
         "frontend/src/modules/auth/hooks/useTwoFactorLockCountdown.ts",
         "frontend/src/modules/auth/utils/twoFactorLock.ts",
-        "frontend/src/modules/auth/utils/__tests__/twoFactorLock.test.ts"
+        "frontend/src/modules/auth/utils/__tests__/twoFactorLock.test.ts",
+        "backend/test/email-code/browser-code-second-factor.e2e-spec.ts"
       ],
       "envVars": ["TWO_FACTOR_ENABLED", "TOTP_ENCRYPTION_KEY", "TOTP_ENCRYPTION_KEY_PREVIOUS"],
       "requires": [],
@@ -678,17 +749,24 @@
         "backend/test/auth/passkey-removal.e2e-spec.ts",
         "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
         "backend/test/auth/passkey-native.e2e-spec.ts",
+        "backend/test/native/session/native-authentication-time.e2e-spec.ts",
         "backend/test/postgres/postgres-passkeys-harness.ts",
         "backend/src/common/persistence/postgres/migrations/0009_passkeys.sql",
         "backend/src/common/persistence/postgres/migrations/0026_passkey_relying_party.sql",
         "frontend/src/modules/passkeys/**",
         "backend/src/config/passkey-env.validation.spec.ts",
-        "backend/src/config/passkey-name.spec.ts",
         "backend/test/auth/passkey-rename.e2e-spec.ts",
         "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
         "backend/test/auth/passkey-first-account.e2e-spec.ts",
         "mobile/adapters/test/passkey-readiness.test.ts",
         "mobile/auth/test/native/native-passkey-readiness.test.ts",
+        "backend/test/auth/enrolment-promotion.e2e-spec.ts",
+        "backend/test/auth/enrolment-refusals.e2e-spec.ts",
+        "backend/test/auth/enrolment-registration.e2e-spec.ts",
+        "backend/test/auth/enrolment-replacement.e2e-spec.ts",
+        "backend/test/auth/enrolment-routes.e2e-spec.ts",
+        "backend/test/auth/required-passkey.e2e-spec.ts",
+        "backend/test/utils/auth/required-passkey.fixture.ts",
         "mobile/auth/test/passkeys/passkey-register.test.ts",
         "mobile/adapters/test/passkey-register.test.ts",
         "mobile/ui/src/components/PasskeysSection.tsx",
@@ -698,7 +776,17 @@
         "mobile/ui/src/constants/passkeys.ts",
         "mobile/ui/src/i18n/passkeys.en.ts",
         "mobile/ui/src/i18n/passkeys.ar.ts",
-        "mobile/ui/test/hooks/passkeys.test.ts"
+        "backend/test/app/required-passkey-startup.e2e-spec.ts",
+        "backend/test/auth/passkey-application-binding.e2e-spec.ts",
+        "frontend/src/modules/invitations/components/EnrolmentPanel.tsx",
+        "frontend/src/app/[locale]/(auth)/auth/invitation/enrolment/**",
+        "frontend/src/modules/invitations/__tests__/enrolment.test.tsx",
+        "backend/src/auth/proof/native-passkey-proof.controller.ts",
+        "backend/src/auth/proof/guards/native-proof-session.guard.ts",
+        "backend/test/auth/native-proof-cases.harness-spec.ts",
+        "backend/test/auth/native-provider-link-cases.harness-spec.ts",
+        "mobile/auth/test/passkeys/native-proof.test.ts",
+        "shared/sdk/src/proof/constants.ts"
       ],
       "envVars": [
         "PASSKEYS_ENABLED",
@@ -923,8 +1011,9 @@
       "backend/test/auth/passkey-register-reauth.e2e-spec.ts",
       "backend/test/auth/two-factor-passkey-http.e2e-spec.ts",
       "backend/test/auth/passkey-first-account.e2e-spec.ts",
-      "backend/test/native/engine/native-auth-engine-consent.e2e-spec.ts",
-      "backend/test/utils/native/native-auth-engine-consent.ts"
+      "backend/test/utils/native/native-auth-engine-consent.ts",
+      "backend/test/auth/required-passkey.e2e-spec.ts",
+      "backend/test/utils/auth/required-passkey.fixture.ts"
     ]
   }
 }
