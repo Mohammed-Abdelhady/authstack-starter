@@ -1,4 +1,5 @@
 import React from 'react';
+import { ACTIVITY_READ_PERMISSION } from '@/modules/activity';
 import {
   USER_PERMISSIONS,
   ROLE_PERMISSIONS,
@@ -48,6 +49,7 @@ export const NAV_SECTIONS: (NavItem | NavSection)[] = [
     icon: Shield,
     anyPermissions: [
       USER_PERMISSIONS.LIST_ALL,
+      USER_PERMISSIONS.LIST_STAFF,
       ROLE_PERMISSIONS.LIST_ALL,
       PERMISSION_PERMISSIONS.MANAGE_ALL,
     ],
@@ -56,7 +58,7 @@ export const NAV_SECTIONS: (NavItem | NavSection)[] = [
         labelKey: 'users',
         href: '/admin/users',
         icon: Users,
-        permission: USER_PERMISSIONS.LIST_ALL,
+        anyPermissions: [USER_PERMISSIONS.LIST_ALL, USER_PERMISSIONS.LIST_STAFF],
       },
       {
         labelKey: 'roles',
@@ -77,8 +79,18 @@ export const NAV_SECTIONS: (NavItem | NavSection)[] = [
   {
     titleKey: 'activity',
     icon: Activity,
-    anyPermissions: [SESSION_PERMISSIONS.READ_ALL, SESSION_PERMISSIONS.READ_OWN],
+    anyPermissions: [
+      SESSION_PERMISSIONS.READ_ALL,
+      SESSION_PERMISSIONS.READ_OWN,
+      ACTIVITY_READ_PERMISSION,
+    ],
     items: [
+      {
+        labelKey: 'activity',
+        href: '/admin/activity',
+        icon: Activity,
+        permission: ACTIVITY_READ_PERMISSION,
+      },
       {
         labelKey: 'sessions',
         href: '/sessions',

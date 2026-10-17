@@ -1,3 +1,6 @@
+import { staffRequest } from '@/modules/auth/api/staffRequest';
+import { IDEMPOTENCY_HEADER } from '@/modules/auth/constants/staff-operation';
+import { API_PATHS, unwrapObjectBody } from '@app/sdk';
 import { baseApi } from '@/store/api/baseApi';
 import {
   invalidateOnSuccess,
@@ -13,6 +16,16 @@ import type {
 } from '../types';
 
 /** Argument of the update-role mutation: which role and what to change. */
+interface CreateRoleArgs {
+  data: CreateRoleRequest;
+  idempotencyKey: string;
+}
+
+interface DeleteRoleArgs {
+  idOrSlug: string;
+  version: number;
+}
+
 export interface UpdateRoleArgs {
   idOrSlug: string;
   data: UpdateRoleRequest;
@@ -33,7 +46,7 @@ export const rolesApi = baseApi.injectEndpoints({
      */
     listRoles: builder.query<ListRolesResponse, ListRolesQuery | undefined>({
       query: (params = {}) => ({
-        url: '/api/roles',
+        url: API_PATHS.admin.roles,
         params,
       }),
       transformResponse: (response: {
@@ -68,11 +81,11 @@ export const rolesApi = baseApi.injectEndpoints({
      * all asks here. A failed page fails the whole read.
      */
     listAllRoles: builder.query<Role[], void>({
-      async queryFn(_arg, _api, _extraOptions, fetchPage) {
+      async queryFn(...[, , , fetchPage]) {
         const roles = new Map<string, Role>();
         for (let page = 1; page <= ROLE_LIST_MAX_PAGES; page += 1) {
           const result = await fetchPage({
-            url: '/api/roles',
+            url: API_PATHS.admin.roles,
             params: { page, limit: ROLE_LIST_MAX_PAGE_SIZE },
           });
           if (result.error) return { error: result.error };
@@ -90,7 +103,7 @@ export const rolesApi = baseApi.injectEndpoints({
      * Get single role by ID or slug
      */
     getRole: builder.query<Role, string>({
-      query: (idOrSlug) => `/api/roles/${idOrSlug}`,
+      query: (idOrSlug) => API_PATHS.admin.role(idOrSlug),
       transformResponse: (response: { success: boolean; data: Role }) => response.data,
       providesTags: (result, error, idOrSlug) => [{ type: 'Roles', id: idOrSlug }],
     }),
@@ -98,14 +111,18 @@ export const rolesApi = baseApi.injectEndpoints({
     /**
      * Create new role
      */
-    createRole: builder.mutation<Role, CreateRoleRequest>({
-      query: (data) => ({
-        url: '/api/roles',
-        method: 'POST',
-        body: data,
-      }),
-      transformResponse: (response: { success: boolean; data: Role; message: string }) =>
-        response.data,
+    createRole: builder.mutation<Role, CreateRoleArgs>({
+      queryFn: (...[{ data, idempotencyKey }, , , fetch]) =>
+        staffRequest<Role>(
+          {
+            url: API_PATHS.admin.roles,
+            method: 'POST',
+            body: data,
+            headers: { [IDEMPOTENCY_HEADER]: idempotencyKey },
+          },
+          fetch,
+          unwrapObjectBody<Role>,
+        ),
       invalidatesTags: invalidateOnSuccess(['Roles']),
     }),
 
@@ -113,13 +130,16 @@ export const rolesApi = baseApi.injectEndpoints({
      * Update existing role
      */
     updateRole: builder.mutation<Role, UpdateRoleArgs>({
-      query: ({ idOrSlug, data }) => ({
-        url: `/api/roles/${idOrSlug}`,
-        method: 'PATCH',
-        body: data,
-      }),
-      transformResponse: (response: { success: boolean; data: Role; message: string }) =>
-        response.data,
+      queryFn: (...[{ idOrSlug, data }, , , fetch]) =>
+        staffRequest<Role>(
+          {
+            url: API_PATHS.admin.role(idOrSlug),
+            method: 'PATCH',
+            body: data,
+          },
+          fetch,
+          unwrapObjectBody<Role>,
+        ),
       // A rename moves every holder to the new slug, and a change of
       // permissions changes what every holder inherits.
       invalidatesTags: invalidateOnSuccessOrUnknownOutcome(({ idOrSlug }: UpdateRoleArgs) => [
@@ -133,11 +153,19 @@ export const rolesApi = baseApi.injectEndpoints({
     /**
      * Delete role
      */
-    deleteRole: builder.mutation<void, string>({
-      query: (idOrSlug) => ({
-        url: `/api/roles/${idOrSlug}`,
-        method: 'DELETE',
-      }),
+    deleteRole: builder.mutation<null, DeleteRoleArgs>({
+      queryFn: async (...[{ idOrSlug, version }, , , fetch]) => {
+        const result = await staffRequest(
+          {
+            url: API_PATHS.admin.role(idOrSlug),
+            method: 'DELETE',
+            params: { version },
+          },
+          fetch,
+          () => ({}),
+        );
+        return result.error ? { error: result.error } : { data: null };
+      },
       invalidatesTags: invalidateOnSuccess(['Roles']),
     }),
   }),

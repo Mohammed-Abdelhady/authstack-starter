@@ -8,13 +8,17 @@ import { UserRoleSelector } from './UserRoleSelector';
 import { UserActionsMenu } from './UserActionsMenu';
 import { UserRoleLabel } from './UserRoleLabel';
 import { PermissionGuard } from '@/modules/permissions';
-import { USER_PERMISSIONS } from '@app/core';
+import { ROLE_AUDIENCE, USER_PERMISSIONS, type RoleAudience } from '@app/core';
 import { HOVER_REVEAL_CLASSES } from '@/constants/focusStyles';
 import { cn } from '@/lib/utils';
 import { getInitials, formatDateShort } from '@/lib/formatters';
+import { requireObservedVersion } from '@/modules/auth/utils/observedVersion';
+import { useAuthMethods } from '@/modules/auth/hooks/useAuthMethods';
+import { usePermission } from '../../hooks/usePermission';
 import { useUserActions } from '../../hooks/useUserActions';
 
 export interface User {
+  version?: number;
   _id: string;
   name: string;
   email: string;
@@ -23,6 +27,7 @@ export interface User {
   isDeleted: boolean;
   pendingEmail?: string | null;
   createdAt: string;
+  audience?: RoleAudience;
 }
 
 export interface UserCardProps {
@@ -32,6 +37,15 @@ export interface UserCardProps {
   onManagePermissions?: (userId: string, opener: HTMLElement | null, userName: string) => void;
   /** Optional className */
   className?: string;
+}
+
+function assignmentPermission(
+  audience: RoleAudience | undefined,
+  audiencesEnabled: boolean,
+): string {
+  return audiencesEnabled && audience === ROLE_AUDIENCE.STAFF
+    ? USER_PERMISSIONS.ASSIGN_ROLE_STAFF
+    : USER_PERMISSIONS.ASSIGN_ROLE_ALL;
 }
 
 function focusRoleRegionIfOwned(region: HTMLDivElement | null) {
@@ -98,7 +112,11 @@ export const UserCard = memo(
     const onRoleChange = useCallback(
       async (newRole: string) => {
         confirmedRoleFocus.current = null;
-        await handleRoleChange(user._id, newRole);
+        await handleRoleChange({
+          userId: user._id,
+          newRole,
+          version: requireObservedVersion(user.version),
+        });
         confirmedRoleFocus.current = { userId: user._id, role: newRole };
         if (previousUser.current.id === user._id && previousUser.current.role === newRole) {
           confirmedRoleFocus.current = null;
@@ -107,12 +125,19 @@ export const UserCard = memo(
           }
         }
       },
-      [handleRoleChange, user._id],
+      [handleRoleChange, user._id, user.version],
     );
 
     const isAdminRole = user.role === 'admin';
     const isNormalUser = user.role === 'user';
     const isProtectedRole = isAdminRole || isNormalUser;
+    const { canAny } = usePermission();
+    const { audiencesEnabled } = useAuthMethods({
+      skip:
+        isProtectedRole ||
+        user.isDeleted ||
+        !canAny([USER_PERMISSIONS.ASSIGN_ROLE_ALL, USER_PERMISSIONS.ASSIGN_ROLE_STAFF]),
+    });
 
     return (
       <article
@@ -185,7 +210,7 @@ export const UserCard = memo(
             data-testid="user-card-role-region"
           >
             <PermissionGuard
-              permission={USER_PERMISSIONS.UPDATE_ALL}
+              permission={assignmentPermission(user.audience, audiencesEnabled === true)}
               fallback={
                 <div className="text-xs text-tertiary">
                   {t('role')}{' '}
@@ -195,7 +220,7 @@ export const UserCard = memo(
                 </div>
               }
             >
-              {isProtectedRole || user.isDeleted ? (
+              {audiencesEnabled === undefined || isProtectedRole || user.isDeleted ? (
                 <div className="text-xs text-tertiary">
                   {t('role')} <UserRoleLabel slug={user.role} />
                 </div>
@@ -217,14 +242,12 @@ export const UserCard = memo(
               isAdminRole ? 'invisible' : HOVER_REVEAL_CLASSES,
             )}
           >
-            <PermissionGuard permission={USER_PERMISSIONS.UPDATE_ALL}>
-              <UserActionsMenu
-                user={user}
-                onManagePermissions={handleManageClick}
-                disabled={isAdminRole}
-                busy={isUpdatingRole}
-              />
-            </PermissionGuard>
+            <UserActionsMenu
+              user={user}
+              onManagePermissions={handleManageClick}
+              disabled={isAdminRole}
+              busy={isUpdatingRole}
+            />
           </div>
         </div>
 
@@ -242,9 +265,11 @@ export const UserCard = memo(
       prevProps.user.name === nextProps.user.name &&
       prevProps.user.email === nextProps.user.email &&
       prevProps.user.role === nextProps.user.role &&
+      prevProps.user.version === nextProps.user.version &&
       prevProps.user.isVerified === nextProps.user.isVerified &&
       prevProps.user.isDeleted === nextProps.user.isDeleted &&
       prevProps.user.pendingEmail === nextProps.user.pendingEmail &&
+      prevProps.user.audience === nextProps.user.audience &&
       prevProps.onManagePermissions === nextProps.onManagePermissions
     );
   },

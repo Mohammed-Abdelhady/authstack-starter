@@ -1,127 +1,70 @@
 import { useCallback, useRef } from 'react';
-import { useTranslations } from 'next-intl';
 import {
   useUpdateUserStatusMutation,
   useUpdateUserRoleMutation,
   useResendEmailChangeMutation,
 } from '@/modules/users/api/usersApi';
-import { toast } from '@/lib/toast';
 import { showsOwnRefusal } from '@/lib/refusal';
-import { reportUnlessHandled } from '@/lib/requestFailure';
+import type { ResendEmailChangeRequest } from '@/modules/users/types';
 
 /**
  * Return type for the useUserActions hook.
  */
+interface RoleChange {
+  userId: string;
+  newRole: string;
+  version: number;
+}
+interface StatusChange {
+  userId: string;
+  isActive: boolean;
+  version: number;
+}
+
 export interface UseUserActionsReturn {
-  /** Update user role */
-  handleRoleChange: (userId: string, newRole: string) => Promise<void>;
-  /** Activate or deactivate user */
-  /** Activate or deactivate user. `onRefused` receives what the request failed with. */
-  handleStatusChange: (
-    userId: string,
-    isActive: boolean,
-    userName: string,
-    onRefused?: (error: unknown) => void,
-  ) => Promise<boolean>;
-  handleResendEmailChange: (userId: string) => Promise<void>;
-  /** Whether any action is loading */
+  handleRoleChange: (change: RoleChange) => Promise<void>;
+  handleStatusChange: (change: StatusChange) => Promise<void>;
+  handleResendEmailChange: (change: ResendEmailChangeRequest) => Promise<void>;
   isLoading: boolean;
-  /** Whether status update is loading */
   isUpdatingStatus: boolean;
-  /** Whether role update is loading */
   isUpdatingRole: boolean;
 }
 
-/**
- * useUserActions - Hook for user CRUD operations with toast notifications.
- *
- * Extracts user management logic from components to keep them focused on rendering.
- * Handles error messages and success toasts consistently.
- *
- * @returns Object with action handlers and loading states
- *
- * @example
- * ```tsx
- * function UserCard({ user }) {
- *   const { handleRoleChange, handleStatusChange, isLoading } = useUserActions();
- *
- *   const onActivate = async () => {
- *     const success = await handleStatusChange(user._id, true, user.name);
- *     if (success) {
- *       closeDialog();
- *     }
- *   };
- *
- *   return (
- *     <Button onClick={onActivate} disabled={isLoading}>
- *       Activate
- *     </Button>
- *   );
- * }
- * ```
- */
 export function useUserActions(): UseUserActionsReturn {
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateUserStatusMutation();
   const [updateRole, { isLoading: isUpdatingRole }] = useUpdateUserRoleMutation();
   const [resendEmailChange, { isLoading: isResendingEmailChange }] = useResendEmailChangeMutation();
   const resendInFlight = useRef(false);
-  const t = useTranslations('users.actions');
 
   /**
    * Update user role. A refusal rejects, so the caller knows it failed, says
    * why in its confirmation and raises the success message itself.
    */
   const handleRoleChange = useCallback(
-    async (userId: string, newRole: string) => {
-      await showsOwnRefusal(updateRole({ userId, role: newRole })).unwrap();
+    async ({ userId, newRole, version }: RoleChange) => {
+      await showsOwnRefusal(updateRole({ userId, role: newRole, version })).unwrap();
     },
     [updateRole],
   );
 
-  /**
-   * Activate or deactivate user.
-   * Returns true on success, false on failure.
-   */
   const handleStatusChange = useCallback(
-    async (
-      userId: string,
-      isActive: boolean,
-      userName: string,
-      onRefused?: (error: unknown) => void,
-    ): Promise<boolean> => {
-      try {
-        const request = updateStatus({ userId, isActive });
-        // A caller that shows the refusal says it once, in its confirmation.
-        await (onRefused ? showsOwnRefusal(request) : request).unwrap();
-        toast.success(
-          isActive
-            ? t('activateSuccess', { name: userName })
-            : t('deactivateSuccess', { name: userName }),
-        );
-        return true;
-      } catch (error) {
-        onRefused?.(error);
-        reportUnlessHandled(error);
-        return false;
-      }
+    async (change: StatusChange) => {
+      await showsOwnRefusal(updateStatus(change)).unwrap();
     },
-    [updateStatus, t],
+    [updateStatus],
   );
 
   const handleResendEmailChange = useCallback(
-    async (userId: string) => {
+    async (change: ResendEmailChangeRequest) => {
       if (resendInFlight.current) return;
       resendInFlight.current = true;
       try {
-        await resendEmailChange(userId).unwrap();
-        toast.success(t('resendEmailChangeSuccess'));
-      } catch (error) {
-        reportUnlessHandled(error);
+        await showsOwnRefusal(resendEmailChange(change)).unwrap();
       } finally {
         resendInFlight.current = false;
       }
     },
-    [resendEmailChange, t],
+    [resendEmailChange],
   );
 
   const isLoading = isUpdatingStatus || isUpdatingRole || isResendingEmailChange;
