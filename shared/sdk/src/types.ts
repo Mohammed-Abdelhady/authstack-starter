@@ -3,6 +3,9 @@ export * from './types/native-auth';
 
 /** The account, as GET and PATCH /api/user/profile send it. Dates are ISO strings. */
 export interface User {
+  /** Omitted by older servers. Present values are actual account record versions. */
+  version?: number;
+  locale: string;
   id: string;
   email: string;
   name: string;
@@ -30,6 +33,8 @@ export interface User {
 export type Identity = { authenticated: false; user: null } | { authenticated: true; user: User };
 
 export interface UpdateProfileRequest {
+  version?: number;
+  locale?: string;
   name?: string;
 }
 
@@ -79,6 +84,9 @@ export interface AuthMethodsWire {
   // feature:magic-link:start
   magicLink: boolean;
   // feature:magic-link:end
+  // feature:email-code:start
+  emailCode: boolean;
+  // feature:email-code:end
   // feature:totp:start
   twoFactor: boolean;
   // feature:totp:end
@@ -98,6 +106,7 @@ export interface AuthMethodsResponse {
 export interface AuthMethods {
   password: boolean;
   magicLink: boolean;
+  emailCode: boolean;
   twoFactor: boolean;
   passkeys: boolean;
   oauth: AuthMethodProvider[];
@@ -105,6 +114,7 @@ export interface AuthMethods {
 
 /** Body of POST /api/oauth/token for an authorization code. */
 export interface OAuthCodeTokenRequest {
+  install_id?: string;
   grant_type: typeof OAUTH_GRANT_TYPE.AUTHORIZATION_CODE;
   code: string;
   redirect_uri: string;
@@ -136,6 +146,7 @@ export interface OAuthRevokeRequest {
 }
 
 export interface ExchangeCodeInput {
+  installId?: string;
   code: string;
   codeVerifier: string;
   redirectUri: string;

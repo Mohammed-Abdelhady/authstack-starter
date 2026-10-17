@@ -34,6 +34,7 @@ function userFrom(value: unknown, status: number): User {
   const validProviders = linkedProviders.map((entry) =>
     stringField(entry, 'data.user.linkedProviders item', status),
   );
+  assertProfileVersion(user.version, status);
   if (typeof user.isVerified !== 'boolean') {
     throw malformedResponse(
       status,
@@ -58,6 +59,8 @@ function userFrom(value: unknown, status: number): User {
   }
   // feature:passkeys:end
   return {
+    ...(user.version === undefined ? {} : { version: user.version }),
+    locale: stringField(user.locale, 'data.user.locale', status),
     id: stringField(user.id, 'data.user.id', status),
     email: stringField(user.email, 'data.user.email', status),
     name: stringField(user.name, 'data.user.name', status),
@@ -93,4 +96,16 @@ export function unwrapIdentity(response: TransportResponse): Identity {
 
 export function unwrapIdentityBody(body: unknown): Identity {
   return identityFrom(unwrapEnvelopeBody<unknown>(body), HTTP_STATUS_OK);
+}
+
+export function assertProfileVersion(
+  value: unknown,
+  status: number,
+): asserts value is number | undefined {
+  if (
+    value !== undefined &&
+    (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0)
+  ) {
+    throw malformedResponse(status, 'Expected profile.version to be a non-negative safe integer.');
+  }
 }

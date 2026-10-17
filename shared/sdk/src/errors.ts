@@ -1,4 +1,5 @@
 export interface ApiErrorInit {
+  details?: Readonly<Record<string, unknown>> | undefined;
   status: number;
   code: string;
   message: string;
@@ -27,6 +28,7 @@ export class SdkError extends Error {
 
 /** A response arrived and it was not a success. */
 export class ApiError extends SdkError {
+  readonly details?: Readonly<Record<string, unknown>> | undefined;
   readonly status: number;
   /** An `@app/core` error code from the body, or one mapped from the status. */
   readonly code: string;
@@ -37,6 +39,7 @@ export class ApiError extends SdkError {
   constructor(init: ApiErrorInit) {
     super(init.message);
     this.name = 'ApiError';
+    this.details = init.details;
     this.status = init.status;
     this.code = init.code;
     this.fields = init.fields;
