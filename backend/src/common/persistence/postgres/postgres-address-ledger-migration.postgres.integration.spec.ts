@@ -21,6 +21,9 @@ import {
 } from './postgres-migrate.harness-spec';
 
 const ADDRESS_CLAIMS_MIGRATION = '0021_address_claims.sql';
+const ADDRESS_RETENTION_MIGRATION = '0034_address_claim_retention.sql';
+const APPLIED_ADDRESS_MIGRATIONS =
+  'Applied: 0021_address_claims.sql, 0034_address_claim_retention.sql';
 const LOSER_CODE_ID = '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e73';
 const emails = async (pool: Pool) =>
   (
@@ -38,7 +41,11 @@ describe('address ledger PostgreSQL migration', () => {
     await applyPostgresMigrations(
       pool,
       MIGRATION_LOCK_WAIT_MS,
-      EVERY_MIGRATION.filter((name) => name !== ADDRESS_CLAIMS_MIGRATION),
+      EVERY_MIGRATION.filter(
+        (name) =>
+          name !== ADDRESS_CLAIMS_MIGRATION &&
+          name !== ADDRESS_RETENTION_MIGRATION,
+      ),
     );
     return pool;
   };
@@ -53,10 +60,7 @@ describe('address ledger PostgreSQL migration', () => {
       );
       expect(await run('up', pool)).toEqual({
         exit: 0,
-        said: [
-          ADDRESS_BACKFILL_ZERO_COUNTS,
-          'Applied: 0021_address_claims.sql',
-        ],
+        said: [ADDRESS_BACKFILL_ZERO_COUNTS, APPLIED_ADDRESS_MIGRATIONS],
       });
       expect(await emails(pool)).toEqual([
         { id: FIRST_ID, email: 'foo@example.com' },
@@ -76,7 +80,7 @@ describe('address ledger PostgreSQL migration', () => {
       await seedBackfill(pool);
       expect(await run('up', pool)).toEqual({
         exit: 0,
-        said: [BACKFILL_COUNTS, 'Applied: 0021_address_claims.sql'],
+        said: [BACKFILL_COUNTS, APPLIED_ADDRESS_MIGRATIONS],
       });
       await expectBackfilled(pool);
       await pool.query('DELETE FROM schema_migrations WHERE name = $1', [
@@ -125,7 +129,7 @@ describe('address ledger PostgreSQL migration', () => {
         exit: 0,
         said: [
           'Address ledger backfill: kept=1 cleared_taken=0 cleared_ambiguous=1 cleared_codeless=0 codes_killed=1',
-          'Applied: 0021_address_claims.sql',
+          APPLIED_ADDRESS_MIGRATIONS,
         ],
       });
       const migratedCodes = await pool.query<{ email: string }>(
@@ -213,10 +217,7 @@ describe('address ledger PostgreSQL migration', () => {
       const pool = await previousDatabase();
       expect(await run('up', pool)).toEqual({
         exit: 0,
-        said: [
-          ADDRESS_BACKFILL_ZERO_COUNTS,
-          'Applied: 0021_address_claims.sql',
-        ],
+        said: [ADDRESS_BACKFILL_ZERO_COUNTS, APPLIED_ADDRESS_MIGRATIONS],
       });
       await pool.query("INSERT INTO users (email) VALUES ('a@x.com')");
       await expect(

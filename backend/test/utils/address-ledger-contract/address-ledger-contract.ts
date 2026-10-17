@@ -1,3 +1,4 @@
+import { ownEmailReservationCases } from './own-email-reservation-cases';
 import { ledgerCreationCases } from './address-ledger-creation-cases';
 import { TEST_NOW } from '../frozen-clock';
 import { AddressLedgerHarness } from './address-ledger-harness';
@@ -25,6 +26,7 @@ export function describeAddressLedgerContract(
       current().clock.set(TEST_NOW);
       await current().reset();
     }, budgets.resetMs);
+    ownEmailReservationCases(current);
     ledgerCases(current);
     ledgerRaceCases(current);
     ledgerCreationCases(current);

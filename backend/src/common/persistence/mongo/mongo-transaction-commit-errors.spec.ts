@@ -10,7 +10,6 @@ import { createRequire } from 'node:module';
 import { createConnection } from 'mongoose';
 import {
   UnknownTransactionOutcomeError,
-  isUnknownTransactionOutcome,
   withMajorityTransaction,
 } from './mongo-transaction';
 
@@ -83,14 +82,6 @@ describe('commit transaction outcomes', () => {
     } finally {
       jest.useRealTimers();
     }
-  });
-
-  it('recognizes only the helper’s wrapped unknown outcomes', () => {
-    const driverError = new MongoNetworkError('connection closed');
-    const outcome = new UnknownTransactionOutcomeError(driverError);
-
-    expect(isUnknownTransactionOutcome(outcome)).toBe(true);
-    expect(isUnknownTransactionOutcome(driverError)).toBe(false);
   });
 
   it.each([

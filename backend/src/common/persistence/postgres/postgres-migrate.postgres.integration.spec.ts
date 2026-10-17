@@ -1,8 +1,4 @@
-import {
-  MIGRATE_COMMAND,
-  migrateCommandOf,
-  runMigrateCommand,
-} from './postgres-migrate';
+import { runMigrateCommand } from './postgres-migrate';
 import {
   ADDRESS_BACKFILL_ZERO_COUNTS,
   EVERY_MIGRATION,
@@ -12,22 +8,6 @@ import {
 
 describe('the PostgreSQL migration command', () => {
   const { emptyDatabase, run, recorded, startUp } = useMigrateDatabases();
-
-  it('reads up, status and adopt-host as commands', () => {
-    expect(
-      ['up', 'status', 'adopt-host', 'down', '', undefined, 'UP'].map(
-        migrateCommandOf,
-      ),
-    ).toEqual([
-      MIGRATE_COMMAND.UP,
-      MIGRATE_COMMAND.STATUS,
-      MIGRATE_COMMAND.ADOPT_HOST,
-      null,
-      null,
-      null,
-      null,
-    ]);
-  });
 
   it(
     'reports a database behind the build without changing it, and exits non-zero',

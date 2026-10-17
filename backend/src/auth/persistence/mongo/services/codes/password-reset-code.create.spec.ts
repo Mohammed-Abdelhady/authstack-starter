@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
@@ -160,6 +161,12 @@ describe('PasswordResetCodeService pending reset', () => {
       return gate.hold().then(() => originalCreate(...args));
     });
 
+    const entropy: { randomInt(min: number, max: number): number } = crypto;
+    const codeEntropy = jest
+      .spyOn(entropy, 'randomInt')
+      .mockReturnValue(234567)
+      .mockReturnValueOnce(123456);
+
     let firstCode: string;
     let secondCode: string;
     try {
@@ -174,6 +181,7 @@ describe('PasswordResetCodeService pending reset', () => {
       secondCode = await second;
     } finally {
       spy.mockRestore();
+      codeEntropy.mockRestore();
     }
 
     const record = await stored('race@example.test');
