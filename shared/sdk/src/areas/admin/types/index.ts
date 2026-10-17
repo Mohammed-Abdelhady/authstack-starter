@@ -1,6 +1,14 @@
 import type { CallOptions } from '../../../client';
 import type { OperationHandle } from '../../../browser-transport/operations';
 import type { TransportSignal } from '../../../transport';
+// feature:invitations:start
+import type {
+  AdminInvitation,
+  AdminInvitationPage,
+  AdminInvitationQuery,
+  CreateAdminInvitationRequest,
+} from '../../../types/invitations';
+// feature:invitations:end
 import type { MessageResult, Session } from '../../../types';
 
 export interface AdminCreateOptions<
@@ -10,7 +18,18 @@ export interface AdminCreateOptions<
   createOperationKey?: () => string;
 }
 
+export interface AdminVersion {
+  version?: number;
+}
+
+export interface AdminVersionOptions<TSignal extends TransportSignal = TransportSignal>
+  extends CallOptions<TSignal>, AdminVersion {}
+
 export interface AdminAccount {
+  /** Latest recorded activity among retained sessions; null when no dated observation remains. */
+  lastActiveAt: string | null;
+  version: number;
+  audience?: 'customer' | 'staff';
   id: string;
   email: string;
   name: string;
@@ -57,28 +76,32 @@ export interface CreateAdminAccountRequest {
   locale?: string;
 }
 
-export interface UpdateAdminAccountRequest {
+export interface UpdateAdminAccountRequest extends AdminVersion {
   name?: string;
   email?: string;
 }
 
-export interface UpdateAdminAccountStatusRequest {
+export interface UpdateAdminAccountStatusRequest extends AdminVersion {
   isActive: boolean;
   reason?: string;
 }
 
 export interface AdminAccountStatusResult {
+  version: number;
   id: string;
   isDeleted: boolean;
   deletedAt?: string;
 }
 
 export interface AdminAccountRoleResult {
+  version: number;
   id: string;
   role: string;
 }
 
 export interface AdminPermissionResult {
+  /** Absent only on older servers. Strict writes require an observed version. */
+  version?: number;
   userId: string;
   permissions: string[];
 }
@@ -88,6 +111,8 @@ export interface AdminPermissionList extends AdminPermissionResult {
 }
 
 export interface AdminRole {
+  version: number;
+  audience?: 'customer' | 'staff';
   id: string;
   name: string;
   slug: string;
@@ -114,13 +139,15 @@ export interface AdminRoleList {
 }
 
 export interface CreateAdminRoleRequest {
+  audience?: 'customer' | 'staff';
   name: string;
   permissions: string[];
   description?: string;
   level?: number;
 }
 
-export type UpdateAdminRoleRequest = Partial<CreateAdminRoleRequest>;
+export type UpdateAdminRoleRequest = Partial<Omit<CreateAdminRoleRequest, 'audience'>> &
+  AdminVersion;
 
 export interface AdminRoleUpdateResult extends AdminRole {
   usersMoved: number;
@@ -175,6 +202,20 @@ export interface AdminActivityList {
 
 export interface ApiClientAdmin<TSignal extends TransportSignal = TransportSignal> {
   admin: {
+    // feature:invitations:start
+    invitations: {
+      list(
+        query?: AdminInvitationQuery,
+        options?: CallOptions<TSignal>,
+      ): Promise<AdminInvitationPage>;
+      create(
+        body: CreateAdminInvitationRequest,
+        options?: AdminCreateOptions<TSignal>,
+      ): Promise<AdminInvitation>;
+      resend(id: string, options?: CallOptions<TSignal>): Promise<AdminInvitation>;
+      revoke(id: string, options?: CallOptions<TSignal>): Promise<void>;
+    };
+    // feature:invitations:end
     accounts: {
       list(query?: AdminAccountQuery, options?: CallOptions<TSignal>): Promise<AdminAccountList>;
       create(
@@ -187,7 +228,8 @@ export interface ApiClientAdmin<TSignal extends TransportSignal = TransportSigna
         body: UpdateAdminAccountRequest,
         options?: CallOptions<TSignal>,
       ): Promise<AdminAccount>;
-      resendEmailChange(id: string, options?: CallOptions<TSignal>): Promise<MessageResult>;
+      resendEmailChange(id: string, options?: AdminVersionOptions<TSignal>): Promise<MessageResult>;
+      cancelEmailChange(id: string, options?: AdminVersionOptions<TSignal>): Promise<AdminAccount>;
       updateStatus(
         id: string,
         body: UpdateAdminAccountStatusRequest,
@@ -195,22 +237,22 @@ export interface ApiClientAdmin<TSignal extends TransportSignal = TransportSigna
       ): Promise<AdminAccountStatusResult>;
       updateRole(
         id: string,
-        body: { role: string },
+        body: { role: string } & AdminVersion,
         options?: CallOptions<TSignal>,
       ): Promise<AdminAccountRoleResult>;
-      delete(id: string, options?: CallOptions<TSignal>): Promise<void>;
+      delete(id: string, options?: AdminVersionOptions<TSignal>): Promise<void>;
     };
     permissions: {
       list(id: string, options?: CallOptions<TSignal>): Promise<AdminPermissionList>;
       grant(
         id: string,
-        body: { permission: string },
+        body: { permission: string } & AdminVersion,
         options?: CallOptions<TSignal>,
       ): Promise<AdminPermissionResult>;
       revoke(
         id: string,
         permission: string,
-        options?: CallOptions<TSignal>,
+        options?: AdminVersionOptions<TSignal>,
       ): Promise<AdminPermissionResult>;
     };
     roles: {
@@ -225,7 +267,7 @@ export interface ApiClientAdmin<TSignal extends TransportSignal = TransportSigna
         body: UpdateAdminRoleRequest,
         options?: CallOptions<TSignal>,
       ): Promise<AdminRoleUpdateResult>;
-      delete(idOrSlug: string, options?: CallOptions<TSignal>): Promise<void>;
+      delete(idOrSlug: string, options?: AdminVersionOptions<TSignal>): Promise<void>;
     };
     sessions: {
       list(id: string, options?: CallOptions<TSignal>): Promise<AdminSessionList>;
