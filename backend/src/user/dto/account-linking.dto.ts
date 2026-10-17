@@ -1,3 +1,4 @@
+import type { NativeProviderMethod } from '@app/sdk';
 import { IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsRegisteredProvider } from '../../auth/oauth/validators/is-registered-provider.validator';
@@ -55,6 +56,14 @@ export class LinkedProvidersResponseDto {
     type: [String],
   })
   providers!: string[];
+
+  @ApiProperty({
+    description:
+      'Configured native account-link methods for the current session client',
+    required: false,
+    type: [Object],
+  })
+  nativeLinkMethods?: NativeProviderMethod[];
 
   @ApiProperty({
     description: 'Provider id used as the source for profile synchronization',

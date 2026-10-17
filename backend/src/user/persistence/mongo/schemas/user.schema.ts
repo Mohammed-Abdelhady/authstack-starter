@@ -1,7 +1,17 @@
+import {
+  EMAIL_CHANGE_INITIATOR,
+  type EmailChangeInitiator,
+} from '../../../../auth/constants/email-change-initiator';
+import type { RememberedDevices } from '../../../../session/notices/types/device-notice';
+import { registerUserVersion } from './user-version';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import { EMAIL_PROVIDER } from '../../../../common/constants/oauth-providers';
 import { DEFAULT_LOCALE } from '../../../../common/constants/locales';
+import {
+  ROLE_AUDIENCE,
+  type RoleAudience,
+} from '../../../../host/types/host-role.type';
 import { TwoFactor, TwoFactorSchema } from './two-factor.schema'; // feature:totp
 
 /**
@@ -23,11 +33,22 @@ export const LinkedAccountSchema = SchemaFactory.createForClass(LinkedAccount);
 
 @Schema({ timestamps: true })
 export class User {
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  signInDevices?: RememberedDevices;
+
+  @Prop({ type: Number, select: false })
+  noticeFence?: number;
+  @Prop({ type: Number, default: 0 })
+  version!: number;
+
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email!: string;
 
   @Prop({ lowercase: true, trim: true })
   pendingEmail?: string;
+
+  @Prop({ type: String, enum: Object.values(EMAIL_CHANGE_INITIATOR) })
+  pendingEmailInitiator?: EmailChangeInitiator;
 
   @Prop({ select: false })
   password?: string;
@@ -44,6 +65,9 @@ export class User {
   @Prop({ type: [String], default: [] })
   permissions!: string[];
 
+  @Prop({ type: String, enum: Object.values(ROLE_AUDIENCE) })
+  audience?: RoleAudience;
+
   /** Provider the account was created with: 'email' or an OAuth provider id. */
   @Prop({ type: String, default: EMAIL_PROVIDER })
   authProvider!: string;
@@ -59,6 +83,18 @@ export class User {
 
   @Prop()
   deletedAt?: Date;
+
+  /** Set by a deletion while erasure is on: when the worker may erase it. */
+  @Prop()
+  eraseAfter?: Date;
+
+  /** When the person last deleted the account themselves; staff never set it. */
+  @Prop()
+  selfDeletedAt?: Date;
+
+  /** Written by erasure step 1 and by a restore, so the two conflict. */
+  @Prop({ type: Number, select: false })
+  erasureFence?: number;
 
   @Prop({ type: Number, default: 0 })
   sessionVersion!: number;
@@ -157,3 +193,5 @@ UserSchema.index(
   { 'linkedAccounts.provider': 1, 'linkedAccounts.providerId': 1 },
   { unique: true, sparse: true },
 );
+
+registerUserVersion(UserSchema);

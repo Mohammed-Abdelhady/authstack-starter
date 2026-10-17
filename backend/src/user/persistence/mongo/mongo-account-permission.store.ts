@@ -26,11 +26,12 @@ export class MongoAccountPermissionStore extends AccountPermissionStore {
 
   async findGrants(userId: string): Promise<AccountGrants | null> {
     const user = await castingId(() =>
-      this.userModel.findById(userId).select('permissions role').exec(),
+      this.userModel.findById(userId).select('permissions role version').exec(),
     );
     if (!user) return null;
     return {
       id: user._id.toString(),
+      version: user.version ?? 0,
       role: user.role,
       permissions: user.permissions || [],
     };
