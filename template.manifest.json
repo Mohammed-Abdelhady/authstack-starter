@@ -394,7 +394,6 @@
         "backend/src/user/services/account-linking.service.spec.ts",
         "backend/src/user/persistence/mongo/services/account-linking.harness-spec.ts",
         "backend/src/user/services/profile-sync.service.ts",
-        "backend/src/user/persistence/mongo/services/profile-sync.service.spec.ts",
         "backend/src/user/dto/account-linking.dto.ts",
         "backend/test/constants/oauth-boot-env.ts",
         "backend/test/auth/oauth-link.e2e-spec.ts",
