@@ -12,7 +12,8 @@ import {
 } from '../../../../user/persistence/mongo/schemas/user.schema';
 import { AuthenticatedUserSummary } from '../../../interfaces/authenticated-user.interface';
 import { singleStatement } from '../../../../common/persistence/mongo/mongo-unique-conflict';
-import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor';
+import type { BrowserEvidence } from '../../../../session/types/browser-evidence';
 import { SignInService } from '../../../persistence/mongo/sign-in.service';
 import {
   PasskeyAccount,
@@ -132,8 +133,13 @@ export class MongoPasskeySignIn extends PasskeySignIn {
   issueSession(
     account: PasskeyAccount,
     response: Response,
+    evidence: BrowserEvidence,
   ): Promise<AuthenticatedUserSummary> {
-    return this.signInService.issueSession(documentOf(account), response);
+    return this.signInService.issueSession(
+      documentOf(account),
+      response,
+      evidence,
+    );
   }
 
   completeSignIn(
@@ -143,7 +149,7 @@ export class MongoPasskeySignIn extends PasskeySignIn {
     return this.signInService.completeSignIn(
       documentOf(account),
       response,
-      FIRST_FACTOR.PASSKEY, // feature:totp
+      FIRST_FACTOR.PASSKEY,
     );
   }
 }

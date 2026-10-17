@@ -16,6 +16,16 @@ export interface RegisteringSession {
   credentialPurpose?: CredentialPurpose;
 }
 
+/**
+ * A session that exists only to enrol the first passkey, as the guard read it
+ * from the store for this request.
+ */
+export function isEnrolmentSession(
+  session: Pick<RegisteringSession, 'credentialPurpose'> | undefined,
+): boolean {
+  return session?.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT;
+}
+
 /** A session a mobile access token opened. */
 export function isNativeSession(
   session: Pick<RegisteringSession, 'credentialPurpose'> | undefined,

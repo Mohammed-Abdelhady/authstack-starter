@@ -1,18 +1,32 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  HttpStatus,
+  Injectable,
+  Logger,
+  type OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
 import { createHash, hkdfSync } from 'crypto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
+import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../../session/constants/client-ids';
+import { applicationCookieName } from '../../../session/utils/request/application-cookie-name';
 import {
   decodeSignedCookie,
   encodeSignedCookie,
 } from '../utils/signed-cookie.util';
 import {
+  BrowserChallengePurpose,
   PASSKEY_CHALLENGE_COOKIE,
   PASSKEY_CHALLENGE_HKDF_INFO,
   PASSKEY_CHALLENGE_KEY_BYTES,
   PASSKEY_CHALLENGE_TTL_MS,
+  PASSKEY_VERIFY_ROUTES,
   PasskeyChallengePurpose,
 } from '../constants/passkeys.constants';
 import {
@@ -24,6 +38,8 @@ export interface PasskeyChallengePayload {
   purpose: PasskeyChallengePurpose;
   /** The base64url challenge the authenticator signs over. */
   challenge: string;
+  /** The browser application it was issued for. Missing only in a legacy web challenge. */
+  clientId?: BrowserApplicationId;
   /** Account the challenge was issued to. Registration only; login is open. */
   sub?: string;
   /**
@@ -35,32 +51,50 @@ export interface PasskeyChallengePayload {
   expiresAt: number;
 }
 
+const BROWSER_APPLICATION_IDS: readonly BrowserApplicationId[] = [
+  WEB_CLIENT_ID,
+  ADMIN_CLIENT_ID,
+];
+
 /**
  * The five minutes between "give me options" and "here is the signed
  * response". The signed cookie carries the challenge for the authenticator;
  * a hashed copy is stored so a copied cookie cannot be replayed.
+ *
+ * A challenge belongs to the browser application it was issued for, and each
+ * application keeps it in a cookie of its own. The verify routes are matched
+ * to that application from the signed cookie, before the request's origin.
  */
 @Injectable()
-export class PasskeyChallengeService {
+export class PasskeyChallengeService implements OnModuleInit {
   private readonly logger = new Logger(PasskeyChallengeService.name);
 
   constructor(
     private readonly challenges: PasskeyChallengeStore,
     private readonly configService: ConfigService,
+    private readonly applications: BrowserApplications,
   ) {}
+
+  onModuleInit(): void {
+    this.applications.registerCeremonyReader('passkey', (request) =>
+      Promise.resolve(this.ceremonyApplication(request)),
+    );
+  }
 
   async issue(
     response: Response,
-    purpose: PasskeyChallengePurpose,
+    purpose: BrowserChallengePurpose,
     challenge: string,
     userId?: string,
     sessionId?: string,
   ): Promise<void> {
+    const { clientId } = await this.applications.resolve(response.req);
     const signingKey = this.currentKey();
     const expiresAt = Date.now() + PASSKEY_CHALLENGE_TTL_MS;
     const payload: PasskeyChallengePayload = {
       purpose,
       challenge,
+      clientId,
       sub: userId,
       sid: sessionId,
       expiresAt,
@@ -74,41 +108,34 @@ export class PasskeyChallengeService {
     });
 
     response.cookie(
-      PASSKEY_CHALLENGE_COOKIE,
+      challengeCookieName(clientId),
       encodeSignedCookie(payload, signingKey),
       { ...this.cookieOptions(), maxAge: PASSKEY_CHALLENGE_TTL_MS },
     );
   }
 
   /**
+   * The challenge of the request's application, from that application's
+   * cookie.
+   *
    * @throws AppException PASSKEY_CHALLENGE_INVALID when the cookie is missing,
-   * tampered with, expired, or was issued for the other ceremony
+   * tampered with, expired, issued for the other ceremony, or issued for
+   * another application
    */
-  read(
+  async read(
     request: Request,
-    purpose: PasskeyChallengePurpose,
-  ): PasskeyChallengePayload {
-    const cookies = request.cookies as Record<string, string> | undefined;
-    const raw = cookies?.[PASSKEY_CHALLENGE_COOKIE];
-    const payload = this.readKeys().reduce<PasskeyChallengePayload | null>(
-      (found, key) =>
-        found ?? decodeSignedCookie<PasskeyChallengePayload>(raw, key),
-      null,
-    );
+    purpose: BrowserChallengePurpose,
+  ): Promise<PasskeyChallengePayload> {
+    const { clientId } = await this.applications.resolve(request);
+    const payload = this.decode(request, clientId);
 
-    if (!payload || typeof payload.challenge !== 'string') {
+    if (!payload) {
       throw this.invalid('missing or unreadable challenge cookie');
     }
 
-    if (payload.purpose !== purpose) {
-      throw this.invalid(`challenge was issued for ${payload.purpose}`);
-    }
-
-    if (
-      typeof payload.expiresAt !== 'number' ||
-      payload.expiresAt <= Date.now()
-    ) {
-      throw this.invalid('challenge has expired');
+    const refusal = refusalOf(payload, purpose, clientId, Date.now());
+    if (refusal) {
+      throw this.invalid(refusal);
     }
 
     return payload;
@@ -133,7 +160,44 @@ export class PasskeyChallengeService {
   }
 
   clear(response: Response): void {
-    response.clearCookie(PASSKEY_CHALLENGE_COOKIE, this.cookieOptions());
+    response.clearCookie(
+      challengeCookieName(this.applications.current(response.req).clientId),
+      this.cookieOptions(),
+    );
+  }
+
+  /**
+   * The application a verify request's own challenge names. Only a cookie
+   * whose signed application matches its name counts, and only when exactly
+   * one does; otherwise the origin decides and `read` refuses a mismatch.
+   */
+  private ceremonyApplication(
+    request: Request,
+  ): BrowserApplicationId | undefined {
+    const purpose = verifiedPurposeOf(request);
+    if (!purpose) return undefined;
+    const bound = BROWSER_APPLICATION_IDS.filter((clientId) => {
+      const payload = this.decode(request, clientId);
+      return (
+        payload !== null &&
+        refusalOf(payload, purpose, clientId, Date.now()) === null
+      );
+    });
+    return bound.length === 1 ? bound[0] : undefined;
+  }
+
+  private decode(
+    request: Request,
+    clientId: BrowserApplicationId,
+  ): PasskeyChallengePayload | null {
+    const cookies = request.cookies as Record<string, string> | undefined;
+    const raw = cookies?.[challengeCookieName(clientId)];
+    const payload = this.readKeys().reduce<PasskeyChallengePayload | null>(
+      (found, key) =>
+        found ?? decodeSignedCookie<PasskeyChallengePayload>(raw, key),
+      null,
+    );
+    return payload && typeof payload.challenge === 'string' ? payload : null;
   }
 
   private cookieOptions(): CookieOptions {
@@ -198,6 +262,39 @@ export class PasskeyChallengeService {
       HttpStatus.UNAUTHORIZED,
     );
   }
+}
+
+/** The web cookie keeps its old name, so a challenge issued before the split is still found. */
+function challengeCookieName(clientId: BrowserApplicationId): string {
+  return applicationCookieName(PASSKEY_CHALLENGE_COOKIE, clientId);
+}
+
+function verifiedPurposeOf(
+  request: Request,
+): BrowserChallengePurpose | undefined {
+  if (request.method !== 'POST') return undefined;
+  if (PASSKEY_VERIFY_ROUTES.login.test(request.path)) return 'login';
+  if (PASSKEY_VERIFY_ROUTES.register.test(request.path)) return 'register';
+  return undefined;
+}
+
+/** Why a readable challenge cannot be spent here, or null when it can. */
+function refusalOf(
+  payload: PasskeyChallengePayload,
+  purpose: BrowserChallengePurpose,
+  clientId: BrowserApplicationId,
+  now: number,
+): string | null {
+  if (payload.purpose !== purpose) {
+    return `challenge was issued for ${payload.purpose}`;
+  }
+  if (typeof payload.expiresAt !== 'number' || payload.expiresAt <= now) {
+    return 'challenge has expired';
+  }
+  if ((payload.clientId ?? WEB_CLIENT_ID) !== clientId) {
+    return 'challenge belongs to another application';
+  }
+  return null;
 }
 
 function deriveKey(secret: string): Buffer {

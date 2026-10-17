@@ -1,17 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_NAME } from '../../../common/constants/app';
-import { UserVerificationRequirement } from '../constants/passkeys.constants';
-import {
-  AttestationExpectations,
-  CeremonyExpectations,
-} from './webauthn.adapter';
 
 /**
- * Relying party settings, in one place because both ceremonies and both verify
- * routes have to agree on them. A credential is bound to the RP id it was
- * registered under, so these values are effectively permanent once accounts
- * hold passkeys.
+ * The web relying party's settings, which the application policy reader hands
+ * the web application, and the name every prompt shows. A credential is bound
+ * to the RP id it was registered under, so these values are effectively
+ * permanent once accounts hold passkeys.
  */
 @Injectable()
 export class PasskeyConfigService {
@@ -33,22 +28,5 @@ export class PasskeyConfigService {
       'passkeys.origin',
       'http://localhost:3000',
     );
-  }
-
-  expectations(challenge: string): CeremonyExpectations {
-    return { challenge, origin: this.origin, rpId: this.rpId };
-  }
-
-  /** What a browser registration must have been made for. */
-  attestationExpectations(
-    challenge: string,
-    userVerification: UserVerificationRequirement,
-  ): AttestationExpectations {
-    return {
-      challenge,
-      origins: [this.origin],
-      rpId: this.rpId,
-      userVerification,
-    };
   }
 }
