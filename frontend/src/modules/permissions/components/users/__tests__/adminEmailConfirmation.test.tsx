@@ -178,18 +178,18 @@ describe('strict confirmation resend', () => {
       card.openMenu();
       fireEvent.click(card.resendItem());
       const proof = await screen.findByRole('dialog', {
-        name: card.message('invitations.proof.title'),
+        name: card.message('staffProof.proof.title'),
       });
       expect(card.successToasts()).toEqual([]);
       fireEvent.click(
-        within(proof).getByRole('button', { name: card.message('invitations.proof.send') }),
+        within(proof).getByRole('button', { name: card.message('staffProof.proof.send') }),
       );
       const code = await within(proof).findByRole('textbox', {
-        name: card.message('invitations.proof.code'),
+        name: card.message('staffProof.proof.code'),
       });
       fireEvent.change(code, { target: { value: '123456' } });
       const verifyButton = within(proof).getByRole('button', {
-        name: card.message('invitations.proof.verify'),
+        name: card.message('staffProof.proof.verify'),
       });
       fireEvent.click(verifyButton);
       try {
@@ -213,7 +213,7 @@ describe('strict confirmation resend', () => {
         );
         await waitFor(() =>
           expect(
-            screen.queryByRole('dialog', { name: card.message('invitations.proof.title') }),
+            screen.queryByRole('dialog', { name: card.message('staffProof.proof.title') }),
           ).toBeNull(),
         );
         await waitFor(() =>
