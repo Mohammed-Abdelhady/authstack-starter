@@ -1,17 +1,19 @@
+import { ErasureRefusal } from '../../user/erasure/services/erasure-refusal';
+import { Optional } from '@nestjs/common';
+import { createProviderAccount } from './create-provider-account';
+import { SelfSignUpRefusedError } from '../services/registration/self-sign-up-refused.error';
+import { AudienceAdmissionRefused } from '../../session/utils/authority/audience-admission';
+import { storeFailureCause } from '../../common/persistence/store-failure';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Request } from 'express';
 import {
-  assertActive,
   assertEmailVerified,
   assertMayLinkByEmail,
+  providerAuthenticationFailed,
 } from './oauth-account-rules';
-import { AddressReservationTakenError } from '../../common/persistence/address-reservation-taken.error';
 import { Clock } from '../../common/services/clock';
-import {
-  ACCOUNT_RESERVATION_RESULT,
-  AddressLedger,
-} from '../../common/persistence/address-ledger';
-import { FIRST_FACTOR } from '../services/sessions/first-factor'; // feature:totp
+import { AddressLedger } from '../../common/persistence/address-ledger';
+import { completeBrowserProviderSignIn } from './complete-browser-provider-sign-in';
 import {
   SignInCompletion,
   SignInOutcome,
@@ -48,8 +50,6 @@ import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
 import { AccountCreationPolicy } from '../services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../constants/account-creation';
 
-const DEFAULT_ROLE = 'user';
-
 /**
  * Turns a provider authorization code into an application session.
  * Provider specifics stay in the strategies; this service only knows ids.
@@ -70,6 +70,7 @@ export class OAuthService {
     private readonly clock: Clock,
     private readonly runner: UnitOfWorkRunner,
     private readonly notices?: SecurityNoticeService,
+    @Optional() private readonly erasure?: ErasureRefusal,
   ) {}
 
   /**
@@ -77,27 +78,42 @@ export class OAuthService {
    * into a redirect to the challenge page rather than to the client callback
    */
   async login(params: OAuthLoginParams): Promise<SignInOutcome> {
-    const { strategy } = params;
-    const profile = await this.loadVerifiedProfile(params);
-    const user = await this.findOrCreateUser(strategy, profile, params.locale);
-    await this.profileSyncService.syncProfileFromProvider(
-      user.id,
-      strategy.id,
-      profile,
-    );
+    try {
+      const { strategy } = params;
+      const profile = await this.loadVerifiedProfile(params);
+      const user = await this.findOrCreateUser(
+        strategy,
+        profile,
+        params.locale,
+        params.clientId,
+      );
+      await this.profileSyncService.syncProfileFromProvider(
+        user.id,
+        strategy.id,
+        profile,
+      );
 
-    const outcome = await this.signInService.completeSignIn(
-      user,
-      params.response,
-      FIRST_FACTOR.PROVIDER, // feature:totp
-    );
+      const outcome = await completeBrowserProviderSignIn(
+        this.runner,
+        this.signInService,
+        {
+          user,
+          response: params.response,
+        },
+      );
 
-    this.logger.log(
-      outcome.requiresTwoFactor
-        ? `Second factor owed after ${strategy.id}`
-        : `User authenticated through ${strategy.id}`,
-    );
-    return outcome;
+      this.logger.log(
+        outcome.requiresTwoFactor
+          ? `Second factor owed after ${strategy.id}`
+          : `User authenticated through ${strategy.id}`,
+      );
+      return outcome;
+    } catch (error) {
+      if (error instanceof AudienceAdmissionRefused) {
+        throw providerAuthenticationFailed(params.strategy.id);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -134,7 +150,13 @@ export class OAuthService {
     params: OAuthLinkParams,
   ): Promise<void> {
     const live = await this.sessionService.getUserSessions(params.linkUserId);
-    if (live.some((session) => session.id === params.linkSessionId)) {
+    if (
+      live.some(
+        (session) =>
+          session.id === params.linkSessionId &&
+          session.clientId === (params.clientId ?? WEB_CLIENT_ID),
+      )
+    ) {
       return;
     }
     throw new AppException(
@@ -163,6 +185,8 @@ export class OAuthService {
         HttpStatus.BAD_REQUEST,
       );
     }
+    const application =
+      await this.sessionCookieService.applications.resolve(request);
     const token = this.sessionCookieService.read(request);
     if (!token) {
       throw new AppException(
@@ -174,7 +198,12 @@ export class OAuthService {
 
     const session = await this.sessionService.validateSession(token);
     const user = session?.user;
-    if (!session || !user || user.isDeleted) {
+    if (
+      !session ||
+      !user ||
+      user.isDeleted ||
+      session.clientId !== application.clientId
+    ) {
       throw new AppException(
         ErrorCode.SESSION_INVALID,
         'Invalid or expired session',
@@ -230,14 +259,28 @@ export class OAuthService {
     const linked = await this.accounts.findByIdentity(identity);
 
     if (linked) {
-      assertActive(linked, provider, this.logger);
+      if (linked.isDeleted)
+        throw (
+          (await this.erasure?.refusalFor(
+            linked.id,
+            providerAuthenticationFailed(provider),
+          )) ?? providerAuthenticationFailed(provider)
+        );
+      await this.sessionService.assertAdmission(linked.id, application);
       return linked;
     }
 
     const byEmail = await this.accounts.findByAddress(profile.email);
     if (byEmail) {
-      assertActive(byEmail, provider, this.logger);
       assertMayLinkByEmail(strategy, byEmail, this.logger);
+      if (byEmail.isDeleted)
+        throw (
+          (await this.erasure?.refusalFor(
+            byEmail.id,
+            providerAuthenticationFailed(provider),
+          )) ?? providerAuthenticationFailed(provider)
+        );
+      await this.sessionService.assertAdmission(byEmail.id, application);
       return this.linkToExistingUser(byEmail, identity);
     }
 
@@ -276,36 +319,30 @@ export class OAuthService {
     application: string,
   ): Promise<StoredAccount> {
     try {
-      const user = await this.runner.run(async (unitOfWork) => {
-        await this.policy.assertMayCreate(
-          { application, method: ACCOUNT_CREATION_METHOD.PROVIDER },
-          unitOfWork,
-        );
-        const reservation = await this.ledger.reserveForAccount(unitOfWork, {
-          address: profile.email,
-          now: this.clock.now(),
-        });
-        if (reservation.status === ACCOUNT_RESERVATION_RESULT.TAKEN) {
-          throw new AddressReservationTakenError();
-        }
-        const created = await this.accounts.createFromProviderIn(unitOfWork, {
-          ...identity,
-          email: profile.email,
-          name: profile.name,
-          avatarUrl: profile.avatarUrl,
-          role: DEFAULT_ROLE,
-          locale,
-        });
-        await this.ledger.finishAccountReservation(
-          unitOfWork,
-          reservation.reservation,
-        );
-        return created;
-      });
+      const user = await createProviderAccount(
+        {
+          accounts: this.accounts,
+          runner: this.runner,
+          policy: this.policy,
+          ledger: this.ledger,
+          clock: this.clock,
+        },
+        identity,
+        profile,
+        locale,
+        application,
+      );
 
       this.logger.log(`Created a new user through ${identity.provider}`);
       return user;
     } catch (error) {
+      if (storeFailureCause(error) instanceof SelfSignUpRefusedError) {
+        await this.sessionService.recordCreationRefusal(
+          application,
+          ACCOUNT_CREATION_METHOD.PROVIDER,
+        );
+        throw providerAuthenticationFailed(identity.provider);
+      }
       throw toProviderLinkError(error, identity.provider);
     }
   }

@@ -1,5 +1,7 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
+import { REVOCATION_REASON } from '../../auth/oauth/provider-tokens/constants/provider-tokens.constants';
+import { ProviderRevocations } from '../../auth/oauth/provider-tokens/services/provider-revocations';
 import { AppException } from '../../common/exceptions/app.exception';
 import { ErrorCode } from '../../common/enums/error-code.enum';
 import { UniqueConflictError } from '../../common/persistence/persistence-errors';
@@ -39,6 +41,19 @@ import {
 /** What the rule answers each removal asked of one read of the account. */
 type RemovalAdvice = (waysLeft: WaysLeft) => WayInOutcome;
 
+/**
+ * Whose address a linked provider must report. `same`: the account's, the
+ * browser flow's rule. `any`: a reauthenticated link from an app, which lets
+ * an account made with Apple's relay address add Google.
+ */
+export const LINK_ADDRESS_RULE = {
+  SAME: 'same',
+  ANY: 'any',
+} as const;
+
+export type LinkAddressRule =
+  (typeof LINK_ADDRESS_RULE)[keyof typeof LINK_ADDRESS_RULE];
+
 /** What a page is told beside the list of an account's sign-in methods. */
 export interface SignInMethodHints {
   unlinkHints: Record<string, UnlinkHint>;
@@ -61,18 +76,21 @@ export class AccountLinkingService {
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
     private readonly notices?: SecurityNoticeService,
+    @Optional() private readonly revocations?: ProviderRevocations,
   ) {}
 
   /**
-   * Adds a provider account to a user.
+   * Adds a provider account to a user. It never moves an identity from one
+   * account to another.
    *
    * @throws AppException when the provider is linked already, belongs to
-   * another user, or reports a different email address
+   * another user, or, under the `same` rule, reports a different address
    */
   async linkProvider(
     userId: string,
     provider: string,
     profile: OAuthProfile,
+    addressRule: LinkAddressRule = LINK_ADDRESS_RULE.SAME,
   ): Promise<StoredAccount> {
     const user = await this.requireUser(userId);
 
@@ -85,7 +103,11 @@ export class AccountLinkingService {
       );
     }
 
-    if (profile.email && profile.email !== user.email) {
+    if (
+      addressRule === LINK_ADDRESS_RULE.SAME &&
+      profile.email &&
+      profile.email !== user.email
+    ) {
       this.logger.warn(`Email mismatch while linking ${provider}`);
       throw new AppException(
         ErrorCode.EMAIL_MISMATCH_ON_LINK,
@@ -167,13 +189,22 @@ export class AccountLinkingService {
     const remaining = user.linkedAccounts.filter(
       (account) => account.provider !== provider,
     );
-    return this.links.removeLink(unitOfWork, user, {
+    const unlinked = await this.links.removeLink(unitOfWork, user, {
       provider,
       primaryProvider:
         user.primaryProvider === provider
           ? remaining[0]?.provider
           : user.primaryProvider,
     });
+    // In this unit of work, so the job exists exactly when the link is gone.
+    await this.revocations?.enqueueIn(unitOfWork, {
+      userId: user.id,
+      identities: user.linkedAccounts.filter(
+        (account) => account.provider === provider,
+      ),
+      reason: REVOCATION_REASON.UNLINK,
+    });
+    return unlinked;
   }
 
   /** Every sign-in method on the account, including 'email'. */
