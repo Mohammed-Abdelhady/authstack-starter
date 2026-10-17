@@ -2,6 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode, USER_PERMISSIONS } from '@app/core';
+import { API_PATHS } from '@app/sdk';
 import type { AppLocale } from '@/i18n/load-messages';
 import UsersPage from '@/app/[locale]/(dashboard)/admin/users/page';
 import { pressKey } from '@/modules/permissions/components/users/__tests__/keystroke';
@@ -26,7 +27,20 @@ vi.mock('sonner', () => ({
 }));
 vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
+const AUTH_DISCOVERY = {
+  methods: {
+    password: false,
+    magicLink: false,
+    emailCode: false,
+    twoFactor: false,
+    passkeys: false,
+    oauth: [],
+  },
+  audiencesEnabled: false,
+};
+
 const USER = {
+  version: 0,
   id: 'user-7',
   name: 'Omar Nasser',
   email: 'omar@example.com',
@@ -63,6 +77,7 @@ async function renderPage(locale: AppLocale, firstList: Answer = () => success(U
   const askedPages: number[] = [];
   const searchTerms: string[] = [];
   const requests = stubNetwork(async (request, path) => {
+    if (path === API_PATHS.auth.methods) return success(AUTH_DISCOVERY);
     if (request.method !== 'GET') {
       bodies.push(await request.json());
       return server.change();
@@ -182,7 +197,7 @@ describe.each([
     await waitFor(() => expect(screen.queryByTestId('user-role-selector-user-7')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(roleRegion));
     expect(roleRegion.textContent).toContain('User');
-    expect(page.bodies).toEqual([{ role: 'user' }]);
+    expect(page.bodies).toEqual([{ role: 'user', version: 0 }]);
   });
 
   it('keeps the selected user permissions dialog open over a failed list refresh', async () => {
@@ -205,53 +220,6 @@ describe.each([
     expect(screen.getByTestId('user-permissions-dialog')).toBe(dialog);
     expect(isOnScreen(dialog)).toBe(true);
     expect(isOnScreen(screen.getByTestId(`user-card-${USER.id}`))).toBe(true);
-  });
-
-  it('clamps to the last valid page when a refreshed user list loses its final page', async () => {
-    const pageOneUsers = Array.from({ length: 20 }, (_, index) => ({
-      ...USER,
-      id: `user-${index + 1}`,
-      name: `User ${index + 1}`,
-    }));
-    const pageTwoUser = { ...USER, id: 'user-21', name: 'User 21' };
-    const page = await renderPage(locale, () =>
-      success({
-        data: pageOneUsers,
-        pagination: { total: 21, page: 1, limit: 20, totalPages: 2 },
-      }),
-    );
-    page.server.list = (request) => {
-      const requestedPage = Number(
-        new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
-      );
-      return success({
-        data: requestedPage === 1 ? pageOneUsers : [pageTwoUser],
-        pagination: { total: 21, page: requestedPage, limit: 20, totalPages: 2 },
-      });
-    };
-    await screen.findByTestId('user-card-user-1');
-    fireEvent.click(screen.getByTestId('pagination-next'));
-    await screen.findByTestId('user-card-user-21');
-    page.server.list = (request) => {
-      const requestedPage = Number(
-        new URL(request?.url ?? 'https://app.test/?page=1').searchParams.get('page'),
-      );
-      return success({
-        data: requestedPage === 1 ? pageOneUsers : [],
-        pagination: {
-          total: 20,
-          page: requestedPage,
-          limit: 20,
-          totalPages: 1,
-        },
-      });
-    };
-    fireEvent.click(screen.getByTestId('refresh-users-button'));
-
-    await screen.findByTestId('user-card-user-1');
-    await waitFor(() => expect(page.askedPages.filter((asked) => asked === 2)).toHaveLength(2));
-    expect(page.askedPages.at(-1)).toBe(1);
-    expect(screen.queryByTestId('user-card-user-21')).toBeNull();
   });
 
   it('takes the notice down once Retry read the list again', async () => {

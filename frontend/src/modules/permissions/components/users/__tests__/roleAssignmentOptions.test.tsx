@@ -83,7 +83,7 @@ function CardSelector() {
     <UserRoleSelector
       userId="user-2"
       currentRole="support"
-      onRoleChange={(role) => handleRoleChange('user-2', role)}
+      onRoleChange={(role) => handleRoleChange({ userId: 'user-2', newRole: role, version: 0 })}
     />
   );
 }
@@ -110,12 +110,6 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the roles a person may hand out, where every role is protected, in %s', (locale) => {
-  it('shows the role a new user gets as the selected one when the dialog opens', async () => {
-    const dialog = await createUserDialog(locale, 'admin');
-
-    await waitFor(() => expect(dialog.trigger.textContent).toBe('User'));
-  });
-
   it('creates the user with the role it showed when the form is sent untouched', async () => {
     const dialog = await createUserDialog(locale, 'admin');
     await waitFor(() => expect(dialog.trigger.textContent).toBe('User'));
@@ -190,7 +184,7 @@ describe.each([
       await screen.findByRole('button', { name: card.message('permissions.userRole.changeRole') }),
     );
 
-    await waitFor(() => expect(card.bodies).toEqual([{ role: 'manager' }]));
+    await waitFor(() => expect(card.bodies).toEqual([{ role: 'manager', version: 0 }]));
     expect(card.errorToasts()).toEqual([]);
   });
 

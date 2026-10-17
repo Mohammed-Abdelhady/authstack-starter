@@ -13,6 +13,7 @@ import { RoleDialogs } from '../RoleDialogs';
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const ROLE = {
+  version: 0,
   id: 'role-editor',
   name: 'Editor',
   slug: 'editor',

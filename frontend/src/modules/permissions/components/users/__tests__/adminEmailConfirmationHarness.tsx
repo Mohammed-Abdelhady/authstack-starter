@@ -12,11 +12,13 @@ import { makeStore, stubNetwork, success, toastText } from '@/tests/serverReject
 import { UserCard, type User } from '../UserCard';
 
 export const TARGET_USER: User = {
+  version: 0,
   _id: '507f1f77bcf86cd799439011',
   name: 'Leila Hassan',
   email: 'leila@example.com',
   role: 'user',
-  isVerified: false,
+  isVerified: true,
+  pendingEmail: 'new.address@example.test',
   isDeleted: false,
   createdAt: '2026-10-01T12:00:00.000Z',
 };
@@ -39,7 +41,7 @@ export function stubCardNetwork(
 
 export async function adminContext(
   locale: AppLocale,
-  permissions: string[] = [USER_PERMISSIONS.UPDATE_ALL],
+  permissions: string[] = [USER_PERMISSIONS.UPDATE_ALL, USER_PERMISSIONS.SUSPEND_ALL],
 ) {
   const store = makeStore();
   store.dispatch(

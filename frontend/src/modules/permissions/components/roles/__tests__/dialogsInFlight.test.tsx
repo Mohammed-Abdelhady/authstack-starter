@@ -24,6 +24,7 @@ vi.mock('sonner', () => ({
 }));
 
 const ROLE: Role = {
+  version: 0,
   id: 'role-support',
   name: 'Support Team',
   slug: 'support-team',

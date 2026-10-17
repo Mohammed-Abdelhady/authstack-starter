@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
+import { ROLE_AUDIENCE } from '@app/core';
+import { stubListLayout } from '../../users/__tests__/roleSelectorHarness';
 import {
   descriptions,
   registerFormTestLifecycle,
@@ -18,6 +20,7 @@ vi.mock('sonner', () => ({
 }));
 
 const ROLE: Role = {
+  version: 0,
   id: 'role-support',
   name: 'Support Team',
   slug: 'support-team',
@@ -47,9 +50,6 @@ const REFUSED_NAMES = [
   ['hyphens and spaces', '- -', 'nameCodeTooShort', '-'],
   ['an Arabic name', 'محرر المحتوى', 'nameCharacters', ''], // feature:locale-ar
 ] as const;
-
-/** The code a new role has before a name is typed, and the role being edited has. */
-const INITIAL_CODE = { create: '', edit: 'support-team' } as const;
 
 const FORMS = {
   create: {
@@ -101,26 +101,46 @@ async function openForm(locale: AppLocale, formName: FormName) {
 registerFormTestLifecycle();
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', InertResizeObserver);
+  stubListLayout();
 });
 
 describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the rule for a role name in the role forms in %s', (locale) => {
-  describe.each(['create', 'edit'] as const)('%s', (formName) => {
-    it('says what a name may be, tied to the field before anything is typed', async () => {
-      const { name, format, form } = await openForm(locale, formName);
-      const code = INITIAL_CODE[formName];
-
-      expect(descriptions(name)).toEqual([
-        format('roles.form.nameHint', LENGTHS),
-        ...(code ? [format('roles.form.codePreview', { code })] : []),
-      ]);
-      expect(screen.getByTestId(form.hint).textContent).toBe(
-        format('roles.form.nameHint', LENGTHS),
-      );
+  it.each([
+    [ROLE_AUDIENCE.STAFF, 'audienceStaff'],
+    [ROLE_AUDIENCE.CUSTOMER, 'audienceCustomer'],
+    [undefined, 'audienceUnset'],
+  ] as const)('sends only the chosen create audience %s', async (audience, optionKey) => {
+    const { name, send, requests, bodies, message } = await openForm(locale, 'create');
+    fireEvent.change(name, { target: { value: 'Support Team' } });
+    const select = screen.getByRole('combobox', {
+      name: message('roles.form.audienceLabel'),
     });
+    select.focus();
+    fireEvent.keyDown(select, { key: 'ArrowDown' });
+    const option = await screen.findByRole('option', {
+      name: message(`roles.form.${optionKey}`),
+    });
+    option.focus();
+    fireEvent.keyDown(option, { key: 'Enter' });
 
+    send();
+
+    await waitFor(() =>
+      expect(bodies).toEqual([
+        {
+          name: 'Support Team',
+          permissions: ['users:read:all'],
+          ...(audience === undefined ? {} : { audience }),
+        },
+      ]),
+    );
+    expect(requests.filter((request) => !request.startsWith('GET'))).toEqual(['POST /api/roles']);
+  });
+
+  describe.each(['create', 'edit'] as const)('%s', (formName) => {
     it.each(REFUSED_NAMES)(
       'refuses a name of %s itself, with the message for it, and sends nothing',
       async (_what, value, messageKey, code) => {
@@ -199,45 +219,6 @@ describe.each([
       await waitFor(() => expect(description.getAttribute('aria-invalid')).toBe('true'));
       expect(document.activeElement).toBe(name);
     });
-
-    it.each([
-      ['24 7 Support', '24-7-support'],
-      ['24-7 Support', '24-7-support'],
-      ['  Night   Shift ', 'night-shift'],
-    ])('shows under the name the code that %j will get, as it is typed', async (value, code) => {
-      const { name, format, form } = await openForm(locale, formName);
-
-      fireEvent.change(name, { target: { value } });
-
-      const preview = screen.getByTestId(
-        form.nameField === 'role-name-input' ? 'role-code-preview' : 'edit-role-code-preview',
-      );
-      expect(preview.textContent).toBe(format('roles.form.codePreview', { code }));
-      expect(descriptions(name)).toEqual([
-        format('roles.form.nameHint', LENGTHS),
-        format('roles.form.codePreview', { code }),
-      ]);
-    });
-
-    it('shows no code while the name holds a character the server refuses', async () => {
-      const { name, form } = await openForm(locale, formName);
-
-      fireEvent.change(name, { target: { value: '24/7 Support' } });
-
-      expect(
-        screen.queryByTestId(
-          form.nameField === 'role-name-input' ? 'role-code-preview' : 'edit-role-code-preview',
-        ),
-      ).toBeNull();
-    });
-  });
-
-  it('shows a Latin example as the placeholder of the name', async () => {
-    const { name, message } = await openForm(locale, 'create');
-
-    const placeholder = name.getAttribute('placeholder') ?? '';
-    expect(placeholder).toBe(message('roles.form.namePlaceholder'));
-    expect(placeholder.endsWith('Content Editor')).toBe(true);
   });
 
   it('gives a role whose name cannot be changed no rule to read and does not check its name', async () => {

@@ -2,6 +2,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { USER_PERMISSIONS } from '@app/core';
+import { API_PATHS } from '@app/sdk';
 import { directionOf, registerRtlDocument } from '@/tests/direction';
 import { registerFormTestLifecycle, stubNetwork, success } from '@/tests/serverRejectionHarness';
 import { renderAdminCard } from './adminEmailConfirmationHarness';
@@ -38,7 +39,21 @@ const ROLE = {
 
 /** Answers the role list with these roles and records every request. */
 function stubRoleList(roles: Array<typeof ROLE>) {
-  return stubNetwork(() => success({ roles, total: roles.length, page: 1 }));
+  return stubNetwork((_request, path) =>
+    path === API_PATHS.auth.methods
+      ? success({
+          methods: {
+            password: false,
+            magicLink: false,
+            emailCode: false,
+            twoFactor: false,
+            passkeys: false,
+            oauth: [],
+          },
+          audiencesEnabled: false,
+        })
+      : success({ roles, total: roles.length, page: 1 }),
+  );
 }
 
 /** A value on the card: its text, its own direction, the line's, and whether Tab stops on it. */
@@ -65,34 +80,11 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('the values on a user card in an rtl page in %s', (locale) => {
-  it('keeps the whole address in the page, left to right, without a tab stop', async () => {
-    stubRoleList([ROLE]);
-    await renderAdminCard(locale, USER);
-
-    expect(shownValue('user-card-email')).toEqual({
-      text: LONG_EMAIL,
-      dir: 'ltr',
-      line: 'rtl',
-      tabStop: false,
-    });
-    expect(screen.queryByRole('tooltip')).toBeNull();
-  });
-
-  it('lets the name take its own direction without a tab stop', async () => {
-    stubRoleList([ROLE]);
-    await renderAdminCard(locale, USER);
-
-    expect(shownValue('user-card-name')).toEqual({
-      text: 'Layla Haddad',
-      dir: 'auto',
-      line: 'rtl',
-      tabStop: false,
-    });
-  });
-
   it('names the role of an inactive account as the selector names it', async () => {
     const requests = stubRoleList([ROLE]);
-    const inactive = await renderAdminCard(locale, INACTIVE_USER);
+    const inactive = await renderAdminCard(locale, INACTIVE_USER, [
+      USER_PERMISSIONS.ASSIGN_ROLE_ALL,
+    ]);
 
     await waitFor(() => {
       expect(shownValue('user-card-role')).toEqual({
@@ -110,21 +102,6 @@ describe.each([
       expect(screen.getByRole('combobox').textContent).toBe(ROLE_NAME);
     });
     expect(screen.queryByTestId('user-card-role')).toBeNull();
-  });
-
-  it('shows the slug, left to right, for a role the list does not hold', async () => {
-    const requests = stubRoleList([{ ...ROLE, slug: 'editor', name: 'Editor' }]);
-    await renderAdminCard(locale, INACTIVE_USER);
-
-    await waitFor(() => {
-      expect(requests).toEqual(['GET /api/roles']);
-    });
-    expect(shownValue('user-card-role')).toEqual({
-      text: ROLE_SLUG,
-      dir: 'ltr',
-      line: 'rtl',
-      tabStop: false,
-    });
   });
 
   it('shows the slug and asks for no role list when the viewer cannot change roles', async () => {

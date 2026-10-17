@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { ErrorCode } from '@app/core';
+import { ErrorCode, USER_PERMISSIONS } from '@app/core';
+import { API_PATHS } from '@app/sdk';
 import type { AppLocale } from '@/i18n/load-messages';
 import { availability, heldAnswer, HELD, IDLE, unreachable } from '@/tests/busyControls';
 import { askToClose, isOpen } from '@/tests/dialogBusy';
@@ -18,6 +19,7 @@ import { settledConfirmation, stubListLayout } from './roleSelectorHarness';
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const USER = {
+  version: 0,
   _id: 'user-7',
   name: 'Omar Nasser',
   email: 'omar@example.com',
@@ -46,7 +48,7 @@ const ROLES = [role('admin', 'Admin', 4), role('editor', 'Editor', 1), role('wri
 
 /** How a held change ends: accepted, refused by the server, or never reaching it. */
 const ENDINGS = {
-  accepted: () => success({ id: USER._id, role: 'writer', isDeleted: true }),
+  accepted: () => success({ id: USER._id, role: 'writer', isDeleted: true, version: 1 }),
   refused: () => refusalWith(403, ErrorCode.CANNOT_MODIFY_HIGHER_ROLE),
   unreachable,
 } as const;
@@ -54,13 +56,29 @@ const ENDINGS = {
 /** The card of an editor, with the role list loaded and every change held until settled. */
 async function renderCard(locale: AppLocale) {
   const held = heldAnswer();
-  const requests = stubNetwork((request) =>
-    request.method === 'GET'
-      ? success({ roles: ROLES, total: ROLES.length, page: 1, pages: 1 })
-      : // Each send reads its own copy, so the same answer can refuse a second one.
-        held.answer.then((response) => response.clone()),
+  const requests = stubNetwork((request, path) =>
+    path === API_PATHS.auth.methods
+      ? success({
+          methods: {
+            password: false,
+            magicLink: false,
+            emailCode: false,
+            twoFactor: false,
+            passkeys: false,
+            oauth: [],
+          },
+          audiencesEnabled: false,
+        })
+      : request.method === 'GET'
+        ? success({ roles: ROLES, total: ROLES.length, page: 1, pages: 1 })
+        : // Each send reads its own copy, so the same answer can refuse a second one.
+          held.answer.then((response) => response.clone()),
   );
-  const card = await renderAdminCard(locale, USER);
+  const card = await renderAdminCard(locale, USER, [
+    USER_PERMISSIONS.UPDATE_ALL,
+    USER_PERMISSIONS.SUSPEND_ALL,
+    USER_PERMISSIONS.ASSIGN_ROLE_ALL,
+  ]);
   const selector = await screen.findByTestId(SELECTOR);
   await waitFor(() => expect(selector.matches(':disabled')).toBe(false));
   return { ...card, requests, selector, settle: held.settle };

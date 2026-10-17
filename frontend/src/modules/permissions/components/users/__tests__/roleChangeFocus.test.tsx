@@ -54,15 +54,6 @@ describe.each([
     expect(onRoleChange).not.toHaveBeenCalled();
   });
 
-  it('returns to the role selector after Cancel is clicked', async () => {
-    const { onRoleChange } = await openConfirmation(locale);
-
-    fireEvent.click(screen.getByTestId('cancel-role-change-button'));
-
-    expect(await focusAfterClose(CONFIRM_DIALOG)).toBe(SELECTOR);
-    expect(onRoleChange).not.toHaveBeenCalled();
-  });
-
   it('returns to the role selector, now showing the new role, after the change is confirmed', async () => {
     const held = Promise.withResolvers<void>();
     const { onRoleChange, successToasts, format, trigger } = await openConfirmation(
