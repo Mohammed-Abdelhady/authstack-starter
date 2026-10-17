@@ -46,7 +46,7 @@ export function useAllRoles(): AllRoles {
     // The error state stays while a retry runs, so Retry is not taken away mid-press.
     isLoading: isLoading && error === undefined,
     // A list read once stays in use when a later read of it fails.
-    isError: error !== undefined && data === undefined,
+    isError: error !== undefined,
     isRetrying: isFetching,
     retry,
     refusalFor,

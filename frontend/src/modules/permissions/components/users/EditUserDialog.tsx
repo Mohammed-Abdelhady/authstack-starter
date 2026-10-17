@@ -1,6 +1,10 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
+import { useStaffOperation } from '@/modules/auth/hooks/useStaffOperation';
+import { useStaffDialogIntent } from '@/modules/auth/hooks/useStaffDialogIntent';
+import { FreshProofDialog } from '@/modules/auth/components/FreshProofDialog';
+import { requireObservedVersion } from '@/modules/auth/utils/observedVersion';
 import { useTranslations } from 'next-intl';
 import {
   Dialog,
@@ -29,6 +33,7 @@ interface EditUserDialogProps {
   userId: string | null;
   currentName: string;
   currentEmail: string;
+  currentVersion?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Runs when the dialog has closed, to put focus back on what opened it */
@@ -36,6 +41,7 @@ interface EditUserDialogProps {
 }
 
 interface EditUserFormValues {
+  version?: number;
   /** Present only when the admin changed the name. */
   name?: string;
   email: string;
@@ -44,6 +50,7 @@ interface EditUserFormValues {
 interface EditUserFormProps {
   initialName: string;
   initialEmail: string;
+  initialVersion?: number;
   isLoading: boolean;
   onSubmit: (data: EditUserFormValues, onRejected: (error: unknown) => void) => Promise<boolean>;
   onClose: () => void;
@@ -55,6 +62,7 @@ interface EditUserFormProps {
 function EditUserForm({
   initialName,
   initialEmail,
+  initialVersion,
   isLoading,
   onSubmit,
   onClose,
@@ -65,6 +73,7 @@ function EditUserForm({
   const [email, setEmail] = useState(initialEmail || '');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const submissionInFlight = useRef(false);
+  const observedVersion = useRef(initialVersion);
   const uid = useId();
   const fieldId = (field: keyof EditUserFormValues) => fieldElementId(uid, field);
   const errorId = (field: keyof EditUserFormValues) => `${fieldId(field)}-error`;
@@ -118,6 +127,7 @@ function EditUserForm({
       const success = await onSubmit(
         {
           email: email.trim(),
+          version: observedVersion.current,
           ...(nameChanged ? { name: name.trim().normalize('NFC') } : {}),
         },
         refusal.show,
@@ -224,37 +234,20 @@ function EditUserForm({
   );
 }
 
-/**
- * EditUserDialog - Modal for editing user information
- *
- * Features:
- * - Edit user name and email
- * - Form validation
- * - Error handling
- * - Loading states
- *
- * @example
- * ```tsx
- * const [editUserId, setEditUserId] = useState<string | null>(null);
- * <EditUserDialog
- *   userId={editUserId}
- *   currentName="John Doe"
- *   currentEmail="john@example.com"
- *   open={!!editUserId}
- *   onOpenChange={(open) => !open && setEditUserId(null)}
- * />
- * ```
- */
 export function EditUserDialog({
   userId,
   currentName,
   currentEmail,
+  currentVersion,
   open,
   onOpenChange,
   onCloseAutoFocus,
 }: EditUserDialogProps) {
   const t = useTranslations('users.editUser');
-  const [updateUser, { isLoading }] = useUpdateUserMutation();
+  const [updateUser, { isLoading: requestLoading }] = useUpdateUserMutation();
+  const operation = useStaffOperation();
+  const intent = useStaffDialogIntent(open, userId);
+  const isLoading = requestLoading || operation.busy;
 
   const handleSubmit = async (
     data: EditUserFormValues,
@@ -268,52 +261,71 @@ export function EditUserDialog({
       return true;
     }
 
-    try {
-      await showsOwnRefusal(
-        updateUser({
-          userId,
-          ...(data.name === undefined ? {} : { name: data.name }),
-          email: data.email,
-        }),
-      ).unwrap();
-
-      toast.success(t('success'));
-      return true;
-    } catch (error) {
-      onRejected(error);
-      reportUnlessHandled(error);
-      return false;
-    }
+    const targetId = userId;
+    const body = { ...(data.name === undefined ? {} : { name: data.name }), email: data.email };
+    const version = data.version;
+    await operation.start({
+      isCurrent: intent.capture(),
+      run: () =>
+        showsOwnRefusal(
+          updateUser({ userId: targetId, ...body, version: requireObservedVersion(version) }),
+        ).unwrap(),
+      onSuccess: () => {
+        toast.success(t('success'));
+        handleClose();
+      },
+      onError: (error) => {
+        onRejected(error);
+        reportUnlessHandled(error);
+      },
+    });
+    return false;
   };
 
   const handleClose = () => {
+    intent.invalidate();
+    operation.cancelProof();
     onOpenChange(false);
   };
 
   if (!userId) return null;
 
   return (
-    <Dialog open={open} busy={isLoading} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="sm:max-w-[500px]"
-        data-testid="edit-user-dialog"
-        onCloseAutoFocus={onCloseAutoFocus}
-      >
-        <DialogHeader>
-          <DialogTitle>{t('title')}</DialogTitle>
-          <DialogDescription>{t('description')}</DialogDescription>
-        </DialogHeader>
-
-        {/* Key forces remount when userId changes, reinitializing state */}
-        <EditUserForm
-          key={userId}
-          initialName={currentName}
-          initialEmail={currentEmail}
-          isLoading={isLoading}
-          onSubmit={handleSubmit}
-          onClose={handleClose}
+    <>
+      {operation.methods && (
+        <FreshProofDialog
+          methods={operation.methods}
+          onProved={operation.proved}
+          onCancel={operation.cancelProof}
         />
-      </DialogContent>
-    </Dialog>
+      )}
+      <Dialog
+        open={open}
+        busy={isLoading}
+        onOpenChange={(next) => (next ? onOpenChange(true) : handleClose())}
+      >
+        <DialogContent
+          className="sm:max-w-[500px]"
+          data-testid="edit-user-dialog"
+          onCloseAutoFocus={onCloseAutoFocus}
+        >
+          <DialogHeader>
+            <DialogTitle>{t('title')}</DialogTitle>
+            <DialogDescription>{t('description')}</DialogDescription>
+          </DialogHeader>
+
+          {/* Key forces remount when userId changes, reinitializing state */}
+          <EditUserForm
+            key={userId}
+            initialName={currentName}
+            initialEmail={currentEmail}
+            initialVersion={currentVersion}
+            isLoading={isLoading}
+            onSubmit={handleSubmit}
+            onClose={handleClose}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

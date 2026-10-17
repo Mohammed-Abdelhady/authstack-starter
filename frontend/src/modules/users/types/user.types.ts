@@ -1,7 +1,11 @@
+import type { RoleAudience } from '@app/core';
+
 /**
  * User interface for admin user management
  */
 export interface AdminUser {
+  version?: number;
+  audience?: RoleAudience;
   _id: string;
   email: string;
   name: string;
@@ -42,7 +46,7 @@ export interface GetUsersResponse {
 /**
  * Create user request
  */
-export interface CreateUserRequest {
+export interface CreateUserBody {
   email: string;
   name: string;
   password: string;
@@ -52,7 +56,23 @@ export interface CreateUserRequest {
 /**
  * Update user role request
  */
+export interface CreateUserRequest {
+  body: CreateUserBody;
+  idempotencyKey: string;
+}
+
+export interface ResendEmailChangeRequest {
+  userId: string;
+  version: number;
+}
+
+export interface DeleteUserRequest {
+  userId: string;
+  version: number;
+}
+
 export interface UpdateUserRoleRequest {
+  version: number;
   userId: string;
   role: string;
 }
@@ -61,6 +81,7 @@ export interface UpdateUserRoleRequest {
  * Update user status request
  */
 export interface UpdateUserStatusRequest {
+  version: number;
   userId: string;
   isActive: boolean;
 }
@@ -69,6 +90,7 @@ export interface UpdateUserStatusRequest {
  * Update user request
  */
 export interface UpdateUserRequest {
+  version: number;
   userId: string;
   /** Absent when the admin only changed the email. */
   name?: string;

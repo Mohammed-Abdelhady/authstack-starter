@@ -1,3 +1,9 @@
+import { staffRequest } from '@/modules/auth/api/staffRequest';
+import {
+  API_PATHS,
+  unwrapAdminPermissionListBody,
+  unwrapAdminPermissionResultBody,
+} from '@app/sdk';
 import { baseApi } from '@/store/api/baseApi';
 import { invalidateOnSuccess } from '@/store/api/invalidateOnSuccess';
 
@@ -5,13 +11,21 @@ import { invalidateOnSuccess } from '@/store/api/invalidateOnSuccess';
  * User permissions response
  */
 export interface UserPermissionsResponse {
+  version?: number;
   userId: string;
   permissions: string[];
   role: string;
 }
 
+interface UserPermissionResult {
+  userId: string;
+  permissions: string[];
+  version?: number;
+}
+
 /** Argument of the add and remove permission mutations. */
 export interface UserPermissionArgs {
+  version: number;
   userId: string;
   permission: string;
 }
@@ -32,26 +46,25 @@ export const permissionsApi = baseApi.injectEndpoints({
      * Get user permissions
      */
     getUserPermissions: builder.query<UserPermissionsResponse, string>({
-      query: (userId) => `/api/admin/users/${userId}/permissions`,
-      transformResponse: (response: { success: boolean; data: UserPermissionsResponse }) =>
-        response.data,
+      query: (userId) => API_PATHS.admin.permissions(userId),
+      transformResponse: unwrapAdminPermissionListBody,
       providesTags: (result, error, userId) => [{ type: 'Permissions', id: userId }],
     }),
 
     /**
      * Add permission to user
      */
-    addPermission: builder.mutation<UserPermissionsResponse, UserPermissionArgs>({
-      query: ({ userId, permission }) => ({
-        url: `/api/admin/users/${userId}/permissions`,
-        method: 'POST',
-        body: { permission },
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: UserPermissionsResponse;
-        message: string;
-      }) => response.data,
+    addPermission: builder.mutation<UserPermissionResult, UserPermissionArgs>({
+      queryFn: (...[{ userId, permission, version }, , , fetch]) =>
+        staffRequest(
+          {
+            url: API_PATHS.admin.permissions(userId),
+            method: 'POST',
+            body: { permission, version },
+          },
+          fetch,
+          unwrapAdminPermissionResultBody,
+        ),
       invalidatesTags: invalidateOnSuccess(({ userId }: UserPermissionArgs) => [
         { type: 'Permissions', id: userId },
         'User',
@@ -61,16 +74,17 @@ export const permissionsApi = baseApi.injectEndpoints({
     /**
      * Remove permission from user
      */
-    removePermission: builder.mutation<UserPermissionsResponse, UserPermissionArgs>({
-      query: ({ userId, permission }) => ({
-        url: `/api/admin/users/${userId}/permissions/${encodeURIComponent(permission)}`,
-        method: 'DELETE',
-      }),
-      transformResponse: (response: {
-        success: boolean;
-        data: UserPermissionsResponse;
-        message: string;
-      }) => response.data,
+    removePermission: builder.mutation<UserPermissionResult, UserPermissionArgs>({
+      queryFn: (...[{ userId, permission, version }, , , fetch]) =>
+        staffRequest(
+          {
+            url: API_PATHS.admin.permission(userId, permission),
+            method: 'DELETE',
+            params: { version },
+          },
+          fetch,
+          unwrapAdminPermissionResultBody,
+        ),
       invalidatesTags: invalidateOnSuccess(({ userId }: UserPermissionArgs) => [
         { type: 'Permissions', id: userId },
         'User',
