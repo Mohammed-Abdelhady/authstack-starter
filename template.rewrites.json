@@ -1,6 +1,12 @@
 {
   "$comment": "Texts replaced in a generated project of one database, keyed by database id and read with template.manifest.json. Each entry replaces a literal text in the files it names. An entry whose text is in none of its files fails the template tests.",
-  "mongodb": [],
+  "mongodb": [
+    {
+      "files": ["backend/package.json", "backend/test/jest-e2e.json"],
+      "from": "|kysely",
+      "to": ""
+    }
+  ],
   "postgres": [
     {
       "files": ["**/*.md"],
