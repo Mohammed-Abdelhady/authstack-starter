@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { EMAIL_PROVIDER } from '../../common/constants/oauth-providers';
 import type { SupportedLocale } from '../../common/constants/locales';
 
@@ -25,6 +26,7 @@ export interface StoredAccount {
   readonly name: string;
   readonly avatarUrl?: string;
   readonly role: string;
+  readonly audience?: RoleAudience;
   readonly permissions: string[];
   readonly authProvider: string;
   readonly linkedAccounts: LinkedAccountRecord[];
@@ -43,6 +45,8 @@ export interface StoredAccount {
   readonly twoFactorEnabled: boolean; // feature:totp
   readonly createdAt: Date;
   readonly updatedAt: Date;
+  /** Raised by every write to a field staff read. Absent reads as 0. */
+  readonly version?: number;
 }
 
 /** The sign-in methods an account has, in the order they are reported. */

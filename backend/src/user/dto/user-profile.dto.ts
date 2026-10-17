@@ -6,6 +6,9 @@ import { ApiProperty } from '@nestjs/swagger';
  * DTO for user profile response.
  */
 export class UserProfileDto {
+  @ApiProperty({ description: 'Current account record version', example: 0 })
+  version!: number;
+
   @ApiProperty({
     description: 'User ID',
     example: '507f1f77bcf86cd799439011',

@@ -6,6 +6,7 @@ import { StoredAccount } from './stored-account';
  * account.
  */
 export interface AccountGrants {
+  version: number;
   id: string;
   role: string;
   permissions: string[];

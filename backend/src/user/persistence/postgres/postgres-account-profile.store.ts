@@ -53,12 +53,14 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
   }
 
   async saveProfile(
+    unitOfWork: UnitOfWork,
     account: StoredAccount,
     changes: ProfileChanges,
   ): Promise<StoredAccount> {
     const id = storedId(account);
+    const transaction = postgresTransactionOf(unitOfWork);
     const saved = await accountStatement(async () => {
-      await this.database
+      await transaction
         .updateTable('users')
         .set({
           ...(changes.name === undefined ? {} : { name: changes.name.trim() }),
@@ -67,7 +69,7 @@ export class PostgresAccountProfileStore extends AccountProfileStore {
         })
         .where('id', '=', id)
         .execute();
-      return readAccount(this.database, id);
+      return readAccount(transaction, id);
     });
     if (!saved) {
       throw new Error('the account vanished while it was saved');

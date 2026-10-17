@@ -31,12 +31,13 @@ export class PostgresAccountPermissionStore extends AccountPermissionStore {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('users')
-        .select(['id', 'role', 'permissions'])
+        .select(['id', 'role', 'permissions', 'version'])
         .where('id', '=', toUuid(userId))
         .executeTakeFirst();
       if (!row) return null;
       return {
         id: row.id,
+        version: row.version,
         role: row.role,
         permissions: row.permissions,
       };

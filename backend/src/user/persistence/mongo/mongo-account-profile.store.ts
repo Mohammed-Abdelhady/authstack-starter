@@ -68,6 +68,7 @@ export class MongoAccountProfileStore extends AccountProfileStore {
   }
 
   async saveProfile(
+    unitOfWork: UnitOfWork,
     account: StoredAccount,
     changes: ProfileChanges,
   ): Promise<StoredAccount> {
@@ -78,7 +79,7 @@ export class MongoAccountProfileStore extends AccountProfileStore {
     if (changes.locale !== undefined) {
       user.locale = changes.locale;
     }
-    await user.save();
+    await user.save({ session: mongoSessionOf(unitOfWork) });
     return this.read.remember(user, account.id);
   }
 

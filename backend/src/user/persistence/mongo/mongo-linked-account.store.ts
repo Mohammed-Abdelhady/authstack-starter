@@ -41,7 +41,7 @@ export class MongoLinkedAccountStore extends LinkedAccountStore {
 
   async findLinks(userId: string): Promise<StoredAccount | null> {
     const query = this.userModel.findById(userId);
-    query.select(`${LINKED_ACCOUNT_FIELDS} isDeleted`);
+    query.select(`${LINKED_ACCOUNT_FIELDS} isDeleted audience`);
     return this.read.remember(await query.exec(), userId);
   }
 

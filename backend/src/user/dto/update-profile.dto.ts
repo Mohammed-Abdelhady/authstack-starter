@@ -1,3 +1,4 @@
+import { RecordVersion } from '../../common/decorators/record-version.decorator';
 import { Transform } from 'class-transformer';
 import { IsIn, ValidateIf } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
@@ -16,6 +17,9 @@ import {
  * All fields are optional - only provided fields are updated.
  */
 export class UpdateProfileDto {
+  @RecordVersion()
+  version?: number;
+
   @ApiPropertyOptional({
     description: 'User full name',
     example: 'John Doe',

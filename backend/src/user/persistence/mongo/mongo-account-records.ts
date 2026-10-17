@@ -34,6 +34,7 @@ export function toStoredAccount(
     name: user.name,
     avatarUrl: user.avatarUrl,
     role: user.role,
+    audience: user.audience ?? undefined,
     permissions: user.permissions ?? [],
     authProvider: user.authProvider,
     linkedAccounts: (user.linkedAccounts ?? []).map((account) => ({
@@ -54,6 +55,7 @@ export function toStoredAccount(
     twoFactorEnabled: user.twoFactor?.enabled === true, // feature:totp
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    version: user.version ?? 0,
   };
 }
 
