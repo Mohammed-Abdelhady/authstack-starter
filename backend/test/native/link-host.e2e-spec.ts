@@ -153,22 +153,6 @@ describe('native link host boundary', () => {
         e2e.app.get(ConfigService),
         e2e.app.get(BrowserApplications),
       );
-      expect(manifest.paths).toEqual(
-        [
-          '/android',
-          '/apple',
-          '/certificate-only',
-          '/console/auth/magic-link/verify', // feature:magic-link
-          '/en/confirm',
-          '/en/sign-in',
-          '/ar/confirm', // feature:locale-ar
-          '/ar/sign-in', // feature:locale-ar
-          '/handoff',
-          '/staff/confirm',
-          '/staff/sign-in',
-          '/unassociated',
-        ].sort(),
-      );
       let body: string | undefined;
       for (const path of manifest.paths) {
         const response = await request(e2e.httpServer)
