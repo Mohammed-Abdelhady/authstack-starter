@@ -1,6 +1,8 @@
+// feature:email-code:start
 import { ConfigService } from '@nestjs/config';
 import { PasskeyConfigService } from '../services/passkey-config.service';
 import { rerunAtOnce } from '../../../../test/utils/session/issuance-contract/issuance-contract-support';
+// feature:email-code:end
 import {
   browser,
   credential,
