@@ -7,6 +7,7 @@ import {
   LINKED_MAIL_NAMES,
   LinkedMailName,
   MAIL_NAME,
+  REQUIRED_MAIL_LINK_NAMES,
 } from '../constants/mail-names';
 
 /** Filled with the recipient's language when a link is built. */
@@ -15,7 +16,9 @@ export const LOCALE_PLACEHOLDER = '{locale}';
 const LINK_PROTOCOLS = new Set(['https:', 'http:']);
 
 /** One template per mail that carries a link, keyed by mail name. */
-export type MailLinkTemplates = Readonly<Record<LinkedMailName, string>>;
+export type MailLinkTemplates = Readonly<
+  Partial<Record<LinkedMailName, string>>
+>;
 
 export type MailLinkTemplatesReading =
   | { templates: MailLinkTemplates | undefined; problem?: undefined }
@@ -58,10 +61,18 @@ function textAt(entries: Record<string, unknown>, name: string): string {
   return typeof value === 'string' ? value : '';
 }
 
-/** Every linked mail by name. A mail added to the list fails to compile here. */
+/** Parse existing required links and optional invitation links. */
 function templatesFrom(entries: Record<string, unknown>): MailLinkTemplates {
   const { EMAIL_CHANGE_CODE, MAGIC_LINK } = MAIL_NAME;
   return {
+    // feature:invitations:start
+    ...(entries[MAIL_NAME.INVITATION] === undefined
+      ? {}
+      : { [MAIL_NAME.INVITATION]: textAt(entries, MAIL_NAME.INVITATION) }),
+    ...(entries[MAIL_NAME.ENROLMENT] === undefined
+      ? {}
+      : { [MAIL_NAME.ENROLMENT]: textAt(entries, MAIL_NAME.ENROLMENT) }),
+    // feature:invitations:end
     [EMAIL_CHANGE_CODE]: textAt(entries, EMAIL_CHANGE_CODE),
     [MAGIC_LINK]: textAt(entries, MAGIC_LINK),
   };
@@ -95,8 +106,12 @@ export function readMailLinkTemplates(
   }
   for (const name of LINKED_MAIL_NAMES) {
     if (entries[name] === undefined) {
+      // feature:invitations:start
+      if (name === MAIL_NAME.INVITATION || name === MAIL_NAME.ENROLMENT)
+        continue;
+      // feature:invitations:end
       return {
-        problem: `${setting} has no template for "${name}". Set every one of: ${known}`,
+        problem: `${setting} has no template for "${name}". Set every one of: ${REQUIRED_MAIL_LINK_NAMES.join(', ')}`,
       };
     }
     const problem = templateProblem(entries[name]);

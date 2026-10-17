@@ -11,6 +11,7 @@ export const ACTIVITY_MAX_OFFSET = 10_000;
 export const ACTIVITY_MAX_FILTER_LENGTH = 200;
 export const ACTIVITY_FILTER_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.:@/-]{0,199}$/;
 export const ACTIVITY_MAX_TEXT_LENGTH = 320;
+export const ACTIVITY_MAX_LIST_LENGTH = 100;
 export const ACTIVITY_DAY_MS = 86_400_000;
 export const SIGN_IN_RETENTION_DAYS = 90;
 
