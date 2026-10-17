@@ -175,7 +175,7 @@ export function parseNativeMethods(data: unknown, status: number): NativeMethods
   const methodRecord: JsonFields<AuthMethods> = requireObject(record.methods, 'methods', status);
   exactKeys(
     methodRecord,
-    ['password', 'magicLink', 'twoFactor', 'passkeys', 'oauth'],
+    ['password', 'magicLink', 'emailCode', 'twoFactor', 'passkeys', 'oauth'],
     'methods',
     status,
   );
@@ -187,6 +187,7 @@ export function parseNativeMethods(data: unknown, status: number): NativeMethods
   const methods = {
     password: authMethods.password,
     magicLink: authMethods.magicLink,
+    emailCode: authMethods.emailCode,
     twoFactor: authMethods.twoFactor,
     passkeys: authMethods.passkeys,
     oauth,

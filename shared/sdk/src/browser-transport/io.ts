@@ -4,6 +4,7 @@ import { SUCCESS_STATUS_MAX, SUCCESS_STATUS_MIN, TRANSPORT_FAILURE } from '../co
 import { toTransportError, TransportError } from '../transport';
 import {
   CSRF_HEADER,
+  IDEMPOTENCY_HEADER,
   HTTP_STATUS_NO_CONTENT,
   SERVER_ERROR_STATUS_MIN,
   methodNeedsBrowserProof,
@@ -47,7 +48,11 @@ function fetchInit<TSignal extends TransportSignal>(
   const headers: Record<string, string> = {};
   for (const [key, value] of Object.entries(request.headers ?? {})) {
     const normalized = key.toLowerCase();
-    if (normalized !== 'content-type' && (normalized !== CSRF_HEADER || !proof)) {
+    if (
+      normalized !== 'content-type' &&
+      (normalized !== CSRF_HEADER || !proof) &&
+      (normalized !== IDEMPOTENCY_HEADER.toLowerCase() || request.operationKey === undefined)
+    ) {
       headers[key] = value;
     }
   }
@@ -55,6 +60,7 @@ function fetchInit<TSignal extends TransportSignal>(
   if (!Object.keys(headers).some((name) => name.toLowerCase() === 'accept')) {
     headers['Accept'] = 'application/json';
   }
+  if (request.operationKey !== undefined) headers[IDEMPOTENCY_HEADER] = request.operationKey;
   if (proof) headers[CSRF_HEADER] = proof;
   const body = request.encodedBody;
   return {
