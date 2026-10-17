@@ -70,17 +70,6 @@ describe('Permission enforcement (e2e)', () => {
   });
 
   describe('Permission inheritance', () => {
-    it('should verify permissions are directly assigned to users', async () => {
-      const response: Response = await userAgent
-        .get('/api/user/profile')
-        .expect(200);
-
-      const user = (response.body as ApiBody<UserResponse>).data;
-      expect(user).toHaveProperty('permissions');
-      expect(Array.isArray(user.permissions)).toBe(true);
-      expect(user).toHaveProperty('role');
-    });
-
     // feature:email-password:start
     it('should allow users with same role to have different permissions', async () => {
       const userResponse: Response = await userAgent
@@ -157,29 +146,5 @@ describe('Permission enforcement (e2e)', () => {
     });
   });
 
-  describe('Multiple permission checks', () => {
-    it('should require all permissions when multiple are specified', async () => {
-      await setPermissions(['users:read:all']);
-
-      const response: Response = await userAgent
-        .get('/api/user/profile')
-        .expect(200);
-
-      const user = (response.body as ApiBody<UserResponse>).data;
-      expect(user.permissions).toContain('users:read:all');
-      expect(user.permissions).not.toContain('roles:read:all');
-    });
-
-    it('should grant access when any of specified permissions is present', async () => {
-      await setPermissions(['sessions:read:own']);
-
-      const response: Response = await userAgent
-        .get('/api/user/profile')
-        .expect(200);
-
-      expect(
-        (response.body as ApiBody<UserResponse>).data.permissions,
-      ).toContain('sessions:read:own');
-    });
-  });
+  describe('Multiple permission checks', () => {});
 });

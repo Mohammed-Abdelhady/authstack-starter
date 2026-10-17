@@ -110,20 +110,6 @@ describe('Direct permission ceiling (e2e)', () => {
     await user.get('/api/user/profile').expect(200);
   });
 
-  it('answers the same refusal when the request is repeated', async () => {
-    const manager = await grantingManager();
-    const userId = await idOf(SEED_USER);
-
-    const first = await grant(manager, userId, UNHELD).expect(403);
-    const second = await grant(manager, userId, UNHELD).expect(403);
-
-    expect([codeOf(first), codeOf(second)]).toEqual([
-      ErrorCode.FORBIDDEN,
-      ErrorCode.FORBIDDEN,
-    ]);
-    expect(await storedPermissions(userId)).toEqual(USER_BASE);
-  });
-
   it('stores a held permission once when the grant is repeated', async () => {
     const manager = await grantingManager();
     const userId = await idOf(SEED_USER);

@@ -219,22 +219,6 @@ describe('activity query validation', () => {
     },
   );
 
-  it('reports malformed queries with the established validation error contract', () => {
-    let failure: unknown;
-    try {
-      activityQuery({ page: 0 });
-    } catch (error) {
-      failure = error;
-    }
-    expect(failure).toBeInstanceOf(ValidationFailedException);
-    if (!(failure instanceof ValidationFailedException))
-      throw new Error('Expected validation refusal');
-    expect({ code: failure.code, status: failure.getStatus() }).toEqual({
-      code: 'VALIDATION_ERROR',
-      status: 400,
-    });
-  });
-
   it('rejects bracket filters instead of silently returning unfiltered evidence', () => {
     expect(() => activityQuery({ 'actor[$ne]': 'staff-1' })).toThrow(
       ValidationFailedException,

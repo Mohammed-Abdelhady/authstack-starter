@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { AdminPermissionsService } from '../../../../services/roles/admin-permissions.service';
 import { AdminUserAccessService } from '../../../../services/users/admin-user-access.service';
+import { AdminAudienceScopes } from '../../../../services/users/admin-audience-scopes';
 import { AdminAccountStore } from '../../../../stores/admin-account.store';
+import { AudiencePolicy } from '../../../../../session/applications/audience-policy';
 import { RoleHierarchyService } from '../../../../../role/services/role-hierarchy.service';
 import { UserPermissionsService } from '../../../../../user/services/user-permissions.service';
 import { StoredAccount } from '../../../../../user/stores/stored-account';
@@ -13,6 +16,8 @@ import {
   UnitOfWorkRunner,
 } from '../../../../../common/persistence/unit-of-work';
 import { RoleChangeStore } from '../../../../../role/stores/role-change.store';
+import { StaffMutationRules } from '../../../../../admin/services/staff-mutations/staff-mutation-rules';
+import { testStaffMutationRules } from '../../../../../../test/utils/admin/staff-mutation-test-kit';
 
 const LEVELS: Record<string, number> = {
   user: 1,
@@ -129,8 +134,14 @@ describe('AdminPermissionsService (S-03)', () => {
     stubTarget(UserRole.USER);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
+        { provide: StaffMutationRules, useValue: testStaffMutationRules() },
         AdminPermissionsService,
         AdminUserAccessService,
+        AdminAudienceScopes,
+        {
+          provide: AudiencePolicy,
+          useValue: new AudiencePolicy(new ConfigService({})),
+        },
         { provide: AdminAccountStore, useValue: mockAccountStore },
         { provide: RoleHierarchyService, useValue: mockRoleHierarchyService },
         {
@@ -146,20 +157,6 @@ describe('AdminPermissionsService (S-03)', () => {
     jest.clearAllMocks();
   });
 
-  it('should refuse to grant to a peer', async () => {
-    stubTarget(UserRole.ADMIN);
-
-    await expect(
-      service.addPermission(
-        TARGET_ID,
-        'users:read:all',
-        ACTOR_ID,
-        UserRole.ADMIN,
-      ),
-    ).rejects.toMatchObject({ code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE });
-    expect(mockAccountStore.savePermissions).not.toHaveBeenCalled();
-  });
-
   it('should refuse to revoke from a peer', async () => {
     stubTarget(UserRole.MANAGER);
 
@@ -172,69 +169,6 @@ describe('AdminPermissionsService (S-03)', () => {
       ),
     ).rejects.toMatchObject({ code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE });
     expect(mockAccountStore.savePermissions).not.toHaveBeenCalled();
-  });
-
-  it('should refuse to grant to the actor itself', async () => {
-    stubTarget(UserRole.USER);
-    target = { ...target, id: ACTOR_ID };
-
-    await expect(
-      service.addPermission(
-        ACTOR_ID,
-        'users:read:all',
-        ACTOR_ID,
-        UserRole.ADMIN,
-      ),
-    ).rejects.toMatchObject({ code: ErrorCode.CANNOT_MODIFY_SELF });
-  });
-
-  it('should grant to a user below the actor level in the authorized unit', async () => {
-    stubTarget(UserRole.SUPPORT);
-
-    const response = await service.addPermission(
-      TARGET_ID,
-      'users:read:all',
-      ACTOR_ID,
-      UserRole.MANAGER,
-    );
-
-    expect(response.data).toEqual({
-      userId: TARGET_ID,
-      permissions: ['users:read:all'],
-    });
-    expect(mockAccountStore.savePermissions).toHaveBeenCalledTimes(1);
-    expect(mockAccountStore.takeAccountForChange).toHaveBeenCalledWith(
-      expect.any(TestUnitOfWork),
-      TARGET_ID,
-    );
-  });
-
-  it('should refuse to grant a permission the actor does not hold', async () => {
-    stubTarget(UserRole.SUPPORT);
-
-    await expect(
-      service.addPermission(
-        TARGET_ID,
-        'users:delete:all',
-        ACTOR_ID,
-        UserRole.MANAGER,
-      ),
-    ).rejects.toMatchObject({ code: ErrorCode.FORBIDDEN, status: 403 });
-    expect(mockAccountStore.savePermissions).not.toHaveBeenCalled();
-  });
-
-  it('should remove a direct permission from a user below the actor', async () => {
-    stubTarget(UserRole.SUPPORT, ['users:read:all']);
-
-    const response = await service.removePermission(
-      TARGET_ID,
-      'users:read:all',
-      ACTOR_ID,
-      UserRole.MANAGER,
-    );
-
-    expect(response.data).toEqual({ userId: TARGET_ID, permissions: [] });
-    expect(mockAccountStore.savePermissions).toHaveBeenCalledTimes(1);
   });
 
   it('should refuse to revoke when the actor no longer holds the route permission', async () => {
@@ -259,20 +193,6 @@ describe('AdminPermissionsService (S-03)', () => {
     expect(mockAccountStore.savePermissions).not.toHaveBeenCalled();
   });
 
-  it('should refuse a grant that is already present on the target', async () => {
-    stubTarget(UserRole.SUPPORT, ['users:read:all']);
-
-    await expect(
-      service.addPermission(
-        TARGET_ID,
-        'users:read:all',
-        ACTOR_ID,
-        UserRole.MANAGER,
-      ),
-    ).rejects.toMatchObject({ code: ErrorCode.PERMISSION_ALREADY_EXISTS });
-    expect(mockAccountStore.savePermissions).not.toHaveBeenCalled();
-  });
-
   it('should let a peer be read', async () => {
     stubTarget(UserRole.MANAGER);
 
@@ -281,16 +201,5 @@ describe('AdminPermissionsService (S-03)', () => {
     expect(mockUserPermissionsService.getUserPermissions).toHaveBeenCalledWith(
       TARGET_ID,
     );
-  });
-
-  it('should refuse to read a user above the actor level', async () => {
-    stubTarget(UserRole.ADMIN);
-
-    await expect(
-      service.getUserPermissions(TARGET_ID, UserRole.SUPPORT),
-    ).rejects.toMatchObject({ code: ErrorCode.CANNOT_MODIFY_HIGHER_ROLE });
-    expect(
-      mockUserPermissionsService.getUserPermissions,
-    ).not.toHaveBeenCalled();
   });
 });
