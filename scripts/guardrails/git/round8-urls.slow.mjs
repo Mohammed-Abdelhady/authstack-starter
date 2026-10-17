@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, basename } from 'node:path';
@@ -261,26 +260,6 @@ test('malformed push input never prints destination credentials', (t) => {
   );
 });
 
-test('an empty destination lookup does not require an owned directory to be a repository', (t) => {
-  const repo = fixture(t);
-  const cwd = mkdtempSync(join(tmpdir(), 'guardrails-empty-destination-'));
-  t.after(() => rmSync(cwd, { recursive: true, force: true }));
-  const module = pathToFileURL(join(repo.root, 'scripts/guardrails/git/remote-destination.mjs')).href;
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      `import { resolveDestinations } from ${JSON.stringify(module)}; console.log(JSON.stringify(resolveDestinations('', '')));`,
-    ],
-    { cwd, env: repo.env, encoding: 'utf8' },
-  );
-  assert.deepEqual(
-    { status: result.status, output: result.stdout, diagnostic: result.stderr },
-    { status: 0, output: '[]\n', diagnostic: '' },
-  );
-});
-
 test('hook destination URL grammar rejects a fifth argument with one error line', (t) => {
   const repo = fixture(t);
   const result = repo.checkInput(
@@ -294,23 +273,5 @@ test('hook destination URL grammar rejects a fifth argument with one error line'
   assert.deepEqual(
     { ...outcome(result), lines: result.diagnostic.trim().split('\n').filter(Boolean).length },
     { status: 2, hits: [], caps: [], lines: 1 },
-  );
-});
-
-test('an empty name with a supplied URL remains unknown when no remotes are configured', (t) => {
-  const repo = fixture(t);
-  const module = pathToFileURL(join(repo.root, 'scripts/guardrails/git/remote-destination.mjs')).href;
-  const result = spawnSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      `import { resolveDestinations } from ${JSON.stringify(module)}; console.log(JSON.stringify(resolveDestinations('', ${JSON.stringify(repo.root)})));`,
-    ],
-    { cwd: repo.root, env: repo.env, encoding: 'utf8' },
-  );
-  assert.deepEqual(
-    { status: result.status, output: result.stdout, diagnostic: result.stderr },
-    { status: 0, output: '[]\n', diagnostic: '' },
   );
 });

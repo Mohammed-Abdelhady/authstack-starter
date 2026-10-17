@@ -14,18 +14,16 @@ export function installWorkspaceTools(root, workspace) {
   }
 }
 
-export function installPolicyTestDependencies(root) {
-  const target = join(root, 'node_modules');
-  mkdirSync(target, { recursive: true });
-  symlinkSync(join(ROOT_MODULES, 'ignore'), join(target, 'ignore'), 'dir');
-}
-
-
 export function installHookTools(root) {
   const target = join(root, 'node_modules');
   mkdirSync(join(target, '@commitlint'), { recursive: true });
   mkdirSync(join(target, '.bin'), { recursive: true });
-  for (const name of ['@commitlint/cli', '@commitlint/config-conventional', 'lint-staged', 'prettier']) {
+  for (const name of [
+    '@commitlint/cli',
+    '@commitlint/config-conventional',
+    'lint-staged',
+    'prettier',
+  ]) {
     symlinkSync(join(ROOT_MODULES, name), join(target, name), 'dir');
   }
   for (const name of ['commitlint', 'lint-staged', 'prettier']) {
