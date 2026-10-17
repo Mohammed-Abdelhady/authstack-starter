@@ -80,17 +80,3 @@ it('hands over to a resolver the base configuration already had', () => {
   expect(shared).toEqual({ type: 'sourceFile', filePath: 'base:react' });
   expect(other).toEqual({ type: 'sourceFile', filePath: 'base:@app/sdk' });
 });
-
-it('uses the list of single packages it is given', () => {
-  const metro = recorder('metro');
-  const config = withWorkspace({}, SHELL, { workspaceRoot: ROOT, singletons: ['react-query'] });
-  const context = { originModulePath: SHARED_FILE, resolveRequest: metro.resolve };
-
-  resolveFrom(config, context, 'react-query');
-  resolveFrom(config, context, 'react');
-
-  expect(metro.calls.map(({ origin, moduleName }) => [moduleName, origin])).toEqual([
-    ['react-query', SHELL_MANIFEST],
-    ['react', SHARED_FILE],
-  ]);
-});

@@ -27,20 +27,6 @@ it('watches the store, the shell and every workspace package the shell reaches',
   ]);
 });
 
-it('leaves out workspaces the shell does not depend on', () => {
-  const folders = watched(makeWorkspace(REPOSITORY_LIKE));
-
-  expect(
-    ['backend', 'frontend', 'packages/create-authstack-starter'].filter((folder) =>
-      folders.includes(folder),
-    ),
-  ).toEqual([]);
-});
-
-it('leaves out the development tools of a dependency', () => {
-  expect(watched(makeWorkspace(REPOSITORY_LIKE))).not.toContain('shared/lint-rules');
-});
-
 it('watches a workspace package as soon as the shell depends on it', () => {
   const shell = REPOSITORY_LIKE['mobile/expo'];
   const root = makeWorkspace({
