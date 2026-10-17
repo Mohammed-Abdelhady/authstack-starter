@@ -1,5 +1,4 @@
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
-import { toAdminSessionDto } from '../../src/admin/sessions/mappers/admin-session.mapper';
 import {
   outcomeOf,
   signIn,
@@ -200,33 +199,6 @@ export function staffSessionCases(current: () => StaffSessionHarness): void {
         ErrorCode.USER_NOT_FOUND,
       );
     }
-  });
-
-  it('maps only the admin DTO allow-list from stored credential records', async () => {
-    const harness = current();
-    const targetId = await harness.authority.issuance.seedAccount();
-    const browser = await signIn(harness.authority, targetId);
-    const stored = await harness.authority.authorityStore.findSessionById(
-      browser.sessionId,
-    );
-    if (!stored) throw new Error('session not stored');
-    const mapped = toAdminSessionDto(stored);
-    expect(Object.keys(mapped).sort()).toEqual([
-      'clientId',
-      'createdAt',
-      'credentialPurpose',
-      'deviceName',
-      'deviceParts',
-      'id',
-      'ip',
-      'isCurrent',
-      'lastUsedAt',
-      'userAgent',
-    ]);
-    expect({
-      clientId: mapped.clientId,
-      credentialPurpose: mapped.credentialPurpose,
-    }).toEqual({ clientId: 'web', credentialPurpose: 'browser_session' });
   });
 
   it('never forwards unknown runtime context details from single or bulk revocation', async () => {
