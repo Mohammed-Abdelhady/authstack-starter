@@ -97,6 +97,7 @@ export class NativeBoundRetryService {
       meta: input.meta,
       now,
       generation: successor.generation,
+      policyVersion: input.session.policyVersion ?? 0,
       existing: input.session,
       familyId: presented.familyId,
       proofKeyThumbprint: input.thumbprint,

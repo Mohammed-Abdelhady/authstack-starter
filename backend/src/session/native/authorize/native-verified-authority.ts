@@ -1,3 +1,8 @@
+import { ApplicationPolicyReader } from '../../../auth/contracts/application-policy';
+import {
+  assertPasskeySignIn,
+  NATIVE_PASSKEY_AUTHENTICATION_METHOD,
+} from '../../utils/authority/passkey-sign-in';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { ApplicationRegistry } from '../../applications/application-registry';
@@ -15,6 +20,7 @@ import type {
   NativeAttempt,
   VerifiedNativeAccount,
 } from '../../../auth/native/types/native-attempt';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { expiredTransaction } from './native-authorization-result';
 import { nativeRedirectPolicy } from './native-authorize-validation';
 
@@ -64,6 +70,7 @@ export async function assertNativeVerifiedAuthority(
   ) {
     throw expiredTransaction();
   }
+  assertAudienceAdmission(account.accountAudience, application.accountAudience);
   const grant = await authority.grants.takeGrantForChange(
     unitOfWork,
     principal.userId,
@@ -74,4 +81,48 @@ export async function assertNativeVerifiedAuthority(
     grant?.allowed === false
   )
     throw expiredTransaction();
+}
+
+export interface ApprovalEvidence {
+  authenticationMethods: string[];
+  userVerified: boolean;
+  authenticatedAt: Date | null;
+  browserClientId?: string;
+}
+
+export async function nativeApprovalEvidence(input: {
+  work: UnitOfWork;
+  policies: ApplicationPolicyReader | undefined;
+  evidence: ApprovalEvidence;
+  requirePasskey: boolean;
+  clientId: string;
+}): Promise<ApprovalEvidence> {
+  let evidence = input.evidence;
+  if (evidence.browserClientId !== undefined && input.requirePasskey) {
+    const source = await input.policies?.requireEnabled(
+      input.work,
+      evidence.browserClientId,
+    );
+    const target = await input.policies?.requireEnabled(
+      input.work,
+      input.clientId,
+    );
+    if (
+      !source?.passkeyRelyingParty ||
+      source.passkeyRelyingParty.rpId !== target?.passkeyRelyingParty?.rpId
+    ) {
+      throw expiredTransaction();
+    }
+    assertPasskeySignIn(true, evidence);
+    evidence = {
+      ...evidence,
+      authenticationMethods: [NATIVE_PASSKEY_AUTHENTICATION_METHOD],
+    };
+  }
+  assertPasskeySignIn(
+    input.requirePasskey,
+    evidence,
+    NATIVE_PASSKEY_AUTHENTICATION_METHOD,
+  );
+  return evidence;
 }

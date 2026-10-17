@@ -1,3 +1,5 @@
+import { ErasureRefusal } from '../../../user/erasure/services/erasure-refusal';
+import { Optional } from '@nestjs/common';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AddressReservationTakenError } from '../../../common/persistence/address-reservation-taken.error';
@@ -5,7 +7,10 @@ import {
   ACCOUNT_RESERVATION_RESULT,
   AddressLedger,
 } from '../../../common/persistence/address-ledger';
-import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import {
+  UnitOfWorkRunner,
+  UnitOfWork,
+} from '../../../common/persistence/unit-of-work';
 import { Clock } from '../../../common/services/clock';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -31,6 +36,7 @@ import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
 import type { AccountCreationMethod } from '../../types/account-creation';
+import { nativeSignUpOpen } from './native-sign-up-open';
 
 const MILLISECONDS_PER_MINUTE = 60000;
 
@@ -48,6 +54,8 @@ export class NativeEmailLinkMailService {
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
+    private readonly runner: UnitOfWorkRunner,
+    @Optional() private readonly erasure?: ErasureRefusal,
   ) {
     this.maxPerHour = this.config.get<number>('magicLink.maxPerHour', 5);
   }
@@ -62,6 +70,7 @@ export class NativeEmailLinkMailService {
     attemptId: string,
     state: string,
     expiresAt: Date,
+    clientId: string,
     persistTokenHash: (tokenHash: string) => Promise<void>,
   ): Promise<void> {
     const { email } = requested;
@@ -73,7 +82,14 @@ export class NativeEmailLinkMailService {
       windowMs: MAGIC_LINK_RATE_WINDOW_MS,
       limit: this.maxPerHour,
     });
-    const mailed = !deleted && underCap;
+    const signUpOpen = await nativeSignUpOpen(
+      this.runner,
+      this.policy,
+      clientId,
+      ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    );
+    const mayCreate = owner !== null || signUpOpen;
+    const mailed = !deleted && mayCreate && underCap;
     const token = createMagicLinkToken();
     const callback = mailed
       ? this.nativeCallback(callbackUri, attemptId, token, state)
@@ -86,6 +102,10 @@ export class NativeEmailLinkMailService {
         callback,
         expiresAt,
         currentRequestId() ?? 'unknown',
+      );
+    } else if (!mayCreate) {
+      this.logger.warn(
+        `Magic link not mailed: sign-up closed requestId=${currentRequestId() ?? 'unknown'}`,
       );
     } else if (deleted) {
       this.logger.warn('Magic link request for a deleted account');
@@ -106,18 +126,26 @@ export class NativeEmailLinkMailService {
     refuseDeactivated: () => AppException = refuse,
   ): Promise<MagicLinkAccount> {
     const existing = await this.accounts.findByEmailIn(unitOfWork, email);
-    if (existing?.isDeleted) throw refuseDeactivated();
+    if (existing?.isDeleted)
+      throw (
+        (await this.erasure?.refusalFor(existing.id, refuseDeactivated())) ??
+        refuseDeactivated()
+      );
     if (existing) {
       if (existing.isVerified) return existing;
       if (!(await this.accounts.markVerifiedIn(unitOfWork, existing))) {
         throw refuse();
       }
       const verified = await this.accounts.findByEmailIn(unitOfWork, email);
-      if (verified?.isDeleted) throw refuseDeactivated();
+      if (verified?.isDeleted)
+        throw (
+          (await this.erasure?.refusalFor(verified.id, refuseDeactivated())) ??
+          refuseDeactivated()
+        );
       if (!verified || !verified.isVerified) throw refuse();
       return verified;
     }
-    await this.policy.assertMayCreate(
+    const audience = await this.policy.assertMayCreate(
       { application: clientId, method },
       unitOfWork,
     );
@@ -132,6 +160,7 @@ export class NativeEmailLinkMailService {
       email,
       name: deriveNameFromEmail(email),
       locale,
+      audience,
     });
     await this.ledger.finishAccountReservation(
       unitOfWork,

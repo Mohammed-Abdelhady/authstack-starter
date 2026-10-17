@@ -14,6 +14,7 @@ export interface VerifiedNativeAccount {
   clientVersion: number;
   grantVersion: number | null;
   authenticationMethods: string[];
+  userVerified?: boolean;
   verifiedAt: Date;
   firstFactor: 'password' | 'provider' | 'passkey' | 'emailLink' | 'emailCode';
 }

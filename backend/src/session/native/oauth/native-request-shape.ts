@@ -1,4 +1,5 @@
 export const TOKEN_REQUEST_FIELDS = [
+  'install_id',
   'grant_type',
   'code',
   'redirect_uri',

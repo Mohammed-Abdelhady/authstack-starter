@@ -26,6 +26,7 @@ import type {
   NativeAttemptPhase,
 } from '../types/native-attempt';
 import { featureDisabled, wrongStage } from '../utils/native-attempt-errors';
+import { NativeEmailCodeCeilingService } from './native-email-code-ceiling.service';
 import { NativeEmailCodeMailService } from './native-email-code-mail.service';
 import { NativeEmailCodeReviewService } from './native-email-code-review.service';
 import { NativeEmailLinkService } from './native-email-link.service';
@@ -71,6 +72,7 @@ export class NativeEmailCodeService {
     private readonly config: ConfigService,
     private readonly clock: Clock,
     private readonly review: NativeEmailCodeReviewService,
+    private readonly ceiling: NativeEmailCodeCeilingService,
   ) {}
 
   async request(
@@ -161,13 +163,14 @@ export class NativeEmailCodeService {
         creationMethod: ACCOUNT_CREATION_METHOD.EMAIL_CODE,
       },
     );
-    return this.attempts.view(completed);
+    return this.attempts.viewAfter(completed, secret);
   }
 
   /**
-   * Refuses a wrong code and counts it on the attempt, and a wrong fixed review
-   * code on the review account's day as well. While review access is off for
-   * the account, the fixed code is wrong whatever was typed.
+   * Refuses a wrong code and counts it on the attempt, on the address's day
+   * when the code was live, and a wrong fixed review code on the review
+   * account's day as well. While review access is off for the account, the
+   * fixed code is wrong whatever was typed.
    */
   private async assertRightGuess(
     guess: {
@@ -184,6 +187,7 @@ export class NativeEmailCodeService {
     const right = await this.hashService.compare(code, stored.codeHash);
     if (open && right) return;
     await this.countWrongGuess(key, attempt.attemptId, secret);
+    if (this.live(stored)) await this.ceiling.countWrongGuess(stored.email);
     if (open && review) await this.review.countWrongGuess(attempt);
     throw emailCodeInvalid();
   }

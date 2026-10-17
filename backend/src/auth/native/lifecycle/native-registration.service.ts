@@ -17,6 +17,11 @@ import { ActivationAccounts } from '../../pending-codes/activation-accounts';
 import { PENDING_PURPOSE } from '../../constants/registration';
 import { activationCodeInvalid } from '../../utils/activation-error.util';
 import { createActivatedAccount } from '../../utils/activation.util';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { SelfSignUpRefusedError } from '../../services/registration/self-sign-up-refused.error';
+import { SessionIssuanceService } from '../../../session/services/session-issuance.service';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { AccountCreationPolicy } from '../../services/registration/account-creation-policy';
 import {
   hashPendingCodeGeneration,
@@ -60,6 +65,8 @@ export class NativeRegistrationService {
     private readonly clock: Clock,
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
+    private readonly events: EventRecorder,
+    private readonly issuance: SessionIssuanceService,
   ) {}
 
   async request(
@@ -84,6 +91,7 @@ export class NativeRegistrationService {
         email,
         locale,
         claimed.clientId,
+        true,
       );
       const next = await this.attempts.transition(
         claimed,
@@ -128,6 +136,7 @@ export class NativeRegistrationService {
       input.email,
       input.code,
       PENDING_PURPOSE.SIGNUP,
+      attempt.clientId,
     );
     if (
       !matchesPendingCodeGeneration(
@@ -152,7 +161,7 @@ export class NativeRegistrationService {
           accountId,
         ),
       );
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       if (isUnknownTransactionOutcome(error)) {
         return this.resolveUnknownActivation(
@@ -162,7 +171,23 @@ export class NativeRegistrationService {
           error,
         );
       }
-      throw storeFailureCause(error);
+      const cause = storeFailureCause(error);
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        attempt.clientId,
+        activationCodeInvalid,
+        accountId,
+      );
+      if (refusal) throw refusal;
+      if (cause instanceof SelfSignUpRefusedError) {
+        await this.issuance.recordCreationRefusal(
+          attempt.clientId,
+          ACCOUNT_CREATION_METHOD.PASSWORD,
+        );
+        throw activationCodeInvalid();
+      }
+      throw cause;
     }
   }
 
@@ -223,12 +248,17 @@ export class NativeRegistrationService {
         emailCodeGenerationHash: null,
       },
     };
-    return this.attempts.completeFactorIn(unitOfWork, activationClaimed, {
-      userId: storedAccount.id,
-      userVersion: storedAccount.sessionVersion,
-      firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE,
-      authenticationMethods: [NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE],
-    });
+    return this.attempts.completeFactorIn(
+      unitOfWork,
+      activationClaimed,
+      {
+        userId: storedAccount.id,
+        userVersion: storedAccount.sessionVersion,
+        firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE,
+        authenticationMethods: [NATIVE_ATTEMPT_FIRST_FACTOR.EMAIL_CODE],
+      },
+      secret,
+    );
   }
 
   private async resolveUnknownActivation(
@@ -247,7 +277,7 @@ export class NativeRegistrationService {
         attempt.details.activationCompleted === true &&
         attempt.details.verifiedAccount?.userId === accountId
       ) {
-        return this.attempts.view(attempt);
+        return this.attempts.viewAfter(attempt, secret);
       }
     } catch {
       return asAuthorityUnavailable(error);

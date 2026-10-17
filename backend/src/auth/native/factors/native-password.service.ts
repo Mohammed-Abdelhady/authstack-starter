@@ -1,3 +1,5 @@
+import { ErasureRefusal } from '../../../user/erasure/services/erasure-refusal';
+import { Optional } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import type { NativeAttemptView, NativePasswordInput } from '@app/sdk';
 import {
@@ -8,8 +10,13 @@ import { HashService } from '../../../common/services/hash.service';
 import { UnitOfWorkRunner } from '../../../common/persistence/unit-of-work';
 import { runLeavingFailuresAsRaised } from '../../../common/persistence/store-failure';
 import { PasswordSignInStore } from '../../stores/password-sign-in.store';
-import { verifyPasswordCredentials } from '../../services/password/password-credentials';
+import {
+  invalidCredentials,
+  verifyPasswordCredentials,
+} from '../../services/password/password-credentials';
 import { NativeAttemptService } from '../services/native-attempt.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NativeMethodsService } from '../services/native-methods.service';
 import {
   NATIVE_ATTEMPT_FIRST_FACTOR,
@@ -30,6 +37,8 @@ export class NativePasswordService {
     private readonly accounts: PasswordSignInStore,
     private readonly hashes: HashService,
     private readonly runner: UnitOfWorkRunner,
+    private readonly events: EventRecorder,
+    @Optional() private readonly erasure?: ErasureRefusal,
   ) {}
 
   async password(
@@ -54,27 +63,41 @@ export class NativePasswordService {
       secret,
       NATIVE_ATTEMPT_PHASE.FIRST_FACTOR_REQUIRED,
     );
+    let targetUserId: string | undefined;
     try {
       if (claimed.flow !== NATIVE_ATTEMPT_FLOW.SIGN_IN) throw wrongStage();
       const methods = await this.methods.forClient(claimed.clientId);
       if (!methods.capabilities.password) throw featureDisabled();
-      const user = await verifyPasswordCredentials(
-        this.accounts,
-        this.hashes,
-        input,
-      );
+      const user = await verifyPasswordCredentials(this.accounts, this.hashes, {
+        ...input,
+        refuseDeactivated: async (userId, failure) =>
+          this.erasure?.refusalFor(userId, failure) ?? failure,
+      });
+      targetUserId = user.id;
       const completed = await runLeavingFailuresAsRaised(this.runner, (work) =>
-        this.attempts.completeFactorIn(work, claimed, {
-          userId: user.id,
-          userVersion: user.sessionVersion,
-          firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSWORD,
-          authenticationMethods: ['pwd'],
-        }),
+        this.attempts.completeFactorIn(
+          work,
+          claimed,
+          {
+            userId: user.id,
+            userVersion: user.sessionVersion,
+            firstFactor: NATIVE_ATTEMPT_FIRST_FACTOR.PASSWORD,
+            authenticationMethods: ['pwd'],
+          },
+          secret,
+        ),
       );
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        invalidCredentials,
+        targetUserId,
+      );
+      throw refusal ?? error;
     }
   }
 }

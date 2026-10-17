@@ -1,4 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { AudienceAdmissionRefused } from '../../utils/authority/audience-admission';
+import { admitsAudience } from '../utils/native-audience';
+import {
+  SECURITY_EVENT_ACTION,
+  SECURITY_EVENT_OUTCOME,
+} from '../../constants/security-event-action';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -44,6 +52,9 @@ import {
 
 type ProofEventContext = BoundProofEventContext;
 
+/** Issued under an older policy of its application: refused before any write. */
+const POLICY_MOVED = 'policy_moved' as const;
+
 @Injectable()
 export class NativeRefreshService {
   constructor(
@@ -57,6 +68,7 @@ export class NativeRefreshService {
     private readonly boundProofs: NativeBoundProofService,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly events: NativeSecurityEvents,
   ) {}
 
   async rotate(
@@ -140,6 +152,9 @@ export class NativeRefreshService {
         );
       });
     } catch (error) {
+      if (storeFailureCause(error) instanceof AudienceAdmissionRefused) {
+        return this.invalidGrant();
+      }
       if (isNativeProofIdReplay(error) && refusalContext) {
         await this.boundProofs.recordRefusal(
           undefined,
@@ -190,6 +205,7 @@ export class NativeRefreshService {
     }
     setRefusalContext(this.proofEventContext(presented, session));
     const authority = await this.loadAuthority(db, clientId, session, now);
+    if (authority === POLICY_MOVED) return this.invalidGrant();
     if (!authority) {
       if (presented.spent) {
         return this.rotation.replay(db, presented, now);
@@ -233,14 +249,12 @@ export class NativeRefreshService {
     meta: ClientMeta,
     now: Date,
   ): Promise<TokenSuccess | OauthFailure> {
+    const authority = await this.loadAuthority(db, clientId, session, now);
+    if (authority === POLICY_MOVED) return this.invalidGrant();
     if (presented.spent) {
       return this.rotation.replay(db, presented, now);
     }
-    if (presented.expiresAt.getTime() <= now.getTime()) {
-      return this.invalidGrant();
-    }
-    const authority = await this.loadAuthority(db, clientId, session, now);
-    if (!authority) {
+    if (presented.expiresAt.getTime() <= now.getTime() || !authority) {
       return this.invalidGrant();
     }
     return this.rotation.claimAndRotate(db, presented, authority, meta, now);
@@ -251,12 +265,33 @@ export class NativeRefreshService {
     clientId: string,
     session: NativeFamilySession | null,
     now: Date,
-  ): Promise<RefreshAuthority | undefined> {
+  ): Promise<RefreshAuthority | typeof POLICY_MOVED | undefined> {
     if (!session || session.clientId !== clientId) {
       return undefined;
     }
     const account = await this.issuance.findAccount(db, session.userId);
     const application = await this.registry.findClientIn(db, clientId);
+    if (
+      application?.enabled &&
+      (session.policyVersion ?? 0) !== (application.policyVersion ?? 0)
+    ) {
+      return POLICY_MOVED;
+    }
+    if (
+      account &&
+      application?.enabled &&
+      !admitsAudience(account.accountAudience, application.accountAudience)
+    ) {
+      // An unusable authority: a replayed token still ends its family.
+      await this.events.record(db, {
+        targetUserId: account.id,
+        clientId,
+        sessionId: session.id,
+        action: SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
+        outcome: SECURITY_EVENT_OUTCOME.FAILED,
+      });
+      return undefined;
+    }
     const grant = account
       ? await this.issuance.findGrant(db, account.id, clientId)
       : null;

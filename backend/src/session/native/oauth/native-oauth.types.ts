@@ -72,6 +72,7 @@ export interface AuthorizeQuery {
 }
 
 export interface TokenRequest {
+  install_id?: string;
   grant_type?: string;
   code?: string;
   redirect_uri?: string;
@@ -88,6 +89,7 @@ export interface RevokeRequest {
 }
 
 export interface ClientMeta {
+  installId?: string;
   ip: string;
   userAgent: string;
 }

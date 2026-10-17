@@ -1,4 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { ApplicationPolicyReader } from '../../../auth/contracts/application-policy';
+import { storeFailureCause } from '../../../common/persistence/store-failure';
+import { AudienceAdmissionRefused } from '../../utils/authority/audience-admission';
+import { admitsAudience } from '../utils/native-audience';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
@@ -61,6 +65,7 @@ export class NativeTokenService {
     private readonly events: NativeSecurityEvents,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly policies: ApplicationPolicyReader,
   ) {}
 
   async grant(
@@ -83,7 +88,25 @@ export class NativeTokenService {
       return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_CLIENT);
     }
     if (body.grant_type === 'authorization_code') {
-      return this.exchange(body, meta, dpopProof);
+      if (
+        body.install_id !== undefined &&
+        !/^[A-Za-z0-9_-]{32,128}$/.test(body.install_id)
+      ) {
+        return oauthFailure(
+          HttpStatus.BAD_REQUEST,
+          OAUTH_ERROR.INVALID_REQUEST,
+        );
+      }
+      return this.exchange(
+        body,
+        {
+          ...meta,
+          ...(body.install_id === undefined
+            ? {}
+            : { installId: body.install_id }),
+        },
+        dpopProof,
+      );
     }
     if (body.grant_type === 'refresh_token') {
       return this.refreshes.rotate(
@@ -174,6 +197,9 @@ export class NativeTokenService {
         this.consumeCode(unitOfWork, pending.id, meta, verifiedProof),
       );
     } catch (error) {
+      if (storeFailureCause(error) instanceof AudienceAdmissionRefused) {
+        return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
+      }
       if (isNativeProofIdReplay(error)) {
         await this.recordProofRefusal(
           code,
@@ -244,7 +270,28 @@ export class NativeTokenService {
       grant.sessionVersion === (pending.capturedGrantVersion ?? -1) &&
       pending.authEpoch === this.authEpoch.current(),
     );
+    let policyVersion = 0;
     if (validAuthority && account && application && grant) {
+      const policy = await this.policies.requireEnabled(
+        unitOfWork,
+        pending.clientId,
+      );
+      policyVersion = policy.policyVersion ?? 0;
+      if (!admitsAudience(account.accountAudience, policy.accountAudience)) {
+        const spent = await this.authorizations.spendCodeIn(
+          unitOfWork,
+          pending.id,
+        );
+        if (spent === CODE_SPEND.SPENT) {
+          await this.events.record(unitOfWork, {
+            targetUserId: account.id,
+            clientId: pending.clientId,
+            action: SECURITY_EVENT_ACTION.AUDIENCE_REFUSED,
+            outcome: SECURITY_EVENT_OUTCOME.FAILED,
+          });
+        }
+        return oauthFailure(HttpStatus.BAD_REQUEST, OAUTH_ERROR.INVALID_GRANT);
+      }
       await this.issuance.markAccountIssuance(unitOfWork, account.id);
       await this.sessionIssuance.assertSessionLimit(
         unitOfWork,
@@ -274,6 +321,7 @@ export class NativeTokenService {
       meta,
       now,
       generation: 1,
+      policyVersion,
       proofKeyThumbprint: proof?.thumbprint,
     });
   }

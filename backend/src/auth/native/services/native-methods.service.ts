@@ -4,6 +4,7 @@ import { ModuleRef } from '@nestjs/core'; // feature:oauth-core
 import { createHash } from 'node:crypto';
 import type { NativeMethods, NativeProviderMethod } from '@app/sdk';
 import { AuthEpochService } from '../../../common/services/auth-epoch.service';
+import { nativePasskeysAvailable } from '../../../config/utils/native-passkeys-available';
 import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import { OAuthRegistryService } from '../../oauth/oauth-registry.service'; // feature:oauth-core
@@ -25,12 +26,25 @@ export class NativeMethodsService {
     private readonly config: ConfigService, // feature:email-code
   ) {}
 
-  async forClient(clientId: string): Promise<NativeMethods> {
+  forClient(clientId: string): Promise<NativeMethods> {
+    return this.catalogue(clientId, false);
+  }
+
+  async forAccountLink(clientId: string): Promise<NativeProviderMethod[]> {
+    const catalogue = await this.catalogue(clientId, true);
+    return catalogue.nativeEnabled ? catalogue.providers : [];
+  }
+
+  private async catalogue(
+    clientId: string,
+    accountLink: boolean,
+  ): Promise<NativeMethods> {
     const application = this.epoch
       .nativeApplications()
       .find((item) => item.clientId === clientId);
     const registered = await this.applications.lookUpClient(clientId);
     const signIn = application?.signIn;
+    const requiredPasskey = !accountLink && registered?.requirePasskey === true;
     const enabled =
       this.epoch.nativeEnabled() &&
       signIn !== undefined &&
@@ -38,7 +52,7 @@ export class NativeMethodsService {
       registered.platform === APPLICATION_PLATFORM.NATIVE &&
       registered.clientType === APPLICATION_CLIENT_TYPE.PUBLIC;
     const oauth = this.oauthMethods();
-    const providers = oauth.map((provider) => {
+    const providers = (requiredPasskey ? [] : oauth).map((provider) => {
       const sdk = enabled
         ? signIn.providers?.find((entry) => entry.id === provider.id)
         : undefined;
@@ -54,32 +68,46 @@ export class NativeMethodsService {
     const emailLinkFeature = this.features.isEnabled(AuthFeature.MAGIC_LINK);
     const passkeyFeature = this.features.isEnabled(AuthFeature.PASSKEYS);
     const twoFactorFeature = this.features.isEnabled(AuthFeature.TWO_FACTOR);
-    const password = enabled && signIn?.password === true && passwordFeature;
-    const emailLink = enabled && signIn?.emailLink === true && emailLinkFeature;
-    const passkeys =
+    const password =
+      !requiredPasskey &&
       enabled &&
-      signIn?.passkeys === true &&
-      Boolean(signIn.rpId && signIn.origins?.length) &&
-      passkeyFeature;
+      signIn?.password === true &&
+      passwordFeature;
+    const emailLink =
+      !requiredPasskey &&
+      enabled &&
+      signIn?.emailLink === true &&
+      emailLinkFeature;
+    const passkeys =
+      enabled && nativePasskeysAvailable(signIn) && passkeyFeature;
     return {
       nativeEnabled: enabled,
       methods: {
         password: passwordFeature,
         magicLink: emailLinkFeature,
+        emailCode: this.features.isEnabled(AuthFeature.EMAIL_CODE),
         twoFactor: twoFactorFeature,
         passkeys: passkeyFeature,
-        oauth,
+        oauth: requiredPasskey ? [] : oauth,
       },
       capabilities: {
         password,
         emailLink,
         passkeys,
         registration:
-          enabled && signIn?.registration === true && passwordFeature,
-        recovery: enabled && signIn?.recovery === true && passwordFeature,
+          !requiredPasskey &&
+          enabled &&
+          signIn?.registration === true &&
+          passwordFeature,
+        recovery:
+          !requiredPasskey &&
+          enabled &&
+          signIn?.recovery === true &&
+          passwordFeature,
         // feature:email-code:start
         ...emailCodeCapability(
-          enabled &&
+          !requiredPasskey &&
+            enabled &&
             signIn?.emailCode === true &&
             this.config.get<boolean>('emailCode.enabled', false) === true,
         ),
