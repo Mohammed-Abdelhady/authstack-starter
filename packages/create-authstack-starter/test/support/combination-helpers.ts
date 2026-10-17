@@ -1,14 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { format, getFileInfo, resolveConfig } from 'prettier';
 import { parse, stringify } from 'yaml';
 import { isRecord } from '../../src/manifest/read.js';
-import { listFiles } from '../../src/utils/fs.js';
-import { matchesAnyGlob } from '../../src/utils/glob.js';
-import { stripFeatureMarkers } from '../../src/prune/markers.js';
 import { type CommandResult, runTool } from './run-tool.js';
 import { assertWorkspaceEdgesResolve } from './workspace-assertions.js';
 
@@ -214,83 +210,4 @@ export function typecheckFrontendWithPrunedShared(project: string): Promise<Comm
     ],
     { cwd: project },
   );
-}
-
-/** Where the full selection has to match the repository, marker lines aside. */
-const COMPARED_DIRECTORIES = [
-  'backend/src',
-  'backend/test',
-  'frontend/src',
-  'mobile/adapters',
-  'mobile/auth/conformance',
-  'mobile/auth/src',
-  'mobile/auth/test',
-  'mobile/cli',
-  'mobile/device-key/android',
-  'mobile/device-key/ios',
-  'mobile/device-key/src',
-  'mobile/device-key/test',
-  'mobile/expo',
-  'mobile/metro',
-  'mobile/ui',
-  'shared/core/src',
-  'shared/sdk/src',
-];
-export interface MarkerDifference {
-  file: string;
-  reason: string;
-}
-
-/** Formats with the repository config, the way the CLI formats a generated tree. */
-async function formatLikeRepository(content: string, relative: string): Promise<string | null> {
-  const path = join(REPO_ROOT, relative);
-  const info = await getFileInfo(path);
-  if (info.inferredParser === null) return null;
-
-  const config = await resolveConfig(path);
-  return format(content, { ...config, filepath: path });
-}
-
-/**
- * Compares a project scaffolded with everything selected against the
- * repository: retained files differ only by markers, and what the manifest
- * removes, for every project or with a client left out, must be absent.
- */
-export async function compareWithRepository(
-  project: string,
-  featureIds: string[],
-  markerIds: string[],
-  removedFiles: string[],
-): Promise<MarkerDifference[]> {
-  const kept = new Set(featureIds);
-  const known = new Set(markerIds);
-  const differences: MarkerDifference[] = [];
-
-  for (const directory of COMPARED_DIRECTORIES) {
-    for (const file of await listFiles(join(REPO_ROOT, directory))) {
-      const relative = `${directory}/${file}`;
-      if (matchesAnyGlob(relative, removedFiles)) {
-        if (existsSync(join(project, relative)))
-          differences.push({ file: relative, reason: 'manifest-removed file was retained' });
-        continue;
-      }
-      const source = readFileSync(join(REPO_ROOT, relative), 'utf8');
-      const stripped = stripFeatureMarkers(source, relative, kept, known).content;
-      const formatted = await formatLikeRepository(stripped, relative);
-      const expected = formatted ?? stripped;
-
-      let generated: string;
-      try {
-        generated = readFileSync(join(project, relative), 'utf8');
-      } catch {
-        differences.push({ file: relative, reason: 'missing from the generated project' });
-        continue;
-      }
-      if (generated !== expected) {
-        differences.push({ file: relative, reason: 'differs by more than its markers' });
-      }
-    }
-  }
-
-  return differences;
 }
