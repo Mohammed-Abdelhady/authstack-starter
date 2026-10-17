@@ -1,3 +1,6 @@
+import { createAccountDeletion } from './account-deletion';
+import type { AccountDeletionProps, EmailConfirmationProps } from '@app/native-ui';
+import type { ProviderSignInPort } from '@app/native-auth';
 import {
   createDeviceKey,
   type DeviceKeyNativeApi,
@@ -6,6 +9,7 @@ import {
 } from '@app/device-key';
 import {
   createFetchTransport,
+  storageKey,
   createNativePorts,
   REQUEST_DEADLINE_MS,
   type HttpApi,
@@ -38,6 +42,9 @@ export interface ShellSettings {
 }
 
 export interface ShellAuth {
+  emailConfirmation: EmailConfirmationProps;
+  accountDeletion: AccountDeletionProps;
+  providerSignIn?: ProviderSignInPort;
   engine: AuthEngine;
   client: ApiClient<AbortSignalPort>;
   debug: DebugTransport;
@@ -107,9 +114,25 @@ export function createShellAuth<TAlgorithm, TSignal, THandle>(
   });
   const [debug] = transports;
   if (debug === undefined) throw new Error(SHELL_FAILURE.NO_TRANSPORT);
+  const publicTransport = createFetchTransport(
+    modules.http,
+    ports.timer,
+    configuration.serverBaseAddress,
+    REQUEST_DEADLINE_MS,
+  );
   return {
+    emailConfirmation: { clientId: configuration.clientId, transport: publicTransport },
     engine,
     client: createApiClient(engine.transport),
+    providerSignIn: modules.nativeSignIn?.providerSignIn,
+    accountDeletion: createAccountDeletion({
+      engine,
+      crypto: ports.crypto,
+      receiptTransport: publicTransport,
+      store: modules.secureStore,
+      options: modules.keychainOptions,
+      storageKey: storageKey('account-deletion', configuration.clientId, configuration.environment),
+    }),
     debug,
     now: () => ports.clock.wallTime(),
   };
