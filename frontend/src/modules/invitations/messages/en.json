@@ -1,0 +1,69 @@
+{
+  "invitations": {
+    "title": "Invitations",
+    "usersView": "Users",
+    "views": "User administration views",
+    "invite": "Invite",
+    "inviteDescription": "Send an invitation to create an account with the selected role.",
+    "email": "Email address",
+    "name": "Name (optional)",
+    "role": "Role",
+    "filter": "Invitation status",
+    "expiry": "Expires",
+    "invitedBy": "Invited by",
+    "unknownInviter": "Unavailable",
+    "resend": "Resend",
+    "resent": "The invitation was resent.",
+    "revoke": "Revoke",
+    "revokeDescription": "Revoke the invitation for {email}? This link will no longer work.",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "loading": "Loading invitations",
+    "empty": "No invitations with this status.",
+    "count": "{count, plural, =0 {No invitations} one {# invitation} other {# invitations}}",
+    "statuses": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "proof": {
+      "title": "Confirm your identity",
+      "description": "Verify your identity to continue sending this invitation.",
+      "passkey": "Use a passkey",
+      "send": "Send an email code",
+      "sent": "The code has been sent and expires in {minutes, plural, one {# minute} other {# minutes}}.",
+      "code": "Six-digit code",
+      "verify": "Verify code"
+    },
+    "accept": {
+      "title": "Accept invitation",
+      "confirm": "Accept",
+      "accepted": "Invitation accepted. Opening your account.",
+      "purposes": {
+        "account": "Accept to create your account and open your dashboard.",
+        "first_admin": "Accept to create the first administrator account and open your dashboard.",
+        "enrolment": "Accept to register a new passkey for your account."
+      }
+    },
+    "errors": {
+      "emailExists": "An account with this email address already exists.",
+      "roleMissing": "This role is no longer available. Choose another role.",
+      "higherRole": "You cannot assign a role at or above your own level.",
+      "invalidRole": "This role cannot be assigned to this invitation.",
+      "validation": "Check the invitation details and try again.",
+      "reauth": "Your identity must be verified again. Submit the request again to continue.",
+      "invalidLink": "This invitation link is invalid or no longer available.",
+      "invalidCode": "The code is invalid or has expired. Try again or request another code.",
+      "passkeyFailed": "Passkey verification did not complete. Try again or choose another available method.",
+      "generic": "The request could not be completed. Please try again."
+    },
+    "enrolment": {
+      "title": "Register a passkey",
+      "description": "Register a passkey to finish setting up access to your account.",
+      "register": "Register a passkey",
+      "continue": "Continue to your account",
+      "identityFailed": "Your passkey was registered. Try continuing to your account again."
+    }
+  }
+}
