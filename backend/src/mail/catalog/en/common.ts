@@ -4,6 +4,9 @@ import type {
 } from '../../types/mail-catalogue.types';
 
 export const COMMON_EN = {
+  nativeLinkTitle: 'Open this link on your phone',
+  nativeLinkMessage:
+    'Open this on the phone where you asked for it, or type the code from the same mail.',
   greeting: 'Hi,',
   greetingNamed: 'Hi {name},',
   signOff: 'Best regards,',

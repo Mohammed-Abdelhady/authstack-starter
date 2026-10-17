@@ -1,3 +1,5 @@
+import type { InvitationMessages } from './en/invitation'; // feature:invitations
+import type { PasskeyResetMessages } from './en/passkey-reset'; // feature:invitations
 import type { SupportedLocale } from '../../common/constants/locales';
 import type { TextDirection } from '../types/mail-catalogue.types';
 import { AR_MAIL_CATALOGUE } from './ar'; // feature:locale-ar
@@ -11,6 +13,8 @@ import type { ProofCodeMessages } from './en/proof-code';
 import type { RegistrationNoticeMessages } from './en/registration-notice';
 import type { SecurityNoticeMessages } from './en/security-notice';
 import type { SignInCodeMessages } from './en/sign-in-code'; // feature:email-code
+import type { OwnEmailChangeCodeMessages } from './en/own-email-change-code';
+import type { AccountErasureMessages } from './en/account-erasure';
 import { EN_MAIL_CATALOGUE } from './en';
 
 /** Every mail's messages in one language, keyed by mail name. */
@@ -25,6 +29,10 @@ export type MailCatalogue = {
   readonly registrationNotice: RegistrationNoticeMessages;
   readonly securityNotice: SecurityNoticeMessages;
   readonly signInCode: SignInCodeMessages; // feature:email-code
+  readonly ownEmailChangeCode: OwnEmailChangeCodeMessages;
+  readonly accountErasure: AccountErasureMessages;
+  readonly invitation: InvitationMessages; // feature:invitations
+  readonly passkeyReset: PasskeyResetMessages; // feature:invitations
 };
 
 type ByLocale<Value> = Readonly<Record<SupportedLocale, Value>>;
