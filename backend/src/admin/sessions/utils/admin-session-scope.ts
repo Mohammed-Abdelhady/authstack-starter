@@ -10,9 +10,9 @@ import { UserRole } from '../../../user/enums/user-role.enum';
 import { StoredAccount } from '../../../user/stores/stored-account';
 
 export function sessionTargetClass(target: StoredAccount): RoleAudience {
-  // Until audience storage lands, custom roles are conservatively staff-only.
+  // Without a stored audience, custom roles are conservatively staff-only.
   const customer =
-    'audience' in target
+    target.audience !== undefined
       ? target.audience === ROLE_AUDIENCE.CUSTOMER
       : target.role === (UserRole.USER as string);
   return customer ? ROLE_AUDIENCE.CUSTOMER : ROLE_AUDIENCE.STAFF;
