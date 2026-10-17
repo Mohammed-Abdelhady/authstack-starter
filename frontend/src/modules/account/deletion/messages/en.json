@@ -1,0 +1,12 @@
+{
+  "accountDeletion": {
+    "title": "Delete account",
+    "description": "Delete your account and sign out on every device.",
+    "delete": "Delete account",
+    "confirmTitle": "Delete your account?",
+    "confirmDescription": "This deletes your account and signs you out on every device. You cannot undo it here.",
+    "cancel": "Cancel",
+    "deleted": "Your account was deleted.",
+    "erasedAfter": "Your account was deleted. Its data will be erased after ⁨{date}⁩."
+  }
+}
