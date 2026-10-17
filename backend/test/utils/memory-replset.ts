@@ -22,6 +22,8 @@ const SUITE_HASH_LENGTH = 16;
 const DATABASE_HASH_LENGTH = 12;
 const DATABASE_LABEL_LENGTH = 20;
 const SERVER_SELECTION_TIMEOUT_MS = 5000;
+// Flush test journals promptly without weakening majority acknowledgements.
+const TEST_JOURNAL_COMMIT_INTERVAL_MS = 1;
 
 let fixtureSequence = 0;
 
@@ -110,6 +112,8 @@ export async function startSharedMongoServer(
         args: [
           '--replSet',
           REPLICA_SET_NAME,
+          '--setParameter',
+          `journalCommitInterval=${TEST_JOURNAL_COMMIT_INTERVAL_MS}`,
           ...(options.ttlMonitorSleepSecs === undefined
             ? []
             : [
