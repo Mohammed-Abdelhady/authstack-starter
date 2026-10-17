@@ -27,6 +27,7 @@ export function magicLinkStatements(
       }),
     'link.findUnspentLink': () => links.findUnspentLink('hash'),
     'link.claimLink': () => links.claimLink('hash', TEST_NOW),
+    'link.restoreUnspentLink': () => links.restoreUnspentLink('hash', TEST_NOW),
     'account.findByEmail': () => accounts.findByEmail(EMAIL),
     'account.findLinkRecipient': () => accounts.findLinkRecipient(EMAIL),
   };
@@ -38,6 +39,7 @@ export const MAGIC_LINK_OUTAGES: Record<string, string> = {
   'link.insertLink': UNAVAILABLE,
   'link.findUnspentLink': UNAVAILABLE,
   'link.claimLink': UNAVAILABLE,
+  'link.restoreUnspentLink': UNAVAILABLE,
   'account.findByEmail': UNAVAILABLE,
   'account.findLinkRecipient': UNAVAILABLE,
 };

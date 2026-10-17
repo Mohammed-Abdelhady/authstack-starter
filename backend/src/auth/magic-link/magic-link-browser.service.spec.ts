@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { partialMock } from '../../common/testing/test-doubles.harness-spec';
 import { SessionCookieService } from '../services/sessions/session-cookie.service';
@@ -14,9 +15,10 @@ function browserService(nodeEnv: string): MagicLinkBrowserService {
     NODE_ENV: nodeEnv,
     magicLink: { expiresIn: LINK_LIFETIME_MS },
   });
+  const browserApplications = browserApplicationsForTest(config);
   return new MagicLinkBrowserService(
     partialMock<Sessions>({}),
-    new SessionCookieService(config),
+    new SessionCookieService(config, browserApplications),
     config,
   );
 }
@@ -122,11 +124,12 @@ describe('MagicLinkBrowserService', () => {
 
   it('names nobody when the browser has no session or a dead one', async () => {
     const config = new ConfigService({});
+    const browserApplications = browserApplicationsForTest(config);
     const service = new MagicLinkBrowserService(
       partialMock<Sessions>({
         validateSessionWithoutExtendingIdle: () => Promise.resolve(null),
       }),
-      new SessionCookieService(config),
+      new SessionCookieService(config, browserApplications),
       config,
     );
     const dead = linkBrowser();

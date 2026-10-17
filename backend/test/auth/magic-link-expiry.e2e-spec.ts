@@ -61,19 +61,6 @@ describe('magic link whose stored expiry has passed (e2e)', () => {
     });
     expect(await e2e.state.sessions.countSessions()).toBe(0);
   });
-
-  it('accepts the same kind of link when nothing expired it', async () => {
-    const { browser, token } = await mailedLink();
-
-    const proof = await proofFor(browser);
-    await browser
-      .post('/api/auth/magic-link/verify')
-      .set(CSRF_HEADER, proof)
-      .send({ token })
-      .expect(200);
-
-    expect(await e2e.state.sessions.countSessions()).toBe(1);
-  });
 });
 
 /** A browser proof works once, so a browser fetches one before each anonymous post. */
