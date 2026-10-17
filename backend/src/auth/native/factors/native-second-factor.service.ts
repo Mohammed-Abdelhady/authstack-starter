@@ -9,11 +9,10 @@ import { AuthFeature } from '../../enums/auth-feature.enum';
 import { AuthFeaturesService } from '../../services/features/auth-features.service';
 import { SecondFactorStore } from '../../two-factor/stores/second-factor.store';
 import { TwoFactorVerificationService } from '../../two-factor/services/two-factor-verification.service';
-import { NativeAttemptStore } from '../stores/native-attempt.store';
-import {
-  NativeAttemptService,
-  operationGuardOf,
-} from '../services/native-attempt.service';
+import { NativeAttemptService } from '../services/native-attempt.service';
+import { NativeAttemptCompletionService } from '../services/native-attempt-completion.service';
+import { EventRecorder } from '../../contracts/event-recorder';
+import { nativeAudienceRefusal } from '../utils/native-audience-refusal';
 import { NATIVE_ATTEMPT_PHASE } from '../constants/native-attempt';
 import {
   featureDisabled,
@@ -28,7 +27,8 @@ import { NativePasskeyService } from './native-passkey.service'; // feature:pass
 export class NativeSecondFactorService {
   constructor(
     private readonly attempts: NativeAttemptService,
-    private readonly stores: NativeAttemptStore,
+    private readonly completion: NativeAttemptCompletionService,
+    private readonly events: EventRecorder,
     private readonly factors: SecondFactorStore,
     private readonly verification: TwoFactorVerificationService,
     private readonly passkeys: NativePasskeyService, // feature:passkeys
@@ -101,35 +101,24 @@ export class NativeSecondFactorService {
           )
             throw wrongStage();
           await verify(work);
-          const result = await this.stores.transitionIn(
-            work,
-            operationGuardOf(claimed),
-            {
-              phase: NATIVE_ATTEMPT_PHASE.CONSENT_REQUIRED,
-              expiresAt: claimed.expiresAt,
-              details: {
-                ...claimed.details,
-                secondFactors: undefined,
-                passkeyChallengeHash: null,
-                passkeyPurpose: null,
-                verifiedAccount: {
-                  ...principal,
-                  authenticationMethods: [
-                    ...principal.authenticationMethods,
-                    'code' in input ? 'otp' : 'recovery',
-                  ],
-                },
-              },
-            },
-          );
-          if (!result) throw wrongStage();
-          return result;
+          return this.completion.afterLastFactorIn(work, claimed, {
+            method: 'code' in input ? 'otp' : 'recovery',
+            userVerified: false,
+            secret,
+          });
         },
       );
-      return this.attempts.view(completed);
+      return this.attempts.viewAfter(completed, secret);
     } catch (error) {
       await this.attempts.release(claimed).catch(() => undefined);
-      throw error;
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        claimed.clientId,
+        () => this.verification.invalidCode('account audience is not admitted'),
+        claimed.details.verifiedAccount?.userId,
+      );
+      throw refusal ?? error;
     }
   }
 }

@@ -1,4 +1,9 @@
+import { ApplicationPolicyReader } from '../../../auth/contracts/application-policy';
+import { Optional } from '@nestjs/common';
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { NativeSecurityEvents } from '../credentials/native-security-events';
+import { nativeAudienceRefusal } from '../../../auth/native/utils/native-audience-refusal';
+import { assertAudienceAdmission } from '../../utils/authority/audience-admission';
 import { randomUUID } from 'crypto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
@@ -21,7 +26,6 @@ import {
 } from '../../constants/session-policy';
 import { ApplicationAccessStore } from '../../applications/application-access.store';
 import { ApplicationRegistry } from '../../applications/application-registry';
-import { RegisteredClient } from '../../applications/application-registry.store';
 import { BrowserIssuanceStore } from '../../issuance/browser-issuance.store';
 import { addMs } from '../../utils/session/session-deadline';
 import { hashToken, randomSecret } from '../../utils/hashing/token-hash';
@@ -37,7 +41,12 @@ import {
   nativeRedirectPolicy,
   validateNativeAuthorizationRequest,
 } from './native-authorize-validation';
-import { assertNativeVerifiedAuthority } from './native-verified-authority';
+import {
+  assertNativeVerifiedAuthority,
+  nativeApprovalEvidence,
+  type ApprovalEvidence,
+} from './native-verified-authority';
+import { allowNativeGrant } from './native-authorize-grant';
 import type { ValidatedNativeAuthorization } from '../types/native-authorization';
 import {
   appendAuthorizationCode,
@@ -66,6 +75,8 @@ export class NativeAuthorizeService {
     private readonly issuance: BrowserIssuanceStore,
     private readonly clock: Clock,
     private readonly authEpoch: AuthEpochService,
+    private readonly events: NativeSecurityEvents,
+    @Optional() private readonly policies?: ApplicationPolicyReader,
   ) {}
 
   async begin(query: unknown): Promise<AuthorizeBegin | OauthFailure> {
@@ -98,10 +109,17 @@ export class NativeAuthorizeService {
     );
   }
 
+  /**
+   * A signed-in browser approves the request. The mobile session takes
+   * `authenticatedAt`, when that browser session signed in, never the approval
+   * time. Without it the mobile session takes its own issue time.
+   */
   async approve(
     userId: string,
     transactionId: string,
     authenticationMethods: string[],
+    authenticatedAt?: Date,
+    browserEvidence?: { userVerified: boolean; clientId: string },
   ): Promise<{ redirectUri: string }> {
     if (!this.authEpoch.nativeEnabled()) {
       throw new AppException(
@@ -114,6 +132,7 @@ export class NativeAuthorizeService {
       throw incompleteApproval();
     }
     let approved: ApprovedAuthorization;
+    let clientId = '';
     try {
       approved = await runLeavingFailuresAsRaised(
         this.unitOfWork,
@@ -122,10 +141,27 @@ export class NativeAuthorizeService {
             unitOfWork,
             userId,
             transactionId,
-            authenticationMethods,
+            {
+              authenticationMethods,
+              userVerified: browserEvidence?.userVerified === true,
+              browserClientId: browserEvidence?.clientId,
+              authenticatedAt: authenticatedAt ?? null,
+            },
+            undefined,
+            (value) => {
+              clientId = value;
+            },
           ),
       );
     } catch (error) {
+      const refusal = await nativeAudienceRefusal(
+        error,
+        this.events,
+        clientId,
+        expiredTransaction,
+        userId,
+      );
+      if (refusal) throw refusal;
       if (error instanceof MalformedIdError) {
         throw incompleteApproval();
       }
@@ -170,7 +206,11 @@ export class NativeAuthorizeService {
       unitOfWork,
       principal.userId,
       transactionId,
-      principal.authenticationMethods,
+      {
+        authenticationMethods: principal.authenticationMethods,
+        userVerified: principal.userVerified === true,
+        authenticatedAt: principal.verifiedAt,
+      },
       principal,
     );
     return {
@@ -204,8 +244,9 @@ export class NativeAuthorizeService {
     unitOfWork: UnitOfWork,
     userId: string,
     transactionId: string,
-    authenticationMethods: string[],
+    evidence: ApprovalEvidence,
     expected?: VerifiedNativeAccount,
+    setClientId?: (clientId: string) => void,
   ): Promise<ApprovedAuthorization> {
     const now = this.clock.now();
     const account = await this.issuance.findAccount(unitOfWork, userId);
@@ -226,6 +267,7 @@ export class NativeAuthorizeService {
     if (!pending) {
       throw expiredTransaction();
     }
+    setClientId?.(pending.clientId);
     if (
       !isAcceptableRedirectUri(
         pending.redirectUri,
@@ -251,6 +293,17 @@ export class NativeAuthorizeService {
     }
     if (expected && application.sessionVersion !== expected.clientVersion)
       throw expiredTransaction();
+    assertAudienceAdmission(
+      account.accountAudience,
+      application.accountAudience,
+    );
+    evidence = await nativeApprovalEvidence({
+      work: unitOfWork,
+      policies: this.policies,
+      evidence,
+      requirePasskey: application.requirePasskey === true,
+      clientId: pending.clientId,
+    });
     const code = randomSecret();
     const codeExpiresAt = addMs(now, AUTHORIZATION_CODE_LIFETIME_MS);
     const codeHash = hashToken(code);
@@ -262,16 +315,21 @@ export class NativeAuthorizeService {
       userId: account.id,
       capturedUserVersion: account.sessionVersion,
       capturedClientVersion: application.sessionVersion,
-      authenticationMethods: authenticationMethods.slice(0, 10),
+      authenticationMethods: evidence.authenticationMethods.slice(0, 10),
+      userVerified: evidence.userVerified,
+      authenticatedAt: evidence.authenticatedAt,
     });
     if (claimed !== AUTHORIZATION_APPROVAL.APPROVED) {
       throw expiredTransaction();
     }
-    const grant = await this.allowGrant(
+    const grant = await allowNativeGrant(
       unitOfWork,
-      account.id,
-      application,
-      expected?.grantVersion,
+      { grants: this.grants, issuance: this.issuance },
+      {
+        userId: account.id,
+        application,
+        expectedVersion: expected?.grantVersion,
+      },
     );
     const captured = await this.store.captureGrantVersion(
       unitOfWork,
@@ -288,39 +346,5 @@ export class NativeAuthorizeService {
       code,
       grantVersion: grant.sessionVersion,
     };
-  }
-
-  private async allowGrant(
-    unitOfWork: UnitOfWork,
-    userId: string,
-    application: RegisteredClient,
-    expectedVersion?: number | null,
-  ): Promise<{ sessionVersion: number }> {
-    const existing = await this.grants.takeGrantForChange(
-      unitOfWork,
-      userId,
-      application.clientId,
-    );
-    if (
-      expectedVersion !== undefined &&
-      (existing?.sessionVersion ?? null) !== expectedVersion
-    ) {
-      throw expiredTransaction();
-    }
-    if (existing && !existing.allowed) {
-      throw new AppException(
-        ErrorCode.GRANT_BLOCKED,
-        'Application access is blocked for this account',
-        HttpStatus.FORBIDDEN,
-      );
-    }
-    if (existing) {
-      return existing;
-    }
-    return this.issuance.createGrant(unitOfWork, {
-      userId,
-      clientId: application.clientId,
-      allowedScopes: application.allowedScopes,
-    });
   }
 }

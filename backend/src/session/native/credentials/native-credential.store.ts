@@ -45,13 +45,18 @@ export interface NewNativeSession {
   userVersion: number;
   clientVersion: number;
   grantVersion: number;
+  policyVersion: number;
   authEpoch: number;
   schemaVersion: number;
   scopes: string[];
   audience: string;
   authenticationMethods: string[];
+  userVerified: boolean;
   credentialPurpose: CredentialPurpose;
+  /** When the person last proved who they are; may predate the session. */
   authenticatedAt: Date;
+  /** When the session was issued, which its lifetime counts from. */
+  issuedAt: Date;
   lastUsedAt: Date;
   lastActivityAt: Date;
   expiresAt: Date;
