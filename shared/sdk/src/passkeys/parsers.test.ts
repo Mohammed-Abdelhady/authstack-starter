@@ -14,6 +14,29 @@ function readList(passkeys: unknown[]) {
 }
 
 describe('the passkey list', () => {
+  it('retains each relying-party removal decision across the wire', () => {
+    expect(
+      readList([
+        {
+          id: 'required',
+          name: 'Web',
+          ...STORED,
+          canRemove: false,
+          removalBlockedCode: 'PASSKEY_REQUIRED_LAST',
+        },
+        { id: 'optional', name: 'App', ...STORED, canRemove: true },
+      ]).passkeys,
+    ).toEqual([
+      {
+        id: 'required',
+        name: 'Web',
+        ...STORED,
+        canRemove: false,
+        removalBlockedCode: 'PASSKEY_REQUIRED_LAST',
+      },
+      { id: 'optional', name: 'App', ...STORED, canRemove: true },
+    ]);
+  });
   it.each(['', '   '])(
     'keeps a passkey stored with the blank name %j beside a named one',
     (name) => {
