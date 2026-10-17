@@ -3,7 +3,14 @@ import type { NativeMethods } from '@app/sdk';
 export const METHODS_DEADLINE_MS = 15_000;
 export const METHODS: NativeMethods = {
   nativeEnabled: true,
-  methods: { password: true, magicLink: false, passkeys: true, twoFactor: false, oauth: [] },
+  methods: {
+    password: true,
+    magicLink: false,
+    emailCode: false,
+    passkeys: true,
+    twoFactor: false,
+    oauth: [],
+  },
   capabilities: {
     password: true,
     emailLink: false,

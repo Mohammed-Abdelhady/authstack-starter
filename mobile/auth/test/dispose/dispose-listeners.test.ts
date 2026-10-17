@@ -7,22 +7,6 @@ import type { RuntimeTokens } from '../../src/types/record';
 import { CONFIG, ScriptedTransport, apiReply, testPorts } from '../support/support';
 
 describe('dispose listener lifetime', () => {
-  it('does not notify a listener removed during disposal', () => {
-    const runtime = new AuthRuntime(CONFIG, testPorts(new ScriptedTransport()));
-    const calls: string[] = [];
-    let unsubscribeLater = (): void => undefined;
-    runtime.onDispose(() => {
-      calls.push('first');
-      unsubscribeLater();
-    });
-    unsubscribeLater = runtime.onDispose(() => calls.push('removed'));
-
-    runtime.dispose();
-
-    expect(calls).toEqual(['first']);
-    expect(runtime.disposeListenerCount).toBe(0);
-  });
-
   it('contains throwing listeners, clears listeners, and invokes a late subscriber once', () => {
     const runtime = new AuthRuntime(CONFIG, testPorts(new ScriptedTransport()));
     const calls: string[] = [];

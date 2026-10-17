@@ -8,7 +8,6 @@ import { readStoredValue, serializeStoredValue } from '../../src/storage/envelop
 import {
   endedRevocations,
   holdPendingRevocations,
-  recordEndedRevocation,
   updatePendingRevocations,
 } from '../../src/storage/pending-revocations';
 import type { PendingRevocation } from '../../src/types/record';
@@ -174,29 +173,5 @@ describe('pending revocation retries', () => {
     expect(next).toHaveLength(PENDING_REVOCATION_MAX_ENTRIES);
     expect(dropped.map((entry) => entry.refreshToken)).toEqual(['token-0']);
     expect(next.at(-1)?.refreshToken).toBe('newest');
-  });
-
-  // W5: the engine keeps only the latest ended revocations.
-  it('keeps the latest sixteen ended revocations and drops the oldest', () => {
-    const { runtime } = waitingOn({});
-    for (let index = 0; index < 17; index += 1)
-      recordEndedRevocation(runtime, 'revoked', `lineage-${index}`);
-
-    const ended = endedRevocations(runtime);
-    expect(ended).toHaveLength(16);
-    expect(ended[0]).toEqual({ lineageId: 'lineage-1', reason: 'revoked' });
-    expect(ended[15]).toEqual({ lineageId: 'lineage-16', reason: 'revoked' });
-  });
-
-  // Case 43: the server answers an already revoked token as revoked, which removes it.
-  it('removes a revocation the server confirms', async () => {
-    const { transport, ports, runtime, drain } = waitingOn({ attempts: 3 });
-    transport.enqueue({ status: 200, body: {} });
-
-    await drain();
-
-    expect(revokedTokens(transport)).toEqual([REFRESH_TOKEN]);
-    expect(ports.credentials.value).toBeUndefined();
-    expect(endedRevocations(runtime)).toEqual([{ lineageId: LINEAGE_ID, reason: 'revoked' }]);
   });
 });

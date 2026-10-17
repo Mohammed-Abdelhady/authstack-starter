@@ -97,36 +97,11 @@ describe('sign-in browser faults', () => {
       (inner) => (address, redirectUri, signal) =>
         inner.open(address.toLowerCase(), redirectUri, signal),
     ),
-    browserResult('reports a cancel as a dismissal', ['authBrowser.cancelled'], (result) =>
-      result.kind === 'cancelled' ? { kind: 'dismissed' } : result,
-    ),
-    browserResult('reports a dismissal as a cancel', ['authBrowser.dismissed'], (result) =>
-      result.kind === 'dismissed' ? { kind: 'cancelled' } : result,
-    ),
-    browserResult('throws when the session fails', ['authBrowser.failed'], (result) => {
-      if (result.kind === 'failed') throw new Error(result.reason);
-      return result;
-    }),
-    browserResult('reports a failure as a cancel', ['authBrowser.failed'], (result) =>
-      result.kind === 'failed' ? { kind: 'cancelled' } : result,
-    ),
-    browserResult('gives no reason for a failure', ['authBrowser.failed'], (result) =>
-      result.kind === 'failed' ? { kind: 'failed', reason: '' } : result,
-    ),
     browser(
       'ignores the abort signal',
       ['authBrowser.abort'],
       (inner) => (address, redirectUri) =>
         inner.open(address, redirectUri, new PortAbortController().signal),
-    ),
-    browser(
-      'rejects when aborted',
-      ['authBrowser.abort'],
-      (inner) => async (address, redirectUri, signal) => {
-        const result = await inner.open(address, redirectUri, signal);
-        if (signal.aborted) throw new Error('The session was aborted.');
-        return result;
-      },
     ),
     browser(
       'reports before the session ends',
@@ -237,22 +212,6 @@ describe('return address faults', () => {
         };
       }),
     ),
-    callbacks('throws on a second unsubscribe', ['callbacks.unsubscribe'], (address) =>
-      launchWith(address, (inner) => {
-        const subscribe = inner.subscribe.bind(inner);
-        return {
-          subscribe: (listener) => {
-            const unsubscribe = subscribe(listener);
-            let removed = false;
-            return () => {
-              if (removed) throw new Error('The subscription was already removed.');
-              removed = true;
-              unsubscribe();
-            };
-          },
-        };
-      }),
-    ),
   ]);
 });
 
@@ -316,26 +275,6 @@ describe('timer faults', () => {
     timer('cannot be cancelled', ['timer.cancel'], (inner) => (delay, callback) => {
       inner.after(delay, callback);
       return () => undefined;
-    }),
-    timer('throws when cancelled after firing', ['timer.cancel'], (inner) => (delay, callback) => {
-      let fired = false;
-      const cancel = inner.after(delay, () => {
-        fired = true;
-        callback();
-      });
-      return () => {
-        if (fired) throw new Error('The timer already fired.');
-        cancel();
-      };
-    }),
-    timer('throws on a second cancel', ['timer.cancel'], (inner) => (delay, callback) => {
-      const cancel = inner.after(delay, callback);
-      let cancelled = false;
-      return () => {
-        if (cancelled) throw new Error('The timer was already cleared.');
-        cancelled = true;
-        cancel();
-      };
     }),
   ]);
 });

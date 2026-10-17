@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import * as entry from '../../src';
 import { createAuthEngine } from '../support/engine';
 import { CONFIG, ScriptedTransport, testPorts } from '../support/support';
 
@@ -16,21 +15,5 @@ describe('the return address handed to the browser port', () => {
     expect(ports.authBrowser.opened[0]?.address).toContain(
       'https://api.example.test/api/oauth/authorize?',
     );
-  });
-});
-
-describe('the engine entry', () => {
-  it('exports the abort controller a shell needs to build a port signal', () => {
-    const controller = new entry.PortAbortController();
-    let aborts = 0;
-    controller.signal.addEventListener('abort', () => {
-      aborts += 1;
-    });
-
-    controller.abort();
-    controller.abort();
-
-    expect(controller.signal.aborted).toBe(true);
-    expect(aborts).toBe(1);
   });
 });

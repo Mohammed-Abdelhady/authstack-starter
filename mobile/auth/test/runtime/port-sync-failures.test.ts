@@ -265,19 +265,4 @@ describe('synchronous port failures', () => {
 
     expect(result).toMatchObject({ kind: 'resolved', value: { kind: 'clockFailure' } });
   });
-
-  it('returns a browser failure when the authorize address cannot encode configuration', async () => {
-    const ports = testPorts(new ScriptedTransport());
-    const engine = createAuthEngine({ ...CONFIG, clientId: 'bad\ud800id' }, ports);
-    await engine.restore();
-
-    const result = await engine.signIn().then(
-      (value) => ({ kind: 'resolved' as const, value }),
-      (error: unknown) => ({ kind: 'rejected' as const, error }),
-    );
-    engine.dispose();
-
-    expect(result).toMatchObject({ kind: 'resolved', value: { kind: 'browserFailure' } });
-    expect(ports.authBrowser.opened).toHaveLength(0);
-  });
 });

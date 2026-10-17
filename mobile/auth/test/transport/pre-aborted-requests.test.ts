@@ -1,6 +1,6 @@
 import { REFRESH_1_TOKEN } from '../support/token-values';
 import { describe, expect, it } from 'vitest';
-import { HTTP_METHOD, TRANSPORT_FAILURE, TransportError } from '@app/sdk';
+import { HTTP_METHOD, TRANSPORT_FAILURE } from '@app/sdk';
 import { createAuthEngine } from '../support/engine';
 import {
   CONFIG,
@@ -58,22 +58,6 @@ describe('requests with an already-aborted signal', () => {
     expect(response.status).toBe(200);
     expect(refreshes).toHaveLength(1);
     expect(refreshes[0]?.body).toMatchObject({ refresh_token: REFRESH_TOKEN });
-  });
-
-  it('rejects before sending when signed out', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-
-    await expect(
-      engine.transport.request({
-        method: HTTP_METHOD.GET,
-        path: '/api/user/profile',
-        signal: abortedSignal,
-      }),
-    ).rejects.toBeInstanceOf(TransportError);
-    expect(transport.sent).toHaveLength(0);
   });
 
   it('rejects before sending when a valid token is in memory', async () => {

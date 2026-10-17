@@ -1,7 +1,7 @@
 import { createPublicKey, verify } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { writeFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { DeviceKeyPort } from '../../src';
 import { FIXED_PUBLIC_JWK, SoftwareDeviceKey } from '../support/software-device-key';
 import {
@@ -55,7 +55,7 @@ function replayingKey(vector: ProofVector) {
 }
 
 describe('the DPoP proof vectors shared with the server', () => {
-  it('are written again on request, by the engine with a real key', async () => {
+  beforeAll(async () => {
     if (process.env['UPDATE_DPOP_VECTOR'] !== '1') return;
     writeFileSync(VECTOR_PATH, serialize(await buildVectorFile(new SoftwareDeviceKey())));
   });

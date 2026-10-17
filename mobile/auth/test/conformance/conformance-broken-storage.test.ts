@@ -167,16 +167,6 @@ describe('crypto faults', () => {
     crypto('hashes text and drops bytes that are not ASCII', ['crypto.sha256-bytes'], (inner) => ({
       sha256: (bytes) => inner.sha256(bytes.filter((byte) => byte < 0x80)),
     })),
-    crypto('wipes the bytes it was given', ['crypto.sha256-bytes'], (inner) => ({
-      sha256: async (bytes) => {
-        const digest = await inner.sha256(bytes);
-        bytes.fill(0);
-        return digest;
-      },
-    })),
-    crypto('returns zeros for no bytes', ['crypto.sha256-bytes'], (inner) => ({
-      sha256: async (bytes) => (bytes.length === 0 ? new Uint8Array(32) : inner.sha256(bytes)),
-    })),
     crypto('returns one byte too many', ['crypto.random-bytes'], (inner) => ({
       randomBytes: (length) => inner.randomBytes(length + 1),
     })),

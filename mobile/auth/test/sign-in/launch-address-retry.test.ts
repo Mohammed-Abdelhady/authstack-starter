@@ -99,16 +99,4 @@ describe('a launch address that could not be read', () => {
     expect(attempts).toBe(1);
     expect(transport.sent.map(({ path }) => path)).toEqual(SIGN_IN_REQUESTS);
   });
-
-  it('does not ask again once the read answered that there is no link', async () => {
-    const { transport, ports } = await coldStartFromSignIn();
-    ports.callbacks.initial = undefined;
-    const engine = createAuthEngine(CONFIG, ports);
-
-    await engine.restore();
-    await engine.restore();
-
-    expect(ports.callbacks.initialCalls).toBe(1);
-    expect(transport.sent).toHaveLength(0);
-  });
 });

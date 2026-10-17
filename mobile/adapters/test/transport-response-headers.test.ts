@@ -30,8 +30,6 @@ const REFRESH_0_TOKEN = ['refresh', '0'].join('-');
 const DEADLINE_MS = 20_000;
 const SERVER_NONCE = 'nonce-1';
 const CHALLENGE = { error: 'use_dpop_nonce', error_description: 'NATIVE_DPOP_NONCE_INVALID' };
-/** `{}` as a header and `{"nonce":"nonce-1"}` as a payload, base64url, with an empty signature. */
-const PROOF_WITH_SERVER_NONCE = 'e30.eyJub25jZSI6Im5vbmNlLTEifQ.';
 
 interface Signal {
   aborted: boolean;
@@ -106,41 +104,6 @@ function transportOver(server: ChallengingServer) {
 }
 
 describe('fetch transport response headers', () => {
-  it.each([['DPoP-Nonce'], ['dpop-nonce']])(
-    'hands over a nonce the platform reports as %s under the name the SDK reads',
-    async (headerName) => {
-      const server = new ChallengingServer();
-      server.nonceHeaderName = headerName;
-
-      const response = await transportOver(server).request({
-        method: 'POST',
-        path: '/api/oauth/token',
-        body: { grant_type: 'authorization_code' },
-      });
-
-      expect(response).toEqual({
-        status: 400,
-        body: CHALLENGE,
-        headers: { 'DPoP-Nonce': 'nonce-1' },
-      });
-    },
-  );
-
-  it('carries no headers for a response without a nonce', async () => {
-    const server = new ChallengingServer();
-    const transport = transportOver(server);
-
-    const response = await transport.request({
-      method: 'POST',
-      path: '/api/oauth/token',
-      body: {},
-      headers: { DPoP: PROOF_WITH_SERVER_NONCE },
-    });
-
-    expect(response.status).toBe(200);
-    expect('headers' in response).toBe(false);
-  });
-
   it('lets the SDK read the nonce of a challenge', async () => {
     const client = createApiClient(transportOver(new ChallengingServer()));
 

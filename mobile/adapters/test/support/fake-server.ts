@@ -6,6 +6,7 @@ export const SERVER_RETURN_ADDRESS = 'com.example.mobile://oauth/callback';
 export const AUTHORIZATION_CODE = 'code-1';
 
 export const SERVER_USER = {
+  locale: 'en',
   id: 'user-1',
   email: 'person@example.test',
   name: 'Test Person',

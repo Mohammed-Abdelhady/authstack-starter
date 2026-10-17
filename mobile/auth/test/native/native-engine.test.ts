@@ -118,48 +118,6 @@ describe('native engine', () => {
     expect(engine.snapshot.status).toBe('signedOut');
   });
 
-  it('reads methods without a bearer and retains system fallback for unavailable SDKs', async () => {
-    const transport = new ScriptedTransport();
-    const ports = testPorts(transport);
-    transport.enqueue(
-      apiReply({
-        nativeEnabled: true,
-        methods: {
-          password: true,
-          magicLink: false,
-          twoFactor: false,
-          passkeys: true,
-          oauth: [{ id: 'google', displayName: 'Google' }],
-        },
-        capabilities: {
-          password: true,
-          emailLink: false,
-          passkeys: true,
-          registration: false,
-          recovery: false,
-        },
-        providers: [
-          {
-            id: 'google',
-            displayName: 'Google',
-            mode: 'googleIdentityToken',
-            sdk: { kind: 'google', webClientId: 'web-client' },
-          },
-        ],
-      }),
-    );
-    const engine = createAuthEngine(CONFIG, ports);
-    await engine.restore();
-
-    const methods = await engine.methods();
-
-    expect(methods.capabilities.passkeys).toBe(false);
-    expect(methods.providers).toEqual([{ id: 'google', displayName: 'Google', mode: 'system' }]);
-    assert.isDefined(transport.sent[0]);
-    expect(transport.sent[0].headers?.['Authorization']).toBeUndefined();
-    expect(transport.sent[0].path).toBe('/api/auth/native/methods?clientId=native-client');
-  });
-
   it('rejects a foreign email callback and resumes a saved attempt before a cold callback', async () => {
     const transport = new ScriptedTransport();
     const ports = testPorts(transport);

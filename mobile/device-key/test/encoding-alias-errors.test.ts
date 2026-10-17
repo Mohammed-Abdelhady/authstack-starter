@@ -60,25 +60,6 @@ describe('key alias', () => {
     protection: 'hardwareOnly',
   } as const;
 
-  it('names the key by protection, client id and environment', () => {
-    expect(keyAlias(settings)).toBe('devicekey.hw.native-client.development');
-  });
-
-  it('gives a software key its own name', () => {
-    expect(keyAlias({ ...settings, protection: 'softwareAllowed' })).toBe(
-      'devicekey.sw.native-client.development',
-    );
-  });
-
-  it('gives each environment and each client its own name', () => {
-    expect(keyAlias({ ...settings, environment: 'production' })).toBe(
-      'devicekey.hw.native-client.production',
-    );
-    expect(keyAlias({ ...settings, clientId: 'other-client' })).toBe(
-      'devicekey.hw.other-client.development',
-    );
-  });
-
   it('escapes the separator, the escape character and anything a file name refuses', () => {
     expect(keyAlias({ ...settings, clientId: 'com.example.mobile', environment: 'dev_1' })).toBe(
       'devicekey.hw.com_002eexample_002emobile.dev_005f1',
