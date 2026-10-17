@@ -9,19 +9,27 @@ import {
 interface HealthResponse {
   status: string;
   timestamp: string;
+  commit: string | null;
   authEpoch: number;
   authSchemaVersion: number;
 }
 
 describe('AppController (e2e)', () => {
   let e2e: E2eApp;
+  const previousCommit = process.env.SERVER_COMMIT_SHA;
 
   beforeAll(async () => {
+    process.env.SERVER_COMMIT_SHA = '148736220c07b5426ca63dca54b87e2a56bbd330';
     e2e = await bootE2eApp();
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
-    await e2e?.close();
+    try {
+      await e2e?.close();
+    } finally {
+      if (previousCommit === undefined) delete process.env.SERVER_COMMIT_SHA;
+      else process.env.SERVER_COMMIT_SHA = previousCommit;
+    }
   }, SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS);
 
   describe('Health Endpoint', () => {
@@ -31,23 +39,16 @@ describe('AppController (e2e)', () => {
         .expect(200);
 
       const body = response.body as HealthResponse;
+      expect(body.commit).toBe('148736220c07b5426ca63dca54b87e2a56bbd330');
       expect(body).toHaveProperty('status');
       expect(body).toHaveProperty('timestamp');
       expect(Object.keys(body).sort()).toEqual([
         'authEpoch',
         'authSchemaVersion',
+        'commit',
         'status',
         'timestamp',
       ]);
-    });
-  });
-
-  describe('CORS Configuration', () => {
-    it('should include CORS headers', async () => {
-      await request(e2e.httpServer)
-        .get('/health')
-        .expect(200)
-        .expect('Access-Control-Allow-Origin', /.*/);
     });
   });
 

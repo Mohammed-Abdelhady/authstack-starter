@@ -54,13 +54,21 @@ export function describeStoreHealthContract(
         database: serviceOn(current().health).checkDatabaseHealth(),
         status: answer.status,
         authEpoch: answer.authEpoch,
+        commit: answer.commit,
         keys: Object.keys(answer).sort(),
       }).toEqual({
         store: 'ready',
         database: { status: 'connected' },
         status: 'healthy',
         authEpoch: 7,
-        keys: ['authEpoch', 'authSchemaVersion', 'status', 'timestamp'],
+        commit: null,
+        keys: [
+          'authEpoch',
+          'authSchemaVersion',
+          'commit',
+          'status',
+          'timestamp',
+        ],
       });
     });
 
