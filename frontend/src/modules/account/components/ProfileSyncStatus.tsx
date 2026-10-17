@@ -42,7 +42,7 @@ export function ProfileSyncStatus() {
         return;
       }
 
-      startOAuthFlow(response.provider, getRedirectPath(pathname));
+      await startOAuthFlow(response.provider, getRedirectPath(pathname));
     } catch (error) {
       setIsSyncing(false);
       reportUnlessHandled(error);

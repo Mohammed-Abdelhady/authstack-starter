@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { ErrorCode } from '@app/core';
 import { useLocale, useTranslations } from 'next-intl';
 import { KeyRound, Pencil, Trash2 } from 'lucide-react';
 import { Description } from '@/components/design-system';
@@ -80,7 +81,11 @@ export function PasskeyRow({ passkey, canRemove, onRename, onDelete }: PasskeyRo
             className="mt-1.5"
             data-testid={`passkey-delete-blocked-${passkey.id}`}
           >
-            {t('delete.blockedLastSignInMethod')}
+            {t(
+              passkey.removalBlockedCode === ErrorCode.PASSKEY_REQUIRED_LAST
+                ? 'delete.blockedRequiredPasskey'
+                : 'delete.blockedLastSignInMethod',
+            )}
           </Description>
         )}
       </div>
