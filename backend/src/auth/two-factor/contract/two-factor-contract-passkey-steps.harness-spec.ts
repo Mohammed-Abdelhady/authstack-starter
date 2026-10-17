@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { TEST_NOW } from '../../../../test/utils/frozen-clock';
 import { partialMock } from '../../../common/testing/test-doubles.harness-spec';
@@ -79,7 +80,9 @@ interface Steps {
  * here what it answered: whose key it was and whether its user was verified.
  */
 function stepsFor(harness: TwoFactorHarnessSource, ownerId: string): Steps {
-  const features = new AuthFeaturesService(new ConfigService({}));
+  const config = new ConfigService({});
+  const browserApplications = browserApplicationsForTest(config);
+  const features = new AuthFeaturesService(config, browserApplications);
   const account: SignInAccount = {
     id: ownerId,
     email: OWNER_EMAIL,
@@ -109,15 +112,21 @@ function stepsFor(harness: TwoFactorHarnessSource, ownerId: string): Steps {
         userVerified: nextAssertion.userVerified,
       }),
   });
-  const services = twoFactorServices(harness(), [
-    new PasskeySecondFactorVerifier(features, assertions),
-  ]);
+  const services = twoFactorServices(
+    harness(),
+    [new PasskeySecondFactorVerifier(features, assertions)],
+    {},
+    browserApplications,
+  );
   const completion = new SignInCompletion(
     partialMock<RolePermissions>({}),
-    partialMock<Sessions>({}),
+    partialMock<Sessions>({
+      assertAdmission: () => Promise.resolve(),
+    }),
     partialMock<SessionCookieService>({}),
     features,
     services.challenge,
+    browserApplications,
   );
   const issuedAtOnce: string[] = [];
   const signIn = new (class extends PasskeySignIn {

@@ -120,6 +120,12 @@ export function secondStepRefusalCases(
     let refuse = true;
     const verifier: SecondFactorVerifier = {
       supports: (dto) => dto.code === undefined,
+      refusal: () =>
+        new AppException(
+          ErrorCode.TWO_FACTOR_CODE_INVALID,
+          'refused by the verifier',
+          HttpStatus.UNAUTHORIZED,
+        ),
       verify: (_dto, account) => {
         seen.push(account.id);
         return refuse

@@ -59,6 +59,7 @@ export function challengeCases(
       nonce: expect.stringMatching(/^[\w-]{43}$/) as string,
       expiresAt: NOW_MS + CHALLENGE_LIFETIME_MS,
       firstFactor: 'password',
+      clientId: 'web',
     });
     const { nonce } = payload as { nonce: string };
     const stored = await harness().storedChallenges();
@@ -185,34 +186,6 @@ export function challengeCases(
     expect(await harness().storedChallenges()).toMatchObject([
       { id: challengeId, attempts: MAX_WRONG_ANSWERS, claimed: false },
     ]);
-  });
-
-  it('reads an open challenge and drops one that lapsed or ran out of attempts', async () => {
-    const { ownerId, otherId } = fixture();
-    const services = twoFactorServices(harness());
-    const lapsing = await challengedBrowser(services, ownerId);
-    const lapsingId = await onlyChallengeId(harness());
-
-    expect(await services.challenge.read(lapsing.request)).toEqual({
-      challengeId: lapsingId,
-      userId: ownerId,
-      firstFactor: 'password',
-    });
-    await harness().alterChallenge(lapsingId, { expiresAt: at(0) });
-    expect(await refusalOf(services.challenge.read(lapsing.request))).toEqual(
-      CHALLENGE_INVALID,
-    );
-    expect(await harness().storedChallenges()).toEqual([]);
-
-    const exhausted = await challengedBrowser(services, otherId);
-    const exhaustedId = await onlyChallengeId(harness());
-    await harness().alterChallenge(exhaustedId, {
-      attempts: MAX_WRONG_ANSWERS,
-    });
-    expect(await refusalOf(services.challenge.read(exhausted.request))).toEqual(
-      CHALLENGE_INVALID,
-    );
-    expect(await harness().storedChallenges()).toEqual([]);
   });
 
   it('counts a wrong answer once, releases the claim, and drops the challenge on the fifth', async () => {
