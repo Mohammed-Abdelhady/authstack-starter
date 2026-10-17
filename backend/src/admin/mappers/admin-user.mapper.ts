@@ -6,9 +6,14 @@ import { AdminUserDto } from '../dto/admin-user-response.dto';
  *
  * @param user - The account as a store read it
  */
-export function mapToAdminUserDto(user: StoredAccount): AdminUserDto {
+export function mapToAdminUserDto(
+  user: StoredAccount,
+  lastActiveAt: Date | null,
+): AdminUserDto {
   return {
     id: user.id,
+    lastActiveAt,
+    audience: user.audience,
     email: user.email,
     name: user.name,
     role: user.role,
@@ -23,5 +28,6 @@ export function mapToAdminUserDto(user: StoredAccount): AdminUserDto {
     linkedProviders: user.linkedProviders,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
+    version: user.version ?? 0,
   };
 }

@@ -1,3 +1,6 @@
+import { mongoAdminActivity } from './mongo-admin-activity';
+import { EMAIL_CHANGE_INITIATOR } from '../../../auth/constants/email-change-initiator';
+import { assertMongoAccountAudience } from '../../../user/persistence/mongo/mongo-account-audience';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model } from 'mongoose';
@@ -45,6 +48,19 @@ export class MongoAdminAccountStore extends AdminAccountStore {
     @InjectModel(Role.name) private readonly roleModel: Model<RoleDocument>,
   ) {
     super();
+  }
+
+  lastActiveFor(
+    userIds: readonly string[],
+    work?: UnitOfWork,
+  ): Promise<Map<string, Date | null>> {
+    return singleStatement(() =>
+      mongoAdminActivity(
+        this.userModel,
+        userIds,
+        work === undefined ? undefined : mongoSessionOf(work),
+      ),
+    );
   }
 
   async findAccount(userId: string): Promise<StoredAccount | null> {
@@ -180,7 +196,9 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       user.name = edit.name;
     }
     if (edit.address) {
-      user.pendingEmail = edit.address.email;
+      user.pendingEmail = edit.address.email ?? undefined;
+      user.pendingEmailInitiator =
+        edit.address.email === null ? undefined : EMAIL_CHANGE_INITIATOR.STAFF;
       user.addressGeneration = edit.address.addressGeneration;
     }
     return this.save(user, mongoSessionOf(unitOfWork), account.id);
@@ -200,6 +218,12 @@ export class MongoAdminAccountStore extends AdminAccountStore {
     unitOfWork: UnitOfWork,
     account: NewAdminAccount,
   ): Promise<StoredAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      account.role,
+      account.audience,
+    );
     const user = new this.userModel({
       email: account.email,
       name: account.name,
@@ -210,6 +234,7 @@ export class MongoAdminAccountStore extends AdminAccountStore {
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
       locale: account.locale,
+      audience: account.audience,
     });
     try {
       await user.save({ session: mongoSessionOf(unitOfWork) });
@@ -251,7 +276,17 @@ export class MongoAdminAccountStore extends AdminAccountStore {
 }
 
 function toAssignableRole(
-  role: { _id: { toString(): string }; slug: string } | null,
+  role: {
+    _id: { toString(): string };
+    slug: string;
+    audience?: AssignableRole['audience'] | null;
+  } | null,
 ): AssignableRole | null {
-  return role ? { id: role._id.toString(), slug: role.slug } : null;
+  return role
+    ? {
+        id: role._id.toString(),
+        slug: role.slug,
+        audience: role.audience ?? undefined,
+      }
+    : null;
 }

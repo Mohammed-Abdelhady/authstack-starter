@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { UserPermissionsService } from '../../../user/services/user-permissions.service';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
@@ -17,14 +19,31 @@ import { AdminUserAccessService } from '../users/admin-user-access.service';
 import { AdminAccountStore } from '../../stores/admin-account.store';
 import { assertActorHolds } from './admin-grant-ceiling';
 import { StoredAccount } from '../../../user/stores/stored-account';
+import type { ActingSession } from '../../../auth/proof/types/acting-session';
+import { SECURITY_EVENT_ACTION } from '../../../session/constants/security-event-action';
+import { StaffMutationRules } from '../staff-mutations/staff-mutation-rules';
+
+/** The session and the version a permission change was sent with. */
+export interface PermissionMutation {
+  session?: ActingSession;
+  version?: number;
+}
 
 interface UserPermissionsData {
+  version: number;
   userId: string;
   permissions: string[];
 }
 
 interface UserPermissionsWithRole extends UserPermissionsData {
   role: string;
+}
+
+interface PermissionChange {
+  userId: string;
+  actorId: string;
+  permission: string;
+  change: 'grant' | 'revoke';
 }
 
 /**
@@ -42,14 +61,24 @@ export class AdminPermissionsService {
     private readonly userPermissionsService: UserPermissionsService,
     private readonly runner: UnitOfWorkRunner,
     private readonly roleChanges: RoleChangeStore,
+    private readonly audiences: AudiencePolicy,
+    private readonly rules: StaffMutationRules,
   ) {}
 
   /** Read the permissions of a user the actor is allowed to see. */
   async getUserPermissions(
     userId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<UserPermissionsWithRole>> {
     const target = await this.accessService.loadActiveUser(userId);
+    if (this.audiences.enabled()) {
+      this.accessService.assertTargetScope(
+        USER_SCOPE_ACTION.READ,
+        target.audience,
+        actorPermissions,
+      );
+    }
     await this.accessService.assertCanView(actorRole, target.role);
 
     return this.userPermissionsService.getUserPermissions(userId);
@@ -61,18 +90,22 @@ export class AdminPermissionsService {
     permission: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
+    mutation: PermissionMutation = {},
   ): Promise<ApiResponse<UserPermissionsData>> {
-    await this.assertCanGrant(userId, actorId, actorRole);
+    await this.assertCanGrant(userId, actorId, actorRole, actorPermissions);
     const saved = await this.changePermissions(
-      userId,
-      actorId,
-      permission,
-      'grant',
+      { userId, actorId, permission, change: 'grant' },
+      mutation,
     );
     this.logger.log(`Granting ${permission} on user ${userId} by ${actorId}`);
 
     return ApiResponse.success(
-      { userId: saved.id, permissions: saved.permissions },
+      {
+        userId: saved.id,
+        permissions: saved.permissions,
+        version: saved.version ?? 0,
+      },
       'Permission added successfully',
     );
   }
@@ -83,67 +116,93 @@ export class AdminPermissionsService {
     permission: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
+    mutation: PermissionMutation = {},
   ): Promise<ApiResponse<UserPermissionsData>> {
-    await this.assertCanGrant(userId, actorId, actorRole);
+    await this.assertCanGrant(userId, actorId, actorRole, actorPermissions);
     const saved = await this.changePermissions(
-      userId,
-      actorId,
-      permission,
-      'revoke',
+      { userId, actorId, permission, change: 'revoke' },
+      mutation,
     );
     this.logger.log(`Revoking ${permission} on user ${userId} by ${actorId}`);
 
     return ApiResponse.success(
-      { userId: saved.id, permissions: saved.permissions },
+      {
+        userId: saved.id,
+        permissions: saved.permissions,
+        version: saved.version ?? 0,
+      },
       'Permission removed successfully',
     );
   }
 
   private async changePermissions(
-    userId: string,
-    actorId: string,
-    permission: string,
-    change: 'grant' | 'revoke',
+    request: PermissionChange,
+    mutation: PermissionMutation,
   ): Promise<StoredAccount> {
+    const { userId, actorId, permission } = request;
     try {
       return await this.runner.runForAuthority(actorId, async (unitOfWork) => {
+        await this.rules.policy.assertRouteProof(unitOfWork, mutation.session);
         const target = await this.loadAuthorizedTarget(
           unitOfWork,
           userId,
           actorId,
         );
-        if (change === 'grant') {
-          await assertActorHolds(
-            this.roleChanges,
-            unitOfWork,
-            actorId,
-            PERMISSION_PERMISSIONS.GRANT_ALL,
-            [permission],
-          );
-          this.assertPermissionAbsent(target, permission);
-          return this.accounts.savePermissions(unitOfWork, target, [
-            ...target.permissions,
-            permission,
-          ]);
-        }
-
-        await assertActorHolds(
-          this.roleChanges,
-          unitOfWork,
+        this.rules.policy.assertVersion(mutation.version, target.version);
+        const saved = await this.savePermission(unitOfWork, target, request);
+        await this.rules.events.record(unitOfWork, {
+          action:
+            request.change === 'grant'
+              ? SECURITY_EVENT_ACTION.PERMISSION_GRANTED
+              : SECURITY_EVENT_ACTION.PERMISSION_REVOKED,
           actorId,
-          PERMISSION_PERMISSIONS.REVOKE_ALL,
-          [],
-        );
-        this.assertPermissionPresent(target, permission);
-        return this.accounts.savePermissions(
-          unitOfWork,
-          target,
-          target.permissions.filter((granted) => granted !== permission),
-        );
+          targetUserId: saved.id,
+          clientId: mutation.session?.clientId,
+          details: { permission },
+        });
+        return saved;
       });
     } catch (error) {
       rethrowOrUnavailable(error);
     }
+  }
+
+  private async savePermission(
+    unitOfWork: UnitOfWork,
+    target: StoredAccount,
+    request: PermissionChange,
+  ): Promise<StoredAccount> {
+    const { actorId, permission } = request;
+    if (request.change === 'grant') {
+      this.audiences.assertDirectPermissions(target.audience, [permission]);
+      await assertActorHolds(
+        this.roleChanges,
+        unitOfWork,
+        actorId,
+        PERMISSION_PERMISSIONS.GRANT_ALL,
+        [permission],
+      );
+      this.assertPermissionAbsent(target, permission);
+      return this.accounts.savePermissions(unitOfWork, target, [
+        ...target.permissions,
+        permission,
+      ]);
+    }
+
+    await assertActorHolds(
+      this.roleChanges,
+      unitOfWork,
+      actorId,
+      PERMISSION_PERMISSIONS.REVOKE_ALL,
+      [],
+    );
+    this.assertPermissionPresent(target, permission);
+    return this.accounts.savePermissions(
+      unitOfWork,
+      target,
+      target.permissions.filter((granted) => granted !== permission),
+    );
   }
 
   private async loadAuthorizedTarget(
@@ -191,9 +250,17 @@ export class AdminPermissionsService {
     userId: string,
     actorId: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<void> {
     const target = await this.accessService.loadActiveUser(userId);
 
+    if (this.audiences.enabled()) {
+      this.accessService.assertTargetScope(
+        USER_SCOPE_ACTION.UPDATE,
+        target.audience,
+        actorPermissions,
+      );
+    }
     this.accessService.assertNotSelf(
       userId,
       actorId,

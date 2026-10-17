@@ -57,6 +57,7 @@ export const RETENTION_RULES: readonly RetentionRule[] = [
   { table: 'provider_revocations', column: 'purge_after', keepForMs: 0 }, // feature:oauth-core
   { table: 'provider_link_tickets', column: 'expires_at', keepForMs: 0 }, // feature:oauth-core
   { table: 'session_proofs', column: 'purge_after', keepForMs: 0 },
+  { table: 'staff_idempotency_keys', column: 'expires_at', keepForMs: 0 },
 ];
 
 /** Rows one statement removes at most. */

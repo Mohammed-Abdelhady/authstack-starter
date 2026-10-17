@@ -1,5 +1,6 @@
 import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { StaffVersion } from './staff-version.decorator';
 
 /**
  * DTO for updating user activation status.
@@ -21,4 +22,7 @@ export class UpdateUserStatusDto {
   @IsString()
   @MaxLength(500)
   reason?: string;
+
+  @StaffVersion()
+  version?: number;
 }
