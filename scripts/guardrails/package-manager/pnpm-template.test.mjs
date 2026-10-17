@@ -32,6 +32,13 @@ test('hooks invoke installed tools through pnpm and preserve a failing gate', (t
     join(ROOT, 'scripts/lib/require-package-manager.sh'),
     join(root, 'scripts/lib/require-package-manager.sh'),
   );
+  for (const file of [
+    'scripts/check-workspace-dependencies.mjs',
+    'scripts/lib/package-imports.mjs',
+  ]) {
+    copyFileSync(join(ROOT, file), join(root, file));
+  }
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ type: 'module', workspaces: [] }));
   writeFileSync(
     join(root, 'scripts/check-hard-bans.mjs'),
     "import { appendFileSync } from 'node:fs'; appendFileSync('calls', 'checker ' + process.argv.slice(2).join(' ') + '\\n'); if (process.env.FAIL_CHECKER === '1') process.exit(1);",
