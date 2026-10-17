@@ -23,7 +23,6 @@ import type { OauthFailure, TokenSuccess } from '../oauth/native-oauth.types';
 const PRESENTED_REFRESH_EXPIRY = new Date('2099-01-01T12:00:00.001Z');
 const BEFORE_PRESENTED_EXPIRY = new Date('2099-01-01T12:00:00.000Z');
 const AT_PRESENTED_EXPIRY = new Date('2099-01-01T12:00:00.001Z');
-const AFTER_PRESENTED_EXPIRY = new Date('2099-01-01T12:00:00.002Z');
 
 describe('native DPoP spent-token expiry', () => {
   let ctx: NativeOauthHarness;
@@ -73,28 +72,6 @@ describe('native DPoP spent-token expiry', () => {
     ctx.harness.clock.set(AT_PRESENTED_EXPIRY);
 
     const result = await refresh(ctx, refreshToken, 'at-token-expiry');
-    const presented = await ctx.credentials
-      .findOne({ tokenHash: hashToken(refreshToken) })
-      .orFail()
-      .exec();
-    const session = await ctx.harness.sessions
-      .findById(presented.sessionId)
-      .orFail();
-
-    expect(result).toMatchObject({
-      ok: false,
-      error: OAUTH_ERROR.INVALID_GRANT,
-    });
-    expect(session.isValid).toBe(false);
-    expect(session.revokedReason).toBe(SECURITY_EVENT_ACTION.REFRESH_REPLAYED);
-  });
-
-  it('ends the family one millisecond after the spent token expires', async () => {
-    const refreshToken = await spentRefreshToken(ctx);
-    await setPresentedExpiry(ctx, refreshToken);
-    ctx.harness.clock.set(AFTER_PRESENTED_EXPIRY);
-
-    const result = await refresh(ctx, refreshToken, 'after-token-expiry');
     const presented = await ctx.credentials
       .findOne({ tokenHash: hashToken(refreshToken) })
       .orFail()

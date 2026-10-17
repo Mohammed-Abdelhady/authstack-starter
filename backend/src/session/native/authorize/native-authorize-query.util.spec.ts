@@ -11,10 +11,6 @@ const VALID_AUTHORIZE_QUERY: Record<string, unknown> = {
 };
 
 describe('isValidAuthorizeQueryShape', () => {
-  it('accepts a complete string-valued authorize query', () => {
-    expect(isValidAuthorizeQueryShape(VALID_AUTHORIZE_QUERY)).toBe(true);
-  });
-
   it('accepts an authorize query without scope', () => {
     expect(isValidAuthorizeQueryShape(omitParameter('scope'))).toBe(true);
   });

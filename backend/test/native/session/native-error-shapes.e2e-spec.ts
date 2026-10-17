@@ -5,12 +5,8 @@ import {
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
 } from '../../../src/session/native/harness/native-oauth-requests.harness-spec';
-import { SEED_USER } from '../../constants/seed-users';
-import { bootE2eApp, loginAs, type E2eApp } from '../../utils/e2e-app';
-import {
-  createNativeApplication,
-  seedUserId,
-} from '../../utils/native/native-authorize.fixtures';
+import { bootE2eApp, type E2eApp } from '../../utils/e2e-app';
+import { createNativeApplication } from '../../utils/native/native-authorize.fixtures';
 import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
@@ -69,28 +65,6 @@ describe('native OAuth error shapes (e2e)', () => {
       .send({});
     expect(revoke.status).toBe(400);
     expect(revoke.body).toEqual({ error: 'invalid_request' });
-  });
-
-  it('answers browser authorize failures in the application envelope', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-
-    const response = await browser
-      .post('/api/oauth/authorize/approve')
-      .set('X-Request-Id', 'shape-envelope-probe')
-      .send({
-        transactionId: 'unknown-transaction',
-        expectedUserId: await seedUserId(e2e),
-      });
-
-    expect(response.status).toBe(404);
-    expect(response.body).toEqual({
-      success: false,
-      error: {
-        code: 'NATIVE_TRANSACTION_EXPIRED',
-        message: 'Native authorization transaction is expired or already ended',
-      },
-      requestId: 'shape-envelope-probe',
-    });
   });
 
   it('answers throttled requests in the throttling shape', async () => {

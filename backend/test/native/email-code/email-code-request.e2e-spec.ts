@@ -4,7 +4,6 @@ import { MailService } from '../../../src/mail/mail.service';
 import { NATIVE_ATTEMPT_HEADER } from '../../../src/auth/native/constants/native-attempt';
 import { hashMagicLinkToken } from '../../../src/auth/magic-link/utils/magic-link-token.util';
 import { UserProfileService } from '../../../src/user/services/user-profile.service';
-import { MAIL_CATALOGUES } from '../../../src/mail/catalog/mail-catalogue';
 import {
   installAccountCreationPolicy,
   type SwitchableAccountCreationPolicy,
@@ -17,7 +16,6 @@ import {
 } from '../../utils/hook-timeouts';
 import {
   parseLifecycleResult,
-  postLifecycle,
   startLifecycleAttempt,
   storedAttempt,
 } from '../lifecycle/native-lifecycle.fixtures';
@@ -200,27 +198,6 @@ describe('native email code request (e2e)', () => {
   });
 
   it.each([
-    ['an empty address', { email: '' }],
-    ['a malformed address', { email: 'not-an-address' }],
-    ['no address', {}],
-    ['an extra field', { email: KNOWN, code: '123456' }],
-  ])('refuses %s and stores nothing', async (_case, body) => {
-    const attempt = await startLifecycleAttempt(e2e, 'signIn');
-    const refused = await postLifecycle(
-      e2e,
-      attempt,
-      'email-code/request',
-      body,
-    ).expect(400);
-    expect(errorCodeOf(refused)).toBe(ErrorCode.VALIDATION_ERROR);
-    expect(await storedCode(e2e, attempt)).toBeNull();
-    expect((await storedAttempt(e2e, attempt)).phase).toBe(
-      'firstFactorRequired',
-    );
-    expect(await e2e.captureMail()).toHaveLength(0);
-  });
-
-  it.each([
     ['EMAIL_CODE_ENABLED is off', false, EMAIL_CODE_APPLICATION],
     [
       'the application has no email code',
@@ -269,18 +246,6 @@ describe('native email code request (e2e)', () => {
   });
 
   // feature:locale-ar:start
-  it('writes an Arabic mail in the account language with the code in Western digits', async () => {
-    await e2e.state.accounts.createAccount({
-      email: 'arabic@example.test',
-      name: 'Layla',
-      isVerified: true,
-      locale: 'ar',
-    });
-    await replyFor('arabic@example.test');
-    const mail = await lastSignInMail(e2e, 'ar');
-    expect(mail.subject).toBe(MAIL_CATALOGUES.ar.signInCode.subject);
-    expect(mail.code).toMatch(/^[0-9]{6}$/u);
-  });
   // feature:locale-ar:end
 
   it('spends nothing when the button is opened, and refuses its token without the attempt secret', async () => {

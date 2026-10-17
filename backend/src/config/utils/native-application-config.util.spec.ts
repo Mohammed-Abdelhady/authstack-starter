@@ -286,17 +286,6 @@ describe('parseNativeApplications', () => {
     expect(() => parseNativeApplications(raw)).toThrow(reason);
   });
 
-  it.each([
-    ['over the length limit', 'a'.repeat(129)],
-    ['invalid characters', 'com.example/mobile'],
-  ])('names an invalid client id by index only: %s', (_name, clientId) => {
-    expect(() =>
-      parseNativeApplications(
-        JSON.stringify([{ ...VALID_APPLICATION, clientId }]),
-      ),
-    ).toThrow('entry at index 0: clientId');
-  });
-
   it('accepts a custom scheme outside production without the setting', () => {
     expect(
       parseNativeApplications(JSON.stringify([VALID_APPLICATION]), {

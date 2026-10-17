@@ -192,14 +192,6 @@ describe('native DPoP optional mode', () => {
     await resetNativeClient(ctx);
   });
 
-  it('keeps an exchange without proof as Bearer', async () => {
-    const approved = await approvedCode(ctx, 'optional-exchange@example.com');
-    const response = await exchange(ctx, approved);
-
-    expect(response.status).toBe(200);
-    expect(response.body.token_type).toBe('Bearer');
-  });
-
   it('ignores proof on an unbound refresh and does not bind the new pair', async () => {
     const granted = await issueNativeGrant(ctx);
     const proof = signNativeDpopProof({

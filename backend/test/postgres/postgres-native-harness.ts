@@ -3,6 +3,7 @@ import { AuthEpochService } from '../../src/common/services/auth-epoch.service';
 import { ApplicationRegistry } from '../../src/session/applications/application-registry';
 import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
 import { REFUSED_EVENT_SEED_ACTION } from '../utils/refused-event';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import {
   NativeContractHarness,
   SEES_COMMITS,
@@ -72,6 +73,7 @@ export async function bootPostgresNativeHarness(): Promise<NativeContractHarness
           stores,
           issuanceStore: issuance.store,
           issuanceApplications: issuance.applications,
+          enrolments: new PostgresEnrolmentStore(),
           revocationStore,
           authorityStore,
           authorityApplications,

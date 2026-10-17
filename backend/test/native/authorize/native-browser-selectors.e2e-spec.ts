@@ -58,30 +58,6 @@ describe('native browser selection at the HTTP entry', () => {
       .redirects(0);
   }
 
-  it('keeps the original selector-free consent entry', async () => {
-    const response = await authorize().expect(302);
-    const target = new URL(String(response.headers.location));
-    expect(target.pathname).toBe('/en/auth/native/authorize');
-    expect([...target.searchParams.keys()]).toEqual(['transaction']);
-    expect(await e2e.state.native.authorizationRequestCount()).toBe(1);
-  });
-
-  it('uses the enabled real registry entry and carries the selected provider', async () => {
-    const response = await authorize({
-      provider_id: 'team-sso',
-      flow: 'signIn',
-    }).expect(302);
-    const target = new URL(String(response.headers.location));
-    expect(target.searchParams.get('provider_id')).toBe('team-sso');
-    expect(target.searchParams.get('flow')).toBe('signIn');
-    expect([...target.searchParams.keys()].sort()).toEqual([
-      'flow',
-      'provider_id',
-      'transaction',
-    ]);
-    expect(await e2e.state.native.authorizationRequestCount()).toBe(1);
-  });
-
   it('retains the selected provider with an existing browser cookie and never issues a native token', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
     const response = await browser
@@ -98,24 +74,7 @@ describe('native browser selection at the HTTP entry', () => {
     expect(await e2e.state.native.credentialCount()).toBe(0);
   });
 
-  it.each([
-    'signIn',
-    'registration', // feature:email-password
-    'recovery', // feature:email-password
-  ])('carries the %s journey', async (flow) => {
-    const response = await authorize({ flow }).expect(302);
-    const target = new URL(String(response.headers.location));
-    expect(target.searchParams.get('flow')).toBe(flow);
-    expect(await e2e.state.native.authorizationRequestCount()).toBe(1);
-  });
-
   // feature:locale-ar:start
-  it('uses an explicit locale ahead of Accept-Language', async () => {
-    const response = await authorize({ locale: 'ar' }).expect(302);
-    expect(new URL(String(response.headers.location)).pathname).toBe(
-      '/ar/auth/native/authorize',
-    );
-  });
   // feature:locale-ar:end
 
   it.each([

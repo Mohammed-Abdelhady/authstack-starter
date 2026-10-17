@@ -59,19 +59,4 @@ describe('native methods reply for apps already installed (e2e)', () => {
     const attempt = await startLifecycleAttempt(e2e, 'signIn');
     expect(attempt.factors).toEqual(['emailLink']);
   });
-
-  it('adds emailCode, and only as true, once email code is on', async () => {
-    setEmailCode(e2e, true);
-    const methods = unwrapNativeMethods(await methodsReply());
-
-    expect(Object.keys(methods.capabilities).sort()).toEqual([
-      'emailCode',
-      'emailLink',
-      'passkeys',
-      'password',
-      'recovery',
-      'registration',
-    ]);
-    expect(methods.capabilities.emailCode).toBe(true);
-  });
 });

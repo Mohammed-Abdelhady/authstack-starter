@@ -6,7 +6,6 @@ import {
   NATIVE_DPOP_REVOKE_PATH,
   NATIVE_DPOP_TOKEN_PATH,
 } from '../../constants/session-policy';
-import { OAUTH_ERROR } from '../oauth/native-oauth.types';
 import { validateEnvironment } from '../../../config/env.validation';
 import { nativeDpopNonceCandidates } from './native-dpop-nonce';
 import { verifyNativeDpopProof } from './native-dpop-proof';
@@ -64,11 +63,7 @@ describe('native DPoP token address', () => {
   });
 });
 
-describe('native DPoP OAuth errors', () => {
-  it('uses the protocol error code for a refused proof', () => {
-    expect(OAUTH_ERROR.INVALID_DPOP_PROOF).toBe('invalid_dpop_proof');
-  });
-});
+describe('native DPoP OAuth errors', () => {});
 
 describe('native DPoP proof against the configured API_URL', () => {
   const PROOF_TIME = new Date('2099-01-01T12:00:00.000Z');

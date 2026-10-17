@@ -49,6 +49,8 @@ export function authorizationStoreCases(harness: NativeHarnessSource): void {
         capturedUserVersion: 0,
         capturedClientVersion: 0,
         authenticationMethods: [],
+        userVerified: false,
+        authenticatedAt: null,
       }),
     );
   }

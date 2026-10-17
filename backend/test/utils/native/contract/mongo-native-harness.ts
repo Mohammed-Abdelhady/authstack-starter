@@ -32,6 +32,7 @@ import {
   TAKEN_AT,
 } from './native-contract-harness';
 import { buildNativeServices } from './native-contract-services';
+import { EnrolmentStore } from '../../../../src/session/enrolment/enrolment.store';
 import {
   NATIVE_APPLICATION,
   NATIVE_CLIENT,
@@ -79,6 +80,7 @@ export async function bootMongoNativeHarness(): Promise<NativeContractHarness> {
           stores,
           issuanceStore: issuance.store,
           issuanceApplications: issuance.applications,
+          enrolments: app.get(EnrolmentStore),
           revocationStore: app.get(SessionRevocationStore),
           authorityStore: app.get(SessionAuthorityStore),
           authorityApplications: app.get(AuthorityApplications),
