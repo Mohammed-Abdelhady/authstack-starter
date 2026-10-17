@@ -1,3 +1,5 @@
+import { assertPostgresAccountAudience } from '../../../../user/persistence/postgres/postgres-account-audience';
+import { UserRole } from '../../../../user/enums/user-role.enum';
 import { Response } from 'express';
 import { Kysely, sql } from 'kysely';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
@@ -31,7 +33,8 @@ import {
 } from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { secondFactorEnabled } from '../../../../user/persistence/postgres/postgres-account-rows'; // feature:totp
 import { accountFailure } from '../../../../user/persistence/postgres/postgres-account-rows';
-import { FIRST_FACTOR } from '../../../services/sessions/first-factor'; // feature:totp
+import { ACCOUNT_CREATION_METHOD } from '../../../constants/account-creation';
+import { FIRST_FACTOR } from '../../../services/sessions/first-factor';
 import { SignInCompletion } from '../../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../../utils/authenticated-user.util';
 import { storedLocale } from '../../../../common/constants/locales';
@@ -132,6 +135,19 @@ export class PostgresMagicLinkStore extends MagicLinkStore {
         expiresAt: row.expires_at,
         ...(row.redirect ? { redirect: row.redirect } : {}),
       };
+    });
+  }
+
+  restoreUnspentLink(tokenHash: string, claimedAt: Date): Promise<boolean> {
+    return autocommit(NONE, async () => {
+      const restored = await this.database
+        .updateTable('pending_magic_links')
+        .set({ consumed_at: null })
+        .where('token_hash', '=', tokenHash)
+        .where('consumed_at', '=', claimedAt)
+        .returning('token_hash')
+        .executeTakeFirst();
+      return restored !== undefined;
     });
   }
 }
@@ -251,6 +267,11 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
     unitOfWork: UnitOfWork,
     account: NewPasswordlessAccount,
   ): Promise<MagicLinkAccount> {
+    await assertPostgresAccountAudience(
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     try {
       const row = await postgresTransactionOf(unitOfWork)
         .insertInto('users')
@@ -261,6 +282,7 @@ export class PostgresMagicLinkAccounts extends MagicLinkAccounts {
           auth_provider: EMAIL_PROVIDER,
           primary_provider: EMAIL_PROVIDER,
           locale: account.locale,
+          audience: account.audience ?? null,
         })
         .returning(SIGN_IN_COLUMNS)
         .executeTakeFirstOrThrow();
@@ -277,6 +299,20 @@ export class PostgresMagicLinkSignIn extends MagicLinkSignIn {
     super();
   }
 
+  assertAdmission(
+    account: MagicLinkAccount,
+    response: Response,
+  ): Promise<void> {
+    return this.completion.assertAdmission(account.id, response);
+  }
+
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.completion.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.MAGIC_LINK,
+    );
+  }
+
   complete(
     account: MagicLinkAccount,
     response: Response,
@@ -284,7 +320,7 @@ export class PostgresMagicLinkSignIn extends MagicLinkSignIn {
     return this.completion.completeSignIn(
       readByThisStore(account).signIn,
       response,
-      FIRST_FACTOR.MAGIC_LINK, // feature:totp
+      FIRST_FACTOR.MAGIC_LINK,
     );
   }
 }

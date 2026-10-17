@@ -69,4 +69,10 @@ export abstract class MagicLinkStore {
     tokenHash: string,
     now: Date,
   ): Promise<ClaimedMagicLink | null>;
+
+  /** Restores only the claim this attempt made, after definite audience refusal. */
+  abstract restoreUnspentLink(
+    tokenHash: string,
+    claimedAt: Date,
+  ): Promise<boolean>;
 }
