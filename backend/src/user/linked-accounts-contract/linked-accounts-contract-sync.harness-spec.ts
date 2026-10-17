@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { ProfileSyncService } from '../services/profile-sync.service';
 import { refusalOf } from '../../../test/utils/user/accounts-contract/accounts-contract-support';
 import {
   LinkedFixture,
@@ -28,6 +30,27 @@ export function profileSyncCases(
       name: 'Owner',
       lastSyncedProvider: null,
       profileSyncedAt: null,
+    });
+
+    const pictureOnly = new ProfileSyncService(
+      harness().links,
+      new ConfigService({ profileSync: { fields: 'picture' } }),
+    );
+    const picture = await pictureOnly.syncProfileFromProvider(
+      ownerId,
+      'google',
+      profileOf('google-1', {
+        name: 'New Name',
+        avatarUrl: 'https://cdn.example.com/new.png',
+      }),
+    );
+    expect(picture).toMatchObject({
+      name: 'Owner',
+      avatarUrl: 'https://cdn.example.com/new.png',
+    });
+    expect(await harness().syncFacts(ownerId)).toMatchObject({
+      name: 'Owner',
+      avatarUrl: 'https://cdn.example.com/new.png',
     });
 
     const synced = await sync.syncProfileFromProvider(
