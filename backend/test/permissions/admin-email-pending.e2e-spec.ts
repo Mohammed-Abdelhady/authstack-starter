@@ -270,7 +270,7 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     expect(resent === firstCode ? 'same' : 'fresh').toBe('fresh');
   });
 
-  it('refuses an address change of the actor, a peer and a higher rank', async () => {
+  it('requires ACT for a peer and refuses self and higher-rank address edits', async () => {
     const adminId = await idOf(SEED_ADMIN.email);
     const { _id: peerId } = await e2e.state.accounts.createAccount({
       email: 'second-admin@seed.local',
@@ -281,13 +281,13 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     const manager = await loginAs(e2e.httpServer, SEED_MANAGER);
 
     const own = await move(admin, adminId, NEW).expect(400);
-    const peer = await move(admin, peerId, NEW).expect(403);
+    const peer = await move(admin, peerId, NEW).expect(401);
     const higher = await move(manager, adminId, NEW).expect(403);
     const lower = await move(manager, targetId, NEW).expect(403);
 
     expect([codeOf(own), codeOf(peer), codeOf(higher), codeOf(lower)]).toEqual([
       ErrorCode.CANNOT_MODIFY_SELF,
-      ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
+      ErrorCode.REAUTH_REQUIRED,
       ErrorCode.CANNOT_MODIFY_HIGHER_ROLE,
       ErrorCode.EMAIL_CHANGE_NOT_ALLOWED,
     ]);

@@ -74,7 +74,10 @@ const ROUTES: IdRoute[] = [
     body: { isActive: false },
     refusedBody: { isActive: 'perhaps' },
     absent: USER_NOT_FOUND,
-    withoutPermission: lackingEither('users:update:all', 'users:update:staff'),
+    withoutPermission: lackingEither(
+      'users:suspend:all',
+      'users:suspend:staff',
+    ),
   },
   {
     name: 'PATCH /admin/users/:id/role',
