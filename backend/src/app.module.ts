@@ -23,6 +23,7 @@ import { AuthModule } from './auth/auth.module';
 import { AuthContractsModule } from './auth/contracts/auth-contracts.module';
 import { PasskeyFactsModule } from './auth/contracts/passkey-facts.module';
 import { AuthMethodsController } from './auth/auth-methods.controller';
+import { BrowserEmailCodeModule } from './auth/email-code/browser-email-code.module'; // feature:email-code
 import { MagicLinkModule } from './auth/magic-link/magic-link.module'; // feature:magic-link
 import { TwoFactorModule } from './auth/two-factor/two-factor.module'; // feature:totp
 import { PasskeysModule } from './auth/passkeys/passkeys.module'; // feature:passkeys
@@ -92,6 +93,7 @@ import { STORAGE_CONNECTION_IMPORTS } from './common/persistence/common-persiste
       OidcOAuthStrategy, // feature:oidc
     ]),
     // feature:oauth-core:end
+    BrowserEmailCodeModule, // feature:email-code
     MagicLinkModule, // feature:magic-link
     PasskeysModule, // feature:passkeys
     TwoFactorModule, // feature:totp
