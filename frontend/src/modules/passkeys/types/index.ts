@@ -11,6 +11,8 @@ export interface PasskeySummary {
   createdAt: string;
   /** Null until the passkey has signed in once. */
   lastUsedAt: string | null;
+  canRemove?: boolean;
+  removalBlockedCode?: string;
 }
 
 /** Payload of GET /auth/passkeys. */
