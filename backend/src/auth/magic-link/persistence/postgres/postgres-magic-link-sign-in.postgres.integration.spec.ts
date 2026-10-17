@@ -61,7 +61,7 @@ describe('PostgresMagicLinkSignIn', () => {
           email: 'linked@example.test',
         }),
         response,
-        'magic_link', // feature:totp
+        'magic_link',
       ],
     ]);
   });

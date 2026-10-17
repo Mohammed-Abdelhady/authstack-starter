@@ -1,5 +1,8 @@
+import { ADMIN_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { storedBrowserSession } from '../utils/session/stored-browser-session';
 import { CSRF_HEADER } from '../../src/session/constants/browser-proof';
 import { ConfigService } from '@nestjs/config';
+import { SessionCookieService } from '../../src/auth/services/sessions/session-cookie.service';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import {
@@ -15,6 +18,8 @@ import {
   SESSION_AUTHORITY_BOOT_TIMEOUT_MS,
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
+
+const ADMIN_ORIGIN = 'http://admin.example.test';
 
 const NONCE_COOKIE =
   /^ml_nonce=[A-Za-z0-9_-]{43}; Max-Age=900; Path=\/; Expires=[^;]+; HttpOnly; SameSite=Strict$/;
@@ -37,7 +42,11 @@ describe('magic link and the browser that asked for it (e2e)', () => {
   let e2e: E2eApp;
 
   beforeAll(async () => {
-    e2e = await bootE2eApp();
+    e2e = await bootE2eApp(0, {
+      beforeStart: (app) => {
+        app.get(ConfigService).set('cors.adminUrl', ADMIN_ORIGIN);
+      },
+    });
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -54,26 +63,37 @@ describe('magic link and the browser that asked for it (e2e)', () => {
   async function ask(
     browser: TestAgent,
     email = SEED_USER.email,
-  ): Promise<{ token: string; cookies: string[] }> {
-    const answer = await browser
-      .post('/api/auth/magic-link/request')
-      .send({ email })
-      .expect(200);
+    origin?: string,
+  ): Promise<{ token: string; cookies: string[]; link: string }> {
+    // The agent sends the cookies it holds at creation, so get the proof first.
+    const proof = origin ? await proofFor(browser, origin) : undefined;
+    const request = browser.post('/api/auth/magic-link/request');
+    if (origin && proof) {
+      request.set('Origin', origin);
+      request.set(CSRF_HEADER, proof);
+    }
+    const answer = await request.send({ email }).expect(200);
     const link = (await e2e.captureMail())
       .at(-1)
       ?.text?.match(/https?:\/\/[^\s]+/)?.[0];
     const token = link ? new URL(link).searchParams.get('token') : null;
-    if (!token) throw new Error('Magic link mail has no token');
-    return { token, cookies: answer.get('Set-Cookie') ?? [] };
+    if (!token || !link) throw new Error('Magic link mail has no token');
+    return { token, cookies: answer.get('Set-Cookie') ?? [], link };
   }
 
   /** Opens a link from a signed-out browser, with a proof of its own. */
-  const open = async (browser: TestAgent, body: Record<string, unknown>) => {
-    const proof = await proofFor(browser);
-    return browser
+  const open = async (
+    browser: TestAgent,
+    body: Record<string, unknown>,
+    origin?: string,
+    proofOrigin = origin,
+  ) => {
+    const proof = await proofFor(browser, proofOrigin);
+    const request = browser
       .post('/api/auth/magic-link/verify')
-      .set(CSRF_HEADER, proof)
-      .send(body);
+      .set(CSRF_HEADER, proof);
+    if (origin) request.set('Origin', origin);
+    return request.send(body);
   };
   /** Opens a link from a browser whose session carries its own proof. */
   const openSignedIn = (browser: TestAgent, body: Record<string, unknown>) =>
@@ -165,6 +185,110 @@ describe('magic link and the browser that asked for it (e2e)', () => {
     expect(await whoAmI(browser)).toBe(SEED_USER.email);
   });
 
+  // Catches prefix tampering changing the application or consuming a valid link.
+  it('authenticates the admin token prefix and keeps its application without Origin', async () => {
+    const browser = await browserAgent(e2e.httpServer);
+    const { token, link } = await ask(browser, SEED_USER.email, ADMIN_ORIGIN);
+    expect(token).toMatch(
+      new RegExp(`^${ADMIN_CLIENT_ID}\\.[A-Za-z0-9_-]{43}$`, 'u'),
+    );
+    expect(new URL(link).origin).toBe(ADMIN_ORIGIN);
+
+    const tampered = await open(
+      browser,
+      { token: token.slice(`${ADMIN_CLIENT_ID}.`.length), confirm: true },
+      ADMIN_ORIGIN,
+    );
+    expect(tampered.status).toBe(400);
+    expect(tampered.body).toMatchObject({
+      error: { code: ErrorCode.MAGIC_LINK_INVALID },
+    });
+
+    const opened = await open(
+      browser,
+      { token, confirm: true },
+      undefined,
+      ADMIN_ORIGIN,
+    );
+    expect(opened.status).toBe(200);
+    const cookies = opened.get('Set-Cookie') ?? [];
+    const names = e2e.app.get(SessionCookieService);
+    expect(
+      cookies.some((cookie) =>
+        cookie.startsWith(`${names.nameFor(ADMIN_CLIENT_ID)}=`),
+      ),
+    ).toBe(true);
+    const sessionCookie = cookies.find((cookie) =>
+      cookie.startsWith(`${names.nameFor(ADMIN_CLIENT_ID)}=`),
+    );
+    if (!sessionCookie) throw new Error('Admin magic link issued no session');
+    expect(
+      await storedBrowserSession(e2e.app, sessionCookie.split(';')[0]),
+    ).toMatchObject({
+      clientId: ADMIN_CLIENT_ID,
+      authenticationMethods: ['magic_link'],
+      userVerified: false,
+      policyVersion: 0,
+    });
+    const admin = await browser
+      .get('/api/auth/identity')
+      .set('Origin', ADMIN_ORIGIN);
+    const web = await browser.get('/api/auth/identity');
+    expect(admin.body).toMatchObject({
+      data: { authenticated: true, user: { email: SEED_USER.email } },
+    });
+    expect(web.body).toMatchObject({
+      data: { authenticated: false, user: null },
+    });
+    const replayed = await open(
+      browser,
+      { token, confirm: true },
+      ADMIN_ORIGIN,
+    );
+    expect(replayed.status).toBe(400);
+  });
+
+  // Failure: adding an admin hint turns a web link into admin authority.
+  it('refuses promotion of a web token and leaves its web ceremony usable', async () => {
+    const browser = await browserAgent(e2e.httpServer);
+    const { token } = await ask(browser);
+    const crossed = await open(
+      browser,
+      { token: `${ADMIN_CLIENT_ID}.${token}`, confirm: true },
+      ADMIN_ORIGIN,
+    );
+    expect(crossed.status).toBe(400);
+    expect(crossed.body).toMatchObject({
+      error: { code: ErrorCode.MAGIC_LINK_INVALID },
+    });
+    const completed = await open(browser, { token, confirm: true });
+    expect(completed.status).toBe(200);
+    expect(await whoAmI(browser)).toBe(SEED_USER.email);
+    const admin = await browser
+      .get('/api/auth/identity')
+      .set('Origin', ADMIN_ORIGIN);
+    expect(admin.body).toMatchObject({
+      data: { authenticated: false, user: null },
+    });
+  });
+
+  // Catches the web session being read or replaced while signing in to admin.
+  it('ignores the other application session during the magic-link account-switch check', async () => {
+    const browser = await loginAs(e2e.httpServer, SEED_ADMIN);
+    const { token } = await ask(browser, SEED_USER.email, ADMIN_ORIGIN);
+    const opened = await open(browser, { token }, undefined, ADMIN_ORIGIN);
+    expect(opened.status).toBe(200);
+    expect(
+      (opened.body as VerifyBody).data.requiresConfirmation,
+    ).toBeUndefined();
+    expect((opened.body as VerifyBody).data.user?.email).toBe(SEED_USER.email);
+    expect(await whoAmI(browser)).toBe(SEED_ADMIN.email);
+    const admin = await browser
+      .get('/api/user/profile')
+      .set('Origin', ADMIN_ORIGIN);
+    expect(admin.body).toMatchObject({ data: { email: SEED_USER.email } });
+  });
+
   it.each(['true', 'false', 1])(
     'refuses a confirmation sent as %p, which is not a boolean, and spends nothing',
     async (confirm) => {
@@ -186,7 +310,9 @@ describe('magic link and the browser that asked for it (e2e)', () => {
 });
 
 /** A browser proof works once, so a browser fetches one before each anonymous post. */
-async function proofFor(browser: TestAgent): Promise<string> {
-  const proof = await browser.get('/api/auth/browser-proof').expect(200);
+async function proofFor(browser: TestAgent, origin?: string): Promise<string> {
+  const request = browser.get('/api/auth/browser-proof');
+  if (origin) request.set('Origin', origin);
+  const proof = await request.expect(200);
   return (proof.body as { data: { token: string } }).data.token;
 }

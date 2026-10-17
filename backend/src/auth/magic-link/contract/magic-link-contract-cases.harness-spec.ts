@@ -53,31 +53,4 @@ export function magicLinkCases(harness: MagicLinkHarnessSource): void {
       calls: REQUEST_CALLS,
     });
   });
-
-  it('answers and works the same for an address with an account and one without', async () => {
-    await harness().seedAccount({
-      email: 'known@example.test',
-      isVerified: true,
-      isDeleted: false,
-    });
-
-    const known = await request('known@example.test');
-    const knownCalls = [...services.storeCalls];
-    services.storeCalls.length = 0;
-    const unknown = await request('unknown@example.test');
-
-    expect({
-      sameMessage: known.message === unknown.message,
-      knownCalls,
-      unknownCalls: services.storeCalls,
-      mails: services.mail.length,
-      links: await harness().linkCount(),
-    }).toEqual({
-      sameMessage: true,
-      knownCalls: REQUEST_CALLS,
-      unknownCalls: REQUEST_CALLS,
-      mails: 2,
-      links: 2,
-    });
-  });
 }

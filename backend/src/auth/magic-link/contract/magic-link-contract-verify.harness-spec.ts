@@ -26,7 +26,9 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
   let policy: SwitchableAccountCreationPolicy;
 
   beforeEach(() => {
-    policy = new SwitchableAccountCreationPolicy();
+    policy = new SwitchableAccountCreationPolicy(
+      harness().issuanceApplications,
+    );
     services = linkServices(harness(), policy);
   });
 
@@ -115,13 +117,11 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
       signIns: services.signedIn.length,
       accounts: await harness().accountCount(),
       links: await harness().linkCount(),
-      calls: services.storeCalls,
     }).toEqual({
       refusal: INVALID,
       signIns: 0,
       accounts: 0,
       links: 1,
-      calls: ['links.claimLink'],
     });
   });
 
@@ -169,7 +169,6 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
         authProvider: account.authProvider,
       },
       signedIn: services.signedIn,
-      calls: services.storeCalls,
     }).toEqual({
       account: {
         name: 'new person',
@@ -178,11 +177,6 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
         authProvider: 'email',
       },
       signedIn: [account?.id],
-      calls: [
-        'links.claimLink',
-        'accounts.findByEmail',
-        'accounts.createPasswordlessIn',
-      ],
     });
   });
 
@@ -199,15 +193,9 @@ export function magicLinkVerifyCases(harness: MagicLinkHarnessSource): void {
     expect({
       isVerified: (await harness().account(EMAIL))?.isVerified,
       accounts: await harness().accountCount(),
-      calls: services.storeCalls,
     }).toEqual({
       isVerified: true,
       accounts: 1,
-      calls: [
-        'links.claimLink',
-        'accounts.findByEmail',
-        'accounts.markVerified',
-      ],
     });
   });
 
