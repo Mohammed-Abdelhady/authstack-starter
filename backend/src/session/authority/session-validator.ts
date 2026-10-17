@@ -6,15 +6,15 @@ import {
   CREDENTIAL_PURPOSE,
   CredentialPurpose,
 } from '../constants/credential-purpose';
-import { AUTH_SCHEMA_VERSION } from '../constants/session-policy';
 import { asAuthorityUnavailable } from '../utils/authority/authority-unavailable';
-import {
-  currentSessionDeadlines,
-  isValidDate,
-} from '../utils/authority/session-authority-rule';
+import { currentSessionDeadlines } from '../utils/authority/session-authority-rule';
 import type { EffectiveSessionDeadlines } from '../types/session-deadlines';
 import { sessionLimitsFor } from '../utils/session/session-limits';
 import { SessionExpiry } from './session-expiry';
+import {
+  hasSessionReadAuthority,
+  reconcileSessionRead,
+} from './session-read-reconciliation';
 import { hashToken } from '../utils/hashing/token-hash';
 import {
   effectiveSessionDeadlines,
@@ -41,6 +41,20 @@ export interface ValidatedSession {
   extended: boolean;
 }
 
+interface CurrentSessionRead {
+  session: StoredSession;
+  account: AuthorityAccount;
+  extendIdle: boolean;
+  purpose: CredentialPurpose;
+}
+
+interface SessionValidationRead {
+  session: StoredSession | null;
+  extendIdle: boolean;
+  purpose: CredentialPurpose;
+  readSession: () => Promise<StoredSession | null>;
+}
+
 /**
  * Decides whether a session holds authority, from committed authority reads
  * alone. Expiry is rechecked and persisted in a revocation unit of work; idle
@@ -62,17 +76,20 @@ export class SessionValidator {
     allowEnrolment = false,
   ): Promise<ValidatedSession | null> {
     try {
-      const session = await this.store.readCommittedSessionByTokenHash(
-        hashToken(token),
-      );
-      return await this.authorize(
+      const tokenHash = hashToken(token);
+      const readSession = () =>
+        this.store.readCommittedSessionByTokenHash(tokenHash);
+      const session = await readSession();
+      return await this.authorize({
         session,
+        readSession,
         extendIdle,
-        allowEnrolment &&
+        purpose:
+          allowEnrolment &&
           session?.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT
-          ? CREDENTIAL_PURPOSE.ENROLMENT
-          : CREDENTIAL_PURPOSE.BROWSER_SESSION,
-      );
+            ? CREDENTIAL_PURPOSE.ENROLMENT
+            : CREDENTIAL_PURPOSE.BROWSER_SESSION,
+      });
     } catch (error) {
       asAuthorityUnavailable(error);
     }
@@ -83,12 +100,13 @@ export class SessionValidator {
     extendIdle: boolean,
   ): Promise<ValidatedSession | null> {
     try {
-      const session = await this.store.readCommittedSessionById(sessionId);
-      return await this.authorize(
-        session,
+      const readSession = () => this.store.readCommittedSessionById(sessionId);
+      return await this.authorize({
+        session: await readSession(),
+        readSession,
         extendIdle,
-        CREDENTIAL_PURPOSE.NATIVE_ACCESS,
-      );
+        purpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
+      });
     } catch (error) {
       asAuthorityUnavailable(error);
     }
@@ -184,47 +202,37 @@ export class SessionValidator {
   }
 
   private async authorize(
-    session: StoredSession | null,
-    extendIdle: boolean,
-    purpose: CredentialPurpose,
+    input: SessionValidationRead,
   ): Promise<ValidatedSession | null> {
-    if (!session || !hasRequiredAuthorityFields(session)) {
-      return null;
-    }
+    let { session } = input;
+    const { purpose, extendIdle } = input;
     if (
-      !session.isValid ||
-      session.revokedAt ||
-      session.credentialPurpose !== purpose
+      !session ||
+      !hasSessionReadAuthority(session, purpose, this.authEpoch.current())
     ) {
       return null;
     }
-    if (session.authEpoch !== this.authEpoch.current()) {
-      return null;
-    }
-    if (session.schemaVersion !== AUTH_SCHEMA_VERSION) {
-      return null;
-    }
-
     const account = await this.store.readCommittedAccount(session.userId);
-    if (!account || account.isDeleted) {
-      return null;
-    }
-    if (session.userVersion !== account.sessionVersion) {
-      return null;
-    }
+    if (!account || account.isDeleted) return null;
+    session = await reconcileSessionRead({
+      session,
+      account,
+      purpose,
+      readSession: input.readSession,
+      authEpoch: () => this.authEpoch.current(),
+    });
+    if (!session) return null;
+    return this.authorizeCurrent({ session, account, purpose, extendIdle });
+  }
 
+  private async authorizeCurrent(
+    input: CurrentSessionRead,
+  ): Promise<ValidatedSession | null> {
+    const { session, account, purpose, extendIdle } = input;
     const application = await this.applications.findByClientId(
       session.clientId,
     );
-    if (!application || !application.enabled) {
-      return null;
-    }
-    if (session.policyVersion !== (application.policyVersion ?? 0)) {
-      return null;
-    }
-    if (session.clientVersion !== application.sessionVersion) {
-      return null;
-    }
+    if (!hasCurrentApplication(session, application)) return null;
 
     const grant = await this.store.readCommittedGrant(
       account.id,
@@ -302,18 +310,13 @@ export class SessionValidator {
   }
 }
 
-/** A stored session written before a field existed holds no authority. */
-function hasRequiredAuthorityFields(session: StoredSession): boolean {
+function hasCurrentApplication(
+  session: StoredSession,
+  application: AuthorityApplication | null,
+): application is AuthorityApplication {
   return Boolean(
-    session.clientId &&
-    isValidDate(session.authenticatedAt) &&
-    isValidDate(session.expiresAt) &&
-    isValidDate(session.idleExpiresAt) &&
-    isValidDate(session.lastActivityAt) &&
-    typeof session.userVersion === 'number' &&
-    typeof session.clientVersion === 'number' &&
-    typeof session.grantVersion === 'number' &&
-    typeof session.authEpoch === 'number' &&
-    typeof session.schemaVersion === 'number',
+    application?.enabled &&
+    session.policyVersion === (application.policyVersion ?? 0) &&
+    session.clientVersion === application.sessionVersion,
   );
 }

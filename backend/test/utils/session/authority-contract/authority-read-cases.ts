@@ -1,4 +1,5 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
+import { CREDENTIAL_PURPOSE } from '../../../../src/session/constants/credential-purpose';
 import { MalformedIdError } from '../../../../src/common/persistence/persistence-errors';
 import { holdBefore, RaceGate } from '../../race-gate';
 import {
@@ -270,6 +271,45 @@ export function authorityReadCases(harness: AuthorityHarnessSource): void {
       afterItReturned: await validates(harness(), token),
     }).toEqual({ whileOpen: true, revoked: true, afterItReturned: false });
   });
+
+  it.each([false, true])(
+    'keeps a survivor valid across promotion with native=%s',
+    async (native) => {
+      const userId = await harness().issuance.seedAccount();
+      const kept = await signIn(harness(), userId);
+      const other = await signIn(harness(), userId);
+      if (native) {
+        await harness().patchSession(kept.sessionId, {
+          credentialPurpose: CREDENTIAL_PURPOSE.NATIVE_ACCESS,
+        });
+      }
+      const accountRead = new RaceGate();
+      gates.push(accountRead);
+      restores.push(
+        holdBefore(harness().authorityStore, 'readCommittedAccount', (call) =>
+          call === 0 ? accountRead : undefined,
+        ),
+      );
+      const ongoing = native
+        ? harness().validator().validateById(kept.sessionId, false)
+        : harness().validator().validateByToken(kept.token, false);
+      try {
+        await accountRead.reached();
+        await harness()
+          .revoker(rerunAtOnce)
+          .revokeAllOthersExceptSession(userId, kept.sessionId);
+        accountRead.release();
+        expect({
+          ongoing: (await ongoing) !== null,
+          keptVersion: (await harness().session(kept.sessionId))?.userVersion,
+          other: await validates(harness(), other.token),
+        }).toEqual({ ongoing: true, keptVersion: 1, other: false });
+      } finally {
+        accountRead.release();
+        await ongoing.catch(() => undefined);
+      }
+    },
+  );
 
   it('reads outside any unit of work that was opened before the revocation', async () => {
     const userId = await harness().issuance.seedAccount();
