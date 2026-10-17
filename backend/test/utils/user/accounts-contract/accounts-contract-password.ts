@@ -87,14 +87,17 @@ export function accountPasswordCases(
     }).toEqual({ check: userId, plain: userId });
   });
 
-  it('never finds a deactivated account by its address', async () => {
+  it('retains deactivated credential evidence but excludes the account from active lookup', async () => {
     const { userId } = fixture();
     await harness().alterAccount(userId, { deleted: true });
 
+    const check = await harness().passwords.findForPasswordCheck(PERSON);
     expect({
-      check: await harness().passwords.findForPasswordCheck(PERSON),
+      id: check?.account.id,
+      deleted: check?.account.isDeleted,
+      matches: await bcrypt.compare(OLD_PASSWORD, check?.passwordHash ?? ''),
       plain: await harness().passwords.findActiveByAddress(PERSON),
-    }).toEqual({ check: null, plain: null });
+    }).toEqual({ id: userId, deleted: true, matches: true, plain: null });
   });
 
   it('finds the active account of an address without its hash', async () => {

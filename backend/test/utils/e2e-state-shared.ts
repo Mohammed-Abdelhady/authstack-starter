@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../src/host/types/host-role.type';
 import type { E2eAccountFixture, E2eApplication } from './e2e-storage';
 
 /** An account a case stores without going through sign-up. */
@@ -17,6 +18,7 @@ export interface E2eNewAccount {
 
 /** A stored account as a case reads it. The id is a string on either database. */
 export interface E2eStoredAccount {
+  audience?: RoleAudience;
   _id: string;
   email: string;
   name: string;
@@ -63,6 +65,7 @@ export interface E2eSessionsState {
 }
 
 export interface E2eStoredApplication {
+  accountAudience?: RoleAudience;
   clientId: string;
   displayName: string;
   platform: string;
@@ -84,7 +87,7 @@ export type E2eBrowserApplication = Pick<
 >;
 
 export type E2eApplicationChange = Partial<
-  Pick<E2eApplication, 'enabled' | 'redirectUris'>
+  Pick<E2eApplication, 'enabled' | 'redirectUris' | 'accountAudience'>
 >;
 
 /** Applications as every area's cases register, change and read them. */

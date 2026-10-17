@@ -90,6 +90,7 @@ export function startMemoryReplSet(): Promise<MemoryReplSet> {
 
 export async function startSharedMongoServer(
   instanceIndex = 0,
+  options: { port?: number; ttlMonitorSleepSecs?: number } = {},
 ): Promise<SharedMongoServer> {
   const dataPath = await mkdtemp(
     join(tmpdir(), `${BACKEND_TEST_MONGO_DATA_PREFIX}${process.pid}-`),
@@ -102,11 +103,22 @@ export async function startSharedMongoServer(
     mongo = await MongoMemoryServer.create({
       instance: {
         ip: '127.0.0.1',
-        port: preferredPort,
+        port: options.port ?? preferredPort,
         portGeneration: true,
         storageEngine: 'wiredTiger',
         dbPath: dataPath,
-        args: ['--replSet', REPLICA_SET_NAME],
+        args: [
+          '--replSet',
+          REPLICA_SET_NAME,
+          ...(options.ttlMonitorSleepSecs === undefined
+            ? []
+            : [
+                '--setParameter',
+                'ttlMonitorEnabled=true',
+                '--setParameter',
+                `ttlMonitorSleepSecs=${options.ttlMonitorSleepSecs}`,
+              ]),
+        ],
       },
     });
 

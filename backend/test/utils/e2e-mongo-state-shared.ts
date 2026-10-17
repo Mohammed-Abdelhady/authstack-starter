@@ -28,6 +28,7 @@ function storedAccount(user: UserDocument | null): E2eStoredAccount | null {
     email: user.email,
     name: user.name,
     role: user.role,
+    ...(user.audience ? { audience: user.audience } : {}),
     permissions: [...user.permissions],
     isVerified: user.isVerified,
     isDeleted: user.isDeleted,
@@ -45,6 +46,9 @@ function storedApplication(
   if (!stored) return null;
   return {
     clientId: stored.clientId,
+    ...(stored.accountAudience
+      ? { accountAudience: stored.accountAudience }
+      : {}),
     displayName: stored.displayName,
     platform: stored.platform,
     clientType: stored.clientType,

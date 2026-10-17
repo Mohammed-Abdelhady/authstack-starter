@@ -121,6 +121,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
       ],
     }).compile();
 
+    await module.init();
     service = module.get<AuthService>(AuthService);
     compareSpy = jest.spyOn(HashService.prototype, 'compare');
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
@@ -163,7 +164,7 @@ describe('AuthService sign-in and password reset (real database)', () => {
     });
   }
 
-  it('rejects a soft-deleted or unknown address after one comparison that never reads a stored password', async () => {
+  it('rejects deactivated and unknown addresses after one credential or dummy comparison', async () => {
     const storedHash = await bcrypt.hash(PASSWORD, ROUNDS);
     await createUser({
       email: 'deleted@example.com',
@@ -177,6 +178,8 @@ describe('AuthService sign-in and password reset (real database)', () => {
         response(),
       ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
+    expect(compareSpy.mock.calls).toEqual([[PASSWORD, storedHash]]);
+    compareSpy.mockClear();
     await expect(
       service.login(
         { email: 'nobody@example.com', password: PASSWORD },
@@ -184,11 +187,11 @@ describe('AuthService sign-in and password reset (real database)', () => {
       ),
     ).rejects.toMatchObject({ code: ErrorCode.INVALID_CREDENTIALS });
 
-    // One comparison an attempt, against the dummy hash both times.
     const compared = compareSpy.mock.calls.map(([, hash]) => String(hash));
-    expect(compared).toHaveLength(2);
-    expect(compared[0]).toBe(compared[1]);
-    expect(compared).not.toContain(storedHash);
+    expect(compared).toHaveLength(1);
+    expect(compared[0]).not.toBe(storedHash);
+    expect(bcrypt.getRounds(compared[0] ?? '')).toBe(4);
+    expect(signInService.completeSignIn).not.toHaveBeenCalled();
   });
 
   it('rejects an account with no password, such as an OAuth-only account', async () => {

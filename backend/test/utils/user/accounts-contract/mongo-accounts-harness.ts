@@ -1,3 +1,7 @@
+import { SessionIssuanceService } from '../../../../src/session/services/session-issuance.service';
+import { mongoAccountProofs } from './mongo-account-proofs';
+import { mongoAccountsApplications } from './mongo-accounts-applications';
+import { WEB_CLIENT_ID } from '../../../../src/session/constants/client-ids';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PENDING_PURPOSE } from '../../../../src/auth/constants/registration';
@@ -67,6 +71,7 @@ import {
   refuseSecurityEvents,
 } from '../../transaction-failure';
 import { AccountsContractHarness } from './accounts-contract-harness';
+import { MongoAccountDeletionStore } from '../../../../src/user/erasure/persistence/mongo/mongo-account-deletion.store';
 
 const A_UUID = '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e5f';
 
@@ -75,6 +80,10 @@ const A_UUID = '018f4d2e-7b1a-7c3d-9e2f-0a1b2c3d4e5f';
  * the stand-in on the other database does, so both run the same cases.
  */
 class SummarySignIn extends ActivationSignIn {
+  recordCreationRefusal(_clientId: string): Promise<void> {
+    return Promise.resolve();
+  }
+
   complete(account: ActivatedAccount): Promise<ActivationSignInOutcome> {
     const user = activatedDocumentOf(account);
     return Promise.resolve({
@@ -84,6 +93,7 @@ class SummarySignIn extends ActivationSignIn {
         email: user.email,
         name: user.name,
         role: user.role,
+        ...(user.audience ? { audience: user.audience } : {}),
         authProvider: user.authProvider,
         isVerified: user.isVerified,
         permissions: [],
@@ -105,6 +115,10 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     clock,
   );
   const { app, users, sessions, connection } = booted;
+  const proofs = await mongoAccountProofs(connection);
+  if (!connection.db) throw new Error('MongoDB connection is not ready');
+  const deletion = new MongoAccountDeletionStore(connection.db);
+  const creation = mongoAccountsApplications(booted);
   connection.model(Role.name, RoleSchema);
   connection.model(PendingRegistration.name, PendingRegistrationSchema);
   connection.model(MailCounter.name, MailCounterSchema);
@@ -134,7 +148,11 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
   return {
     booted,
     mongo,
+    issuanceApplications: creation.issuanceApplications,
+    sessionIssuance: app.get(SessionIssuanceService),
+    configureCreationApplication: creation.configureCreationApplication,
     clock,
+    proofs: proofs.store,
     ledger: app.get(AddressLedger),
     claims: async () =>
       (await claims.find({}).sort({ _id: 1 }).lean().exec()).map((row) => ({
@@ -158,6 +176,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     ),
     permissions: new MongoAccountPermissionStore(users),
     sessions: new RevokerAccountSessions(app.get(SessionRevoker)),
+    deletion,
     admin: new MongoAdminAccountStore(users, roles),
     activation: new MongoActivationAccounts(users),
     signIn: new SummarySignIn(),
@@ -170,10 +189,14 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     rolePermissions: new MongoRolePermissions(roles),
     runner: (pause) => new MongoUnitOfWorkRunner(connection, pause),
 
+    alterRoleAudience: async (slug, audience) => {
+      await roles.collection.updateOne({ slug }, { $set: { audience } });
+    },
     seedRole: async (role) => {
       const created = await roles.create({
         name: role.name,
         slug: role.slug,
+        audience: role.audience,
         level: role.level,
         permissions: role.permissions,
       });
@@ -185,6 +208,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
         pendingEmail: account.pendingEmail,
         name: account.name ?? 'Contract Tester',
         role: account.role,
+        audience: account.audience,
         permissions: account.permissions ?? [],
         password: account.passwordHash,
         isVerified: account.verified ?? true,
@@ -203,6 +227,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
         new Types.ObjectId(userId),
         `contract/${agents}`,
         '127.0.0.1',
+        WEB_CLIENT_ID,
       );
       const stored = await sessions
         .findOne({ tokenHash: hashToken(issued.sessionToken) })
@@ -216,6 +241,9 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
         {
           $set: {
             ...(change.role === undefined ? {} : { role: change.role }),
+            ...(change.audience === undefined
+              ? {}
+              : { audience: change.audience }),
             ...(change.deleted === undefined
               ? {}
               : { isDeleted: change.deleted }),
@@ -246,6 +274,7 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
         pendingEmail: user.pendingEmail ?? null,
         name: user.name,
         role: user.role,
+        ...(user.audience ? { audience: user.audience } : {}),
         permissions: user.permissions,
         passwordHash: user.password ?? null,
         isVerified: user.isVerified,
@@ -301,14 +330,17 @@ export async function bootMongoAccountsHarness(): Promise<MongoAccountsHarness> 
     reset: async () => {
       await Promise.all([
         claims.deleteMany({}),
+        proofs.reset(),
         users.deleteMany({}),
         roles.deleteMany({}),
         events.deleteMany({}),
         sessions.deleteMany({}),
         booted.grants.deleteMany({}),
+        booted.applications.deleteMany({}),
         registrations.deleteMany({}),
         counters.deleteMany({}),
       ]);
+      await creation.seedCreationApplications();
     },
     close: async () => {
       await app.close();

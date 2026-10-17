@@ -105,13 +105,12 @@ export function describePasswordCredentials(
     });
 
     it.each([
-      ['missing', false, false],
-      ['passwordless', true, false],
-      ['deleted', true, true],
+      ['missing', false],
+      ['passwordless', true],
     ])(
       'rejects a %s account after one dummy comparison',
-      async (_name, exists, deleted) => {
-        if (exists) await seed(deleted ? storedHash : undefined, deleted);
+      async (_name, exists) => {
+        if (exists) await seed();
 
         expect(await rejection()).toEqual({
           code: 'INVALID_CREDENTIALS',

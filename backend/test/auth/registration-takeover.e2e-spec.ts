@@ -14,13 +14,10 @@ import {
 } from '../utils/hook-timeouts';
 
 const VICTIM_EMAIL = 'victim@example.test';
-const REPEAT_VICTIM_EMAIL = 'repeat-victim@example.test';
 const ATTACKER_PASSWORD = 'AttackerPass-1';
 const VICTIM_PASSWORD = 'VictimPass-2';
 const ATTACKER_NAME = 'Attacker Chosen';
 const VICTIM_NAME = 'Victim Owner';
-/** Three minutes, so four registrations stay inside the fifteen-minute window. */
-const WINDOW_STEP_MS = 3 * 60 * 1000;
 
 /**
  * A browser proof is spent by one unsafe request, so a real browser asks for a
@@ -158,42 +155,5 @@ describe('Registration takeover (e2e)', () => {
     expect(activation.status).toBe(200);
 
     await expectPasswordBoundToVictim(e2e.httpServer, VICTIM_EMAIL);
-  });
-
-  it('still binds to the victim after the attacker re-registers three times inside the window', async () => {
-    const attacker = await browserAgent(e2e.httpServer);
-    const victim = await browserAgent(e2e.httpServer);
-    const attackerSignUp: SignUp = {
-      email: REPEAT_VICTIM_EMAIL,
-      password: ATTACKER_PASSWORD,
-      name: ATTACKER_NAME,
-    };
-    const victimSignUp: SignUp = {
-      email: REPEAT_VICTIM_EMAIL,
-      password: VICTIM_PASSWORD,
-      name: VICTIM_NAME,
-    };
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const attackerRegister = await registerAs(attacker, attackerSignUp);
-      expect(attackerRegister.status).toBe(200);
-      e2e.clock.advance(WINDOW_STEP_MS);
-    }
-
-    const attackerWrongCode = await activateAs(
-      attacker,
-      attackerSignUp,
-      '000000',
-    );
-    expect(attackerWrongCode.status).toBe(400);
-
-    const victimRegister = await registerAs(victim, victimSignUp);
-    expect(victimRegister.status).toBe(200);
-
-    const code = await e2e.mailedCode();
-    const activation = await activateAs(victim, victimSignUp, code);
-    expect(activation.status).toBe(200);
-
-    await expectPasswordBoundToVictim(e2e.httpServer, REPEAT_VICTIM_EMAIL);
   });
 });

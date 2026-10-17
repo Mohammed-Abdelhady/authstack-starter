@@ -138,8 +138,9 @@ export function accountAdminCases(
     expect(stored.deletedAt).toBeInstanceOf(Date);
     expect(stored.sessionVersion).toBe(1);
     expect(await harness().liveSessionIds(userId)).toEqual([]);
+    // The status change is the staff record; its sign-out names no actor.
     expect(await revocationsOf(harness())).toEqual([
-      `${REVOKED_ALL} of ${userId} by ${managerId} (${ADMIN_FORCED})`,
+      `${REVOKED_ALL} of ${userId} by nobody (${ADMIN_FORCED})`,
     ]);
   });
 
@@ -192,19 +193,28 @@ export function accountAdminCases(
     const { userId, managerId, editorRoleId, defaultRoleId } = fixture();
     await harness().seedSession(userId);
 
-    const answer = await servicesOn(harness()).adminUsers.updateUserRole(
+    const services = servicesOn(harness());
+    const answer = await services.adminUsers.updateUserRole(
       userId,
       { role: EDITOR_SLUG },
       managerId,
       MANAGER_SLUG,
     );
 
-    expect(answer.data).toEqual({ id: userId, role: EDITOR_SLUG });
+    expect(answer.data).toEqual({ id: userId, role: EDITOR_SLUG, version: 1 });
     expect(await storedAccount(harness(), userId)).toMatchObject({
       role: EDITOR_SLUG,
       sessionVersion: 1,
     });
     expect(await harness().liveSessionIds(userId)).toEqual([]);
+    const listed = await services.adminQueries.listUsers(
+      { role: EDITOR_SLUG, page: 1, limit: 10 },
+      MANAGER_SLUG,
+    );
+    expect(listed.data?.data.map((account) => account.id)).toEqual([userId]);
+    expect(
+      (await services.adminQueries.getUserById(userId, MANAGER_SLUG)).data,
+    ).toMatchObject({ id: userId, role: 'content-editor' });
     const signOuts = (await harness().events()).filter(
       (event) => event.action === REVOKED_ALL,
     );
@@ -251,7 +261,8 @@ export function accountAdminCases(
   it('renames an account and leaves its address alone', async () => {
     const { userId, managerId } = fixture();
 
-    const answer = await servicesOn(harness()).adminUsers.updateUser(
+    const services = servicesOn(harness());
+    const answer = await services.adminUsers.updateUser(
       userId,
       { name: '  Renamed By Admin ' },
       managerId,
@@ -266,5 +277,6 @@ export function accountAdminCases(
       addressGeneration: 0,
       sessionVersion: 0,
     });
+    expect(services.mail).toEqual([]);
   });
 }

@@ -1,3 +1,4 @@
+import { emailCodeDeliveryCases } from './email-code-delivery.harness-spec';
 import { FrozenClock, TEST_NOW } from '../../../test/utils/frozen-clock';
 import { UnitOfWorkRunner } from '../../common/persistence/unit-of-work';
 import {
@@ -74,6 +75,8 @@ export function describeEmailCodeContract(
         }),
       );
     }
+
+    emailCodeDeliveryCases(() => harness);
 
     it('has the owner uniqueness and expiry setup', async () => {
       await harness.checkSetup();

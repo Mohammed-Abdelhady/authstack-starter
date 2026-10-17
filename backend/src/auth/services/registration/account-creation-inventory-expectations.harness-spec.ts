@@ -17,9 +17,9 @@ const CALLERS: readonly InventoryCaller[] = [
   // feature:magic-link:start
   {
     file: 'auth/magic-link/magic-link-account-creation.ts',
-    owner: 'createUser',
+    owner: 'createIn',
     method: 'createPasswordlessIn',
-    boundary: 'run',
+    boundary: 'parameter',
   },
   {
     file: 'auth/native/lifecycle/native-email-link-mail.service.ts',
@@ -30,8 +30,8 @@ const CALLERS: readonly InventoryCaller[] = [
   // feature:magic-link:end
   // feature:oauth-core:start
   {
-    file: 'auth/oauth/oauth.service.ts',
-    owner: 'createUser',
+    file: 'auth/oauth/create-provider-account.ts',
+    owner: 'createProviderAccount',
     method: 'createFromProviderIn',
     boundary: 'run',
   },
@@ -42,6 +42,14 @@ const CALLERS: readonly InventoryCaller[] = [
     method: 'insertAccount',
     boundary: 'runForAuthority',
   },
+  // feature:invitations:start
+  {
+    file: 'auth/invitations/services/invitation-account-creator.ts',
+    owner: 'create',
+    method: 'insertAccount',
+    boundary: 'parameter',
+  },
+  // feature:invitations:end
   {
     file: 'database/seeds/seed.service.ts',
     owner: 'seedUsers',

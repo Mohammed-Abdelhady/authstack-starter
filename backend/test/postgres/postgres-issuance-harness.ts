@@ -1,3 +1,6 @@
+import { PostgresDeviceNoticeStore } from '../../src/session/persistence/postgres/postgres-device-notice.store';
+import { SecurityEventRecorder } from '../../src/session/events/security-event-recorder';
+import { PostgresEnrolmentStore } from '../../src/session/persistence/postgres/postgres-enrolment.store';
 import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Kysely } from 'kysely';
@@ -77,22 +80,39 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
     server,
     appliedMigrations,
     clock,
+    devices: new PostgresDeviceNoticeStore(),
+    setNoticeRecipient: async (userId, email) => {
+      await database
+        .updateTable('users')
+        .set({ email, is_verified: true })
+        .where('id', '=', userId)
+        .execute();
+    },
     store,
     applications,
     runner,
-    service: (pause) =>
+    service: (pause, notices) =>
       new SessionIssuanceService(
         runner(pause),
         store,
         applications,
         clock,
         authEpoch,
+        new SecurityEventRecorder(
+          new PostgresSecurityEventStore(database),
+          clock,
+        ),
+        new PostgresEnrolmentStore(),
+        notices,
       ),
 
     seedAccount: async (options) => {
       const row = await database
         .insertInto('users')
-        .values({ is_deleted: options?.deleted ?? false })
+        .values({
+          is_deleted: options?.deleted ?? false,
+          audience: options?.audience,
+        })
         .returning('id')
         .executeTakeFirstOrThrow();
       return row.id;
@@ -104,9 +124,17 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         platform: application.platform,
         enabled: application.enabled,
         session_version: application.sessionVersion,
+        policy_version: application.policyVersion ?? 0,
+        require_passkey: application.requirePasskey ?? false,
+        session_cap: application.sessionCap ?? null,
+        account_audience: application.accountAudience ?? null,
+        audiences: ['api'],
         allowed_scopes: ['api'],
         absolute_lifetime_ms: application.absoluteLifetimeMs,
         idle_lifetime_ms: application.idleLifetimeMs,
+        unbound_absolute_lifetime_ms:
+          application.unboundAbsoluteLifetimeMs ?? null,
+        unbound_idle_lifetime_ms: application.unboundIdleLifetimeMs ?? null,
       };
       await database
         .insertInto('applications')
@@ -130,6 +158,13 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
           session_version: 1,
           issuance_fence: 0,
         })
+        .execute();
+    },
+    setSessionProofKey: async (sessionId, thumbprint) => {
+      await database
+        .updateTable('sessions')
+        .set({ proof_key_thumbprint: thumbprint })
+        .where('id', '=', sessionId)
         .execute();
     },
     revokeOneSession: async (userId) => {
@@ -187,6 +222,9 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         userVersion: row.user_version,
         clientVersion: row.client_version,
         grantVersion: row.grant_version,
+        authenticationMethods: row.authentication_methods,
+        userVerified: row.user_verified,
+        policyVersion: row.policy_version,
         deviceName: row.device_name,
         device: row.device,
         authenticatedAt: row.authenticated_at,
@@ -217,6 +255,7 @@ export async function bootPostgresIssuanceHarness(): Promise<PostgresIssuanceHar
         .execute();
       return rows.map((row) => ({
         action: row.action,
+        outcome: row.outcome,
         targetUserId: row.target_user_id,
         clientId: row.client_id,
         sessionId: row.session_id,

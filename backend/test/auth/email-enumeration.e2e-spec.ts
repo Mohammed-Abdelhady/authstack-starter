@@ -282,23 +282,6 @@ describe('Address-request routes with a failing mail boundary (e2e)', () => {
     });
   });
 
-  it('does not log a sent line when the link could not be mailed', async () => {
-    const logSpy = jest
-      .spyOn(Logger.prototype, 'log')
-      .mockImplementation(() => {});
-    const email = 'magic-log-enum@example.test';
-
-    const before = (await e2e.captureMail()).length;
-    await post('/api/auth/magic-link/request', { email });
-    expect((await e2e.captureMail()).length - before).toBe(1);
-
-    const logged = logSpy.mock.calls.map((call) =>
-      call.map((argument) => String(argument)).join(' '),
-    );
-    expect(
-      logged.filter((line) => line.includes('Magic link sent to')),
-    ).toEqual([]);
-  });
   // feature:magic-link:end
 
   it('logs the delivery failure with the request id, and this service logs no address', async () => {

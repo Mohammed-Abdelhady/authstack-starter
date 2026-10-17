@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 // feature:totp:start
 // The two-factor controller pulls in the otplib adapter; this spec only reads
 // the feature metadata off the class.
@@ -37,6 +38,7 @@ function contextFor(
   handler: RouteHandler = () => undefined,
 ): ExecutionContext {
   return createExecutionContextMock({
+    switchToHttp: () => ({ getRequest: () => undefined }),
     getClass: () => target,
     getHandler: () => handler,
   });
@@ -62,71 +64,77 @@ describe('FeatureEnabledGuard', () => {
       }
     }
 
+    const config = new ConfigService(values);
+    const browserApplications = browserApplicationsForTest(config);
     const guard = new FeatureEnabledGuard(
       new Reflector(),
-      new AuthFeaturesService(new ConfigService(values)),
+      new AuthFeaturesService(config, browserApplications),
     );
 
     return { guard };
   }
 
-  it('should let a route without feature metadata through', () => {
+  it('should let a route without feature metadata through', async () => {
     const { guard } = createGuard({
       [AuthFeature.PASSWORD]: false,
       [AuthFeature.MAGIC_LINK]: false,
     });
 
-    expect(guard.canActivate(contextFor(UngatedController))).toBe(true);
+    await expect(
+      guard.canActivate(contextFor(UngatedController)),
+    ).resolves.toBe(true);
   });
 
   // feature:magic-link:start
-  it('should let the magic link routes through when the method is on', () => {
+  it('should let the magic link routes through when the method is on', async () => {
     const { guard } = createGuard({
       [AuthFeature.PASSWORD]: true,
       [AuthFeature.MAGIC_LINK]: true,
     });
 
-    expect(guard.canActivate(contextFor(MagicLinkController))).toBe(true);
+    await expect(
+      guard.canActivate(contextFor(MagicLinkController)),
+    ).resolves.toBe(true);
   });
 
-  it('should answer 404 FEATURE_DISABLED for the magic link routes when the method is off', () => {
+  it('should answer 404 FEATURE_DISABLED for the magic link routes when the method is off', async () => {
     const { guard } = createGuard({
       [AuthFeature.PASSWORD]: true,
       [AuthFeature.MAGIC_LINK]: false,
     });
 
-    expect(() => guard.canActivate(contextFor(MagicLinkController))).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.FEATURE_DISABLED,
-        status: 404,
-      }) as Error,
-    );
+    await expect(
+      guard.canActivate(contextFor(MagicLinkController)),
+    ).rejects.toMatchObject({
+      code: ErrorCode.FEATURE_DISABLED,
+      status: 404,
+    });
   });
   // feature:magic-link:end
 
-  it('should answer 404 FEATURE_DISABLED for login when passwords are off', () => {
+  it('should answer 404 FEATURE_DISABLED for login when passwords are off', async () => {
     const { guard } = createGuard({
       [AuthFeature.PASSWORD]: false,
       [AuthFeature.MAGIC_LINK]: true,
     });
 
-    expect(() =>
+    await expect(
       guard.canActivate(
         contextFor(
           AuthController,
           handlerOf(AuthController.prototype, 'login'),
         ),
       ),
-    ).toThrow(
-      expect.objectContaining({ code: ErrorCode.FEATURE_DISABLED }) as Error,
-    );
+    ).rejects.toMatchObject({ code: ErrorCode.FEATURE_DISABLED });
   });
 
   // feature:totp:start
-  it('should let the two-factor routes through when the feature is on', () => {
+  it('should let the two-factor routes through when the feature is on', async () => {
     const { guard } = createGuard({ [AuthFeature.TWO_FACTOR]: true });
 
-    expect(guard.canActivate(contextFor(TwoFactorController))).toBe(true);
+    await expect(
+      guard.canActivate(contextFor(TwoFactorController)),
+    ).resolves.toBe(true);
   });
   // feature:totp:end
 
@@ -136,10 +144,12 @@ describe('FeatureEnabledGuard', () => {
     ['sign-in', PasskeyLoginController],
   ])(
     'should let the passkey %s routes through when the method is on',
-    (_name, controller) => {
+    async (_name, controller) => {
       const { guard } = createGuard({ [AuthFeature.PASSKEYS]: true });
 
-      expect(guard.canActivate(contextFor(controller))).toBe(true);
+      await expect(guard.canActivate(contextFor(controller))).resolves.toBe(
+        true,
+      );
     },
   );
 
@@ -148,29 +158,29 @@ describe('FeatureEnabledGuard', () => {
     ['sign-in', PasskeyLoginController],
   ])(
     'should answer 404 FEATURE_DISABLED for the passkey %s routes when the method is off',
-    (_name, controller) => {
+    async (_name, controller) => {
       const { guard } = createGuard({ [AuthFeature.PASSKEYS]: false });
 
-      expect(() => guard.canActivate(contextFor(controller))).toThrow(
-        expect.objectContaining({
-          code: ErrorCode.FEATURE_DISABLED,
-          status: 404,
-        }) as Error,
-      );
+      await expect(
+        guard.canActivate(contextFor(controller)),
+      ).rejects.toMatchObject({
+        code: ErrorCode.FEATURE_DISABLED,
+        status: 404,
+      });
     },
   );
   // feature:passkeys:end
 
   // feature:totp:start
-  it('should answer 404 FEATURE_DISABLED for the two-factor routes when the feature is off', () => {
+  it('should answer 404 FEATURE_DISABLED for the two-factor routes when the feature is off', async () => {
     const { guard } = createGuard({ [AuthFeature.TWO_FACTOR]: false });
 
-    expect(() => guard.canActivate(contextFor(TwoFactorController))).toThrow(
-      expect.objectContaining({
-        code: ErrorCode.FEATURE_DISABLED,
-        status: 404,
-      }) as Error,
-    );
+    await expect(
+      guard.canActivate(contextFor(TwoFactorController)),
+    ).rejects.toMatchObject({
+      code: ErrorCode.FEATURE_DISABLED,
+      status: 404,
+    });
   });
   // feature:totp:end
 });
