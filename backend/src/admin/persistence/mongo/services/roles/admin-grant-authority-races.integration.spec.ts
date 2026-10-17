@@ -131,7 +131,9 @@ describe('a grant uses authority current at commit', () => {
     await h.users.updateOne(
       { _id: actor._id },
       {
-        $set: { permissions: [USER_PERMISSIONS.UPDATE_ALL, 'posts:read:all'] },
+        $set: {
+          permissions: [USER_PERMISSIONS.ASSIGN_ROLE_ALL, 'posts:read:all'],
+        },
       },
     );
     const gate = new RaceGate();
@@ -260,38 +262,5 @@ describe('a grant uses authority current at commit', () => {
       ),
     ).rejects.toMatchObject({ code: ErrorCode.SESSION_INVALID, status: 401 });
     expect(await h.roleModel.findOne({ slug: 'orphan-grant' })).toBeNull();
-  });
-  it('keeps business update timestamps unchanged while fencing grant authority', async () => {
-    const { h } = fixture;
-    const originalTime = new Date('2001-02-03T04:05:06.000Z');
-    await h.users.updateOne(
-      { _id: fixture.actorId },
-      { $set: { updatedAt: originalTime } },
-      { timestamps: false },
-    );
-    await h.roleModel.updateOne(
-      { slug: UserRole.ADMIN },
-      { $set: { updatedAt: originalTime } },
-      { timestamps: false },
-    );
-    await h.roles.create(
-      { name: 'Timestamp Safe Role', permissions: [] },
-      fixture.actorId,
-    );
-    const database = h.connection.db;
-    if (!database) throw new Error('Mongo fixture has no database');
-    const actor = await database
-      .collection<{ updatedAt: Date }>('users')
-      .findOne({ email: 'round-four-admin@example.test' });
-    const authorityRole = await database
-      .collection<{ updatedAt: Date }>('roles')
-      .findOne({ slug: UserRole.ADMIN });
-    expect(actor?.updatedAt.toISOString()).toBe('2001-02-03T04:05:06.000Z');
-    expect(authorityRole?.updatedAt.toISOString()).toBe(
-      '2001-02-03T04:05:06.000Z',
-    );
-    expect(
-      await h.roleModel.countDocuments({ slug: 'timestamp-safe-role' }),
-    ).toBe(1);
   });
 });

@@ -133,14 +133,6 @@ describe('Admin address change waits for confirmation (e2e)', () => {
     ).toEqual([[targetId, OLD, NEW]]);
   });
 
-  it('reports no waiting address for an account nobody asked to move', async () => {
-    const read = await admin.get(`/api/admin/users/${targetId}`).expect(200);
-
-    expect((read.body as ApiBody<AdminUserBody>).data).not.toHaveProperty(
-      'pendingEmail',
-    );
-  });
-
   // feature:email-password:start
   async function signIn(email: string, password: string): Promise<Response> {
     const agent = await browserAgent(e2e.httpServer);

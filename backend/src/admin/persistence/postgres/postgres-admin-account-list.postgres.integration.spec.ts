@@ -1,4 +1,5 @@
-import { KyselyPlugin, sql } from 'kysely';
+import { PostgresUnitOfWorkRunner } from '../../../common/persistence/postgres/postgres-unit-of-work';
+import { sql } from 'kysely';
 import {
   openTestConnection,
   TestConnection,
@@ -9,33 +10,10 @@ import {
   POSTGRES_TEARDOWN_TIMEOUT_MS,
 } from '../../../../test/postgres/server/postgres-test-server';
 import { FrozenClock, TEST_NOW } from '../../../../test/utils/frozen-clock';
-import { AdminAccountQuery } from '../../stores/admin-account.store';
 import { PostgresAdminAccountStore } from './postgres-admin-account.store';
 
 const FIRST_LINK = new Date('2098-06-01T00:00:00.000Z');
 const SECOND_LINK = new Date('2098-06-02T00:00:00.000Z');
-const PAGE_OF_100: AdminAccountQuery = {
-  viewableRoles: ['user'],
-  page: 1,
-  limit: 100,
-  sortBy: 'email',
-  sortOrder: 'asc',
-};
-
-/** Counts the statements a store sends, whatever they say. */
-function statementCounter(): { plugin: KyselyPlugin; sent: () => number } {
-  let sent = 0;
-  return {
-    plugin: {
-      transformQuery: ({ node }) => {
-        sent += 1;
-        return node;
-      },
-      transformResult: ({ result }) => Promise.resolve(result),
-    },
-    sent: () => sent,
-  };
-}
 
 /** What listing accounts costs on PostgreSQL, where links are rows of their own. */
 describe('PostgreSQL admin account list', () => {
@@ -69,80 +47,49 @@ describe('PostgreSQL admin account list', () => {
        ORDER BY link.linked_at`.execute(connection.database);
   }, POSTGRES_RESET_TIMEOUT_MS);
 
-  it('reads a page of 100 accounts and their links in three statements', async () => {
-    const counter = statementCounter();
+  it('clears the pending address and staff marker with one normal version advance', async () => {
     const store = new PostgresAdminAccountStore(
-      connection.database.withPlugin(counter.plugin),
+      connection.database,
       new FrozenClock(TEST_NOW),
     );
-
-    const page = await store.listAccounts(PAGE_OF_100);
-
-    const linked = page.accounts.filter(
-      (account) => account.linkedAccounts.length > 0,
-    );
-    expect({
-      statements: counter.sent(),
-      total: page.total,
-      listed: page.accounts.length,
-      first: page.accounts[0].email,
-      last: page.accounts[99].email,
-      linked: linked.map((account) => ({
-        email: account.email,
-        linkedAccounts: account.linkedAccounts,
-        linkedProviders: account.linkedProviders,
-      })),
-    }).toEqual({
-      statements: 3,
-      total: 120,
-      listed: 100,
-      first: 'account-001@example.test',
-      last: 'account-100@example.test',
-      linked: [
-        {
-          email: 'account-002@example.test',
-          linkedAccounts: [
-            {
-              provider: 'provider-a',
-              providerId: 'a-2',
-              linkedAt: FIRST_LINK,
-            },
-            {
-              provider: 'provider-b',
-              providerId: 'b-2',
-              linkedAt: SECOND_LINK,
-            },
-          ],
-          linkedProviders: ['email', 'provider-a', 'provider-b'],
-        },
-        {
-          email: 'account-100@example.test',
-          linkedAccounts: [
-            {
-              provider: 'provider-b',
-              providerId: 'b-100',
-              linkedAt: FIRST_LINK,
-            },
-          ],
-          linkedProviders: ['email', 'provider-b'],
-        },
-      ],
+    const first = await connection.database
+      .selectFrom('users')
+      .select(['id', 'email'])
+      .orderBy('email')
+      .executeTakeFirstOrThrow();
+    const runner = new PostgresUnitOfWorkRunner(connection.database);
+    const pending = await runner.run(async (work) => {
+      const account = await store.takeAccountForChange(work, first.id);
+      if (!account) throw new Error('The account is missing');
+      return store.saveIdentity(work, account, {
+        address: { email: 'pending@example.test', addressGeneration: 1 },
+      });
     });
-  });
-
-  it('sends no statement for links when the page is empty', async () => {
-    const counter = statementCounter();
-    const store = new PostgresAdminAccountStore(
-      connection.database.withPlugin(counter.plugin),
-      new FrozenClock(TEST_NOW),
-    );
-
-    const page = await store.listAccounts({ ...PAGE_OF_100, page: 3 });
-
-    expect({
-      statements: counter.sent(),
-      total: page.total,
-      accounts: page.accounts,
-    }).toEqual({ statements: 2, total: 120, accounts: [] });
+    await runner.run(async (work) => {
+      const account = await store.takeAccountForChange(work, first.id);
+      if (!account) throw new Error('The account is missing');
+      await store.saveIdentity(work, account, {
+        address: { email: null, addressGeneration: 2 },
+      });
+    });
+    expect(
+      await connection.database
+        .selectFrom('users')
+        .select([
+          'email',
+          'pending_email',
+          'pending_email_initiator',
+          'address_generation',
+          'version',
+        ])
+        .where('id', '=', first.id)
+        .executeTakeFirstOrThrow(),
+    ).toEqual({
+      email: first.email,
+      pending_email: null,
+      pending_email_initiator: null,
+      address_generation: 2,
+      version: (pending.version ?? 0) + 1,
+    });
   });
 });

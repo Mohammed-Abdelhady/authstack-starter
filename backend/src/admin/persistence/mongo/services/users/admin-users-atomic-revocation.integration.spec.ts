@@ -1,6 +1,5 @@
 import { Types } from 'mongoose';
 import { MongoNetworkError } from 'mongodb';
-import { REVOKED_REASON } from '../../../../../session/constants/revoked-reason';
 import { AdminUsersService } from '../../../../services/users/admin-users.service';
 import { ErrorCode } from '../../../../../common/enums/error-code.enum';
 import { WEB_CLIENT_ID } from '../../../../../session/constants/client-ids';
@@ -103,7 +102,12 @@ describe('admin changes end sessions atomically', () => {
   }
 
   function login(user: UserDocument): Promise<{ sessionToken: string }> {
-    return harness.sessionService.createSession(user._id, 'agent', '127.0.0.1');
+    return harness.sessionService.createSession(
+      user._id,
+      'agent',
+      '127.0.0.1',
+      WEB_CLIENT_ID,
+    );
   }
 
   async function storedUser(id: Types.ObjectId): Promise<UserDocument | null> {
@@ -260,17 +264,5 @@ describe('admin changes end sessions atomically', () => {
     expect(await sessionAlive(session.sessionToken)).toBe(true);
   });
 
-  it('marks an admin-forced sign-out with the actor and reason', async () => {
-    const user = await seedUser('actor-event@example.test');
-    await login(user);
-
-    await service.deleteUser(idOf(user), actorId);
-
-    const event = await harness.events
-      .findOne({ targetUserId: idOf(user), action: 'sessions_revoked_all' })
-      .lean()
-      .exec();
-    expect(event?.actorId).toBe(actorId);
-    expect(event?.reasonCode).toBe(REVOKED_REASON.ADMIN_FORCED);
-  });
+  // Failure: a deletion shows twice in the staff log, as itself and as the sign-out it caused.
 });

@@ -139,6 +139,7 @@ describe('activity log populated PostgreSQL upgrade', () => {
       await pool.query(`DROP INDEX ${ACTIVITY_KIND_INDEX}`);
       expect(await applyPostgresMigrations(pool)).toEqual([
         '0027_activity_log.sql',
+        '0028_staff_console.sql',
       ]);
       expect((await recorded(pool)).includes(ACTIVITY_MIGRATION)).toBe(true);
     },
