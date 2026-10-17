@@ -27,7 +27,7 @@ three of them set, and a blank value counts as not set. It also refuses a code
 hash that is not a bcrypt hash, such as the code itself, and an end more than
 30 days ahead.
 
-A code never outlives the sign-in attempt it belongs to. An attempt lasts
+A native code never outlives the sign-in attempt it belongs to. An attempt lasts
 fifteen minutes, so a lifetime longer than that has no effect.
 
 Mail goes through the SMTP settings every other mail uses.
@@ -37,6 +37,25 @@ Mail goes through the SMTP settings every other mail uses.
 For SMTP setup, see [setup-smtp.md](setup-smtp.md).
 
 <!-- feature:email-password:end -->
+
+## Browser cookie sign-in
+
+A browser application opts in through `signIn.emailCode`. Its client calls
+`POST /api/auth/email-code/request` with `{email, locale?}`, then
+`POST /api/auth/email-code/verify` with `{code}`. The HttpOnly ceremony cookie
+binds verification to the requesting browser and application. Both calls use
+the existing browser proof and CSRF transport. Browser mail contains the code
+without a sign-in link.
+
+The SDK exposes `client.emailCode.request` and `client.emailCode.verify`.
+Verification returns either the existing sign-in summary or
+`{requiresTwoFactor: true, user: null}`. Fetch `client.auth.identity()` after
+completed sign-in to read the full profile, including its stored locale.
+The starter browser page is deferred. A host can consume these typed calls.
+
+Browser sign-in does not accept native review codes or native attempt IDs.
+`MAGIC_LINK_ENABLED=false` can remain set while email-code sign-in is enabled.
+The generator retains magic-link helpers as the email-code feature dependency.
 
 ## The native application key
 
@@ -123,6 +142,10 @@ code.
   spent.
 - Five wrong guesses end the attempt. They count on that attempt alone, so they
   never lock the address and a new attempt works at once.
+- Wrong guesses at live codes also count on the address for the UTC day, from
+  any attempt. After 100 in a day the address is mailed no code until the next
+  UTC day, and the code made for each request is stored already spent. Codes
+  already mailed keep working, and the account is never locked.
 - The per-caller throttles of the email link routes apply.
 
 [`backend/docs/registration-limits.md`](../../backend/docs/registration-limits.md)
@@ -136,10 +159,13 @@ application the account's current address takes a fixed code, and no mail is
 sent for it. The code has six digits like any other, so the app needs no
 special screen.
 
-Store a bcrypt hash of the code, never the code itself. From `backend/`:
+Choose six digits of your own that are not published anywhere, so no example
+or shared note can give the review account away. Store a bcrypt hash of the
+code, never the code itself. From `backend/`, with your code in place of the
+placeholder:
 
 ```bash
-node -e "require('bcrypt').hash(process.argv[1], 12).then(console.log)" 246810
+node -e "require('bcrypt').hash(process.argv[1], 12).then(console.log)" <your six-digit code>
 ```
 
 Every use checks again that the account still has that id, is not

@@ -1,6 +1,8 @@
 # create-authstack-starter
 
-Scaffolds AuthStack Starter with the clients and sign-in methods you pick. Before its first npm release, clone the [AuthStack Starter source repository](https://github.com/Mohammed-Abdelhady/authstack-starter) and run these commands from that source clone. Generated projects omit the CLI workspace.
+Generate an AuthStack Starter project with the clients, database and sign-in methods you select. The CLI removes unselected code and documentation, configures the remaining workspaces, and can install dependencies and initialize Git.
+
+Before the first npm release, clone the [source repository](https://github.com/Mohammed-Abdelhady/authstack-starter) and run these commands from its root with pnpm 12.6.0. The supported Node versions are listed below. Generated projects omit this CLI workspace.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -8,7 +10,7 @@ pnpm --filter create-authstack-starter run build
 node packages/create-authstack-starter/dist/index.js ../my-app
 ```
 
-After npm publication, use `pnpm dlx create-authstack-starter my-app`. The CLI copies its template, removes files, env vars and docs for omitted methods, commits the result and installs dependencies.
+After npm publication, `pnpm dlx create-authstack-starter my-app` will be available. Until then, use the built entry point shown above.
 
 ## Usage
 
@@ -97,7 +99,7 @@ Each project gets an `AGENTS.md` with its code rules, commit types and scopes, c
 
 Generated projects use pnpm 12.6.0 with an isolated dependency layout. On Node 22,
 run `corepack enable` and `corepack prepare pnpm@12.6.0 --activate`. When pnpm is
-available, the installer updates the lockfile offline before the first commit. Without the
+available, the installer updates the lockfile with `--prefer-offline` before the first commit. Without the
 pinned pnpm version, it removes the bundled lockfile, prints `pnpm install` as the next
 step and exits 1. A failed update stops with exit 1 and keeps the bundled lockfile.
 
@@ -156,83 +158,7 @@ and the markers; the runtime switches are the `*_ENABLED` variables next to it.
 methods), plus `presets`. A version 1 file still loads and is read as version 2
 with `web`, `mongodb` and no options.
 
-```json
-{
-  "version": 2,
-  "targets": {
-    "web": { "label": "Web app (Next.js)", "default": true, "files": [] },
-    "native-expo": {
-      "label": "Mobile app, Expo (iOS simulator only, Android not verified)",
-      "default": false,
-      "files": ["mobile/expo/**"],
-      "workspaces": ["mobile/expo"],
-      "requires": { "shared": ["native-core"], "targets": [] },
-      "needsSignInSite": true
-    }
-  },
-  "shared": {
-    "native-core": { "files": ["mobile/auth/**"], "workspaces": ["mobile/auth"] }
-  },
-  "databases": {
-    "mongodb": { "label": "MongoDB", "default": true, "files": [], "envVars": ["MONGO_URI"] },
-    "postgres": { "label": "PostgreSQL", "default": false, "envVars": ["POSTGRES_URL"] }
-  },
-  "options": {
-    "docker": {
-      "label": "Docker files",
-      "default": true,
-      "files": [
-        "docker-compose.yml",
-        "backend/Dockerfile",
-        "frontend/Dockerfile",
-        ".dockerignore",
-        ".env.docker.example"
-      ],
-      "catalogueKeys": []
-    },
-    "production": {
-      "label": "Production nginx and compose",
-      "default": true,
-      "requires": ["docker"],
-      "files": ["nginx/**", "docker-compose.prod.yml", "docs/operations/deployment.md"],
-      "catalogueKeys": []
-    },
-    "locale-ar": {
-      "label": "Arabic locale",
-      "default": true,
-      "files": ["frontend/src/i18n/messages/**/*.ar.json"],
-      "catalogueKeys": [
-        {
-          "path": "frontend/src/i18n/messages/en.json",
-          "keys": ["common.switchToArabic"]
-        }
-      ]
-    }
-  },
-  "presets": {
-    "minimal": { "targets": ["web"], "features": ["email-password"], "options": [] },
-    "standard": {
-      "targets": ["web"],
-      "features": "defaults",
-      "options": ["docker", "production", "locale-ar"]
-    },
-    "everything": { "targets": "available", "features": "available", "options": "available" }
-  },
-  "features": {
-    "google": {
-      "label": "Google",
-      "description": "Sign in with a Google account.",
-      "kind": "oauth",
-      "default": true,
-      "files": ["backend/src/auth/oauth/strategies/google-oauth.strategy.ts"],
-      "envVars": ["OAUTH_GOOGLE_CLIENT_ID"],
-      "requires": ["oauth-core"],
-      "docs": ["docs/setup/setup-google-oauth.md"]
-    }
-  },
-  "core": { "alwaysRemoveFiles": [".hyperflow/**"] }
-}
-```
+See the source [template.manifest.json](https://github.com/Mohammed-Abdelhady/authstack-starter/blob/master/template.manifest.json) for the complete definitions. The [configuration guide](docs/config.md) explains client selection; the [database guide](docs/database.md) explains adapter ownership and rewrites.
 
 | Field           | Meaning                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -294,7 +220,9 @@ Marker rules, and how to add a method, live in [docs/markers.md](docs/markers.md
 
 ## Maintainer notes
 
-The published package carries the whole boilerplate in `template/`. That
+Keep tests for named failures in account access, security, persisted data, or generating and starting a working project. Preserve unique refusal, replay, race and outage checks. Routine copy, rendering and styling changes do not need tests.
+
+The built package carries the source template in `template/`. That
 directory is generated, gitignored, and rebuilt from the repository on every
 build.
 
@@ -327,7 +255,7 @@ list, contents and executable bits, which every generated project records in
 Publish from the package directory after a version bump: `pnpm --filter create-authstack-starter run build`, then `npm publish --access public` from
 `packages/create-authstack-starter`.
 
-The CLI and generated projects support Node 22.12 or newer on the 22 line, or Node 24.22 or newer on the 24 line. Both are tested.
+The CLI and generated projects support Node 22.12 or newer on the 22 line, or Node 24.22 or newer on the 24 line. CI declares tests for both supported lines.
 Corepack is not bundled from Node 25. The installer is still packed and published
 with npm. Its template carries `_pnpm-lock.yaml`, restored to `pnpm-lock.yaml`
 before pruning and installation.

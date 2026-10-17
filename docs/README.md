@@ -1,13 +1,22 @@
-# Documentation
+# AuthStack Starter documentation
 
-Index of architecture documents, system guides, and provider setup tutorials.
+Start with the project setup, then configure the clients, database and sign-in
+methods your application needs. Use the reference and operations guides when
+changing permissions, upgrading data or preparing a deployment.
+
+## Start here
+
+- [Project quick start](../README.md#quick-start): Supported runtime, installation and local servers.
+- [Backend setup](../backend/README.md#quick-start): Database preparation and API configuration.
+- [Web app setup](../frontend/README.md#quick-start): API origin, development and workspace checks.
+- [Mobile sign-in setup](setup/setup-mobile-sign-in.md): Native methods, provider SDKs, callbacks and app links. <!-- feature:native-core -->
 
 ## Core guides
 
 - [Upgrade notes](upgrading.md): Permission changes and steps to take before upgrading.
 - [Session device names](../backend/docs/session-device-names.md): Session response parts, localized names, and legacy fallback.
 - [Architecture](reference/ARCHITECTURE.md): Request pipeline, session storage, OAuth provider registry, and security model.
-- [Database schema](reference/DATABASE_SCHEMA.md): MongoDB collections, document models, indexes, and migrations.
+- [Database schema](reference/DATABASE_SCHEMA.md): MongoDB collections, document models, indexes, and migrations. <!-- feature:mongodb -->
 - [Two-factor challenges and seed data](reference/database-schema-two-factor-challenges.md)
 - [RBAC system](access-control/RBAC-SYSTEM.md): Dynamic role levels, permissions, and guard enforcement.
 - [RBAC API and frontend integration](access-control/RBAC-SYSTEM-api-reference.md)
@@ -67,7 +76,7 @@ See [backend/docs/](../backend/docs/):
 - [Authentication flow](../backend/docs/authentication-flow.md): Step-by-step authentication flows and session creation.
 - [OAuth authentication](../backend/docs/oauth-authentication.md): OAuth provider registry and provider addition steps.
 - [User roles and permissions](../backend/docs/user-roles-permissions.md): RBAC model, role levels, and permission checks.
-- [Database management](../backend/docs/database-management.md): MongoDB connection, migrations, and seed commands.
+- [Database management](../backend/docs/database-management.md): MongoDB connection, migrations, and seed commands. <!-- feature:mongodb -->
 - [PostgreSQL](../backend/docs/database-postgres.md): Version, settings, migrations, retention, and how the tests run. <!-- feature:postgres -->
 - [API routes](../backend/docs/api-routes.md): Every route, who may call it and the setting that closes it.
 - [API responses](../backend/docs/api-responses.md): Response envelope formats and error codes.
@@ -78,3 +87,7 @@ See [backend/docs/](../backend/docs/):
 - [Project README](../README.md): Repository root and quick start.
 - [Backend README](../backend/README.md): NestJS API server configuration and routes.
 - [Frontend README](../frontend/README.md): Next.js application setup and state management.
+- [Native sign-in engine](../mobile/auth/README.md): Storage, transport, refresh and callback contracts. <!-- feature:native-core -->
+- [Native platform adapters](../mobile/adapters/README.md): Expo and bare React Native integrations. <!-- feature:native-core -->
+- [Device-bound sessions](../mobile/device-key/README.md): Hardware key setup and device proof. <!-- feature:native-core -->
+- [Shared API SDK](../shared/sdk/README.md): Typed HTTP transport and API clients.
