@@ -1,19 +1,25 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { AccountProfileStore } from '../../../user/stores/account-profile.store';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { ApiResponse } from '../../../common/dto/api-response.dto';
 import { AppException } from '../../../common/exceptions/app.exception';
 import { ErrorCode } from '../../../common/enums/error-code.enum';
+import { SecurityNoticeService } from '../../../user/services/security-notice.service';
+import { SECURITY_NOTICE } from '../../../user/constants/security-notice.constants';
 import {
   UnitOfWork,
   UnitOfWorkRunner,
 } from '../../../common/persistence/unit-of-work';
 import {
   SignInMethodRule,
-  SignInSwitches,
+  WAY_IN_SURFACE,
+  WayInSurface,
+  waysInBesidesPasskeys,
   WAY_IN_OUTCOME,
   WayInOutcome,
   WaysLeft,
 } from '../../../user/services/sign-in-method.rule';
-import { HeldSignInMethods } from '../../../user/stores/sign-in-method.store';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
+import { ADMIN_CLIENT_ID } from '../../../session/constants/client-ids';
 import {
   PasskeyListResponseDto,
   PasskeySummaryDto,
@@ -23,29 +29,57 @@ import { toPasskeySummary } from '../utils/passkey-summary.util';
 import { PasskeyStore, StoredPasskey } from '../stores/passkey.store';
 import { relyingPartyOf, relyingPartyScope } from '../utils/relying-party.util';
 import { PasskeyConfigService } from './passkey-config.service';
-
-/** A stored password while password sign-in is on, linked providers, magic links. */
-function waysInBesidesPasskeys(
-  held: HeldSignInMethods,
-  switches: SignInSwitches,
-): number {
-  return (
-    (switches.password && held.hasPassword ? 1 : 0) +
-    held.linkedProviders.length +
-    (switches.magicLink ? 1 : 0)
-  );
-}
+import { RequiredPasskeyRelyingParties } from './required-passkey-relying-parties.service';
 
 /**
- * What a passkey removal accepts as left: another passkey, a stored password
- * while password sign-in is on, a linked provider, and magic links.
+ * What a passkey removal accepts as left: another passkey, or any other way in
+ * on any surface, an emailed code included.
  */
 const waysLeftWithoutOnePasskey: WaysLeft = (held, switches) =>
-  held.passkeys - 1 + waysInBesidesPasskeys(held, switches);
+  held.passkeys - 1 + waysInBesidesPasskeys(held, switches, WAY_IN_SURFACE.ANY);
 
 /** Only the last way in stays. The passkey of an account that is gone goes. */
 function refusesRemoval(wayIn: WayInOutcome): boolean {
   return wayIn === WAY_IN_OUTCOME.LAST;
+}
+
+/** The relying party of a passkey, as a removal of that passkey counts it. */
+interface RelyingPartyCount {
+  /** The account's passkeys there, the one being removed included. */
+  readonly passkeys: number;
+  /** An application that admits the account lets it in there with a passkey only. */
+  readonly required: boolean;
+}
+
+/**
+ * What the relying party keeps once the passkey is gone: its other passkeys,
+ * and the account's other ways in unless a passkey is required there.
+ */
+function waysLeftAtRelyingParty(
+  party: RelyingPartyCount,
+  waysBesidesPasskeys: number,
+): number {
+  return party.passkeys - 1 + (party.required ? 0 : waysBesidesPasskeys);
+}
+
+function lastWayInRefusal(): AppException {
+  return new AppException(
+    ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
+    'This is the only way to sign in to the account. Add a password or ' +
+      'another passkey first.',
+    HttpStatus.CONFLICT,
+  );
+}
+
+/** No other way in stands in for a passkey an application requires. */
+function requiredPasskeyRefusal(): AppException {
+  return new AppException(
+    ErrorCode.PASSKEY_REQUIRED_LAST,
+    'An application this account signs in to requires a passkey, and this ' +
+      'is the last one it accepts. Add another passkey for that application ' +
+      'first.',
+    HttpStatus.CONFLICT,
+  );
 }
 
 /**
@@ -62,18 +96,48 @@ export class PasskeyManagementService {
     private readonly signInMethods: SignInMethodRule,
     private readonly runner: UnitOfWorkRunner,
     private readonly config: PasskeyConfigService,
+    private readonly applications: BrowserApplications,
+    private readonly required: RequiredPasskeyRelyingParties,
+    private readonly notices?: SecurityNoticeService,
+    @Optional() private readonly accounts?: AccountProfileStore,
   ) {}
 
   async list(userId: string): Promise<ApiResponse<PasskeyListResponseDto>> {
-    const [passkeys, advise] = await Promise.all([
+    const [passkeys, advise, required] = await Promise.all([
       this.passkeys.listForAccount(userId),
       this.signInMethods.adviseOnRemoval(userId),
+      this.runner.run((unitOfWork) =>
+        this.required.forAccountIn(unitOfWork, userId),
+      ),
     ]);
 
+    // What `remove` would answer for each one, with nothing held.
+    const removable = (passkey: StoredPasskey): boolean =>
+      !refusesRemoval(
+        advise(this.relyingPartyWaysLeft(passkey, passkeys, required)),
+      );
+
     return ApiResponse.success({
-      passkeys: passkeys.map(toPasskeySummary),
-      // The answer `remove` would get from the same rule, with nothing held.
-      canRemove: !refusesRemoval(advise(waysLeftWithoutOnePasskey)),
+      passkeys: passkeys.map((passkey) => {
+        const canRemove = removable(passkey);
+        return {
+          ...toPasskeySummary(passkey),
+          canRemove,
+          ...(!canRemove
+            ? {
+                removalBlockedCode: required.includes(
+                  relyingPartyOf(passkey, this.config.rpId),
+                )
+                  ? ErrorCode.PASSKEY_REQUIRED_LAST
+                  : ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
+              }
+            : {}),
+        };
+      }),
+      // An empty list keeps the account's own answer.
+      canRemove:
+        !refusesRemoval(advise(waysLeftWithoutOnePasskey)) &&
+        (passkeys.length === 0 || passkeys.some(removable)),
     });
   }
 
@@ -92,14 +156,16 @@ export class PasskeyManagementService {
   /**
    * @throws AppException PASSKEY_NOT_FOUND when the account has no such passkey
    * @throws AppException PASSKEY_LAST_SIGN_IN_METHOD when removing it would
-   * lock the account out, or leave its relying party with no passkey and the
-   * account with no other way in
+   * lock the account out, leave its relying party with no passkey and the
+   * account with no other way in, or leave an application that requires a
+   * passkey without one
    */
   async remove(
     userId: string,
     passkeyId: string,
   ): Promise<ApiResponse<{ message: string }>> {
     const passkey = await this.findOwned(userId, passkeyId);
+    const surface = this.surfaceOf(passkey);
     // The count and the removal commit or abort together, so two removals at
     // once cannot each count the other's passkey as the one that stays.
     await this.runner.run(async (unitOfWork) => {
@@ -110,14 +176,14 @@ export class PasskeyManagementService {
         unitOfWork,
         userId,
         (held, switches) => {
-          besides.ways = waysInBesidesPasskeys(held, switches);
+          besides.ways = waysInBesidesPasskeys(held, switches, surface);
           return waysLeftWithoutOnePasskey(held, switches);
         },
       );
       // A removal of the same passkey may have finished while this one waited
       // for the hold. It is gone then, and the count no longer includes it.
       await this.findOwned(userId, passkeyId, unitOfWork);
-      this.assertNotTheLastWayIn(wayIn);
+      // First, so a passkey an application requires is refused as that.
       if (besides.ways !== undefined) {
         await this.assertRelyingPartyKeepsAWayIn(
           unitOfWork,
@@ -125,17 +191,42 @@ export class PasskeyManagementService {
           besides.ways,
         );
       }
+      this.assertNotTheLastWayIn(wayIn);
       await this.passkeys.remove(unitOfWork, passkey);
+      if (this.notices) {
+        const account = await this.accounts?.readAccount(unitOfWork, userId);
+        if (account)
+          this.notices.afterCommitIn(
+            unitOfWork,
+            account,
+            SECURITY_NOTICE.PASSKEY_REMOVED,
+          );
+      }
     });
 
     this.logger.log(`Passkey removed for user ${userId}`);
     return ApiResponse.success({ message: 'Passkey removed' });
   }
 
+  /** The web and admin relying parties sign in through a browser, any other through an app. */
+  private surfaceOf(passkey: StoredPasskey): WayInSurface {
+    const rpId = relyingPartyOf(passkey, this.config.rpId);
+    if (rpId === this.config.rpId) return WAY_IN_SURFACE.BROWSER;
+    if (this.applications.isConfigured(ADMIN_CLIENT_ID)) {
+      const adminRpId = new URL(
+        this.applications.configuration(ADMIN_CLIENT_ID).origin,
+      ).hostname;
+      if (rpId === adminRpId) return WAY_IN_SURFACE.BROWSER;
+    }
+    return WAY_IN_SURFACE.NATIVE;
+  }
+
   /**
    * A passkey of one relying party does not sign in to another, so the last
    * passkey of a relying party stays unless the account has another way in.
-   * Counted under the rule's hold, in the removal's unit of work.
+   * Where an application that admits the account lets it in with a passkey
+   * only, no other way in counts. Read under the rule's hold, in the
+   * removal's unit of work.
    */
   private async assertRelyingPartyKeepsAWayIn(
     unitOfWork: UnitOfWork,
@@ -143,16 +234,43 @@ export class PasskeyManagementService {
     waysBesidesPasskeys: number,
   ): Promise<void> {
     const webRpId = this.config.rpId;
-    const samePartyPasskeys = await this.passkeys.countForRelyingParty(
-      passkey.userId,
-      relyingPartyScope(relyingPartyOf(passkey, webRpId), webRpId),
+    const rpId = relyingPartyOf(passkey, webRpId);
+    const required = await this.required.forAccountIn(
       unitOfWork,
+      passkey.userId,
     );
-    this.assertNotTheLastWayIn(
-      samePartyPasskeys - 1 + waysBesidesPasskeys > 0
-        ? WAY_IN_OUTCOME.ANOTHER_LEFT
-        : WAY_IN_OUTCOME.LAST,
-    );
+    const party: RelyingPartyCount = {
+      passkeys: await this.passkeys.countForRelyingParty(
+        passkey.userId,
+        relyingPartyScope(rpId, webRpId),
+        unitOfWork,
+      ),
+      required: required.includes(rpId),
+    };
+    if (waysLeftAtRelyingParty(party, waysBesidesPasskeys) > 0) return;
+    throw party.required ? requiredPasskeyRefusal() : lastWayInRefusal();
+  }
+
+  /** The same relying-party count, on the passkeys a list read. */
+  private relyingPartyWaysLeft(
+    passkey: StoredPasskey,
+    listed: StoredPasskey[],
+    required: string[],
+  ): WaysLeft {
+    const webRpId = this.config.rpId;
+    const rpId = relyingPartyOf(passkey, webRpId);
+    const surface = this.surfaceOf(passkey);
+    const party: RelyingPartyCount = {
+      passkeys: listed.filter(
+        (other) => relyingPartyOf(other, webRpId) === rpId,
+      ).length,
+      required: required.includes(rpId),
+    };
+    return (held, switches) =>
+      waysLeftAtRelyingParty(
+        party,
+        waysInBesidesPasskeys(held, switches, surface),
+      );
   }
 
   private async findOwned(
@@ -184,15 +302,8 @@ export class PasskeyManagementService {
    * of an account that is gone: nobody can be locked out of it.
    */
   private assertNotTheLastWayIn(wayIn: WayInOutcome): void {
-    if (!refusesRemoval(wayIn)) {
-      return;
+    if (refusesRemoval(wayIn)) {
+      throw lastWayInRefusal();
     }
-
-    throw new AppException(
-      ErrorCode.PASSKEY_LAST_SIGN_IN_METHOD,
-      'This is the only way to sign in to the account. Add a password or ' +
-        'another passkey first.',
-      HttpStatus.CONFLICT,
-    );
   }
 }

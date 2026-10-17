@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import type { BrowserEvidence } from '../../../session/types/browser-evidence';
 import { AuthenticatedUserSummary } from '../../interfaces/authenticated-user.interface';
 
 /** An account as the passkey routes need it. */
@@ -48,10 +49,14 @@ export type PasskeySignInOutcome =
 
 /** The shared sign-in, for an account a passkey just proved. */
 export abstract class PasskeySignIn {
-  /** Issues the session with no second factor check. */
+  /**
+   * Issues the session with no second factor check, recording what the
+   * passkey verified as the session's evidence.
+   */
   abstract issueSession(
     account: PasskeyAccount,
     response: Response,
+    evidence: BrowserEvidence,
   ): Promise<AuthenticatedUserSummary>;
   /**
    * The sign-in every other route runs, second factor included, for a passkey

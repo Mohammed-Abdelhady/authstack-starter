@@ -86,7 +86,8 @@ export interface StoredCredential {
 
 export interface CeremonyExpectations {
   challenge: string;
-  origin: string;
+  /** Every origin the relying party accepts, matched exactly. */
+  origin: string | readonly string[];
   rpId: string;
 }
 
