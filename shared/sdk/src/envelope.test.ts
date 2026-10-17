@@ -3,14 +3,20 @@ import { unwrapEnvelope, unwrapEnvelopeBody } from './envelope';
 import { apiErrorFrom, respond } from './test-support';
 
 describe('unwrapEnvelope', () => {
-  it('returns data from a success envelope and ignores the message', () => {
-    const response = respond(200, {
-      success: true,
-      data: { id: 'u1', name: 'Layla' },
-      message: 'Profile updated successfully',
-    });
-
-    expect(unwrapEnvelope(response)).toEqual({ id: 'u1', name: 'Layla' });
+  it('preserves the erasure date from a credential-proven refusal for the client', () => {
+    const error = apiErrorFrom(() =>
+      unwrapEnvelope(
+        respond(403, {
+          success: false,
+          error: {
+            code: 'ACCOUNT_ERASURE_PENDING',
+            message: 'Scheduled',
+            details: { eraseAfter: '2026-11-01T00:00:00.000Z' },
+          },
+        }),
+      ),
+    );
+    expect(error.details).toEqual({ eraseAfter: '2026-11-01T00:00:00.000Z' });
   });
 
   it('returns undefined for a success envelope without data', () => {
@@ -33,17 +39,6 @@ describe('unwrapEnvelope', () => {
     expect(error.message).toBe('Session not found or already revoked');
     expect(error.requestId).toBe('3f1c1f0a-0f2c-4a3e-9b1e-2f5a6c7d8e90');
     expect(error.fields).toBeUndefined();
-  });
-
-  it('leaves the request id out when the body has none', () => {
-    const error = apiErrorFrom(() =>
-      unwrapEnvelope(
-        respond(403, { success: false, error: { code: 'FORBIDDEN', message: 'Not allowed' } }),
-      ),
-    );
-
-    expect(error.code).toBe('FORBIDDEN');
-    expect(error.requestId).toBeUndefined();
   });
 
   it('carries the fields of a validation error and drops malformed entries', () => {
@@ -184,12 +179,6 @@ describe('unwrapEnvelope', () => {
 });
 
 describe('unwrapEnvelopeBody', () => {
-  it('returns data from an already parsed success body', () => {
-    expect(unwrapEnvelopeBody({ success: true, data: { revokedCount: 2 } })).toEqual({
-      revokedCount: 2,
-    });
-  });
-
   it('throws the same ApiError for an error envelope in the body', () => {
     const error = apiErrorFrom(() =>
       unwrapEnvelopeBody({

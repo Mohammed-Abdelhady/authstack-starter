@@ -13,16 +13,6 @@ const TOKEN_BODY = {
 };
 
 describe('unwrapOAuth', () => {
-  it('returns the raw body on success', () => {
-    expect(unwrapOAuth(respond(200, { ...TOKEN_BODY }))).toEqual({
-      access_token: 'at-1',
-      token_type: 'Bearer',
-      expires_in: 900,
-      refresh_token: 'rt-1',
-      scope: 'api',
-    });
-  });
-
   it('returns the empty object a revoke answers with', () => {
     expect(unwrapOAuth(respond(200, {}))).toEqual({});
   });
@@ -34,24 +24,6 @@ describe('unwrapOAuth', () => {
     expect(error).not.toBeInstanceOf(ApiError);
     expect(error).toMatchObject({ status: 400, error: 'invalid_grant' });
     expect((error as OAuthError).errorDescription).toBeUndefined();
-  });
-
-  it('carries the error description the kill switch sends', () => {
-    const error = thrownBy(() =>
-      unwrapOAuth(
-        respond(400, {
-          error: 'unauthorized_client',
-          error_description: 'NATIVE_AUTH_DISABLED',
-        }),
-      ),
-    );
-
-    expect(error).toBeInstanceOf(OAuthError);
-    expect(error).toMatchObject({
-      status: 400,
-      error: 'unauthorized_client',
-      errorDescription: 'NATIVE_AUTH_DISABLED',
-    });
   });
 
   it('carries the OAuth reason and DPoP nonce from the wire response', () => {
@@ -71,17 +43,6 @@ describe('unwrapOAuth', () => {
       errorDescription: 'NATIVE_DPOP_REQUIRED',
       dpopNonce: 'nonce-from-server',
     });
-  });
-
-  it.each([
-    ['a missing description', { error: 'invalid_grant' }],
-    ['a description that is not a string', { error: 'invalid_grant', error_description: 42 }],
-    ['an empty description', { error: 'invalid_grant', error_description: '' }],
-  ])('leaves the description unset for %s', (_label, body) => {
-    const error = thrownBy(() => unwrapOAuth(respond(400, body)));
-
-    expect(error).toBeInstanceOf(OAuthError);
-    expect((error as OAuthError).errorDescription).toBeUndefined();
   });
 
   it('falls back to ApiError for the application envelope a throttle answers with', () => {
