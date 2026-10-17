@@ -12,6 +12,7 @@ export interface BrowserSignInConfiguration extends ApplicationPolicyConfigurati
   emailLink?: boolean;
   emailCode?: boolean; // feature:email-code
   passkeys?: boolean;
+  oauth?: boolean; // feature:oauth-core
 }
 
 export interface SessionLifetimeConfiguration {

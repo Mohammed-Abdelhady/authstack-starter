@@ -17,11 +17,20 @@ export const PROFILE_PERMISSIONS = {
 // ========== User Management Permissions ==========
 export const USER_PERMISSIONS = {
   READ_ALL: 'users:read:all',
+  READ_STAFF: 'users:read:staff',
   LIST_ALL: 'users:list:all',
+  LIST_STAFF: 'users:list:staff',
   CREATE_ALL: 'users:create:all',
+  CREATE_STAFF: 'users:create:staff',
   UPDATE_ALL: 'users:update:all',
+  UPDATE_STAFF: 'users:update:staff',
+  ASSIGN_ROLE_ALL: 'users:assign-role:all',
+  ASSIGN_ROLE_STAFF: 'users:assign-role:staff',
   DELETE_ALL: 'users:delete:all',
+  DELETE_STAFF: 'users:delete:staff',
   UPDATE_OWN: 'users:update:own',
+  SUSPEND_ALL: 'users:suspend:all',
+  SUSPEND_STAFF: 'users:suspend:staff',
 } as const;
 
 // ========== Role Management Permissions ==========
@@ -96,10 +105,12 @@ export const PERMISSION_ACTIONS = [
   'list',
   'create',
   'update',
+  'assign-role',
   'delete',
   'manage',
   'grant',
   'revoke',
+  'suspend',
 ] as const;
 
 /**
@@ -111,12 +122,4 @@ export const PERMISSION_SCOPES = ['own', 'all', 'staff'] as const;
  * Outside the active catalogue and picker. The permission format accepts these,
  * but grant validation refuses them until their plan.
  */
-export const RESERVED_PERMISSIONS = [
-  'users:list:staff',
-  'users:read:staff',
-  'users:update:staff',
-  'users:delete:staff',
-  'users:create:staff',
-  'users:suspend:all',
-  'users:suspend:staff',
-] as const;
+export const RESERVED_PERMISSIONS: readonly string[] = [];
