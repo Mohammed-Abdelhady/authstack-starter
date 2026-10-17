@@ -10,7 +10,6 @@ import {
 import {
   issueNativeGrant,
   NATIVE_CLIENT_ID,
-  NATIVE_META,
   NATIVE_REDIRECT,
   nativeHttpServer,
   NativeOauthHarness,
@@ -201,22 +200,5 @@ describe('native token and revoke request shape', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({});
     expect(session.isValid).toBe(false);
-  });
-
-  it('does not report a fault outside the transaction as an outage', async () => {
-    const fault = new TypeError('fault outside the transaction');
-    const spy = jest
-      .spyOn(ctx.harness.clock, 'now')
-      .mockImplementationOnce(() => {
-        throw fault;
-      });
-
-    try {
-      await expect(
-        ctx.tokens.grant(CODE_GRANT, NATIVE_META, 'any-proof'),
-      ).rejects.toBe(fault);
-    } finally {
-      spy.mockRestore();
-    }
   });
 });

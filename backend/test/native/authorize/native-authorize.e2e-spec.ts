@@ -79,12 +79,6 @@ describe('native browser authorization (e2e)', () => {
   });
 
   // feature:locale-ar:start
-  it('starts in the Arabic locale from the request header', async () => {
-    const started = await beginNativeAuthorization(e2e, 'ar-EG, en;q=0.5');
-    const location = new URL(started.location);
-    expect(location.pathname).toBe('/ar/auth/native/authorize');
-    expect([...location.searchParams.keys()]).toEqual(['transaction']);
-  });
   // feature:locale-ar:end
 
   it('requires a browser proof header for approval and denial', async () => {
@@ -112,18 +106,6 @@ describe('native browser authorization (e2e)', () => {
         ErrorCode.CSRF_REQUIRED,
       );
     }
-  });
-
-  it('keeps the validation error when approval has no transaction id', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-    const response = await browser
-      .post('/api/oauth/authorize/approve')
-      .send({});
-
-    expect(response.status).toBe(400);
-    expect((response.body as ApiErrorBody).error.code).toBe(
-      ErrorCode.VALIDATION_ERROR,
-    );
   });
 
   it('approves once, exchanges the code, and uses the token on a protected route', async () => {

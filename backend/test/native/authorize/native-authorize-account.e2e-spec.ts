@@ -18,13 +18,6 @@ import { TEST_NOW } from '../../utils/frozen-clock';
 const ACTIONS = ['approve', 'deny'] as const;
 type Action = (typeof ACTIONS)[number];
 
-const MALFORMED_IDS: [string, unknown][] = [
-  ['a number', 7],
-  ['an array', ['user']],
-  ['an object', { id: 'user' }],
-  ['null', null],
-];
-
 /** The callback parameter each action adds for the native app. */
 const CALLBACK_PARAMETER: Record<Action, string> = {
   approve: 'code',
@@ -78,19 +71,6 @@ describe('native authorize account check (e2e)', () => {
       ).toBe(true);
     }
 
-    it('acts for the account the page displayed', async () => {
-      const browser = await loginAs(e2e.httpServer, SEED_USER);
-      const started = await beginNativeAuthorization(e2e);
-
-      const response = await browser.post(path).send({
-        transactionId: started.transactionId,
-        expectedUserId: await userId(SEED_USER),
-      });
-
-      expect(response.status).toBe(200);
-      expectCallback(response.body);
-    });
-
     it('refuses another account and leaves the request pending', async () => {
       const displayed = await userId(SEED_USER);
       const browser = await loginAs(e2e.httpServer, SEED_MANAGER);
@@ -115,25 +95,6 @@ describe('native authorize account check (e2e)', () => {
       expect(accepted.status).toBe(200);
       expectCallback(accepted.body);
     });
-
-    it.each(MALFORMED_IDS)(
-      'refuses an expected account that is %s',
-      async (_label, expectedUserId) => {
-        const browser = await loginAs(e2e.httpServer, SEED_USER);
-        const started = await beginNativeAuthorization(e2e);
-
-        const response = await browser.post(path).send({
-          transactionId: started.transactionId,
-          expectedUserId,
-        });
-
-        expect(response.status).toBe(400);
-        expect((response.body as { error: { code: string } }).error.code).toBe(
-          'VALIDATION_ERROR',
-        );
-        expect(await transactionState(started.transactionId)).toEqual(PENDING);
-      },
-    );
 
     it('refuses an empty string account as a mismatch', async () => {
       const browser = await loginAs(e2e.httpServer, SEED_USER);

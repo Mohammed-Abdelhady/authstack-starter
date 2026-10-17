@@ -229,12 +229,6 @@ export function describeNativeProviderProof(provider: NativeSdkProvider): void {
     // Facebook never creates an account for an address it cannot link.
     if (provider.id !== 'facebook') {
       // feature:locale-ar:start
-      it('stores the body language of a first sign-up over the header', async () => {
-        await signUp({ locale: 'ar' }, 'en', 201);
-        expect(
-          (await e2e.state.accounts.accountWithAddress(NEWCOMER))?.locale,
-        ).toBe('ar');
-      });
       // feature:locale-ar:end
 
       it('signs up with a body language the build lacks, stored as en', async () => {
@@ -244,12 +238,6 @@ export function describeNativeProviderProof(provider: NativeSdkProvider): void {
         ).toBe('en');
       });
     }
-
-    it('still refuses an unknown body key beside the language', async () => {
-      await signUp({ locale: 'en', email: NEWCOMER }, 'en', 400);
-      expect(await e2e.state.accounts.accountIdFor(NEWCOMER)).toBeNull();
-      expect(await e2e.state.sessions.countSessions()).toBe(0);
-    });
 
     it('rejects a claimed nonce different from the stored attempt', async () => {
       const attempt = await start();

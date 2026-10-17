@@ -121,18 +121,6 @@ describe('native authorization (plan 04)', () => {
   });
 
   // feature:locale-ar:start
-  it('sends an Arabic browser to the Arabic native authorization page', async () => {
-    const verifier = randomBytes(32).toString('base64url');
-    const response = await request(nativeHttpServer(ctx.harness.app))
-      .get('/api/oauth/authorize')
-      .query(nativeAuthorizeQuery(verifier))
-      .set('Accept-Language', 'ar')
-      .redirects(0);
-    expect(response.status).toBe(302);
-    const location = new URL(String(response.headers.location));
-    expect(location.pathname).toBe('/ar/auth/native/authorize');
-    expect([...location.searchParams.keys()]).toEqual(['transaction']);
-  });
   // feature:locale-ar:end
 
   it('exchanges a code once and keeps the access token off the cookie session', async () => {

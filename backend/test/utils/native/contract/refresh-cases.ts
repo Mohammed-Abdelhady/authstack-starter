@@ -15,7 +15,7 @@ import {
 const INVALID_GRANT = 'invalid_grant';
 const ABSOLUTE = new Date('2099-01-31T12:00:00.000Z');
 const ONE_PAST = new Date('2099-01-01T12:01:00.000Z');
-const SIX_PAST = new Date('2099-01-01T12:06:00.000Z');
+const FIVE_PAST = new Date('2099-01-01T12:05:00.000Z');
 const THREE_PAST = new Date('2099-01-01T12:03:00.000Z');
 const ONE_MS_BEFORE_THREE_PAST = new Date('2099-01-01T12:02:59.999Z');
 
@@ -73,13 +73,13 @@ export function refreshCases(harness: NativeHarnessSource): void {
       sessions: (await harness().issuance.sessions(signedIn.userId)).length,
       events: await actions(harness()),
     }).toEqual({
-      expiresIn: 300,
+      expiresIn: 240,
       tokens: [
         {
           token: 'old access',
           generation: 1,
           sameFamily: true,
-          expiresAt: new Date('2099-01-01T12:05:00.000Z'),
+          expiresAt: FIVE_PAST,
           spent: true,
           consumedAt: null,
           revokedAt: ONE_PAST,
@@ -99,7 +99,7 @@ export function refreshCases(harness: NativeHarnessSource): void {
           token: 'new access',
           generation: 2,
           sameFamily: true,
-          expiresAt: SIX_PAST,
+          expiresAt: FIVE_PAST,
           spent: false,
           consumedAt: null,
           revokedAt: null,

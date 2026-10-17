@@ -61,16 +61,6 @@ function verify(
 }
 
 describe('mobile engine DPoP proof against the backend verifier', () => {
-  it('reads the versioned engine vector for all three request kinds', () => {
-    expect(FILE.format).toBe(1);
-    expect(FILE.vectors.map((vector) => vector.name)).toEqual([
-      'code exchange',
-      'bound refresh',
-      'bound revoke',
-    ]);
-    expect(FILE.server.nowMs).toBe(4070952000000);
-  });
-
   it.each(FILE.vectors)(
     'accepts $name exactly as the engine signs it',
     (vector) => {

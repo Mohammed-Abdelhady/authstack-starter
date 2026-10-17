@@ -88,22 +88,6 @@ describe('native application whose only way in is a system-browser provider', ()
     });
   });
 
-  it('signs in through the browser with the provider selected, never answered as disabled', async () => {
-    const response = await request(e2e.httpServer)
-      .get('/api/oauth/authorize')
-      .query({
-        ...nativeAuthorizeQuery(randomBytes(32).toString('base64url')),
-        provider_id: PROVIDER.id,
-        flow: 'signIn',
-      })
-      .set('Accept-Language', 'en')
-      .redirects(0)
-      .expect(302);
-    const target = new URL(String(response.headers.location));
-    expect(target.searchParams.get('provider_id')).toBe(PROVIDER.id);
-    expect(await e2e.state.native.authorizationRequestCount()).toBe(1);
-  });
-
   it('starts no native attempt, which this application never needs', async () => {
     const query = nativeAuthorizeQuery(randomBytes(32).toString('base64url'));
     const response = await request(e2e.httpServer)

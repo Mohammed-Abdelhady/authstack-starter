@@ -27,12 +27,15 @@ export { NATIVE_CLIENT_ID, NATIVE_REDIRECT };
 export async function issueNativeGrantFor(
   e2e: E2eApp,
   email: string,
+  clientId: string = NATIVE_CLIENT_ID,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const user = await e2e.state.accounts.accountWithAddress(email);
   if (!user) throw new Error('seed user is missing');
   const verifier = randomBytes(32).toString('base64url');
   const authorize = e2e.app.get(NativeAuthorizeService);
-  const begun = await authorize.begin(nativeAuthorizeQuery(verifier));
+  const begun = await authorize.begin(
+    nativeAuthorizeQuery(verifier, { client_id: clientId }),
+  );
   if (!begun.ok) throw new Error(begun.error);
   const approved = await authorize.approve(
     user._id.toString(),
@@ -46,7 +49,7 @@ export async function issueNativeGrantFor(
       grant_type: 'authorization_code',
       code,
       redirect_uri: NATIVE_REDIRECT,
-      client_id: NATIVE_CLIENT_ID,
+      client_id: clientId,
       code_verifier: verifier,
     },
     NATIVE_META,
