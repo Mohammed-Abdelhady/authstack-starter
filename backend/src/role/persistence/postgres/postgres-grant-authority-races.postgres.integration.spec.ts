@@ -23,6 +23,7 @@ import {
 import { assertActorHoldsRole } from '../../../admin/services/roles/admin-grant-ceiling';
 import { createRoleWithinCeiling } from '../../utils/role-create.util';
 import { PostgresRoleChangeStore } from './postgres-role-change.store';
+import { testStaffMutationRules } from '../../../../test/utils/admin/staff-mutation-test-kit';
 
 const GRANTED_PERMISSION = 'posts:write:all';
 const HELD_PERMISSION = 'posts:read:all';
@@ -54,6 +55,8 @@ describe('PostgreSQL grant authority commit ordering', () => {
         new FrozenClock(TEST_NOW),
         new PostgresSecurityEventStore(connection.database),
       ),
+      rules: testStaffMutationRules(),
+      request: {},
     };
   }
 
@@ -156,16 +159,16 @@ describe('PostgreSQL grant authority commit ordering', () => {
       })
       .returning('id')
       .executeTakeFirstOrThrow();
-    const { runner, store } = stores();
+    const creation = stores();
     await Promise.all([
       createRoleWithinCeiling(
-        { runner, store },
+        creation,
         { name: 'First Writer', permissions: [GRANTED_PERMISSION] },
         'first-writer',
         actor.id,
       ),
       createRoleWithinCeiling(
-        { runner, store },
+        creation,
         { name: 'Second Writer', permissions: [GRANTED_PERMISSION] },
         'second-writer',
         actor.id,

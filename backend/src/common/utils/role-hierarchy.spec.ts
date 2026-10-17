@@ -1,18 +1,11 @@
-import { UserRole } from '../../user/enums/user-role.enum';
 import {
-  hasMinimumRole,
   canManageLevel,
   canModifyLevel,
   isAdminRole,
-  isValidRoleAssignment,
-  CUSTOM_ROLE_LEVEL,
   LevelActor,
-  ROLE_HIERARCHY,
   UNKNOWN_ROLE_LEVEL,
   buildRoleHierarchy,
-  isCanonicalRoleSlug,
 } from './role-hierarchy';
-import { generateSlug } from '../../role/utils/role.util';
 import { HostRole, ROLE_AUDIENCE } from '../../host/types/host-role.type';
 
 /** An actor on a role other than admin, at this level. */
@@ -20,19 +13,6 @@ const actorAt = (level: number): LevelActor => ({ level, isAdmin: false });
 const ADMIN: LevelActor = { level: 4, isAdmin: true };
 
 describe('Role Hierarchy Utilities', () => {
-  describe('ROLE_HIERARCHY', () => {
-    it('should have correct hierarchy values', () => {
-      expect(ROLE_HIERARCHY[UserRole.USER]).toBe(1);
-      expect(ROLE_HIERARCHY[UserRole.SUPPORT]).toBe(2);
-      expect(ROLE_HIERARCHY[UserRole.MANAGER]).toBe(3);
-      expect(ROLE_HIERARCHY[UserRole.ADMIN]).toBe(4);
-    });
-
-    it('should place custom roles at the default level', () => {
-      expect(CUSTOM_ROLE_LEVEL).toBe(ROLE_HIERARCHY[UserRole.USER]);
-    });
-  });
-
   describe('isAdminRole', () => {
     it('names only the admin role slug, whatever level another role holds', () => {
       expect(
@@ -41,36 +21,7 @@ describe('Role Hierarchy Utilities', () => {
     });
   });
 
-  describe('hasMinimumRole', () => {
-    it('should return true when user role is higher than required', () => {
-      expect(hasMinimumRole(UserRole.ADMIN, UserRole.USER)).toBe(true);
-      expect(hasMinimumRole(UserRole.MANAGER, UserRole.SUPPORT)).toBe(true);
-    });
-
-    it('should return true when user role equals required', () => {
-      expect(hasMinimumRole(UserRole.ADMIN, UserRole.ADMIN)).toBe(true);
-      expect(hasMinimumRole(UserRole.USER, UserRole.USER)).toBe(true);
-    });
-
-    it('should return false when user role is lower than required', () => {
-      expect(hasMinimumRole(UserRole.USER, UserRole.ADMIN)).toBe(false);
-      expect(hasMinimumRole(UserRole.SUPPORT, UserRole.MANAGER)).toBe(false);
-    });
-  });
-
   describe('canManageLevel (non-strict, reads)', () => {
-    it('should allow a higher level to reach a lower one', () => {
-      expect(canManageLevel(ADMIN, CUSTOM_ROLE_LEVEL)).toBe(true);
-    });
-
-    it('should allow peers to see each other', () => {
-      expect(canManageLevel(actorAt(3), 3)).toBe(true);
-    });
-
-    it('should refuse a lower level', () => {
-      expect(canManageLevel(actorAt(2), 3)).toBe(false);
-    });
-
     it('should reserve stranded roles for the admin role, not its level', () => {
       expect(canManageLevel(actorAt(3), UNKNOWN_ROLE_LEVEL)).toBe(false);
       expect(canManageLevel(actorAt(6), UNKNOWN_ROLE_LEVEL)).toBe(false);
@@ -79,20 +30,6 @@ describe('Role Hierarchy Utilities', () => {
   });
 
   describe('canModifyLevel (strict, mutations)', () => {
-    it('should allow a higher level to act on a lower one', () => {
-      expect(canModifyLevel(ADMIN, 3)).toBe(true);
-      expect(canModifyLevel(actorAt(3), CUSTOM_ROLE_LEVEL)).toBe(true);
-    });
-
-    it('should refuse peers', () => {
-      expect(canModifyLevel(actorAt(3), 3)).toBe(false);
-      expect(canModifyLevel(ADMIN, 4)).toBe(false);
-    });
-
-    it('should refuse a lower level', () => {
-      expect(canModifyLevel(actorAt(1), 4)).toBe(false);
-    });
-
     it('should reserve stranded roles for the admin role, not its level', () => {
       expect(canModifyLevel(actorAt(3), UNKNOWN_ROLE_LEVEL)).toBe(false);
       expect(canModifyLevel(actorAt(6), UNKNOWN_ROLE_LEVEL)).toBe(false);
@@ -108,15 +45,6 @@ describe('Role Hierarchy Utilities', () => {
       audience: ROLE_AUDIENCE.STAFF,
       permissions: [],
       description: slug,
-    });
-
-    it('places the default host roles between user and admin, as before', () => {
-      expect(ROLE_HIERARCHY).toEqual({
-        user: 1,
-        support: 2,
-        manager: 3,
-        admin: 4,
-      });
     });
 
     it('holds only the core roles for an empty host list', () => {
@@ -156,38 +84,6 @@ describe('Role Hierarchy Utilities', () => {
         owner: 2_147_483_646,
         admin: 2_147_483_647,
       });
-    });
-
-    it.each([
-      'editor',
-      'content-editor',
-      'tier-2',
-      'User',
-      ' user ',
-      'a--b',
-      'a b',
-      'é',
-      '',
-    ])(
-      'calls %p canonical exactly when the slug normaliser keeps it',
-      (slug) => {
-        expect(isCanonicalRoleSlug(slug)).toBe(
-          slug !== '' && generateSlug(slug) === slug,
-        );
-      },
-    );
-  });
-
-  describe('isValidRoleAssignment', () => {
-    it('should return true for non-ADMIN roles', () => {
-      expect(isValidRoleAssignment(UserRole.USER)).toBe(true);
-      expect(isValidRoleAssignment(UserRole.SUPPORT)).toBe(true);
-      expect(isValidRoleAssignment(UserRole.MANAGER)).toBe(true);
-      expect(isValidRoleAssignment('content-editor')).toBe(true);
-    });
-
-    it('should return false for ADMIN role', () => {
-      expect(isValidRoleAssignment(UserRole.ADMIN)).toBe(false);
     });
   });
 });

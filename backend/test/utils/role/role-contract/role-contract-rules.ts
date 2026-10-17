@@ -1,4 +1,5 @@
 import { ErrorCode } from '../../../../src/common/enums/error-code.enum';
+import { rerunAtOnce } from '../../session/issuance-contract/issuance-contract-support';
 import { rejectionOf } from '../../session/issuance-contract/issuance-contract-support';
 import {
   ADMIN_SLUG,
@@ -22,6 +23,29 @@ export function roleRuleCases(
   fixture: () => RoleFixture,
 ): void {
   const roles = () => servicesOn(harness()).roles;
+
+  it('stores a role audience at creation and retains it through edits', async () => {
+    const created = await roles().create(
+      { name: 'Staff Reader', permissions: [READ_POSTS], audience: 'staff' },
+      fixture().managerId,
+    );
+    expect((await harness().catalog.findRole(created.id))?.audience).toBe(
+      'staff',
+    );
+
+    await harness()
+      .runner(rerunAtOnce)
+      .run(async (unitOfWork) => {
+        await harness().changes.takeRoleForChange(unitOfWork, created.id);
+        await harness().changes.saveRoleEdit(unitOfWork, created.id, {
+          description: 'Updated description',
+        });
+      });
+    expect(await harness().catalog.findRole(created.id)).toMatchObject({
+      audience: 'staff',
+      description: 'Updated description',
+    });
+  });
 
   it('stores a custom role holding permissions the actor holds', async () => {
     const created = await roles().create(
@@ -167,7 +191,9 @@ export function roleRuleCases(
     const own = await rejectionOf(edit(MANAGER_SLUG, fixture().managerId));
     await edit(EDITOR_SLUG, fixture().managerId);
     await edit(PEER_SLUG, fixture().adminId);
-    await edit(ADMIN_SLUG, fixture().adminId);
+    expect(
+      answerOf(await rejectionOf(edit(ADMIN_SLUG, fixture().adminId))),
+    ).toEqual({ code: ErrorCode.ROLE_PROTECTED, status: 403 });
 
     expect({
       peer: answerOf(peer),
@@ -185,7 +211,7 @@ export function roleRuleCases(
         editor: 'edited',
         peer: 'edited',
         manager: null,
-        admin: 'edited',
+        admin: null,
       },
     });
   });
@@ -214,7 +240,7 @@ export function roleRuleCases(
     });
   });
 
-  it('keeps the wildcard on the admin role', async () => {
+  it('refuses any edit of the admin role', async () => {
     const failure = await rejectionOf(
       roles().update(
         ADMIN_SLUG,
@@ -227,7 +253,7 @@ export function roleRuleCases(
       answer: answerOf(failure),
       permissions: (await harness().role(ADMIN_SLUG))?.permissions,
     }).toEqual({
-      answer: { code: ErrorCode.ADMIN_WILDCARD_REQUIRED, status: 403 },
+      answer: { code: ErrorCode.ROLE_PROTECTED, status: 403 },
       permissions: [WILDCARD],
     });
   });
