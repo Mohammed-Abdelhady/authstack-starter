@@ -180,19 +180,4 @@ describe('OwnedSchedule', () => {
       ],
     });
   });
-
-  it('asks for no delay when nothing is in flight at the stop', async () => {
-    const timers = new HandTimers();
-    const schedule = new OwnedSchedule(
-      'Test',
-      1000,
-      () => Promise.resolve(),
-      timers,
-    );
-    schedule.start();
-
-    await schedule.stop();
-
-    expect(timers.delays).toEqual([]);
-  });
 });

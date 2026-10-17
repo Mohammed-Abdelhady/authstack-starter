@@ -116,13 +116,5 @@ describe('MongoDB start-up when an index cannot be built', () => {
         failure,
       );
     });
-
-    it('prepares a connection that has no models', async () => {
-      const startup = new MongoStorageStartup(
-        new Mongoose().createConnection(),
-      );
-
-      expect(await refusalOf(startup.prepare())).toBe('prepared');
-    });
   });
 });

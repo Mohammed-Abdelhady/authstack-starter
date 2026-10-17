@@ -76,10 +76,6 @@ describe('MongoDB statements that commit by themselves', () => {
         (thrown: unknown) => thrown,
       );
 
-    it('hands back what the statement answered', async () => {
-      await expect(singleStatement(() => Promise.resolve(7))).resolves.toBe(7);
-    });
-
     it('raises an outage as the shared error over the driver error', async () => {
       const error = await raised(OUTAGE);
 

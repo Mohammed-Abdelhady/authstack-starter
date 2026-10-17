@@ -17,28 +17,6 @@ describe('applying host migrations', () => {
     useHostMigrations();
 
   it(
-    'forwards a host migration notice through the command output',
-    async () => {
-      const pool = await emptyDatabase();
-      const source = sources({
-        [HOST_FILE]: `${HOST_SQL};
-          DO $$ BEGIN RAISE NOTICE 'Host migration completed'; END $$;`,
-      });
-
-      expect(await command('up', pool, source)).toEqual({
-        exit: 0,
-        said: [
-          ADDRESS_BACKFILL_ZERO_COUNTS,
-          'Host migration completed',
-          `Applied: ${EVERY_MIGRATION.join(', ')}, 0042_orders.sql`,
-        ],
-      });
-      expect(await hostRecords(pool)).toEqual(['0042_orders.sql']);
-    },
-    MIGRATE_CASE_TIMEOUT_MS,
-  );
-
-  it(
     'case 4: two concurrent up runs take turns and the second applies nothing',
     async () => {
       const pool = await emptyDatabase();

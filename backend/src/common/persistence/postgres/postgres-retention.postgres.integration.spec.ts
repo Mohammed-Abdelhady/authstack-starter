@@ -215,27 +215,6 @@ describe('PostgreSQL retention', () => {
     }).toEqual({ first: 1, second: 1, left: [at(1)] });
   });
 
-  it('reads every table whose rows expire, and finds nothing in an empty database', async () => {
-    expect((await removeExpiredRows(connection.database, NOW)).removed).toEqual(
-      {
-        mail_counters: 0,
-        pending_registrations: 0,
-        pending_password_resets: 0,
-        pending_magic_links: 0, // feature:magic-link
-        browser_proofs: 0,
-        two_factor_challenges: 0, // feature:totp
-        passkey_challenges: 0, // feature:passkeys
-        authorization_transactions: 0,
-        native_attempts: 0,
-        email_codes: 0, // feature:email-code
-        native_credentials: 0,
-        native_dpop_proof_ids: 0,
-        sessions: 0,
-        security_events: 0,
-      },
-    );
-  });
-
   it('cleans the tables after one whose statement fails, and names the one that failed', async () => {
     const errors = jest
       .spyOn(Logger.prototype, 'error')

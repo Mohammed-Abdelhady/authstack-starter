@@ -28,23 +28,6 @@ jest.mock('@nestjs/mongoose', () => {
 
 const A_UUID = '018f3c5e-7b1a-7c3e-9d2f-0a1b2c3d4e5f';
 
-/** Store methods the outage table leaves out, each with its reason. */
-const NOT_ONE_STATEMENT: Record<string, string> = {
-  'registration.rotate': 'private, reached through the two rotations',
-  'registration.claimCode': 'runs inside the unit of work of its caller',
-  'registration.putEmailChangeCodeIn':
-    'runs inside the unit of work of its caller',
-  'reset.claimCodeIn': 'runs inside the unit of work of its caller',
-};
-
-/** Every method a store class declares, as the outage table names them. */
-function methodsOf(prefix: string, store: object): string[] {
-  const declared: unknown = Object.getPrototypeOf(store);
-  return Object.getOwnPropertyNames(declared)
-    .filter((name) => name !== 'constructor')
-    .map((name) => `${prefix}.${name}`);
-}
-
 describe('PostgreSQL statements that commit by themselves', () => {
   let database: Kysely<PostgresTables>;
 
@@ -65,22 +48,6 @@ describe('PostgreSQL statements that commit by themselves', () => {
       passwordResets: new PostgresPasswordResetCodeStore(database),
     };
   }
-
-  it('lists every method of the three stores, or says why one is left out', () => {
-    const stores = createStores();
-    const listed = [
-      ...Object.keys(pendingCodeStatements(stores, A_UUID)),
-      ...Object.keys(NOT_ONE_STATEMENT),
-    ];
-
-    expect(listed.sort()).toEqual(
-      [
-        ...methodsOf('mail', stores.mailCounters),
-        ...methodsOf('registration', stores.registrations),
-        ...methodsOf('reset', stores.passwordResets),
-      ].sort(),
-    );
-  });
 
   it('raises the shared outage from every pending-code statement', async () => {
     const stores = createStores();

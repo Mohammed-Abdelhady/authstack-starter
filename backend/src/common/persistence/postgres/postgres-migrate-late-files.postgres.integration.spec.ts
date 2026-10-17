@@ -125,12 +125,27 @@ describe('PostgreSQL migrations applied out of the usual order', () => {
         newerThanLocale: [
           '0020_host_migrations.sql',
           '0021_address_claims.sql',
+          '0022_application_policy.sql',
+          '0023_account_audience.sql',
+          '0024_session_evidence.sql',
           '0025_email_codes.sql', // feature:email-code
           '0026_passkey_relying_party.sql', // feature:passkeys
           '0027_activity_log.sql',
+          '0028_staff_console.sql',
+          '0029_account_erasure.sql',
+          '0030_native_code_evidence.sql',
+          '0032_provider_revocations.sql', // feature:oauth-core
+          '0033_account_completion.sql',
+          '0034_address_claim_retention.sql',
         ],
         refused: 'StorageNotReadyError',
-        up: { exit: 0, said: ['Applied: 0019_account_locale.sql'] },
+        up: {
+          exit: 0,
+          said: [
+            'column "locale" of relation "users" already exists, skipping',
+            'Applied: 0019_account_locale.sql',
+          ],
+        },
         recorded: EVERY_MIGRATION,
         locales: [{ locale: 'en' }],
         after: 'serves',
