@@ -17,6 +17,7 @@ describe('AddPermissionDto (S-18)', () => {
     'activity:read:all',
     'sessions:read:staff',
     'sessions:delete:staff',
+    'users:suspend:staff',
     'posts:create',
   ])('should accept %s', async (permission) => {
     expect(await failedConstraints(permission)).toHaveLength(0);
@@ -24,19 +25,6 @@ describe('AddPermissionDto (S-18)', () => {
 
   it('should reject the wildcard', async () => {
     expect(await failedConstraints('*')).toContain('notEquals');
-  });
-
-  it('should reject a reserved permission', async () => {
-    const dto = plainToInstance(AddPermissionDto, {
-      permission: 'users:suspend:staff',
-    });
-    expect(await validate(dto)).toMatchObject([
-      {
-        constraints: {
-          isNotIn: 'users:suspend:staff is reserved and cannot be granted yet',
-        },
-      },
-    ]);
   });
 
   it.each([
