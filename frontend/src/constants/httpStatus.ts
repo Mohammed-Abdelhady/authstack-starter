@@ -1,5 +1,6 @@
 /** HTTP statuses the client treats specially. */
 export const HTTP_STATUS = {
+  BAD_REQUEST: 400,
   UNAUTHORIZED: 401,
   REQUEST_TIMEOUT: 408,
   INTERNAL_SERVER_ERROR: 500,

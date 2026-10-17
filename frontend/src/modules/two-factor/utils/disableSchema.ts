@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { ErrorCode } from '@app/core';
 import type { DisableTwoFactorRequest } from '../types';
 import { createAnswerSchema, toAnswer, type AnswerFormData } from './answerSchema';

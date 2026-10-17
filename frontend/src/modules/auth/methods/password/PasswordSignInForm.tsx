@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { FormProvider } from 'react-hook-form';
 import { FORM_STYLES } from '@/lib/config/form-styles';
 import { LogIn } from 'lucide-react';

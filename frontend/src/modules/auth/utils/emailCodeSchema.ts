@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { zodEmail } from '@app/core';
 import { VERIFICATION_CODE_LENGTH, AUTH_EMAIL_MAX_LENGTH } from '../constants/authMethods';
 

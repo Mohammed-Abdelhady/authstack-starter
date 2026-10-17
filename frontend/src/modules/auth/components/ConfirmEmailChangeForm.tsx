@@ -4,7 +4,7 @@ import { Description, Heading } from '@/components/design-system';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { FormProvider } from 'react-hook-form';
-import type { z } from 'zod';
+import type { z } from 'zod/v3';
 import { ShieldCheck } from 'lucide-react';
 import { FormInput, FormRootError, SubmitButton } from '@/components/forms';
 import { useFormWithValidation } from '@/hooks/useFormWithValidation';
