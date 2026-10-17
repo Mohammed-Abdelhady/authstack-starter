@@ -77,6 +77,20 @@ export class PostgresEmailCodeStore extends EmailCodeStore {
     });
   }
 
+  async findIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+  ): Promise<StoredEmailCode | null> {
+    const found = await postgresTransactionOf(work)
+      .selectFrom('email_codes')
+      .selectAll()
+      .where('owner_id', '=', key.ownerId)
+      .where('purpose', '=', key.purpose)
+      .forUpdate()
+      .executeTakeFirst();
+    return found ? toCode(found) : null;
+  }
+
   /** One UPDATE: the CASE reads the count as it was before this guess. */
   recordWrongGuess(key: EmailCodeKey, limit: number): Promise<number | null> {
     const now = this.clock.now();
@@ -93,6 +107,42 @@ export class PostgresEmailCodeStore extends EmailCodeStore {
         .executeTakeFirst();
       return row ? row.wrong_guesses : null;
     });
+  }
+
+  async deliverIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    delivery: { pendingHash: string; codeHash: string; limit: number },
+  ): Promise<boolean> {
+    if (delivery.pendingHash === delivery.codeHash) return false;
+    const changed = await postgresTransactionOf(work)
+      .updateTable('email_codes')
+      .set({ code_hash: delivery.codeHash, spent_at: null })
+      .where('owner_id', '=', key.ownerId)
+      .where('purpose', '=', key.purpose)
+      .where('code_hash', '=', delivery.pendingHash)
+      .where('spent_at', 'is not', null)
+      .where('expires_at', '>', this.clock.now())
+      .where('wrong_guesses', '<', delivery.limit)
+      .returning('id')
+      .executeTakeFirst();
+    return changed !== undefined;
+  }
+
+  async cancelIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    codeHash: string,
+  ): Promise<boolean> {
+    const changed = await postgresTransactionOf(work)
+      .updateTable('email_codes')
+      .set({ code_hash: '', spent_at: this.clock.now() })
+      .where('owner_id', '=', key.ownerId)
+      .where('purpose', '=', key.purpose)
+      .where('code_hash', '=', codeHash)
+      .returning('id')
+      .executeTakeFirst();
+    return changed !== undefined;
   }
 
   async spendIn(
