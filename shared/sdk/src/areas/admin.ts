@@ -1,3 +1,10 @@
+import {
+  unwrapAdminPermissionList,
+  unwrapAdminPermissionResult,
+} from './admin/permission-response';
+// feature:invitations:start
+import { unwrapAdminInvitation, unwrapAdminInvitationPage } from '../invitations/parsers';
+// feature:invitations:end
 import { HTTP_METHOD } from '../constants';
 import { ApiError } from '../errors';
 import { HTTP_STATUS_NO_CONTENT, SERVER_ERROR_STATUS_MIN } from '../browser-transport/constants';
@@ -17,7 +24,11 @@ export type * from './admin/types';
 type WriteCall<TSignal extends TransportSignal> = AreaCall<TSignal> & { operationKey?: string };
 
 interface AdminSenders<TSignal extends TransportSignal> extends AreaSenders<TSignal> {
-  write<T extends object>(call: WriteCall<TSignal>, options: AreaOptions<TSignal>): Promise<T>;
+  write<T extends object>(
+    call: WriteCall<TSignal>,
+    options: AreaOptions<TSignal>,
+    read?: (response: TransportResponse) => T,
+  ): Promise<T>;
   writeNoContent(call: WriteCall<TSignal>, options: AreaOptions<TSignal>): Promise<void>;
 }
 
@@ -43,10 +54,11 @@ function withWriters<TSignal extends TransportSignal>(
 ): AdminSenders<TSignal> {
   return {
     ...senders,
-    write: <T extends object>(call: WriteCall<TSignal>, options: AreaOptions<TSignal>) =>
-      settleWrite(call.operationKey, senders.send(call, options), (response) =>
-        unwrapObject<T>(response),
-      ),
+    write: <T extends object>(
+      call: WriteCall<TSignal>,
+      options: AreaOptions<TSignal>,
+      read = unwrapObject<T>,
+    ) => settleWrite(call.operationKey, senders.send(call, options), read),
     writeNoContent: (call, options) =>
       settleWrite(call.operationKey, senders.send(call, options), (response) => {
         if (response.status !== HTTP_STATUS_NO_CONTENT) unwrapEnvelope(response);
@@ -80,14 +92,35 @@ function createAccounts<TSignal extends TransportSignal>({
       sendObject({ method: HTTP_METHOD.GET, path: ADMIN_PATHS.account(id) }, options),
     update: async (id, body, options) =>
       write({ method: HTTP_METHOD.PATCH, path: ADMIN_PATHS.account(id), body }, options),
+    cancelEmailChange: async (id, options) =>
+      write(
+        {
+          method: HTTP_METHOD.DELETE,
+          path: withQuery(ADMIN_PATHS.cancelEmailChange(id), { version: options?.version }),
+        },
+        options,
+      ),
     resendEmailChange: async (id, options) =>
-      write({ method: HTTP_METHOD.POST, path: ADMIN_PATHS.resendEmailChange(id) }, options),
+      write(
+        {
+          method: HTTP_METHOD.POST,
+          path: ADMIN_PATHS.resendEmailChange(id),
+          ...(options?.version === undefined ? {} : { body: { version: options.version } }),
+        },
+        options,
+      ),
     updateStatus: async (id, body, options) =>
       write({ method: HTTP_METHOD.PATCH, path: ADMIN_PATHS.accountStatus(id), body }, options),
     updateRole: async (id, body, options) =>
       write({ method: HTTP_METHOD.PATCH, path: ADMIN_PATHS.accountRole(id), body }, options),
     delete: async (id, options) =>
-      writeNoContent({ method: HTTP_METHOD.DELETE, path: ADMIN_PATHS.account(id) }, options),
+      writeNoContent(
+        {
+          method: HTTP_METHOD.DELETE,
+          path: withQuery(ADMIN_PATHS.account(id), { version: options?.version }),
+        },
+        options,
+      ),
   };
 }
 
@@ -105,21 +138,40 @@ function createRoles<TSignal extends TransportSignal>({
     update: async (id, body, options) =>
       write({ method: HTTP_METHOD.PATCH, path: ADMIN_PATHS.role(id), body }, options),
     delete: async (id, options) =>
-      writeNoContent({ method: HTTP_METHOD.DELETE, path: ADMIN_PATHS.role(id) }, options),
+      writeNoContent(
+        {
+          method: HTTP_METHOD.DELETE,
+          path: withQuery(ADMIN_PATHS.role(id), { version: options?.version }),
+        },
+        options,
+      ),
   };
 }
 
 function createPermissions<TSignal extends TransportSignal>({
-  sendObject,
+  send,
   write,
 }: AdminSenders<TSignal>): ApiClientAdmin<TSignal>['admin']['permissions'] {
   return {
     list: async (id, options) =>
-      sendObject({ method: HTTP_METHOD.GET, path: ADMIN_PATHS.permissions(id) }, options),
+      unwrapAdminPermissionList(
+        await send({ method: HTTP_METHOD.GET, path: ADMIN_PATHS.permissions(id) }, options),
+      ),
     grant: async (id, body, options) =>
-      write({ method: HTTP_METHOD.POST, path: ADMIN_PATHS.permissions(id), body }, options),
+      write(
+        { method: HTTP_METHOD.POST, path: ADMIN_PATHS.permissions(id), body },
+        options,
+        unwrapAdminPermissionResult,
+      ),
     revoke: async (id, permission, options) =>
-      write({ method: HTTP_METHOD.DELETE, path: ADMIN_PATHS.permission(id, permission) }, options),
+      write(
+        {
+          method: HTTP_METHOD.DELETE,
+          path: withQuery(ADMIN_PATHS.permission(id, permission), { version: options?.version }),
+        },
+        options,
+        unwrapAdminPermissionResult,
+      ),
   };
 }
 
@@ -144,12 +196,41 @@ function createSessions<TSignal extends TransportSignal>({
   };
 }
 
+// feature:invitations:start
+function createInvitations<TSignal extends TransportSignal>({
+  send,
+  write,
+  writeNoContent,
+}: AdminSenders<TSignal>): ApiClientAdmin<TSignal>['admin']['invitations'] {
+  return {
+    list: async (query, options) =>
+      unwrapAdminInvitationPage(
+        await send(
+          { method: HTTP_METHOD.GET, path: withQuery(ADMIN_PATHS.invitations, query) },
+          options,
+        ),
+      ),
+    create: async (body, options) =>
+      write(createCall(ADMIN_PATHS.invitations, body, options), options, unwrapAdminInvitation),
+    resend: async (id, options) =>
+      write(
+        { method: HTTP_METHOD.POST, path: ADMIN_PATHS.resendInvitation(id) },
+        options,
+        unwrapAdminInvitation,
+      ),
+    revoke: async (id, options) =>
+      writeNoContent({ method: HTTP_METHOD.DELETE, path: ADMIN_PATHS.invitation(id) }, options),
+  };
+}
+// feature:invitations:end
+
 export function createAdminArea<TSignal extends TransportSignal>(
   areaSenders: AreaSenders<TSignal>,
 ): ApiClientAdmin<TSignal> {
   const senders = withWriters(areaSenders);
   return {
     admin: {
+      invitations: createInvitations(senders), // feature:invitations
       accounts: createAccounts(senders),
       permissions: createPermissions(senders),
       roles: createRoles(senders),
