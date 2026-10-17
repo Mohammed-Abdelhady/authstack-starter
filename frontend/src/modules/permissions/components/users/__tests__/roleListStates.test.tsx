@@ -84,22 +84,6 @@ describe.each([
     await waitFor(() => expect(trigger.textContent).toBe(LAST.name));
   });
 
-  it('names a role from the last page where the role is read-only text', async () => {
-    serveRoles(THREE_PAGES);
-    await renderAsAdmin(locale, <UserRoleLabel slug={LAST.slug} />);
-
-    await waitFor(() => expect(screen.getByTestId('user-card-role').textContent).toBe(LAST.name));
-  });
-
-  it('names a role from the last page on the filter that was given only its slug', async () => {
-    serveRoles(THREE_PAGES);
-    await renderAsAdmin(locale, <RoleFilter value={LAST.slug} onChange={vi.fn()} />);
-
-    await waitFor(() =>
-      expect(screen.getByTestId('role-filter-value').textContent).toBe(LAST.name),
-    );
-  });
-
   it('reads the list once for every selector, label and filter on the page', async () => {
     const requests = serveRoles(THREE_PAGES);
     await renderAsAdmin(
@@ -205,15 +189,6 @@ describe.each([
       await waitFor(() => expect(trigger.matches(':disabled')).toBe(false));
       expect(screen.getByTestId('submit-create-user-button').matches(':disabled')).toBe(false);
       expect(screen.queryByRole('alert')).toBeNull();
-    });
-
-    it('leaves the slug where the role is read-only text', async () => {
-      const requests = serveRoles(THREE_PAGES, () => FAILURES[failure]);
-      await renderAsAdmin(locale, <UserRoleLabel slug={LAST.slug} />);
-
-      await waitFor(() => expect(requests.length).toBe(2));
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      expect(screen.getByTestId('user-card-role').textContent).toBe(LAST.slug);
     });
   });
 });

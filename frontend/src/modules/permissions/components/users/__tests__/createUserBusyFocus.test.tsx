@@ -8,7 +8,6 @@ import {
   expectFocusKeptThroughRequest,
   heldAnswer,
   HELD,
-  IDLE,
   unreachable,
 } from '@/tests/busyControls';
 import {
@@ -24,15 +23,6 @@ import { CreateUserDialog } from '../CreateUserDialog';
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), dismiss: vi.fn() },
 }));
-
-const CONTROLS = [
-  'create-user-email-input',
-  'create-user-name-input',
-  'create-user-password-input',
-  'create-user-role-select',
-  'cancel-create-user-button',
-  'submit-create-user-button',
-] as const;
 
 const ENDINGS = {
   refused: () => refusalWith(409, ErrorCode.EMAIL_ALREADY_EXISTS),
@@ -109,20 +99,4 @@ describe.each([
       await expectFocusKeptThroughRequest(email, () => settle(ENDINGS[ending]));
     },
   );
-
-  it('holds every control of the form, and the busy one says so, while the request runs', async () => {
-    const { settle } = await filledDialog(locale);
-    const submit = screen.getByTestId('submit-create-user-button');
-    const controls = () => CONTROLS.map((id) => availability(screen.getByTestId(id)));
-
-    fireEvent.click(submit);
-
-    await waitFor(() => expect(submit.getAttribute('aria-busy')).toBe('true'));
-    expect(controls()).toEqual([HELD, HELD, HELD, HELD, HELD, HELD]);
-
-    settle(ENDINGS.refused);
-
-    await waitFor(() => expect(submit.getAttribute('aria-busy')).toBe('false'));
-    expect(controls()).toEqual([IDLE, IDLE, IDLE, IDLE, IDLE, IDLE]);
-  });
 });

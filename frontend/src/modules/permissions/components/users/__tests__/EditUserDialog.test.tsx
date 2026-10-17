@@ -4,6 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import type { AppLocale } from '@/i18n/load-messages';
 import {
   SERVER_TEXT,
+  refusalWith,
   descriptions,
   refuseWrites,
   renderForm,
@@ -11,6 +12,7 @@ import {
   stubNetwork,
   success,
 } from '@/tests/serverRejectionHarness';
+import { ErrorCode } from '@app/core';
 import { EditUserDialog } from '../EditUserDialog';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -19,6 +21,7 @@ async function submitEdit(locale: AppLocale) {
   const form = await renderForm(
     locale,
     <EditUserDialog
+      currentVersion={0}
       userId="user-1"
       currentName="Layla Haddad"
       currentEmail="layla@example.com"
@@ -46,6 +49,7 @@ describe.each([
     const form = await renderForm(
       locale,
       <EditUserDialog
+        currentVersion={0}
         userId="user-1"
         currentName="Layla Haddad"
         currentEmail="layla@example.com"
@@ -94,6 +98,7 @@ describe.each([
     const form = await renderForm(
       locale,
       <EditUserDialog
+        currentVersion={0}
         userId="user-1"
         currentName="john_doe"
         currentEmail="layla@example.com"
@@ -110,7 +115,7 @@ describe.each([
     });
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).not.toHaveProperty('name');
-    expect(bodies[0]).toEqual({ email: 'layla.haddad@example.com' });
+    expect(bodies[0]).toEqual({ version: 0, email: 'layla.haddad@example.com' });
   });
 
   it.each([
@@ -126,6 +131,7 @@ describe.each([
     const form = await renderForm(
       locale,
       <EditUserDialog
+        currentVersion={0}
         userId="user-1"
         currentName="Layla Haddad"
         currentEmail="layla@example.com"
@@ -143,7 +149,9 @@ describe.each([
         expect(descriptions(input)).toEqual([form.message('users.editUser.errors.nameNoLetter')]);
       return;
     }
-    await waitFor(() => expect(bodies).toEqual([{ email: 'layla@example.com', name: stored }]));
+    await waitFor(() =>
+      expect(bodies).toEqual([{ version: 0, email: 'layla@example.com', name: stored }]),
+    );
   });
 
   it('gives two dialogs on one page their own controls', async () => {
@@ -151,6 +159,7 @@ describe.each([
       locale,
       <>
         <EditUserDialog
+          currentVersion={0}
           userId="user-1"
           currentName="Layla Haddad"
           currentEmail="layla@example.com"
@@ -158,6 +167,7 @@ describe.each([
           onOpenChange={vi.fn()}
         />
         <EditUserDialog
+          currentVersion={0}
           userId="user-2"
           currentName="Omar Nasser"
           currentEmail="omar@example.com"
@@ -177,5 +187,30 @@ describe.each([
       'Omar Nasser',
     ]);
     expect(new Set(names.map((field) => field.id)).size).toBe(2);
+  });
+  it('keeps the draft observation when a newer account version arrives', async () => {
+    const bodies: unknown[] = [];
+    stubNetwork(async (request) => {
+      bodies.push(await request.json());
+      return refusalWith(409, ErrorCode.CONFLICT);
+    });
+    const props = {
+      userId: 'user-1',
+      currentName: 'Layla Haddad',
+      currentEmail: 'layla@example.com',
+      open: true,
+      onOpenChange: vi.fn(),
+    };
+    const form = await renderForm(locale, <EditUserDialog {...props} currentVersion={0} />);
+    const email = screen.getByRole('textbox', { name: form.message('users.editUser.email') });
+    fireEvent.change(email, { target: { value: 'layla.haddad@example.com' } });
+    form.rerender(<EditUserDialog {...props} currentVersion={1} />);
+    fireEvent.click(screen.getByRole('button', { name: form.message('users.editUser.save') }));
+    await waitFor(() =>
+      expect(bodies).toEqual([{ email: 'layla.haddad@example.com', version: 0 }]),
+    );
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect((email as HTMLInputElement).value).toBe('layla.haddad@example.com');
+    expect(form.successToasts()).toEqual([]);
   });
 });

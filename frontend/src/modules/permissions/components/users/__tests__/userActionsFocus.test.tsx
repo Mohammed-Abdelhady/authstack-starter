@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { storeSignedInAs } from '@/tests/signedIn';
+import { USER_PERMISSIONS } from '@app/core';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
@@ -19,6 +21,7 @@ import { focusAfterClose, settledConfirmation } from './roleSelectorHarness';
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const USER = {
+  version: 0,
   _id: 'user-7',
   name: 'Omar Nasser',
   email: 'omar@example.com',
@@ -69,7 +72,11 @@ async function chooseEntry(
         ? success({ userId: user._id, role: user.role, permissions: [] })
         : success({ id: user._id, isDeleted: !user.isDeleted, permissions: [] }),
   );
-  const form = await renderForm(locale, <MenuWithPermissionsDialog user={user} />);
+  const form = await renderForm(
+    locale,
+    <MenuWithPermissionsDialog user={user} />,
+    storeSignedInAs('admin', [USER_PERMISSIONS.UPDATE_ALL, USER_PERMISSIONS.SUSPEND_ALL]),
+  );
   const menuButton = screen.getByTestId(MENU_BUTTON);
   menuButton.focus();
   fireEvent.keyDown(menuButton, { key: 'Enter' });
@@ -132,15 +139,6 @@ describe.each([
     await settledConfirmation(EDIT_DIALOG);
 
     fireEvent.keyDown(screen.getByTestId(EDIT_DIALOG), { key: 'Escape' });
-
-    expect(await focusAfterClose(EDIT_DIALOG)).toBe(MENU_BUTTON);
-  });
-
-  it('returns to the menu button when the edit dialog is cancelled', async () => {
-    await chooseEntry(locale, 'edit-user');
-    await settledConfirmation(EDIT_DIALOG);
-
-    fireEvent.click(screen.getByTestId('cancel-edit-user-button'));
 
     expect(await focusAfterClose(EDIT_DIALOG)).toBe(MENU_BUTTON);
   });

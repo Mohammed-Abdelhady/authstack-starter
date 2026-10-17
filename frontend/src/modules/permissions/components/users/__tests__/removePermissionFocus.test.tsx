@@ -3,7 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ErrorCode } from '@app/core';
 import type { AppLocale } from '@/i18n/load-messages';
-import { expectFocusKeptThroughRequest, heldAnswer, unreachable } from '@/tests/busyControls';
+import {
+  availability,
+  HELD,
+  IDLE,
+  expectFocusKeptThroughRequest,
+  heldAnswer,
+  unreachable,
+} from '@/tests/busyControls';
+import { permissionsApi } from '../../../api/permissionsApi';
 import {
   refusalWith,
   registerFormTestLifecycle,
@@ -29,16 +37,28 @@ const ENDINGS = {
  */
 async function renderDialog(locale: AppLocale) {
   const held = heldAnswer();
+  const reread = heldAnswer();
+  let holdReads = false;
+  let refuseDeletes = false;
+  let deletes = 0;
   let direct = [DIRECT];
   stubNetwork((request, path) => {
     if (request.method === 'DELETE') {
+      deletes += 1;
+      if (refuseDeletes) return refusalWith(403, ErrorCode.CANNOT_MODIFY_HIGHER_ROLE);
       return held.answer.then((response) => {
         if (response.ok) direct = [];
         return response;
       });
     }
+    if (path.endsWith('/permissions') && holdReads) return reread.answer;
     return path.endsWith('/permissions')
-      ? success({ userId: 'user-7', role: 'editor', permissions: direct })
+      ? success({
+          userId: 'user-7',
+          role: 'editor',
+          permissions: direct,
+          version: direct.length === 0 ? 1 : 0,
+        })
       : success({ id: 'role-editor', slug: 'editor', name: 'Editor', permissions: [] });
   });
   const dialog = await renderForm(
@@ -53,12 +73,42 @@ async function renderDialog(locale: AppLocale) {
       screen.getByRole('heading', {
         name: dialog.format('permissions.dialog.directPermissions', { count }),
       }),
-    accept: () => held.settle(() => success({ userId: 'user-7', permissions: [] })),
+    accept: () => held.settle(() => success({ userId: 'user-7', permissions: [], version: 1 })),
     settle: held.settle,
+    holdRefetch: () => {
+      holdReads = true;
+      refuseDeletes = true;
+      dialog.store.dispatch(
+        permissionsApi.util.invalidateTags([{ type: 'Permissions', id: 'user-7' }]),
+      );
+    },
+    acceptRefetch: () => {
+      holdReads = false;
+      reread.settle(() =>
+        success({ userId: 'user-7', role: 'editor', permissions: [DIRECT], version: 0 }),
+      );
+    },
+    deleteAttempts: () => deletes,
   };
 }
 
 registerFormTestLifecycle();
+
+it('holds the focused remove control through a reconciliation read and refuses another write', async () => {
+  const dialog = await renderDialog('en');
+  dialog.remove.focus();
+  dialog.holdRefetch();
+  try {
+    await waitFor(() => expect(availability(dialog.remove)).toEqual(HELD));
+    fireEvent.click(dialog.remove);
+    expect(document.activeElement).toBe(dialog.remove);
+  } finally {
+    dialog.acceptRefetch();
+  }
+  await waitFor(() => expect(availability(dialog.remove)).toEqual(IDLE));
+  expect(dialog.deleteAttempts()).toBe(0);
+  expect(document.activeElement).toBe(dialog.remove);
+});
 
 describe.each([
   'en',

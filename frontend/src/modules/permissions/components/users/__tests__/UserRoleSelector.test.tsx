@@ -36,8 +36,8 @@ const ROLES = {
   page: 1,
 };
 
-/** PATCH /api/admin/users/:id/role answers with the id and the new role only. */
-const UPDATED_USER = { id: 'user-2', role: 'editor' };
+/** A role write returns the new record version. */
+const UPDATED_USER = { version: 1, id: 'user-2', role: 'editor' };
 
 /** The selector wired to the real role-change action, as the user card wires it. */
 function UserRoleControl() {
@@ -46,7 +46,9 @@ function UserRoleControl() {
     <UserRoleSelector
       userId="user-2"
       currentRole="user"
-      onRoleChange={(newRole) => handleRoleChange('user-2', newRole)}
+      onRoleChange={(newRole) =>
+        handleRoleChange({ userId: 'user-2', newRole: newRole, version: 0 })
+      }
     />
   );
 }

@@ -40,6 +40,8 @@ describe.each([
       return success({});
     });
     const form = await renderForm(locale, <CreateUserDialog open onOpenChange={() => undefined} />);
+    const role = screen.getByRole('combobox', { name: form.message('users.createUser.role') });
+    await waitFor(() => expect(role.matches(':disabled')).toBe(false));
     fireEvent.change(
       screen.getByRole('textbox', { name: form.message('users.createUser.email') }),
       { target: { value: 'layla@example.com' } },

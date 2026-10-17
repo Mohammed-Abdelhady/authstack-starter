@@ -20,6 +20,7 @@ vi.mock('@/i18n/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace
 
 function role(slug: string, name: string) {
   return {
+    version: 0,
     id: `role-${slug}`,
     slug,
     name,

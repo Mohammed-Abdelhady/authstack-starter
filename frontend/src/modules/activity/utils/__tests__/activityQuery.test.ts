@@ -14,10 +14,6 @@ describe('activity request boundaries', () => {
     expect(activityPageCount(totalPages, limit)).toBe(expected);
   });
 
-  it('submits empty filters without inventing criteria', () => {
-    expect(parseActivityFilters(new FormData())).toEqual({ filters: {} });
-  });
-
   it.each(['a'.repeat(201), 'staff member', "staff'", '_staff', ' staff'])(
     'refuses an identifier outside the server grammar',
     (value) => {

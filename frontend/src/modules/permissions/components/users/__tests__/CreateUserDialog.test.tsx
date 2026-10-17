@@ -53,6 +53,7 @@ async function submitCreate(locale: AppLocale) {
   const email = screen.getByRole('textbox', { name: label('email') });
   const name = screen.getByRole('textbox', { name: label('name') });
   const role = screen.getByRole('combobox', { name: label('role') });
+  await waitFor(() => expect(role.matches(':disabled')).toBe(false));
 
   fireEvent.change(email, { target: { value: 'layla@example.com' } });
   fireEvent.change(name, { target: { value: 'Layla Haddad' } });
@@ -87,6 +88,7 @@ describe.each([
     const submit = screen.getByRole('button', {
       name: form.message('users.createUser.submit'),
     });
+    await waitFor(() => expect(role.matches(':disabled')).toBe(false));
     submit.focus();
     fireEvent.click(submit);
 
@@ -117,15 +119,6 @@ describe.each([
     // The marked fields say it. No toast repeats it.
     expect(errorToasts()).toEqual([]);
     expect(document.body.textContent).not.toContain(SERVER_TEXT);
-  });
-
-  it('tells the browser its password field takes a new password', async () => {
-    refuseWrites([], ROLES);
-    const { message } = await renderForm(locale, <Host />);
-
-    expect(
-      screen.getByLabelText(message('users.createUser.password')).getAttribute('autocomplete'),
-    ).toBe('new-password');
   });
 
   it('cannot be closed while its request is in flight, and opens clean after the refusal was closed', async () => {

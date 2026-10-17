@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { availability, HELD, IDLE } from '@/tests/busyControls';
+import { availability, HELD, IDLE, heldAnswer } from '@/tests/busyControls';
 import { describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { ErrorCode, USER_PERMISSIONS } from '@app/core';
+import { loginFulfilled } from '@/modules/auth/store/authSlice';
 import { refusalWith, registerFormTestLifecycle, success } from '@/tests/serverRejectionHarness';
 import { renderAdminCard, stubCardNetwork, TARGET_USER } from './adminEmailConfirmationHarness';
 
@@ -14,15 +15,26 @@ describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('admin email confirmation in %s', (locale) => {
-  it('offers resend only while the account remains unverified', async () => {
+  it('offers resend only for an actual pending address', async () => {
     stubCardNetwork(() => success({}));
     const card = await renderAdminCard(locale);
     card.openMenu();
     expect(card.resendItem()).not.toBeNull();
-    card.rerenderUser({ ...TARGET_USER, isVerified: true });
+    card.rerenderUser({ ...TARGET_USER, isVerified: false });
+    expect(card.resendItem()).not.toBeNull();
+
+    const noPending = { ...TARGET_USER, isVerified: false };
+    delete noPending.pendingEmail;
+    card.rerenderUser(noPending);
     expect(
       screen.queryByRole('menuitem', { name: card.message('users.actions.resendEmailChange') }),
     ).toBeNull();
+    for (const pendingEmail of [null, '', '   ']) {
+      card.rerenderUser({ ...noPending, pendingEmail });
+      expect(
+        screen.queryByRole('menuitem', { name: card.message('users.actions.resendEmailChange') }),
+      ).toBeNull();
+    }
   });
 
   it('hides resend from an actor without the update permission', async () => {
@@ -52,18 +64,7 @@ describe.each([
     );
   });
 
-  it.each([undefined, null])(
-    'shows no pending address when the API returns %s',
-    async (pendingEmail) => {
-      stubCardNetwork(() => success({}));
-      await renderAdminCard(locale, { ...TARGET_USER, pendingEmail });
-
-      expect(screen.queryByTestId('user-card-pending-email')).toBeNull();
-      expect(screen.getByTestId('user-card-email').textContent).toBe(TARGET_USER.email);
-    },
-  );
-
-  it('posts the current account id without an email or body and announces success', async () => {
+  it('resends for the observed account revision and announces success', async () => {
     const sent: Array<{ method: string; path: string; body: string }> = [];
     stubCardNetwork(async (request, path) => {
       sent.push({ method: request.method, path, body: await request.text() });
@@ -77,7 +78,7 @@ describe.each([
         {
           method: 'POST',
           path: '/api/admin/users/507f1f77bcf86cd799439011/resend-email-change',
-          body: '',
+          body: JSON.stringify({ version: 0 }),
         },
       ]);
       expect(card.successToasts()).toEqual([
@@ -145,5 +146,103 @@ describe.each([
     await waitFor(() => expect(availability(trigger)).toEqual(HELD));
     await act(async () => release(success({ message: 'sent' })));
     await waitFor(() => expect(availability(trigger)).toEqual(IDLE));
+  });
+});
+
+// A strict resend must use the observed zero version through proof and refuse stale retries.
+describe('strict confirmation resend', () => {
+  it.each(['current', 'target-changed', 'session-changed'] as const)(
+    'settles proof only for the captured %s intent',
+    async (mode) => {
+      const verified = heldAnswer();
+      const bodies: unknown[] = [];
+      let verifies = 0;
+      stubCardNetwork(async (request, path) => {
+        if (path === '/api/admin/users/507f1f77bcf86cd799439011/resend-email-change') {
+          bodies.push(await request.json());
+          return bodies.length === 1
+            ? refusalWith(401, ErrorCode.REAUTH_REQUIRED, {
+                required: 'fresh_proof',
+                methods: ['email-code'],
+              })
+            : success({ message: 'sent' });
+        }
+        if (path === '/api/auth/proof/code') return Response.json({ expiresInMinutes: 5 });
+        if (path === '/api/auth/proof/code/verify') {
+          verifies += 1;
+          return verified.answer;
+        }
+        throw new Error('Unexpected strict resend request');
+      });
+      const card = await renderAdminCard('en');
+      card.openMenu();
+      fireEvent.click(card.resendItem());
+      const proof = await screen.findByRole('dialog', {
+        name: card.message('invitations.proof.title'),
+      });
+      expect(card.successToasts()).toEqual([]);
+      fireEvent.click(
+        within(proof).getByRole('button', { name: card.message('invitations.proof.send') }),
+      );
+      const code = await within(proof).findByRole('textbox', {
+        name: card.message('invitations.proof.code'),
+      });
+      fireEvent.change(code, { target: { value: '123456' } });
+      const verifyButton = within(proof).getByRole('button', {
+        name: card.message('invitations.proof.verify'),
+      });
+      fireEvent.click(verifyButton);
+      try {
+        await waitFor(() => expect(verifies).toBe(1));
+        if (mode === 'target-changed') card.rerenderUser({ ...TARGET_USER, version: 1 });
+        if (mode === 'session-changed') {
+          act(() =>
+            card.store.dispatch(
+              loginFulfilled({
+                id: 'another-actor',
+                email: 'other@example.test',
+                name: 'Other',
+                role: 'admin',
+                permissions: [],
+              }),
+            ),
+          );
+        }
+        await act(async () =>
+          verified.settle(() => Response.json({ provedAt: '2026-11-01T00:00:00.000Z' })),
+        );
+        await waitFor(() =>
+          expect(
+            screen.queryByRole('dialog', { name: card.message('invitations.proof.title') }),
+          ).toBeNull(),
+        );
+        await waitFor(() =>
+          expect(bodies).toEqual(
+            mode === 'current' ? [{ version: 0 }, { version: 0 }] : [{ version: 0 }],
+          ),
+        );
+        await waitFor(() => expect(card.successToasts()).toHaveLength(mode === 'current' ? 1 : 0));
+      } finally {
+        await act(async () =>
+          verified.settle(() => Response.json({ provedAt: '2026-11-01T00:00:00.000Z' })),
+        );
+      }
+    },
+  );
+
+  it('refuses an unobserved version before any resend', async () => {
+    let sent = 0;
+    stubCardNetwork(() => {
+      sent += 1;
+      return success({ message: 'sent' });
+    });
+    const unobserved = { ...TARGET_USER };
+    delete unobserved.version;
+    const card = await renderAdminCard('en', unobserved);
+    card.openMenu();
+    fireEvent.click(card.resendItem());
+    await waitFor(() => expect(card.errorToasts()).toHaveLength(1));
+    expect(sent).toBe(0);
+    expect(card.successToasts()).toEqual([]);
   });
 });

@@ -9,10 +9,12 @@ import {
   stubNetwork,
 } from '@/tests/serverRejectionHarness';
 import { DeleteRoleDialog } from '../DeleteRoleDialog';
+import type { Role } from '../../../api/rolesApi';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 
 const ROLE = {
+  version: 0,
   id: 'role-editor',
   name: 'Editor',
   slug: 'editor',
@@ -52,4 +54,19 @@ describe.each([
     expect(requests).toEqual(['DELETE /api/roles/role-editor']);
     expect(onOpenChange).not.toHaveBeenCalled();
   });
+});
+
+it('refuses deletion without a real observed role version before issuing a request', async () => {
+  const legacy: Role = { ...ROLE };
+  delete legacy.version;
+  const requests = stubNetwork(() => refusalWith(400, 'VALIDATION_ERROR'));
+  const onOpenChange = vi.fn();
+  const { message } = await renderForm(
+    'en',
+    <DeleteRoleDialog open role={legacy} onOpenChange={onOpenChange} />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: message('roles.delete.confirm') }));
+  await screen.findByRole('alert');
+  expect(requests).toEqual([]);
+  expect(onOpenChange).not.toHaveBeenCalled();
 });

@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { BROWSER_PROOF_ENDPOINT, CSRF_ENDPOINT } from '@/constants/api';
 import { CSRF_HEADER, clearBrowserProof } from '@/store/api/browser-proof';
 import { usersApi } from './usersApi';
+import { requireObservedVersion } from '@/modules/auth/utils/observedVersion';
 
 afterEach(() => {
   clearBrowserProof();
@@ -27,6 +28,7 @@ test('a bodyless delete refreshes users using the admin response envelope and pe
     }
     if (request.method === 'DELETE') {
       expect(pathname).toBe('/api/admin/users/fixture-user');
+      expect(new URL(request.url).searchParams.get('version')).toBe('0');
       expect(request.headers.get(CSRF_HEADER)).toBe('session-proof-token');
       deleted = true;
       return new Response(null, { status: 204 });
@@ -40,6 +42,7 @@ test('a bodyless delete refreshes users using the admin response envelope and pe
             name: 'Fixture User',
             email: 'confirmed@example.test',
             role: 'support',
+            version: 0,
             isVerified: true,
             isDeleted: deleted,
             pendingEmail: deleted ? 'pending@example.test' : null,
@@ -68,8 +71,16 @@ test('a bodyless delete refreshes users using the admin response envelope and pe
       limit: 20,
       totalPages: 1,
     });
-    const result = await store.dispatch(usersApi.endpoints.deleteUser.initiate('fixture-user'));
+    const observed = initial.users[0];
+    if (!observed) throw new Error('Expected listed user');
+    const result = await store.dispatch(
+      usersApi.endpoints.deleteUser.initiate({
+        userId: observed._id,
+        version: requireObservedVersion(observed.version),
+      }),
+    );
     expect(result).not.toHaveProperty('error');
+    expect(result).toHaveProperty('data', null);
     await vi.waitFor(() => {
       expect(usersApi.endpoints.getUsers.select({})(store.getState()).data?.users).toMatchObject([
         {

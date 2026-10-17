@@ -18,8 +18,14 @@ describe('resend write concurrency', () => {
     let first = Promise.resolve();
     let concurrent = Promise.resolve();
     act(() => {
-      first = hook.result.current.handleResendEmailChange('507f1f77bcf86cd799439011');
-      concurrent = hook.result.current.handleResendEmailChange('507f1f77bcf86cd799439011');
+      first = hook.result.current.handleResendEmailChange({
+        userId: '507f1f77bcf86cd799439011',
+        version: 0,
+      });
+      concurrent = hook.result.current.handleResendEmailChange({
+        userId: '507f1f77bcf86cd799439011',
+        version: 0,
+      });
     });
     await waitFor(() => {
       expect(requests).toEqual([
@@ -33,7 +39,10 @@ describe('resend write concurrency', () => {
     });
     let second = Promise.resolve();
     act(() => {
-      second = hook.result.current.handleResendEmailChange('507f1f77bcf86cd799439011');
+      second = hook.result.current.handleResendEmailChange({
+        userId: '507f1f77bcf86cd799439011',
+        version: 0,
+      });
     });
     await waitFor(() => {
       expect(requests).toEqual([
