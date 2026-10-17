@@ -1,5 +1,4 @@
 import { Kysely, Transaction } from 'kysely';
-import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import {
   SecondFactorAccount,
@@ -13,13 +12,10 @@ import {
   SecondFactorStore,
   SpendOutcome,
 } from '../../stores/second-factor.store';
-import {
-  rememberSignInAccount,
-  toSignInAccount,
-} from '../../../persistence/postgres/postgres-sign-in-accounts';
 import { PostgresTables } from '../../../../common/persistence/postgres/postgres-database';
 import { UnitOfWork } from '../../../../common/persistence/unit-of-work';
 import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
+import { readPostgresSecondFactorAccount } from './postgres-second-factor-read';
 import { confirmSecondFactorIn } from './postgres-second-factor-confirmation';
 import {
   spendPostgresTotpStep,
@@ -248,76 +244,9 @@ export class PostgresSecondFactorStore extends SecondFactorStore {
     userId: string,
     withPassword: boolean,
   ): Promise<SecondFactorAccount | null> {
-    return autocommit(NO_CONSTRAINTS, async () => {
-      const row = await this.database
-        .selectFrom('users')
-        .leftJoin('user_two_factor as state', 'state.user_id', 'users.id')
-        .select((select) => [
-          'users.id',
-          'users.email',
-          'users.name',
-          'users.role',
-          'users.permissions',
-          'users.auth_provider',
-          'users.is_verified',
-          'users.is_deleted',
-          'users.password_hash',
-          'state.enabled',
-          'state.secret_ciphertext',
-          'state.secret_iv',
-          'state.secret_tag',
-          'state.confirmed_at',
-          'state.last_used_step',
-          'state.failed_attempts',
-          'state.locked_until',
-          jsonArrayFrom(
-            select
-              .selectFrom('user_recovery_codes as code')
-              .select(['code.hash', 'code.used_at'])
-              .whereRef('code.user_id', '=', 'users.id')
-              .orderBy('code.id'),
-          ).as('recovery_codes'),
-        ])
-        .where('users.id', '=', toUuid(userId))
-        .executeTakeFirst();
-      if (!row) return null;
-
-      const secret =
-        row.secret_ciphertext !== null &&
-        row.secret_iv !== null &&
-        row.secret_tag !== null
-          ? {
-              ciphertext: row.secret_ciphertext,
-              iv: row.secret_iv,
-              tag: row.secret_tag,
-            }
-          : null;
-      const account: SecondFactorAccount = {
-        id: row.id,
-        email: row.email ?? '',
-        isDeleted: row.is_deleted,
-        passwordHash: withPassword
-          ? (row.password_hash ?? undefined)
-          : undefined,
-        twoFactor: {
-          enabled: row.enabled === true,
-          secret,
-          confirmedAt: row.confirmed_at,
-          // A date inside JSON arrives as text.
-          recoveryCodes: row.recovery_codes.map((code) => ({
-            hash: code.hash,
-            usedAt: code.used_at === null ? null : new Date(code.used_at),
-          })),
-          lastUsedStep: row.last_used_step,
-          failedAttempts: row.failed_attempts ?? 0,
-          lockedUntil: row.locked_until,
-        },
-      };
-      return rememberSignInAccount(
-        account,
-        toSignInAccount(row, row.enabled === true),
-      );
-    });
+    return autocommit(NO_CONSTRAINTS, () =>
+      readPostgresSecondFactorAccount(this.database, userId, withPassword),
+    );
   }
 
   private async replaceCodes(
