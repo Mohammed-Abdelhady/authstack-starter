@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AdminAudienceScopes } from './admin-audience-scopes';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CODE_ROTATION } from '../../../auth/pending-codes/pending-registration.store';
@@ -28,8 +30,13 @@ import type { MailRecipient } from '../../../mail/types/mail-recipient.types';
 /** The account a confirmation code is issued for, as it was read. */
 type ConfirmationTarget = Pick<
   StoredAccount,
-  'id' | 'pendingEmail' | 'addressGeneration' | 'locale'
+  'id' | 'pendingEmail' | 'addressGeneration' | 'locale' | 'audience'
 >;
+
+interface ConfirmationAuthority {
+  actorId: string;
+  assertCurrent(work: UnitOfWork, current: StoredAccount): Promise<void>;
+}
 
 /**
  * Admin-initiated email changes.
@@ -49,6 +56,7 @@ export class AdminEmailChangeService {
     private readonly ledger: AddressLedger,
     private readonly runner: UnitOfWorkRunner,
     private readonly clock: Clock,
+    private readonly scopes: AdminAudienceScopes,
   ) {
     this.retryMinutes = Math.ceil(
       mailedCodeWindowMs(
@@ -88,8 +96,11 @@ export class AdminEmailChangeService {
   async sendConfirmation(
     user: ConfirmationTarget,
     actorRole: string,
+    authority?: string | ConfirmationAuthority,
   ): Promise<void> {
     this.assertAdmin(actorRole);
+    const actorId =
+      typeof authority === 'string' ? authority : authority?.actorId;
     const pending = this.pendingAddress(user.pendingEmail);
 
     if (
@@ -111,6 +122,8 @@ export class AdminEmailChangeService {
     if (!issued) throw this.limitReached();
     await this.runner.run(async (uow) => {
       const current = await this.accounts.takeEmailChangeTarget(uow, user.id);
+      if (current && typeof authority === 'object')
+        await authority.assertCurrent(uow, current);
       if (
         !current ||
         current.isDeleted ||
@@ -119,6 +132,12 @@ export class AdminEmailChangeService {
       ) {
         throw this.addressTaken();
       }
+      await this.scopes.assertInWork(
+        uow,
+        actorId,
+        current.audience,
+        USER_SCOPE_ACTION.UPDATE,
+      );
       const claimed = await this.ledger.claim(uow, {
         address: pending,
         owner: current.id,
@@ -135,8 +154,64 @@ export class AdminEmailChangeService {
       }
     });
 
-    await this.sendCode({ email: pending, locale: user.locale }, issued.code);
+    await this.sendCode(
+      {
+        email: pending,
+        locale: user.locale,
+        ...(user.audience === undefined ? {} : { audience: user.audience }),
+      },
+      issued.code,
+    );
   }
+
+  // feature:invitations:start
+  async sendServerCommandConfirmation(user: ConfirmationTarget): Promise<void> {
+    const pending = this.pendingAddress(user.pendingEmail);
+    const issued = await this.verificationCodeService.prepareEmailChange(
+      pending,
+      {
+        userId: user.id,
+        addressGeneration: user.addressGeneration,
+      },
+    );
+    if (!issued) throw this.limitReached();
+    await this.runner.run(async (work) => {
+      const current = await this.accounts.takeEmailChangeTarget(work, user.id);
+      if (
+        !current ||
+        current.isDeleted ||
+        !isAdminRole(current.role) ||
+        current.pendingEmail !== pending ||
+        current.addressGeneration !== user.addressGeneration
+      ) {
+        throw this.addressTaken();
+      }
+      const claimed = await this.ledger.claim(work, {
+        address: pending,
+        owner: current.id,
+        kind: ADDRESS_CLAIM_KIND.EMAIL_CHANGE,
+        now: this.clock.now(),
+        lapsesAt: issued.generation.expiresAt,
+      });
+      if (claimed === ADDRESS_CLAIM_RESULT.TAKEN) throw this.addressTaken();
+      if (
+        (await this.verificationCodeService.storeEmailChangeIn(
+          work,
+          issued,
+        )) !== CODE_ROTATION.ROTATED
+      )
+        throw this.limitReached();
+    });
+    await this.sendCode(
+      {
+        email: pending,
+        locale: user.locale,
+        ...(user.audience === undefined ? {} : { audience: user.audience }),
+      },
+      issued.code,
+    );
+  }
+  // feature:invitations:end
 
   async claimPendingIn(
     uow: UnitOfWork,
@@ -187,8 +262,12 @@ export class AdminEmailChangeService {
    * @throws AppException EMAIL_CHANGE_NOT_ALLOWED, EMAIL_SEND_LIMIT_REACHED or
    * EMAIL_SEND_FAILED
    */
-  async resend(user: ConfirmationTarget, actorRole: string): Promise<void> {
-    await this.sendConfirmation(user, actorRole);
+  async resend(
+    user: ConfirmationTarget,
+    actorRole: string,
+    authority?: string | ConfirmationAuthority,
+  ): Promise<void> {
+    await this.sendConfirmation(user, actorRole, authority);
   }
 
   private pendingAddress(address: string | undefined): string {

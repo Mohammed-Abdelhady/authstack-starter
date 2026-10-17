@@ -1,3 +1,4 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ListUsersQueryDto } from '../../dto/list-users-query.dto';
 import { AdminUserDto, UserListData } from '../../dto/admin-user-response.dto';
@@ -28,6 +29,7 @@ export class AdminUserQueriesService {
   async listUsers(
     query: ListUsersQueryDto,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<UserListData>> {
     const {
       page = 1,
@@ -42,15 +44,24 @@ export class AdminUserQueriesService {
       status: query.status,
       isVerified: query.isVerified,
       viewableRoles,
+      audiences: this.accessService.allowedAudiences(
+        USER_SCOPE_ACTION.LIST,
+        actorPermissions,
+      ),
       page,
       limit,
       sortBy,
       sortOrder,
     });
 
+    const activity = await this.accounts.lastActiveFor(
+      users.map((user) => user.id),
+    );
     this.logger.log(`Listed ${users.length} users (page ${page}, ${total})`);
     return ApiResponse.success({
-      data: users.map((user) => mapToAdminUserDto(user)),
+      data: users.map((user) =>
+        mapToAdminUserDto(user, activity.get(user.id) ?? null),
+      ),
       pagination: {
         page,
         limit,
@@ -66,6 +77,7 @@ export class AdminUserQueriesService {
   async getUserById(
     id: string,
     actorRole: string,
+    actorPermissions?: readonly string[],
   ): Promise<ApiResponse<AdminUserDto>> {
     const user = await this.accounts.findAccountView(id);
 
@@ -78,8 +90,16 @@ export class AdminUserQueriesService {
       );
     }
 
+    this.accessService.assertTargetScope(
+      USER_SCOPE_ACTION.READ,
+      user.audience,
+      actorPermissions,
+    );
     await this.accessService.assertCanView(actorRole, user.role);
 
-    return ApiResponse.success(mapToAdminUserDto(user));
+    const activity = await this.accounts.lastActiveFor([user.id]);
+    return ApiResponse.success(
+      mapToAdminUserDto(user, activity.get(user.id) ?? null),
+    );
   }
 }

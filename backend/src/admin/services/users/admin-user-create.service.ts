@@ -1,3 +1,5 @@
+import { USER_SCOPE_ACTION } from '../../constants/user-scope-permissions';
+import { AudiencePolicy } from '../../../session/applications/audience-policy';
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Clock } from '../../../common/services/clock';
 import {
@@ -22,11 +24,22 @@ import { rethrowOrUnavailable } from '../../utils/admin-transaction.util';
 import { AdminUserAccessService } from './admin-user-access.service';
 import { reconcileAssignedRole } from '../../utils/admin-role-reconcile.util';
 import type { AssignedRoleRef } from '../../types/assigned-role-ref';
-import { USER_PERMISSIONS } from '../../../common/constants/permissions';
 import { assertActorHoldsRole } from '../roles/admin-grant-ceiling';
 import { chosenLocale } from '../../../common/constants/locales';
 import { AccountCreationPolicy } from '../../../auth/services/registration/account-creation-policy';
 import { ACCOUNT_CREATION_METHOD } from '../../../auth/constants/account-creation';
+import type { ActingSession } from '../../../auth/proof/types/acting-session';
+import { SECURITY_EVENT_ACTION } from '../../../session/constants/security-event-action';
+import { STAFF_OPERATION } from '../../constants/staff-operations';
+import { StaffMutationRules } from '../staff-mutations/staff-mutation-rules';
+import { idempotencyKeyReused } from '../../utils/request-fingerprint';
+
+/** The request facts a create carries beside its body. */
+export interface CreateRequest {
+  session?: ActingSession;
+  /** The Idempotency-Key header, when sent. */
+  key?: string;
+}
 
 /**
  * Creating an account from the admin area. The role must exist and sit below
@@ -47,6 +60,8 @@ export class AdminUserCreateService {
     private readonly policy: AccountCreationPolicy,
     private readonly ledger: AddressLedger,
     private readonly clock: Clock,
+    private readonly audiences: AudiencePolicy,
+    private readonly rules: StaffMutationRules,
   ) {}
 
   /**
@@ -58,11 +73,28 @@ export class AdminUserCreateService {
     dto: CreateUserDto,
     actorRole: string,
     actorId: string,
+    actorPermissions?: readonly string[],
+    request: CreateRequest = {},
   ): Promise<ApiResponse<AdminUserDto>> {
     const locale = chosenLocale(dto.locale);
     const { email, name, password, role } = dto;
+    this.rules.policy.assertKey(request.key);
+    const hashedPassword = await this.hashService.hash(password);
+    const create = {
+      key: request.key,
+      actorId,
+      clientId: request.session?.clientId ?? '',
+      operation: STAFF_OPERATION.ACCOUNT_CREATE,
+      body: dto,
+      password,
+      secretHash: hashedPassword,
+    };
 
-    if (await this.accounts.isAddressTaken(email)) {
+    // A replay finds its own account there; the transaction still refuses a taken address.
+    if (
+      request.key === undefined &&
+      (await this.accounts.isAddressTaken(email))
+    ) {
       throw new AppException(
         ErrorCode.EMAIL_ALREADY_EXISTS,
         'Email already in use',
@@ -70,9 +102,6 @@ export class AdminUserCreateService {
       );
     }
 
-    await this.accessService.assertCanAssignRole(actorRole, role);
-
-    const hashedPassword = await this.hashService.hash(password);
     const roles = this.roleStores();
     let createdUserId: string | undefined;
     let assignmentRef: AssignedRoleRef | undefined;
@@ -81,6 +110,23 @@ export class AdminUserCreateService {
       const outcome = await this.runner.runForAuthority(
         actorId,
         async (unitOfWork) => {
+          await this.rules.policy.assertRouteProof(unitOfWork, request.session);
+          const start = await this.rules.idempotency.start(unitOfWork, create);
+          if (start.replayed) {
+            if (!('account' in start.result)) throw idempotencyKeyReused();
+            this.accessService.assertTargetScope(
+              USER_SCOPE_ACTION.CREATE,
+              start.result.audience,
+              actorPermissions,
+            );
+            await this.accessService.assertCreateReplay(
+              unitOfWork,
+              actorId,
+              start.result.audience,
+            );
+            return { replayed: start.result.account };
+          }
+          await this.accessService.assertCanAssignRole(actorRole, role);
           const assignedRole = await this.accounts.readRoleBySlug(
             unitOfWork,
             role,
@@ -92,6 +138,17 @@ export class AdminUserCreateService {
               HttpStatus.NOT_FOUND,
             );
           }
+          this.accessService.assertTargetScope(
+            USER_SCOPE_ACTION.CREATE,
+            assignedRole.audience,
+            actorPermissions,
+          );
+          await this.accessService.assertTargetScopeInWork(
+            unitOfWork,
+            actorId,
+            assignedRole.audience,
+            USER_SCOPE_ACTION.CREATE,
+          );
           await this.accessService.assertFreshActorCanModify(
             actorId,
             assignedRole.slug,
@@ -101,7 +158,10 @@ export class AdminUserCreateService {
             this.roleChanges,
             unitOfWork,
             actorId,
-            USER_PERMISSIONS.CREATE_ALL,
+            this.accessService.scopePermission(
+              USER_SCOPE_ACTION.CREATE,
+              assignedRole.audience,
+            ),
             assignedRole.slug,
           );
           await this.policy.assertMayCreate(
@@ -124,12 +184,28 @@ export class AdminUserCreateService {
             name,
             passwordHash: hashedPassword,
             role: assignedRole.slug,
+            audience: assignedRole.audience,
             locale,
           });
           await this.ledger.finishAccountReservation(
             unitOfWork,
             reservation.reservation,
           );
+          await this.rules.idempotency.finish(unitOfWork, create, newUser.id, {
+            account: mapToAdminUserDto(newUser, null),
+            audience: assignedRole.audience,
+          });
+          await this.rules.events.record(unitOfWork, {
+            action: SECURITY_EVENT_ACTION.ACCOUNT_CREATED,
+            actorId,
+            targetUserId: newUser.id,
+            clientId: request.session?.clientId,
+            details: {
+              name: newUser.name,
+              email: newUser.email,
+              roleId: assignedRole.id,
+            },
+          });
           createdUserId = newUser.id;
           assignmentRef = {
             roleId: assignedRole.id,
@@ -143,6 +219,12 @@ export class AdminUserCreateService {
         },
       );
       transactionAcknowledged = true;
+      if (outcome.replayed !== undefined) {
+        return ApiResponse.success(
+          outcome.replayed,
+          'User created successfully',
+        );
+      }
       const { newUser } = outcome;
       const liveRole = await reconcileAssignedRole({
         accounts: this.accounts,
@@ -163,7 +245,13 @@ export class AdminUserCreateService {
         `User created by admin: userId=${newUser.id} as ${liveRole}`,
       );
       return ApiResponse.success(
-        mapToAdminUserDto({ ...newUser, role: liveRole }),
+        mapToAdminUserDto(
+          {
+            ...newUser,
+            role: request.key === undefined ? liveRole : newUser.role,
+          },
+          null,
+        ),
         'User created successfully',
       );
     } catch (error) {
@@ -202,6 +290,7 @@ export class AdminUserCreateService {
       runner: this.runner,
       changes: this.roleChanges,
       sweeps: this.roleSweeps,
+      audiencePolicy: this.audiences,
     };
   }
 }

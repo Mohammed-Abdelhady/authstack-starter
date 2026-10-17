@@ -1,3 +1,4 @@
+import type { RoleAudience } from '../../host/types/host-role.type';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -5,6 +6,18 @@ import { ApiProperty } from '@nestjs/swagger';
  * Admin user DTO with all user fields (excluding password).
  */
 export class AdminUserDto {
+  @ApiProperty({
+    type: String,
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Latest known activity among retained sessions. Null when no dated observation remains; sampled, not presence or lifetime login history',
+  })
+  lastActiveAt!: Date | null;
+
+  @ApiProperty({ required: false })
+  audience?: RoleAudience;
+
   @ApiProperty({
     description: 'User ID',
     example: '507f1f77bcf86cd799439011',
@@ -92,6 +105,13 @@ export class AdminUserDto {
     example: '2024-01-15T10:30:00.000Z',
   })
   updatedAt?: Date;
+
+  @ApiProperty({
+    description:
+      'Raised by every write to the account. Send it back with an edit so a stale form is refused',
+    example: 3,
+  })
+  version!: number;
 }
 
 /**

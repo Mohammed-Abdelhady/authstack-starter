@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiCookieAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { StaffGuard } from '../../auth/guards/staff.guard';
 import { PermissionGuard } from '../../common/guards/permission.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { SESSION_SWAGGER_AUTH_NAME } from '../../common/constants/session';
@@ -14,7 +15,7 @@ import {
 @ApiTags('admin')
 @ApiCookieAuth(SESSION_SWAGGER_AUTH_NAME)
 @Controller('admin/activity')
-@UseGuards(PermissionGuard)
+@UseGuards(StaffGuard, PermissionGuard)
 export class AdminActivityController {
   constructor(private readonly activity: AdminActivityService) {}
 
