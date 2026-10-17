@@ -21,6 +21,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.f
 
 const DISABLE = 'POST /api/auth/2fa/disable';
 const IDENTITY_USER: User = {
+  locale: 'en',
   id: 'user-1',
   email: 'layla@example.com',
   name: 'Layla Haddad',

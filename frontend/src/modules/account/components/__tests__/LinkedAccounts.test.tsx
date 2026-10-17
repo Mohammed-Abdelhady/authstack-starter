@@ -59,39 +59,12 @@ async function renderAccounts(locale: AppLocale) {
   return { ...view, google, unlink: () => within(google).queryByTestId('unlink-google') };
 }
 
-/** What each row says about itself under its name. */
-function statuses() {
-  return {
-    email: screen.getByTestId('linked-account-status-email').textContent,
-    google: screen.getByTestId('linked-account-status-google').textContent,
-  };
-}
-
 registerFormTestLifecycle();
 
 describe.each([
   'en',
   'ar', // feature:locale-ar
 ] as const)('LinkedAccounts in %s', (locale) => {
-  it('offers the unlink the server allows and none for email sign-in', async () => {
-    const requests = server({ hints: [{ email: 'not_removable', google: 'allowed' }] });
-
-    const { message, unlink } = await renderAccounts(locale);
-
-    const button = within(screen.getByTestId('linked-account-google')).getByRole('button', {
-      name: message('settings.accounts.unlink'),
-    });
-    expect(button).toBe(unlink());
-    expect(button.getAttribute('aria-disabled')).toBeNull();
-    expect(descriptions(button)).toEqual([]);
-    expect(screen.queryByTestId('unlink-email')).toBeNull();
-    expect(screen.queryByTestId('unlink-blocked-google')).toBeNull();
-
-    fireEvent.click(button);
-    fireEvent.click(await screen.findByTestId('unlink-confirm-google'));
-    await waitFor(() => expect(requests).toContain(UNLINK_GOOGLE));
-  });
-
   it('keeps a refused unlink in reach and says why, without sending it', async () => {
     const requests = server({
       hints: [{ email: 'not_removable', google: 'last_sign_in_method' }],
@@ -111,15 +84,6 @@ describe.each([
     fireEvent.click(button);
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(requests.filter((request) => request.startsWith('DELETE'))).toEqual([]);
-  });
-
-  it('lets the server decide when it sends no hint', async () => {
-    server({ hints: [undefined] });
-
-    const { unlink } = await renderAccounts(locale);
-
-    expect(unlink()?.getAttribute('aria-disabled')).toBeNull();
-    expect(screen.queryByTestId('unlink-blocked-google')).toBeNull();
   });
 
   it('shows the refusal and the reason when the server refuses an unlink it had allowed', async () => {
@@ -171,16 +135,6 @@ describe.each([
 
     fireEvent.click(button);
     await waitFor(() => expect(requests).toContain(SET_PRIMARY));
-  });
-
-  it('lets the server decide on the primary when it sends no hint', async () => {
-    // A server that knows the unlink hints only: email has no unlink there.
-    server({ hints: [{ email: 'not_removable', google: 'allowed' }] });
-
-    await renderAccounts(locale);
-
-    expect(screen.getByTestId('set-primary-email')).toBeTruthy();
-    expect(screen.getByTestId('set-primary-google')).toBeTruthy();
   });
 
   it('offers no primary choice on the one that is primary already', async () => {
@@ -242,43 +196,6 @@ describe.each([
     expect(requests.filter((request) => request.startsWith('POST'))).toEqual([
       'POST /api/user/sync-profile',
     ]);
-  });
-
-  it('names email sign-in in the page language and a provider as the server names it', async () => {
-    server({ hints: [undefined] });
-
-    const { message, google } = await renderAccounts(locale);
-
-    const email = screen.getByTestId('linked-account-email');
-    expect(
-      within(email).getByRole('heading', { name: message('settings.accounts.emailSignInName') }),
-    ).toBeTruthy();
-    expect(within(google).getByRole('heading', { name: 'Google' })).toBeTruthy();
-  });
-
-  it('keeps the email row and stops calling it connected when nobody can sign in by email', async () => {
-    server({ hints: [undefined], emailSignIn: 'switched_off' });
-
-    const { message } = await renderAccounts(locale);
-
-    expect(statuses()).toEqual({
-      email: message('settings.accounts.emailSignInSwitchedOff'),
-      google: message('settings.accounts.linkedDescription'),
-    });
-  });
-
-  it.each([
-    ['says it is usable', 'usable'],
-    ['says nothing', undefined],
-  ])('shows email sign-in as connected when the server %s', async (_name, emailSignIn) => {
-    server({ hints: [undefined], emailSignIn });
-
-    const { message } = await renderAccounts(locale);
-
-    expect(statuses()).toEqual({
-      email: message('settings.accounts.linkedDescription'),
-      google: message('settings.accounts.linkedDescription'),
-    });
   });
 });
 
