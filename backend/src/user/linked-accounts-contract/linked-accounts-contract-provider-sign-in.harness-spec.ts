@@ -1,3 +1,5 @@
+import { providerCreationPolicyCases } from './linked-accounts-contract-provider-policy.harness-spec';
+import { browserApplicationsForTest } from '../../common/testing/browser-applications.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import { CLAIM_OWNER, holdAddress } from '../../../test/utils/address-claim';
 import { AccountCreationPolicy } from '../../auth/services/registration/account-creation-policy';
@@ -34,21 +36,29 @@ const FACEBOOK = { id: 'facebook', autoLinksByEmail: false };
 
 /**
  * The real service on this database's store. Nothing here signs anybody in,
- * so the sign-in and session collaborators are never reached.
+ * so completion is not reached; admission uses the real stored authority.
  */
 function providerSignInOn(
   harness: LinkedAccountsContractHarness,
-  policy: AccountCreationPolicy = new AccountCreationPolicy(),
+  policy: AccountCreationPolicy | undefined = undefined,
+  config: ConfigService = new ConfigService({}),
 ): OAuthService {
+  const creationPolicy =
+    policy ?? new AccountCreationPolicy(harness.issuanceApplications);
   const { sync, linking } = linkedServicesOn(harness);
+  const browserApplications = browserApplicationsForTest(config);
   return new OAuthService(
     harness.providerSignIn,
     partialMock<SignInCompletion>({}),
     sync,
     linking,
-    partialMock<Sessions>({}),
-    new SessionCookieService(new ConfigService({})),
-    policy,
+    partialMock<Sessions>({
+      recordCreationRefusal: () => Promise.resolve(),
+      assertAdmission: (userId, clientId) =>
+        harness.sessionIssuance.assertAdmission(userId, clientId),
+    }),
+    new SessionCookieService(config, browserApplications),
+    creationPolicy,
     harness.ledger,
     harness.clock,
     harness.runner(rerunAtOnce),
@@ -60,9 +70,10 @@ export function providerSignInServiceCases(
   harness: LinkedHarnessSource,
   fixture: () => LinkedFixture,
 ): void {
+  providerCreationPolicyCases(harness, providerSignInOn);
   it('signs a provider profile in as its linked account before its address', async () => {
     const { ownerId, otherId } = fixture();
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const assertMayCreate = jest.spyOn(policy, 'assertMayCreate');
     const creating = jest.spyOn(
       harness().providerSignIn,
@@ -250,7 +261,7 @@ export function providerSignInServiceCases(
   });
 
   it('checks the policy once in each retried creating transaction', async () => {
-    const policy = new AccountCreationPolicy();
+    const policy = new AccountCreationPolicy(harness().issuanceApplications);
     const check = jest.spyOn(policy, 'assertMayCreate').mockRejectedValueOnce(
       Object.assign(new Error('retryable transaction abort'), {
         errorLabels: ['TransientTransactionError'],

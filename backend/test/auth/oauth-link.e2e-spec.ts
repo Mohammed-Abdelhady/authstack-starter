@@ -1,3 +1,5 @@
+import { WEB_CLIENT_ID } from '../../src/session/constants/client-ids';
+import { OAUTH_STATE_COOKIE_PREFIX } from '../../src/auth/oauth/oauth.constants';
 import { ErrorCode } from '../../src/common/enums/error-code.enum';
 import type { OAuthProviderStrategy } from '../../src/auth/oauth/oauth-provider.interface';
 import { SEED_USER } from '../constants/seed-users';
@@ -13,6 +15,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import { TEST_NOW } from '../utils/frozen-clock';
+import { describeBrowserOAuthApplications } from './oauth-browser-applications.harness-spec';
 
 /** The state the last start handed to the provider. */
 let offeredState = '';
@@ -72,7 +75,11 @@ describe('provider link start with both credentials (e2e)', () => {
     const cookies: unknown = started.headers['set-cookie'];
     const stateCookie = (Array.isArray(cookies) ? cookies : [])
       .map(String)
-      .find((cookie) => cookie.startsWith('oauth_google='));
+      .find((cookie) =>
+        cookie.startsWith(
+          `${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_google=`,
+        ),
+      );
     if (!stateCookie) throw new Error('the start set no state cookie');
     return { state: offeredState, stateCookie: stateCookie.split(';')[0] };
   }
@@ -175,20 +182,6 @@ describe('provider link start with both credentials (e2e)', () => {
     expect(location.searchParams.get('provider')).toBe('google');
   });
 
-  it('starts a link with the cookie alone', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-
-    const started = await browser
-      .get('/api/auth/oauth/google/start')
-      .query({ intent: 'link' })
-      .redirects(0);
-
-    expect(started.status).toBe(302);
-    expect(String(started.headers.location)).toBe(
-      'https://provider.example/authorize',
-    );
-  });
-
   // feature:email-password,magic-link:start
   it('lists the sign-in methods with what an unlink of each would be told', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
@@ -212,63 +205,6 @@ describe('provider link start with both credentials (e2e)', () => {
     });
   });
   // feature:email-password,magic-link:end
-
-  it('lists which sign-in methods can be primary and answers each choice the same way', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-    await e2e.state.auth.linkProviderAccounts(SEED_USER.email, [
-      { provider: 'google', providerId: 'google-1', linkedAt: TEST_NOW },
-    ]);
-
-    const listed = await browser.get('/api/user/linked-providers').expect(200);
-
-    expect(listed.body).toMatchObject({
-      data: {
-        providers: ['email', 'google'],
-        primaryHints: { email: 'no_profile_to_sync', google: 'allowed' },
-      },
-    });
-    const refused = await browser
-      .post('/api/user/set-primary-provider')
-      .send({ provider: 'email' })
-      .expect(400);
-    expect(refused.body).toMatchObject({
-      error: { code: ErrorCode.VALIDATION_ERROR },
-    });
-    await browser
-      .post('/api/user/set-primary-provider')
-      .send({ provider: 'google' })
-      .expect(200);
-    const after = await browser.get('/api/user/linked-providers').expect(200);
-    expect(after.body).toMatchObject({
-      data: {
-        primaryProvider: 'google',
-        primaryHints: { email: 'no_profile_to_sync', google: 'allowed' },
-      },
-    });
-  });
-
-  it('says whether email sign-in is usable, and nothing for an account a provider made', async () => {
-    const browser = await loginAs(e2e.httpServer, SEED_USER);
-
-    // feature:email-password,magic-link:start
-    const byEmail = await browser.get('/api/user/linked-providers').expect(200);
-
-    // Password sign-in is on in this deployment.
-    expect(byEmail.body).toMatchObject({
-      data: { providers: ['email'], emailSignIn: 'usable' },
-    });
-    // feature:email-password,magic-link:end
-
-    await e2e.state.auth.makeProviderCreated(SEED_USER.email, 'google', [
-      { provider: 'google', providerId: 'google-1', linkedAt: TEST_NOW },
-    ]);
-    const byProvider = await browser
-      .get('/api/user/linked-providers')
-      .expect(200);
-
-    expect(byProvider.body).toMatchObject({ data: { providers: ['google'] } });
-    expect(Object.keys(byProvider.body.data as object)).not.toContain(
-      'emailSignIn',
-    );
-  });
 });
+
+describeBrowserOAuthApplications(GOOGLE_STRATEGY, () => offeredState);

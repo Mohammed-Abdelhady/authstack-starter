@@ -1,3 +1,5 @@
+import { WEB_CLIENT_ID } from '../../session/constants/client-ids';
+import { OAUTH_STATE_COOKIE_PREFIX } from './oauth.constants';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import {
@@ -7,6 +9,7 @@ import {
 import { OAuthStateService } from './oauth-state.service';
 
 const SECRET = 'unit-test-oauth-state-secret-value-32';
+const WEB_GITHUB_COOKIE = `${OAUTH_STATE_COOKIE_PREFIX}${WEB_CLIENT_ID}_github`;
 
 function serviceIn(nodeEnv: string): OAuthStateService {
   return new OAuthStateService(
@@ -69,7 +72,7 @@ describe('OAuth state for a link', () => {
     });
 
     expect(
-      state.read(requestWith({ oauth_github: value }), 'github'),
+      state.readForStart(requestWith({ [WEB_GITHUB_COOKIE]: value }), 'github'),
     ).toMatchObject({
       intent: 'link',
       linkUserId: 'user-1',
@@ -86,7 +89,12 @@ describe('OAuth state for a link', () => {
     const { value } = written(state, 'github', { ...LINK, ...binding });
 
     expect(
-      codeOf(() => state.read(requestWith({ oauth_github: value }), 'github')),
+      codeOf(() =>
+        state.readForStart(
+          requestWith({ [WEB_GITHUB_COOKIE]: value }),
+          'github',
+        ),
+      ),
     ).toBe('OAUTH_STATE_INVALID');
   });
 
@@ -99,10 +107,11 @@ describe('OAuth state for a link', () => {
     });
 
     expect(
-      state.read(requestWith({ oauth_github: value }), 'github'),
+      state.readForStart(requestWith({ [WEB_GITHUB_COOKIE]: value }), 'github'),
     ).toMatchObject({ intent: 'login' });
     expect(
-      state.read(requestWith({ oauth_github: value }), 'github').linkUserId,
+      state.readForStart(requestWith({ [WEB_GITHUB_COOKIE]: value }), 'github')
+        .linkUserId,
     ).toBeUndefined();
   });
 });

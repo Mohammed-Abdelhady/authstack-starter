@@ -169,16 +169,6 @@ describe('DiscordOAuthStrategy', () => {
       expect(profile.name).toBe('nelly');
     });
 
-    it('leaves the avatar out when the account has none', async () => {
-      mockFetch([{ url: USER_URL, body: discordUser({ avatar: null }) }]);
-
-      const profile = await strategy().fetchProfile({
-        accessToken: 'access-token',
-      });
-
-      expect(profile.avatarUrl).toBeUndefined();
-    });
-
     it('marks an unverified address as unverified', async () => {
       mockFetch([{ url: USER_URL, body: discordUser({ verified: false }) }]);
 

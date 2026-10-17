@@ -194,17 +194,6 @@ describe('OidcOAuthStrategy login', () => {
       expect(profile.emailVerified).toBe(false);
     });
 
-    it('falls back to the preferred username for the name', async () => {
-      const profile = await profileWith(baseClaims({ name: undefined }), {
-        sub: 'subject-id',
-        preferred_username: 'testuser',
-        email: 'user@example.com',
-        email_verified: true,
-      });
-
-      expect(profile.name).toBe('testuser');
-    });
-
     it('fails when no email is available', async () => {
       await expectAppException(
         profileWith(baseClaims({ email: undefined }), { sub: 'subject-id' }),

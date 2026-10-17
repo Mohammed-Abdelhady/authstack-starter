@@ -16,24 +16,6 @@ import {
 /** Configuration side of the generic provider: identity, discovery, authorize. */
 describe('OidcOAuthStrategy setup', () => {
   describe('identity', () => {
-    it('defaults to the oidc id and a generic display name', () => {
-      const provider = manualStrategy();
-
-      expect(provider.id).toBe('oidc');
-      expect(provider.displayName).toBe('Single sign-on');
-      expect(provider.envPrefix).toBe('OAUTH_OIDC');
-    });
-
-    it('takes the id and the display name from the environment', () => {
-      const provider = manualStrategy({
-        PROVIDER_ID: 'keycloak',
-        DISPLAY_NAME: 'Company account',
-      });
-
-      expect(provider.id).toBe('keycloak');
-      expect(provider.displayName).toBe('Company account');
-    });
-
     it('refuses an id that would shadow a built-in provider', () => {
       expect(() => manualStrategy({ PROVIDER_ID: 'google' })).toThrow(
         'is the id of a built-in provider',

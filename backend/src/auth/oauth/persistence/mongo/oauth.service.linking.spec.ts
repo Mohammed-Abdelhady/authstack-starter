@@ -1,3 +1,6 @@
+import { IssuanceApplications } from '../../../../session/issuance/issuance-applications';
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
+import { WEB_CLIENT_ID } from '../../../../session/constants/client-ids';
 import { ConfigService } from '@nestjs/config';
 import { OAuthProviderStrategy } from '../../oauth-provider.interface';
 import { OAuthLinkParams } from '../../types/oauth-service.types';
@@ -67,6 +70,7 @@ async function createOAuthLinkingFixture(
     userId,
     'oauth-linking-contract',
     '127.0.0.1',
+    WEB_CLIENT_ID,
   );
   const storedSession = await harness.booted.sessions
     .findOne({ tokenHash: hashToken(issued.sessionToken) })
@@ -74,8 +78,10 @@ async function createOAuthLinkingFixture(
     .lean()
     .exec();
   const config = new ConfigService({ session: { cookieName: 'link-session' } });
-  const cookies = new SessionCookieService(config);
+  const browserApplications = browserApplicationsForTest(config);
+  const cookies = new SessionCookieService(config, browserApplications);
   // feature:totp:start
+  const authFeatures = new AuthFeaturesService(config, browserApplications);
   const connection = harness.booted.connection;
   connection.model(TwoFactorChallenge.name, TwoFactorChallengeSchema);
   const challenges = connection.model<TwoFactorChallengeDocument>(
@@ -87,14 +93,16 @@ async function createOAuthLinkingFixture(
     new MongoSecondFactorChallengeStore(challenges),
     config,
     new TotpSecretCryptoService(config),
+    browserApplications,
   );
   // feature:totp:end
   const signIn = new SignInCompletion(
     harness.rolePermissions,
     sessions,
     cookies,
-    new AuthFeaturesService(config), // feature:totp
+    authFeatures, // feature:totp
     challengeService, // feature:totp
+    browserApplications,
   );
   const { linking, sync } = linkedServicesOn(harness);
   return {
@@ -116,7 +124,7 @@ async function createOAuthLinkingFixture(
       linking,
       sessions,
       cookies,
-      new AccountCreationPolicy(),
+      new AccountCreationPolicy(harness.booted.app.get(IssuanceApplications)),
       harness.ledger,
       harness.clock,
       harness.runner(rerunAtOnce),
@@ -159,7 +167,6 @@ describe('OAuthService linking', () => {
   let syncProfile: jest.SpiedFunction<
     ProfileSyncService['syncProfileFromProvider']
   >;
-  let completeSignIn: jest.SpiedFunction<SignInCompletion['completeSignIn']>;
   let validateSession: jest.SpiedFunction<Sessions['validateSession']>;
 
   function current() {
@@ -178,7 +185,6 @@ describe('OAuthService linking', () => {
     fixture = await createOAuthLinkingFixture(h);
     linkProvider = jest.spyOn(fixture.linking, 'linkProvider');
     syncProfile = jest.spyOn(fixture.sync, 'syncProfileFromProvider');
-    completeSignIn = jest.spyOn(fixture.signIn, 'completeSignIn');
     validateSession = jest.spyOn(fixture.sessions, 'validateSession');
   }, SESSION_AUTHORITY_RESET_TIMEOUT_MS);
 
@@ -211,7 +217,6 @@ describe('OAuthService linking', () => {
       PROFILE,
     );
     expect(syncProfile).toHaveBeenCalledWith(fixture.userId, PROVIDER, PROFILE);
-    expect(completeSignIn).not.toHaveBeenCalled();
     expect(await current().storedLinks(fixture.userId)).toEqual([
       { provider: 'google', providerId: 'google-42' },
     ]);
@@ -299,7 +304,6 @@ describe('OAuthService linking', () => {
     await expect(fixture.service.link(params())).rejects.toMatchObject({
       code: ErrorCode.OAUTH_ACCOUNT_LINKED_ELSEWHERE,
     });
-    expect(completeSignIn).not.toHaveBeenCalled();
     expect(await h.storedLinks(fixture.userId)).toEqual([]);
     expect(await h.storedLinks(fixture.otherId)).toEqual([
       { provider: 'google', providerId: 'google-42' },

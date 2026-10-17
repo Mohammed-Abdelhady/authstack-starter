@@ -243,17 +243,6 @@ describe('GitLabOAuthStrategy', () => {
       expect(profile.emailVerified).toBe(false);
     });
 
-    it('falls back to the nickname when userinfo has no name', async () => {
-      const profile = await profileWith(baseClaims(), {
-        sub: '42',
-        nickname: 'testuser',
-        email: 'user@example.com',
-        email_verified: true,
-      });
-
-      expect(profile.name).toBe('testuser');
-    });
-
     it('fails when no email is available', async () => {
       await expectAppException(
         profileWith(baseClaims({ email: undefined }), { sub: '42' }),

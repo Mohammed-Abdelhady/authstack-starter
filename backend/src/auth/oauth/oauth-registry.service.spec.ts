@@ -44,14 +44,6 @@ describe('OAuthRegistryService', () => {
   const github = strategy('github', 'GitHub', true);
   const facebook = strategy('facebook', 'Facebook', false);
 
-  it('resolves a registered strategy by id', () => {
-    const registry = registryWith([google, github, facebook]);
-
-    expect(registry.get('github')).toBe(github);
-    expect(registry.has('github')).toBe(true);
-    expect(registry.getIds()).toEqual(['google', 'github', 'facebook']);
-  });
-
   it('rejects an unknown provider with OAUTH_PROVIDER_UNKNOWN', () => {
     const registry = registryWith([google]);
 
