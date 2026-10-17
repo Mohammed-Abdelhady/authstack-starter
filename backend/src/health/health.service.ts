@@ -1,3 +1,4 @@
+import { parseServerCommit } from '../config/utils/server-commit.util';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -11,6 +12,7 @@ export type HealthStatus = 'healthy' | 'unhealthy';
 export interface HealthResponse {
   status: HealthStatus;
   timestamp: string;
+  commit: string | null;
   authEpoch: number;
   authSchemaVersion: number;
 }
@@ -40,6 +42,9 @@ export class HealthService {
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
+      commit: parseServerCommit(
+        this.configService.get<unknown>('server.commit'),
+      ),
       authEpoch: this.configService.get<number>(
         'auth.epoch',
         DEFAULT_AUTH_EPOCH,

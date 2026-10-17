@@ -53,6 +53,10 @@ export class EnvironmentVariables extends HostContractsEnvironmentVariables {
   @IsOptional()
   NODE_ENV: 'development' | 'production' | 'test' = 'development';
 
+  @IsString()
+  @IsOptional()
+  SERVER_COMMIT_SHA?: string;
+
   @Type(() => Number)
   @IsInt()
   @Min(1000)

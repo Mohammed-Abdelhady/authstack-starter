@@ -1,3 +1,4 @@
+import { parseServerCommit } from './utils/server-commit.util';
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
 import { EnvironmentVariables } from './env.schema';
@@ -23,6 +24,14 @@ function formatValidationErrors(errors: ValidationError[]): string[] {
 export function validateEnvironment(
   config: Record<string, unknown>,
 ): EnvironmentVariables {
+  if (
+    config.SERVER_COMMIT_SHA !== undefined &&
+    parseServerCommit(config.SERVER_COMMIT_SHA) === null
+  ) {
+    throw new Error(
+      'SERVER_COMMIT_SHA must be a complete 40-character hexadecimal Git commit.',
+    );
+  }
   const validatedConfig = plainToInstance(EnvironmentVariables, config, {
     enableImplicitConversion: false,
   });
