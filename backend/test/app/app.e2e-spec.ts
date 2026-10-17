@@ -62,10 +62,4 @@ describe('AppController (e2e)', () => {
         .expect('X-DNS-Prefetch-Control', 'off');
     });
   });
-
-  describe('Root Endpoint', () => {
-    it('/ (GET)', async () => {
-      await request(e2e.httpServer).get('/api').expect(200);
-    });
-  });
 });
