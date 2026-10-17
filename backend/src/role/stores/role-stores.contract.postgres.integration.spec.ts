@@ -24,4 +24,5 @@ describeRoleStoresContract('PostgreSQL', bootPostgresRoleHarness, {
   bootMs: POSTGRES_BOOT_TIMEOUT_MS,
   teardownMs: POSTGRES_TEARDOWN_TIMEOUT_MS,
   resetMs: POSTGRES_RESET_TIMEOUT_MS,
+  bindParameterBoundary: true,
 });
