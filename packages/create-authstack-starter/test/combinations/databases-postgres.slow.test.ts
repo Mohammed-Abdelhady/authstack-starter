@@ -33,9 +33,10 @@ describeDatabaseProjects('generated PostgreSQL projects', [
     ...POSTGRES_BUDGET,
   },
   {
-    name: 'PostgreSQL web and Expo with Apple, without email and password',
+    name: 'first consumer PostgreSQL web and Expo accounts',
+    checkMobileWorkspaces: true,
     database: 'postgres',
-    features: ['magic-link', 'passkeys', 'google', 'apple'],
+    features: ['magic-link', 'email-code', 'passkeys', 'invitations', 'google', 'apple'],
     flags: ['--targets', 'web,native-expo', '--locales', 'en,ar'],
     ...POSTGRES_BUDGET,
   },

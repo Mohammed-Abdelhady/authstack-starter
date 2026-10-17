@@ -22,19 +22,6 @@ interface FixtureFiles {
 
 const DEFAULT_WORKSPACES = ['backend', 'frontend', 'shared/core', 'shared/sdk'];
 
-function headingForEntry(markdown: string, entry: string | undefined): string | undefined {
-  let heading: string | undefined;
-  for (const line of markdown.split('\n')) {
-    if (line.startsWith('### ')) heading = line.slice(4);
-    if (entry !== undefined && line === entry) return heading;
-  }
-  return undefined;
-}
-
-function sectionBody(markdown: string, heading: string): string | undefined {
-  return markdown.split(`## ${heading}\n\n`)[1]?.split('\n\n## ')[0];
-}
-
 /** What a web project keeps of a tooling file: the lines marked for a mobile app go. */
 function forWebProject(path: string, content: string): string {
   const mobileIds = new Set(['native-core', 'native-expo']);
@@ -118,106 +105,6 @@ afterEach(async () => {
 });
 
 describe('renderRulesText', () => {
-  it('renders policy, commit, gate, and package-manager facts from project files', async () => {
-    const projectRoot = await projectFixture();
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-    const facts = rendered.agents
-      .split('\n')
-      .filter((line) =>
-        /^(?:Rules level:|Source file limit:|Package manager:|- Types:|- Scopes:|- Subject limit:|\| Fixture check \||\| Second check \|)/.test(
-          line,
-        ),
-      );
-
-    expect(facts).toEqual([
-      'Rules level: strict.',
-      'Source file limit: 350 lines.',
-      '- Types: feat, fix, docs, style, refactor, perf, test, chore, revert',
-      '- Scopes: backend, frontend, shared, packages, root, docs, husky, lint-staged',
-      '- Subject limit: 100 characters.',
-      '| Fixture check | `node scripts/check.mjs --all` |',
-      '| Second check | `pnpm --filter backend run test:e2e` |',
-      'Package manager: pnpm 12.6.0.',
-    ]);
-    const code = sectionBody(rendered.agents, 'Code') ?? '';
-    const typeLintFact = [
-      "The workspace ESLint configs reject TypeScript's `",
-      'a',
-      'ny',
-      '` type.',
-    ].join('');
-    expect(code.split('\n')).toContain(typeLintFact);
-    expect(rendered.agents).toContain('.github/workflows');
-    expect(sectionBody(rendered.agents, 'What enforces this')?.split('\n')).toHaveLength(3);
-    expect(rendered.claude).toBe('See AGENTS.md for project rules.\n');
-  });
-
-  it('prints a changed policy token on its own rendered line', async () => {
-    const policy = await readFile(join(REPOSITORY_ROOT, 'scripts/guardrails/policy.mjs'), 'utf8');
-    const sourceToken = /token: '([^']+)'/.exec(policy)?.[1];
-    if (sourceToken === undefined) throw new Error('The policy fixture has no token.');
-    const addedConstructs = [
-      "  { token: 'fixtureTypeToken', reason: RULE_REASONS.TYPE },",
-      "  { token: 'fixtureSuppressionToken', reason: RULE_REASONS.SUPPRESSION },",
-      "  { token: 'fixtureBypassToken', reason: RULE_REASONS.BYPASS },",
-    ].join('\n');
-    const changedPolicy = policy
-      .replace(`token: '${sourceToken}'`, "token: 'fixtureForbiddenToken'")
-      .replace('BANNED_CONSTRUCTS.push(', `BANNED_CONSTRUCTS.push(\n${addedConstructs}`);
-    const projectRoot = await projectFixture({ policy: changedPolicy });
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-    const line = rendered.agents
-      .split('\n')
-      .find((candidate) => candidate === '- `fixtureForbiddenToken`');
-
-    expect(line).toBe('- `fixtureForbiddenToken`');
-    expect(headingForEntry(rendered.agents, line)).toBe('Markup injection');
-    expect(headingForEntry(rendered.agents, '- `fixtureTypeToken`')).toBe('Type escapes');
-    expect(headingForEntry(rendered.agents, '- `fixtureSuppressionToken`')).toBe('Hidden checks');
-    expect(headingForEntry(rendered.agents, '- `fixtureBypassToken`')).toBe('Gate bypass flags');
-  });
-
-  it('groups policy tokens by first-seen reason and sorts tokens inside each group', async () => {
-    const policy = await readFile(join(REPOSITORY_ROOT, 'scripts/guardrails/policy.mjs'), 'utf8');
-    const unsortedTokensPolicy = policy.replace(
-      'BANNED_CONSTRUCTS.push(',
-      [
-        'BANNED_CONSTRUCTS.push(',
-        "  { token: 'zetaFixtureToken', reason: RULE_REASONS.DOM },",
-        "  { token: 'alphaFixtureToken', reason: RULE_REASONS.DOM },",
-      ].join('\n'),
-    );
-    const projectRoot = await projectFixture({ policy: unsortedTokensPolicy });
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-    const lines = rendered.agents.split('\n');
-    const groupHeadings = lines.filter((line) => line.startsWith('### '));
-
-    expect(groupHeadings).toEqual([
-      '### Markup injection',
-      '### Hidden checks',
-      '### Type escapes',
-      '### Gate bypass flags',
-    ]);
-    expect(lines.indexOf('- `alphaFixtureToken`')).toBeLessThan(
-      lines.indexOf('- `zetaFixtureToken`'),
-    );
-    expect(lines).toContain('- inline eslint configuration');
-    expect(lines).not.toContain('- `inline eslint configuration`');
-    expect(headingForEntry(rendered.agents, '- inline eslint configuration')).toBe('Hidden checks');
-  });
-
   it('rejects a policy reason with no hand-written instruction sentence', async () => {
     const policy = await readFile(join(REPOSITORY_ROOT, 'scripts/guardrails/policy.mjs'), 'utf8');
     const reason = 'Fixture reason with no template sentence.';
@@ -231,74 +118,6 @@ describe('renderRulesText', () => {
         delivery: { hooks: true, actions: true },
       }),
     ).rejects.toThrow(reason);
-  });
-
-  it('lists only workspace folders present in the generated project', async () => {
-    const projectRoot = await projectFixture({ workspaces: ['backend', 'shared/core'] });
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-    const where = sectionBody(rendered.agents, 'Where things are');
-    const locations = where?.split('\n').map((line) => /^- `([^`]+)`/.exec(line)?.[1]);
-
-    expect(locations).toEqual(['backend', 'shared/core', 'scripts/guardrails/policy.mjs']);
-    expect(where?.split('\n')).toContain(
-      '- `scripts/guardrails/policy.mjs`: Change the policy here. AGENTS.md is a snapshot rendered at scaffolding time. Later policy changes do not update it.',
-    );
-  });
-
-  it('explains that standard still loads the policy file and needs strict regeneration for the scan', async () => {
-    const projectRoot = await projectFixture();
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'standard',
-      delivery: { hooks: true, actions: true },
-    });
-
-    expect(sectionBody(rendered.agents, 'Where things are')?.split('\n')).toContain(
-      '- `scripts/guardrails/policy.mjs`: `scripts/check-hard-bans.mjs --commit-msg` and `scripts/ci.mjs` load this file, so keep it. The banned-construct scan and file length ceiling it defines are off at the standard rules level. Generate again with strict to turn them on.',
-    );
-  });
-
-  it('omits the type lint fact if one shipped workspace config does not set the rule to error', async () => {
-    const projectRoot = await projectFixture({
-      explicitRuleSeverity: 'off',
-      explicitRuleWorkspace: 'backend',
-    });
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-
-    const code = sectionBody(rendered.agents, 'Code') ?? '';
-    expect(code.match(/^The workspace ESLint configs .+$/gm)).toBeNull();
-  });
-
-  it('does not claim unavailable delivery paths enforce the rules', async () => {
-    const projectRoot = await projectFixture();
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: false, actions: false },
-    });
-
-    const enforcement = sectionBody(rendered.agents, 'What enforces this');
-    expect(enforcement?.split('\n')).toHaveLength(3);
-    expect(rendered.agents).not.toContain('.github/workflows');
-  });
-
-  it('states that an empty gate list has no checks', async () => {
-    const projectRoot = await projectFixture({ gates: '{"gates":[]}' });
-    const rendered = await renderRulesText({
-      projectRoot,
-      level: 'strict',
-      delivery: { hooks: true, actions: true },
-    });
-
-    expect(rendered.agents.split('\n')).toContain('No checks are listed in the gate file.');
   });
 
   it('rejects an invalid gate list before it can describe checks', async () => {

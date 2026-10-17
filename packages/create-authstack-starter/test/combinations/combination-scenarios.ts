@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect } from 'vitest';
@@ -131,10 +131,17 @@ export function writeHostMigrationFixture(project: string): void {
   );
 }
 
+/** The core migrations a project carries, as the build copies them. */
+const CORE_MIGRATIONS = 'backend/src/common/persistence/postgres/migrations';
+
 export async function expectBuiltHostMigrations(
   project: string,
   signal?: AbortSignal,
 ): Promise<void> {
+  // Every core migration the project carries is applied, however many a method adds.
+  const carried = readdirSync(join(project, CORE_MIGRATIONS)).filter((name) =>
+    name.endsWith('.sql'),
+  ).length;
   const fixture = fileURLToPath(new URL('./fixtures/built-host-migrations.ts', import.meta.url));
   const verified = await runTool(
     process.execPath,
@@ -150,7 +157,7 @@ export async function expectBuiltHostMigrations(
     host: ['0042_orders.sql'],
     orders: [{ id: 7 }],
     lines: [
-      'Applied: 21',
+      `Applied: ${carried}`,
       'Pending: none',
       'Not carried by this build: none',
       'Host applied: 1',

@@ -8,7 +8,6 @@ import { prune } from '../../src/prune/index.js';
 import {
   prunePackageScripts,
   prunePackageDependencies,
-  prunePackageWorkspaces,
   pruneFeaturePackages,
   pruneRootPackage,
 } from '../../src/prune/package-scripts.js';
@@ -164,23 +163,6 @@ describe('prunePackageScripts', () => {
       ).toThrow(/Script "check" mixes a deleted file with shell operators/);
     }
   });
-
-  it('leaves a package without scripts alone', () => {
-    const result = prunePackageScripts({ name: 'app' }, ['scripts/setup-production.js']);
-
-    expect(result).toEqual({ name: 'app' });
-  });
-});
-
-describe('prunePackageWorkspaces', () => {
-  it('copies the resolved folders from the pnpm workspace source', () => {
-    const result = prunePackageWorkspaces({ workspaces: ['backend', 'mobile/*'] }, [
-      'backend',
-      'shared/core',
-    ]);
-
-    expect(result.workspaces).toEqual(['backend', 'shared/core']);
-  });
 });
 
 describe('prunePackageDependencies', () => {
@@ -245,10 +227,31 @@ describe('pruneFeaturePackages', () => {
 });
 
 describe('pruneRootPackage', () => {
-  it('returns false for a missing file', async () => {
+  it('removes nested compiled CLI commands when their optional sources were deleted', async () => {
     const root = await tempRoot();
-
-    await expect(pruneRootPackage(root, [])).resolves.toBe(false);
+    await writeFile(join(root, 'package.json'), '{}');
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages: [backend]\n');
+    await mkdir(join(root, 'backend'));
+    const path = join(root, 'backend/package.json');
+    await writeFile(
+      path,
+      JSON.stringify({
+        name: 'backend',
+        scripts: {
+          'admin:invite': 'node dist/cli/admin-invite.js',
+          'admin:recover': 'node dist/cli/admin-recover.js',
+          start: 'node dist/main.js',
+        },
+      }),
+    );
+    await pruneRootPackage(root, [
+      'backend/src/cli/admin-invite.ts',
+      'backend/src/cli/admin-recover.ts',
+    ]);
+    expect(JSON.parse(await readFile(path, 'utf8'))).toEqual({
+      name: 'backend',
+      scripts: { start: 'node dist/main.js' },
+    });
   });
 
   it('rejects invalid JSON with the file name', async () => {

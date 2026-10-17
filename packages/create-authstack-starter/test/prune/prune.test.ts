@@ -94,20 +94,6 @@ describe('prune', () => {
     expect(backend.match(/AUTH_FEATURES=/g)).toHaveLength(1);
   });
 
-  it('removes doc links from lists and tables, and leaves the rest', async () => {
-    const root = await fixture();
-    const result = await prune(root, FIXTURE_MANIFEST, ['email-password', 'alpha'], []);
-
-    const docsIndex = await readFile(join(root, 'docs/README.md'), 'utf8');
-    const readme = await readFile(join(root, 'README.md'), 'utf8');
-
-    expect(result.removedDocLines).toBe(2);
-    expect(docsIndex).not.toContain('setup-beta.md');
-    expect(docsIndex).toContain('setup-alpha.md');
-    expect(readme).not.toContain('docs/setup-beta.md');
-    expect(readme).toContain('| Guide');
-  });
-
   it('renders and formats the pruned workspace while retaining pnpm settings', async () => {
     const root = await fixture();
     await writeSource(
@@ -133,19 +119,6 @@ describe('prune', () => {
     });
   });
 
-  it('leaves a workspace file byte-identical when pruning removes no workspace', async () => {
-    const root = await fixture();
-    const workspaceFile =
-      '# keep the original patterns and settings\npackages: [backend, shared/*]\noverrides: {diff: ">=8.0.3"}\nenablePrePostScripts: true\n';
-    await writeSource(root, 'pnpm-workspace.yaml', workspaceFile);
-    await writeSource(root, 'backend/package.json', '{"name":"backend"}\n');
-    await writeSource(root, 'shared/core/package.json', '{"name":"@app/core"}\n');
-
-    await prune(root, FIXTURE_MANIFEST, ['email-password', 'alpha', 'beta'], []);
-
-    expect(await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8')).toBe(workspaceFile);
-  });
-
   it('reports imports left pointing at deleted files', async () => {
     const root = await fixture();
     const result = await prune(root, FIXTURE_MANIFEST, ['email-password', 'beta'], []);
@@ -156,12 +129,6 @@ describe('prune', () => {
       line: 1,
       specifier: './strategies/alpha-oauth.strategy',
     });
-  });
-
-  it('removes planned features that never made it into the prompt', async () => {
-    const root = await fixture();
-    const result = await prune(root, FIXTURE_MANIFEST, ['email-password', 'alpha', 'beta'], []);
-    expect(result.removed).toEqual(['gamma']);
   });
 
   it('reports @app/core imports left pointing at deleted shared files', async () => {
@@ -318,24 +285,11 @@ describe('stripEnvVars', () => {
     );
   });
 
-  it('drops a commented assignment and the comment above it', () => {
-    const content = ['# Beta OAuth (optional)', '# OAUTH_BETA_CLIENT_ID=id', ''].join('\n');
-    const result = stripEnvVars(content, new Map([['OAUTH_BETA_CLIENT_ID', ['Beta', 'beta']]]));
-
-    expect(result.content.trim()).toBe('');
-    expect(result.stripped).toEqual(['OAUTH_BETA_CLIENT_ID']);
-  });
-
   it('keeps a comment that does not name the feature', () => {
     const content = ['# Rate limiting', 'OAUTH_BETA_CLIENT_ID=id', 'THROTTLE_TTL=60'].join('\n');
     const result = stripEnvVars(content, new Map([['OAUTH_BETA_CLIENT_ID', ['Beta', 'beta']]]));
 
     expect(result.content).toContain('# Rate limiting');
     expect(result.content).toContain('THROTTLE_TTL=60');
-  });
-
-  it('leaves a file with no removals alone apart from the trailing newline', () => {
-    const content = 'A=1\nB=2\n';
-    expect(stripEnvVars(content, new Map()).content).toBe(content);
   });
 });

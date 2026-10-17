@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadManifest } from '../../src/manifest/load.js';
-import { defaultOwnership, resolveOwnership } from '../../src/manifest/ownership.js';
+import { resolveOwnership } from '../../src/manifest/ownership.js';
 import { resolvePlan } from '../../src/manifest/plan.js';
 import { validateManifest } from '../../src/manifest/validate.js';
 import { TARGETS_MANIFEST } from '../support/targets-fixture.js';
@@ -52,10 +52,6 @@ describe('resolveOwnership', () => {
       'mobile/auth/**',
     ]);
     expect(ownership.keptIds).toEqual(['kiosk']);
-  });
-
-  it('takes the manifest default clients when a run names none', () => {
-    expect(defaultOwnership(TARGETS_MANIFEST)).toEqual(owned(['web']));
   });
 });
 

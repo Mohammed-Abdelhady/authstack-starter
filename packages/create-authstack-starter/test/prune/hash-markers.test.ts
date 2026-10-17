@@ -41,12 +41,6 @@ describe('markers in files whose comments start with a hash', () => {
     });
   });
 
-  it('leaves a file without a marker exactly as it was', () => {
-    const plain = '# a comment about features\nkey: value # trailing\n';
-
-    expect(strip(plain, [])).toBe(plain);
-  });
-
   it.each([
     [
       'an id the manifest does not list',

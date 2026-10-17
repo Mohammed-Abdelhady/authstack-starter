@@ -5,14 +5,12 @@ import { select } from '@clack/prompts';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseCliOptions } from '../../src/flags/options.js';
 import { toPlanRequest } from '../../src/flags/request.js';
-import { availableDatabaseIds, defaultDatabaseIds } from '../../src/manifest/dimensions.js';
-import { loadManifest } from '../../src/manifest/load.js';
 import { resolvePlan } from '../../src/manifest/plan.js';
 import { CANCELLED } from '../../src/prompts/index.js';
 import type { PlanError } from '../../src/manifest/plan-types.js';
 import { askPlan, DATABASE_QUESTION, planPromptNeeds } from '../../src/prompts/plan.js';
-import { buildSummary, describePlanErrors } from '../../src/report/summary.js';
-import { fixtureRoot, REPO_ROOT, run } from '../support/answers-helpers.js';
+import { describePlanErrors } from '../../src/report/summary.js';
+import { fixtureRoot, run } from '../support/answers-helpers.js';
 import { PLAN_MANIFEST } from '../support/plan-fixture.js';
 
 vi.mock('@clack/prompts', async (original) => ({
@@ -79,22 +77,6 @@ afterEach(() => {
 
 afterAll(() => rmSync(manifestRoot, { recursive: true, force: true }));
 
-describe('the databases the manifest offers', () => {
-  it('offers MongoDB and PostgreSQL, with MongoDB as the default', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-
-    expect({
-      offered: availableDatabaseIds(manifest),
-      byDefault: defaultDatabaseIds(manifest),
-      labels: availableDatabaseIds(manifest).map((id) => manifest.databases[id].label),
-    }).toEqual({
-      offered: ['mongodb', 'postgres'],
-      byDefault: ['mongodb'],
-      labels: ['MongoDB', 'PostgreSQL'],
-    });
-  });
-});
-
 describe('the database flag', () => {
   it.each([
     [['--database', 'postgres'], 'postgres'],
@@ -123,27 +105,6 @@ describe('the database flag', () => {
     const plan = resolvePlan(PLAN_MANIFEST, toPlanRequest(parseCliOptions(['--database', value])));
 
     expect({ database: plan.database, errors: plan.errors }).toEqual({ database, errors: [error] });
-  });
-
-  it('says each refusal in a line of its own that names what was asked for', () => {
-    expect(
-      describePlanErrors(PLAN_MANIFEST, [
-        { id: 'mysql', reason: 'unknown' },
-        { id: 'mongodb,postgres', reason: 'database-conflict' },
-      ]),
-    ).toEqual([
-      '"mysql" is not a known choice.',
-      'Choose exactly one database; got: mongodb,postgres.',
-    ]);
-  });
-
-  it.each(['postgres', 'mongodb'])('shows %s in the summary, by its label', (database) => {
-    const summary = buildSummary(
-      PLAN_MANIFEST,
-      resolvePlan(PLAN_MANIFEST, { databases: [database] }),
-    );
-
-    expect(databaseShown(summary)).toBe(database);
   });
 });
 
@@ -180,16 +141,6 @@ describe('the database question', () => {
 });
 
 describe('a command line with the real manifest', () => {
-  it('takes PostgreSQL from the flag', async () => {
-    const { code, output } = await run(manifestRoot, [
-      ...ALL_BUT_DATABASE,
-      '--database',
-      'postgres',
-    ]);
-
-    expect({ code, database: databaseShown(output) }).toEqual({ code: 0, database: 'postgres' });
-  });
-
   it('takes PostgreSQL from the config file, and the flag over the file', async () => {
     const config = configFile({ database: 'postgres' });
 

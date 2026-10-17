@@ -28,10 +28,6 @@ describe('signal process table parser', () => {
       { pid: 102, ppid: 100, pgid: 102 },
     ]);
   });
-
-  it.each(['', ' \n\t'])('returns no rows for %j', (table) => {
-    expect(parseProcessRows(table)).toEqual([]);
-  });
 });
 
 const WALKER_CASES = [

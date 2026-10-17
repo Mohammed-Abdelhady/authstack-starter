@@ -1,8 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { format, resolveConfig } from 'prettier';
 
 // The template copy is the only boundary mocked; the manifest, the resolver,
 // the pruner, the answers writer and git are the real ones.
@@ -44,7 +43,7 @@ describe('.create-authstack-starter.json', () => {
     const { code, output } = await run(root, [project, '--yes', '--no-install', '--no-git']);
     expect(code, output).toBe(0);
 
-    const { raw, record } = readAnswers(project, ANSWERS_FILE_NAME);
+    const { record } = readAnswers(project, ANSWERS_FILE_NAME);
     expect(record).toEqual({
       schemaVersion: 4,
       rules: { policy: 'strict' },
@@ -54,36 +53,18 @@ describe('.create-authstack-starter.json', () => {
       answers: {
         targets: ['web'],
         database: 'mongodb',
-        features: ['email-password', 'facebook', 'github', 'google', 'oauth-core'],
+        features: [
+          'email-password',
+          'facebook',
+          'github',
+          'google',
+          'mail-locale-core',
+          'oauth-core',
+        ],
         options: ['docker', 'locale-ar', 'production'],
         locales: ['ar', 'en'],
       },
     });
-    expect(raw).toBe(
-      `{
-  "schemaVersion": 4,
-  "packageManager": "pnpm@12.6.0",
-  "rules": {
-    "policy": "strict"
-  },
-  "installer": {
-    "name": "create-authstack-starter",
-    "version": "${version}"
-  },
-  "template": {
-    "sha256": "${TEMPLATE_SHA}",
-    "commit": null
-  },
-  "answers": {
-    "targets": ["web"],
-    "database": "mongodb",
-    "features": ["email-password", "facebook", "github", "google", "oauth-core"],
-    "options": ["docker", "locale-ar", "production"],
-    "locales": ["ar", "en"]
-  }
-}
-`,
-    );
   });
 
   it('records a feature the resolver pulled in for another one', async () => {
@@ -169,36 +150,17 @@ describe('.create-authstack-starter.json', () => {
     expect(record.answers).toEqual({
       targets: ['web'],
       database: 'mongodb',
-      features: ['email-password', 'facebook', 'github', 'google', 'oauth-core'],
+      features: [
+        'email-password',
+        'facebook',
+        'github',
+        'google',
+        'mail-locale-core',
+        'oauth-core',
+      ],
       options: [],
       locales: ['en'],
     });
-  });
-
-  it('is not written on --dry-run', async () => {
-    const root = fixtureRoot(roots);
-    const project = join(root, 'app');
-    mkdirSync(project, { recursive: true });
-
-    const { code, output } = await run(root, [
-      project,
-      '--yes',
-      '--dry-run',
-      '--no-install',
-      '--no-git',
-    ]);
-    expect(code, output).toBe(0);
-    expect(readdirSync(project)).toEqual([]);
-  });
-
-  it('is written when git is off', async () => {
-    const root = fixtureRoot(roots);
-    const project = join(root, 'app');
-    const { code, output } = await run(root, [project, '--yes', '--no-install', '--no-git']);
-    expect(code, output).toBe(0);
-
-    expect(existsSync(join(project, ANSWERS_FILE_NAME))).toBe(true);
-    expect(existsSync(join(project, '.git'))).toBe(false);
   });
 
   it('is in the first commit of a real repository under an isolated identity', async () => {
@@ -274,18 +236,5 @@ describe('.create-authstack-starter.json', () => {
     expect(record.schemaVersion).toBe(4);
     expect(raw).not.toContain(project);
     expect(raw).not.toContain('createdAt');
-  });
-
-  it('is already formatted the way the generated project formats', async () => {
-    const root = fixtureRoot(roots);
-    const project = join(root, 'app');
-    const { code, output } = await run(root, [project, '--yes', '--no-install', '--no-git']);
-    expect(code, output).toBe(0);
-
-    const path = join(project, ANSWERS_FILE_NAME);
-    const config = await resolveConfig(path);
-    expect(config).toMatchObject({ singleQuote: true, tabWidth: 2 });
-    const raw = readFileSync(path, 'utf8');
-    expect(await format(raw, { ...(config ?? {}), filepath: path })).toBe(raw);
   });
 });

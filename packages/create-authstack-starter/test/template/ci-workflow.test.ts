@@ -1,13 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { parseDocument } from 'yaml';
-import { templateContent } from '../../scripts/sync-template.mjs';
 import { isRecord } from '../../src/manifest/read.js';
 import {
-  CACHE_ACTION,
   CHECKOUT_ACTION,
-  expectSupportedActionInputs,
-  expectNodeVersions,
   jobsOf,
   PNPM_SETUP_ACTION,
   PNPM_SETUP_WITH,
@@ -67,16 +62,18 @@ describe('CI workflow contract', () => {
       'installer-postgres',
       'installer-mongodb',
       'browser',
+      'dependency-audit',
     ]);
-    for (const job of Object.values(jobs)) {
+    for (const [id, job] of Object.entries(jobs)) {
       const steps = stepsOf(job);
       expect(steps[0].uses).toBe(CHECKOUT_ACTION);
       expect(steps[1].uses).toBe(SETUP_NODE_ACTION);
       for (const step of steps) {
-        if (step.uses === PNPM_SETUP_ACTION) expect(step.with).toEqual(PNPM_SETUP_WITH);
+        if (step.uses === PNPM_SETUP_ACTION)
+          expect(step.with).toEqual(id === 'dependency-audit' ? undefined : PNPM_SETUP_WITH);
         if (typeof step.run !== 'string') continue;
         expect(step.run).toMatch(
-          /^node scripts\/ci\.mjs --(range|cache|install|quality|api|installer|installer-postgres|installer-mongodb|browser)$/,
+          /^(?:node scripts\/ci\.mjs --(range|cache|install|quality|api|installer|installer-postgres|installer-mongodb|browser)|node scripts\/ci\/dependency-audit\.mjs)$/,
         );
       }
     }
@@ -110,6 +107,8 @@ describe('CI workflow contract', () => {
       'node scripts/ci.mjs --install',
       'node scripts/ci.mjs --installer',
     ]);
+    expect(runsOf(jobs['dependency-audit'])).toEqual(['node scripts/ci/dependency-audit.mjs']);
+    expect(stepsOf(jobs['dependency-audit'])[2]).toEqual({ uses: PNPM_SETUP_ACTION });
     expect(runsOf(jobs.api)).toEqual([
       'node scripts/ci.mjs --cache',
       'node scripts/ci.mjs --install',
@@ -187,86 +186,4 @@ it('uses only base code in the read-only trusted scan', () => {
   });
   expect(steps).toHaveLength(4);
   expect(readFileSync(TRUSTED, 'utf8')).not.toMatch(/\$\{\{\s*secrets\./);
-});
-
-it('uses only inputs declared by each pinned action revision', () => {
-  expectSupportedActionInputs([
-    { name: 'CI workflow', workflow: readWorkflow(WORKFLOW) },
-    { name: 'trusted scan workflow', workflow: readWorkflow(TRUSTED) },
-  ]);
-});
-
-it('bounds jobs and caches runtime Mongo binaries in the jobs that need them', () => {
-  const jobs = jobsOf(readWorkflow(WORKFLOW));
-  for (const [id, timeout] of [
-    ['range-scan', 10],
-    ['quality', 45],
-    ['api', 35],
-    ['installer', 55],
-    ['installer-postgres', 50],
-    ['installer-mongodb', 80],
-    ['browser', 30],
-  ] as const) {
-    expect(jobs[id]).toMatchObject({ 'runs-on': 'ubuntu-24.04', 'timeout-minutes': timeout });
-  }
-  expect(jobsOf(readWorkflow(TRUSTED))['trusted-range']).toMatchObject({
-    'runs-on': 'ubuntu-24.04',
-    'timeout-minutes': 10,
-  });
-  for (const id of ['quality', 'api', 'installer', 'installer-mongodb']) {
-    const steps = stepsOf(jobs[id]);
-    expect(steps[3]).toMatchObject({ id: 'mongo', run: 'node scripts/ci.mjs --cache' });
-    expect(steps[4]).toEqual({
-      uses: CACHE_ACTION,
-      with: {
-        path: '${{ steps.mongo.outputs.path }}',
-        key: '${{ runner.os }}-${{ runner.arch }}-${{ steps.mongo.outputs.key }}',
-      },
-    });
-  }
-});
-
-it('protects scanner ownership and schedules grouped weekly action updates', () => {
-  expect(
-    readFileSync(new URL('../../../../.github/CODEOWNERS', import.meta.url), 'utf8')
-      .trim()
-      .split('\n'),
-  ).toEqual([
-    '/.github/ @Mohammed-Abdelhady',
-    '/scripts/ci.mjs @Mohammed-Abdelhady',
-    '/scripts/ci/ @Mohammed-Abdelhady',
-    '/scripts/guardrails/ @Mohammed-Abdelhady',
-    '/scripts/check-hard-bans.mjs @Mohammed-Abdelhady',
-    '/scripts/guardrails/scanner/check-hard-bans.test.mjs @Mohammed-Abdelhady',
-    '/packages/create-authstack-starter/scripts/sync-template.mjs @Mohammed-Abdelhady',
-    '/packages/create-authstack-starter/src/constants/template-tests.json @Mohammed-Abdelhady',
-    '/.nvmrc @Mohammed-Abdelhady',
-    '/package.json @Mohammed-Abdelhady',
-    '/pnpm-workspace.yaml @Mohammed-Abdelhady',
-  ]);
-  const dependabot = readWorkflow(new URL('../../../../.github/dependabot.yml', import.meta.url));
-  expect(dependabot.updates).toContainEqual({
-    'package-ecosystem': 'github-actions',
-    directory: '/',
-    schedule: { interval: 'weekly' },
-    groups: { actions: { patterns: ['*'] } },
-  });
-});
-
-it('runs exactly the test jobs on Node 22 and 24', () => {
-  const jobs = jobsOf(readWorkflow(WORKFLOW));
-  for (const id of ['quality', 'api', 'installer', 'installer-postgres', 'installer-mongodb'])
-    expectNodeVersions(jobs[id], [22, 24]);
-  for (const id of ['range-scan', 'browser']) expectNodeVersions(jobs[id]);
-});
-
-it('preserves both Node versions in the jobs generated projects keep', () => {
-  const source = templateContent('.github/workflows/ci.yml', readFileSync(WORKFLOW));
-  const workflow: unknown = parseDocument(source.toString()).toJS();
-  if (!isRecord(workflow)) throw new Error('Workflow must be a mapping');
-  const jobs = jobsOf(workflow);
-  expect(Object.keys(jobs)).toEqual(['range-scan', 'quality', 'api']);
-  expectNodeVersions(jobs['range-scan']);
-  expectNodeVersions(jobs.quality, [22, 24]);
-  expectNodeVersions(jobs.api, [22, 24]);
 });

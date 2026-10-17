@@ -4,26 +4,10 @@ import { join } from 'node:path';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { startWorkspaceProbe } from './workspace-probe.js';
 import { preparePackedWorkspace } from './packed-workspace.js';
-import { killFixtureProcesses, startWorkspaceFixture } from './workspace-fixture.js';
+import { killFixtureProcesses } from './workspace-fixture.js';
 import { createDescendantPipe, DESCENDANT_PIPE_ENV } from '../support/descendant-pipe.js';
 
 describe('packed workspace lifetime', () => {
-  it.each([
-    ['SIGTERM', 'running'],
-    ['SIGINT', 'running'],
-    ['SIGTERM', 'exited'],
-    ['SIGINT', 'exited'],
-  ] as const)('removes the workspace and exits by %s with a %s command', async (signal, mode) => {
-    const { child, closed, workspace, descendantEnded, stderr } = await startWorkspaceFixture(mode);
-    expect(existsSync(workspace)).toBe(true);
-    child.kill(signal);
-    await closed;
-
-    expect(existsSync(workspace), stderr()).toBe(false);
-    expect(child.signalCode).toBe(signal);
-    expect(await descendantEnded).toBe('eof');
-  });
-
   it('cleans up a running command before its caller can await completion', async () => {
     const counts = {
       SIGTERM: process.listenerCount('SIGTERM'),

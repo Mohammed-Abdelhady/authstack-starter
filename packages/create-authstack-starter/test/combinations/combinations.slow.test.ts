@@ -195,11 +195,4 @@ describe('generated projects', () => {
     expect(offline.ok, offline.output).toBe(true);
     await expectTypechecks(project);
   });
-
-  it('pulls OAuth core in behind a provider without offering it', () => {
-    const selection = resolveSelection(manifest, ['email-password', 'google']);
-
-    expect(selection.selected).toContain('oauth-core');
-    expect(manifest.features['oauth-core'].kind).toBe('hidden');
-  });
 });

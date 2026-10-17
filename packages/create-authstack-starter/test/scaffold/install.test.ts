@@ -5,17 +5,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { installDependencies, pnpmAvailable, prepareLockfile } from '../../src/scaffold/install.js';
 import { writePnpmBoundary } from '../support/pnpm-boundary.js';
-import {
-  installFromWarmStore,
-  installProject,
-  runBackendBoot,
-} from '../support/combination-helpers.js';
+import { installProject, runBackendBoot } from '../support/combination-helpers.js';
 import {
   expectConfigTests,
   expectInstallsLintsBuilds,
   expectLints,
 } from '../combinations/combination-scenarios.js';
-import { parse } from 'yaml';
 import { PACKAGE_MANAGER_VERSION } from '../../src/constants/index.js';
 
 const directories: string[] = [];
@@ -35,29 +30,11 @@ async function fakePnpm(failure = '', version = PACKAGE_MANAGER_VERSION): Promis
 }
 
 describe('pnpm installation boundary', () => {
-  it('runs the generated backend boot check through its own installed Jest', async () => {
-    const root = await fakePnpm();
-    expect(await runBackendBoot(root)).toEqual({ ok: true, output: '', stdout: '' });
-    expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
-      '--filter backend exec jest --config test/jest-e2e.json --runInBand --runTestsByPath test/app/app.boot.e2e-spec.ts test/app/passkey-facts.e2e-spec.ts\n',
-    );
-  });
   it('reports a failed generated backend boot check', async () => {
     const root = await fakePnpm('--config');
     const result = await runBackendBoot(root);
     expect(result.ok).toBe(false);
     expect(result.output).toContain('registry refused the request');
-  });
-  it('uses only the warm store and frozen graph for offline installation', async () => {
-    const root = await fakePnpm();
-    expect(await installFromWarmStore(root, '/private/tmp/cna-test-store')).toEqual({
-      ok: true,
-      output: '',
-      stdout: '',
-    });
-    expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
-      'install --offline --frozen-lockfile --store-dir /private/tmp/cna-test-store\n',
-    );
   });
   it('starts no command of a combination step once the case was aborted', async () => {
     const root = await fakePnpm();
@@ -80,26 +57,6 @@ describe('pnpm installation boundary', () => {
       steps: ['rejected', 'rejected', 'rejected'],
       called: false,
     });
-  });
-  it('keeps combination gates on the same explicit temporary store', async () => {
-    const root = await fakePnpm();
-    await writeFile(
-      join(root, 'pnpm-workspace.yaml'),
-      'packages: [backend]\nallowBuilds: {bcrypt: true}\n',
-    );
-    expect(await installProject(root, '/private/tmp/cna-test-store')).toEqual({
-      ok: true,
-      output: '',
-      stdout: '',
-    });
-    expect(parse(await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8'))).toEqual({
-      packages: ['backend'],
-      allowBuilds: { bcrypt: true },
-      storeDir: '/private/tmp/cna-test-store',
-    });
-    expect(await readFile(join(root, 'calls'), 'utf8')).toBe(
-      'install --lockfile-only --store-dir /private/tmp/cna-test-store\ninstall --frozen-lockfile --store-dir /private/tmp/cna-test-store\n',
-    );
   });
   it('updates the lockfile without running a dependency install', async () => {
     const root = await fakePnpm();

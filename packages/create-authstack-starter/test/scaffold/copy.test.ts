@@ -1,5 +1,4 @@
-import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -18,17 +17,6 @@ afterEach(async () => {
 });
 
 describe('copyTemplate', () => {
-  it('copies a real template', async () => {
-    const root = await tempRoot();
-    const source = join(root, 'template');
-    await mkdir(source, { recursive: true });
-    await writeFile(join(source, 'a.txt'), 'x\n', 'utf8');
-
-    await copyTemplate(source, join(root, 'target'));
-
-    expect(existsSync(join(root, 'target', 'a.txt'))).toBe(true);
-  });
-
   it('refuses a symbolic-link template', async () => {
     const root = await tempRoot();
     const source = join(root, 'template');

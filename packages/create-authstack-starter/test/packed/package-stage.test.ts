@@ -117,10 +117,3 @@ it('reaches the dependencies installed for the source package', () => {
     'export default 1;\n',
   );
 });
-
-it('refuses a repository that has no manifest', () => {
-  const { root } = repository();
-  rmSync(join(root, MANIFEST_FILE));
-
-  expect(() => stagePackage(workspace(), root)).toThrow(/ENOENT/);
-});

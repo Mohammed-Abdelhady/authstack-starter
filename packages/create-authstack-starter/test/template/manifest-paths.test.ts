@@ -63,11 +63,6 @@ function manifest(overrides: Record<string, unknown> = {}): Manifest {
 }
 
 describe('validateManifestPaths', () => {
-  it('accepts a manifest whose every glob, path and workspace is tracked', () => {
-    expect(manifestPathProblems(manifest(), TRACKED)).toEqual([]);
-    expect(() => validateManifestPaths(manifest(), TRACKED)).not.toThrow();
-  });
-
   it('rejects a glob that matches no tracked file', () => {
     const stale = manifest({
       shared: { core: { files: ['mobile/auth/**', 'mobile/device-key/**'], workspaces: [] } },

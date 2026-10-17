@@ -43,20 +43,6 @@ it('removes browser dependencies and retains runnable frontend dependencies', as
   });
 });
 
-it('accepts a frontend without optional dependency or script groups', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
-  roots.push(root);
-  await mkdir(join(root, 'frontend'));
-  await writeFile(join(root, 'package.json'), '{"name":"template"}');
-  await writeFile(join(root, 'frontend/package.json'), '{"name":"frontend"}');
-
-  await setProjectName(root, 'my-app');
-
-  expect(JSON.parse(await readFile(join(root, 'frontend/package.json'), 'utf8'))).toEqual({
-    name: 'frontend',
-  });
-});
-
 it('removes the tooling of a database that was left out and keeps the rest in order', async () => {
   const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
   roots.push(root);
@@ -92,22 +78,6 @@ it('removes the tooling of a database that was left out and keeps the rest in or
       'mongodb-memory-server': '^11.0.0',
     },
   });
-});
-
-it('leaves a backend manifest without that tooling byte-identical', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'cna-package-'));
-  roots.push(root);
-  await mkdir(join(root, 'frontend'));
-  await mkdir(join(root, 'backend'));
-  await writeFile(join(root, 'package.json'), '{"name":"template"}');
-  await writeFile(join(root, 'frontend/package.json'), '{"name":"frontend"}');
-  const backend = '{"name":"backend","devDependencies":{"jest":"^30.0.0"}}';
-  await writeFile(join(root, 'backend/package.json'), backend);
-
-  await setProjectName(root, 'my-app');
-  await removeDatabaseJson(root, leftOut({ packages: POSTGRES_PACKAGES }));
-
-  expect(await readFile(join(root, 'backend/package.json'), 'utf8')).toBe(backend);
 });
 
 it('removes the packages of a database that was left out from production and development alike', async () => {

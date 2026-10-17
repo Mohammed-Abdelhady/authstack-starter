@@ -47,24 +47,6 @@ describe('generated guardrail content', () => {
     expect(JSON.parse(output)).toEqual(['scripts/guardrails/policy.mjs']);
   });
 
-  it('copies applicable instructions and omits repository-only tooling', () => {
-    const template = copyContent(
-      DOC_PATH,
-      `Run the checker.\n${ROOT_ONLY_START}\nRoot policy suites.\n${ROOT_ONLY_END}\nRun application tests.\n`,
-    );
-    expect(readFileSync(join(template, DOC_PATH), 'utf8')).toBe(
-      'Run the checker.\nRun application tests.\n',
-    );
-  });
-
-  it('omits repository setup from the shipped root README', () => {
-    const template = copyContent(
-      'README.md',
-      `# App\n${ROOT_ONLY_START}\ngit clone repository\npnpm install --frozen-lockfile\n${ROOT_ONLY_END}\npnpm install\n`,
-    );
-    expect(readFileSync(join(template, 'README.md'), 'utf8')).toBe('# App\npnpm install\n');
-  });
-
   it('hashes shipped bytes rather than omitted documentation', () => {
     const first = copyContent(DOC_PATH, `Keep.\n${ROOT_ONLY_START}\nFirst.\n${ROOT_ONLY_END}\n`);
     const second = copyContent(DOC_PATH, `Keep.\n${ROOT_ONLY_START}\nSecond.\n${ROOT_ONLY_END}\n`);

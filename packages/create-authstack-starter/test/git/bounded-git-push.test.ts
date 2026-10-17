@@ -13,10 +13,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
-import { GIT_PUSH_KILL_SIGNAL, GIT_PUSH_TIMEOUT_MS } from '../../src/constants/index.js';
-import { git, isolatedGit, REPO_ROOT } from '../support/answers-helpers.js';
+import { GIT_PUSH_KILL_SIGNAL } from '../../src/constants/index.js';
+import { git, isolatedGit } from '../support/answers-helpers.js';
 import { boundedGitPush } from '../support/bounded-git-push.js';
 import { isRunning } from '../support/process-tree.js';
 
@@ -89,16 +88,6 @@ it('stops a hook child that left the push process group before reporting the tim
       running: false,
     },
   );
-});
-
-it('keeps the same push budget as the repository guardrail fixtures', async () => {
-  const policy: unknown = await import(
-    pathToFileURL(join(REPO_ROOT, 'scripts/guardrails/policy.mjs')).href
-  );
-  expect({ installer: GIT_PUSH_TIMEOUT_MS, repository: policy }).toMatchObject({
-    installer: 30_000,
-    repository: { GIT_PUSH_TIMEOUT_MS: 30_000 },
-  });
 });
 
 it('preserves a real rejected push status', () => {

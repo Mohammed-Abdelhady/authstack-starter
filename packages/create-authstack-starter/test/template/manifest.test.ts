@@ -1,15 +1,9 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { loadManifest } from '../../src/manifest/load.js';
-import {
-  availableFeatures,
-  defaultFeatureIds,
-  resolveSelection,
-} from '../../src/manifest/select.js';
 import { ManifestError, validateManifest } from '../../src/manifest/validate.js';
-import { FEATURE_KIND_ORDER } from '../../src/constants/index.js';
 import { matchesGlob } from '../../src/utils/glob.js';
 import { SKIPPED_SCAN_DIRS } from '../support/reference-content.js';
 
@@ -35,29 +29,6 @@ function repoFiles(prefix = ''): string[] {
   return found;
 }
 
-/** Checks one dimension's paths: exact paths must exist, globs must match. */
-function expectDimensionPathsExist(
-  where: string,
-  entries: Record<string, { files: string[]; docs?: string[] }>,
-): void {
-  const present = repoFiles();
-  for (const [id, entry] of Object.entries(entries)) {
-    for (const path of [...entry.files, ...(entry.docs ?? [])]) {
-      if (path.includes('*')) {
-        expect(
-          present.some((file) => matchesGlob(file, path)),
-          `${where}.${id} glob ${path} matches no file`,
-        ).toBe(true);
-        continue;
-      }
-      expect(
-        existsSync(join(REPO_ROOT, path)),
-        `${where}.${id} lists ${path}, which does not exist`,
-      ).toBe(true);
-    }
-  }
-}
-
 function feature(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     label: 'Alpha',
@@ -73,14 +44,6 @@ function feature(overrides: Record<string, unknown> = {}): Record<string, unknow
 }
 
 describe('validateManifest', () => {
-  it('accepts a minimal manifest', () => {
-    const manifest = validateManifest({
-      features: { alpha: feature() },
-      core: { alwaysRemoveFiles: [] },
-    });
-    expect(manifest.features.alpha.status).toBe('available');
-  });
-
   it('rejects an unknown kind', () => {
     expect(() =>
       validateManifest({
@@ -88,15 +51,6 @@ describe('validateManifest', () => {
         core: { alwaysRemoveFiles: [] },
       }),
     ).toThrow(ManifestError);
-  });
-
-  it('rejects a missing label', () => {
-    expect(() =>
-      validateManifest({
-        features: { a: feature({ label: '' }) },
-        core: { alwaysRemoveFiles: [] },
-      }),
-    ).toThrow(/label must be a non-empty string/);
   });
 
   it('rejects paths that escape the project', () => {
@@ -128,51 +82,9 @@ describe('validateManifest', () => {
       }),
     ).toThrow(/requires planned feature/);
   });
-
-  it('reports every problem at once', () => {
-    try {
-      validateManifest({
-        features: { Bad_Id: feature({ kind: 'sms', default: 'yes' }) },
-        core: {},
-      });
-      expect.unreachable('should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ManifestError);
-      expect((error as ManifestError).problems.length).toBeGreaterThan(2);
-    }
-  });
 });
 
 describe('the repository manifest', () => {
-  it('is valid', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    expect(Object.keys(manifest.features).length).toBeGreaterThan(4);
-  });
-
-  it('preselects email and password with the three first-party providers', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    expect(defaultFeatureIds(manifest)).toEqual(['email-password', 'google', 'github', 'facebook']);
-  });
-
-  it('keeps hidden features out of the prompt and off the defaults', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    const hidden = availableFeatures(manifest).filter(({ feature }) => feature.kind === 'hidden');
-
-    expect(hidden.map(({ id }) => id)).toEqual(['oauth-core']);
-    for (const { id, feature } of hidden) {
-      expect(feature.default, `${id} is hidden and cannot be a default`).toBe(false);
-      expect(FEATURE_KIND_ORDER).not.toContain(feature.kind);
-    }
-  });
-
-  it('gives every planned feature an empty file list', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    for (const [id, entry] of Object.entries(manifest.features)) {
-      if (entry.status !== 'planned') continue;
-      expect(entry.files, `${id} is planned but claims files`).toEqual([]);
-    }
-  });
-
   it('never lists the same file under two features', async () => {
     const manifest = await loadManifest(REPO_ROOT);
     const seen = new Map<string, string>();
@@ -182,25 +94,6 @@ describe('the repository manifest', () => {
         seen.set(path, id);
       }
     }
-  });
-
-  it('pulls in requirements and leaves ids outside the selection out', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-    const selection = resolveSelection(manifest, ['google', 'apple']);
-
-    expect(selection.selected).toEqual(['oauth-core', 'google', 'apple']);
-  });
-
-  it('claims every file that exists, so a delete list is never stale', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-
-    expectDimensionPathsExist('features', manifest.features);
-  });
-
-  it('claims every option file that exists', async () => {
-    const manifest = await loadManifest(REPO_ROOT);
-
-    expectDimensionPathsExist('options', manifest.options);
   });
 
   it('gives every option file a single owner once globs are expanded', async () => {

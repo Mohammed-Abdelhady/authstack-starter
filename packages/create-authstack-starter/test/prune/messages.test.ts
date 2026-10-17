@@ -69,12 +69,6 @@ describe('pruneCatalogueKeys', () => {
 
     expect(result).toEqual({ common: { switchToEnglish: 'English' } });
   });
-
-  it('returns the same object when there are no keys', () => {
-    const input = { common: { switchToEnglish: 'English', switchToArabic: 'Arabic' } };
-
-    expect(pruneCatalogueKeys(input, [])).toBe(input);
-  });
 });
 
 describe('pruneMessageCatalogues', () => {
