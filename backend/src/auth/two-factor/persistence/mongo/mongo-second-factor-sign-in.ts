@@ -16,6 +16,10 @@ export class MongoSecondFactorSignIn extends SecondFactorSignIn {
     super();
   }
 
+  assertAdmission(userId: string, response: Response): Promise<void> {
+    return this.signInService.assertAdmission(userId, response);
+  }
+
   issueSession(
     account: SecondFactorAccount,
     response: Response,

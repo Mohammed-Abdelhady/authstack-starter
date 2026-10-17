@@ -1,4 +1,7 @@
+import { AudienceAdmissionRefused } from '../../session/utils/authority/audience-admission';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { BrowserApplications } from '../../session/applications/browser-applications';
+import { SECOND_FACTOR_AUTHENTICATION_METHOD } from './constants/two-factor.constants';
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../common/dto/api-response.dto';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -37,6 +40,7 @@ export class TwoFactorLoginService {
     private readonly signIn: SecondFactorSignIn,
     @Inject(SECOND_FACTOR_VERIFIERS)
     private readonly verifiers: SecondFactorVerifier[],
+    private readonly applications: BrowserApplications,
   ) {}
 
   /**
@@ -62,17 +66,42 @@ export class TwoFactorLoginService {
       );
     }
 
+    const verifier = this.verifiers.find((candidate) =>
+      candidate.supports(dto),
+    );
+    let secondFactor: string | null;
     try {
-      await this.checkSecondFactor(dto, user, request, response, {
-        firstFactor: challenge.firstFactor,
-      });
+      await this.signIn.assertAdmission(user.id, response);
+      secondFactor = await this.checkSecondFactor(
+        verifier,
+        dto,
+        user,
+        request,
+        response,
+        {
+          firstFactor: challenge.firstFactor,
+        },
+      );
     } catch (error) {
       await this.challengeService.registerFailure(challenge.challengeId);
-      throw error;
+      this.rethrowAdmission(error, verifier);
     }
 
+    const evidence = this.applications.evidenceFor(request);
+    this.applications.rememberEvidence(request, {
+      authenticationMethods: [
+        ...new Set([
+          challenge.firstFactor,
+          ...(evidence?.authenticationMethods ?? []),
+          ...(secondFactor ? [secondFactor] : []),
+        ]),
+      ],
+      userVerified: evidence?.userVerified ?? false,
+    });
     await this.discard(challenge.challengeId, response);
-    const summary = await this.signIn.issueSession(user, response);
+    const summary = await this.signIn
+      .issueSession(user, response)
+      .catch((error: unknown) => this.rethrowAdmission(error, verifier));
 
     this.logger.log(`Second factor accepted: userId=${user.id}`);
     return LoginResponseDto.success(summary);
@@ -83,22 +112,35 @@ export class TwoFactorLoginService {
    * registered verifier owns, such as a passkey.
    */
   private async checkSecondFactor(
+    verifier: SecondFactorVerifier | undefined,
     dto: VerifyTwoFactorDto,
     user: SecondFactorAccount,
     request: Request,
     response: Response,
     attempt: SecondFactorAttempt,
-  ): Promise<void> {
-    const verifier = this.verifiers.find((candidate) =>
-      candidate.supports(dto),
-    );
-
+  ): Promise<string | null> {
     if (!verifier) {
       await this.verificationService.verifySecondFactor(user, dto);
-      return;
+      if (dto.code) return SECOND_FACTOR_AUTHENTICATION_METHOD.TOTP;
+      return dto.recoveryCode
+        ? SECOND_FACTOR_AUTHENTICATION_METHOD.RECOVERY_CODE
+        : null;
     }
 
     await verifier.verify(dto, user, request, response, attempt);
+    return null;
+  }
+
+  private rethrowAdmission(
+    error: unknown,
+    verifier: SecondFactorVerifier | undefined,
+  ): never {
+    if (error instanceof AudienceAdmissionRefused) {
+      throw verifier
+        ? verifier.refusal()
+        : this.verificationService.invalidCode('account audience refused');
+    }
+    throw error;
   }
 
   private async discard(

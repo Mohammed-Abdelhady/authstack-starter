@@ -1,3 +1,5 @@
+import type { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { mongoSessionOf } from '../../../../session/persistence/mongo/mongo-unit-of-work';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -76,6 +78,24 @@ export class MongoSecondFactorChallengeStore extends SecondFactorChallengeStore 
         claimedAt: null,
         expiresAt: challenge.expiresAt,
       }),
+    );
+  }
+
+  async openIn(
+    work: UnitOfWork,
+    challenge: NewSecondFactorChallenge,
+  ): Promise<void> {
+    await this.challengeModel.create(
+      [
+        {
+          user: toObjectId(challenge.userId),
+          nonceHash: challenge.nonceHash,
+          attempts: 0,
+          claimedAt: null,
+          expiresAt: challenge.expiresAt,
+        },
+      ],
+      { session: mongoSessionOf(work) },
     );
   }
 

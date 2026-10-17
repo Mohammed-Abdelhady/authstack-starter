@@ -7,6 +7,9 @@ import { SecondFactorAccount } from './second-factor-account';
  * the shared sign-in's own session issue, with no second factor check.
  */
 export abstract class SecondFactorSignIn {
+  /** Check admission before spending the answer to a held sign-in. */
+  abstract assertAdmission(userId: string, response: Response): Promise<void>;
+
   abstract issueSession(
     account: SecondFactorAccount,
     response: Response,

@@ -1,3 +1,5 @@
+import type { UnitOfWork } from '../../../../common/persistence/unit-of-work';
+import { postgresTransactionOf } from '../../../../common/persistence/postgres/postgres-unit-of-work';
 import { Kysely } from 'kysely';
 import { MalformedIdError } from '../../../../common/persistence/persistence-errors';
 import {
@@ -63,6 +65,20 @@ export class PostgresSecondFactorChallengeStore extends SecondFactorChallengeSto
         })
         .execute();
     });
+  }
+
+  async openIn(
+    work: UnitOfWork,
+    challenge: NewSecondFactorChallenge,
+  ): Promise<void> {
+    await postgresTransactionOf(work)
+      .insertInto('two_factor_challenges')
+      .values({
+        user_id: toUuid(challenge.userId),
+        nonce_hash: challenge.nonceHash,
+        expires_at: challenge.expiresAt,
+      })
+      .execute();
   }
 
   find(

@@ -1,7 +1,21 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { hashNonce, constantTimeEquals } from '../utils/challenge-signatures';
+import { ApplicationRegistry } from '../../../session/applications/application-registry';
+import {
+  assertBrowserChallengePolicy,
+  validChallengePolicyVersion,
+} from './browser-challenge-policy';
+import type { UnitOfWork } from '../../../common/persistence/unit-of-work';
+import { applicationCookieName } from '../../../session/utils/request/application-cookie-name';
+import type { BrowserApplicationId } from '../../../session/applications/types/browser-application';
+import {
+  ADMIN_CLIENT_ID,
+  WEB_CLIENT_ID,
+} from '../../../session/constants/client-ids';
+import { BrowserApplications } from '../../../session/applications/browser-applications';
+import { HttpStatus, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CookieOptions, Request, Response } from 'express';
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes } from 'crypto';
 import {
   SecondFactorChallengeStore,
   StoredSecondFactorChallenge,
@@ -20,6 +34,8 @@ import {
 } from '../constants/two-factor.constants';
 
 interface ChallengePayload {
+  /** Missing only in a legacy web challenge. */
+  clientId?: BrowserApplicationId;
   /** User the half-finished login belongs to. */
   sub: string;
   /** Random value matching the stored record. */
@@ -28,6 +44,7 @@ interface ChallengePayload {
   expiresAt: number;
   /** What the first step of this sign-in proved. */
   firstFactor: FirstFactor;
+  policyVersion?: number;
 }
 
 export interface TwoFactorChallengeContext {
@@ -57,6 +74,8 @@ export class TwoFactorChallengeService {
     private readonly challenges: SecondFactorChallengeStore,
     private readonly configService: ConfigService,
     private readonly cryptoService: TotpSecretCryptoService,
+    private readonly applications: BrowserApplications,
+    @Optional() private readonly registry?: ApplicationRegistry,
   ) {}
 
   /** Opens a challenge for a user who passed the first factor named. */
@@ -65,6 +84,8 @@ export class TwoFactorChallengeService {
     response: Response,
     firstFactor: FirstFactor,
   ): Promise<void> {
+    const application = await this.applications.resolve(response.req);
+    this.applications.assertEnabled(application);
     const sub = userId.toString();
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const expiresAt = Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS;
@@ -75,11 +96,54 @@ export class TwoFactorChallengeService {
       expiresAt: new Date(expiresAt),
     });
 
-    const token = this.encode({ sub, nonce, expiresAt, firstFactor });
-    response.cookie(TWO_FACTOR_CHALLENGE_COOKIE, token, {
+    const token = this.encode({
+      sub,
+      nonce,
+      expiresAt,
+      firstFactor,
+      clientId: application.clientId,
+    });
+    response.cookie(this.cookieName(response.req), token, {
       ...this.cookieOptions(),
       maxAge: TWO_FACTOR_CHALLENGE_TTL_MS,
     });
+  }
+
+  async issueIn(
+    work: UnitOfWork,
+    request: {
+      userId: string;
+      response: Response;
+      firstFactor: FirstFactor;
+      policyVersion?: number;
+    },
+  ): Promise<void> {
+    const { userId, response, firstFactor } = request;
+    const application = await this.applications.resolve(response.req);
+    this.applications.assertEnabled(application);
+    const nonce = randomBytes(NONCE_BYTES).toString('base64url');
+    const expiresAt = Date.now() + TWO_FACTOR_CHALLENGE_TTL_MS;
+    await this.challenges.openIn(work, {
+      userId,
+      nonceHash: hashNonce(nonce, firstFactor),
+      expiresAt: new Date(expiresAt),
+    });
+    const token = this.encode({
+      sub: userId,
+      nonce,
+      expiresAt,
+      firstFactor,
+      clientId: application.clientId,
+      ...(request.policyVersion === undefined
+        ? {}
+        : { policyVersion: request.policyVersion }),
+    });
+    work.afterCommit(() =>
+      response.cookie(this.cookieName(response.req), token, {
+        ...this.cookieOptions(),
+        maxAge: TWO_FACTOR_CHALLENGE_TTL_MS,
+      }),
+    );
   }
 
   /**
@@ -89,7 +153,15 @@ export class TwoFactorChallengeService {
    * missing, tampered with, expired, already spent, or out of attempts
    */
   async read(request: Request): Promise<TwoFactorChallengeContext> {
+    await this.applications.resolve(request);
     const payload = this.decodeCookie(request);
+    await assertBrowserChallengePolicy(this.applications, this.registry, {
+      request,
+      ...(payload.policyVersion === undefined
+        ? {}
+        : { policyVersion: payload.policyVersion }),
+      invalid: () => this.invalid('application policy changed'),
+    });
     const challenge = await this.challenges.find({
       nonceHash: hashNonce(payload.nonce, payload.firstFactor),
       userId: payload.sub,
@@ -120,7 +192,15 @@ export class TwoFactorChallengeService {
    * missing, spent, expired, already claimed, or out of attempts
    */
   async claim(request: Request): Promise<TwoFactorChallengeContext> {
+    await this.applications.resolve(request);
     const payload = this.decodeCookie(request);
+    await assertBrowserChallengePolicy(this.applications, this.registry, {
+      request,
+      ...(payload.policyVersion === undefined
+        ? {}
+        : { policyVersion: payload.policyVersion }),
+      invalid: () => this.invalid('application policy changed'),
+    });
     const challenge = await this.challenges.claim(
       {
         nonceHash: hashNonce(payload.nonce, payload.firstFactor),
@@ -157,12 +237,20 @@ export class TwoFactorChallengeService {
   }
 
   clear(response: Response): void {
-    response.clearCookie(TWO_FACTOR_CHALLENGE_COOKIE, this.cookieOptions());
+    response.clearCookie(this.cookieName(response.req), this.cookieOptions());
+  }
+
+  private cookieName(request: Request): string {
+    const application = this.applications.current(request);
+    return applicationCookieName(
+      TWO_FACTOR_CHALLENGE_COOKIE,
+      application.clientId,
+    );
   }
 
   private decodeCookie(request: Request): ChallengePayload {
     const cookies = request.cookies as Record<string, string> | undefined;
-    const raw = cookies?.[TWO_FACTOR_CHALLENGE_COOKIE];
+    const raw = cookies?.[this.cookieName(request)];
 
     if (typeof raw !== 'string' || raw.length === 0) {
       throw this.invalid('missing challenge cookie');
@@ -179,6 +267,12 @@ export class TwoFactorChallengeService {
     }
 
     const payload = this.decode(encoded);
+    if (
+      (payload.clientId ?? WEB_CLIENT_ID) !==
+      this.applications.current(request).clientId
+    ) {
+      throw this.invalid('challenge belongs to another application');
+    }
     if (payload.expiresAt <= Date.now()) {
       throw this.invalid('challenge cookie expired');
     }
@@ -200,6 +294,10 @@ export class TwoFactorChallengeService {
         typeof payload.nonce !== 'string' ||
         typeof payload.expiresAt !== 'number' ||
         !isFirstFactor(payload.firstFactor) ||
+        !validChallengePolicyVersion(payload.policyVersion) ||
+        (payload.clientId !== undefined &&
+          payload.clientId !== WEB_CLIENT_ID &&
+          payload.clientId !== ADMIN_CLIENT_ID) ||
         !this.challenges.isAccountId(payload.sub)
       ) {
         throw new Error('missing fields');
@@ -243,18 +341,4 @@ function toContext(
   firstFactor: FirstFactor,
 ): TwoFactorChallengeContext {
   return { challengeId: challenge.id, userId: challenge.userId, firstFactor };
-}
-
-/** A nonce is base64url, so the separator cannot be part of it. */
-function hashNonce(nonce: string, firstFactor: FirstFactor): string {
-  return createHash('sha256').update(`${nonce}.${firstFactor}`).digest('hex');
-}
-
-function constantTimeEquals(left: string, right: string): boolean {
-  const leftBytes = Buffer.from(left);
-  const rightBytes = Buffer.from(right);
-  if (leftBytes.length !== rightBytes.length) {
-    return false;
-  }
-  return timingSafeEqual(leftBytes, rightBytes);
 }
