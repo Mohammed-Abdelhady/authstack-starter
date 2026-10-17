@@ -70,6 +70,17 @@ export class MongoEmailCodeStore extends EmailCodeStore {
     return found ? toCode(found) : null;
   }
 
+  async findIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+  ): Promise<StoredEmailCode | null> {
+    const found = await this.collection.findOne(
+      { ownerId: key.ownerId, purpose: key.purpose },
+      { session: mongoSessionOf(work) },
+    );
+    return found ? toCode(found) : null;
+  }
+
   /** One pipeline update: the second stage reads the count the first wrote. */
   async recordWrongGuess(
     key: EmailCodeKey,
@@ -94,6 +105,44 @@ export class MongoEmailCodeStore extends EmailCodeStore {
       { returnDocument: 'after' },
     );
     return updated ? updated.wrongGuesses : null;
+  }
+
+  async deliverIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    delivery: { pendingHash: string; codeHash: string; limit: number },
+  ): Promise<boolean> {
+    if (delivery.pendingHash === delivery.codeHash) return false;
+    const changed = await this.collection.updateOne(
+      {
+        ownerId: key.ownerId,
+        purpose: key.purpose,
+        codeHash: delivery.pendingHash,
+        spentAt: { $ne: null },
+        expiresAt: { $gt: this.clock.now() },
+        wrongGuesses: { $lt: delivery.limit },
+      },
+      { $set: { codeHash: delivery.codeHash, spentAt: null } },
+      { session: mongoSessionOf(work) },
+    );
+    return changed.modifiedCount === 1;
+  }
+
+  async cancelIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    codeHash: string,
+  ): Promise<boolean> {
+    const changed = await this.collection.updateOne(
+      {
+        ownerId: key.ownerId,
+        purpose: key.purpose,
+        codeHash,
+      },
+      { $set: { codeHash: '', spentAt: this.clock.now() } },
+      { session: mongoSessionOf(work) },
+    );
+    return changed.modifiedCount === 1;
   }
 
   async spendIn(

@@ -5,6 +5,8 @@ export const EMAIL_CODE_PURPOSE = {
   SIGN_IN: 'sign-in',
   /** Wrong guesses at the fixed review code, owned by the review account's day. Holds no code. */
   REVIEW_GUESSES: 'review-guesses',
+  /** Wrong guesses at live sign-in codes, owned by an address's day. Holds no code. */
+  ADDRESS_GUESSES: 'address-guesses',
 } as const;
 
 export type EmailCodePurpose =
@@ -23,8 +25,9 @@ export function storedEmailCodePurpose(value: string): EmailCodePurpose {
 export const EMAIL_CODE_GUESS_LIMIT = 5;
 
 /**
- * One code per owner and purpose. The owner is an attempt, or for the review
- * guesses an account's day, never an address.
+ * One code per owner and purpose. The owner of a code is an attempt, never an
+ * address. A row that only counts guesses is owned by the review account's
+ * day, or by an address's day.
  */
 export interface EmailCodeKey {
   ownerId: string;
@@ -65,6 +68,12 @@ export abstract class EmailCodeStore {
 
   abstract find(key: EmailCodeKey): Promise<StoredEmailCode | null>;
 
+  /** Reads the current generation for cancellation in the same transaction. */
+  abstract findIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+  ): Promise<StoredEmailCode | null>;
+
   /**
    * Counts one wrong guess and returns the new count. The guess that reaches
    * `limit` spends the code. Null when the owner has no code.
@@ -73,6 +82,24 @@ export abstract class EmailCodeStore {
     key: EmailCodeKey,
     limit: number,
   ): Promise<number | null>;
+
+  /** Activates exactly one pending delivery generation, never a consumed code. */
+  abstract deliverIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    delivery: {
+      pendingHash: string;
+      codeHash: string;
+      limit: number;
+    },
+  ): Promise<boolean>;
+
+  /** Invalidates this exact generation, including a delivery still in flight. */
+  abstract cancelIn(
+    work: UnitOfWork,
+    key: EmailCodeKey,
+    codeHash: string,
+  ): Promise<boolean>;
 
   /**
    * Spends exactly this code while it is unspent, unexpired and under `limit`.
