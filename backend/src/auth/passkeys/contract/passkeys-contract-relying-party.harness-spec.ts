@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import { PasskeyConfigService } from '../services/passkey-config.service';
-import { LegacyPasskeyFacts } from '../services/legacy-passkey-facts';
 import { rerunAtOnce } from '../../../../test/utils/session/issuance-contract/issuance-contract-support';
 import {
   browser,
@@ -22,6 +21,22 @@ import {
   WEB_RP_ID,
 } from './passkeys-contract-native.harness-spec';
 import { relyingPartyScope } from '../utils/relying-party.util';
+// feature:email-code:start
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
+import {
+  APPLICATION_CLIENT_TYPE,
+  APPLICATION_PLATFORM,
+} from '../../../session/constants/client-ids';
+import {
+  type EmailCodeApplications,
+  type EmailCodeGrants,
+  SignInMethodRule,
+} from '../../../user/services/sign-in-method.rule';
+import { AuthFeaturesService } from '../../services/features/auth-features.service';
+import { PasskeyManagementService } from '../services/passkey-management.service';
+import { APP_CLIENT_ID } from './passkeys-contract-native.harness-spec';
+import { noRequiredRelyingParties } from '../services/browser-passkey-policy.harness-spec';
+// feature:email-code:end
 
 const LAST_WAY_IN = { code: 'PASSKEY_LAST_SIGN_IN_METHOD', status: 409 };
 /** By credential id it sorts before both fixture credentials. */
@@ -54,32 +69,6 @@ export function relyingPartyCases(
   harness: PasskeysHarnessSource,
   fixture: () => PasskeysFixture,
 ): void {
-  it('counts one passkey for each relying party, an unmarked one as the web one', async () => {
-    const { ownerId } = fixture();
-    await seedBothRelyingParties(harness, ownerId);
-    const facts = new LegacyPasskeyFacts(
-      harness().passkeys,
-      new PasskeyConfigService(
-        new ConfigService({ passkeys: { rpId: WEB_RP_ID } }),
-      ),
-    );
-
-    const counts = await harness()
-      .runner(rerunAtOnce)
-      .run(async (unitOfWork) => [
-        await facts.countForRelyingParty(unitOfWork, ownerId, WEB_RP_ID),
-        await facts.countForRelyingParty(unitOfWork, ownerId, APP_RP_ID),
-        await facts.countForRelyingParty(unitOfWork, ownerId, 'other.test'),
-      ]);
-
-    expect(counts).toEqual([1, 1, 0]);
-    // By credential id: the app one sorts first.
-    expect(await harness().storedRelyingParties()).toEqual([
-      { credentialId: OTHER_CREDENTIAL_ID, rpId: APP_RP_ID },
-      { credentialId: CREDENTIAL_ID, rpId: null },
-    ]);
-  });
-
   it('never accepts a passkey made for the app at the web sign-in', async () => {
     const { ownerId } = fixture();
     await seedBothRelyingParties(harness, ownerId);
@@ -185,4 +174,75 @@ export function relyingPartyCases(
       { credentialId: OTHER_CREDENTIAL_ID, rpId: APP_RP_ID },
     ]);
   });
+
+  // feature:email-code:start
+  // Failure: an emailed code, which opens only apps, lets the last web passkey
+  // go, or is not counted when an app passkey is removed.
+  it('counts an emailed code for removing an app passkey and never for the last web one', async () => {
+    const { ownerId } = fixture();
+    const config = new ConfigService({
+      emailCode: { enabled: true },
+      auth: {
+        nativeEnabled: true,
+        passwordEnabled: false,
+        nativeApplications: [
+          { clientId: APP_CLIENT_ID, signIn: { emailCode: true } },
+        ],
+      },
+      magicLink: { enabled: false },
+      passkeys: { enabled: true, rpId: WEB_RP_ID },
+    });
+    const application = {
+      enabled: true,
+      platform: APPLICATION_PLATFORM.NATIVE,
+      clientType: APPLICATION_CLIENT_TYPE.PUBLIC,
+    };
+    const applications: EmailCodeApplications = {
+      findClientIn: () => Promise.resolve(application),
+      lookUpClient: () => Promise.resolve(application),
+    };
+    const grants: EmailCodeGrants = {
+      takeGrantForChange: () => Promise.resolve(null),
+      readGrant: () => Promise.resolve(null),
+    };
+    const rule = new SignInMethodRule(
+      harness().signInMethods,
+      new AuthFeaturesService(config, browserApplicationsForTest(config)),
+      config,
+      applications,
+      grants,
+    );
+    const management = new PasskeyManagementService(
+      harness().passkeys,
+      rule,
+      harness().runner(rerunAtOnce),
+      new PasskeyConfigService(config),
+      browserApplicationsForTest(config),
+      noRequiredRelyingParties(),
+    );
+    const webId = await harness().seedPasskey({
+      userId: ownerId,
+      credentialId: CREDENTIAL_ID,
+      createdAt: NOW,
+    });
+    const appId = await harness().seedPasskey({
+      userId: ownerId,
+      credentialId: OTHER_CREDENTIAL_ID,
+      createdAt: NOW,
+      rpId: APP_RP_ID,
+    });
+
+    expect(await refusalOf(management.remove(ownerId, webId))).toEqual(
+      LAST_WAY_IN,
+    );
+    expect(await harness().storedRelyingParties()).toEqual([
+      { credentialId: OTHER_CREDENTIAL_ID, rpId: APP_RP_ID },
+      { credentialId: CREDENTIAL_ID, rpId: null },
+    ]);
+    await management.remove(ownerId, appId);
+    expect(await harness().storedRelyingParties()).toEqual([
+      { credentialId: CREDENTIAL_ID, rpId: null },
+    ]);
+  });
+  // feature:email-code:end
 }

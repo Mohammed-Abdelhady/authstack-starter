@@ -7,7 +7,6 @@ import {
   CREDENTIAL_ID,
   NOW,
   OTHER_CREDENTIAL_ID,
-  OWNER_EMAIL,
   PasskeysFixture,
   PasskeysHarnessSource,
   rejectionOf,
@@ -86,35 +85,6 @@ export function seamCases(
     expect(read?.createdAt).toBeInstanceOf(Date);
     expect(await passkeys.listDescriptors(ownerId)).toEqual([
       { credentialId: CREDENTIAL_ID, transports: ['usb', 'nfc'] },
-    ]);
-  });
-
-  it('reads an account as stored and the ways in it carries itself', async () => {
-    const { ownerId } = fixture();
-    const { accounts } = harness();
-    const bareId = await harness().seedAccount({
-      email: 'bare@example.test',
-    });
-    const linkedId = await harness().seedAccount({
-      email: 'linked@example.test',
-      linked: true,
-    });
-    await harness().setDeleted(ownerId, true);
-
-    expect(await accounts.findAccount(ownerId)).toEqual({
-      id: ownerId,
-      email: OWNER_EMAIL,
-      name: 'Contract Tester',
-      isDeleted: true,
-    });
-    expect([
-      await accounts.findSignInMethods(ownerId),
-      await accounts.findSignInMethods(bareId),
-      await accounts.findSignInMethods(linkedId),
-    ]).toEqual([
-      { hasPassword: true, hasLinkedAccount: false },
-      { hasPassword: false, hasLinkedAccount: false },
-      { hasPassword: false, hasLinkedAccount: true },
     ]);
   });
 

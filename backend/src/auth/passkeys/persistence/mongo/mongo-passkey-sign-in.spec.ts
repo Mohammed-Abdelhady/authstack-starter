@@ -18,6 +18,11 @@ const SIGNED_IN = {
   user: { id: USER_ID, email: 'user@example.com', name: 'Test User' },
 };
 
+const VERIFIED_PASSKEY = {
+  authenticationMethods: ['passkey'],
+  userVerified: true,
+};
+
 async function readAccount(document: UserDocument) {
   const accounts = new MongoPasskeyAccounts(
     createModelMock<Model<UserDocument>>({
@@ -57,11 +62,7 @@ describe('MongoPasskeySignIn', () => {
 
       expect(outcome).toBe(answer);
       expect(completeSignIn.mock.calls).toEqual([
-        [
-          document,
-          response,
-          'passkey', // feature:totp
-        ],
+        [document, response, 'passkey'],
       ]);
       expect(issueSession).not.toHaveBeenCalled();
     },
@@ -78,10 +79,13 @@ describe('MongoPasskeySignIn', () => {
     const user = await signIn.issueSession(
       await readAccount(document),
       response,
+      VERIFIED_PASSKEY,
     );
 
     expect(user).toBe(SIGNED_IN.user);
-    expect(issueSession.mock.calls).toEqual([[document, response]]);
+    expect(issueSession.mock.calls).toEqual([
+      [document, response, VERIFIED_PASSKEY],
+    ]);
     expect(completeSignIn).not.toHaveBeenCalled();
   });
 });

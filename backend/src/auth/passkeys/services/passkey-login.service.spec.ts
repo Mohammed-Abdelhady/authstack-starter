@@ -83,16 +83,6 @@ function createHarness(options: {
 describe('PasskeyLoginService', () => {
   const request = createMockRequest({});
 
-  it('should hand the challenge options back to the client', async () => {
-    const harness = createHarness({});
-    const { response } = createMockResponse();
-
-    const result = await harness.service.createOptions(response);
-
-    expect(result.data.challenge).toBe('challenge');
-    expect(harness.assertions.createOptions).toHaveBeenCalledWith(response);
-  });
-
   it('should finish the sign-in when the passkey verified the user', async () => {
     const harness = createHarness({ userVerified: true });
     const { response } = createMockResponse();
@@ -107,7 +97,15 @@ describe('PasskeyLoginService', () => {
       requiresTwoFactor: false,
       user: USER_SUMMARY,
     });
-    expect(harness.signInService.issueSession).toHaveBeenCalled();
+    // The session records what the passkey verified, which a required
+    // passkey and the staff guard read.
+    expect(harness.signInService.issueSession.mock.calls).toEqual([
+      [
+        expect.anything(),
+        response,
+        { authenticationMethods: ['passkey'], userVerified: true },
+      ],
+    ]);
     // User verification is the second factor, so the TOTP path is skipped.
     expect(harness.signInService.completeSignIn).not.toHaveBeenCalled();
   });

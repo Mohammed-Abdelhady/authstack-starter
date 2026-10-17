@@ -15,6 +15,11 @@ const SIGNED_IN = {
   user: { id: USER_ID, email: 'user@example.com', name: 'Test User' },
 };
 
+const VERIFIED_PASSKEY = {
+  authenticationMethods: ['passkey'],
+  userVerified: true,
+};
+
 describe('PostgresPasskeySignIn', () => {
   const stored = partialMock<SignInAccount>({
     id: USER_ID,
@@ -48,11 +53,7 @@ describe('PostgresPasskeySignIn', () => {
 
       expect(outcome).toBe(answer);
       expect(completeSignIn.mock.calls).toEqual([
-        [
-          stored,
-          response,
-          'passkey', // feature:totp
-        ],
+        [stored, response, 'passkey'],
       ]);
       expect(issueSession).not.toHaveBeenCalled();
     },
@@ -66,10 +67,12 @@ describe('PostgresPasskeySignIn', () => {
     );
     const response = createResponseMock({});
 
-    const user = await signIn.issueSession(account, response);
+    const user = await signIn.issueSession(account, response, VERIFIED_PASSKEY);
 
     expect(user).toBe(SIGNED_IN.user);
-    expect(issueSession.mock.calls).toEqual([[stored, response]]);
+    expect(issueSession.mock.calls).toEqual([
+      [stored, response, VERIFIED_PASSKEY],
+    ]);
     expect(completeSignIn).not.toHaveBeenCalled();
   });
 });
