@@ -1,3 +1,6 @@
+import type { ProviderSignInPort } from '@app/native-auth';
+import type { AccountDeletionProps } from './account-deletion';
+import type { EmailConfirmationProps } from './email-confirmation';
 import type { ComponentType } from 'react';
 import type { NativeProviderButtonProps } from './native-sign-in';
 import type { AuthEngine, AuthSnapshot, RestoreOutcome, SignInOutcome } from '@app/native-auth';
@@ -39,6 +42,9 @@ export interface ConfirmRequest {
 export type Confirm = (request: ConfirmRequest) => Promise<boolean>;
 
 export interface NativeAppProps {
+  emailConfirmation?: EmailConfirmationProps;
+  accountDeletion?: AccountDeletionProps;
+  providerSignIn?: ProviderSignInPort;
   engine: AuthEngine;
   providerButton?: ComponentType<NativeProviderButtonProps>;
   /** The product name shown on the sign-in screen. */
@@ -63,7 +69,9 @@ export type EnginePort = Pick<
   | 'methods'
   | 'nativeSignIn'
   | 'cancelNativeSignIn'
->;
+> & {
+  readonly passkeys?: Pick<AuthEngine['passkeys'], 'prove'>; // feature:passkeys
+};
 
 export interface SignInAttempt {
   pending: boolean;

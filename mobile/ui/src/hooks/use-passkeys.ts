@@ -2,7 +2,12 @@ import type { PasskeyActions } from '@app/native-auth';
 import { ApiError, type PasskeySummary } from '@app/sdk';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NOTICE_TONE } from '../components/Notice';
-import { PASSKEY_LAST_WAY_IN_CODE, PASSKEYS_VIEW, type PasskeysView } from '../constants/passkeys';
+import {
+  PASSKEY_LAST_WAY_IN_CODE,
+  PASSKEY_REQUIRED_LAST_CODE,
+  PASSKEYS_VIEW,
+  type PasskeysView,
+} from '../constants/passkeys';
 import { useUi } from '../context/ui-context';
 import { outcomeNotice, passkeyName, type PasskeyNotice } from '../logic/passkey-text';
 import { toApiFailure } from '../logic/request-failure';
@@ -91,7 +96,13 @@ export function usePasskeys(actions: PasskeyActions) {
         if (renamed === undefined) return false;
         setList((current) => ({
           passkeys: (current.passkeys ?? []).map((item) =>
-            item.id === renamed.id ? renamed : item,
+            item.id === renamed.id
+              ? {
+                  ...renamed,
+                  canRemove: item.canRemove,
+                  removalBlockedCode: item.removalBlockedCode,
+                }
+              : item,
           ),
         }));
         return true;
@@ -109,6 +120,7 @@ export function usePasskeys(actions: PasskeyActions) {
 
   const remove = useCallback(
     async (passkey: PasskeySummary) => {
+      if (passkey.canRemove === false) return;
       if (pending.current.has(passkey.id)) return;
       setNotice(undefined);
       const name = passkeyName(t, passkey);
@@ -130,9 +142,12 @@ export function usePasskeys(actions: PasskeyActions) {
         setNotice({
           tone: NOTICE_TONE.PROBLEM,
           title: t('passkeys.removeFailed.title', { name }),
-          description: lastWayIn
-            ? t('passkeys.removeFailed.lastWayIn')
-            : failureText(t, toApiFailure(error)),
+          description:
+            error instanceof ApiError && error.code === PASSKEY_REQUIRED_LAST_CODE
+              ? t('passkeys.removeFailed.required')
+              : lastWayIn
+                ? t('passkeys.removeFailed.lastWayIn')
+                : failureText(t, toApiFailure(error)),
         });
       }
     },
