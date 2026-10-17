@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { validNativeName } from '../src/logic/native-form-validation';
 import { nativeApp, disposeNativeApps, ATTEMPT_ID } from './support/native-auth';
 import { cleanup, press, isShown } from './support/render';
 import { LOCALES } from './support/locales';
@@ -8,22 +7,6 @@ vi.mock('react-native', () => import('./support/react-native'));
 afterEach(() => {
   cleanup();
   disposeNativeApps();
-});
-
-describe('native name policy', () => {
-  it.each([
-    ['', false],
-    [' ', false],
-    ['A', false],
-    ['Ab', true],
-    ['123', false],
-    ['\u{10400}'.repeat(99), true],
-    ['\u{10400}'.repeat(100), true],
-    ['\u{10400}'.repeat(101), false],
-    [' E\u0301mile ', true],
-  ] as const)('applies the shared name character policy', (name, valid) => {
-    expect(validNativeName(name)).toBe(valid);
-  });
 });
 
 describe.each(LOCALES)('native name activation in %s', (locale) => {

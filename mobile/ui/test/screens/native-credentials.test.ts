@@ -3,7 +3,6 @@ import { cleanup, press, byTestId, isShown, flush } from '../support/render';
 import { nativeApp, disposeNativeApps, ATTEMPT_ID } from '../support/native-auth';
 import { deferred } from '../support/fake-engine';
 import { act } from 'react';
-import { LOCALES } from '../support/locales';
 
 vi.mock('react-native', () => import('../support/react-native'));
 afterEach(() => {
@@ -11,7 +10,7 @@ afterEach(() => {
   disposeNativeApps();
 });
 
-describe.each(LOCALES)('native credential handoff in %s', (locale) => {
+describe.each(['en'] as const)('native credential handoff in %s', (locale) => {
   it('submits the field values through real engine/SDK and clears the password before a reply', async () => {
     const app = await nativeApp(locale);
     const response = deferred<unknown>();

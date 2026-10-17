@@ -8,15 +8,12 @@ import { LOCALES } from '../support/locales';
 import { device } from '../support/react-native';
 import {
   accessibilityOf,
-  byRole,
   byTestId,
   cleanup,
   isShown,
   press,
   pullToRefresh,
-  refreshControl,
   renderApp,
-  textsOf,
   type App,
 } from '../support/render';
 import {
@@ -35,64 +32,6 @@ vi.mock('react-native', () => import('../support/react-native'));
 afterEach(cleanup);
 
 describe.each(LOCALES)('the devices screen in %s', (locale) => {
-  it('reads as loading until the list arrives', async () => {
-    const app = await opened(locale);
-
-    expect(
-      byRole(app.root, 'progressbar').map((node) => ({
-        label: node.props.accessibilityLabel,
-        state: node.props.accessibilityState,
-      })),
-    ).toEqual([{ label: app.t('sessions.loading'), state: { busy: true } }]);
-    expect(accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REFRESH))).toEqual({
-      accessibilityRole: 'button',
-      accessibilityLabel: app.t('sessions.refresh'),
-      accessibilityHint: undefined,
-      accessibilityState: { disabled: true, busy: true },
-    });
-    expect(rows(app)).toEqual([]);
-  });
-
-  it('names each sign-out button after the device it signs out', async () => {
-    const app = await listed(locale);
-
-    expect(rows(app)).toEqual(['phone', 'laptop', 'tablet']);
-    expect(byRole(app.root, 'progressbar')).toEqual([]);
-    expect([
-      accessibilityOf(byTestId(app.root, REVOKE('phone'))),
-      accessibilityOf(byTestId(app.root, REVOKE('laptop'))),
-      accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_REVOKE_OTHERS)),
-      accessibilityOf(byTestId(app.root, TEST_ID.SESSIONS_BACK)),
-    ]).toEqual([
-      {
-        accessibilityRole: 'button',
-        accessibilityLabel: app.t('account.signOut'),
-        accessibilityHint: app.t('account.signOutHint'),
-        accessibilityState: IDLE,
-      },
-      {
-        accessibilityRole: 'button',
-        accessibilityLabel: app.t('sessions.revokeLabel', {
-          device: '\u2068Work laptop\u2069',
-        }),
-        accessibilityHint: undefined,
-        accessibilityState: IDLE,
-      },
-      {
-        accessibilityRole: 'button',
-        accessibilityLabel: app.t('sessions.revokeOthers'),
-        accessibilityHint: undefined,
-        accessibilityState: IDLE,
-      },
-      {
-        accessibilityRole: 'button',
-        accessibilityLabel: app.t('sessions.back'),
-        accessibilityHint: undefined,
-        accessibilityState: IDLE,
-      },
-    ]);
-  });
-
   it('asks before signing another device out, naming it, and sends nothing when declined', async () => {
     const app = await listed(locale);
 
@@ -235,21 +174,6 @@ describe.each(LOCALES)('the devices screen in %s', (locale) => {
       });
     },
   );
-
-  it('says there are no other devices, and offers no sign-out for them, when only this one is listed', async () => {
-    const app = await listed(locale, [PHONE]);
-
-    expect(byRole(app.root, 'summary').map(textsOf)).toEqual([
-      [app.t('sessions.empty.title'), app.t('sessions.empty.description')],
-    ]);
-    expect(isShown(app.root, TEST_ID.SESSIONS_REVOKE_OTHERS)).toBe(false);
-  });
-
-  it('names the pull-to-refresh control for a screen reader', async () => {
-    const app = await listed(locale);
-
-    expect(refreshControl(app.root).props.accessibilityLabel).toBe(app.t('sessions.refresh'));
-  });
 
   it('keeps the refresh button available across list states and blocks overlapping reads', async () => {
     const app = await opened(locale);

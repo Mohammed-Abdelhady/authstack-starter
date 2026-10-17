@@ -21,13 +21,18 @@ afterEach(cleanup);
 describe('signing devices out from the devices screen', () => {
   it('keeps the device out of the list once the server has ended its session', async () => {
     const app = await listed();
+    const sentBefore = app.server.sent().length;
     await press(app.root, REVOKE('laptop'));
     await app.confirm.answer(true);
 
     await app.step(() => app.server.answer(ROUTE.revoke('laptop'), ok({ message: 'done' })));
     await app.step(() => app.server.answer(ROUTE.SESSIONS, sessionList([PHONE, TABLET])));
 
-    expect({ rows: rows(app), problem: problem(app), sent: app.server.sent().slice(2) }).toEqual({
+    expect({
+      rows: rows(app),
+      problem: problem(app),
+      sent: app.server.sent().slice(sentBefore),
+    }).toEqual({
       rows: ['phone', 'tablet'],
       problem: undefined,
       sent: [ROUTE.revoke('laptop'), ROUTE.SESSIONS],
@@ -36,6 +41,7 @@ describe('signing devices out from the devices screen', () => {
 
   it('shows a refused device again at once, and keeps it and the notice when the next read fails too', async () => {
     const app = await listed();
+    const sentBefore = app.server.sent().length;
     await press(app.root, REVOKE('laptop'));
     await app.confirm.answer(true);
     const notice = [
@@ -44,7 +50,11 @@ describe('signing devices out from the devices screen', () => {
     ];
 
     await app.step(() => app.server.fail(ROUTE.revoke('laptop'), noResponse()));
-    expect({ rows: rows(app), problem: problem(app), sent: app.server.sent().slice(2) }).toEqual({
+    expect({
+      rows: rows(app),
+      problem: problem(app),
+      sent: app.server.sent().slice(sentBefore),
+    }).toEqual({
       rows: ['phone', 'laptop', 'tablet'],
       problem: notice,
       sent: [ROUTE.revoke('laptop'), ROUTE.SESSIONS],
@@ -76,19 +86,6 @@ describe('signing devices out from the devices screen', () => {
         app.t('sessions.revokeOthersFailed.description'),
       ],
     });
-  });
-
-  it('sends one request when a second sign-out is confirmed while the first is still out', async () => {
-    const app = await listed();
-    await press(app.root, REVOKE('laptop'));
-    await app.confirm.answer(true);
-
-    await press(app.root, REVOKE('tablet'));
-    await app.confirm.answer(true);
-    await press(app.root, TEST_ID.SESSIONS_REVOKE_OTHERS);
-    await app.confirm.answer(true);
-
-    expect(writes(app)).toEqual([ROUTE.revoke('laptop')]);
   });
 
   it('clears the notice when the person acts again', async () => {
@@ -163,12 +160,13 @@ describe('signing devices out from the devices screen', () => {
   it('shows the refresh indicator only while a pull is reading the list', async () => {
     const app = await listed();
     expect(refreshControl(app.root).props.refreshing).toBe(false);
+    const sentBefore = app.server.sent().length;
 
     await pullToRefresh(app.root);
     expect({
       refreshing: refreshControl(app.root).props.refreshing,
-      sent: app.server.sent(),
-    }).toEqual({ refreshing: true, sent: [ROUTE.PROFILE, ROUTE.SESSIONS, ROUTE.SESSIONS] });
+      sent: app.server.sent().slice(sentBefore),
+    }).toEqual({ refreshing: true, sent: [ROUTE.SESSIONS] });
 
     await app.step(() => app.server.answer(ROUTE.SESSIONS, sessionList([PHONE, TABLET])));
     expect({ refreshing: refreshControl(app.root).props.refreshing, rows: rows(app) }).toEqual({

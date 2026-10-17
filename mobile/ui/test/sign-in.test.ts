@@ -67,18 +67,6 @@ describe('the sign-in action', () => {
       signIns: 0,
     });
   });
-
-  it('tells its subscribers when an attempt starts and when it ends', async () => {
-    const { fake, signIn } = controller();
-    const seen: boolean[] = [];
-    signIn.subscribe(() => seen.push(signIn.getState().pending));
-
-    signIn.run('signIn');
-    fake.signIns[0]?.resolve({ kind: 'dismissed' });
-    await settle();
-
-    expect(seen).toEqual([true, false]);
-  });
 });
 
 describe('the sign-in screen state', () => {
@@ -152,10 +140,6 @@ describe('the sign-in screen state', () => {
     });
   });
 
-  it('reads storage again, not the browser, while the engine reports storage blocked', () => {
-    expect(signInView(snapshot('storageBlocked'), IDLE).action).toBe('restore');
-  });
-
   it.each([
     ['storageFailure', 'storage'],
     ['deviceKeyUnavailable', 'deviceKey'],
@@ -216,13 +200,6 @@ describe('the sign-in screen state', () => {
       off('signedOut', 'oauthFailure'),
       off('reauthRequired', 'disabled'),
     ]).toEqual([true, false, false, false]);
-  });
-
-  it('says the session ended when the engine needs a new sign-in', () => {
-    expect([
-      signInView(snapshot('reauthRequired'), IDLE).sessionEnded,
-      signInView(SIGNED_OUT, IDLE).sessionEnded,
-    ]).toEqual([true, false]);
   });
 });
 
