@@ -1,4 +1,6 @@
+import { nativeProviderLinkBoot } from './native-provider-link-cases.harness-spec'; // feature:google
 import { randomBytes } from 'node:crypto';
+import { nativeProofCases } from './native-proof-cases.harness-spec';
 import { ConfigService } from '@nestjs/config';
 import request from 'supertest';
 import { unwrapNativeAttemptResult } from '@app/sdk';
@@ -11,6 +13,7 @@ import {
   type SoftwareAuthenticator,
 } from '../../src/auth/passkeys/services/software-authenticator.harness-spec';
 import { DEFAULT_API_AUDIENCE } from '../../src/session/constants/client-ids';
+import { reconcileStartupApplications } from '../../src/session/session.module';
 import { nativeAuthorizeQuery } from '../../src/session/native/harness/native-oauth-requests.harness-spec';
 import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
 import { bootE2eApp, loginAs, type E2eApp } from '../utils/e2e-app';
@@ -20,6 +23,7 @@ import {
   SESSION_AUTHORITY_TEARDOWN_TIMEOUT_MS,
 } from '../utils/hook-timeouts';
 import {
+  issueNativeGrantFor,
   NATIVE_CLIENT_ID,
   NATIVE_REDIRECT,
   seedUserId,
@@ -39,6 +43,12 @@ const APPLICATION = {
   allowedScopes: [DEFAULT_API_AUDIENCE],
   signIn: { password: true, passkeys: true, rpId: RP_ID, origins: [ORIGIN] },
 };
+/** A second app on the same relying party, so only the session tells the two apart. */
+const SECOND_APPLICATION = {
+  ...APPLICATION,
+  clientId: 'native-app-two',
+  displayName: 'Second native passkey test client',
+};
 
 interface Answered {
   status: number;
@@ -56,9 +66,18 @@ function dataOf<Data>(answer: Answered): Data {
 
 describe('passkeys from a signed-in mobile app (e2e)', () => {
   let e2e: E2eApp;
+  nativeProofCases(() => ({
+    e2e,
+    application: APPLICATION,
+    register: registerFromApp,
+    signIn: signInWith,
+    finish: finishSignIn,
+  }));
 
   beforeAll(async () => {
-    e2e = await bootE2eApp();
+    e2e = await bootE2eApp(0, {
+      ...nativeProviderLinkBoot(), // feature:google
+    });
   }, SESSION_AUTHORITY_BOOT_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -106,7 +125,11 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
   }
 
   /** A native passkey sign-in with the key, through to the attempt's stage. */
-  async function signInWith(key: SoftwareAuthenticator, counter: number) {
+  async function signInWith(
+    key: SoftwareAuthenticator,
+    counter: number,
+    flags = VERIFIED_TOUCH,
+  ) {
     const verifier = randomBytes(32).toString('base64url');
     const query = nativeAuthorizeQuery(verifier);
     const started = await request(e2e.httpServer)
@@ -133,7 +156,7 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
       rpId: RP_ID,
       origin: ORIGIN,
       challenge: dataOf<{ challenge: string }>(options).challenge,
-      flags: VERIFIED_TOUCH,
+      flags,
       counter,
     });
     const answered = await request(e2e.httpServer)
@@ -154,7 +177,7 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
           },
         },
       });
-    return { answered, attempt, verifier };
+    return { answered, attempt, verifier, options };
   }
 
   /** Consent, then the code exchanged the way the app exchanges it. */
@@ -210,6 +233,9 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
 
   it('refuses a browser cookie on the native routes', async () => {
     const browser = await loginAs(e2e.httpServer, SEED_USER);
+    expect(
+      refusalOf(await browser.post('/api/auth/native/proof/options').send({})),
+    ).toEqual({ status: 401, code: 'SESSION_REQUIRED' });
 
     expect(refusalOf(await browser.post(OPTIONS).send({}))).toEqual({
       status: 403,
@@ -276,5 +302,43 @@ describe('passkeys from a signed-in mobile app (e2e)', () => {
     await app.delete(`${PASSKEYS}/${ownId}`).expect(200);
     expect(await e2e.state.auth.countPasskeys()).toBe(1);
     expect((await signInWith(key, 1)).answered.status).toBe(409);
+  });
+
+  // Failure: a registration challenge one app's session took is spent by
+  // another app's session of the same account.
+  it("refuses one app's registration challenge under another app's session", async () => {
+    e2e.app
+      .get(ConfigService)
+      .set('auth.nativeApplications', [APPLICATION, SECOND_APPLICATION]);
+    await reconcileStartupApplications(e2e.app);
+    const { tokens } = await signInNative(e2e);
+    const second = await issueNativeGrantFor(
+      e2e,
+      SEED_USER.email,
+      SECOND_APPLICATION.clientId,
+    );
+    const options = await bearer(tokens.accessToken).post(OPTIONS).expect(200);
+    const response = attestationCredential(
+      createSoftwareAuthenticator(randomBytes(32)),
+      {
+        rpId: RP_ID,
+        origin: ORIGIN,
+        challenge: dataOf<{ challenge: string }>(options).challenge,
+        flags: VERIFIED_TOUCH,
+        counter: 0,
+      },
+    );
+
+    const replayed = await bearer(second.accessToken).post(VERIFY, {
+      response,
+    });
+    expect(refusalOf(replayed)).toEqual({
+      status: 401,
+      code: 'PASSKEY_CHALLENGE_INVALID',
+    });
+    expect(await e2e.state.auth.countPasskeys()).toBe(0);
+    // The app the challenge was issued to can still spend it.
+    await bearer(tokens.accessToken).post(VERIFY, { response }).expect(200);
+    expect(await e2e.state.auth.countPasskeys()).toBe(1);
   });
 });

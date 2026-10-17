@@ -11,6 +11,7 @@ import { PasskeyChallengeService } from './passkey-challenge.service';
 import { PasskeyRecorder } from './passkey-recorder.service';
 import { WebAuthnAdapter } from './webauthn.adapter';
 import { NewPasskey } from '../stores/passkey.store';
+import { SessionCookieService } from '../../services/sessions/session-cookie.service';
 import {
   createModelMock,
   partialMock,
@@ -23,6 +24,7 @@ import {
   createMockRequest,
   createMockResponse,
   createPasskeyConfig,
+  createPasskeyPolicy,
   OTHER_USER_ID,
   ORIGIN,
   RP_ID,
@@ -123,8 +125,13 @@ function createHarness(options: { alreadyRegistered?: boolean } = {}): Harness {
       // The unit of work around the insert runs on a real database in the
       // contract; here the insert is the model call it ends in.
       partialMock<PasskeyRecorder>({
-        record: (passkey: NewPasskey) => store.insert(passkey),
+        record: async (passkey: NewPasskey) => ({
+          passkey: await store.insert(passkey),
+        }),
       }),
+      createPasskeyPolicy(),
+      // A registration on a full session promotes nothing, so sets no cookie.
+      partialMock<SessionCookieService>({}),
     ),
     adapter,
     passkeyModel,
@@ -210,7 +217,7 @@ describe('PasskeyRegistrationService', () => {
         challenge: 'challenge-value',
         origins: [ORIGIN],
         rpId: RP_ID,
-        // Today's rule until the application policy reader lands.
+        // Neither a required passkey nor an enrolment session asks for more.
         userVerification: 'preferred',
       });
       expect(stored.rpId).toBe(RP_ID);

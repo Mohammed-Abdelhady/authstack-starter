@@ -10,6 +10,10 @@ import {
   createRequestMock,
   createResponseMock,
 } from '../../../../common/testing/test-doubles.harness-spec';
+import { browserApplicationsForTest } from '../../../../common/testing/browser-applications.harness-spec';
+import { BrowserApplications } from '../../../../session/applications/browser-applications';
+import { BrowserPasskeyPolicy } from '../../services/browser-passkey-policy.service';
+import { webPasskeyPolicy } from '../../services/browser-passkey-policy.harness-spec';
 
 /**
  * Shared setup for the passkey specs.
@@ -53,15 +57,25 @@ export function createChallengeStore(): {
 export function createChallengeService(
   values?: Record<string, string>,
   store = createChallengeStore(),
+  applications?: BrowserApplications,
 ): PasskeyChallengeService {
+  const config = createConfigService(values);
   return new PasskeyChallengeService(
     new MongoPasskeyChallengeStore(
       createModelMock<
         ConstructorParameters<typeof MongoPasskeyChallengeStore>[0]
       >(store),
     ),
-    createConfigService(values),
+    config,
+    applications ?? browserApplicationsForTest(config),
   );
+}
+
+/** The web application's passkey policy, on the configured relying party. */
+export function createPasskeyPolicy(
+  requirePasskey = false,
+): BrowserPasskeyPolicy {
+  return webPasskeyPolicy({ rpId: RP_ID, origins: [ORIGIN] }, requirePasskey);
 }
 
 export function createPasskeyConfig(): PasskeyConfigService {
@@ -119,7 +133,8 @@ export interface MockResponse {
   cleared: string[];
 }
 
-export function createMockResponse(): MockResponse {
+/** A response to a request from `origin`, or from no page when it is absent. */
+export function createMockResponse(origin?: string): MockResponse {
   const cookies: Record<string, string> = {};
   const cleared: string[] = [];
 
@@ -130,12 +145,21 @@ export function createMockResponse(): MockResponse {
     clearCookie: (name: string): void => {
       cleared.push(name);
     },
-    req: { headers: { 'user-agent': 'test-agent' }, ip: '127.0.0.1' },
+    req: {
+      headers: { 'user-agent': 'test-agent', ...(origin ? { origin } : {}) },
+      ip: '127.0.0.1',
+    },
   });
 
   return { response, cookies, cleared };
 }
 
-export function createMockRequest(cookies: Record<string, string>): Request {
-  return createRequestMock({ cookies });
+export function createMockRequest(
+  cookies: Record<string, string>,
+  origin?: string,
+): Request {
+  return createRequestMock({
+    cookies,
+    headers: origin ? { origin } : {},
+  });
 }

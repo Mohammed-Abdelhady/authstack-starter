@@ -1,3 +1,4 @@
+import { browserApplicationsForTest } from '../../../common/testing/browser-applications.harness-spec';
 import { createHash } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
@@ -27,7 +28,12 @@ import {
 } from '../services/passkey-registration.service';
 import { PasskeySecondFactorVerifier } from '../services/passkey-second-factor.verifier';
 import { PasskeyRecorder } from '../services/passkey-recorder.service';
-import { NoEnrolmentPromotion } from '../services/enrolment-promotion';
+import { NoopEnrolmentPromotion } from '../../contracts/defaults/noop-enrolment-promotion';
+import { SessionCookieService } from '../../services/sessions/session-cookie.service';
+import {
+  requiredRelyingPartiesOf,
+  webPasskeyPolicy,
+} from '../services/browser-passkey-policy.harness-spec';
 import { AttestationVerification } from '../services/webauthn.adapter';
 import { PasskeysContractHarness } from './passkeys-contract-database.harness-spec';
 
@@ -103,6 +109,8 @@ export interface FeatureSwitches {
   password?: boolean;
   magicLink?: boolean;
   passkeys?: boolean;
+  /** The web application lets the account in with a passkey only. */
+  requirePasskey?: boolean;
 }
 
 /** The real services on one database's adapters. */
@@ -124,19 +132,29 @@ export function passkeyServices(
     magicLink: { enabled: features.magicLink ?? false },
     NODE_ENV: 'test',
   });
+  const browserApplications = browserApplicationsForTest(config);
   const storeCalls: string[] = [];
   const passkeys = recorded(harness.passkeys, 'passkeys', storeCalls);
   const accounts = recorded(harness.accounts, 'accounts', storeCalls);
   const challenges = recorded(harness.challenges, 'challenges', storeCalls);
   const authenticator = new ScriptedAuthenticator();
   const passkeyConfig = new PasskeyConfigService(config);
-  const featureSwitches = new AuthFeaturesService(config);
-  const challenge = new PasskeyChallengeService(challenges, config);
+  const featureSwitches = new AuthFeaturesService(config, browserApplications);
+  const challenge = new PasskeyChallengeService(
+    challenges,
+    config,
+    browserApplications,
+  );
+  const policy = webPasskeyPolicy({
+    rpId: passkeyConfig.rpId,
+    origins: [passkeyConfig.origin],
+  });
   const assertion = new PasskeyAssertionService(
     passkeys,
     authenticator,
     passkeyConfig,
     challenge,
+    policy,
   );
   const signIn = new RecordingSignIn();
   const signInRule = new SignInMethodRule(
@@ -147,7 +165,7 @@ export function passkeyServices(
     passkeys,
     accounts,
     harness.runner(pause),
-    new NoEnrolmentPromotion(),
+    new NoopEnrolmentPromotion(),
   );
 
   return {
@@ -171,6 +189,8 @@ export function passkeyServices(
         // feature:totp:end
       ),
       recorder,
+      policy,
+      new SessionCookieService(config, browserApplications),
     ),
     assertion,
     login: new PasskeyLoginService(accounts, assertion, signIn),
@@ -179,6 +199,10 @@ export function passkeyServices(
       signInRule,
       harness.runner(pause),
       passkeyConfig,
+      browserApplications,
+      requiredRelyingPartiesOf(
+        features.requirePasskey ? [passkeyConfig.rpId] : [],
+      ),
     ),
     verifier: new PasskeySecondFactorVerifier(featureSwitches, assertion),
     challenge,
