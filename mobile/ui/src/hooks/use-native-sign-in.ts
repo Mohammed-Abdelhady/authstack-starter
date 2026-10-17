@@ -1,3 +1,4 @@
+import { erasureDate } from '../logic/account-deletion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler } from 'react-native';
 import { NATIVE_AUTH_FLOW } from '@app/core';
@@ -23,6 +24,7 @@ export function useNativeSignIn() {
   const [pending, setPending] = useState(false);
   const [pendingFactor, setPendingFactor] = useState<string>();
   const [message, setMessage] = useState<MessageKey>();
+  const [eraseAfter, setEraseAfter] = useState<string>();
   const [problem, setProblem] = useState(false);
   const alive = useRef(false);
   const generation = useRef(0);
@@ -78,6 +80,7 @@ export function useNativeSignIn() {
   const finish = useCallback((outcome: NativeSignInOutcome, epoch: number) => {
     if (!alive.current || epoch !== generation.current) return;
     setMessage(nativeOutcomeMessage(outcome));
+    setEraseAfter(outcome.kind === 'apiFailure' ? outcome.eraseAfter : undefined);
     setProblem(
       !['continue', 'signedIn', 'activationCompleted', 'recoveryComplete', 'cancelled'].includes(
         outcome.kind,
@@ -229,6 +232,7 @@ export function useNativeSignIn() {
     pending,
     pendingFactor,
     message,
+    messageValues: { date: erasureDate(locale, eraseAfter) ?? '' },
     problem,
     view: snapshot.nativeAttempt,
     load,

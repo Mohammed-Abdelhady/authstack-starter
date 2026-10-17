@@ -1,3 +1,7 @@
+import { DeleteSection } from '../components/DeleteSection';
+import { EmailConfirmation } from '../components/EmailConfirmation';
+import type { EmailConfirmationProps } from '../types/email-confirmation';
+import type { AccountDeletionProps } from '../types/account-deletion';
 import { NATIVE_AUTH_STAGE } from '@app/core';
 import { useCallback } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -36,7 +40,10 @@ function SignInIntro() {
   );
 }
 
-export function SignInScreen() {
+export function SignInScreen({
+  accountDeletion,
+  emailConfirmation,
+}: { accountDeletion?: AccountDeletionProps; emailConfirmation?: EmailConfirmationProps } = {}) {
   const { t, providerButton } = useUi();
   const { canAct, actionLabel, notice, act } = useSignIn();
   const flow = useNativeSignIn();
@@ -68,7 +75,7 @@ export function SignInScreen() {
             {flow.message ? (
               <Notice
                 testID={NATIVE_UI_TEST_ID.NOTICE}
-                title={t(flow.message)}
+                title={t(flow.message, flow.messageValues)}
                 tone={flow.problem ? NOTICE_TONE.PROBLEM : NOTICE_TONE.INFO}
               />
             ) : null}
@@ -136,6 +143,8 @@ export function SignInScreen() {
             />
           </View>
         </Surface>
+        {accountDeletion ? <DeleteSection {...accountDeletion} recoveryOnly /> : null}
+        {emailConfirmation ? <EmailConfirmation {...emailConfirmation} /> : null}
       </ScrollView>
     </Screen>
   );

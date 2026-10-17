@@ -23,12 +23,26 @@ const styles = StyleSheet.create({ root: { flex: 1 } });
 
 const systemClock = (): number => Date.now();
 
-function SignedInScreens() {
+function SignedInScreens({
+  engine,
+  accountDeletion,
+  providerSignIn,
+}: Pick<NativeAppProps, 'engine' | 'accountDeletion' | 'providerSignIn'>) {
+  const signInAgain = useCallback(() => {
+    void engine.signOut();
+  }, [engine]);
   const { route, arrival, openSessions, goBack } = useRoute();
   return route === ROUTE.SESSIONS ? (
     <SessionsScreen arrival={arrival} onBack={goBack} />
   ) : (
-    <AccountScreen arrival={arrival} onOpenSessions={openSessions} />
+    <AccountScreen
+      arrival={arrival}
+      onOpenSessions={openSessions}
+      passkeys={engine.passkeys} // feature:passkeys
+      accountDeletion={accountDeletion}
+      providerSignIn={providerSignIn} // feature:oauth-core
+      onSignInAgain={signInAgain}
+    />
   );
 }
 
@@ -39,6 +53,9 @@ function SignedInScreens() {
 export function NativeApp({
   engine,
   providerButton,
+  providerSignIn,
+  accountDeletion,
+  emailConfirmation,
   appName,
   locale,
   insets,
@@ -92,7 +109,18 @@ export function NativeApp({
         <PaintContext.Provider value={ui}>
           <View style={[styles.root, { backgroundColor: colors.background, direction }]}>
             <StatusBar barStyle={statusBarStyle} />
-            {rootView(snapshot) === ROOT_VIEW.SIGNED_IN ? <SignedInScreens /> : <SignInScreen />}
+            {rootView(snapshot) === ROOT_VIEW.SIGNED_IN ? (
+              <SignedInScreens
+                engine={engine}
+                accountDeletion={accountDeletion}
+                providerSignIn={providerSignIn}
+              />
+            ) : (
+              <SignInScreen
+                accountDeletion={accountDeletion}
+                emailConfirmation={emailConfirmation}
+              />
+            )}
           </View>
         </PaintContext.Provider>
       </UiContext.Provider>
