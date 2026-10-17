@@ -1,3 +1,7 @@
+import { ENROLMENT_TOKEN_PREFIX } from '../../session/constants/enrolment';
+import { CREDENTIAL_PURPOSE } from '../../session/constants/credential-purpose';
+import { enrolmentRouteAllowed } from '../../session/utils/request/enrolment-route';
+import type { RoleAudience } from '../../host/types/host-role.type';
 import {
   Injectable,
   CanActivate,
@@ -40,6 +44,7 @@ export interface RequestWithUser extends Request {
     role: string;
     permissions: string[];
     isVerified: boolean;
+    audience?: RoleAudience;
   };
   session?: AuthenticatedSession;
 }
@@ -62,18 +67,51 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
+    await this.sessionCookieService.assertOrigin(request);
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    if (isPublic) {
-      return true;
+    if (
+      this.sessionCookieService.applications.isBrowserRequest(request) &&
+      (isPublic || readBearerToken(request) === null)
+    ) {
+      const application =
+        await this.sessionCookieService.applications.resolve(request);
+      this.sessionCookieService.applications.assertEnabled(application);
     }
 
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const response = context.switchToHttp().getResponse<Response>();
     const sessionToken = this.sessionCookieService.read(request);
+    let cookieSession: AuthenticatedSession | null | undefined;
+    if (
+      sessionToken &&
+      (isPublic
+        ? sessionToken.startsWith(ENROLMENT_TOKEN_PREFIX)
+        : readBearerToken(request) === null)
+    ) {
+      cookieSession = await this.sessionService.validateBrowserSession(
+        sessionToken,
+        !isPublic,
+      );
+      if (cookieSession?.credentialPurpose === CREDENTIAL_PURPOSE.ENROLMENT) {
+        if (
+          cookieSession.clientId !==
+            this.sessionCookieService.applications.current(request).clientId ||
+          !enrolmentRouteAllowed(request)
+        ) {
+          throw new AppException(
+            ErrorCode.FORBIDDEN,
+            'Complete passkey enrolment before using this route',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        request.session = cookieSession;
+      }
+    }
+    if (isPublic) return true;
     const bearer = readBearerToken(request);
     const credential = selectRequestCredential(
       bearer !== null,
@@ -87,7 +125,7 @@ export class AuthGuard implements CanActivate {
     if (credential === REQUEST_CREDENTIAL.BEARER && bearer) {
       session = await this.nativeAccess.validate(bearer);
     } else if (cookieSelected && sessionToken) {
-      session = await this.sessionService.validateSession(sessionToken);
+      session = cookieSession ?? null;
     } else {
       throw new AppException(
         ErrorCode.SESSION_REQUIRED,
@@ -96,7 +134,12 @@ export class AuthGuard implements CanActivate {
       );
     }
 
-    if (!session) {
+    if (
+      !session ||
+      (cookieSelected &&
+        session.clientId !==
+          this.sessionCookieService.applications.current(request).clientId)
+    ) {
       if (cookieSelected) {
         this.sessionCookieService.clear(response);
       }
@@ -134,6 +177,7 @@ export class AuthGuard implements CanActivate {
       role: user.role,
       permissions,
       isVerified: user.isVerified,
+      audience: user.audience,
     };
     request.session = session;
 

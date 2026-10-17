@@ -7,7 +7,7 @@
  * @module validations/array
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Generic array validator factory

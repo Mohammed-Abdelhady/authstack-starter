@@ -1,3 +1,5 @@
+import { applicationSecret } from '../../../session/utils/hashing/application-secret';
+import { WEB_CLIENT_ID } from '../../../session/constants/client-ids';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -13,6 +15,7 @@ import { generateVerificationCode } from '../../utils/verification-code.util';
 import { PENDING_STORE_PASSES } from '../../constants/pending-store';
 import {
   ACTIVATION_CODE_EXPIRES_IN_DEFAULT,
+  EmailChangePurpose,
   PENDING_PURPOSE,
   PendingPurpose,
 } from '../../constants/registration';
@@ -125,16 +128,12 @@ export class PendingRegistrationIssuer {
   async prepareEmailChange(
     email: string,
     details: EmailChangeCodeTarget,
+    purpose: EmailChangePurpose = PENDING_PURPOSE.EMAIL_CHANGE,
   ): Promise<PreparedEmailChange> {
-    const input = await this.newGeneration(
-      email,
-      PENDING_PURPOSE.EMAIL_CHANGE,
-      details,
-      {
-        includeExpired: true,
-        createWhenAbsent: true,
-      },
-    );
+    const input = await this.newGeneration(email, purpose, details, {
+      includeExpired: true,
+      createWhenAbsent: true,
+    });
     return {
       email,
       code: input.code,
@@ -143,6 +142,7 @@ export class PendingRegistrationIssuer {
         userId: details.userId,
         addressGeneration: details.addressGeneration,
       },
+      purpose,
     };
   }
 
@@ -153,7 +153,9 @@ export class PendingRegistrationIssuer {
     mode: Pick<IssueInput, 'includeExpired' | 'createWhenAbsent'>,
   ): Promise<IssueInput> {
     const code = generateVerificationCode();
-    const hashedCode = await this.hashService.hash(code);
+    const hashedCode = await this.hashService.hash(
+      applicationSecret(code, details.application ?? WEB_CLIENT_ID),
+    );
     const now = this.clock.now();
     return {
       key: { email, purpose },

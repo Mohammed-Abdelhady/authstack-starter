@@ -1,3 +1,7 @@
+import { EMAIL_CHANGE_INITIATOR } from '../../constants/email-change-initiator';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { assertMongoAccountAudience } from '../../../user/persistence/mongo/mongo-account-audience';
+import { UserRole } from '../../../user/enums/user-role.enum';
 import { Injectable, Provider } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Response } from 'express';
@@ -7,7 +11,10 @@ import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { isMongoDuplicateKeyError } from '../../../common/persistence/mongo/mongo-error.util';
 import { mongoSessionOf } from '../../../session/persistence/mongo/mongo-unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import { storedLocale } from '../../../common/constants/locales';
+import {
+  storedLocale,
+  type SupportedLocale,
+} from '../../../common/constants/locales';
 import {
   User,
   UserDocument,
@@ -22,8 +29,9 @@ import {
   AddressOwner,
   MovedAccount,
   NewActivatedAccount,
+  OwnPendingAddress,
 } from '../../pending-codes/activation-accounts';
-import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../services/sessions/first-factor';
 import { SignInService } from './sign-in.service';
 
 class MongoActivatedAccount extends ActivatedAccount {
@@ -50,6 +58,10 @@ class MongoMovedAccount extends MovedAccount {
 
   get addressGeneration(): number {
     return this.document.addressGeneration ?? 0;
+  }
+
+  get locale(): SupportedLocale {
+    return storedLocale(this.document.locale);
   }
 }
 
@@ -100,6 +112,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
       pendingEmail: user.pendingEmail,
       isVerified: user.isVerified === true,
       addressGeneration: user.addressGeneration ?? 0,
+      locale: storedLocale(user.locale),
     };
   }
 
@@ -117,6 +130,12 @@ export class MongoActivationAccounts extends ActivationAccounts {
     unitOfWork: UnitOfWork,
     account: NewActivatedAccount,
   ): Promise<ActivatedAccount> {
+    await assertMongoAccountAudience(
+      this.userModel.db,
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     const user = new this.userModel({
       _id: new Types.ObjectId(account.id),
       email: account.email,
@@ -126,6 +145,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
       authProvider: AuthProvider.EMAIL,
       primaryProvider: AuthProvider.EMAIL,
       locale: account.locale,
+      audience: account.audience,
     });
     try {
       await user.save({ session: mongoSessionOf(unitOfWork) });
@@ -158,6 +178,7 @@ export class MongoActivationAccounts extends ActivationAccounts {
     }
     account.document.email = email;
     account.document.pendingEmail = undefined;
+    account.document.pendingEmailInitiator = undefined;
     account.document.isVerified = true;
     try {
       await account.document.save({ session: mongoSessionOf(unitOfWork) });
@@ -167,6 +188,21 @@ export class MongoActivationAccounts extends ActivationAccounts {
       }
       throw error;
     }
+  }
+
+  async savePendingAddress(
+    unitOfWork: UnitOfWork,
+    account: MovedAccount,
+    pending: OwnPendingAddress,
+  ): Promise<void> {
+    if (!(account instanceof MongoMovedAccount)) {
+      throw new Error('This account was not read from MongoDB');
+    }
+    account.document.pendingEmail = pending.email ?? undefined;
+    account.document.pendingEmailInitiator =
+      pending.email === null ? undefined : EMAIL_CHANGE_INITIATOR.SELF;
+    account.document.addressGeneration = pending.addressGeneration;
+    await account.document.save({ session: mongoSessionOf(unitOfWork) });
   }
 }
 
@@ -180,6 +216,13 @@ export class MongoActivationSignIn extends ActivationSignIn {
     super();
   }
 
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.signInService.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.PASSWORD,
+    );
+  }
+
   complete(
     account: ActivatedAccount,
     response: Response,
@@ -187,7 +230,7 @@ export class MongoActivationSignIn extends ActivationSignIn {
     return this.signInService.completeSignIn(
       activatedDocumentOf(account),
       response,
-      FIRST_FACTOR.EMAIL_CODE, // feature:totp
+      FIRST_FACTOR.EMAIL_CODE,
     );
   }
 }

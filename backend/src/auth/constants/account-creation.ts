@@ -6,4 +6,5 @@ export const ACCOUNT_CREATION_METHOD = {
   PROVIDER: FIRST_FACTOR.PROVIDER,
   EMAIL_CODE: FIRST_FACTOR.EMAIL_CODE, // feature:email-code
   STAFF: 'staff',
+  INVITATION: 'invitation', // feature:invitations
 } as const;

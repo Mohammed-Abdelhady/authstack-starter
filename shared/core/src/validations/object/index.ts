@@ -6,7 +6,7 @@
  * @module validations/object
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 /**
  * Generic object validator factory

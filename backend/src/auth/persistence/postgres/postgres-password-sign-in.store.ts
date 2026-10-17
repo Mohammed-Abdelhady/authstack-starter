@@ -36,7 +36,6 @@ export class PostgresPasswordSignInStore extends PasswordSignInStore {
         .selectFrom('users')
         .select([...ACCOUNT_COLUMNS, 'password_hash'])
         .where('email', '=', storedAddress(email))
-        .where('is_deleted', '=', false)
         .executeTakeFirst();
       if (!row) return null;
       return {

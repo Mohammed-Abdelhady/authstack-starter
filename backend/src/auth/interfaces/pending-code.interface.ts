@@ -28,6 +28,8 @@ export interface ReservedCode {
 
 /** Target user and generation, for an email-change record only. */
 export interface RegistrationDetails {
+  /** Bind new browser codes; native callers must pass this at issue and verify. */
+  application?: string;
   userId?: IdSource;
   addressGeneration?: number;
 }

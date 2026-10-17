@@ -1,6 +1,6 @@
 import { BoundEmailChangeGeneration } from '../types/prepared-email-change';
 import { UnitOfWork } from '../../common/persistence/unit-of-work';
-import { PendingPurpose } from '../constants/registration';
+import { EmailChangePurpose, PendingPurpose } from '../constants/registration';
 import { CodeGuessRule } from './code-guesses';
 
 /** Shared names of the unique rules a pending code record can run into. */
@@ -82,11 +82,16 @@ export interface RegistrationCodeClaim {
  * with `MalformedIdError` before anything is read.
  */
 export abstract class PendingRegistrationStore {
-  /** Called after the address claim and current account generation are locked. */
+  /**
+   * Called after the address claim and current account generation are locked.
+   * The record is kept under `purpose`, so a code is only ever confirmed by the
+   * route for who asked for the change.
+   */
   abstract putEmailChangeCodeIn(
     uow: UnitOfWork,
     email: string,
     generation: BoundEmailChangeGeneration,
+    purpose: EmailChangePurpose,
   ): Promise<CodeRotation>;
 
   /** Gives a record that has not expired a new code and zero attempts. */

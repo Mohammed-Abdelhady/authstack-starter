@@ -1,3 +1,7 @@
+import { EMAIL_CHANGE_INITIATOR } from '../../constants/email-change-initiator';
+import { ACCOUNT_CREATION_METHOD } from '../../constants/account-creation';
+import { assertPostgresAccountAudience } from '../../../user/persistence/postgres/postgres-account-audience';
+import { UserRole } from '../../../user/enums/user-role.enum';
 import { Response } from 'express';
 import { Kysely } from 'kysely';
 import {
@@ -9,10 +13,11 @@ import {
   AddressOwner,
   MovedAccount,
   NewActivatedAccount,
+  OwnPendingAddress,
 } from '../../pending-codes/activation-accounts';
 import { UnitOfWork } from '../../../common/persistence/unit-of-work';
 import { AuthProvider } from '../../../user/enums/auth-provider.enum';
-import { FIRST_FACTOR } from '../../services/sessions/first-factor'; // feature:totp
+import { FIRST_FACTOR } from '../../services/sessions/first-factor';
 import { SignInCompletion } from '../../services/sessions/sign-in-completion';
 import { SignInAccount } from '../../utils/authenticated-user.util';
 import { SIGN_IN_COLUMNS, toSignInAccount } from './postgres-sign-in-accounts';
@@ -25,7 +30,10 @@ import { toUuid } from '../../../session/persistence/postgres/postgres-issuance-
 import { storedAddress } from './postgres-pending-codes-database';
 import { newPostgresId } from '../../../common/persistence/postgres/postgres-new-id';
 import { postgresTransactionOf } from '../../../common/persistence/postgres/postgres-unit-of-work';
-import { storedLocale } from '../../../common/constants/locales';
+import {
+  storedLocale,
+  type SupportedLocale,
+} from '../../../common/constants/locales';
 
 class PostgresActivatedAccount extends ActivatedAccount {
   constructor(readonly signIn: SignInAccount) {
@@ -53,6 +61,7 @@ class PostgresMovedAccount extends MovedAccount {
     readonly email: string,
     readonly pendingEmail: string | undefined,
     readonly addressGeneration: number,
+    readonly locale: SupportedLocale,
   ) {
     super();
   }
@@ -102,7 +111,13 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     return accountStatement(async () => {
       const row = await this.database
         .selectFrom('users')
-        .select(['email', 'pending_email', 'is_verified', 'address_generation'])
+        .select([
+          'email',
+          'pending_email',
+          'is_verified',
+          'address_generation',
+          'locale',
+        ])
         .where('id', '=', toUuid(userId))
         .executeTakeFirst();
       return row
@@ -111,6 +126,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
             pendingEmail: row.pending_email ?? undefined,
             isVerified: row.is_verified,
             addressGeneration: row.address_generation,
+            locale: storedLocale(row.locale),
           }
         : null;
     });
@@ -133,6 +149,11 @@ export class PostgresActivationAccounts extends ActivationAccounts {
     unitOfWork: UnitOfWork,
     account: NewActivatedAccount,
   ): Promise<ActivatedAccount> {
+    await assertPostgresAccountAudience(
+      unitOfWork,
+      UserRole.USER,
+      account.audience,
+    );
     const now = this.clock.now();
     try {
       const row = await postgresTransactionOf(unitOfWork)
@@ -146,6 +167,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
           auth_provider: AuthProvider.EMAIL,
           primary_provider: AuthProvider.EMAIL,
           locale: account.locale,
+          audience: account.audience ?? null,
           created_at: now,
           updated_at: now,
         })
@@ -164,7 +186,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
   ): Promise<MovedAccount | null> {
     const row = await postgresTransactionOf(unitOfWork)
       .selectFrom('users')
-      .select(['id', 'email', 'pending_email', 'address_generation'])
+      .select(['id', 'email', 'pending_email', 'address_generation', 'locale'])
       .where('id', '=', toUuid(userId))
       .where('is_deleted', '=', false)
       .forNoKeyUpdate()
@@ -176,6 +198,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
           row.email ?? '',
           row.pending_email ?? undefined,
           row.address_generation,
+          storedLocale(row.locale),
         )
       : null;
   }
@@ -194,6 +217,7 @@ export class PostgresActivationAccounts extends ActivationAccounts {
         .set({
           email: storedAddress(email),
           pending_email: null,
+          pending_email_initiator: null,
           is_verified: true,
           updated_at: this.clock.now(),
         })
@@ -203,12 +227,41 @@ export class PostgresActivationAccounts extends ActivationAccounts {
       throw accountFailure(error);
     }
   }
+
+  async savePendingAddress(
+    unitOfWork: UnitOfWork,
+    account: MovedAccount,
+    pending: OwnPendingAddress,
+  ): Promise<void> {
+    if (!(account instanceof PostgresMovedAccount)) {
+      throw new Error('This account was not read from PostgreSQL');
+    }
+    await postgresTransactionOf(unitOfWork)
+      .updateTable('users')
+      .set({
+        pending_email:
+          pending.email === null ? null : storedAddress(pending.email),
+        pending_email_initiator:
+          pending.email === null ? null : EMAIL_CHANGE_INITIATOR.SELF,
+        address_generation: pending.addressGeneration,
+        updated_at: this.clock.now(),
+      })
+      .where('id', '=', account.id)
+      .execute();
+  }
 }
 
 /** Finishes the sign-in with the account the activation stored. */
 export class PostgresActivationSignIn extends ActivationSignIn {
   constructor(private readonly completion: SignInCompletion) {
     super();
+  }
+
+  recordCreationRefusal(clientId: string): Promise<void> {
+    return this.completion.recordCreationRefusal(
+      clientId,
+      ACCOUNT_CREATION_METHOD.PASSWORD,
+    );
   }
 
   complete(
@@ -218,7 +271,7 @@ export class PostgresActivationSignIn extends ActivationSignIn {
     return this.completion.completeSignIn(
       activatedSignInAccountOf(account),
       response,
-      FIRST_FACTOR.EMAIL_CODE, // feature:totp
+      FIRST_FACTOR.EMAIL_CODE,
     );
   }
 }

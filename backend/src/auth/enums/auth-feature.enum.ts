@@ -5,6 +5,7 @@
 export enum AuthFeature {
   /** Register, login, forgot password and reset password. */
   PASSWORD = 'password',
+  EMAIL_CODE = 'emailCode',
   /** One-time sign-in links mailed to an address. */
   MAGIC_LINK = 'magicLink',
   /** TOTP second factor, on top of whichever method signed the user in. */

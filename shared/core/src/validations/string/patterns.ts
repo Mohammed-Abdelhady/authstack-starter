@@ -7,7 +7,7 @@
  * @module validations/string/patterns
  */
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import { makeOptional, createStringValidator } from '../utils';
 
 /**
