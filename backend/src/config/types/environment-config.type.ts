@@ -30,6 +30,7 @@ export interface EnvironmentConfig extends OAuthEnvironmentConfig {
   POSTGRES_POOL_MAX?: number; // feature:postgres
   CLIENT_URL: string;
   API_URL?: string;
+  SERVER_COMMIT_SHA?: string;
   THROTTLE_TTL: number;
   THROTTLE_LIMIT: number;
 

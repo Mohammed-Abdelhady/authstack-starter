@@ -1,3 +1,4 @@
+import { parseServerCommit } from './utils/server-commit.util';
 import { createOAuthConfig, OAuthConfig } from './oauth.config';
 import { APP_NAME } from '../common/constants/app';
 import { ACTIVATION_CODE_EXPIRES_IN_DEFAULT } from '../auth/constants/registration';
@@ -26,6 +27,7 @@ export interface Configuration extends HostContractsConfiguration {
     port: number;
     nodeEnv: string;
     apiUrl: string;
+    commit: string | null;
   };
   // feature:mongodb:start
   database: {
@@ -134,6 +136,7 @@ const configuration = (): Configuration => {
       port,
       nodeEnv: process.env.NODE_ENV || 'development',
       apiUrl,
+      commit: parseServerCommit(process.env.SERVER_COMMIT_SHA),
     },
     // feature:mongodb:start
     database: {
