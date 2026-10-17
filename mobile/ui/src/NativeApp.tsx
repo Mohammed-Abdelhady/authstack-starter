@@ -26,7 +26,7 @@ const systemClock = (): number => Date.now();
 function SignedInScreens({
   engine,
   accountDeletion,
-  providerSignIn,
+  providerSignIn, // feature:oauth-core
 }: Pick<NativeAppProps, 'engine' | 'accountDeletion' | 'providerSignIn'>) {
   const signInAgain = useCallback(() => {
     void engine.signOut();

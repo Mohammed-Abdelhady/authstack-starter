@@ -50,7 +50,7 @@ export function AccountScreen({
   arrival,
   onOpenSessions,
   accountDeletion,
-  onSignInAgain,
+  onSignInAgain, // feature:passkeys,oauth-core
   passkeys, // feature:passkeys
   providerSignIn, // feature:oauth-core
 }: AccountScreenProps) {
