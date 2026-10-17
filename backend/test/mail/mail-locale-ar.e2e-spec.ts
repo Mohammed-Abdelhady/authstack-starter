@@ -1,7 +1,10 @@
 import { ConfigService } from '@nestjs/config'; // feature:magic-link
 import { MAIL_CATALOGUES } from '../../src/mail/catalog/mail-catalogue';
 import type { MailOptions } from '../../src/mail/interfaces/mail-options.interface';
-import { SEED_ADMIN, SEED_USER } from '../constants/seed-users';
+import {
+  SEED_ADMIN,
+  SEED_USER, // feature:email-password
+} from '../constants/seed-users';
 import {
   bootE2eApp,
   browserAgent, // feature:email-password,magic-link
