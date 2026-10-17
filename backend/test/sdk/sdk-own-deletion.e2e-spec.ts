@@ -7,6 +7,7 @@ import {
 } from '@app/sdk';
 import request from 'supertest';
 import { ConfigService } from '@nestjs/config';
+import { BrowserPolicyReconciler } from '../../src/session/applications/browser-policy-reconciler';
 import { NativeAccessService } from '../../src/session/native/access/native-access.service';
 import { AccountDeletionStore } from '../../src/user/erasure/stores/account-deletion.store';
 import { OwnAccountDeletionService } from '../../src/user/services/own-account-deletion.service';
@@ -43,6 +44,40 @@ const RECEIPT_BYTES = new Uint8Array(32).fill(43);
 
 function receiptKey(): string {
   return deletionReceiptKey(TEST_NOW.getTime(), RECEIPT_BYTES);
+}
+
+async function withDisabledWeb(
+  e2e: E2eApp,
+  operation: () => Promise<void>,
+): Promise<void> {
+  const config = e2e.app.get(ConfigService);
+  const enabled = config.get<boolean>('auth.web.enabled');
+  const explicit = config.get<boolean>('auth.web.enabledExplicit');
+  const policy = e2e.app.get(BrowserPolicyReconciler);
+  try {
+    config.set('auth.web.enabledExplicit', true);
+    config.set('auth.web.enabled', false);
+    await policy.reconcile();
+    await operation();
+  } finally {
+    config.set('auth.web.enabledExplicit', explicit);
+    config.set('auth.web.enabled', enabled);
+    await policy.reconcile();
+  }
+}
+
+async function assertPublicReceiptWithDisabledWeb(e2e: E2eApp): Promise<void> {
+  const unrecorded = await request(e2e.httpServer)
+    .get(ACCOUNT_DELETION_PATHS.receipt(receiptKey()))
+    .expect(200);
+  expect(unrecorded.body).toMatchObject({ data: { state: 'not_recorded' } });
+  expect(
+    await apiErrorOf(publicClient(e2e).accountDeletion.receipt('invalid')),
+  ).toMatchObject({ status: 400, code: 'VALIDATION_ERROR' });
+  expect(await apiErrorOf(publicClient(e2e).profile.get())).toMatchObject({
+    status: 403,
+    code: 'APPLICATION_DISABLED',
+  });
 }
 
 describe('SDK own-account deletion requires committed session proof', () => {
@@ -84,69 +119,74 @@ describe('SDK own-account deletion requires committed session proof', () => {
 
   it('uses real native email proof, persists deletion and recovers a lost reply by receipt', async () => {
     const { tokens } = await signInNative(e2e);
-    const native = bearerClient(e2e, tokens.accessToken);
-    const profile = await native.profile.get();
-    const authenticated = required(
-      await e2e.app.get(NativeAccessService).validate(tokens.accessToken),
-      'native session',
-    );
-    const actor = {
-      sessionId: authenticated.id,
-      userId: authenticated.userId,
-      clientId: authenticated.clientId,
-      signedInAt: authenticated.authenticatedAt,
-    };
-    await native.proof.sendCode();
-    const code = await e2e.mailedCode();
-    expect((await e2e.captureMail()).at(-1)?.to).toBe(SEED_USER.email);
-    expect(await native.proof.verifyCode({ code })).toEqual({
-      provedAt: TEST_NOW.toISOString(),
+    await withDisabledWeb(e2e, async () => {
+      await assertPublicReceiptWithDisabledWeb(e2e);
+      const native = bearerClient(e2e, tokens.accessToken);
+      const profile = await native.profile.get();
+      const authenticated = required(
+        await e2e.app.get(NativeAccessService).validate(tokens.accessToken),
+        'native session',
+      );
+      const actor = {
+        sessionId: authenticated.id,
+        userId: authenticated.userId,
+        clientId: authenticated.clientId,
+        signedInAt: authenticated.authenticatedAt,
+      };
+      await native.proof.sendCode();
+      const code = await e2e.mailedCode();
+      expect((await e2e.captureMail()).at(-1)?.to).toBe(SEED_USER.email);
+      expect(await native.proof.verifyCode({ code })).toEqual({
+        provedAt: TEST_NOW.toISOString(),
+      });
+      const transport = supertestTransport(
+        () => request(e2e.httpServer),
+        tokens.accessToken,
+      );
+      let lostReplies = 0;
+      const losingClient = createApiClient({
+        request: async (call) => {
+          const response = await transport.request(call);
+          if (
+            call.method === HTTP_METHOD.DELETE &&
+            call.path === ACCOUNT_DELETION_PATHS.account &&
+            response.status === 200
+          ) {
+            lostReplies += 1;
+            throw new Error(
+              'Synthetic reply loss after committed HTTP response',
+            );
+          }
+          return response;
+        },
+      });
+      await expect(
+        losingClient.accountDeletion.delete({ receiptKey: receiptKey() }),
+      ).rejects.toBeInstanceOf(TransportError);
+      expect(lostReplies).toBe(1);
+      const deadline = new Date(
+        TEST_NOW.getTime() + THIRTY_DAYS_MS,
+      ).toISOString();
+      expect(
+        await e2e.app.get(AccountProfileStore).findAccount(profile.id),
+      ).toMatchObject({ isDeleted: true });
+      expect(
+        (
+          await e2e.app.get(AccountDeletionStore).findEraseAfter(profile.id)
+        )?.toISOString(),
+      ).toBe(deadline);
+      expect(
+        await publicClient(e2e).accountDeletion.receipt(receiptKey()),
+      ).toMatchObject({ state: 'recorded' });
+      expect((await apiErrorOf(native.profile.get())).status).toBe(401);
+      const mailCount = (await e2e.captureMail()).length;
+      e2e.clock.advance(FRESHNESS_EXPIRED_MS);
+      const replay = await e2e.app
+        .get(OwnAccountDeletionService)
+        .deactivate(actor, receiptKey());
+      expect(replay.data.eraseAfter).toBe(deadline);
+      expect((await e2e.captureMail()).length).toBe(mailCount);
     });
-    const transport = supertestTransport(
-      () => request(e2e.httpServer),
-      tokens.accessToken,
-    );
-    let lostReplies = 0;
-    const losingClient = createApiClient({
-      request: async (call) => {
-        const response = await transport.request(call);
-        if (
-          call.method === HTTP_METHOD.DELETE &&
-          call.path === ACCOUNT_DELETION_PATHS.account &&
-          response.status === 200
-        ) {
-          lostReplies += 1;
-          throw new Error('Synthetic reply loss after committed HTTP response');
-        }
-        return response;
-      },
-    });
-    await expect(
-      losingClient.accountDeletion.delete({ receiptKey: receiptKey() }),
-    ).rejects.toBeInstanceOf(TransportError);
-    expect(lostReplies).toBe(1);
-    const deadline = new Date(
-      TEST_NOW.getTime() + THIRTY_DAYS_MS,
-    ).toISOString();
-    expect(
-      await e2e.app.get(AccountProfileStore).findAccount(profile.id),
-    ).toMatchObject({ isDeleted: true });
-    expect(
-      (
-        await e2e.app.get(AccountDeletionStore).findEraseAfter(profile.id)
-      )?.toISOString(),
-    ).toBe(deadline);
-    expect(
-      await publicClient(e2e).accountDeletion.receipt(receiptKey()),
-    ).toMatchObject({ state: 'recorded' });
-    expect((await apiErrorOf(native.profile.get())).status).toBe(401);
-    const mailCount = (await e2e.captureMail()).length;
-    e2e.clock.advance(FRESHNESS_EXPIRED_MS);
-    const replay = await e2e.app
-      .get(OwnAccountDeletionService)
-      .deactivate(actor, receiptKey());
-    expect(replay.data.eraseAfter).toBe(deadline);
-    expect((await e2e.captureMail()).length).toBe(mailCount);
   });
 
   it('does not renew an expired ACT when the native credential is refreshed', async () => {
