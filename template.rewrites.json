@@ -396,11 +396,6 @@
       "to": ""
     },
     {
-      "files": ["scripts/config-transforms-tests/config-transforms.docker.test.mjs"],
-      "from": "    assert.equal(lines.includes('ENV MONGOMS_DISABLE_POSTINSTALL=1'), true);\n",
-      "to": ""
-    },
-    {
       "files": ["backend/test/utils/e2e-storage.ts"],
       "from": "import {\n  startMongoE2eStorage,\n  watchMongoFixtureConnections,\n} from './e2e-mongo-storage';",
       "to": "import { startPostgresE2eStorage } from '../postgres/e2e/e2e-postgres-storage';\nimport { watchPostgresFixtureConnections } from '../postgres/e2e/postgres-fixture-connections';"
@@ -479,11 +474,6 @@
       "files": ["backend/test/utils/frozen-clock.ts"],
       "from": "// Keep session expirations ahead of MongoDB's real-time TTL monitor.",
       "to": "// Keep session expirations ahead of real time."
-    },
-    {
-      "files": ["backend/test/browser/browser-proof.e2e-spec.ts"],
-      "from": "'starts E2E records ahead of MongoDB real-time TTL'",
-      "to": "'starts E2E records ahead of real time'"
     },
     {
       "files": ["backend/src/common/testing/test-doubles.harness-spec.ts"],
